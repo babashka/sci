@@ -40,7 +40,7 @@ Use as a dependency:
 (sci/eval-string "(inc x)" {:bindings {'x 2}} ;;=> 3
 ```
 
-Anonymous functions literals are allowed with currently up to three positional
+Anonymous function literals are allowed with currently up to three positional
 arguments. This is an arbitrary limit and may be changed in the future.
 
 ``` clojure
@@ -64,21 +64,14 @@ More examples of what is currently possible can be found at
 
 ## Test
 
-Run all tests:
+Required: `lein`, the `clojure` CLI and GraalVM.
+
+To succesfully run the GraalVM tests, you will have to compile the binary first
+with `script/compile`.
+
+To run all tests:
 
     script/test
-
-This will run tests on the JVM, Node.js and using a GraalVM binary.
-
-Test the native version:
-
-    SCI_TEST_ENV=native script/test
-
-## Build
-
-You will need leiningen and GraalVM.
-
-    script/compile
 
 ## License
 
