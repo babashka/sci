@@ -37,7 +37,7 @@ Use as a dependency:
 ``` clojure
 (require '[sci.core :as sci])
 (sci/eval-string "(inc 1)") => ;; 2
-(sci/eval-string "(inc x)" {:bindings {'x 2}} ;;=> 3
+(sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
 Anonymous function literals are allowed with currently up to three positional
