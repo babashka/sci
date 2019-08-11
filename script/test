@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+if [ "$SCI_TEST_ENV" = "native" ]; then
+    lein test
+else
+    echo "Testing with Clojure 1.9.0"
+    lein with-profiles +clojure-1.9.0 test
+
+    echo "Testing with Clojure 1.10.1"
+    lein with-profiles +clojure-1.10.1 test
+fi
+
+echo 'Running CLJS test in Node with optimizations :none'
+echo '{:optimizations :none}' > cljs-opts.edn
+clojure -A:test:cljs-test-runner -c cljs-opts.edn
+
+echo 'Running CLJS test in Node with optimizations :advanced'
+echo '{:optimizations :advanced}' > cljs-opts.edn
+clojure -A:test:cljs-test-runner -c cljs-opts.edn
+
+echo 'Running native test'
+# you need to run script/compile yourself before testing the binary!
+SCI_TEST_ENV="native" lein test
