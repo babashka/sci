@@ -3,14 +3,18 @@
             #?(:clj [me.raynes.conch :refer [let-programs] :as sh])
             #?(:clj [clojure.edn :as edn])))
 
+(def native? #?(:clj (= "native" (System/getenv "SCI_TEST_ENV"))
+                :cljs false))
+
 (defn eval* [form bindings]
-  (if #?(:clj (not= "native" (System/getenv "SCI_TEST_ENV"))
+  (if #?(:clj (not native?)
          :cljs true)
     (eval-string (str form) {:bindings bindings})
     #?(:clj
        (let-programs [sci "./sci"]
-         (binding [sh/*throw* false]
-           (edn/read-string (sci (str form) (str bindings))))))))
+         (try (edn/read-string (sci (str form) (str bindings)))
+              (catch #?(:clj Exception :cljs :default) e
+                (ex-data e)))))))
 
 ;;;; Scratch
 

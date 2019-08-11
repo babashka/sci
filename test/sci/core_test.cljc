@@ -1,6 +1,6 @@
 (ns sci.core-test
   (:require
-   [clojure.test :as test :refer [deftest is are testing]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
 (defn eval* [binding form]
@@ -52,8 +52,10 @@
     (is (= :a (eval* nil '(#{:a :b :c} :a)))))
   (testing "cannot call x as a function"
     (doseq [example ['(1 2 3) '("foo" 2 3)]]
-      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
-                            (eval* nil example))))))
+      (if (not tu/native?)
+        (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
+                              (eval* nil example)))
+        (is (re-find #"call.*function" (:stderr (eval* nil example))))))))
 
 ;;;; Scratch
 
