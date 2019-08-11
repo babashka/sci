@@ -5,8 +5,7 @@
    [clojure.string :as str]
    [sci.impl.functions :as f]
    #?(:clj [clojure.edn :as edn]
-      :cljs [cljs.reader :as edn]))
-  #?(:cljs (:require-macros [sci.impl.interpreter :refer [one-of]])))
+      :cljs [cljs.reader :as edn])))
 
 ;;;; Readers
 
@@ -100,20 +99,18 @@
             (if (empty? xs) v
                 (eval-or in xs))))))
 
-(defmacro one-of [x elements]
-  `(let [x# ~x]
-     (case x# (~@elements) x# nil)))
-
 (defn lookup [sym bindings]
   (or (find bindings sym)
       (find f/functions sym)))
+
+(def macros '#{if when and or -> ->> quote})
 
 (defn resolve-symbol [expr bindings]
   (second
    (or
     (lookup expr bindings)
-    (when-let [v (one-of expr [if when and or -> ->> quote])]
-      [v v])
+    ;; TODO: check if symbol is in macros and then emit an error: cannot take
+    ;; the value of a macro
     (let [n (name expr)]
       (if (str/starts-with? n "'")
         (let [v (symbol (subs n 1))]
@@ -137,7 +134,8 @@
       (into (empty expr) (map i expr))
       (seq? expr)
       (if-let [f (first expr)]
-        (let [f (interpret f bindings)]
+        (let [f (or (get macros f)
+                    (interpret f bindings))]
           (case f
             (if when)
             (let [[_if cond then else] expr]
