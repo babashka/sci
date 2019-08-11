@@ -1,6 +1,6 @@
 (ns sci.core-test
   (:require
-   [clojure.test :as test :refer [deftest is testing]]
+   [clojure.test :as test :refer [deftest is are testing]]
    [sci.test-utils :as tu]))
 
 (defn eval* [binding form]
@@ -43,7 +43,17 @@
     (is (= {:a '*in*} (eval* 1 (str "'{:a *in*}"))))
     (is (= '#{1 2 3 *in*} (eval* 4 "'#{1 2 3 *in*}")))
     (is (= '[1 2 3 *in*] (eval* 4 "'[1 2 3 *in*]")))
-    (is (= '(1 2 3 *in*) (eval* 4 "'(1 2 3 *in*)")))))
+    (is (= '(1 2 3 *in*) (eval* 4 "'(1 2 3 *in*)"))))
+  (testing "calling ifns"
+    (is (= 3 (eval* nil '({:a 1} 2 3))))
+    (is (= 1 (eval* nil '({:a 1} :a 3))))
+    (is (= 3 (eval* nil '((hash-map :a 1) 2 3))))
+    (is (= 1 (eval* nil '((hash-map :a 1) :a 3))))
+    (is (= :a (eval* nil '(#{:a :b :c} :a)))))
+  (testing "cannot call x as a function"
+    (doseq [example ['(1 2 3) '("foo" 2 3)]]
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
+                            (eval* nil example))))))
 
 ;;;; Scratch
 
