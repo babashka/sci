@@ -6,4 +6,4 @@
 
 ;; for testing only
 (defn -main [& [form bindings]]
-  (println (eval-string form {:bindings (edn/read-string bindings)})))
+  (prn (eval-string form {:bindings (edn/read-string bindings)})))
