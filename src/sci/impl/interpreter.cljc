@@ -78,6 +78,15 @@
         (recur threaded (next forms)))
       x)))
 
+(defn eval-as->
+  "The ->> macro from clojure.core."
+  [bindings & [expr name & forms]]
+  (let [v (interpret expr bindings)]
+    (if (empty? forms)
+      v
+      (let [bindings (assoc bindings name v)]
+        (apply eval-as-> bindings (first forms) name (rest forms))))))
+
 (defn eval-and
   "The and macro from clojure.core."
   [in args]
@@ -103,7 +112,7 @@
   (or (find bindings sym)
       (find f/functions sym)))
 
-(def macros '#{if when and or -> ->> quote})
+(def macros '#{if when and or -> ->> as-> quote})
 
 (defn resolve-symbol [expr bindings]
   (second
@@ -151,6 +160,9 @@
             (eval-and bindings (rest expr))
             or
             (eval-or bindings (rest expr))
+            as->
+            (apply eval-as-> bindings (rest expr))
+            ;; else
             (if (ifn? f)
               (apply-fn f i (rest expr))
               (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))

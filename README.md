@@ -48,7 +48,7 @@ arguments. This is an arbitrary limit and may be changed in the future.
 ```
 
 Currently, only the special forms/macros `quote`, `if`, `when`, `and`, `or`,
-`->` and `->>` are supported.
+`->`, `->>` and `as->` are supported.
 
 By default `sci` only enables access to the pure non-side-effecting functions in
 Clojure. More functions can be enabled, at your own risk, using `:bindings`:

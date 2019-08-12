@@ -3,8 +3,10 @@
    [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
-(defn eval* [binding form]
-  (tu/eval* form {'*in* binding}))
+(defn eval*
+  ([form] (eval* nil form))
+  ([binding form]
+   (tu/eval* form {'*in* binding})))
 
 (deftest core-test
   (testing "if and when"
@@ -30,6 +32,9 @@
     (is (= 4 (eval* 1 '(-> *in* inc inc (inc))))))
   (testing "->>"
     (is (= 7 (eval* ["foo" "baaar" "baaaaaz"] "(->> *in* (map count) (apply max))"))))
+  (testing "as->"
+    (is (= "4444444444"
+           (eval* '(as-> 1 x (inc x) (inc x) (inc x) (apply str (repeat 10 (str x))))))))
   (testing "literals"
     (is (= {:a 4
             :b {:a 2}
