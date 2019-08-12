@@ -126,6 +126,7 @@
           'frequencies frequencies
           'float float
           'get get
+          'clojure.core/get get ;; needed for destructure
           'get-in get-in
           'group-by group-by
           'gensym gensym
@@ -278,6 +279,8 @@
           'set set
           'seq seq
           'seq? seq?
+          'clojure.core/seq? seq? ;; needed for destructure
+          'cljs.core/seq? seq? ;; needed for destructure
           'short short
           'shuffle shuffle
           'sort sort
