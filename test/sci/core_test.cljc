@@ -55,7 +55,19 @@
       (if (not tu/native?)
         (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
                               (eval* nil example)))
-        (is (re-find #"call.*function" (:stderr (eval* nil example))))))))
+        (is (re-find #"call.*function" (:stderr (eval* nil example)))))))
+  (testing "patch for oracle/graal 1610 works"
+    (let [test-difference (fn [var-name f attempt max-attempts]
+                            (let [x (f) y (f)]
+                              (if (> attempt max-attempts)
+                                (is false (str var-name " did not give random results."))
+                                (if (not= x y)
+                                  (is true (str var-name " did not give random results."))
+                                  (recur var-name f (inc attempt) max-attempts)))))]
+      (test-difference "rand" #(rand) 0 10)
+      (test-difference "rand-int" #(rand-int 10) 0 10)
+      (test-difference "rand-nth" #(rand-nth (range 10)) 0 10)
+      (test-difference "random-sample" #(random-sample 0.1 (range 100)) 0 10))))
 
 ;;;; Scratch
 

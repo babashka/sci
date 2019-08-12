@@ -1,7 +1,8 @@
 (ns sci.impl.functions
   {:no-doc true}
   (:require [clojure.string :as str]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            #?(:clj [sci.impl.graal_1610])))
 
 (def host-specific-functions
   #?(:cljs {}
