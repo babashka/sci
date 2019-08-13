@@ -86,6 +86,17 @@
     (is (= [1 2] (eval* '(let [x 1 y (+ x x)] [x y]))))
     (is (= [1 2] (eval* '(let [{:keys [:x :y]} {:x 1 :y 2}] [x y]))))))
 
+(deftest delay-test
+  (when-not tu/native?
+    (is (= 6 (tu/eval* '(+ 1 2 3) {(with-meta 'x {:sci/deref! true})
+                                   (delay (throw (new #?(:clj Exception :cljs js/Error)
+                                                      "o n000s")))})))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"o n000s"
+                          (tu/eval* '(+ 1 2 3 x) {(with-meta 'x {:sci/deref! true})
+                                                  (delay (throw (new #?(:clj Exception :cljs js/Error)
+                                                                     "o n000s")))})))))
+
 ;;;; Scratch
 
 (comment

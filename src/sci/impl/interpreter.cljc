@@ -125,8 +125,15 @@
     (interpret (last exprs) bindings)))
 
 (defn lookup [sym bindings]
-  (or (find bindings sym)
-      (find f/functions sym)))
+  (when-let [[k v :as kv]
+             (or (find bindings sym)
+                 (find f/functions sym))]
+    (if-let [m (meta k)]
+      (if (:sci/deref! m)
+        ;; the evaluation of this expression has been delayed by
+        ;; the caller and now is the time to deref it
+        [k @v] kv)
+      kv)))
 
 (def macros '#{if when and or -> ->> as-> quote let})
 
@@ -151,45 +158,45 @@
   [expr bindings]
   (let [i #(interpret % bindings)
         r (cond
-             (symbol? expr) (resolve-symbol expr bindings)
-             (map? expr)
-             (zipmap (map i (keys expr))
-                     (map i (vals expr)))
-             (or (vector? expr) (set? expr))
-             (into (empty expr) (map i expr))
-             (seq? expr)
-             (if-let [f (first expr)]
-               (let [f (or (get macros f)
-                           (interpret f bindings))]
-                 (case f
-                   (if when)
-                   (let [[_if cond then else] expr]
-                     (if (interpret cond bindings)
-                       (interpret then bindings)
-                       (interpret else bindings)))
-                   quote (second expr)
-                   ->
-                   (interpret (expand-> (rest expr)) bindings)
-                   ->>
-                   (interpret (expand->> (rest expr)) bindings)
-                   and
-                   (eval-and bindings (rest expr))
-                   or
-                   (eval-or bindings (rest expr))
-                   as->
-                   (apply eval-as-> bindings (rest expr))
-                   let
-                   (apply eval-let bindings (rest expr))
-                   ;; else
-                   (if (ifn? f)
-                     (apply-fn f i (rest expr))
-                     (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
-                               :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
-               expr)
-             ;; read fn passed as higher order fn, still needs input
-             (-> expr meta :sci/fn)
-             (expr bindings)
-             :else expr)]
+            (symbol? expr) (resolve-symbol expr bindings)
+            (map? expr)
+            (zipmap (map i (keys expr))
+                    (map i (vals expr)))
+            (or (vector? expr) (set? expr))
+            (into (empty expr) (map i expr))
+            (seq? expr)
+            (if-let [f (first expr)]
+              (let [f (or (get macros f)
+                          (interpret f bindings))]
+                (case f
+                  (if when)
+                  (let [[_if cond then else] expr]
+                    (if (interpret cond bindings)
+                      (interpret then bindings)
+                      (interpret else bindings)))
+                  quote (second expr)
+                  ->
+                  (interpret (expand-> (rest expr)) bindings)
+                  ->>
+                  (interpret (expand->> (rest expr)) bindings)
+                  and
+                  (eval-and bindings (rest expr))
+                  or
+                  (eval-or bindings (rest expr))
+                  as->
+                  (apply eval-as-> bindings (rest expr))
+                  let
+                  (apply eval-let bindings (rest expr))
+                  ;; else
+                  (if (ifn? f)
+                    (apply-fn f i (rest expr))
+                    (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
+                              :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
+              expr)
+            (-> expr meta :sci/fn)
+            ;; read fn passed as higher order fn, still needs input
+            (expr bindings)
+            :else expr)]
     ;; for debugging:
     ;; (prn expr '-> r)
     r))
