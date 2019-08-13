@@ -47,8 +47,8 @@ arguments. This is an arbitrary limit and may be changed in the future.
 (sci/eval-string "(#(+ %1 %2 %3) 1 2 3)") => ;; 6
 ```
 
-Currently, only the special forms/macros `quote`, `if`, `when`, `and`, `or`,
-`->`, `->>` and `as->` are supported.
+Currently, only the following special forms/macros are supported: `quote`, `if`,
+`when`, `let`, `and`, `or`, `->`, `->>`, `as->`.
 
 By default `sci` only enables access to the pure non-side-effecting functions in
 Clojure. More functions can be enabled, at your own risk, using `:bindings`:
@@ -77,4 +77,6 @@ To run all tests:
 
 Copyright © 2019 Michiel Borkent
 
-Distributed under the EPL License, same as Clojure. See LICENSE.
+Distributed under the Eclipse Public License 1.0. This project contains code
+from Clojure and ClojureScript which are also licensed under the EPL 1.0. See
+LICENSE.

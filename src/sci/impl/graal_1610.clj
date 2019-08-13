@@ -1,5 +1,6 @@
 (ns sci.impl.graal-1610
   "Patches clojure.core with fix for oracle/graal #1610."
+  {:no-doc true}
   (:refer-clojure :exclude [rand rand-int rand-nth random-sample])
   (:import [java.util Random]))
 

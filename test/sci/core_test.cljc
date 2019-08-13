@@ -41,8 +41,8 @@
             :c [1 1]
             :d #{1 2}}
            (eval* 1 '{:a (+ 1 2 *in*)
-                   :b {:a (inc *in*)}
-                   :c [*in* *in*]
+                      :b {:a (inc *in*)}
+                      :c [*in* *in*]
                       :d #{*in* (inc *in*)}}))))
   (testing "quoting"
     (is (= {:a '*in*} (eval* 1 (str "'{:a *in*}"))))
@@ -73,6 +73,11 @@
       (test-difference "rand-int" #(rand-int 10) 0 10)
       (test-difference "rand-nth" #(rand-nth (range 10)) 0 10)
       (test-difference "random-sample" #(random-sample 0.1 (range 100)) 0 10))))
+
+(deftest let-test
+  (testing "let"
+    (is (= [1 2] (eval* '(let [x 1 y (+ x x)] [x y]))))
+    (is (= [1 2] (eval* '(let [{:keys [:x :y]} {:x 1 :y 2}] [x y]))))))
 
 ;;;; Scratch
 
