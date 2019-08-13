@@ -63,6 +63,14 @@ nil
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).
 
+## Caveats
+
+To make the `rand-*` functions behave well when compiling to a GraalVM native binary, use this setting:
+
+``` clojure
+--initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder
+```
+
 ## Test
 
 Required: `lein`, the `clojure` CLI and GraalVM.
