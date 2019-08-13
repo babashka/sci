@@ -124,6 +124,24 @@
                               rest-let-bindings))))]
     (interpret (last exprs) bindings)))
 
+(defn eval-do
+  [i expr]
+  (let [[_do & body] expr]
+    (last (map i body))))
+
+(defn eval-if
+  [i expr]
+  (let [[_if cond then else] expr]
+    (if (i cond)
+      (i then)
+      (i else))))
+
+(defn eval-when
+  [i expr]
+  (let [[_when cond & body] expr]
+    (when (i cond )
+      (last (map i body)))))
+
 (defn lookup [sym bindings]
   (when-let [[k v :as kv]
              (or (find bindings sym)
@@ -135,7 +153,7 @@
         [k @v] kv)
       kv)))
 
-(def macros '#{if when and or -> ->> as-> quote let})
+(def macros '#{do if when and or -> ->> as-> quote let})
 
 (defn resolve-symbol [expr bindings]
   (second
@@ -169,11 +187,12 @@
               (let [f (or (get macros f)
                           (interpret f bindings))]
                 (case f
-                  (if when)
-                  (let [[_if cond then else] expr]
-                    (if (interpret cond bindings)
-                      (interpret then bindings)
-                      (interpret else bindings)))
+                  do
+                  (eval-do i expr)
+                  if
+                  (eval-if i expr)
+                  when
+                  (eval-when i expr)
                   quote (second expr)
                   ->
                   (interpret (expand-> (rest expr)) bindings)
