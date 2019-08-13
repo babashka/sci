@@ -60,19 +60,26 @@
       (if (not tu/native?)
         (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
                               (eval* nil example)))
-        (is (re-find #"call.*function" (:stderr (eval* nil example)))))))
+        (is (re-find #"call.*function" (:stderr (eval* nil example))))))))
+
+(defn test-difference
+  ([var-name expr-string max-attempts]
+   (test-difference var-name expr-string 0 max-attempts))
+  ([var-name expr-string attempt max-attempts]
+   (if (> attempt max-attempts)
+     (is false (str var-name " did not give random results."))
+     (let [[x y] [(eval* expr-string) (eval* expr-string)]]
+       ;; (prn "X>" x "Y>" y)
+       (if (not= x y)
+         (is true (str var-name " did not give random results."))
+         (recur var-name expr-string (inc attempt) max-attempts))))))
+
+(deftest rand-test
   (testing "patch for oracle/graal 1610 works"
-    (let [test-difference (fn [var-name f attempt max-attempts]
-                            (let [x (f) y (f)]
-                              (if (> attempt max-attempts)
-                                (is false (str var-name " did not give random results."))
-                                (if (not= x y)
-                                  (is true (str var-name " did not give random results."))
-                                  (recur var-name f (inc attempt) max-attempts)))))]
-      (test-difference "rand" #(rand) 0 10)
-      (test-difference "rand-int" #(rand-int 10) 0 10)
-      (test-difference "rand-nth" #(rand-nth (range 10)) 0 10)
-      (test-difference "random-sample" #(random-sample 0.1 (range 100)) 0 10))))
+    (test-difference "rand" "(rand)" 10)
+    (test-difference "rand-int" "(rand-int 10)" 10)
+    (test-difference "rand-nth" "(rand-nth (range 10))" 10)
+    (test-difference "random-sample" "(random-sample 0.1 (range 100))" 10)))
 
 (deftest let-test
   (testing "let"
@@ -82,4 +89,7 @@
 ;;;; Scratch
 
 (comment
-  (eval* 1 '(inc *in*)))
+  (eval* 1 '(inc *in*))
+  (test-difference "foo" "[10 10]" 0 10)
+  (test-difference "rand" #(rand) 0 10)
+  )
