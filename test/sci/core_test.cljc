@@ -9,11 +9,26 @@
    (tu/eval* form {'*in* binding})))
 
 (deftest core-test
+  (when-not tu/native?
+    (testing "do can have multiple expressions"
+      (is (= 2 (if tu/native?
+                 (eval* '(do 0 1 2))
+                 (let [a (atom 0)]
+                   (tu/eval*
+                    '(do (f) (f)) {'f #(swap! a inc)})
+                   @a))))))
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
     (is (= 1 (eval* 0 '(when (zero? *in*) 1))))
-    (is (nil? (eval* 1 '(when (zero? *in*) 1)))))
+    (is (nil? (eval* 1 '(when (zero? *in*) 1))))
+    (testing "when can have multiple body expressions"
+      (is (= 2 (if tu/native?
+                 (eval* '(when true 0 1 2))
+                 (let [a (atom 0)]
+                   (tu/eval*
+                    '(when true (f) (f)) {'f #(swap! a inc)})
+                   @a))))))
   (testing "and and or"
     (is (= false (eval* 0 '(and false true *in*))))
     (is (= 0 (eval* 0 '(and true true *in*))))
