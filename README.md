@@ -29,7 +29,7 @@ Experimental. Breaking changes are expected to happen at this phase.
 Use as a dependency:
 
 ``` shellsession
-[borkdude/sci "0.0.1"]
+[borkdude/sci "0.0.3"]
 ```
 
 ## Usage
@@ -47,8 +47,9 @@ arguments. This is an arbitrary limit and may be changed in the future.
 (sci/eval-string "(#(+ %1 %2 %3) 1 2 3)") => ;; 6
 ```
 
-Currently, only the following special forms/macros are supported: `quote`, `if`,
-`when`, `let`, `and`, `or`, `->`, `->>`, `as->`.
+Currently only the following special forms/macros are supported: anonymous
+function literals, `quote`, `if`, `when`, `let`, `and`, `or`, `->`, `->>`,
+`as->`.
 
 By default `sci` only enables access to the pure non-side-effecting functions in
 Clojure. More functions can be enabled, at your own risk, using `:bindings`:
