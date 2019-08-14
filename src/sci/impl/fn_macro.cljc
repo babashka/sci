@@ -13,7 +13,8 @@
     (with-meta
       (fn [& args]
         (when-not (= (count args) (count binding-vector))
-          (throw (Exception. "Wrong number of arguments.")))
+          (throw (new #?(:clj Exception
+                         :cljs js/Error) "Wrong number of arguments.")))
         (let [fixed-names (repeatedly fixed-arity gensym)
               destructure-vec (vec (interleave binding-vector fixed-names))
               var-arg-name (when var-arg (gensym))
@@ -61,6 +62,7 @@
             (let [arg-count (count args)]
               (if-let [f (lookup-by-arity arities arg-count)]
                 (apply f args)
-                (throw (Exception. (str "Cannot call " fn-name " with " arg-count " arguments."))))))]
+                (throw (new #?(:clj Exception
+                               :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments."))))))]
     (reset! self-ref f)
     f))
