@@ -72,10 +72,8 @@
     (is (= :a (eval* nil '(#{:a :b :c} :a)))))
   (testing "cannot call x as a function"
     (doseq [example ['(1 2 3) '("foo" 2 3)]]
-      (if (not tu/native?)
-        (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
-                              (eval* nil example)))
-        (is (re-find #"call.*function" (:stderr (eval* nil example))))))))
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
+                            (eval* nil example))))))
 
 (defn test-difference
   ([var-name expr-string max-attempts]
@@ -103,6 +101,7 @@
 
 (deftest delay-test
   (when-not tu/native?
+    ;; cannot test this natively due to metadata serialization in EDN
     (is (= 6 (tu/eval* '(+ 1 2 3) {(with-meta 'x {:sci/deref! true})
                                    (delay (throw (new #?(:clj Exception :cljs js/Error)
                                                       "o n000s")))})))

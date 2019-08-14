@@ -17,7 +17,8 @@
          ;; (prn ">>>" (str form) (str bindings) (sci (str form) (str bindings)))
          (try (edn/read-string (sci (str form) (str bindings)))
               (catch #?(:clj Exception :cljs :default) e
-                (ex-data e)))))))
+                (throw (new #?(:clj Exception :cljs js/Error)
+                            (:stderr (ex-data e))))))))))
 
 ;;;; Scratch
 

@@ -80,7 +80,9 @@ with `script/compile`.
 
 To run all tests:
 
-    script/test
+    script/test/all
+
+For running individual tests, see the scripts in `script/test`.
 
 ## License
 
