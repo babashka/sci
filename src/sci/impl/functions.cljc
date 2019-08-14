@@ -112,6 +112,7 @@
           'every-pred every-pred
           'ensure-reduced ensure-reduced
           'first first
+          'clojure.core/first first
           'float? float?
           'floats floats
           'fnil fnil
@@ -187,6 +188,7 @@
           'neg? neg?
           'neg-int? neg-int?
           'nth nth
+          'clojure.core/nth nth
           'nthnext nthnext
           'nthrest nthrest
           'nil? nil?
@@ -195,6 +197,7 @@
           'not-empty not-empty
           'not-any? not-any?
           'next next
+          'clojure.core/next next
           'nnext nnext
           'odd? odd?
           'object-array object-array
@@ -277,6 +280,7 @@
           'second second
           'set set
           'seq seq
+          'clojure.core/seq seq
           'seq? seq?
           'clojure.core/seq? seq? ;; needed for destructure
           'cljs.core/seq? seq? ;; needed for destructure
