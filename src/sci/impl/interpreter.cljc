@@ -5,7 +5,6 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [clojure.string :as str]
-   [clojure.walk :refer [postwalk]]
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.fns :as fns]
    [sci.impl.functions :as f]))
@@ -14,18 +13,8 @@
 
 (declare interpret)
 
-(defn read-fn [form]
-  (with-meta
-    (fn [ctx]
-      (fn [& [x y z]]
-        (interpret ctx (postwalk (fn [elt]
-                               (case elt
-                                 % x
-                                 %1 x
-                                 %2 y
-                                 %3 z
-                                 elt)) form))))
-    {:sci/fn true}))
+(defn read-fn [expr]
+  (fns/expand-fn-literal expr))
 
 (defn read-regex [form]
   (re-pattern form))
@@ -206,9 +195,6 @@
                     (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
                               :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
               expr)
-            (-> expr meta :sci/fn)
-            ;; read fn passed as higher order fn, still needs ctx
-            (expr ctx)
             :else expr)]
     ;; for debugging:
     ;; (prn expr '-> r)

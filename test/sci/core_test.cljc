@@ -38,7 +38,7 @@
   (testing "fn"
     (is (= 2 (eval* 1 "(#(+ 1 %) *in*)")))
     (is (= [1 2 3] (eval* 1 "(map #(+ 1 %) [0 1 2])")))
-    (is (eval* 1 "(#(when (odd? *in*) *in*) 1)")))
+    (is (eval* 1 "(#(when (odd? *in*) *in*))")))
   (testing "map"
     (is (= [1 2 3] (eval* 1 '(map inc [0 1 2])))))
   (testing "keep"

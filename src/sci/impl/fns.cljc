@@ -1,14 +1,37 @@
 (ns sci.impl.fns
   (:refer-clojure :exclude [destructure])
-  (:require [sci.impl.destructure :refer [destructure]]))
+  (:require [sci.impl.destructure :refer [destructure]]
+            [clojure.walk :refer [walk]]))
+
+(defn expand-fn-literal [expr]
+  (let [state (volatile! {:max-fixed 0 :var-args? false})
+        _ (walk (fn [elt]
+                  (when (symbol? elt)
+                    (when-let [[_ m] (re-matches #"^%(.*)" (name elt))]
+                      (cond (empty? m)
+                            (vswap! state update :max-fixed max 1)
+                            (= "&" m)
+                            (vswap! state assoc :var-args? true)
+                            :else (let [n #?(:clj (Integer/parseInt m)
+                                             :cljs (js/parseInt m))]
+                                    (vswap! state update :max-fixed max n))))))
+                (constantly nil) expr)
+        {:keys [:max-fixed :var-args?]} @state
+        fixed-names (map #(symbol (str "%" %)) (range 1 (inc max-fixed)))
+        arg-list (vec (concat fixed-names (when var-args?
+                                            ['& '%&])))]
+    (list 'fn arg-list
+          (if (pos? max-fixed)
+            (list 'let '[% %1] expr)
+            expr))))
 
 (defn parse-fn-args+body [interpret ctx [binding-vector & body]]
   (let [fixed-args (take-while #(not= '& %) binding-vector)
         var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
-        min-varargs-arity (when var-arg fixed-arity)
-        m (if min-varargs-arity
-            {:sci/min-varargs-arity min-varargs-arity}
+        min-var-args-arity (when var-arg fixed-arity)
+        m (if min-var-args-arity
+            {:sci/min-var-args-arity min-var-args-arity}
             {:sci/fixed-arity fixed-arity})]
     (with-meta
       (fn [& args]
@@ -35,10 +58,10 @@
 
 (defn lookup-by-arity [arities arity]
   (some (fn [f]
-          (let [{:keys [:sci/fixed-arity :sci/min-varargs-arity]} (meta f)]
+          (let [{:keys [:sci/fixed-arity :sci/min-var-args-arity]} (meta f)]
             (when (or (= arity fixed-arity )
-                      (and min-varargs-arity
-                           (>= arity min-varargs-arity)))
+                      (and min-var-args-arity
+                           (>= arity min-var-args-arity)))
               f))) arities))
 
 (defn eval-fn [ctx interpret [_fn name? & body]]
