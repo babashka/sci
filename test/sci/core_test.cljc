@@ -118,7 +118,9 @@
   (is (= 3 (eval* '((fn foo [x] (if (< x 3) (foo (inc x)) x)) 0))))
   (is (= [2 3] (eval* '((fn foo [[x & xs]] xs) [1 2 3]))))
   (is (= [2 3] (eval* '((fn foo [x & xs] xs) 1 2 3))))
-  (is (= 2 (eval* '((fn foo [x & [y]] y) 1 2 3)))))
+  (is (= 2 (eval* '((fn foo [x & [y]] y) 1 2 3))))
+  (is (= 1 (eval* '((fn ([x] x) ([x y] y)) 1))))
+  (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2)))))
 
 ;;;; Scratch
 
