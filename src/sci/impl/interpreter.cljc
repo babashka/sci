@@ -101,7 +101,7 @@
                        ctx
                        (recur ctx
                               rest-let-bindings))))]
-    (interpret ctx (last exprs))))
+    (last (map #(interpret ctx %) exprs))))
 
 (defn eval-do
   [i expr]
