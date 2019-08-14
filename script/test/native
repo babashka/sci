@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+echo 'Running native test'
+SCI_TEST_ENV="native" lein test

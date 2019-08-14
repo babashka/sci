@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+echo 'Running CLJS test in Node with optimizations :none'
+echo '{:optimizations :none}' > cljs-opts.edn
+clojure -A:test:cljs-test-runner -c cljs-opts.edn
+
+echo 'Running CLJS test in Node with optimizations :advanced'
+echo '{:optimizations :advanced}' > cljs-opts.edn
+clojure -A:test:cljs-test-runner -c cljs-opts.edn
