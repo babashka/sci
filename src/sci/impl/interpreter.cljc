@@ -6,6 +6,7 @@
    [clojure.string :as str]
    [sci.impl.functions :as f]
    [sci.impl.destructure :refer [destructure]]
+   [sci.impl.fn-macro :as fn-macro]
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])))
 
@@ -153,7 +154,7 @@
         [k @v] kv)
       kv)))
 
-(def macros '#{do if when and or -> ->> as-> quote let})
+(def macros '#{do if when and or -> ->> as-> quote let fn})
 
 (defn resolve-symbol [expr bindings]
   (second
@@ -206,6 +207,7 @@
                   (apply eval-as-> bindings (rest expr))
                   let
                   (apply eval-let bindings (rest expr))
+                  fn (fn-macro/eval-fn interpret bindings expr)
                   ;; else
                   (if (ifn? f)
                     (apply-fn f i (rest expr))
@@ -231,4 +233,8 @@
   (eval-string "'foo")
   (str/replace "'foo" #"'(\S.*)" (fn [m]
                                    (str "#sci/quote "(second m))))
+  (eval-string "((fn [] 1))")
+  (eval-string "((fn [x] x) 1)")
+  (eval-string "((fn [x] x) 1)")
+  (eval-string "((fn [x y] [x y]) 1 2)")
   )

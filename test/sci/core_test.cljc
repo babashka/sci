@@ -112,6 +112,12 @@
                                                   (delay (throw (new #?(:clj Exception :cljs js/Error)
                                                                      "o n000s")))})))))
 
+(deftest fn-test
+  (is (thrown-with-msg?
+       Exception #"2 arguments"
+       (eval* '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0))))
+  (is (= 3 (eval* '((fn foo [x] (if (< x 3) (foo (inc x)) x)) 0)))))
+
 ;;;; Scratch
 
 (comment
