@@ -95,9 +95,15 @@
     (test-difference "random-sample" "(random-sample 0.1 (range 100))" 10)))
 
 (deftest let-test
-  (testing "let"
-    (is (= [1 2] (eval* '(let [x 1 y (+ x x)] [x y]))))
-    (is (= [1 2] (eval* '(let [{:keys [:x :y]} {:x 1 :y 2}] [x y]))))))
+  (is (= [1 2] (eval* '(let [x 1 y (+ x x)] [x y]))))
+  (is (= [1 2] (eval* '(let [{:keys [:x :y]} {:x 1 :y 2}] [x y]))))
+  (testing "let can have multiple body expressions"
+    (is (= 2 (if tu/native?
+               (eval* '(let [x 2] 1 2 3 x))
+               (let [a (atom 0)]
+                 (tu/eval*
+                  '(let [x 3] (f) (f) x) {'f #(swap! a inc)})
+                 @a))))))
 
 (deftest delay-test
   (when-not tu/native?
