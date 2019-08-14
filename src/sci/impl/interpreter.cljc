@@ -7,7 +7,7 @@
    [clojure.string :as str]
    [clojure.walk :refer [postwalk]]
    [sci.impl.destructure :refer [destructure]]
-   [sci.impl.fn-macro :as fn-macro]
+   [sci.impl.fns :as fns]
    [sci.impl.functions :as f]))
 
 ;;;; Readers
@@ -132,9 +132,10 @@
     (when (i cond )
       (last (map i body)))))
 
-(defn lookup [{:keys [:bindings]} sym]
+(defn lookup [{:keys [:env :bindings]} sym]
   (when-let [[k v :as kv]
              (or (find bindings sym)
+                 (find @env sym)
                  (find f/functions sym))]
     (if-let [m (meta k)]
       (if (:sci/deref! m)
@@ -143,7 +144,7 @@
         [k @v] kv)
       kv)))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn})
+(def macros '#{do if when and or -> ->> as-> quote let fn defn})
 
 (defn resolve-symbol [ctx expr]
   (second
@@ -197,7 +198,8 @@
                   (apply eval-as-> ctx (rest expr))
                   let
                   (apply eval-let ctx (rest expr))
-                  fn (fn-macro/eval-fn ctx interpret expr)
+                  fn (fns/eval-fn ctx interpret expr)
+                  defn (fns/eval-defn ctx interpret expr)
                   ;; else
                   (if (ifn? f)
                     (apply-fn f i (rest expr))

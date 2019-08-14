@@ -122,6 +122,12 @@
   (is (= 1 (eval* '((fn ([x] x) ([x y] y)) 1))))
   (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2)))))
 
+(deftest defn-test
+  (is (= 2 (eval* '(do (defn foo "increment c" [x] (inc x)) (foo 1)))))
+  (is (= 0 (eval* '(do (defn foo "increment c" [x] (inc x))
+                       (defn foo "decrement c" [x] (dec x))
+                       (foo 1))))))
+
 ;;;; Scratch
 
 (comment

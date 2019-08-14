@@ -1,4 +1,4 @@
-(ns sci.impl.fn-macro
+(ns sci.impl.fns
   (:refer-clojure :exclude [destructure])
   (:require [sci.impl.destructure :refer [destructure]]))
 
@@ -64,4 +64,16 @@
                 (throw (new #?(:clj Exception
                                :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments."))))))]
     (reset! self-ref f)
+    (with-meta f
+      {:sci/name fn-name})))
+
+(defn eval-defn [ctx interpret [defn fn-name docstring? & body :as expr]]
+  (let [docstring (when (string? docstring?) docstring?)
+        expr (if docstring (list* defn fn-name body)
+                 expr)
+        f (eval-fn ctx interpret expr)
+        fn-name (-> f meta :sci/name)
+        f (if docstring (vary-meta f assoc :sci/doc docstring)
+              f)]
+    (swap! (:env ctx) assoc fn-name f)
     f))
