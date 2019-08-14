@@ -40,19 +40,15 @@ Use as a dependency:
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
-Currently only the following special forms/macros are supported: anonymous
-function literals like `#(%1 %2)`, `fn`, `quote`, `do`,`if`, `when`, `let`, `and`,
-`or`, `->`, `->>`, `as->`.
+Currently the following special forms/macros are supported: function literals
+(`#(inc %)`), `fn`, `defn`, `quote`, `do`,`if`, `when`, `let`, `and`, `or`,
+`->`, `->>`, `as->`.
 
-Anonymous function literals are allowed with currently up to three positional
-arguments. This is an arbitrary limit and may be changed in the future.
-
-``` clojure
-(sci/eval-string "(#(+ %1 %2 %3) 1 2 3)") => ;; 6
-```
+In `sci`, `defn` does not mutate the outside world, only the evaluation
+context inside a call to `sci/eval-string`.
 
 By default `sci` only enables access to the pure non-side-effecting functions in
-Clojure. More functions can be enabled, at your own risk, using `:bindings`:
+Clojure.  More functions can be enabled, at your own risk, using `:bindings`:
 
 ``` clojure
 user=> (sci/eval-string "(println \"hello\")" {:bindings {'println println}})
