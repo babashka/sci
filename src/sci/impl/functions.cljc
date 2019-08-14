@@ -112,6 +112,8 @@
           'every-pred every-pred
           'ensure-reduced ensure-reduced
           'first first
+          'clojure.core/first first
+          'cljs.core/first first
           'float? float?
           'floats floats
           'fnil fnil
@@ -125,7 +127,8 @@
           'frequencies frequencies
           'float float
           'get get
-          'clojure.core/get get ;; needed for destructure
+          'clojure.core/get get
+          'cljs.core/get get
           'get-in get-in
           'group-by group-by
           'gensym gensym
@@ -187,6 +190,8 @@
           'neg? neg?
           'neg-int? neg-int?
           'nth nth
+          'clojure.core/nth nth
+          'cljs.core/nth nth
           'nthnext nthnext
           'nthrest nthrest
           'nil? nil?
@@ -195,6 +200,8 @@
           'not-empty not-empty
           'not-any? not-any?
           'next next
+          'clojure.core/next next
+          'cljs.core/next next
           'nnext nnext
           'odd? odd?
           'object-array object-array
@@ -277,6 +284,8 @@
           'second second
           'set set
           'seq seq
+          'clojure.core/seq seq
+          'cljs.core/seq seq
           'seq? seq?
           'clojure.core/seq? seq? ;; needed for destructure
           'cljs.core/seq? seq? ;; needed for destructure

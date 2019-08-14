@@ -3,7 +3,6 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure]))
 
-
 (defn destructure [bindings]
   (let [bents (partition 2 bindings)
         pb (fn pb [bvec b v]

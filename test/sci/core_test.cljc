@@ -38,7 +38,7 @@
   (testing "fn"
     (is (= 2 (eval* 1 "(#(+ 1 %) *in*)")))
     (is (= [1 2 3] (eval* 1 "(map #(+ 1 %) [0 1 2])")))
-    (is (eval* 1 "(#(when (odd? *in*) *in*) 1)")))
+    (is (eval* 1 "(#(when (odd? *in*) *in*))")))
   (testing "map"
     (is (= [1 2 3] (eval* 1 '(map inc [0 1 2])))))
   (testing "keep"
@@ -72,10 +72,8 @@
     (is (= :a (eval* nil '(#{:a :b :c} :a)))))
   (testing "cannot call x as a function"
     (doseq [example ['(1 2 3) '("foo" 2 3)]]
-      (if (not tu/native?)
-        (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
-                              (eval* nil example)))
-        (is (re-find #"call.*function" (:stderr (eval* nil example))))))))
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
+                            (eval* nil example))))))
 
 (defn test-difference
   ([var-name expr-string max-attempts]
@@ -103,6 +101,7 @@
 
 (deftest delay-test
   (when-not tu/native?
+    ;; cannot test this natively due to metadata serialization in EDN
     (is (= 6 (tu/eval* '(+ 1 2 3) {(with-meta 'x {:sci/deref! true})
                                    (delay (throw (new #?(:clj Exception :cljs js/Error)
                                                       "o n000s")))})))
@@ -111,6 +110,23 @@
                           (tu/eval* '(+ 1 2 3 x) {(with-meta 'x {:sci/deref! true})
                                                   (delay (throw (new #?(:clj Exception :cljs js/Error)
                                                                      "o n000s")))})))))
+
+(deftest fn-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"2 arguments"
+       (eval* '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0))))
+  (is (= 3 (eval* '((fn foo [x] (if (< x 3) (foo (inc x)) x)) 0))))
+  (is (= [2 3] (eval* '((fn foo [[x & xs]] xs) [1 2 3]))))
+  (is (= [2 3] (eval* '((fn foo [x & xs] xs) 1 2 3))))
+  (is (= 2 (eval* '((fn foo [x & [y]] y) 1 2 3))))
+  (is (= 1 (eval* '((fn ([x] x) ([x y] y)) 1))))
+  (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2)))))
+
+(deftest defn-test
+  (is (= 2 (eval* '(do (defn foo "increment c" [x] (inc x)) (foo 1)))))
+  (is (= 0 (eval* '(do (defn foo "increment c" [x] (inc x))
+                       (defn foo "decrement c" [x] (dec x))
+                       (foo 1))))))
 
 ;;;; Scratch
 

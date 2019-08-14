@@ -41,7 +41,7 @@ Use as a dependency:
 ```
 
 Currently only the following special forms/macros are supported: anonymous
-function literals like `#(%1 %2)`, `quote`, `do`,`if`, `when`, `let`, `and`,
+function literals like `#(%1 %2)`, `fn`, `quote`, `do`,`if`, `when`, `let`, `and`,
 `or`, `->`, `->>`, `as->`.
 
 Anonymous function literals are allowed with currently up to three positional
@@ -80,7 +80,9 @@ with `script/compile`.
 
 To run all tests:
 
-    script/test
+    script/test/all
+
+For running individual tests, see the scripts in `script/test`.
 
 ## License
 
