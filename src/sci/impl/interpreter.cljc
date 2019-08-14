@@ -166,8 +166,9 @@
       (if (str/starts-with? n "'")
         (let [v (symbol (subs n 1))]
           [v v])
-        #?(:clj (throw (Exception. (format "Could not resolve symbol: %s." n)))
-           :cljs (throw (js/Error. (str "Could not resolve symbol: " n ".")))))))))
+        (throw (new #?(:clj Exception
+                       :cljs js/Error)
+                    (str "Could not resolve symbol: " (str expr)))))))))
 
 (defn apply-fn [f i args]
   (let [args (mapv i args)]
