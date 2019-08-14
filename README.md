@@ -41,7 +41,7 @@ Use as a dependency:
 ```
 
 Currently only the following special forms/macros are supported: anonymous
-function literals like `#(%1 %2)`, `quote`, `do`,`if`, `when`, `let`, `and`,
+function literals like `#(%1 %2)`, `fn`, `quote`, `do`,`if`, `when`, `let`, `and`,
 `or`, `->`, `->>`, `as->`.
 
 Anonymous function literals are allowed with currently up to three positional

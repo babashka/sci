@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [destructure])
   (:require [sci.impl.destructure :refer [destructure]]))
 
-(defn parse-fn-args+body [interpret bindings [binding-vector & body]]
+(defn parse-fn-args+body [interpret ctx [binding-vector & body]]
   (let [fixed-args (take-while #(not= '& %) binding-vector)
         var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
@@ -22,13 +22,12 @@
                                 (conj destructure-vec var-arg var-arg-name)
                                 destructure-vec)
               arg-bindings (apply hash-map (interleave fixed-names args))
-              bindings (cond-> (merge bindings arg-bindings)
+              ctx (cond-> (update ctx :bindings merge arg-bindings)
                          var-arg
-                         (assoc var-arg-name (drop fixed-arity args)))
+                         (assoc-in [:bindings var-arg-name] (drop fixed-arity args)))
               form (list* 'let (destructure destructure-vec)
                           body)]
-          (interpret form
-                     bindings)))
+          (interpret ctx form)))
       m)))
 
 (defn index-by [f coll]
@@ -42,7 +41,7 @@
                            (>= arity min-varargs-arity)))
               f))) arities))
 
-(defn eval-fn [interpret bindings [_fn name? & body]]
+(defn eval-fn [ctx interpret [_fn name? & body]]
   (let [fn-name (if (symbol? name?)
                   name?
                   nil)
@@ -56,8 +55,8 @@
         self-ref (atom nil)
         call-self (fn [& args]
                     (apply @self-ref args))
-        bindings (assoc bindings fn-name call-self)
-        arities (map #(parse-fn-args+body interpret bindings %) bodies)
+        ctx (assoc-in ctx [:bindings fn-name] call-self)
+        arities (map #(parse-fn-args+body interpret ctx %) bodies)
         f (fn [& args]
             (let [arg-count (count args)]
               (if-let [f (lookup-by-arity arities arg-count)]
