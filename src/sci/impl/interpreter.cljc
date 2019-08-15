@@ -121,6 +121,15 @@
     (when (i cond )
       (last (map i body)))))
 
+(defn eval-def
+  [ctx [_def var-name ?docstring ?init]]
+  (let [docstring (when ?init ?docstring)
+        init (if docstring ?init ?docstring)
+        init (interpret ctx init)
+        m (if docstring {:sci/doc docstring} {})
+        var-name (with-meta var-name m)]
+    (swap! (:env ctx) assoc var-name init)))
+
 (defn lookup [{:keys [:env :bindings]} sym]
   (when-let [[k v :as kv]
              (or (find bindings sym)
@@ -133,7 +142,7 @@
         [k @v] kv)
       kv)))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn defn})
+(def macros '#{do if when and or -> ->> as-> quote let fn def defn})
 
 (defn resolve-symbol [ctx expr]
   (second
@@ -188,6 +197,7 @@
                   let
                   (apply eval-let ctx (rest expr))
                   fn (fns/eval-fn ctx interpret expr)
+                  def (eval-def ctx expr)
                   defn (fns/eval-defn ctx interpret expr)
                   ;; else
                   (if (ifn? f)

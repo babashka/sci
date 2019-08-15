@@ -136,9 +136,17 @@
   (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2))))
   (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4])))))
 
+(deftest def-test
+  (is (= "nice val" (eval* '(do (def foo "nice val") foo))))
+  (is (nil? (eval* '(do (def foo) foo))))
+  (is (= 2 (eval* '(do (def foo) (def foo "docstring" 2) foo)))))
+
 (deftest defn-test
   (is (= 2 (eval* '(do (defn foo "increment c" [x] (inc x)) (foo 1)))))
-  (is (= 0 (eval* '(do (defn foo "increment c" [x] (inc x))
+  (is (= 3 (eval* '(do (defn foo ([x] (inc x)) ([x y] (+ x y)))
+                       (foo 1)
+                       (foo 1 2)))))
+  (is (= 0 (eval* '(do (defn foo [x] (inc x))
                        (defn foo "decrement c" [x] (dec x))
                        (foo 1))))))
 
