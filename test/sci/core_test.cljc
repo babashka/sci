@@ -116,6 +116,13 @@
                           (tu/eval* '(+ 1 2 3 x) {(with-meta 'x {:sci/deref! true})
                                                   (delay (throw (new #?(:clj Exception :cljs js/Error)
                                                                      "o n000s")))})))))
+(deftest fn-literal-test
+  (is (= '(1 2 3)
+         (eval* "(map #(do %) [1 2 3])")))
+  (is (= '([0 1] [1 2] [2 3])
+         (eval* "(map-indexed #(do [%1 %2]) [1 2 3])")))
+  (is (= '(1 2 3)
+         (eval* "(apply #(do %&) [1 2 3])"))))
 
 (deftest fn-test
   (is (thrown-with-msg?
@@ -126,7 +133,8 @@
   (is (= [2 3] (eval* '((fn foo [x & xs] xs) 1 2 3))))
   (is (= 2 (eval* '((fn foo [x & [y]] y) 1 2 3))))
   (is (= 1 (eval* '((fn ([x] x) ([x y] y)) 1))))
-  (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2)))))
+  (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2))))
+  (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4])))))
 
 (deftest defn-test
   (is (= 2 (eval* '(do (defn foo "increment c" [x] (inc x)) (foo 1)))))
