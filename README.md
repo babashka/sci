@@ -40,9 +40,9 @@ Use as a dependency:
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
-Currently the following special forms/macros are supported: function literals
-(`#(inc %)`), `fn`, `defn`, `quote`, `do`,`if`, `when`, `let`, `and`, `or`,
-`->`, `->>`, `as->`.
+Currently the following special forms/macros are supported: `def`, `fn`,
+function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `when`, `let`,
+`and`, `or`, `->`, `->>`, `as->`.
 
 In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
