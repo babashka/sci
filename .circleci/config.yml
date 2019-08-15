@@ -190,9 +190,10 @@ workflows:
             branches:
               only: master
           requires:
-#            - jvm
+            - jvm
+            - node
             - linux
-#            - mac
+            - mac
       # - docker:
       #     filters:
       #       branches:
