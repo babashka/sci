@@ -49,8 +49,7 @@
                            defaults (:or b)]
                        (loop [ret (-> bvec (conj gmap) (conj v)
                                       (conj gmap) (conj `(if (seq? ~gmap)
-                                                           #?(:clj (clojure.lang.PersistentHashMap/create (seq ~gmap))
-                                                              :cljs (apply hash-map ~gmap))
+                                                           (~'apply ~'hash-map ~gmap)
                                                            ~gmap))
                                       ((fn [ret]
                                          (if (:as b)

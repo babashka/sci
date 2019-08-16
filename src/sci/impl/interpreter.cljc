@@ -1,20 +1,20 @@
 (ns sci.impl.interpreter
   {:no-doc true}
-  (:refer-clojure :exclude [destructure])
+  (:refer-clojure :exclude [destructure macroexpand])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [clojure.string :as str]
-   [sci.impl.destructure :refer [destructure]]
    [sci.impl.fns :as fns]
-   [sci.impl.functions :as f]))
+   [sci.impl.functions :as f]
+   [sci.impl.macros :as macros]))
 
 ;;;; Readers
 
 (declare interpret)
 
-(defn read-fn [expr]
-  (fns/expand-fn-literal expr))
+(defn read-fn [ctx expr]
+  (macros/expand-fn-literal ctx expr))
 
 (defn read-regex [form]
   (re-pattern form))
@@ -22,9 +22,9 @@
 (defn read-quote [form]
   (list 'quote form))
 
-(defn read-edn [s]
+(defn read-edn [ctx s]
   (edn/read-string
-   {:readers {'sci/fn read-fn
+   {:readers {'sci/fn (fn [s] (read-fn ctx s))
               'sci/regex read-regex
               'sci/quote read-quote}}
    s))
@@ -59,15 +59,6 @@
         (recur threaded (next forms)))
       x)))
 
-(defn eval-as->
-  "The ->> macro from clojure.core."
-  [ctx & [expr name & forms]]
-  (let [v (interpret ctx expr)]
-    (if (empty? forms)
-      v
-      (let [ctx (assoc-in ctx [:bindings name] v)]
-        (apply eval-as-> ctx (first forms) name (rest forms))))))
-
 (defn eval-and
   "The and macro from clojure.core."
   [ctx args]
@@ -92,15 +83,14 @@
 (defn eval-let
   "The let macro from clojure.core"
   [ctx let-bindings & exprs]
-  (let [let-bindings (destructure let-bindings)
-        ctx (loop [ctx ctx
-                        [let-name let-val & rest-let-bindings] let-bindings]
-                   (let [v (interpret ctx let-val)
-                         ctx (assoc-in ctx [:bindings let-name] v)]
-                     (if (empty? rest-let-bindings)
-                       ctx
-                       (recur ctx
-                              rest-let-bindings))))]
+  (let [ctx (loop [ctx ctx
+                   [let-name let-val & rest-let-bindings] let-bindings]
+              (let [v (interpret ctx let-val)
+                    ctx (assoc-in ctx [:bindings let-name] v)]
+                (if (empty? rest-let-bindings)
+                  ctx
+                  (recur ctx
+                         rest-let-bindings))))]
     (last (map #(interpret ctx %) exprs))))
 
 (defn eval-do
@@ -128,7 +118,8 @@
         init (interpret ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
-    (swap! (:env ctx) assoc var-name init)))
+    (swap! (:env ctx) assoc var-name init)
+    init))
 
 (defn lookup [{:keys [:env :bindings]} sym]
   (when-let [[k v :as kv]
@@ -162,53 +153,61 @@
   (let [args (mapv i args)]
     (apply f args)))
 
+(comment
+  e
+  )
+
+(def constant? (some-fn fn? number? string? keyword?))
+
 (defn interpret
   [ctx expr]
-  (let [i #(interpret ctx %)
-        r (cond
-            (symbol? expr) (resolve-symbol ctx expr)
-            (map? expr)
-            (zipmap (map i (keys expr))
-                    (map i (vals expr)))
-            (or (vector? expr) (set? expr))
-            (into (empty expr) (map i expr))
-            (seq? expr)
-            (if-let [f (first expr)]
-              (let [f (or (get macros f)
-                          (i f))]
-                (case f
-                  do
-                  (eval-do i expr)
-                  if
-                  (eval-if i expr)
-                  when
-                  (eval-when i expr)
-                  quote (second expr)
-                  ->
-                  (interpret ctx (expand-> (rest expr)))
-                  ->>
-                  (interpret ctx (expand->> (rest expr)))
-                  and
-                  (eval-and ctx (rest expr))
-                  or
-                  (eval-or ctx (rest expr))
-                  as->
-                  (apply eval-as-> ctx (rest expr))
-                  let
-                  (apply eval-let ctx (rest expr))
-                  fn (fns/eval-fn ctx interpret expr)
-                  def (eval-def ctx expr)
-                  defn (fns/eval-defn ctx interpret expr)
-                  ;; else
-                  (if (ifn? f)
-                    (apply-fn f i (rest expr))
-                    (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
-                              :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
-              expr)
-            :else expr)]
-    ;; for debugging:
-    ;; (prn expr '-> r)
-    r))
+  (cond (constant? expr) expr
+        (symbol? expr) (resolve-symbol ctx expr)
+        :else
+        (let [i #(interpret ctx %)
+              r (cond
+                  (map? expr)
+                  (zipmap (map i (keys expr))
+                          (map i (vals expr)))
+                  (or (vector? expr) (set? expr))
+                  (into (empty expr) (map i expr))
+                  (seq? expr)
+                  (if-let [f (first expr)]
+                    (let [f (or (get macros f)
+                                (i f))]
+                      (case f
+                        do
+                        (eval-do i expr)
+                        if
+                        (eval-if i expr)
+                        when
+                        (eval-when i expr)
+                        quote (second expr)
+                        ->
+                        (interpret ctx (expand-> (rest expr)))
+                        ->>
+                        (interpret ctx (expand->> (rest expr)))
+                        and
+                        (eval-and ctx (rest expr))
+                        or
+                        (eval-or ctx (rest expr))
+                        ;; as->
+                        ;; (apply eval-as-> ctx (rest expr))
+                        let
+                        (apply eval-let ctx (rest expr))
+                        fn (fns/eval-fn ctx interpret expr)
+                        def (eval-def ctx expr)
+                        defn (fns/eval-defn ctx interpret expr)
+                        ;; else
+                        (if (ifn? f)
+                          (apply-fn f i (rest expr))
+                          (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
+                                    :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
+                    expr)
+                  :else expr)]
+          ;; for debugging:
+          ;; (prn expr '-> r)
+          r)))
 
 ;;;; Called from public API
 
@@ -216,15 +215,19 @@
   ([s] (eval-string s nil))
   ([s {:keys [:bindings]}]
    (let [env (atom {})
-         edn (read-edn (-> s
-                           (str/replace "#(" "#sci/fn(")
-                           (str/replace "#\"" "#sci/regex\"")
-                           (str/replace #"'([{(#\[])"
-                                        (fn [m]
-                                          (str "#sci/quote " (second m))))))
          ctx {:env env
-              :bindings bindings}]
-     (interpret ctx edn))))
+              :bindings bindings}
+         edn (read-edn ctx (-> s
+                               (str/replace "#(" "#sci/fn(")
+                               (str/replace "#\"" "#sci/regex\"")
+                               (str/replace #"'([{(#\[])"
+                                            (fn [m]
+                                              (str "#sci/quote " (second m))))))
+
+         ;; _ (def e edn)
+         expr (macros/macroexpand ctx edn)
+         ]
+     (interpret ctx expr))))
 
 ;;;; Scratch
 
@@ -241,4 +244,12 @@
   (eval-string "((fn [x] x) 1)")
   (eval-string "((fn [x] x) 1)")
   (eval-string "((fn [x y] [x y]) 1 2)")
+  (def f (eval-string "#(< %1 10)"))
+  (def f (eval-string "#(< x 10)")) ;; ERROR
+  (f 1000)
+  (eval-string "(quote (1 2 x))" {:bindings {:x 1}})
+  (eval-string "((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0)")
+  (eval-string "(apply (fn [x & xs] xs) 1 2 [3 4])")
+  (eval-string "(map #(+ 1 %) [0 1 2])")
   )
+
