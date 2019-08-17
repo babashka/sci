@@ -1,6 +1,6 @@
 (ns sci.impl.macros
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
-  (:require [clojure.walk :refer [prewalk postwalk]]
+  (:require [clojure.walk :refer [postwalk]]
             [sci.impl.destructure :refer [destructure]]
             [sci.impl.functions :as f]
             [clojure.string :as str]))
@@ -56,9 +56,8 @@
         destructured-vec (destructure destructure-vec)
         ctx (update ctx :bindings merge (zipmap (take-nth 2 destructured-vec)
                                                 (repeat nil)))
-        body-form (with-meta `(~'let ~destructured-vec
-                               ~@(doall (map #(macroexpand ctx %) body-exprs)))
-                    {:sci/expanded true})
+        body-form `(~'let ~destructured-vec
+                    ~@(doall (map #(macroexpand ctx %) body-exprs)))
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
@@ -127,8 +126,7 @@
                 :sci/arg-list arg-list
                 :sci/fixed-names fixed-names
                 :sci/var-arg-name (when var-args? '%&)}]}]
-    form
-    #_(expand-fn ctx form)))
+    form))
 
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
@@ -140,8 +138,7 @@
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))]
-    (with-meta `(~'let ~new-let-bindings ~@(doall (map #(macroexpand ctx %) exprs)))
-      {:sci/expanded true})))
+    `(~'let ~new-let-bindings ~@(doall (map #(macroexpand ctx %) exprs)))))
 
 (defn expand-let
   "The let macro from clojure.core"
@@ -217,30 +214,28 @@
 
 (defn macroexpand
   [ctx expr]
-  (let [m (meta expr)
-        res (if (:sci/expanded m) expr
-                (cond
-                  (symbol? expr)
-                  (or (let [v (resolve-symbol ctx expr)]
-                        (when-not (identical? :sci/var.unbound v)))
-                      expr)
-                  (seq? expr)
-                  (if-let [f (first expr)]
-                    (let [f (get macros f)]
-                      (case f
-                        let
-                        (expand-let ctx expr)
-                        fn (expand-fn ctx expr)
-                        quote expr
-                        def (expand-def ctx expr)
-                        defn (expand-defn ctx expr)
-                        -> (expand-> ctx (rest expr))
-                        ->> (expand->> ctx (rest expr))
-                        as-> (expand-as-> ctx expr)
-                        ;; else:
-                        (doall (map #(macroexpand ctx %) expr))))
-                    expr)
-                  :else expr))]
+  (let [res (cond
+              (symbol? expr)
+              (or (let [v (resolve-symbol ctx expr)]
+                    (when-not (identical? :sci/var.unbound v)))
+                  expr)
+              (seq? expr)
+              (if-let [f (first expr)]
+                (let [f (get macros f)]
+                  (case f
+                    let
+                    (expand-let ctx expr)
+                    fn (expand-fn ctx expr)
+                    quote expr
+                    def (expand-def ctx expr)
+                    defn (expand-defn ctx expr)
+                    -> (expand-> ctx (rest expr))
+                    ->> (expand->> ctx (rest expr))
+                    as-> (expand-as-> ctx expr)
+                    ;; else:
+                    (doall (map #(macroexpand ctx %) expr))))
+                expr)
+              :else expr)]
     ;; (prn expr (meta expr) '-> res)
     res))
 

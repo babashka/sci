@@ -142,36 +142,33 @@
                   (or (vector? expr) (set? expr))
                   (into (empty expr) (map i expr))
                   (seq? expr)
-                  (do ;; (prn "SEQ" expr)
-                    (if-let [f (first expr)]
-                      (let [;;_ (prn "FST" f)
-                            f (or (get macros f)
-                                  (i f))
-                            ;;_ (prn ">" f)
-                            ]
-                        (case f
-                          do
-                          (eval-do i expr)
-                          if
-                          (eval-if i expr)
-                          when
-                          (eval-when i expr)
-                          quote (second expr)
-                          and
-                          (eval-and ctx (rest expr))
-                          or
-                          (eval-or ctx (rest expr))
-                          ;; as->
-                          ;; (apply eval-as-> ctx (rest expr))
-                          let
-                          (apply eval-let ctx (rest expr))
-                          def (eval-def ctx expr)
-                          ;; else
-                          (if (ifn? f)
-                            (apply-fn f i (rest expr))
-                            (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
-                                      :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
-                      expr))
+                  (if-let [f (first expr)]
+                    (let [;;_ (prn "FST" f)
+                          f (or (get macros f)
+                                (i f))
+                          ;;_ (prn ">" f)
+                          ]
+                      (case f
+                        do
+                        (eval-do i expr)
+                        if
+                        (eval-if i expr)
+                        when
+                        (eval-when i expr)
+                        quote (second expr)
+                        and
+                        (eval-and ctx (rest expr))
+                        or
+                        (eval-or ctx (rest expr))
+                        let
+                        (apply eval-let ctx (rest expr))
+                        def (eval-def ctx expr)
+                        ;; else
+                        (if (ifn? f)
+                          (apply-fn f i (rest expr))
+                          (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
+                                    :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
+                    expr)
                   :else expr)]
           ;; for debugging:
           ;; (prn expr '-> r)
