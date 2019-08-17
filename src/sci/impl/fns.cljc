@@ -1,5 +1,4 @@
-(ns sci.impl.fns
-  (:refer-clojure :exclude [destructure]))
+(ns sci.impl.fns)
 
 ;; TODO: use this to improve arity error message
 #_(defn show-arities [fixed-arities var-args-min-arity]
@@ -49,7 +48,7 @@
                      min-var-args-arity)
               (throw (new #?(:clj Exception
                              :cljs js/Error)
-                          "Wrong number of arguments. Expected at least: " min-var-args-arity)))
+                          (str "Wrong number of arguments. Expected at least: " min-var-args-arity ", got: " (count args)))))
             (when-not (= (count (take (inc fixed-arity) args))
                          fixed-arity)
               (throw (new #?(:clj Exception
