@@ -66,9 +66,14 @@
     (last (map #(interpret ctx %) exprs))))
 
 (defn eval-do
-  [i expr]
-  (let [[_do & body] expr]
-    (last (map i body))))
+  [ctx expr]
+  (loop [exprs (rest expr)]
+    (when-let [e (first exprs)]
+      (let [e (macros/macroexpand ctx e)
+            e (interpret ctx e)]
+        (if-let [n (next exprs)]
+          (recur n)
+          e)))))
 
 (defn eval-if
   [i expr]
@@ -150,7 +155,7 @@
                           ]
                       (case f
                         do
-                        (eval-do i expr)
+                        (eval-do ctx expr)
                         if
                         (eval-if i expr)
                         when
@@ -178,8 +183,8 @@
 
 (defn eval-string
   ([s] (eval-string s nil))
-  ([s {:keys [:bindings]}]
-   (let [env (atom {})
+  ([s {:keys [:bindings :env]}]
+   (let [env (or env (atom {}))
          ctx {:env env
               :bindings bindings}
          edn (read-edn ctx (-> s

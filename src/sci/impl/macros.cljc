@@ -217,6 +217,7 @@
               (if-let [f (first expr)]
                 (let [f (get macros f)]
                   (case f
+                    do expr ;; do will call macroexpand on every subsequent expression
                     let
                     (expand-let ctx expr)
                     fn (expand-fn ctx expr)
