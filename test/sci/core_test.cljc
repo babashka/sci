@@ -162,6 +162,16 @@
          #?(:clj Exception :cljs js/Error) #"y"
          (eval* "(defn foo [] (as-> 10 x (inc y))))")))))
 
+(deftest do-test
+  (testing "expressions with do are evaluated in order and have side effects,
+  even when one of the following expressions have an unresolved symbol"
+    (when-not tu/native?
+      (is
+       (= "hello\n"
+          (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
+                                       {'println println})
+                             (catch #?(:clj Exception :cljs js/Error) _ nil))))))))
+
 ;;;; Scratch
 
 (comment
