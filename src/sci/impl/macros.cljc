@@ -40,7 +40,6 @@
 (declare macroexpand macroexpand-1)
 
 (defn expand-fn-args+body [ctx [binding-vector & body-exprs]]
-  ;; (prn "body exprs" body-exprs)
   (let [fixed-args (take-while #(not= '& %) binding-vector)
         var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
@@ -63,7 +62,12 @@
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
-    (list arg-list body-form)))
+    (with-meta (list arg-list body-form)
+      {:sci/fixed-arity fixed-arity
+       :sci/destructured-bindings destructured-vec
+       :sci/arg-list arg-list
+       :sci/fixed-args fixed-args
+       :sci/var-arg-name var-arg-name})))
 
 (defn expand-fn [ctx [_fn name? & body]]
   (let [fn-name (if (symbol? name?)
@@ -107,7 +111,12 @@
         ctx (if var-args?
               (update ctx :bindings assoc '%& nil)
               ctx)
-        form (with-meta (list 'fn (list arg-list (macroexpand ctx expr)))
+        form (with-meta (list 'fn (with-meta (list arg-list (macroexpand ctx expr))
+                                    {:sci/fixed-arity (count fixed-names)
+                                     :sci/destructured-bindings (vec (interleave arg-list arg-list))
+                                     :sci/arg-list arg-list
+                                     :sci/fixed-args fixed-names
+                                     :sci/var-arg-name (when var-args? '%&)}))
                {:sci/expanded true})]
     form
     #_(expand-fn ctx form)))
@@ -191,7 +200,7 @@
                         (doall (map #(macroexpand ctx %) expr))))
                     expr)
                   :else expr))]
-    ;; (prn expr '-> res)
+    ;; (prn expr (meta expr) '-> res)
     res))
 
 ;;;; Scratch

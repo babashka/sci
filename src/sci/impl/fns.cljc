@@ -2,36 +2,45 @@
   (:refer-clojure :exclude [destructure])
   (:require [sci.impl.destructure :refer [destructure]]))
 
-(defn parse-fn-args+body [interpret ctx [binding-vector & body]]
-  (let [fixed-args (take-while #(not= '& %) binding-vector)
-        var-arg-name (second (drop-while #(not= '& %) binding-vector))
-        fixed-arity (count fixed-args)
+(defn parse-fn-args+body [interpret ctx [binding-vector & body :as fn-body]]
+  (let [{:sci/keys [fixed-arity var-arg-name destructured-bindings arg-list]} (meta fn-body)
         min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
             {:sci/min-var-args-arity min-var-args-arity}
             {:sci/fixed-arity fixed-arity})]
-    (with-meta
-      (fn [& args]
-        (if var-arg-name
-          (when (< (count (take min-var-args-arity args))
-                   min-var-args-arity)
-            (throw (new #?(:clj Exception
-                           :cljs js/Error) "Wrong number of arguments. (varargs)")))
-          (when-not (= (count (take (inc fixed-arity) args))
-                       fixed-arity)
-            (throw (new #?(:clj Exception
-                           :cljs js/Error) (str "Wrong number of arguments. Expected: " fixed-arity ", got: " (count args) ", " args)))))
-        (let [destructure-vec (vec (interleave binding-vector args))
-              destructure-vec (if var-arg-name
-                                (conj destructure-vec var-arg-name (list 'quote (drop fixed-arity args)))
-                                destructure-vec)
-              ;; arg-bindings (apply hash-map (interleave fixed-args args))
-              form (list* 'let (destructure destructure-vec)
-                          body)]
-          ;; (prn "FORM" form)
-          (interpret ctx form)
-          #_(last (map #(interpret ctx %) body))))
-      m)))
+    (if (and (not var-arg-name) fixed-arity (< fixed-arity 3))
+      (case fixed-arity
+        0 (with-meta (fn [] (interpret ctx (cons 'do body))) m)
+        1 (with-meta (fn [x]
+                       (interpret ctx `(~'let [~(first arg-list) ~x]
+                                        ~@body))) m)
+        2 (with-meta (let [[a1 a2] arg-list]
+                       (fn [x y] (interpret ctx
+                                            `(~'let [~a1 ~x
+                                                     ~a2 ~y]
+                                              ~@body)))) m))
+      (with-meta
+        (fn [& args]
+          (if var-arg-name
+            (when (< (count (take min-var-args-arity args))
+                     min-var-args-arity)
+              (throw (new #?(:clj Exception
+                             :cljs js/Error) "Wrong number of arguments. (varargs)")))
+            (when-not (= (count (take (inc fixed-arity) args))
+                         fixed-arity)
+              (throw (new #?(:clj Exception
+                             :cljs js/Error) (str "Wrong number of arguments. Expected: " fixed-arity ", got: " (count args) ", " args)))))
+          (let [destructure-vec (vec (interleave binding-vector args))
+                destructure-vec (if var-arg-name
+                                  (conj destructure-vec var-arg-name (list 'quote (drop fixed-arity args)))
+                                  destructure-vec)
+                ;; arg-bindings (apply hash-map (interleave fixed-args args))
+                form (list* 'let (destructure destructure-vec)
+                            body)]
+            ;; (prn "FORM" form)
+            (interpret ctx form)
+            #_(last (map #(interpret ctx %) body))))
+        m))))
 
 (defn index-by [f coll]
   (zipmap (map f coll) coll))
@@ -69,10 +78,10 @@
                   (throw (new #?(:clj Exception
                                  :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments.")))))))]
     (reset! self-ref f)
-    (with-meta f
-      {:sci/name fn-name
-       ;; :sci/arities (map meta arities)
-       })))
+    f #_(with-meta f
+          {:sci/name fn-name
+           ;; :sci/arities (map meta arities)
+           })))
 
 (defn eval-defn [ctx interpret [defn fn-name docstring? & body :as expr]]
   (let [docstring (when (string? docstring?) docstring?)

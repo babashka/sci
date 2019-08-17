@@ -126,7 +126,7 @@
 
 (deftest fn-test
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error) #"arguments"
+       #?(:clj Exception :cljs js/Error) #"args"
        (eval* '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0))))
   (is (= 3 (eval* '((fn foo [x] (if (< x 3) (foo (inc x)) x)) 0))))
   (is (= [2 3] (eval* '((fn foo [[x & xs]] xs) [1 2 3]))))
@@ -156,10 +156,10 @@
        (eval* "#(inc x)")))
   (testing "as->"
     (is (thrown-with-msg?
-         #?(:clj Exception :cljs js/Error) #"x"
+         #?(:clj Exception :cljs js/Error) #"y"
          (eval* "(defn foo [] (as-> y x (inc y)))")))
     (is (thrown-with-msg?
-         #?(:clj Exception :cljs js/Error) #"x"
+         #?(:clj Exception :cljs js/Error) #"y"
          (eval* "(defn foo [] (as-> 10 x (inc y))))")))))
 
 ;;;; Scratch
