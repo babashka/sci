@@ -205,13 +205,6 @@
     (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (list 'def fn-name f)))
 
-(comment
-
-  (expand-as-> nil '(as-> 1 x (inc x) (inc x)))
-  )
-
-(def dbg (atom []))
-
 (defn macroexpand
   [ctx expr]
   (let [res (cond
@@ -242,10 +235,6 @@
 ;;;; Scratch
 
 (comment
-  (macroexpand {:bindings f/functions} '(+ 1 2 3))
-  (macroexpand {:bindings f/functions} '(fn [x] y))
   (macroexpand {:env (atom {}) :bindings f/functions} '(defn f [x] x))
-  (macroexpand {:env (atom {}) :bindings f/functions} '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0))
-  @dbg
-
+  (macroexpand {:env (atom {}) :bindings f/functions} '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x))))
   )
