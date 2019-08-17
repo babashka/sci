@@ -153,7 +153,14 @@
 (deftest resolve-test
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error) #"x"
-       (eval* "#(inc x)"))))
+       (eval* "#(inc x)")))
+  (testing "as->"
+    (is (thrown-with-msg?
+         #?(:clj Exception :cljs js/Error) #"x"
+         (eval* "(defn foo [] (as-> y x (inc y)))")))
+    (is (thrown-with-msg?
+         #?(:clj Exception :cljs js/Error) #"x"
+         (eval* "(defn foo [] (as-> 10 x (inc y))))")))))
 
 ;;;; Scratch
 

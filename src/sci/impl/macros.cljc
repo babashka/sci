@@ -134,11 +134,12 @@
 (defn expand-as->
   "The ->> macro from clojure.core."
   [ctx [_as expr name & forms]]
-  `(~'let [~name ~expr
-         ~@(interleave (repeat name) (butlast forms))]
-     ~(if (empty? forms)
-        name
-        (last forms))))
+  (let [[let-bindings & body] `([~name ~expr
+                                 ~@(interleave (repeat name) (butlast forms))]
+                                ~(if (empty? forms)
+                                   name
+                                   (last forms)))]
+    (expand-let* ctx let-bindings body)))
 
 (defn expand-def
   [ctx [_def var-name ?docstring ?init]]
