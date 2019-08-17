@@ -149,32 +149,33 @@
 (defn expand->
   "The -> macro from clojure.core."
   [ctx [x & forms]]
-  (loop [x x, forms forms]
-    (let [x (macroexpand ctx x)]
-      (if forms
-        (let [form (first forms)
-              threaded (if (seq? form)
-                         (with-meta (concat (list (first form) x)
-                                            (next form))
-                           (meta form))
-                         (list form x))]
-          (recur threaded (next forms)))
-        x))))
+  (let [expanded
+        (loop [x x, forms forms]
+          (let [x (macroexpand ctx x)]
+            (if forms
+              (let [form (first forms)
+                    threaded (if (seq? form)
+                               (with-meta (concat (list (first form) x)
+                                                  (next form))
+                                 (meta form))
+                               (list form x))]
+                (recur threaded (next forms))) x)))]
+    (macroexpand ctx expanded)))
 
 (defn expand->>
   "The ->> macro from clojure.core."
   [ctx [x & forms]]
-  (loop [x x, forms forms]
-    (let [x (macroexpand ctx x)]
-      (if forms
-        (let [form (first forms)
-              threaded (if (seq? form)
-                         (with-meta (concat (cons (first form) (next form))
-                                            (list x))
-                           (meta form))
-                         (list form x))]
-          (recur threaded (next forms)))
-        x))))
+  (let [expanded
+        (loop [x x, forms forms]
+          (if forms
+            (let [form (first forms)
+                  threaded (if (seq? form)
+                             (with-meta (concat (cons (first form) (next form))
+                                                (list x))
+                               (meta form))
+                             (list form x))]
+              (recur threaded (next forms))) x))]
+    (macroexpand ctx expanded)))
 
 (defn expand-as->
   "The ->> macro from clojure.core."
