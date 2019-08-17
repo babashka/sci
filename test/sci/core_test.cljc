@@ -165,11 +165,12 @@
 (deftest do-test
   (testing "expressions with do are evaluated in order and have side effects,
   even when one of the following expressions have an unresolved symbol"
-    (is
-     (= "hello\n"
-        (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
-                                     {'println println})
-                           (catch #?(:clj Exception :cljs js/Error) _ nil)))))))
+    (when-not tu/native?
+      (is
+       (= "hello\n"
+          (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
+                                       {'println println})
+                             (catch #?(:clj Exception :cljs js/Error) _ nil))))))))
 
 ;;;; Scratch
 
