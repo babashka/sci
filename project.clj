@@ -11,11 +11,12 @@
   :dependencies [[org.clojure/clojure "1.9.0"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :clojure-1.10.1 {:dependencies [[org.clojure/clojure "1.10.1"]]}
-             :test {:dependencies [[clj-commons/conch "0.9.2"]]}
+             :test {:dependencies [[clj-commons/conch "0.9.2"]
+                                   [criterium "0.4.5"]]}
              :uberjar {:global-vars {*assert* false}
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]
-                       :main sci.impl.native
+                       :main sci.impl.main
                        :aot :all}}
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
                                     :username :env/clojars_user
