@@ -62,14 +62,14 @@
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
-    (with-meta (list arg-list body-form)
-      {:sci/fixed-arity fixed-arity
-       :sci/destructure-vec destructure-vec
-       :sci/arg-list arg-list
-       :sci/fixed-names fixed-names
-       :sci/fixed-args fixed-args
-       :sci/var-arg-name var-arg-name
-       :sci/fn-name fn-name})))
+    {:sci/arg-list arg-list
+     :sci/body [body-form]
+     :sci/fixed-arity fixed-arity
+     :sci/destructure-vec destructure-vec
+     :sci/fixed-names fixed-names
+     :sci/fixed-args fixed-args
+     :sci/var-arg-name var-arg-name
+     :sci/fn-name fn-name}))
 
 (defn expand-fn [ctx [_fn name? & body]]
   (let [fn-name (if (symbol? name?)
@@ -83,9 +83,10 @@
                  body
                  [body])
         ctx (assoc-in ctx [:bindings fn-name] nil)
-        arities (doall (map #(expand-fn-args+body ctx fn-name %) bodies))
-        form (list* 'fn fn-name arities)]
-    form))
+        arities (doall (map #(expand-fn-args+body ctx fn-name %) bodies))]
+    {:sci/fn-bodies arities
+     :sci/fn-name fn-name
+     :sci/fn true}))
 
 (defn expand-fn-literal [ctx expr]
   (let [state (volatile! {:max-fixed 0 :var-args? false})
@@ -117,13 +118,15 @@
         destructure-vec (if var-args?
                           (conj destructure-vec '%& '%&)
                           destructure-vec)
-        form (with-meta (list 'fn (with-meta (list arg-list (macroexpand ctx expr))
-                                    {:sci/fixed-arity (count fixed-names)
-                                     :sci/destructure-vec destructure-vec
-                                     :sci/arg-list arg-list
-                                     :sci/fixed-names fixed-names
-                                     :sci/var-arg-name (when var-args? '%&)}))
-               {:sci/expanded true})]
+        form {:sci/fn true
+              :sci/fn-bodies
+              [{:sci/binding-vector arg-list
+                :sci/body [(macroexpand ctx expr)]
+                :sci/fixed-arity (count fixed-names)
+                :sci/destructure-vec destructure-vec
+                :sci/arg-list arg-list
+                :sci/fixed-names fixed-names
+                :sci/var-arg-name (when var-args? '%&)}]}]
     form
     #_(expand-fn ctx form)))
 

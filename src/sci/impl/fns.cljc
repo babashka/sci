@@ -21,10 +21,8 @@
          (if (= 1 arg-count) "arg" "args")
          (show-arities fixed-arities var-args-min-arity)))
 
-(defn parse-fn-args+body [interpret ctx [binding-vector & body :as fn-body]]
-  (let [{:sci/keys [fixed-arity fixed-names var-arg-name destructure-vec arg-list fn-name] :as _m}
-        (meta fn-body)
-        ;; _ (prn "META" _m)
+(defn parse-fn-args+body [interpret ctx {:sci/keys [fixed-arity fixed-names var-arg-name destructure-vec arg-list body] :as _m}]
+  (let [;; _ (prn "M" _m)
         min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
             {:sci/min-var-args-arity min-var-args-arity}
@@ -80,22 +78,12 @@
                            (>= arity min-var-args-arity)))
               f))) arities))
 
-(defn eval-fn [ctx interpret [_fn name? & body :as e]]
-  (let [fn-name (if (symbol? name?)
-                  name?
-                  nil)
-        body (if fn-name
-               body
-               (cons name? body))
-        fn-name (or fn-name (gensym "fn"))
-        bodies (if (seq? (first body))
-                 body
-                 [body])
-        self-ref (atom nil)
+(defn eval-fn [ctx interpret {:sci/keys [fn-bodies fn-name]}]
+  (let [self-ref (atom nil)
         call-self (fn [& args]
                     (apply @self-ref args))
         ctx (assoc-in ctx [:bindings fn-name] call-self)
-        arities (map #(parse-fn-args+body interpret ctx %) bodies)
+        arities (map #(parse-fn-args+body interpret ctx %) fn-bodies)
         f (if (= 1 (count arities))
             (first arities)
             (fn [& args]
@@ -124,6 +112,4 @@
 ;;;; Scratch
 
 (comment
-  c
-  e
   )
