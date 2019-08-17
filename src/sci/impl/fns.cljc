@@ -1,14 +1,37 @@
 (ns sci.impl.fns
-  (:refer-clojure :exclude [destructure])
-  (:require [sci.impl.destructure :refer [destructure]]))
+  (:refer-clojure :exclude [destructure]))
+
+;; TODO: use this to improve arity error message
+#_(defn show-arities [fixed-arities var-args-min-arity]
+    (let [fas (vec (sort fixed-arities))
+          max-fixed (peek fas)
+          arities (if var-args-min-arity
+                    (if (= max-fixed var-args-min-arity)
+                      fas (conj fas var-args-min-arity))
+                    fas)]
+      (cond var-args-min-arity
+            (str (str/join ", " arities) " or more")
+            (= 1 (count fas)) (first fas)
+            :else (str (str/join ", " (pop arities)) " or " (peek arities)))))
+
+;; TODO: use this to improve arity error message
+#_(defn arity-error-msg [ns-name fn-name arg-count fixed-arities var-args-min-arity]
+    (str fn-name "<name> is called with "
+         ;; (if ns-name (str ns-name "/" fn-name) fn-name)
+         arg-count
+         (if (= 1 arg-count) "arg" "args")
+         (show-arities fixed-arities var-args-min-arity)))
 
 (defn parse-fn-args+body [interpret ctx [binding-vector & body :as fn-body]]
-  (let [{:sci/keys [fixed-arity var-arg-name destructured-bindings arg-list]} (meta fn-body)
+  (let [{:sci/keys [fixed-arity fixed-names var-arg-name destructure-vec arg-list fn-name] :as _m}
+        (meta fn-body)
+        ;; _ (prn "META" _m)
         min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
             {:sci/min-var-args-arity min-var-args-arity}
             {:sci/fixed-arity fixed-arity})]
-    (if (and (not var-arg-name) fixed-arity (< fixed-arity 3))
+    (if #?(:cljs false :clj (and (not var-arg-name) fixed-arity (< fixed-arity 3)))
+      ;; small optimization for fns with 0-2 args
       (case fixed-arity
         0 (with-meta (fn [] (interpret ctx (cons 'do body))) m)
         1 (with-meta (fn [x]
@@ -25,25 +48,30 @@
             (when (< (count (take min-var-args-arity args))
                      min-var-args-arity)
               (throw (new #?(:clj Exception
-                             :cljs js/Error) "Wrong number of arguments. (varargs)")))
+                             :cljs js/Error)
+                          "Wrong number of arguments. Expected at least: " min-var-args-arity)))
             (when-not (= (count (take (inc fixed-arity) args))
                          fixed-arity)
               (throw (new #?(:clj Exception
                              :cljs js/Error) (str "Wrong number of arguments. Expected: " fixed-arity ", got: " (count args) ", " args)))))
-          (let [destructure-vec (vec (interleave binding-vector args))
-                destructure-vec (if var-arg-name
-                                  (conj destructure-vec var-arg-name (list 'quote (drop fixed-arity args)))
-                                  destructure-vec)
+          (let [;; arg-list contains the gensymed symbols, so here we get:
+                ;; [arg0 val1 arg1 val2]
+                ;; _ (prn args "," (conj fixed-names var-arg-name))
+                runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
+                runtime-bindings (if var-arg-name
+                                   (conj runtime-bindings var-arg-name
+                                         (list 'quote (drop fixed-arity args)))
+                                   runtime-bindings)
+                ;; _ (prn "RT" runtime-bindings)
+                ;; now we can substitute these values in the destructure-vec we
+                ;; got at macroexpansion time, which is basically what let does
+                ;; for us
+                let-bindings (into runtime-bindings destructure-vec)
                 ;; arg-bindings (apply hash-map (interleave fixed-args args))
-                form (list* 'let (destructure destructure-vec)
+                form (list* 'let let-bindings
                             body)]
-            ;; (prn "FORM" form)
-            (interpret ctx form)
-            #_(last (map #(interpret ctx %) body))))
+            (interpret ctx form)))
         m))))
-
-(defn index-by [f coll]
-  (zipmap (map f coll) coll))
 
 (defn lookup-by-arity [arities arity]
   (some (fn [f]

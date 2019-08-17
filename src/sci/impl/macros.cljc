@@ -39,7 +39,7 @@
 
 (declare macroexpand macroexpand-1)
 
-(defn expand-fn-args+body [ctx [binding-vector & body-exprs]]
+(defn expand-fn-args+body [ctx fn-name [binding-vector & body-exprs]]
   (let [fixed-args (take-while #(not= '& %) binding-vector)
         var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
@@ -64,10 +64,12 @@
                    fixed-names)]
     (with-meta (list arg-list body-form)
       {:sci/fixed-arity fixed-arity
-       :sci/destructured-bindings destructured-vec
+       :sci/destructure-vec destructure-vec
        :sci/arg-list arg-list
+       :sci/fixed-names fixed-names
        :sci/fixed-args fixed-args
-       :sci/var-arg-name var-arg-name})))
+       :sci/var-arg-name var-arg-name
+       :sci/fn-name fn-name})))
 
 (defn expand-fn [ctx [_fn name? & body]]
   (let [fn-name (if (symbol? name?)
@@ -81,7 +83,7 @@
                  body
                  [body])
         ctx (assoc-in ctx [:bindings fn-name] nil)
-        arities (doall (map #(expand-fn-args+body ctx %) bodies))
+        arities (doall (map #(expand-fn-args+body ctx fn-name %) bodies))
         form (list* 'fn fn-name arities)]
     form))
 
@@ -111,11 +113,15 @@
         ctx (if var-args?
               (update ctx :bindings assoc '%& nil)
               ctx)
+        destructure-vec (vec (interleave fixed-names fixed-names))
+        destructure-vec (if var-args?
+                          (conj destructure-vec '%& '%&)
+                          destructure-vec)
         form (with-meta (list 'fn (with-meta (list arg-list (macroexpand ctx expr))
                                     {:sci/fixed-arity (count fixed-names)
-                                     :sci/destructured-bindings (vec (interleave arg-list arg-list))
+                                     :sci/destructure-vec destructure-vec
                                      :sci/arg-list arg-list
-                                     :sci/fixed-args fixed-names
+                                     :sci/fixed-names fixed-names
                                      :sci/var-arg-name (when var-args? '%&)}))
                {:sci/expanded true})]
     form
