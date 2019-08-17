@@ -149,6 +149,36 @@
   (let [let-bindings (destructure let-bindings)]
     (expand-let* ctx let-bindings exprs)))
 
+(defn expand->
+  "The -> macro from clojure.core."
+  [ctx [x & forms]]
+  (loop [x x, forms forms]
+    (let [x (macroexpand ctx x)]
+      (if forms
+        (let [form (first forms)
+              threaded (if (seq? form)
+                         (with-meta (concat (list (first form) x)
+                                            (next form))
+                           (meta form))
+                         (list form x))]
+          (recur threaded (next forms)))
+        x))))
+
+(defn expand->>
+  "The ->> macro from clojure.core."
+  [ctx [x & forms]]
+  (loop [x x, forms forms]
+    (let [x (macroexpand ctx x)]
+      (if forms
+        (let [form (first forms)
+              threaded (if (seq? form)
+                         (with-meta (concat (cons (first form) (next form))
+                                            (list x))
+                           (meta form))
+                         (list form x))]
+          (recur threaded (next forms)))
+        x))))
+
 (defn expand-as->
   "The ->> macro from clojure.core."
   [ctx [_as expr name & forms]]
@@ -204,6 +234,8 @@
                         quote expr
                         def (expand-def ctx expr)
                         defn (expand-defn ctx expr)
+                        -> (expand-> ctx (rest expr))
+                        ->> (expand->> ctx (rest expr))
                         as-> (expand-as-> ctx expr)
                         ;; else:
                         (doall (map #(macroexpand ctx %) expr))))

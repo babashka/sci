@@ -29,35 +29,7 @@
               'sci/quote read-quote}}
    s))
 
-;;;; Macros
-
-(defn expand->
-  "The -> macro from clojure.core."
-  [[x & forms]]
-  (loop [x x, forms forms]
-    (if forms
-      (let [form (first forms)
-            threaded (if (seq? form)
-                       (with-meta (concat (list (first form) x)
-                                          (next form))
-                         (meta form))
-                       (list form x))]
-        (recur threaded (next forms)))
-      x)))
-
-(defn expand->>
-  "The ->> macro from clojure.core."
-  [[x & forms]]
-  (loop [x x, forms forms]
-    (if forms
-      (let [form (first forms)
-            threaded (if (seq? form)
-                       (with-meta (concat (cons (first form) (next form))
-                                          (list x))
-                         (meta form))
-                       (list form x))]
-        (recur threaded (next forms)))
-      x)))
+;;;; Evaluation
 
 (defn eval-and
   "The and macro from clojure.core."
@@ -153,10 +125,6 @@
   (let [args (mapv i args)]
     (apply f args)))
 
-(comment
-  e
-  )
-
 (def constant? (some-fn fn? number? string? keyword?))
 
 (defn interpret
@@ -189,10 +157,6 @@
                           when
                           (eval-when i expr)
                           quote (second expr)
-                          ->
-                          (interpret ctx (expand-> (rest expr)))
-                          ->>
-                          (interpret ctx (expand->> (rest expr)))
                           and
                           (eval-and ctx (rest expr))
                           or
@@ -202,7 +166,6 @@
                           let
                           (apply eval-let ctx (rest expr))
                           def (eval-def ctx expr)
-                          defn (fns/eval-defn ctx interpret expr)
                           ;; else
                           (if (ifn? f)
                             (apply-fn f i (rest expr))
