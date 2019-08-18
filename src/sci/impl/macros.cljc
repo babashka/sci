@@ -1,4 +1,5 @@
 (ns sci.impl.macros
+  {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require [clojure.walk :refer [postwalk]]
             [sci.impl.destructure :refer [destructure]]

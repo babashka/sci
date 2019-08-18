@@ -1,4 +1,5 @@
-(ns sci.impl.fns)
+(ns sci.impl.fns
+  {:no-doc true})
 
 (defn parse-fn-args+body
   [interpret ctx
