@@ -209,10 +209,17 @@
 (defn macroexpand
   [ctx expr]
   (let [res (cond
+              ;; already expanded by reader
+              (:sci/fn expr) expr
               (symbol? expr)
               (or (let [v (resolve-symbol ctx expr)]
                     (when-not (identical? :sci/var.unbound v)))
                   expr)
+              (map? expr)
+              (zipmap (map #(macroexpand ctx %) (keys expr))
+                      (map #(macroexpand ctx %) (vals expr)))
+              (or (vector? expr) (set? expr))
+              (into (empty expr) (map #(macroexpand ctx %) expr))
               (seq? expr)
               (if-let [f (first expr)]
                 (let [f (get macros f)]
