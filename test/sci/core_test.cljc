@@ -172,6 +172,10 @@
                                        {'println println})
                              (catch #?(:clj Exception :cljs js/Error) _ nil))))))))
 
+(deftest macroexpand-test
+  (is (= [6] (eval* "[(-> 3 inc inc inc)]")))
+  (is (= [{3 6}] (eval* "[{(->> 2 inc) (-> 3 inc inc inc)}]"))))
+
 ;;;; Scratch
 
 (comment
