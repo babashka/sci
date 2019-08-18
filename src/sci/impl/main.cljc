@@ -2,7 +2,8 @@
   "Only used for testing"
   {:no-doc true}
   (:require [sci.core :refer [eval-string]]
-            [clojure.edn :as edn])
+            #?(:clj [clojure.edn :as edn]
+               :cljs [cljs.reader :as edn]))
   #?(:clj (:gen-class)))
 
 ;; for testing only
