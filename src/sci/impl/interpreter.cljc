@@ -130,15 +130,14 @@
                        :cljs js/Error)
                     (str "Could not resolve symbol: " (str expr)))))))))
 
-(defn apply-fn [f i args]
-  (let [args (mapv i args)]
+(defn apply-fn [ctx f args]
+  (let [args (mapv #(interpret ctx %) args)]
     (apply f args)))
 
 (def constant? (some-fn fn? number? string? keyword?))
 
 (defn interpret
   [ctx expr]
-  ;; (prn "EXPR" expr)
   (cond (constant? expr) expr
         (symbol? expr) (resolve-symbol ctx expr)
         (:sci/fn expr) (fns/eval-fn ctx interpret expr)
@@ -152,11 +151,8 @@
                   (into (empty expr) (map i expr))
                   (seq? expr)
                   (if-let [f (first expr)]
-                    (let [;;_ (prn "FST" f)
-                          f (or (get macros f)
-                                (i f))
-                          ;;_ (prn ">" f)
-                          ]
+                    (let [f (or (get macros f)
+                                (i f))]
                       (case f
                         do
                         (eval-do ctx expr)
@@ -174,7 +170,7 @@
                         def (eval-def ctx expr)
                         ;; else
                         (if (ifn? f)
-                          (apply-fn f i (rest expr))
+                          (apply-fn ctx f (rest expr))
                           (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
                                     :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
                     expr)
@@ -199,8 +195,7 @@
                                               (str "#sci/quote " (second m))))))
 
          ;; _ (def e edn)
-         expr (macros/macroexpand ctx edn)
-         ]
+         expr (macros/macroexpand ctx edn)]
      (interpret ctx expr))))
 
 ;;;; Scratch

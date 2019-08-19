@@ -55,7 +55,8 @@
   (let [self-ref (atom nil)
         call-self (fn [& args]
                     (apply @self-ref args))
-        ctx (assoc-in ctx [:bindings fn-name] call-self)
+        ctx (if fn-name (assoc-in ctx [:bindings fn-name] call-self)
+                ctx)
         arities (map #(parse-fn-args+body interpret ctx %) fn-bodies)
         f (if (= 1 (count arities))
             (first arities)

@@ -6,41 +6,40 @@
             [sci.impl.functions :as f]
             [clojure.string :as str]))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn def defn})
+(def macros '#{do if when and or -> ->> as-> quote quote* let fn def defn})
 
 (defn lookup [{:keys [:env :bindings]} sym]
-  (when-let [[k v :as kv]
-             (or (when-let [v (get macros sym)]
-                   [v v])
-                 (find bindings sym)
-                 (find @env sym)
-                 (find f/functions sym)
-                 (when-let [ns (namespace sym)]
-                   (when (or (= "clojure.core" ns)
-                             (= "cljs.core" ns))
-                     (find f/functions (symbol (name sym))))))]
-    (if-let [m (meta k)]
-      (if (:sci/deref! m)
-        ;; the evaluation of this expression has been delayed by
-        ;; the caller and now is the time to deref it
-        [k @v] kv)
-      kv)))
+  (let [res (or (when-let [v (get macros sym)]
+                  [v v])
+                (when-let [[k _v]
+                           (find bindings sym)]
+                  ;; never inline a binding at macro time!
+                  [k nil])
+                (find @env sym)
+                (find f/functions sym)
+                (when-let [ns (namespace sym)]
+                  (when (or (= "clojure.core" ns)
+                            (= "cljs.core" ns))
+                    (find f/functions (symbol (name sym))))))]
+    ;; (prn 'lookup sym '-> res)
+    res))
 
 (defn resolve-symbol [ctx expr]
-  ;; (prn "resolve sym" expr)
-  (second
-   (or
-    (lookup ctx expr)
-    ;; TODO: check if symbol is in macros and then emit an error: cannot take
-    ;; the value of a macro
-    (let [n (name expr)]
-      (if (str/starts-with? n "'")
-        (let [v (symbol (subs n 1))]
-          [v v])
-        (throw (new #?(:clj Exception
-                       :cljs js/Error)
-                    (str "Could not resolve symbol: " (str expr)
-                         (keys (:bindings expr))))))))))
+  (let [res (second
+             (or
+              (lookup ctx expr)
+              ;; TODO: check if symbol is in macros and then emit an error: cannot take
+              ;; the value of a macro
+              (let [n (name expr)]
+                (if (str/starts-with? n "'")
+                  (let [v (symbol (subs n 1))]
+                    [v v])
+                  (throw (new #?(:clj Exception
+                                 :cljs js/Error)
+                              (str "Could not resolve symbol: " (str expr)
+                                   (keys (:bindings expr)))))))))]
+    ;; (prn 'resolve expr '-> res)
+    res))
 
 (declare macroexpand macroexpand-1)
 
@@ -202,7 +201,6 @@
     (swap! (:env ctx) assoc var-name :sci/var.unbound)
     (list 'def var-name init)))
 
-
 (defn expand-defn [ctx [_defn fn-name docstring? & body]]
   (let [docstring (when (string? docstring?) docstring?)
         body (if docstring body (cons docstring? body))
@@ -218,7 +216,8 @@
               (:sci/fn expr) expr
               (symbol? expr)
               (or (let [v (resolve-symbol ctx expr)]
-                    (when-not (identical? :sci/var.unbound v)))
+                    (when-not (identical? :sci/var.unbound v)
+                      v))
                   expr)
               (map? expr)
               (zipmap (map #(macroexpand ctx %) (keys expr))
@@ -227,22 +226,29 @@
               (into (empty expr) (map #(macroexpand ctx %) expr))
               (seq? expr)
               (if-let [f (first expr)]
-                (case f
-                  do expr ;; do will call macroexpand on every subsequent expression
-                  let
-                  (expand-let ctx expr)
-                  (fn fn*) (expand-fn ctx expr)
-                  quote expr
-                  def (expand-def ctx expr)
-                  defn (expand-defn ctx expr)
-                  -> (expand-> ctx (rest expr))
-                  ->> (expand->> ctx (rest expr))
-                  as-> (expand-as-> ctx expr)
-                  ;; else:
+                (if (symbol? f)
+                  (let [f (if-let [ns (namespace f)]
+                            (if (or (= "clojure.core" ns)
+                                    (= "cljs.core" ns))
+                              (symbol (name f))
+                              f)
+                            f)]
+                    (case f
+                      do expr ;; do will call macroexpand on every subsequent expression
+                      let
+                      (expand-let ctx expr)
+                      (fn fn*) (expand-fn ctx expr)
+                      quote expr
+                      def (expand-def ctx expr)
+                      defn (expand-defn ctx expr)
+                      -> (expand-> ctx (rest expr))
+                      ->> (expand->> ctx (rest expr))
+                      as-> (expand-as-> ctx expr)
+                      ;; else:
+                      (doall (map #(macroexpand ctx %) expr))))
                   (doall (map #(macroexpand ctx %) expr)))
                 expr)
               :else expr)]
-    ;; (prn expr (meta expr) '-> res)
     res))
 
 ;;;; Scratch
