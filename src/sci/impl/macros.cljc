@@ -223,20 +223,19 @@
               (into (empty expr) (map #(macroexpand ctx %) expr))
               (seq? expr)
               (if-let [f (first expr)]
-                (let [f (get macros f)]
-                  (case f
-                    do expr ;; do will call macroexpand on every subsequent expression
-                    let
-                    (expand-let ctx expr)
-                    fn (expand-fn ctx expr)
-                    quote expr
-                    def (expand-def ctx expr)
-                    defn (expand-defn ctx expr)
-                    -> (expand-> ctx (rest expr))
-                    ->> (expand->> ctx (rest expr))
-                    as-> (expand-as-> ctx expr)
-                    ;; else:
-                    (doall (map #(macroexpand ctx %) expr))))
+                (case f
+                  do expr ;; do will call macroexpand on every subsequent expression
+                  let
+                  (expand-let ctx expr)
+                  (fn fn*) (expand-fn ctx expr)
+                  quote expr
+                  def (expand-def ctx expr)
+                  defn (expand-defn ctx expr)
+                  -> (expand-> ctx (rest expr))
+                  ->> (expand->> ctx (rest expr))
+                  as-> (expand-as-> ctx expr)
+                  ;; else:
+                  (doall (map #(macroexpand ctx %) expr)))
                 expr)
               :else expr)]
     ;; (prn expr (meta expr) '-> res)
