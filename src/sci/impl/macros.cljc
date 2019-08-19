@@ -14,7 +14,11 @@
                    [v v])
                  (find bindings sym)
                  (find @env sym)
-                 (find f/functions sym))]
+                 (find f/functions sym)
+                 (when-let [ns (namespace sym)]
+                   (when (or (= "clojure.core" ns)
+                             (= "cljs.core" ns))
+                     (find f/functions (symbol (name sym))))))]
     (if-let [m (meta k)]
       (if (:sci/deref! m)
         ;; the evaluation of this expression has been delayed by

@@ -176,7 +176,7 @@
   (is (= [6] (eval* "[(-> 3 inc inc inc)]")))
   (is (= [{3 6}] (eval* "[{(->> 2 inc) (-> 3 inc inc inc)}]")))
   (when-not tu/native?
-    (is (eval* (str (pr-str '(#(< 10 % 18) 15)))))))
+    (is (eval* (str `(#(< 10 % 18) 15))))))
 
 ;;;; Scratch
 
