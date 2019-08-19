@@ -1,12 +1,15 @@
 (ns sci.performance
-  (:require [criterium.core :as cc]
-            [sci.core :as sci]))
+  (:require
+   [criterium.core :as cc]
+   [sci.core :as sci]
+   [clj-async-profiler.core :as prof]))
 
 (comment
   (def f (sci/eval-string "#(assoc (hash-map :a 1 :b 2) %1 %2))"))
-  (meta f)
   (f :b 3)
-  (f :b 3 4 4))
+  (meta f)
+  (prof/profile (dotimes [_ 10000] (f :b 3)))
+  (System/getProperty "jdk.attach.allowAttachSelf"))
 
 (defn bench-sci []
   (let [f (sci/eval-string "#(assoc (hash-map :a 1 :b 2) %1 %2))")]
@@ -14,6 +17,8 @@
 
 (defn bench-clojure []
   (let [f #(assoc (hash-map :a 1 :b 2) %1 %2)]
+    (cc/quick-bench (f :b 3)))
+  (let [f #(eval `(let [x# ~%1 y# ~%2] (assoc (hash-map :a 1 :b 2) x# y#)))]
     (cc/quick-bench (f :b 3))))
 
 (comment
