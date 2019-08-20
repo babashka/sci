@@ -193,8 +193,8 @@
   (if tu/native?
     (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
     (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
-  (is (tu/eval* (str `#(inc %)) {:allow '[fn* inc]}))
-  (is (tu/eval* (str `#(let [x %])) {:allow '[fn* let]})))
+  (is (tu/eval* (str (list `#(inc %) 10)) {:allow '[fn* inc]}))
+  (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let]})))
 
 ;;;; Scratch
 
