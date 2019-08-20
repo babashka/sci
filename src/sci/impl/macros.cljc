@@ -29,9 +29,9 @@
                 (when-let [ns (namespace sym)]
                   (when (or (= "clojure.core" ns)
                             (= "cljs.core" ns))
+                    (allow?! ctx sym)
                     (let [unqualified-sym (symbol (name sym))]
                       (when-let [v (find f/functions unqualified-sym)]
-                        (allow?! ctx unqualified-sym)
                         v)))))]
     ;; (prn 'lookup sym '-> res)
     res))
