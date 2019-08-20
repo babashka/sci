@@ -192,7 +192,9 @@
     (is ((tu/eval* "#(pos-int? %)" {:allow '[pos-int?]}) 10)))
   (if tu/native?
     (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
-    (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2)))))
+    (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
+  (is (tu/eval* (str `#(inc %)) {:allow '[fn* inc]}))
+  (is (tu/eval* (str `#(let [x %])) {:allow '[fn* let]})))
 
 ;;;; Scratch
 
