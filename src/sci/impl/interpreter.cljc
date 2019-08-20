@@ -183,10 +183,11 @@
 
 (defn eval-string
   ([s] (eval-string s nil))
-  ([s {:keys [:bindings :env]}]
+  ([s {:keys [:bindings :env :allow]}]
    (let [env (or env (atom {}))
          ctx {:env env
-              :bindings bindings}
+              :bindings bindings
+              :allow (when allow (set allow))}
          edn (read-edn ctx (-> s
                                (str/replace "#(" "#sci/fn(")
                                (str/replace "#\"" "#sci/regex\"")

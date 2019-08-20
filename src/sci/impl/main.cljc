@@ -7,5 +7,5 @@
   #?(:clj (:gen-class)))
 
 ;; for testing only
-(defn -main [& [form bindings]]
-  (prn (eval-string form {:bindings (edn/read-string bindings)})))
+(defn -main [& [form ctx]]
+  (prn (eval-string form (edn/read-string ctx))))

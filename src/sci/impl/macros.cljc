@@ -8,19 +8,31 @@
 
 (def macros '#{do if when and or -> ->> as-> quote quote* let fn def defn})
 
-(defn lookup [{:keys [:env :bindings]} sym]
+(defn allow?! [{:keys [:allow]} sym]
+  (let [allowed? (if allow (contains? allow sym)
+                     true)]
+    (when-not allowed?
+      (throw (new #?(:clj Exception :cljs js/Error)
+                  (str sym " is not allowed!"))))))
+
+(defn lookup [{:keys [:env :bindings] :as ctx} sym]
   (let [res (or (when-let [v (get macros sym)]
-                  [v v])
+                  (do (allow?! ctx sym)
+                      [v v]))
                 (when-let [[k _v]
                            (find bindings sym)]
                   ;; never inline a binding at macro time!
                   [k nil])
                 (find @env sym)
-                (find f/functions sym)
+                (do (allow?! ctx sym)
+                    (find f/functions sym))
                 (when-let [ns (namespace sym)]
                   (when (or (= "clojure.core" ns)
                             (= "cljs.core" ns))
-                    (find f/functions (symbol (name sym))))))]
+                    (let [unqualified-sym (symbol (name sym))]
+                      (when-let [v (find f/functions unqualified-sym)]
+                        (allow?! ctx unqualified-sym)
+                        v)))))]
     ;; (prn 'lookup sym '-> res)
     res))
 
@@ -227,25 +239,27 @@
               (seq? expr)
               (if-let [f (first expr)]
                 (if (symbol? f)
-                  (let [f (if-let [ns (namespace f)]
-                            (if (or (= "clojure.core" ns)
-                                    (= "cljs.core" ns))
-                              (symbol (name f))
-                              f)
-                            f)]
-                    (case f
-                      do expr ;; do will call macroexpand on every subsequent expression
-                      let
-                      (expand-let ctx expr)
-                      (fn fn*) (expand-fn ctx expr)
-                      quote expr
-                      def (expand-def ctx expr)
-                      defn (expand-defn ctx expr)
-                      -> (expand-> ctx (rest expr))
-                      ->> (expand->> ctx (rest expr))
-                      as-> (expand-as-> ctx expr)
-                      ;; else:
-                      (doall (map #(macroexpand ctx %) expr))))
+                  (do
+                    (allow?! ctx f)
+                    (let [f (if-let [ns (namespace f)]
+                              (if (or (= "clojure.core" ns)
+                                      (= "cljs.core" ns))
+                                (symbol (name f))
+                                f)
+                              f)]
+                      (case f
+                        do expr ;; do will call macroexpand on every subsequent expression
+                        let
+                        (expand-let ctx expr)
+                        (fn fn*) (expand-fn ctx expr)
+                        quote expr
+                        def (expand-def ctx expr)
+                        defn (expand-defn ctx expr)
+                        -> (expand-> ctx (rest expr))
+                        ->> (expand->> ctx (rest expr))
+                        as-> (expand-as-> ctx expr)
+                        ;; else:
+                        (doall (map #(macroexpand ctx %) expr)))))
                   (doall (map #(macroexpand ctx %) expr)))
                 expr)
               :else expr)]
@@ -256,4 +270,8 @@
 (comment
   (macroexpand {:env (atom {}) :bindings f/functions} '(defn f [x] x))
   (macroexpand {:env (atom {}) :bindings f/functions} '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x))))
+  (macroexpand {:env (atom {}) :allow '#{int?}} '(int? 1))
+  (macroexpand {:env (atom {}) :allow '#{int?}} '(boolean? 1))
+  (macroexpand {:env (atom {})
+                :allow '#{def}} '(defn f []))
   )

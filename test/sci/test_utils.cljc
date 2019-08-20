@@ -8,16 +8,15 @@
 
 (when native? (println "Testing native version."))
 
-(defn eval* [form bindings]
+(defn eval* [form ctx]
   (if #?(:clj (not native?)
          :cljs true)
-    (eval-string (str form) {:bindings bindings})
+    (eval-string (str form) ctx)
     #?(:clj
        (let-programs [sci "./sci"]
-         ;; (prn ">>>" (str form) (str bindings) (sci (str form) (str bindings)))
-         (try (edn/read-string (sci (str form) (str bindings)))
+         (try (edn/read-string (sci (str form) (str ctx)))
               (catch #?(:clj Exception :cljs :default) e
-                (throw (new #?(:clj Exception :cljs js/Error)
+                (throw (new Exception
                             (:stderr (ex-data e))))))))))
 
 ;;;; Scratch
