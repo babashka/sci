@@ -7,7 +7,8 @@
    [clojure.string :as str]
    [sci.impl.fns :as fns]
    [sci.impl.functions :as f]
-   [sci.impl.macros :as macros]))
+   [sci.impl.macros :as macros]
+   [sci.impl.max-or-throw :refer [max-or-throw]]))
 
 ;;;; Readers
 
@@ -131,7 +132,7 @@
                     (str "Could not resolve symbol: " (str expr)))))))))
 
 (defn apply-fn [ctx f args]
-  (let [args (mapv #(interpret ctx %) args)]
+  (let [args (mapv max-or-throw (map #(interpret ctx %) args))]
     (apply f args)))
 
 (def constant? (some-fn fn? number? string? keyword?))
@@ -197,7 +198,7 @@
 
          ;; _ (def e edn)
          expr (macros/macroexpand ctx edn)]
-     (interpret ctx expr))))
+     (max-or-throw (interpret ctx expr)))))
 
 ;;;; Scratch
 
