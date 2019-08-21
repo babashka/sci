@@ -7,7 +7,8 @@
    [clojure.string :as str]
    [sci.impl.fns :as fns]
    [sci.impl.functions :as f]
-   [sci.impl.macros :as macros]))
+   [sci.impl.macros :as macros]
+   [sci.impl.max-or-throw :refer [max-or-throw]]))
 
 ;;;; Readers
 
@@ -131,62 +132,71 @@
                     (str "Could not resolve symbol: " (str expr)))))))))
 
 (defn apply-fn [ctx f args]
-  (let [args (mapv #(interpret ctx %) args)]
+  (let [args (map #(interpret ctx %) args)]
     (apply f args)))
 
 (def constant? (some-fn fn? number? string? keyword?))
 
 (defn interpret
   [ctx expr]
-  (cond (constant? expr) expr
-        (symbol? expr) (resolve-symbol ctx expr)
-        (:sci/fn expr) (fns/eval-fn ctx interpret expr)
-        :else
-        (let [i #(interpret ctx %)
-              r (cond
-                  (map? expr)
-                  (zipmap (map i (keys expr))
-                          (map i (vals expr)))
-                  (or (vector? expr) (set? expr))
-                  (into (empty expr) (map i expr))
-                  (seq? expr)
-                  (if-let [f (first expr)]
-                    (let [f (or (get macros f)
-                                (i f))]
-                      (case f
-                        do
-                        (eval-do ctx expr)
-                        if
-                        (eval-if i expr)
-                        when
-                        (eval-when i expr)
-                        quote (second expr)
-                        and
-                        (eval-and ctx (rest expr))
-                        or
-                        (eval-or ctx (rest expr))
-                        let
-                        (apply eval-let ctx (rest expr))
-                        def (eval-def ctx expr)
-                        ;; else
-                        (if (ifn? f)
-                          (apply-fn ctx f (rest expr))
-                          (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
-                                    :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
-                    expr)
-                  :else expr)]
-          ;; for debugging:
-          ;; (prn expr '-> r)
-          r)))
+  (let [ret
+        (cond (constant? expr) expr
+              (symbol? expr) (resolve-symbol ctx expr)
+              (:sci/fn expr) (fns/eval-fn ctx interpret expr)
+              :else
+              (let [i #(interpret ctx %)
+                    r (cond
+                        (map? expr)
+                        (zipmap (map i (keys expr))
+                                (map i (vals expr)))
+                        (or (vector? expr) (set? expr))
+                        (into (empty expr) (map i expr))
+                        (seq? expr)
+                        (if-let [f (first expr)]
+                          (let [f (or (get macros f)
+                                      (i f))]
+                            (case f
+                              do
+                              (eval-do ctx expr)
+                              if
+                              (eval-if i expr)
+                              when
+                              (eval-when i expr)
+                              quote (second expr)
+                              and
+                              (eval-and ctx (rest expr))
+                              or
+                              (eval-or ctx (rest expr))
+                              let
+                              (apply eval-let ctx (rest expr))
+                              def (eval-def ctx expr)
+                              ;; else
+                              (if (ifn? f)
+                                (apply-fn ctx f (rest expr))
+                                (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
+                                          :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
+                          expr)
+                        :else expr)]
+                ;; for debugging:
+                ;; (prn expr '-> r)
+                r))]
+    (if-let [n (:realize-max ctx)]
+      (max-or-throw ret (assoc ctx
+                               :expression expr)
+                    n)
+      ret)))
 
 ;;;; Called from public API
 
 (defn eval-string
   ([s] (eval-string s nil))
-  ([s {:keys [:bindings :env]}]
+  ([s {:keys [:bindings :env :allow :realize-max]}]
    (let [env (or env (atom {}))
          ctx {:env env
-              :bindings bindings}
+              :bindings bindings
+              :allow (when allow (set allow))
+              :realize-max realize-max
+              :start-expression s}
          edn (read-edn ctx (-> s
                                (str/replace "#(" "#sci/fn(")
                                (str/replace "#\"" "#sci/regex\"")

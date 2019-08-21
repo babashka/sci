@@ -6,7 +6,7 @@
 (defn eval*
   ([form] (eval* nil form))
   ([binding form]
-   (tu/eval* form {'*in* binding})))
+   (tu/eval* form {:bindings {'*in* binding}})))
 
 (deftest core-test
   (when-not tu/native?
@@ -15,7 +15,7 @@
                  (eval* '(do 0 1 2))
                  (let [a (atom 0)]
                    (tu/eval*
-                    '(do (f) (f)) {'f #(swap! a inc)})
+                    '(do (f) (f)) {:bindings {'f #(swap! a inc)}})
                    @a))))))
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
@@ -27,7 +27,7 @@
                  (eval* '(when true 0 1 2))
                  (let [a (atom 0)]
                    (tu/eval*
-                    '(when true (f) (f)) {'f #(swap! a inc)})
+                    '(when true (f) (f)) {:bindings {'f #(swap! a inc)}})
                    @a))))))
   (testing "and and or"
     (is (= false (eval* 0 '(and false true *in*))))
@@ -102,20 +102,20 @@
                (eval* '(let [x 2] 1 2 3 x))
                (let [a (atom 0)]
                  (tu/eval*
-                  '(let [x 3] (f) (f) x) {'f #(swap! a inc)})
+                  '(let [x 3] (f) (f) x) {:bindings {'f #(swap! a inc)}})
                  @a))))))
 
 (deftest delay-test
   (when-not tu/native?
     ;; cannot test this natively due to metadata serialization in EDN
-    (is (= 6 (tu/eval* '(+ 1 2 3) {(with-meta 'x {:sci/deref! true})
-                                   (delay (throw (new #?(:clj Exception :cljs js/Error)
-                                                      "o n000s")))})))
+    (is (= 6 (tu/eval* '(+ 1 2 3) {:bindings {(with-meta 'x {:sci/deref! true})
+                                              (delay (throw (new #?(:clj Exception :cljs js/Error)
+                                                                 "o n000s")))}})))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                           #"o n000s"
-                          (tu/eval* '(+ 1 2 3 x) {(with-meta 'x {:sci/deref! true})
-                                                  (delay (throw (new #?(:clj Exception :cljs js/Error)
-                                                                     "o n000s")))})))))
+                          (tu/eval* '(+ 1 2 3 x) {:bindings {(with-meta 'x {:sci/deref! true})
+                                                             (delay (throw (new #?(:clj Exception :cljs js/Error)
+                                                                                "o n000s")))}})))))
 (deftest fn-literal-test
   (is (= '(1 2 3)
          (eval* "(map #(do %) [1 2 3])")))
@@ -169,7 +169,7 @@
       (is
        (= "hello\n"
           (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
-                                       {'println println})
+                                       {:bindings {'println println}})
                              (catch #?(:clj Exception :cljs js/Error) _ nil))))))))
 
 (deftest macroexpand-test
@@ -177,6 +177,39 @@
   (is (= [{3 6}] (eval* "[{(->> 2 inc) (-> 3 inc inc inc)}]")))
   (is (eval* (str `(#(< 10 % 18) 15))))
   (is (eval* (str `(#(and (int? %) (< 10 % 18)))) 15)))
+
+(deftest allow-test
+  (is (tu/eval* "(int? 1)" {:allow '[int?]}))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(int? 1)" {:allow '[boolean?]})))
+  (is (= 3 (tu/eval* "(do (defn foo []) 3)" {})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(defn foo [])" {:allow '[fn]})))
+  (if tu/native?
+    (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[pos-int?]}))
+    (is ((tu/eval* "#(pos-int? %)" {:allow '[pos-int?]}) 10)))
+  (if tu/native?
+    (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
+    (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
+  (is (tu/eval* (str (list `#(inc %) 10)) {:allow '[fn* inc]}))
+  (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let]})))
+
+(deftest realize-max-test
+  (when-not tu/native?
+    (let [d (try (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})
+                (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) e
+                  (ex-data e)))]
+      (is (= :sci.error/realized-beyond-max (:type d)))
+      (is (= "(reduce (fn [_ _]) (range 1000))" (:start-expression d)))))
+  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+                        #"realized"
+                        (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})))
+  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+                        #"realized"
+                        (doall (tu/eval* "(repeat 1)" {:realize-max 100}))))
+  (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100}))))
 
 ;;;; Scratch
 
