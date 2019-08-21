@@ -180,8 +180,10 @@
                 ;; for debugging:
                 ;; (prn expr '-> r)
                 r))]
-    (if-let [r (:realize-max ctx)]
-      (max-or-throw ret r)
+    (if-let [n (:realize-max ctx)]
+      (max-or-throw ret (assoc ctx
+                               :expression expr)
+                    n)
       ret)))
 
 ;;;; Called from public API
@@ -193,7 +195,8 @@
          ctx {:env env
               :bindings bindings
               :allow (when allow (set allow))
-              :realize-max realize-max}
+              :realize-max realize-max
+              :start-expression s}
          edn (read-edn ctx (-> s
                                (str/replace "#(" "#sci/fn(")
                                (str/replace "#\"" "#sci/regex\"")

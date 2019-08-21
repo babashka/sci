@@ -1,11 +1,11 @@
 (ns sci.impl.max-or-throw)
 
 (defprotocol MaxOrThrow
-  (max-or-throw [this] [this n]))
+  (max-or-throw [this ctx n]))
 
 (defn bottom [n data]
   (lazy-seq (throw (ex-info (str "Maximum number of elements realized: " n)
-                            (assoc data :n n)))))
+                            data))))
 
 (defn take*
   ([n coll err-val]
@@ -15,62 +15,52 @@
         (cons (first s) (take* (dec n) (rest s) err-val)))
       err-val))))
 
-(defn take-or-throw [n coll]
-  (take* n coll (bottom n {:coll (delay coll)})))
+(defn take-or-throw [coll ctx n]
+  (take* n coll
+         (bottom n (merge {:coll (delay coll)
+                           :type :sci.error/realized-beyond-max
+                           :realize-max n}
+                          (select-keys ctx [:start-expression
+                                            :expression])))))
 
 (extend-protocol MaxOrThrow
 
   nil
   (max-or-throw
-    ([this] this)
-    ([this n] this))
+    ([this ctx n] this))
 
   #?(:clj Object :cljs default)
   (max-or-throw
-    ([this] (prn (type this)) this)
-    ([this n] this))
+    ([this ctx n] this))
 
   #?(:clj clojure.lang.LazySeq :cljs LazySeq)
   (max-or-throw
-    ([this]
-     (max-or-throw this 100))
-    ([this n]
-     (take-or-throw n this)))
+    ([this ctx n]
+     (take-or-throw ctx n this)))
 
   #?(:clj clojure.lang.Cons :cljs Cons)
   (max-or-throw
-    ([this]
-     (max-or-throw this 100))
-    ([this n]
-     (take-or-throw n this)))
+    ([this ctx n]
+     (take-or-throw this ctx n)))
 
   #?(:clj clojure.lang.Range :cljs Range)
   (max-or-throw
-    ([this]
-     (max-or-throw this 100))
-    ([this n]
-     (take-or-throw n this)))
+    ([this ctx n]
+     (take-or-throw this ctx n)))
 
   #?@(:clj [clojure.lang.LongRange
             (max-or-throw
-             ([this]
-              (max-or-throw this 100))
-             ([this n]
-              (take-or-throw n this)))])
+             ([this ctx n]
+              (take-or-throw this ctx n)))])
 
   #?(:clj clojure.lang.Iterate :cljs Iterate)
   (max-or-throw
-    ([this]
-     (max-or-throw this 100))
-    ([this n]
-     (take-or-throw n this)))
+    ([this ctx n]
+     (take-or-throw this ctx n)))
 
   #?(:clj clojure.lang.Repeat :cljs Repeat)
   (max-or-throw
-    ([this]
-     (max-or-throw this 100))
-    ([this n]
+    ([this ctx n]
      ;; (prn "TYPE" (type this))
-     (take-or-throw n this)))
-
+     (take-or-throw this ctx n)))
   )

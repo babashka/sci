@@ -197,6 +197,12 @@
   (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let]})))
 
 (deftest realize-max-test
+  (when-not tu/native?
+    (let [d (try (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})
+                (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) e
+                  (ex-data e)))]
+      (is (= :sci.error/realized-beyond-max (:type d)))
+      (is (= "(reduce (fn [_ _]) (range 1000))" (:start-expression d)))))
   (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
                         #"realized"
                         (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})))
