@@ -196,6 +196,15 @@
   (is (tu/eval* (str (list `#(inc %) 10)) {:allow '[fn* inc]}))
   (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let]})))
 
+(deftest realize-max-test
+  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+                        #"realized"
+                        (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})))
+  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+                        #"realized"
+                        (doall (tu/eval* "(repeat 1)" {:realize-max 100}))))
+  (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100}))))
+
 ;;;; Scratch
 
 (comment

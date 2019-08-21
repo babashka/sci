@@ -16,8 +16,8 @@
        (let-programs [sci "./sci"]
          (try (edn/read-string (sci (str form) (str ctx)))
               (catch #?(:clj Exception :cljs :default) e
-                (throw (new Exception
-                            (:stderr (ex-data e))))))))))
+                (throw (ex-info (:stderr (ex-data e))
+                                (ex-data e)))))))))
 
 ;;;; Scratch
 

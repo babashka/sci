@@ -3,9 +3,9 @@
 (defprotocol MaxOrThrow
   (max-or-throw [this] [this n]))
 
-(defn bottom [n]
-  (lazy-seq (throw (new #?(:clj Exception :clj js/Error)
-                        (str "max number of elements reached: " n)))))
+(defn bottom [n data]
+  (lazy-seq (throw (ex-info (str "Maximum number of elements realized: " n)
+                            (assoc data :n n)))))
 
 (defn take*
   ([n coll err-val]
@@ -15,14 +15,19 @@
         (cons (first s) (take* (dec n) (rest s) err-val)))
       err-val))))
 
-(defn take-or-throw [n xs]
-  (take* n xs (bottom n)))
+(defn take-or-throw [n coll]
+  (take* n coll (bottom n {:coll (delay coll)})))
 
 (extend-protocol MaxOrThrow
 
   nil
   (max-or-throw
     ([this] this)
+    ([this n] this))
+
+  #?(:clj Object :cljs default)
+  (max-or-throw
+    ([this] (prn (type this)) this)
     ([this n] this))
 
   #?(:clj clojure.lang.LazySeq :cljs LazySeq)
@@ -65,11 +70,7 @@
     ([this]
      (max-or-throw this 100))
     ([this n]
+     ;; (prn "TYPE" (type this))
      (take-or-throw n this)))
-
-  #?(:clj Object :cljs default)
-  (max-or-throw
-    ([this] #_(prn (type this)) this)
-    ([this n] this))
 
   )
