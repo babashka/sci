@@ -211,6 +211,16 @@
                         (doall (tu/eval* "(repeat 1)" {:realize-max 100}))))
   (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100}))))
 
+(deftest idempotent-eval-test
+  ;; TODO: we might eventually switch to rewrite-clj to parse the raw code, then
+  ;; we can also differentiate between what has been evaled and what has not
+  (is (= '(foo/f1 foo/f2)
+         (eval* "(map #(let [[ns v] %] (symbol (str ns) (str v))) '[[foo f1] [foo f2]])")))
+  (is (= '(foo/f1)
+         (eval* "(map #(let [[ns v] %] (symbol (str ns) (str v)))
+                   (vector (vector (symbol \"foo\") (symbol \"f1\"))))")))
+  (is (= '[["foo"] ["bar"]] (eval* "(map (fn [x] x) (list (list \"foo\") (list \"bar\")))"))))
+
 ;;;; Scratch
 
 (comment

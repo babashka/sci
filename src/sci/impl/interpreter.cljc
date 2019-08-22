@@ -8,7 +8,8 @@
    [sci.impl.fns :as fns]
    [sci.impl.functions :as f]
    [sci.impl.macros :as macros]
-   [sci.impl.max-or-throw :refer [max-or-throw]]))
+   [sci.impl.max-or-throw :refer [max-or-throw]]
+   [clojure.walk :refer [postwalk]]))
 
 ;;;; Readers
 
@@ -135,14 +136,25 @@
   (let [args (map #(interpret ctx %) args)]
     (apply f args)))
 
-(def constant? (some-fn fn? number? string? keyword?))
+(def constant? (some-fn fn? number? string? keyword? fn?))
+(defn mark-evaled [x]
+  (if #?(:clj (instance? clojure.lang.IObj x)
+         :cljs (satisfies? IWithMeta x))
+    (try (with-meta x {:sci/evaled true})
+         (catch Exception _ x))
+    x))
 
 (defn interpret
   [ctx expr]
+  ;; (prn "expr" expr)
   (let [ret
         (cond (constant? expr) expr
               (symbol? expr) (resolve-symbol ctx expr)
               (:sci/fn expr) (fns/eval-fn ctx interpret expr)
+              ;; we might eventually switch to rewrite-clj for parsing code,
+              ;; then we can differentiate between was has been evaled and what
+              ;; has not
+              (-> (meta expr) :sci/evaled) expr
               :else
               (let [i #(interpret ctx %)
                     r (cond
@@ -162,7 +174,8 @@
                               (eval-if i expr)
                               when
                               (eval-when i expr)
-                              quote (second expr)
+                              quote (postwalk mark-evaled
+                                              (second expr))
                               and
                               (eval-and ctx (rest expr))
                               or
@@ -173,13 +186,14 @@
                               ;; else
                               (if (ifn? f)
                                 (apply-fn ctx f (rest expr))
-                                (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
-                                          :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
+                                (throw (new #?(:clj Exception :cljs js/Error)
+                                            (str "Cannot call " (pr-str f) " as a function in " expr))))))
                           expr)
                         :else expr)]
                 ;; for debugging:
                 ;; (prn expr '-> r)
-                r))]
+                r))
+        ret (mark-evaled ret)]
     (if-let [n (:realize-max ctx)]
       (max-or-throw ret (assoc ctx
                                :expression expr)
@@ -198,6 +212,8 @@
               :realize-max realize-max
               :start-expression s}
          edn (read-edn ctx (-> s
+                               ;; we might eventually switch to rewrite-clj for
+                               ;; parsing code, for now this hack works
                                (str/replace "#(" "#sci/fn(")
                                (str/replace "#\"" "#sci/regex\"")
                                (str/replace #"'([{(#\[])"
@@ -206,6 +222,7 @@
 
          ;; _ (def e edn)
          expr (macros/macroexpand ctx edn)]
+     ;; (prn "expanded:" expr)
      (interpret ctx expr))))
 
 ;;;; Scratch
@@ -230,5 +247,6 @@
   (eval-string "((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0)")
   (eval-string "(apply (fn [x & xs] xs) 1 2 [3 4])")
   (eval-string "(map #(+ 1 %) [0 1 2])")
+  (eval-string "list")
   )
 
