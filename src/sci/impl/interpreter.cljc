@@ -136,13 +136,48 @@
   (let [args (map #(interpret ctx %) args)]
     (apply f args)))
 
-(def constant? (some-fn fn? number? string? keyword? fn?))
 (defn mark-evaled [x]
   (if #?(:clj (instance? clojure.lang.IObj x)
          :cljs (satisfies? IWithMeta x))
     (try (with-meta x {:sci/evaled true})
          (catch Exception _ x))
     x))
+
+(defn interpret-map [i expr]
+  (zipmap (map i (keys expr))
+          (map i (vals expr))))
+
+(defn interpret-vec-or-set [i expr]
+  (into (empty expr) (map i expr)))
+
+(defn interpret-code-execution [ctx i expr]
+  (if-let [f (first expr)]
+    (let [f (or (get macros f)
+                (i f))]
+      (case f
+        do
+        (eval-do ctx expr)
+        if
+        (eval-if i expr)
+        when
+        (eval-when i expr)
+        quote (postwalk mark-evaled
+                        (second expr))
+        and
+        (eval-and ctx (rest expr))
+        or
+        (eval-or ctx (rest expr))
+        let
+        (apply eval-let ctx (rest expr))
+        def (eval-def ctx expr)
+        ;; else
+        (if (ifn? f)
+          (apply-fn ctx f (rest expr))
+          (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
+                    :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
+    expr))
+
+(def constant? (some-fn fn? number? string? keyword?))
 
 (defn interpret
   [ctx expr]
@@ -158,37 +193,9 @@
               :else
               (let [i #(interpret ctx %)
                     r (cond
-                        (map? expr)
-                        (zipmap (map i (keys expr))
-                                (map i (vals expr)))
-                        (or (vector? expr) (set? expr))
-                        (into (empty expr) (map i expr))
-                        (seq? expr)
-                        (if-let [f (first expr)]
-                          (let [f (or (get macros f)
-                                      (i f))]
-                            (case f
-                              do
-                              (eval-do ctx expr)
-                              if
-                              (eval-if i expr)
-                              when
-                              (eval-when i expr)
-                              quote (postwalk mark-evaled
-                                              (second expr))
-                              and
-                              (eval-and ctx (rest expr))
-                              or
-                              (eval-or ctx (rest expr))
-                              let
-                              (apply eval-let ctx (rest expr))
-                              def (eval-def ctx expr)
-                              ;; else
-                              (if (ifn? f)
-                                (apply-fn ctx f (rest expr))
-                                (throw (new #?(:clj Exception :cljs js/Error)
-                                            (str "Cannot call " (pr-str f) " as a function in " expr))))))
-                          expr)
+                        (map? expr) (interpret-map i expr)
+                        (or (vector? expr) (set? expr)) (interpret-vec-or-set i expr)
+                        (seq? expr) (interpret-code-execution ctx i expr)
                         :else expr)]
                 ;; for debugging:
                 ;; (prn expr '-> r)
