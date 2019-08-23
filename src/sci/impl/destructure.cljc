@@ -1,20 +1,23 @@
 (ns sci.impl.destructure
   "Destructure function, adapted from Clojure and ClojureScript."
   {:no-doc true}
-  (:refer-clojure :exclude [destructure]))
+  (:refer-clojure :exclude [destructure])
+  (:require [sci.impl.utils :refer [gensym* mark-eval-call]]))
+
+;; `(first ~gseq) => (clojure.core/first G003)
 
 (defn destructure [bindings]
   (let [bents (partition 2 bindings)
         pb (fn pb [bvec b v]
              (let [pvec
                    (fn [bvec b val]
-                     (let [gvec (gensym "vec__")
-                           gseq (gensym "seq__")
-                           gfirst (gensym "first__")
+                     (let [gvec (gensym* "vec__")
+                           gseq (gensym* "seq__")
+                           gfirst (gensym* "first__")
                            has-rest (some #{'&} b)]
                        (loop [ret (let [ret (conj bvec gvec val)]
                                     (if has-rest
-                                      (conj ret gseq (list `seq gvec))
+                                      (conj ret gseq (mark-eval-call (list seq gvec)))
                                       ret))
                               n 0
                               bs b
@@ -32,20 +35,20 @@
                                                  :cljs (new js/Error "Unsupported binding form, only :as can follow & parameter")))
                                        (recur (pb (if has-rest
                                                     (conj ret
-                                                          gfirst `(first ~gseq)
-                                                          gseq `(next ~gseq))
+                                                          gfirst (mark-eval-call `(~first ~gseq))
+                                                          gseq (mark-eval-call `(~next ~gseq)))
                                                     ret)
                                                   firstb
                                                   (if has-rest
                                                     gfirst
-                                                    (list `nth gvec n nil)))
+                                                    (mark-eval-call (list nth gvec n nil))))
                                               (inc n)
                                               (next bs)
                                               seen-rest?))))
                            ret))))
                    pmap
                    (fn [bvec b v]
-                     (let [gmap (gensym "map__")
+                     (let [gmap (gensym* "map__")
                            defaults (:or b)]
                        (loop [ret (-> bvec (conj gmap) (conj v)
                                       (conj gmap) (conj `(if (seq? ~gmap)
@@ -83,8 +86,8 @@
                                          (with-meta (symbol nil (name bb)) (meta bb))
                                          bb)
                                  bv (if (contains? defaults local)
-                                      (list 'get gmap bk (defaults local))
-                                      (list 'get gmap bk))]
+                                      (list get gmap bk (defaults local))
+                                      (list get gmap bk))]
                              (recur
                               (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
                                 (-> ret (conj local bv))

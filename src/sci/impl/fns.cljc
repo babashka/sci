@@ -1,5 +1,6 @@
 (ns sci.impl.fns
-  {:no-doc true})
+  {:no-doc true}
+  (:require [sci.impl.utils :refer [mark-eval-call]]))
 
 (defn parse-fn-args+body
   [interpret ctx
@@ -12,15 +13,18 @@
     (if #?(:cljs false :clj (and (not var-arg-name) fixed-arity (< fixed-arity 3)))
       ;; small optimization for fns with 0-2 args
       (case fixed-arity
-        0 (with-meta (fn [] (interpret ctx (cons 'do body))) m)
+        0 (with-meta (fn [] (interpret ctx (mark-eval-call (cons 'do body)))) m)
         1 (with-meta (fn [x]
-                       (interpret ctx `(~'let [~(first arg-list) ~x]
-                                        ~@body))) m)
+                       (interpret ctx (mark-eval-call
+                                       `(~'let [~(first arg-list) ~x]
+                                         ~@body)))) m)
         2 (with-meta (let [[a1 a2] arg-list]
                        (fn [x y] (interpret ctx
-                                            `(~'let [~a1 ~x
-                                                     ~a2 ~y]
-                                              ~@body)))) m))
+                                            (mark-eval-call
+                                             `(~'let [~a1 ~x
+                                                      ~a2 ~y]
+                                               ~@body)))))
+            m))
       (with-meta
         (fn [& args]
           (if var-arg-name
@@ -36,11 +40,12 @@
           (let [runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
                 runtime-bindings (if var-arg-name
                                    (conj runtime-bindings var-arg-name
-                                         (list 'quote (drop fixed-arity args)))
+                                         (mark-eval-call (list 'quote (drop fixed-arity args))))
                                    runtime-bindings)
                 let-bindings (into runtime-bindings destructure-vec)
                 form (list* 'let let-bindings body)]
-            (interpret ctx form)))
+            ;; (prn "form" form)
+            (interpret ctx (mark-eval-call form))))
         m))))
 
 (defn lookup-by-arity [arities arity]

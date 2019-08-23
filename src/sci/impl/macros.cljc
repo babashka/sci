@@ -4,6 +4,7 @@
   (:require [clojure.walk :refer [postwalk]]
             [sci.impl.destructure :refer [destructure]]
             [sci.impl.functions :as f]
+            [sci.impl.utils :refer [gensym* mark-eval-call]]
             [clojure.string :as str]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn})
@@ -28,6 +29,7 @@
                   (do (allow?! ctx sym)
                       v))
                 (when-let [ns (namespace sym)]
+                  ;; (prn "NS" ns)
                   (when (or (= "clojure.core" ns)
                             (= "cljs.core" ns))
                     (let [unqualified-sym (symbol (name sym))]
@@ -54,15 +56,15 @@
     ;; (prn 'resolve expr '-> res)
     res))
 
-(declare macroexpand macroexpand-1)
+(declare macroexpand)
 
 (defn expand-fn-args+body [ctx fn-name [binding-vector & body-exprs]]
   (let [fixed-args (take-while #(not= '& %) binding-vector)
         var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
-        fixed-names (vec (repeatedly fixed-arity gensym))
+        fixed-names (vec (repeatedly fixed-arity gensym*))
         destructure-vec (vec (interleave binding-vector fixed-names))
-        var-arg-name (when var-arg (gensym))
+        var-arg-name (when var-arg (gensym*))
         destructure-vec (if var-arg
                           (conj destructure-vec var-arg var-arg-name)
                           destructure-vec)
@@ -73,8 +75,9 @@
         destructured-vec (destructure destructure-vec)
         ctx (update ctx :bindings merge (zipmap (take-nth 2 destructured-vec)
                                                 (repeat nil)))
-        body-form `(~'let ~destructured-vec
-                    ~@(doall (map #(macroexpand ctx %) body-exprs)))
+        body-form (mark-eval-call
+                   `(~'let ~destructured-vec
+                     ~@(doall (map #(macroexpand ctx %) body-exprs))))
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
@@ -94,7 +97,7 @@
         body (if fn-name
                body
                (cons name? body))
-        fn-name (or fn-name (gensym "fn"))
+        fn-name (or fn-name (gensym* "fn"))
         bodies (if (seq? (first body))
                  body
                  [body])
@@ -125,14 +128,20 @@
         {:keys [:max-fixed :var-args?]} @state
         fixed-names (map #(symbol (str "%" %)) (range 1 (inc max-fixed)))
         arg-list (vec (concat fixed-names (when var-args?
-                                            ['& '%&])))
+                                            ['& (with-meta '%&
+                                                  {:sci.impl/unresolved true})])))
         ctx (update ctx :bindings merge (zipmap fixed-names (repeat nil)))
         ctx (if var-args?
-              (update ctx :bindings assoc '%& nil)
+              (update ctx :bindings assoc (with-meta '%&
+                                            {:sci.impl/unresolved true}) nil)
               ctx)
         destructure-vec (vec (interleave fixed-names fixed-names))
         destructure-vec (if var-args?
-                          (conj destructure-vec '%& '%&)
+                          (conj destructure-vec
+                                (with-meta '%&
+                                  {:sci.impl/unresolved true})
+                                (with-meta '%&
+                                  {:sci.impl/unresolved true}))
                           destructure-vec)
         form {:sci/fn true
               :sci/fn-bodies
@@ -222,6 +231,34 @@
     (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (list 'def fn-name f)))
 
+(defn macroexpand-call [ctx expr]
+  (if-let [f (first expr)]
+    (if (symbol? f)
+      (let [f (if-let [ns (namespace f)]
+                (if (or (= "clojure.core" ns)
+                        (= "cljs.core" ns))
+                  (symbol (name f))
+                  f)
+                f)]
+        (if (contains? macros f)
+          (do (allow?! ctx f)
+              (case f
+                do expr ;; do will call macroexpand on every subsequent expression
+                let
+                (expand-let ctx expr)
+                (fn fn*) (expand-fn ctx expr)
+                quote expr
+                def (expand-def ctx expr)
+                defn (expand-defn ctx expr)
+                -> (expand-> ctx (rest expr))
+                ->> (expand->> ctx (rest expr))
+                as-> (expand-as-> ctx expr)
+                ;; else:
+                (doall (map #(macroexpand ctx %) expr))))
+          (doall (map #(macroexpand ctx %) expr))))
+      (doall (map #(macroexpand ctx %) expr)))
+    expr))
+
 (defn macroexpand
   [ctx expr]
   (let [res (cond
@@ -231,39 +268,14 @@
               (or (let [v (resolve-symbol ctx expr)]
                     (when-not (identical? :sci/var.unbound v)
                       v))
-                  expr)
+                  (with-meta expr {:sci.impl/unresolved true}))
               (map? expr)
               (zipmap (map #(macroexpand ctx %) (keys expr))
                       (map #(macroexpand ctx %) (vals expr)))
               (or (vector? expr) (set? expr))
               (into (empty expr) (map #(macroexpand ctx %) expr))
-              (seq? expr)
-              (if-let [f (first expr)]
-                (if (symbol? f)
-                  (let [f (if-let [ns (namespace f)]
-                            (if (or (= "clojure.core" ns)
-                                    (= "cljs.core" ns))
-                              (symbol (name f))
-                              f)
-                            f)]
-                    (if (contains? macros f)
-                      (do (allow?! ctx f)
-                          (case f
-                            do expr ;; do will call macroexpand on every subsequent expression
-                            let
-                            (expand-let ctx expr)
-                            (fn fn*) (expand-fn ctx expr)
-                            quote expr
-                            def (expand-def ctx expr)
-                            defn (expand-defn ctx expr)
-                            -> (expand-> ctx (rest expr))
-                            ->> (expand->> ctx (rest expr))
-                            as-> (expand-as-> ctx expr)
-                            ;; else:
-                            (doall (map #(macroexpand ctx %) expr))))
-                      (doall (map #(macroexpand ctx %) expr))))
-                  (doall (map #(macroexpand ctx %) expr)))
-                expr)
+              (seq? expr) (with-meta (macroexpand-call ctx expr)
+                            {:sci.impl/eval-call true})
               :else expr)]
     res))
 
