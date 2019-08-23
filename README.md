@@ -22,7 +22,8 @@ It is used as the interpreter for
 
 ## Status
 
-Experimental. Breaking changes are expected to happen at this phase.
+Experimental. Breaking changes are expected to happen at this phase. It's
+probably too early for PRs, but suggestions and documentation fixes are welcome.
 
 ## Installation
 

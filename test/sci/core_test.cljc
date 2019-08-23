@@ -79,7 +79,10 @@
   (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))
   (is (= 1 (eval* nil "(let [{:keys [:a]} {:a 1}] a)")))
   (is (= 1 (eval* nil "((fn [{:keys [a]}] a) {:a 1})")))
-  (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})"))))
+  (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})")))
+  (is (= 1 (eval* nil "((fn [{:person/keys [id]}] id) {:person/id 1})")))
+  (is (= 1 (eval* nil "((fn [{:syms [a]}] a) '{a 1})")))
+  (is (= 1 (eval* nil "((fn [{:strs [a]}] a) '{\"a\" 1})"))))
 
 (defn test-difference
   ([var-name expr-string max-attempts]

@@ -4,7 +4,7 @@
   (:refer-clojure :exclude [destructure])
   (:require [sci.impl.utils :refer [gensym* mark-eval-call]]))
 
-(defn destructure [bindings]
+(defn destructure* [bindings]
   (let [bents (partition 2 bindings)
         pb (fn pb [bvec b v]
              (let [pvec
@@ -69,9 +69,11 @@
                                                                       (name %)))
                                                      (= mkn "syms")
                                                      (assoc transforms mk
-                                                            #(list 'quote
-                                                                   ;; TODO: do we need to wrap mark-eval?
-                                                                   (symbol (or mkns (namespace %)) (name %))))
+                                                            #(mark-eval-call
+                                                              (list 'quote
+                                                                    (symbol (or mkns
+                                                                                (namespace %))
+                                                                            (name %)))))
                                                      (= mkn "strs") (assoc transforms mk str)
                                                      :else transforms))
                                              transforms))
@@ -117,3 +119,7 @@
          #?(:clj (new Exception (str "Unsupported binding key: " (ffirst kwbs)))
             :cljs (new js/Error (str "Unsupported binding key: " (ffirst kwbs)))))
         (reduce process-entry [] bents)))))
+
+(defn destructure [b]
+  ;; (prn (destructure* b))
+  (destructure* b))
