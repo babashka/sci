@@ -2,7 +2,7 @@
   "Destructure function, adapted from Clojure and ClojureScript."
   {:no-doc true}
   (:refer-clojure :exclude [destructure])
-  (:require [sci.impl.utils :refer [gensym* mark-eval mark-eval-call]]))
+  (:require [sci.impl.utils :refer [gensym* mark-eval-call]]))
 
 (defn destructure* [bindings]
   (let [bents (partition 2 bindings)

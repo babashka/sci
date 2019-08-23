@@ -8,8 +8,7 @@
    [sci.impl.fns :as fns]
    [sci.impl.functions :as f]
    [sci.impl.macros :as macros]
-   [sci.impl.max-or-throw :refer [max-or-throw]]
-   [clojure.walk :refer [postwalk]]))
+   [sci.impl.max-or-throw :refer [max-or-throw]]))
 
 ;;;; Readers
 
