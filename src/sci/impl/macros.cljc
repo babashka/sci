@@ -149,6 +149,7 @@
                 :sci/arg-list arg-list
                 :sci/fixed-names fixed-names
                 :sci/var-arg-name (when var-args? '%&)}]}]
+    ;; (prn "form" form)
     (mark-eval form)))
 
 (defn expand-let*
@@ -183,7 +184,7 @@
                                  (meta form))
                                (list form x))]
                 (recur threaded (next forms))) x)))]
-    (mark-eval-call (macroexpand ctx expanded))))
+    (macroexpand ctx expanded)))
 
 (defn expand->>
   "The ->> macro from clojure.core."
@@ -198,7 +199,7 @@
                                (meta form))
                              (list form x))]
               (recur threaded (next forms))) x))]
-    (mark-eval-call (macroexpand ctx expanded))))
+    (macroexpand ctx expanded)))
 
 (defn expand-as->
   "The ->> macro from clojure.core."
