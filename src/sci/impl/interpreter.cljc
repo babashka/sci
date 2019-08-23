@@ -142,7 +142,7 @@
   (if #?(:clj (instance? clojure.lang.IObj x)
          :cljs (satisfies? IWithMeta x))
     (try (with-meta x {:sci/evaled true})
-         (catch Exception _ x))
+         (catch #?(:clj Exception :cljs js/Error) _ x))
     x))
 
 (defn eval-call [ctx expr]
@@ -179,40 +179,36 @@
 (defn interpret
   [ctx expr]
   ;; (prn "to eval expr" expr)
-  (try
-    (let [ret
-          (cond
-            (-> meta :sci/evaled) expr
-            (constant? expr) expr
-            (symbol? expr) (do #_(prn "sym" expr '-> (if (-> expr meta :sci.impl/unresolved)
-                                                       (resolve-symbol ctx expr)
-                                                       expr))
-                               (if (-> expr meta :sci.impl/unresolved)
-                                 (resolve-symbol ctx expr)
-                                 expr))
-            (:sci/fn expr) (fns/eval-fn ctx interpret expr)
-            ;; we might eventually switch to rewrite-clj for parsing code,
-            ;; then we can differentiate between was has been evaled and what
-            ;; has not
-            ;; (-> (meta expr) :sci/evaled) expr
-            (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
-                                (map #(interpret ctx %) (vals expr)))
-            (or (vector? expr) (set? expr)) (into (empty expr)
-                                                  (map #(interpret ctx %)
-                                                       expr))
-            (-> expr meta :sci.impl/eval-call) (eval-call ctx expr)
-            :else expr)
-          ret (mark-evaled ret)]
-      ;; for debugging:
-      ;; (prn expr) (prn '-> ret)
-      (if-let [n (:realize-max ctx)]
-        (max-or-throw ret (assoc ctx
-                                 :expression expr)
-                      n)
-        ret))
-    (catch Exception e
-      ;; (println "ERROR" expr)
-      (throw e))))
+  (let [ret
+        (cond
+          (-> meta :sci/evaled) expr
+          (constant? expr) expr
+          (symbol? expr) (do #_(prn "sym" expr '-> (if (-> expr meta :sci.impl/unresolved)
+                                                     (resolve-symbol ctx expr)
+                                                     expr))
+                             (if (-> expr meta :sci.impl/unresolved)
+                               (resolve-symbol ctx expr)
+                               expr))
+          (:sci/fn expr) (fns/eval-fn ctx interpret expr)
+          ;; we might eventually switch to rewrite-clj for parsing code,
+          ;; then we can differentiate between was has been evaled and what
+          ;; has not
+          ;; (-> (meta expr) :sci/evaled) expr
+          (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                              (map #(interpret ctx %) (vals expr)))
+          (or (vector? expr) (set? expr)) (into (empty expr)
+                                                (map #(interpret ctx %)
+                                                     expr))
+          (-> expr meta :sci.impl/eval-call) (eval-call ctx expr)
+          :else expr)
+        ret (mark-evaled ret)]
+    ;; for debugging:
+    ;; (prn expr) (prn '-> ret)
+    (if-let [n (:realize-max ctx)]
+      (max-or-throw ret (assoc ctx
+                               :expression expr)
+                    n)
+      ret)))
 
 ;;;; Called from public API
 

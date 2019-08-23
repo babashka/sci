@@ -4,7 +4,7 @@
   (:require [clojure.walk :refer [postwalk]]
             [sci.impl.destructure :refer [destructure]]
             [sci.impl.functions :as f]
-            [sci.impl.utils :refer [gensym* mark-eval-call]]
+            [sci.impl.utils :refer [gensym* mark-resolve-sym mark-eval-call]]
             [clojure.string :as str]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn})
@@ -127,6 +127,7 @@
                        expr)
         {:keys [:max-fixed :var-args?]} @state
         fixed-names (map #(symbol (str "%" %)) (range 1 (inc max-fixed)))
+        fixed-names (map mark-resolve-sym fixed-names)
         arg-list (vec (concat fixed-names (when var-args?
                                             ['& (with-meta '%&
                                                   {:sci.impl/unresolved true})])))

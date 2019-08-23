@@ -1,10 +1,15 @@
 (ns sci.impl.utils)
 
+(defn mark-resolve-sym
+  [sym]
+  (vary-meta
+   sym
+   (fn [m]
+     (assoc m :sci.impl/unresolved true))))
+
 (defn gensym*
-  ([] (with-meta (gensym)
-        {:sci.impl/unresolved true}))
-  ([prefix] (with-meta (gensym prefix)
-              {:sci.impl/unresolved true})))
+  ([] (mark-resolve-sym (gensym)))
+  ([prefix] (mark-resolve-sym (gensym prefix))))
 
 (defn mark-eval-call
   [expr]
@@ -12,3 +17,5 @@
    expr
    (fn [m]
      (assoc m :sci.impl/eval-call true))))
+
+
