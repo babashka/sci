@@ -94,6 +94,7 @@
   [ctx [_def var-name ?docstring ?init]]
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
+        ;; _ (prn "init" (meta init))
         init (interpret ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
@@ -134,16 +135,10 @@
                     (str "Could not resolve symbol: " (str expr)))))))))
 
 (defn apply-fn [ctx f args]
+  ;; (prn "apply fn" f)
   (let [args (map #(interpret ctx %) args)]
     ;; (prn "ARGS" args)
     (apply f args)))
-
-(defn mark-evaled [x]
-  (if #?(:clj (instance? clojure.lang.IObj x)
-         :cljs (satisfies? IWithMeta x))
-    (try (with-meta x {:sci/evaled true})
-         (catch #?(:clj Exception :cljs js/Error) _ x))
-    x))
 
 (defn eval-call [ctx expr]
   (if-let [f (first expr)]
@@ -156,10 +151,6 @@
         (eval-if ctx expr)
         when
         (eval-when ctx expr)
-        quote (do
-                ;; (prn "QUOTE!" expr)
-                (postwalk mark-evaled
-                          (second expr)))
         and
         (eval-and ctx (rest expr))
         or
@@ -174,33 +165,24 @@
                       (str "Cannot call " (pr-str f) " as a function."))))))
     expr))
 
-(def constant? (some-fn fn? number? string? keyword?))
-
 (defn interpret
   [ctx expr]
-  ;; (prn "to eval expr" expr)
-  (let [ret
+  ;; (prn "to eval expr" expr (meta expr))
+  (let [m (meta expr)
+        eval? (:sci.impl/eval m)
+        ret
         (cond
-          (-> meta :sci/evaled) expr
-          (constant? expr) expr
-          (symbol? expr) (if (-> expr meta :sci.impl/unresolved)
-                           (do nil ;; (prn "resolve sym" expr (resolve-symbol ctx expr))
-                               (resolve-symbol ctx expr))
-                           (do nil ;; (prn "naked sym" expr)
-                               expr))
+          (not eval?) (do nil ;; (prn "not eval" expr)
+                          expr)
           (:sci/fn expr) (fns/eval-fn ctx interpret expr)
-          ;; we might eventually switch to rewrite-clj for parsing code,
-          ;; then we can differentiate between was has been evaled and what
-          ;; has not
-          ;; (-> (meta expr) :sci/evaled) expr
+          (:sci.impl/eval-call m) (eval-call ctx expr)
+          (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
                               (map #(interpret ctx %) (vals expr)))
           (or (vector? expr) (set? expr)) (into (empty expr)
                                                 (map #(interpret ctx %)
                                                      expr))
-          (-> expr meta :sci.impl/eval-call) (eval-call ctx expr)
-          :else expr)
-        ret (mark-evaled ret)]
+          :else (throw (new #?(:clj Exception :cljs js/Error) (str "unexpected: " expr))))]
     ;; for debugging:
     ;; (prn expr) (prn '-> ret)
     (if-let [n (:realize-max ctx)]

@@ -1,11 +1,16 @@
-(ns sci.impl.utils)
+(ns sci.impl.utils
+  {:no-doc true})
+
+(def constant? (some-fn fn? number? string? keyword?))
 
 (defn mark-resolve-sym
   [sym]
   (vary-meta
    sym
    (fn [m]
-     (assoc m :sci.impl/unresolved true))))
+     (assoc m
+            :sci.impl/eval true
+            :sci.impl/unresolved true))))
 
 (defn gensym*
   ([] (mark-resolve-sym (gensym)))
@@ -16,6 +21,13 @@
   (vary-meta
    expr
    (fn [m]
-     (assoc m :sci.impl/eval-call true))))
+     (assoc m
+            :sci.impl/eval-call true
+            :sci.impl/eval true))))
 
-
+(defn mark-eval
+  [expr]
+  (vary-meta
+   expr
+   (fn [m]
+     (assoc m :sci.impl/eval true))))

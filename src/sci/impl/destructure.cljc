@@ -2,7 +2,7 @@
   "Destructure function, adapted from Clojure and ClojureScript."
   {:no-doc true}
   (:refer-clojure :exclude [destructure])
-  (:require [sci.impl.utils :refer [gensym* mark-eval-call]]))
+  (:require [sci.impl.utils :refer [gensym* mark-eval mark-eval-call]]))
 
 (defn destructure* [bindings]
   (let [bents (partition 2 bindings)
@@ -69,11 +69,9 @@
                                                                       (name %)))
                                                      (= mkn "syms")
                                                      (assoc transforms mk
-                                                            #(mark-eval-call
-                                                              (list 'quote
-                                                                    (symbol (or mkns
-                                                                                (namespace %))
-                                                                            (name %)))))
+                                                            #(symbol (or mkns
+                                                                         (namespace %))
+                                                                     (name %)))
                                                      (= mkn "strs") (assoc transforms mk str)
                                                      :else transforms))
                                              transforms))

@@ -40,7 +40,7 @@
           (let [runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
                 runtime-bindings (if var-arg-name
                                    (conj runtime-bindings var-arg-name
-                                         (mark-eval-call (list 'quote (drop fixed-arity args))))
+                                         (drop fixed-arity args))
                                    runtime-bindings)
                 let-bindings (into runtime-bindings destructure-vec)
                 form (list* 'let let-bindings body)]
