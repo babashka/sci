@@ -183,11 +183,10 @@
         (cond
           (-> meta :sci/evaled) expr
           (constant? expr) expr
-          (symbol? expr) (do #_(prn "sym" expr '-> (if (-> expr meta :sci.impl/unresolved)
-                                                     (resolve-symbol ctx expr)
-                                                     expr))
-                             (if (-> expr meta :sci.impl/unresolved)
-                               (resolve-symbol ctx expr)
+          (symbol? expr) (if (-> expr meta :sci.impl/unresolved)
+                           (do nil ;; (prn "resolve sym" expr (resolve-symbol ctx expr))
+                               (resolve-symbol ctx expr))
+                           (do nil ;; (prn "naked sym" expr)
                                expr))
           (:sci/fn expr) (fns/eval-fn ctx interpret expr)
           ;; we might eventually switch to rewrite-clj for parsing code,

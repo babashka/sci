@@ -128,21 +128,16 @@
         {:keys [:max-fixed :var-args?]} @state
         fixed-names (map #(symbol (str "%" %)) (range 1 (inc max-fixed)))
         fixed-names (map mark-resolve-sym fixed-names)
+        var-args-sym (mark-resolve-sym '%&)
         arg-list (vec (concat fixed-names (when var-args?
-                                            ['& (with-meta '%&
-                                                  {:sci.impl/unresolved true})])))
+                                            ['& var-args-sym])))
         ctx (update ctx :bindings merge (zipmap fixed-names (repeat nil)))
         ctx (if var-args?
-              (update ctx :bindings assoc (with-meta '%&
-                                            {:sci.impl/unresolved true}) nil)
+              (update ctx :bindings assoc var-args-sym nil)
               ctx)
         destructure-vec (vec (interleave fixed-names fixed-names))
         destructure-vec (if var-args?
-                          (conj destructure-vec
-                                (with-meta '%&
-                                  {:sci.impl/unresolved true})
-                                (with-meta '%&
-                                  {:sci.impl/unresolved true}))
+                          (conj destructure-vec var-args-sym var-args-sym)
                           destructure-vec)
         form {:sci/fn true
               :sci/fn-bodies
@@ -262,23 +257,21 @@
 
 (defn macroexpand
   [ctx expr]
-  (let [res (cond
-              ;; already expanded by reader
-              (:sci/fn expr) expr
-              (symbol? expr)
-              (or (let [v (resolve-symbol ctx expr)]
-                    (when-not (identical? :sci/var.unbound v)
-                      v))
-                  (with-meta expr {:sci.impl/unresolved true}))
-              (map? expr)
-              (zipmap (map #(macroexpand ctx %) (keys expr))
-                      (map #(macroexpand ctx %) (vals expr)))
-              (or (vector? expr) (set? expr))
-              (into (empty expr) (map #(macroexpand ctx %) expr))
-              (seq? expr) (with-meta (macroexpand-call ctx expr)
-                            {:sci.impl/eval-call true})
-              :else expr)]
-    res))
+  (cond
+    ;; already expanded by reader
+    (:sci/fn expr) expr
+    (symbol? expr)
+    (or (let [v (resolve-symbol ctx expr)]
+          (when-not (identical? :sci/var.unbound v)
+            v))
+        (with-meta expr {:sci.impl/unresolved true}))
+    (map? expr)
+    (zipmap (map #(macroexpand ctx %) (keys expr))
+            (map #(macroexpand ctx %) (vals expr)))
+    (or (vector? expr) (set? expr))
+    (into (empty expr) (map #(macroexpand ctx %) expr))
+    (seq? expr) (mark-eval-call (macroexpand-call ctx expr))
+    :else expr))
 
 ;;;; Scratch
 

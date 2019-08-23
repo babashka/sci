@@ -75,6 +75,12 @@
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
                             (eval* nil example))))))
 
+(deftest destructure-test
+  (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))
+  (is (= 1 (eval* nil "(let [{:keys [:a]} {:a 1}] a)")))
+  (is (= 1 (eval* nil "((fn [{:keys [a]}] a) {:a 1})")))
+  (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})"))))
+
 (defn test-difference
   ([var-name expr-string max-attempts]
    (test-difference var-name expr-string 0 max-attempts))

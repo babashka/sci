@@ -4,8 +4,6 @@
   (:refer-clojure :exclude [destructure])
   (:require [sci.impl.utils :refer [gensym* mark-eval-call]]))
 
-;; `(first ~gseq) => (clojure.core/first G003)
-
 (defn destructure [bindings]
   (let [bents (partition 2 bindings)
         pb (fn pb [bvec b v]
@@ -51,9 +49,10 @@
                      (let [gmap (gensym* "map__")
                            defaults (:or b)]
                        (loop [ret (-> bvec (conj gmap) (conj v)
-                                      (conj gmap) (conj `(if (seq? ~gmap)
-                                                           (~'apply ~'hash-map ~gmap)
-                                                           ~gmap))
+                                      (conj gmap) (conj (mark-eval-call
+                                                         `(if ~(mark-eval-call `(~seq? ~gmap))
+                                                            ~(mark-eval-call `(~apply ~hash-map ~gmap))
+                                                            ~gmap)))
                                       ((fn [ret]
                                          (if (:as b)
                                            (conj ret (:as b) gmap)
@@ -64,8 +63,15 @@
                                            (if (keyword? mk)
                                              (let [mkns (namespace mk)
                                                    mkn (name mk)]
-                                               (cond (= mkn "keys") (assoc transforms mk #(keyword (or mkns (namespace %)) (name %)))
-                                                     (= mkn "syms") (assoc transforms mk #(list `quote (symbol (or mkns (namespace %)) (name %))))
+                                               (cond (= mkn "keys")
+                                                     (assoc transforms mk
+                                                            #(keyword (or mkns (namespace %))
+                                                                      (name %)))
+                                                     (= mkn "syms")
+                                                     (assoc transforms mk
+                                                            #(list 'quote
+                                                                   ;; TODO: do we need to wrap mark-eval?
+                                                                   (symbol (or mkns (namespace %)) (name %))))
                                                      (= mkn "strs") (assoc transforms mk str)
                                                      :else transforms))
                                              transforms))
@@ -86,8 +92,8 @@
                                          (with-meta (symbol nil (name bb)) (meta bb))
                                          bb)
                                  bv (if (contains? defaults local)
-                                      (list get gmap bk (defaults local))
-                                      (list get gmap bk))]
+                                      (mark-eval-call (list get gmap bk (defaults local)))
+                                      (mark-eval-call (list get gmap bk)))]
                              (recur
                               (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
                                 (-> ret (conj local bv))
@@ -95,7 +101,8 @@
                               (next bes)))
                            ret))))]
                (cond
-                 (symbol? b) (-> bvec (conj (if (namespace b) (symbol (name b)) b)) (conj v))
+                 (symbol? b) (-> bvec (conj (if (namespace b)
+                                              (symbol (name b)) b)) (conj v))
                  (keyword? b) (-> bvec (conj (symbol (name b))) (conj v))
                  (vector? b) (pvec bvec b v)
                  (map? b) (pmap bvec b v)
