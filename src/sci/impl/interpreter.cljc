@@ -2,33 +2,14 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand])
   (:require
-   #?(:clj [clojure.edn :as edn]
-      :cljs [cljs.reader :as edn])
    [clojure.string :as str]
    [sci.impl.fns :as fns]
    [sci.impl.functions :as f]
    [sci.impl.macros :as macros]
-   [sci.impl.max-or-throw :refer [max-or-throw]]))
-
-;;;; Readers
+   [sci.impl.max-or-throw :refer [max-or-throw]]
+   [sci.impl.readers :refer [read-edn]]))
 
 (declare interpret)
-
-(defn read-fn [ctx expr]
-  (macros/expand-fn-literal ctx expr))
-
-(defn read-regex [form]
-  (re-pattern form))
-
-(defn read-quote [form]
-  (list 'quote form))
-
-(defn read-edn [ctx s]
-  (edn/read-string
-   {:readers {'sci/fn (fn [s] (read-fn ctx s))
-              'sci/regex read-regex
-              'sci/quote read-quote}}
-   s))
 
 ;;;; Evaluation
 
@@ -201,15 +182,15 @@
               :allow (when allow (set allow))
               :realize-max realize-max
               :start-expression s}
-         edn (read-edn ctx (-> s
-                               ;; we might eventually switch to rewrite-clj for
-                               ;; parsing code, for now this hack works
-                               (str/replace "#(" "#sci/fn(")
-                               (str/replace "#\"" "#sci/regex\"")
-                               (str/replace #"'([{(#\[])"
-                                            (fn [m]
-                                              (str "#sci/quote " (second m))))))
-
+         edn (read-edn (-> s
+                           ;; we might eventually switch to rewrite-clj or
+                           ;; tools.reader for parsing code, for now this hack
+                           ;; works
+                           (str/replace "#(" "#sci/fn(")
+                           (str/replace "#\"" "#sci/regex\"")
+                           (str/replace #"'([{(#\[])"
+                                        (fn [m]
+                                          (str "#sci/quote " (second m)))))) 
          ;; _ (def e edn)
          expr (macros/macroexpand ctx edn)]
      ;; (prn "expanded:" expr)
