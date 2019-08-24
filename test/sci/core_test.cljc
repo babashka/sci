@@ -35,10 +35,12 @@
     (is (= 1 (eval* 1 '(or false false *in*))))
     (is (= false (eval* false '(or false false *in*))))
     (is (= 3 (eval* false '(or false false *in* 3)))))
-  (testing "fn"
+  (testing "fn literals"
     (is (= 2 (eval* 1 "(#(+ 1 %) *in*)")))
     (is (= [1 2 3] (eval* 1 "(map #(+ 1 %) [0 1 2])")))
-    (is (eval* 1 "(#(when (odd? *in*) *in*))")))
+    (is (eval* 1 "(#(when (odd? *in*) *in*))"))
+    (is (eval* 1 "(#(when (odd? *in*) *in*))"))
+    (is (= 1 (eval* "(do (defn foo [] 1) (#(foo)))"))))
   (testing "map"
     (is (= [1 2 3] (eval* 1 '(map inc [0 1 2])))))
   (testing "keep"
