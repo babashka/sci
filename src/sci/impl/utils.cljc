@@ -1,7 +1,8 @@
 (ns sci.impl.utils
   {:no-doc true})
 
-(def constant? (some-fn fn? number? string? keyword?))
+(defn constant? [x]
+  (or (fn? x) (number? x) (string? x) (keyword? x)))
 
 (defn mark-resolve-sym
   [sym]
