@@ -44,7 +44,8 @@
   (testing "keep"
     (is (= [false true false] (eval* 1 '(keep odd? [0 1 2])))))
   (testing "->"
-    (is (= 4 (eval* 1 '(-> *in* inc inc (inc))))))
+    (is (= 4 (eval* 1 '(-> *in* inc inc (inc)))))
+    (is (= '([0 1] [1 2] [2 3]) (eval* '(map-indexed #(-> [%1 %2]) [1 2 3])))))
   (testing "->>"
     (is (= 7 (eval* ["foo" "baaar" "baaaaaz"] "(->> *in* (map count) (apply max))"))))
   (testing "as->"
@@ -74,6 +75,15 @@
     (doseq [example ['(1 2 3) '("foo" 2 3)]]
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
                             (eval* nil example))))))
+
+(deftest destructure-test
+  (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))
+  (is (= 1 (eval* nil "(let [{:keys [:a]} {:a 1}] a)")))
+  (is (= 1 (eval* nil "((fn [{:keys [a]}] a) {:a 1})")))
+  (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})")))
+  (is (= 1 (eval* nil "((fn [{:person/keys [id]}] id) {:person/id 1})")))
+  (is (= 1 (eval* nil "((fn [{:syms [a]}] a) '{a 1})")))
+  (is (= 1 (eval* nil "((fn [{:strs [a]}] a) '{\"a\" 1})"))))
 
 (defn test-difference
   ([var-name expr-string max-attempts]

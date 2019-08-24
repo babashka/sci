@@ -28,9 +28,7 @@ Experimental. Breaking changes are expected to happen at this phase.
 
 Use as a dependency:
 
-``` shellsession
-[borkdude/sci "0.0.4"]
-```
+[![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
 
 ## Usage
 

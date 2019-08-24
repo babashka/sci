@@ -9,12 +9,13 @@ assignees: ''
 
 **version**
 
-[ Please specify which version of babashka you're using. You can find this with `babashka --version`. The documentation on the master branch may be ahead of the most released version. You can check the docs for your version by going to cljdoc. ]
+[ Please specify which version of sci you're using. The documentation on the
+master branch may be ahead of the most released version. You can check the docs
+for your version by going to cljdoc. ]
 
 **platform**
 
-[ Please specify which platform you are using babashka on, so you can test a
-new binary when the issue is resolved. ]
+[ Please specify which platform you are using sci on (JVM, Mac binary, Linux binary or JavaScript (browser, Node) ) ]
 
 **problem**
 

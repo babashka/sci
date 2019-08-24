@@ -1,20 +1,21 @@
 (ns sci.impl.destructure
   "Destructure function, adapted from Clojure and ClojureScript."
   {:no-doc true}
-  (:refer-clojure :exclude [destructure]))
+  (:refer-clojure :exclude [destructure])
+  (:require [sci.impl.utils :refer [gensym* mark-eval-call]]))
 
-(defn destructure [bindings]
+(defn destructure* [bindings]
   (let [bents (partition 2 bindings)
         pb (fn pb [bvec b v]
              (let [pvec
                    (fn [bvec b val]
-                     (let [gvec (gensym "vec__")
-                           gseq (gensym "seq__")
-                           gfirst (gensym "first__")
+                     (let [gvec (gensym* "vec__")
+                           gseq (gensym* "seq__")
+                           gfirst (gensym* "first__")
                            has-rest (some #{'&} b)]
                        (loop [ret (let [ret (conj bvec gvec val)]
                                     (if has-rest
-                                      (conj ret gseq (list `seq gvec))
+                                      (conj ret gseq (mark-eval-call (list seq gvec)))
                                       ret))
                               n 0
                               bs b
@@ -32,25 +33,26 @@
                                                  :cljs (new js/Error "Unsupported binding form, only :as can follow & parameter")))
                                        (recur (pb (if has-rest
                                                     (conj ret
-                                                          gfirst `(first ~gseq)
-                                                          gseq `(next ~gseq))
+                                                          gfirst (mark-eval-call `(~first ~gseq))
+                                                          gseq (mark-eval-call `(~next ~gseq)))
                                                     ret)
                                                   firstb
                                                   (if has-rest
                                                     gfirst
-                                                    (list `nth gvec n nil)))
+                                                    (mark-eval-call (list nth gvec n nil))))
                                               (inc n)
                                               (next bs)
                                               seen-rest?))))
                            ret))))
                    pmap
                    (fn [bvec b v]
-                     (let [gmap (gensym "map__")
+                     (let [gmap (gensym* "map__")
                            defaults (:or b)]
                        (loop [ret (-> bvec (conj gmap) (conj v)
-                                      (conj gmap) (conj `(if (seq? ~gmap)
-                                                           (~'apply ~'hash-map ~gmap)
-                                                           ~gmap))
+                                      (conj gmap) (conj (mark-eval-call
+                                                         `(if ~(mark-eval-call `(~seq? ~gmap))
+                                                            ~(mark-eval-call `(~apply ~hash-map ~gmap))
+                                                            ~gmap)))
                                       ((fn [ret]
                                          (if (:as b)
                                            (conj ret (:as b) gmap)
@@ -61,8 +63,15 @@
                                            (if (keyword? mk)
                                              (let [mkns (namespace mk)
                                                    mkn (name mk)]
-                                               (cond (= mkn "keys") (assoc transforms mk #(keyword (or mkns (namespace %)) (name %)))
-                                                     (= mkn "syms") (assoc transforms mk #(list `quote (symbol (or mkns (namespace %)) (name %))))
+                                               (cond (= mkn "keys")
+                                                     (assoc transforms mk
+                                                            #(keyword (or mkns (namespace %))
+                                                                      (name %)))
+                                                     (= mkn "syms")
+                                                     (assoc transforms mk
+                                                            #(symbol (or mkns
+                                                                         (namespace %))
+                                                                     (name %)))
                                                      (= mkn "strs") (assoc transforms mk str)
                                                      :else transforms))
                                              transforms))
@@ -83,8 +92,8 @@
                                          (with-meta (symbol nil (name bb)) (meta bb))
                                          bb)
                                  bv (if (contains? defaults local)
-                                      (list 'get gmap bk (defaults local))
-                                      (list 'get gmap bk))]
+                                      (mark-eval-call (list get gmap bk (defaults local)))
+                                      (mark-eval-call (list get gmap bk)))]
                              (recur
                               (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
                                 (-> ret (conj local bv))
@@ -92,7 +101,8 @@
                               (next bes)))
                            ret))))]
                (cond
-                 (symbol? b) (-> bvec (conj (if (namespace b) (symbol (name b)) b)) (conj v))
+                 (symbol? b) (-> bvec (conj (if (namespace b)
+                                              (symbol (name b)) b)) (conj v))
                  (keyword? b) (-> bvec (conj (symbol (name b))) (conj v))
                  (vector? b) (pvec bvec b v)
                  (map? b) (pmap bvec b v)
@@ -107,3 +117,7 @@
          #?(:clj (new Exception (str "Unsupported binding key: " (ffirst kwbs)))
             :cljs (new js/Error (str "Unsupported binding key: " (ffirst kwbs)))))
         (reduce process-entry [] bents)))))
+
+(defn destructure [b]
+  ;; (prn (destructure* b))
+  (destructure* b))

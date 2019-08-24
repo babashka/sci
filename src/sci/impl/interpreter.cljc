@@ -8,8 +8,7 @@
    [sci.impl.fns :as fns]
    [sci.impl.functions :as f]
    [sci.impl.macros :as macros]
-   [sci.impl.max-or-throw :refer [max-or-throw]]
-   [clojure.walk :refer [postwalk]]))
+   [sci.impl.max-or-throw :refer [max-or-throw]]))
 
 ;;;; Readers
 
@@ -78,22 +77,23 @@
           e)))))
 
 (defn eval-if
-  [i expr]
+  [ctx expr]
   (let [[_if cond then else] expr]
-    (if (i cond)
-      (i then)
-      (i else))))
+    (if (interpret ctx cond)
+      (interpret ctx then)
+      (interpret ctx else))))
 
 (defn eval-when
-  [i expr]
+  [ctx expr]
   (let [[_when cond & body] expr]
-    (when (i cond )
-      (last (map i body)))))
+    (when (interpret ctx cond)
+      (last (map #(interpret ctx %) body)))))
 
 (defn eval-def
   [ctx [_def var-name ?docstring ?init]]
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
+        ;; _ (prn "init" (meta init))
         init (interpret ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
@@ -106,6 +106,7 @@
                  (find @env sym)
                  (find f/functions sym)
                  (when-let [ns (namespace sym)]
+                   ;; (prn "NS>" ns)
                    (when (or (= "clojure.core" ns)
                              (= "cljs.core" ns))
                      (find f/functions (symbol (name sym))))))]
@@ -133,36 +134,22 @@
                     (str "Could not resolve symbol: " (str expr)))))))))
 
 (defn apply-fn [ctx f args]
+  ;; (prn "apply fn" f)
   (let [args (map #(interpret ctx %) args)]
+    ;; (prn "ARGS" args)
     (apply f args)))
 
-(defn mark-evaled [x]
-  (if #?(:clj (instance? clojure.lang.IObj x)
-         :cljs (satisfies? IWithMeta x))
-    (try (with-meta x {:sci/evaled true})
-         (catch Exception _ x))
-    x))
-
-(defn interpret-map [i expr]
-  (zipmap (map i (keys expr))
-          (map i (vals expr))))
-
-(defn interpret-vec-or-set [i expr]
-  (into (empty expr) (map i expr)))
-
-(defn interpret-code-execution [ctx i expr]
+(defn eval-call [ctx expr]
   (if-let [f (first expr)]
     (let [f (or (get macros f)
-                (i f))]
+                (interpret ctx f))]
       (case f
         do
         (eval-do ctx expr)
         if
-        (eval-if i expr)
+        (eval-if ctx expr)
         when
-        (eval-when i expr)
-        quote (postwalk mark-evaled
-                        (second expr))
+        (eval-when ctx expr)
         and
         (eval-and ctx (rest expr))
         or
@@ -173,34 +160,30 @@
         ;; else
         (if (ifn? f)
           (apply-fn ctx f (rest expr))
-          (throw #?(:clj (Exception. (format "Cannot call %s as a function." (pr-str f)))
-                    :cljs (js/Error. (str "Cannot call " (pr-str f) " as a function.")))))))
+          (throw (new #?(:clj Exception :cljs js/Error)
+                      (str "Cannot call " (pr-str f) " as a function."))))))
     expr))
-
-(def constant? (some-fn fn? number? string? keyword?))
 
 (defn interpret
   [ctx expr]
-  ;; (prn "expr" expr)
-  (let [ret
-        (cond (constant? expr) expr
-              (symbol? expr) (resolve-symbol ctx expr)
-              (:sci/fn expr) (fns/eval-fn ctx interpret expr)
-              ;; we might eventually switch to rewrite-clj for parsing code,
-              ;; then we can differentiate between was has been evaled and what
-              ;; has not
-              (-> (meta expr) :sci/evaled) expr
-              :else
-              (let [i #(interpret ctx %)
-                    r (cond
-                        (map? expr) (interpret-map i expr)
-                        (or (vector? expr) (set? expr)) (interpret-vec-or-set i expr)
-                        (seq? expr) (interpret-code-execution ctx i expr)
-                        :else expr)]
-                ;; for debugging:
-                ;; (prn expr '-> r)
-                r))
-        ret (mark-evaled ret)]
+  ;; (prn "to eval expr" expr (meta expr))
+  (let [m (meta expr)
+        eval? (:sci.impl/eval m)
+        ret
+        (cond
+          (not eval?) (do nil ;; (prn "not eval" expr)
+                          expr)
+          (:sci/fn expr) (fns/eval-fn ctx interpret expr)
+          (:sci.impl/eval-call m) (eval-call ctx expr)
+          (symbol? expr) (resolve-symbol ctx expr)
+          (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                              (map #(interpret ctx %) (vals expr)))
+          (or (vector? expr) (set? expr)) (into (empty expr)
+                                                (map #(interpret ctx %)
+                                                     expr))
+          :else (throw (new #?(:clj Exception :cljs js/Error) (str "unexpected: " expr))))]
+    ;; for debugging:
+    ;; (prn expr) (prn '-> ret)
     (if-let [n (:realize-max ctx)]
       (max-or-throw ret (assoc ctx
                                :expression expr)
@@ -255,5 +238,7 @@
   (eval-string "(apply (fn [x & xs] xs) 1 2 [3 4])")
   (eval-string "(map #(+ 1 %) [0 1 2])")
   (eval-string "list")
+  (eval-string "(list (list \"foo\") (list \"bar\"))")
+  (eval-string "(map (fn [x] x) (list (list \"foo\") (list \"bar\")))")
+  (eval-string "(mapv (fn [x] x) (list (list \"foo\") (list \"bar\")))")
   )
-
