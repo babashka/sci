@@ -85,3 +85,5 @@ Copyright © 2019 Michiel Borkent
 Distributed under the Eclipse Public License 1.0. This project contains code
 from Clojure and ClojureScript which are also licensed under the EPL 1.0. See
 LICENSE.
+
+The directory `inlined` contains source from [`tools.reader`](https://github.com/clojure/tools.reader) which is licensed under the EPL license.

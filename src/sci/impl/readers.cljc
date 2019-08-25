@@ -5,12 +5,6 @@
             #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])))
 
-(defn read-regex [form]
-  (re-pattern form))
-
-(defn read-quote [form]
-  (list 'quote form))
-
 (defn read-fn [expr]
   (let [state (volatile! {:max-fixed 0 :var-args? false})
         expr (postwalk (fn [elt]
@@ -51,9 +45,6 @@
                 :sci/var-arg-name (when var-args? '%&)}]}]
     form))
 
-(defn read-edn [s]
-  (edn/read-string
-   {:readers {'sci/fn (fn [s] (read-fn s))
-              'sci/regex read-regex
-              'sci/quote read-quote}}
-   s))
+;;;; Scratch
+
+(comment)
