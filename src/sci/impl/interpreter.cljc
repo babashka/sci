@@ -7,7 +7,7 @@
    [sci.impl.functions :as f]
    [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
-   [sci.impl.readers :refer [read-edn]]))
+   [sci.impl.parser :as p]))
 
 (declare interpret)
 
@@ -182,15 +182,7 @@
               :allow (when allow (set allow))
               :realize-max realize-max
               :start-expression s}
-         edn (read-edn (-> s
-                           ;; we might eventually switch to rewrite-clj or
-                           ;; tools.reader for parsing code, for now this hack
-                           ;; works
-                           (str/replace "#(" "#sci/fn(")
-                           (str/replace "#\"" "#sci/regex\"")
-                           (str/replace #"'([{(#\[])"
-                                        (fn [m]
-                                          (str "#sci/quote " (second m)))))) 
+         edn (p/parse-string s)
          ;; _ (def e edn)
          expr (macros/macroexpand ctx edn)]
      ;; (prn "expanded:" expr)

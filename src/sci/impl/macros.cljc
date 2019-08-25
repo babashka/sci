@@ -235,7 +235,8 @@
     ;; already expanded by reader
     (:sci/fn expr) (expand-fn-literal-body ctx expr)
     (symbol? expr) (let [v (resolve-symbol ctx expr)]
-                     (when-not (identical? :sci/var.unbound v)
+                     (when-not (#?(:clj identical? :cljs keyword-identical?)
+                                :sci/var.unbound v)
                        v))
     (map? expr)
     (-> (zipmap (map #(macroexpand ctx %) (keys expr))
