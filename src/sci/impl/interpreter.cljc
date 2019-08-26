@@ -7,9 +7,11 @@
    [sci.impl.functions :as f]
    [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
-   [sci.impl.parser :as p]))
+   [sci.impl.parser :as p]
+   [sci.impl.utils :as utils :refer [throw-error-with-location]]))
 
 (declare interpret)
+#?(:clj (set! *warn-on-reflection* true))
 
 ;;;; Evaluation
 
@@ -50,12 +52,14 @@
 (defn eval-do
   [ctx expr]
   (loop [exprs (rest expr)]
-    (when-let [e (first exprs)]
-      (let [e (macros/macroexpand ctx e)
-            e (interpret ctx e)]
+    (when-let [expr (first exprs)]
+      (let [expr (macros/macroexpand ctx expr)
+            ret (try (interpret ctx expr)
+                     (catch #?(:clj Exception :cljs js/Error) e
+                       (utils/re-throw-with-location-of-node e expr)))]
         (if-let [n (next exprs)]
           (recur n)
-          e)))))
+          ret)))))
 
 (defn eval-if
   [ctx expr]
@@ -110,9 +114,10 @@
       (if (str/starts-with? n "'")
         (let [v (symbol (subs n 1))]
           [v v])
-        (throw (new #?(:clj Exception
-                       :cljs js/Error)
-                    (str "Could not resolve symbol: " (str expr)))))))))
+        ;; TODO: can this ever happen now that we resolve symbols at macro-expansion time?
+        (throw-error-with-location
+         (str "Could not resolve symbol: " (str expr))
+         expr))))))
 
 (defn apply-fn [ctx f args]
   ;; (prn "apply fn" f)
@@ -182,11 +187,8 @@
               :allow (when allow (set allow))
               :realize-max realize-max
               :start-expression s}
-         edn (p/parse-string s)
-         ;; _ (def e edn)
-         expr (macros/macroexpand ctx edn)]
-     ;; (prn "expanded:" expr)
-     (interpret ctx expr))))
+         edn-vals (p/parse-string-all s)]
+     (eval-do ctx (cons 'do edn-vals)))))
 
 ;;;; Scratch
 

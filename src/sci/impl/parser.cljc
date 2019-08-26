@@ -24,18 +24,6 @@
   {:row (r/get-line-number reader)
    :col (r/get-column-number reader)})
 
-(defn- parse-to-delimiter
-  ([ctx #?(:cljs ^not-native reader :default reader) delimiter]
-   (parse-to-delimiter ctx reader delimiter []))
-  ([ctx #?(:cljs ^not-native reader :default reader) delimiter into]
-   (r/read-char reader) ;; ignore delimiter
-   (let [ctx (assoc ctx :expected-delimiter delimiter)]
-     (loop [vals (transient into)]
-       (let [next-val (parse-next ctx reader)]
-         (if (#?(:clj identical? :cljs keyword-identical?) ::expected-delimiter next-val)
-           (persistent! vals)
-           (recur (conj! vals next-val))))))))
-
 (defn parse-whitespace
   [_ctx #?(:cljs ^not-native reader :default reader)]
   (loop []
@@ -60,6 +48,21 @@
   (r/read-char reader) ;; ignore leading @
   (list 'deref (parse-next ctx reader)))
 
+(defn parse-to-delimiter
+  ([ctx #?(:cljs ^not-native reader :default reader) delimiter]
+   (parse-to-delimiter ctx reader delimiter []))
+  ([ctx #?(:cljs ^not-native reader :default reader) delimiter into]
+   (r/read-char reader) ;; ignore delimiter
+   (let [ctx (assoc ctx :expected-delimiter delimiter)]
+     (loop [vals (transient into)]
+       (let [next-val (parse-next ctx reader)]
+         (if (#?(:clj identical? :cljs keyword-identical?) ::expected-delimiter next-val)
+           (persistent! vals)
+           (recur (conj! vals next-val))))))))
+
+(defn parse-list [ctx #?(:cljs ^not-native reader :default reader)]
+  (apply list (parse-to-delimiter ctx reader \))))
+
 (defn throw-reader
   "Throw reader exception, including line line/column."
   ([#?(:cljs ^:not-native reader :default reader) msg]
@@ -70,12 +73,8 @@
      (throw
       (ex-info
        (str msg
-            " [at line " l ", column " c "]") (merge {:row l
-                                                      :col c}
-                                                     data))))))
-
-(defn parse-list [ctx #?(:cljs ^not-native reader :default reader)]
-  (apply list (parse-to-delimiter ctx reader \))))
+            " [at line " l ", column " c "]")
+       (merge {:row l, :col c} data))))))
 
 (defn parse-sharp
   [ctx #?(:cljs ^not-native reader :default reader)]
@@ -98,7 +97,6 @@
   [ctx #?(:cljs ^not-native reader :default reader) c]
   (case c
     nil ::eof
-    (\" \:) (edn/read reader)
     \( (parse-list ctx reader)
     \[ (parse-to-delimiter ctx reader \])
     \{ (apply hash-map (parse-to-delimiter ctx reader \}))
@@ -106,7 +104,8 @@
     (\} \] \)) (let [expected (:expected-delimiter ctx)]
                  (if (not= expected c)
                    (throw-reader reader
-                                 (str "Unmatched delimiter: " c ", " ctx))
+                                 (str "Unmatched delimiter: " c)
+                                 ctx)
                    (do
                      (r/read-char reader) ;; read delimiter
                      ::expected-delimiter)))
@@ -139,7 +138,17 @@
         ctx {:expected-delimiter nil}]
     (parse-next ctx r)))
 
+(defn parse-string-all [s]
+  (let [^Closeable r (string-reader s)
+        ctx {:expected-delimiter nil}]
+    (loop [ret (transient [])]
+      (let [next-val (parse-next ctx r)]
+        (if (#?(:clj identical? :cljs keyword-identical?) ::eof next-val)
+          (persistent! ret)
+          (recur (conj! ret next-val)))))))
+
 ;;;; Scratch
 
 (comment
+  (parse-string "{:a 1} {:a 2}")
   )
