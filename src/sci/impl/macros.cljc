@@ -1,11 +1,13 @@
 (ns sci.impl.macros
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
-  (:require [clojure.walk :refer [postwalk]]
-            [sci.impl.destructure :refer [destructure]]
-            [sci.impl.functions :as f]
-            [sci.impl.utils :refer [gensym* mark-resolve-sym mark-eval mark-eval-call constant?]]
-            [clojure.string :as str]))
+  (:require
+   [sci.impl.destructure :refer [destructure]]
+   [sci.impl.functions :as f]
+   [sci.impl.utils :refer
+    [gensym* mark-resolve-sym mark-eval mark-eval-call constant? throw-error-with-location
+     merge-meta]]
+   [clojure.string :as str]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn})
 
@@ -13,8 +15,7 @@
   (let [allowed? (if allow (contains? allow sym)
                      true)]
     (when-not allowed?
-      (throw (new #?(:clj Exception :cljs js/Error)
-                  (str sym " is not allowed!"))))))
+      (throw-error-with-location (str sym " is not allowed!") sym))))
 
 (defn lookup [{:keys [:env :bindings] :as ctx} sym]
   (let [res (or (when-let [v (get macros sym)]
@@ -49,10 +50,9 @@
                 (if (str/starts-with? n "'")
                   (let [v (symbol (subs n 1))]
                     [v v])
-                  (throw (new #?(:clj Exception
-                                 :cljs js/Error)
-                              (str "Could not resolve symbol: " (str expr)
-                                   (keys (:bindings expr)))))))))]
+                  (throw-error-with-location
+                   (str "Could not resolve symbol: " (str expr))
+                   expr)))))]
     ;; (prn 'resolve expr '-> res)
     res))
 
@@ -165,8 +165,9 @@
           (if forms
             (let [form (first forms)
                   threaded (if (seq? form)
-                             (with-meta (concat (cons (first form) (next form))
-                                                (list x))
+                             (with-meta
+                               (concat (cons (first form) (next form))
+                                       (list x))
                                (meta form))
                              (list form x))]
               (recur threaded (next forms))) x))]
@@ -213,7 +214,7 @@
           (do (allow?! ctx f)
               (case f
                 do (mark-eval-call expr) ;; do will call macroexpand on every
-                                         ;; subsequent expression
+                ;; subsequent expression
                 let (expand-let ctx expr)
                 (fn fn*) (expand-fn ctx expr)
                 def (expand-def ctx expr)
@@ -230,23 +231,25 @@
 
 (defn macroexpand
   [ctx expr]
-  (cond
-    (constant? expr) expr
-    ;; already expanded by reader
-    (:sci/fn expr) (expand-fn-literal-body ctx expr)
-    (symbol? expr) (let [v (resolve-symbol ctx expr)]
-                     (when-not (#?(:clj identical? :cljs keyword-identical?)
-                                :sci/var.unbound v)
-                       v))
-    (map? expr)
-    (-> (zipmap (map #(macroexpand ctx %) (keys expr))
-                (map #(macroexpand ctx %) (vals expr)))
-        mark-eval)
-    (or (vector? expr) (set? expr))
-    (-> (into (empty expr) (map #(macroexpand ctx %) expr))
-        mark-eval)
-    (seq? expr) (macroexpand-call ctx expr)
-    :else expr))
+  (merge-meta
+   (cond
+     (constant? expr) expr
+     ;; already expanded by reader
+     (:sci/fn expr) (expand-fn-literal-body ctx expr)
+     (symbol? expr) (let [v (resolve-symbol ctx expr)]
+                      (when-not (#?(:clj identical? :cljs keyword-identical?)
+                                 :sci/var.unbound v)
+                        v))
+     (map? expr)
+     (-> (zipmap (map #(macroexpand ctx %) (keys expr))
+                 (map #(macroexpand ctx %) (vals expr)))
+         mark-eval)
+     (or (vector? expr) (set? expr))
+     (-> (into (empty expr) (map #(macroexpand ctx %) expr))
+         mark-eval)
+     (seq? expr) (macroexpand-call ctx expr)
+     :else expr)
+   (meta expr)))
 
 ;;;; Scratch
 

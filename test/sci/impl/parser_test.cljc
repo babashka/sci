@@ -25,3 +25,8 @@
   (is (re-find (p/parse-string "#\"foo\"") "foo"))
   (is (= '(do (+ 1 2 3)) (p/parse-string "(do (+ 1 2 3)\n)"))))
 
+;;;; Scratch
+
+(comment
+  (t/run-tests)
+  )

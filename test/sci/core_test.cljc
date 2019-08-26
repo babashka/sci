@@ -1,5 +1,6 @@
 (ns sci.core-test
   (:require
+   [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
@@ -172,17 +173,18 @@
          (eval* "(defn foo [] (as-> y x (inc y)))")))
     (is (thrown-with-msg?
          #?(:clj Exception :cljs js/Error) #"y"
-         (eval* "(defn foo [] (as-> 10 x (inc y))))")))))
+         (eval* "(defn foo [] (as-> 10 x (inc y)))")))))
 
 (deftest do-test
   (testing "expressions with do are evaluated in order and have side effects,
   even when one of the following expressions have an unresolved symbol"
     (when-not tu/native?
       (is
-       (= "hello\n"
+       (str/includes?
           (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
                                        {:bindings {'println println}})
-                             (catch #?(:clj Exception :cljs js/Error) _ nil))))))))
+                             (catch #?(:clj Exception :cljs js/Error) _ nil)))
+          "hello")))))
 
 (deftest macroexpand-test
   (is (= [6] (eval* "[(-> 3 inc inc inc)]")))
@@ -224,14 +226,23 @@
   (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100}))))
 
 (deftest idempotent-eval-test
-  ;; TODO: we might eventually switch to rewrite-clj to parse the raw code, then
-  ;; we can also differentiate between what has been evaled and what has not
   (is (= '(foo/f1 foo/f2)
          (eval* "(map #(let [[ns v] %] (symbol (str ns) (str v))) '[[foo f1] [foo f2]])")))
   (is (= '(foo/f1)
          (eval* "(map #(let [[ns v] %] (symbol (str ns) (str v)))
                    (vector (vector (symbol \"foo\") (symbol \"f1\"))))")))
   (is (= '[["foo"] ["bar"]] (eval* "(map (fn [x] x) (list (list \"foo\") (list \"bar\")))"))))
+
+(deftest error-location-test
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"\[at line 1, column 11\]"
+                        (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"\[at line 1, column 13\]"
+                        (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"\[at line 1, column 19\]"
+                        (tu/eval* "(+ 1 2 3 4 5) (do x)" {}))))
 
 ;;;; Scratch
 

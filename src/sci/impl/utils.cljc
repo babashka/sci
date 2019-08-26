@@ -1,5 +1,11 @@
 (ns sci.impl.utils
-  {:no-doc true})
+  {:no-doc true}
+  (:require [clojure.string :as str]))
+
+(derive :sci.error/realized-beyond-max :sci/error)
+
+(defn sci-error? [e]
+  (isa? (:type e) :sci/error))
 
 (defn constant? [x]
   (or (fn? x) (number? x) (string? x) (keyword? x)))
@@ -32,3 +38,37 @@
    expr
    (fn [m]
      (assoc m :sci.impl/eval true))))
+
+(defn throw-error-with-location
+  ([msg iobj] (throw-error-with-location msg iobj {}))
+  ([msg iobj data]
+   (let [{:keys [:row :col]} (meta iobj)
+         msg (str msg
+                  " [at line " row ", column " col "]") ]
+     (throw (ex-info msg (merge {:type :sci/error
+                                 :row row
+                                 :col col} data))))))
+
+(defn re-throw-with-location-of-node [^Exception e node]
+  (let [m #?(:clj (.getMessage e)
+             :cljs (.-message e))]
+    (if (str/includes? m "[at line")
+      (throw e)
+      (let [{:keys [:row :col]} (meta node)]
+        (if (and row col)
+          (let [m (str m " [at line " row ", column " col "]")
+                new-exception (if-let [d (ex-data e)]
+                                (ex-info m (merge {:type :sci/error
+                                                   :row row
+                                                   :col col} d))
+                                #?(:clj (Exception. m e)
+                                   :cljs (do (set! (.-message e) m) e)))]
+            (throw new-exception))
+          (throw e))))))
+
+(defn merge-meta [obj d]
+  (if d
+    (if-let [m (meta obj)]
+      (with-meta obj (merge m d))
+      obj)
+    obj))
