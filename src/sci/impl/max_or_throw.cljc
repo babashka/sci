@@ -1,4 +1,5 @@
-(ns sci.impl.max-or-throw)
+(ns sci.impl.max-or-throw
+  {:no-doc true})
 
 (defprotocol MaxOrThrow
   (max-or-throw [this ctx n]))
