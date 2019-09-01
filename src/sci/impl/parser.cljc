@@ -100,7 +100,6 @@
     \( (parse-list ctx reader)
     \[ (parse-to-delimiter ctx reader \])
     \{ (apply hash-map (parse-to-delimiter ctx reader \}))
-    \' (parse-quoted reader)
     (\} \] \)) (let [expected (:expected-delimiter ctx)]
                  (if (not= expected c)
                    (throw-reader reader
@@ -109,13 +108,14 @@
                    (do
                      (r/read-char reader) ;; read delimiter
                      ::expected-delimiter)))
+    \' (parse-quoted reader)
     \; (parse-comment reader)
     \@ (parse-deref ctx reader)
     \# (parse-sharp ctx reader)
-    (if (whitespace? c) (parse-whitespace ctx reader)
-        (edn/read reader))))
+    (edn/read reader)))
 
 (defn parse-next [ctx reader]
+  (parse-whitespace ctx reader) ;; skip leading whitespace
   (let [c (r/peek-char reader)
         loc (location reader)
         obj (dispatch ctx reader c)]
