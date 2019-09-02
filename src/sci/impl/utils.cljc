@@ -50,7 +50,6 @@
                                  :col col} data))))))
 
 (defn re-throw-with-location-of-node [^Exception e node]
-  (prn "E" e)
   (if-let [m #?(:clj (.getMessage e)
              :cljs (.-message e))]
     (if (str/includes? m "[at line")
