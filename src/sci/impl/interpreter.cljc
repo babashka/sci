@@ -126,6 +126,8 @@
     ;; (prn "ARGS" args)
     (apply f args)))
 
+(declare eval-string)
+
 (defn eval-call [ctx expr]
   (if-let [f (first expr)]
     (let [f (or (get macros f)
@@ -145,10 +147,9 @@
         (apply eval-let ctx (rest expr))
         def (eval-def ctx expr)
         ;; else
-        (if (ifn? f)
-          (apply-fn ctx f (rest expr))
-          (throw (new #?(:clj Exception :cljs js/Error)
-                      (str "Cannot call " (pr-str f) " as a function."))))))
+        (if (ifn? f) (apply-fn ctx f (rest expr))
+            (throw (new #?(:clj Exception :cljs js/Error)
+                        (str "Cannot call " (pr-str f) " as a function."))))))
     expr))
 
 (defn interpret
