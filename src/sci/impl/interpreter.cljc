@@ -87,14 +87,15 @@
 
 (defn lookup [{:keys [:env :bindings]} sym]
   (when-let [[k v :as kv]
-             (or (find bindings sym)
-                 (find @env sym)
-                 (find f/functions sym)
-                 (when-let [ns (namespace sym)]
-                   ;; (prn "NS>" ns)
-                   (when (or (= "clojure.core" ns)
-                             (= "cljs.core" ns))
-                     (find f/functions (symbol (name sym))))))]
+             (or
+              (find @env sym)
+              (find bindings sym)
+              (find f/functions sym)
+              (when-let [ns (namespace sym)]
+                ;; (prn "NS>" ns)
+                (when (or (= "clojure.core" ns)
+                          (= "cljs.core" ns))
+                  (find f/functions (symbol (name sym))))))]
     (if-let [m (meta k)]
       (if (:sci/deref! m)
         ;; the evaluation of this expression has been delayed by
