@@ -244,6 +244,12 @@
                         #"\[at line 1, column 19\]"
                         (tu/eval* "(+ 1 2 3 4 5) (do x)" {}))))
 
+(deftest comment-test
+	(is (nil? (eval* '(comment "anything"))))
+	(is (nil? (eval* '(comment anything))))
+	(is (nil? (eval* '(comment 1))))
+	(is (nil? (eval* '(comment (+ 1 2 (* 3 4)))))))
+
 ;;;; Scratch
 
 (comment
