@@ -258,6 +258,21 @@
   (is (nil? (eval* '(comment 1))))
   (is (nil? (eval* '(comment (+ 1 2 (* 3 4)))))))
 
+(deftest GH-54-recursive-function-test
+  (when-not tu/native?
+    (is (= 5 (tu/eval* "(do (def c (atom 0))
+                            (defn hello []
+                              (swap! c inc)
+                              (if (< @c 5) (hello) @c))
+                            (hello))"
+                       {:bindings {'atom atom
+                                   'swap! swap!
+                                   'deref deref}})))))
+
+(deftest trampoline-test
+  (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) #(hello (inc x)) x))
+                         (trampoline hello 0)" {}))))
+
 ;;;; Scratch
 
 (comment

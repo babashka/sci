@@ -304,6 +304,7 @@
           'take-last take-last
           'take-nth take-nth
           'take-while take-while
+          'trampoline trampoline
           'transduce transduce
           'tree-seq tree-seq
           'type type

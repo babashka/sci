@@ -6,7 +6,7 @@
    [sci.impl.functions :as f]
    [sci.impl.utils :refer
     [gensym* mark-resolve-sym mark-eval mark-eval-call constant? throw-error-with-location
-     merge-meta]]
+     merge-meta kw-identical?]]
    [clojure.string :as str]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn comment})
@@ -18,29 +18,35 @@
       (throw-error-with-location (str sym " is not allowed!") sym))))
 
 (defn lookup [{:keys [:env :bindings] :as ctx} sym]
-  (let [res (or (when-let [v (get macros sym)]
-                  (do (allow?! ctx sym)
-                      [v v]))
-                (find @env sym)
-                (when-let [[k v]
-                           (find bindings sym)]
-                  (if (:sci/macro (meta v))
-                    [k v]
-                    ;; never inline a binding at macro time!
-                    [k (mark-resolve-sym k)]))
-                (when-let [v (find f/functions sym)]
-                  (do (allow?! ctx sym)
-                      v))
-                (when-let [ns (namespace sym)]
-                  ;; (prn "NS" ns)
-                  (when (or (= "clojure.core" ns)
-                            (= "cljs.core" ns))
-                    (let [unqualified-sym (symbol (name sym))]
-                      (when-let [v (find f/functions unqualified-sym)]
-                        (do (allow?! ctx unqualified-sym)
-                            v))))))]
+  (let [[k v :as kv]
+        (or (when-let [v (get macros sym)]
+              (do (allow?! ctx sym)
+                  [v v]))
+            (find @env sym)
+            (when-let [[k v]
+                       (find bindings sym)]
+              (if (:sci/macro (meta v))
+                [k v]
+                ;; never inline a binding at macro time!
+                [k (mark-resolve-sym k)]))
+            (when-let [v (find f/functions sym)]
+              (do (allow?! ctx sym)
+                  v))
+            (when-let [ns (namespace sym)]
+              ;; (prn "NS" ns)
+              (when (or (= "clojure.core" ns)
+                        (= "cljs.core" ns))
+                (let [unqualified-sym (symbol (name sym))]
+                  (when-let [v (find f/functions unqualified-sym)]
+                    (do (allow?! ctx unqualified-sym)
+                        v))))))]
     ;; (prn 'lookup sym '-> res)
-    res))
+    (if-let [m (meta k)]
+      (if (:sci/deref! m)
+        ;; the evaluation of this expression has been delayed by
+        ;; the caller and now is the time to deref it
+        [k @v] kv)
+      kv)))
 
 (defn resolve-symbol [ctx expr]
   (let [res (second
@@ -243,25 +249,28 @@
 
 (defn macroexpand
   [ctx expr]
-  (merge-meta
-   (cond
-     (constant? expr) expr
-     ;; already expanded by reader
-     (:sci/fn expr) (expand-fn-literal-body ctx expr)
-     (symbol? expr) (let [v (resolve-symbol ctx expr)]
-                      (when-not (#?(:clj identical? :cljs keyword-identical?)
-                                 :sci/var.unbound v)
-                        v))
-     (map? expr)
-     (-> (zipmap (map #(macroexpand ctx %) (keys expr))
-                 (map #(macroexpand ctx %) (vals expr)))
-         mark-eval)
-     (or (vector? expr) (set? expr))
-     (-> (into (empty expr) (map #(macroexpand ctx %) expr))
-         mark-eval)
-     (seq? expr) (macroexpand-call ctx expr)
-     :else expr)
-   (meta expr)))
+  (cond (constant? expr) expr ;; constants do not carry metadata
+        (symbol? expr) (let [v (resolve-symbol ctx expr)]
+                         (cond (kw-identical? :sci/var.unbound v) nil
+                               (constant? v) v
+                               (fn? v) (merge-meta v {:sci.impl/eval false})
+                               :else (merge-meta v (meta expr))))
+        :else
+        (merge-meta
+         (cond
+           ;; already expanded by reader
+           (:sci/fn expr) (expand-fn-literal-body ctx expr)
+
+           (map? expr)
+           (-> (zipmap (map #(macroexpand ctx %) (keys expr))
+                       (map #(macroexpand ctx %) (vals expr)))
+               mark-eval)
+           (or (vector? expr) (set? expr))
+           (-> (into (empty expr) (map #(macroexpand ctx %) expr))
+               mark-eval)
+           (seq? expr) (macroexpand-call ctx expr)
+           :else expr)
+         (meta expr))))
 
 ;;;; Scratch
 

@@ -8,7 +8,7 @@
   (isa? (:type e) :sci/error))
 
 (defn constant? [x]
-  (or (fn? x) (number? x) (string? x) (keyword? x)))
+  (or (number? x) (string? x) (keyword? x)))
 
 (defn mark-resolve-sym
   [sym]
@@ -16,8 +16,11 @@
    sym
    (fn [m]
      (assoc m
-            :sci.impl/eval true
-            :sci.impl/unresolved true))))
+            :sci.impl/eval true))))
+
+(defn kw-identical? [k v]
+  (#?(:clj identical? :cljs keyword-identical?)
+   k v))
 
 (defn gensym*
   ([] (mark-resolve-sym (gensym)))
@@ -67,7 +70,9 @@
           (throw e))))
     (throw e)))
 
-(defn merge-meta [obj d]
+(defn merge-meta
+  "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
+  [obj d]
   (if d
     (if-let [m (meta obj)]
       (with-meta obj (merge m d))
