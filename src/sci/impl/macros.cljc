@@ -21,11 +21,13 @@
   (let [res (or (when-let [v (get macros sym)]
                   (do (allow?! ctx sym)
                       [v v]))
-                (when-let [[k _v]
-                           (find bindings sym)]
-                  ;; never inline a binding at macro time!
-                  [k (mark-resolve-sym k)])
                 (find @env sym)
+                (when-let [[k v]
+                           (find bindings sym)]
+                  (if (:sci/macro (meta v))
+                    [k v]
+                    ;; never inline a binding at macro time!
+                    [k (mark-resolve-sym k)]))
                 (when-let [v (find f/functions sym)]
                   (do (allow?! ctx sym)
                       v))
@@ -203,9 +205,8 @@
 
 
 (defn expand-comment
-"The comment macro from clojure.core."
-[ctx & body])
-
+  "The comment macro from clojure.core."
+  [_ctx & _body])
 
 (defn macroexpand-call [ctx expr]
   (if-let [f (first expr)]
@@ -232,7 +233,11 @@
                 comment (expand-comment ctx expr)
                 ;; else:
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
-          (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
+          (if-let [vf (resolve-symbol ctx f)]
+            (if (:sci/macro (meta vf))
+              (macroexpand ctx (apply vf (rest expr)))
+              (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
+            (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
       (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
     expr))
 

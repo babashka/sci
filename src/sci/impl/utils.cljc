@@ -50,7 +50,7 @@
                                  :col col} data))))))
 
 (defn re-throw-with-location-of-node [^Exception e node]
-  (let [m #?(:clj (.getMessage e)
+  (if-let [m #?(:clj (.getMessage e)
              :cljs (.-message e))]
     (if (str/includes? m "[at line")
       (throw e)
@@ -64,7 +64,8 @@
                                 #?(:clj (Exception. m e)
                                    :cljs (do (set! (.-message e) m) e)))]
             (throw new-exception))
-          (throw e))))))
+          (throw e))))
+    (throw e)))
 
 (defn merge-meta [obj d]
   (if d
