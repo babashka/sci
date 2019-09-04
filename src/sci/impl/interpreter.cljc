@@ -86,22 +86,15 @@
     init))
 
 (defn lookup [{:keys [:env :bindings]} sym]
-  (when-let [[k v :as kv]
-             (or
-              (find @env sym)
-              (find bindings sym)
-              (find f/functions sym)
-              (when-let [ns (namespace sym)]
-                ;; (prn "NS>" ns)
-                (when (or (= "clojure.core" ns)
-                          (= "cljs.core" ns))
-                  (find f/functions (symbol (name sym))))))]
-    (if-let [m (meta k)]
-      (if (:sci/deref! m)
-        ;; the evaluation of this expression has been delayed by
-        ;; the caller and now is the time to deref it
-        [k @v] kv)
-      kv)))
+  (or
+   (find @env sym)
+   (find bindings sym)
+   (find f/functions sym)
+   (when-let [ns (namespace sym)]
+     ;; (prn "NS>" ns)
+     (when (or (= "clojure.core" ns)
+               (= "cljs.core" ns))
+       (find f/functions (symbol (name sym)))))))
 
 (def macros '#{do if when and or -> ->> as-> quote let fn def defn})
 
@@ -184,8 +177,9 @@
   ([s] (eval-string s nil))
   ([s {:keys [:bindings :env :allow :realize-max]}]
    (let [env (or env (atom {}))
+         env (do (swap! env merge bindings) env)
          ctx {:env env
-              :bindings bindings
+              :bindings {}
               :allow (when allow (set allow))
               :realize-max realize-max
               :start-expression s}
