@@ -244,6 +244,14 @@
                         #"\[at line 1, column 19\]"
                         (tu/eval* "(+ 1 2 3 4 5) (do x)" {}))))
 
+(deftest macro-test
+  (is (= [1 1]
+         (tu/eval*
+          '(do-twice 1)
+          {:bindings {'do-twice (with-meta (fn [& body]
+                                             `(vector (do ~@body) (do ~@body)))
+                                  {:sci/macro true})}}))))
+
 ;;;; Scratch
 
 (comment
