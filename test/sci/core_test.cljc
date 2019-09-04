@@ -10,14 +10,13 @@
    (tu/eval* form {:bindings {'*in* binding}})))
 
 (deftest core-test
-  (when-not tu/native?
-    (testing "do can have multiple expressions"
-      (is (= 2 (if tu/native?
-                 (eval* '(do 0 1 2))
-                 (let [a (atom 0)]
-                   (tu/eval*
-                    '(do (f) (f)) {:bindings {'f #(swap! a inc)}})
-                   @a))))))
+  (testing "do can have multiple expressions"
+    (is (= 2 (if tu/native?
+               (eval* '(do 0 1 2))
+               (let [a (atom 0)]
+                 (tu/eval*
+                  '(do (f) (f)) {:bindings {'f #(swap! a inc)}})
+                 @a)))))
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
@@ -245,12 +244,13 @@
                         (tu/eval* "(+ 1 2 3 4 5) (do x)" {}))))
 
 (deftest macro-test
-  (is (= [1 1]
-         (tu/eval*
-          '(do-twice 1)
-          {:bindings {'do-twice (with-meta (fn [& body]
-                                             `(vector (do ~@body) (do ~@body)))
-                                  {:sci/macro true})}}))))
+  (when-not tu/native?
+    (is (= [1 1]
+           (tu/eval*
+            '(do-twice 1)
+            {:bindings {'do-twice (with-meta (fn [& body]
+                                               `(vector (do ~@body) (do ~@body)))
+                                    {:sci/macro true})}})))))
 
 ;;;; Scratch
 
