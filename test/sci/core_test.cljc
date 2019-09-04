@@ -180,10 +180,10 @@
     (when-not tu/native?
       (is
        (str/includes?
-          (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
-                                       {:bindings {'println println}})
-                             (catch #?(:clj Exception :cljs js/Error) _ nil)))
-          "hello")))))
+        (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
+                                     {:bindings {'println println}})
+                           (catch #?(:clj Exception :cljs js/Error) _ nil)))
+        "hello")))))
 
 (deftest macroexpand-test
   (is (= [6] (eval* "[(-> 3 inc inc inc)]")))
@@ -212,8 +212,8 @@
 (deftest realize-max-test
   (when-not tu/native?
     (let [d (try (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})
-                (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) e
-                  (ex-data e)))]
+                 (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) e
+                   (ex-data e)))]
       (is (= :sci.error/realized-beyond-max (:type d)))
       (is (= "(reduce (fn [_ _]) (range 1000))" (:start-expression d)))))
   (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
@@ -253,10 +253,10 @@
                                     {:sci/macro true})}})))))
 
 (deftest comment-test
-	(is (nil? (eval* '(comment "anything"))))
-	(is (nil? (eval* '(comment anything))))
-	(is (nil? (eval* '(comment 1))))
-	(is (nil? (eval* '(comment (+ 1 2 (* 3 4)))))))
+  (is (nil? (eval* '(comment "anything"))))
+  (is (nil? (eval* '(comment anything))))
+  (is (nil? (eval* '(comment 1))))
+  (is (nil? (eval* '(comment (+ 1 2 (* 3 4)))))))
 
 ;;;; Scratch
 

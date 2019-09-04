@@ -87,7 +87,8 @@
     \" (let [expr (edn/read reader)]
          (re-pattern expr))
     \^ (parse-next ctx reader)
-    \_ (do (parse-next ctx reader) ;; ignore form
+    \_ (do (r/read-char reader) ;; ignore underscore
+           (parse-next ctx reader) ;; ignore form
            (parse-next ctx reader))
     ;; \: ;; TODO, namespaced map
     ;; \? ;; TODO, reader conditionals
@@ -140,12 +141,13 @@
 
 (defn parse-string-all [s]
   (let [^Closeable r (string-reader s)
-        ctx {:expected-delimiter nil}]
-    (loop [ret (transient [])]
-      (let [next-val (parse-next ctx r)]
-        (if (#?(:clj identical? :cljs keyword-identical?) ::eof next-val)
-          (persistent! ret)
-          (recur (conj! ret next-val)))))))
+        ctx {:expected-delimiter nil}
+        ret (loop [ret (transient [])]
+              (let [next-val (parse-next ctx r)]
+                (if (#?(:clj identical? :cljs keyword-identical?) ::eof next-val)
+                  (persistent! ret)
+                  (recur (conj! ret next-val)))))]
+    ret))
 
 ;;;; Scratch
 
