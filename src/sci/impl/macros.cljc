@@ -9,7 +9,7 @@
      merge-meta]]
    [clojure.string :as str]))
 
-(def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn})
+(def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn comment})
 
 (defn allow?! [{:keys [:allow]} sym]
   (let [allowed? (if allow (contains? allow sym)
@@ -203,6 +203,11 @@
     (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (mark-eval-call (list 'def fn-name f))))
 
+
+(defn expand-comment
+  "The comment macro from clojure.core."
+  [_ctx & _body])
+
 (defn macroexpand-call [ctx expr]
   (if-let [f (first expr)]
     (if (symbol? f)
@@ -225,6 +230,7 @@
                 ->> (expand->> ctx (rest expr))
                 as-> (expand-as-> ctx expr)
                 quote (do nil #_(prn "quote" expr) (second expr))
+                comment (expand-comment ctx expr)
                 ;; else:
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
           (if-let [vf (resolve-symbol ctx f)]

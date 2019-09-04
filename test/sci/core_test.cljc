@@ -252,6 +252,12 @@
                                                `(vector (do ~@body) (do ~@body)))
                                     {:sci/macro true})}})))))
 
+(deftest comment-test
+	(is (nil? (eval* '(comment "anything"))))
+	(is (nil? (eval* '(comment anything))))
+	(is (nil? (eval* '(comment 1))))
+	(is (nil? (eval* '(comment (+ 1 2 (* 3 4)))))))
+
 ;;;; Scratch
 
 (comment
