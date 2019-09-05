@@ -9,5 +9,5 @@
 ;; for testing only
 (defn -main [& [form ctx]]
   (prn (eval-string form
-                    (merge (edn/read-string ctx)
-                           {:bindings {'prn prn 'println println}}))))
+                    (update (edn/read-string ctx)
+                            :bindings merge {'prn prn 'println println}))))
