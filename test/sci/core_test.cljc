@@ -273,6 +273,10 @@
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) #(hello (inc x)) x))
                          (trampoline hello 0)" {}))))
 
+(deftest recur-test
+  (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
+                         {}))))
+
 ;;;; Scratch
 
 (comment

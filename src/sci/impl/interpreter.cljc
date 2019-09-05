@@ -99,6 +99,7 @@
 (def macros '#{do if when and or -> ->> as-> quote let fn def defn})
 
 (defn resolve-symbol [ctx expr]
+  ;; (prn "LOOKUP" expr '-> (lookup ctx expr))
   (second
    (or
     (lookup ctx expr)
@@ -113,18 +114,29 @@
          (str "Could not resolve symbol: " (str expr))
          expr))))))
 
+(defn do-recur!
+  [f & args]
+  (let [ret (apply f args)]
+    (if-let [m (meta ret)]
+      (if (:sci.impl/recur m)
+        (recur f ret)
+        ret)
+      ret)))
+
 (defn apply-fn [ctx f args]
   ;; (prn "apply fn" f)
   (let [args (map #(interpret ctx %) args)]
     ;; (prn "ARGS" args)
-    (apply f args)))
+    (apply do-recur! f args)))
 
 (declare eval-string)
 
 (defn eval-call [ctx expr]
   (if-let [f (first expr)]
-    (let [f (or (get macros f)
-                (interpret ctx f))]
+    (let [f (or
+             (when (= 'recur f) 'recur)
+             (get macros f)
+             (interpret ctx f))]
       (case f
         do
         (eval-do ctx expr)
@@ -139,6 +151,8 @@
         let
         (apply eval-let ctx (rest expr))
         def (eval-def ctx expr)
+        recur (with-meta (map #(interpret ctx %) (rest expr))
+                {:sci.impl/recur true})
         ;; else
         (if (ifn? f) (apply-fn ctx f (rest expr))
             (throw (new #?(:clj Exception :cljs js/Error)
@@ -164,7 +178,7 @@
                                                      expr))
           :else (throw (new #?(:clj Exception :cljs js/Error) (str "unexpected: " expr))))]
     ;; for debugging:
-    ;; (prn expr) (prn '-> ret)
+    ;; (prn expr '-> ret)
     (if-let [n (:realize-max ctx)]
       (max-or-throw ret (assoc ctx
                                :expression expr)
