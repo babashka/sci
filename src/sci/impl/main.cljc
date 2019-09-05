@@ -8,4 +8,6 @@
 
 ;; for testing only
 (defn -main [& [form ctx]]
-  (prn (eval-string form (edn/read-string ctx))))
+  (prn (eval-string form
+                    (merge (edn/read-string ctx)
+                           {:bindings {'prn prn 'println println}}))))

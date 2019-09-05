@@ -39,7 +39,9 @@
                 (let [unqualified-sym (symbol (name sym))]
                   (when-let [v (find f/functions unqualified-sym)]
                     (do (allow?! ctx unqualified-sym)
-                        v))))))]
+                        v)))))
+            (when (= 'recur sym)
+              [sym (mark-resolve-sym sym)]))]
     ;; (prn 'lookup sym '-> res)
     (if-let [m (meta k)]
       (if (:sci/deref! m)
