@@ -96,7 +96,7 @@
                (= "cljs.core" ns))
        (find f/functions (symbol (name sym)))))))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn def defn})
+(def macros '#{do if when and or -> ->> as-> quote let fn def defn lazy-seq})
 
 (defn resolve-symbol [ctx expr]
   ;; (prn "LOOKUP" expr '-> (lookup ctx expr))
@@ -151,6 +151,13 @@
         let
         (apply eval-let ctx (rest expr))
         def (eval-def ctx expr)
+        lazy-seq (new #?(:clj clojure.lang.LazySeq
+                         :cljs cljs.core/LazySeq)
+                      #?@(:clj []
+                          :cljs [nil])
+                      (interpret ctx (second expr))
+                      #?@(:clj []
+                          :cljs [nil nil]))
         recur (with-meta (map #(interpret ctx %) (rest expr))
                 {:sci.impl/recur true})
         ;; else

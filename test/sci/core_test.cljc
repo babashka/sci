@@ -281,6 +281,19 @@
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))"
                      {}))))
 
+(deftest for-test
+  (is (= '([1 4] [1 6])
+         (eval* "(for [i [1 2 3] :while (< i 2) j [4 5 6] :when (even? j)] [i j])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"vector"
+                        (eval* "(for 1 [i j])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"even"
+                        (eval* "(for [:dude] [i j])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"keyword"
+                        (eval* "(for [x [1 2 3] :dude []] [i j])"))))
+
 ;;;; Scratch
 
 (comment

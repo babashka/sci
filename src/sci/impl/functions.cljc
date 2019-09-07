@@ -90,8 +90,14 @@
           'chars chars
           'completing completing
           'counted? counted?
+          'chunk chunk
+          'chunk-append chunk-append
+          'chunk-buffer chunk-buffer
+          'chunk-cons chunk-cons
+          'chunk-first chunk-first
           'chunk-rest chunk-rest
           'chunk-next chunk-next
+          'chunked-seq? chunked-seq?
           'dec dec
           'dedupe dedupe
           'dissoc dissoc
