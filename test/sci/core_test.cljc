@@ -47,7 +47,8 @@
     (is (= [false true false] (eval* 1 '(keep odd? [0 1 2])))))
   (testing "->"
     (is (= 4 (eval* 1 '(-> *in* inc inc (inc)))))
-    (is (= '([0 1] [1 2] [2 3]) (eval* '(map-indexed #(-> [%1 %2]) [1 2 3])))))
+    (is (= '([0 1] [1 2] [2 3]) (eval* '(map-indexed #(-> [%1 %2]) [1 2 3]))))
+    (is (= '(1 2 3) (eval* '(-> '(1 2 3))))))
   (testing "->>"
     (is (= 7 (eval* ["foo" "baaar" "baaaaaz"] "(->> *in* (map count) (apply max))"))))
   (testing "as->"
