@@ -4,6 +4,7 @@
   (:require
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.for-macro :refer [expand-for]]
+   [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.functions :as f]
    [sci.impl.utils :refer
     [gensym* mark-resolve-sym mark-eval mark-eval-call constant? throw-error-with-location
@@ -11,7 +12,7 @@
    [clojure.string :as str]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote*
-               let fn fn* def defn comment loop lazy-seq for})
+               let fn fn* def defn comment loop lazy-seq for doseq})
 
 (defn allow?! [{:keys [:allow]} sym]
   (let [allowed? (if allow (contains? allow sym)
@@ -225,7 +226,7 @@
         init-vals (take-nth 2 (rest bv))
         body (nnext expr)]
     (macroexpand ctx (apply list (list 'fn (vec arg-names)
-                                      (cons 'do body))
+                                       (cons 'do body))
                             init-vals))))
 
 (defn expand-lazy-seq
@@ -261,6 +262,7 @@
                 loop (expand-loop ctx expr)
                 lazy-seq (expand-lazy-seq ctx expr)
                 for (macroexpand ctx (expand-for ctx expr))
+                doseq (macroexpand ctx (expand-doseq ctx expr))
                 ;; else:
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
           (if-let [vf (resolve-symbol ctx f)]
