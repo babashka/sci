@@ -9,7 +9,8 @@
      merge-meta kw-identical?]]
    [clojure.string :as str]))
 
-(def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn comment})
+(def macros '#{do if when and or -> ->> as-> quote quote*
+               let fn fn* def defn comment loop})
 
 (defn allow?! [{:keys [:allow]} sym]
   (let [allowed? (if allow (contains? allow sym)
@@ -216,6 +217,16 @@
   "The comment macro from clojure.core."
   [_ctx & _body])
 
+(defn expand-loop
+  [ctx expr]
+  (let [bv (second expr)
+        arg-names (take-nth 2 bv)
+        init-vals (take-nth 2 (rest bv))
+        body (nnext expr)]
+    (macroexpand ctx (apply list (list 'fn (vec arg-names)
+                                      (cons 'do body))
+                           init-vals))))
+
 (defn macroexpand-call [ctx expr]
   (if-let [f (first expr)]
     (if (symbol? f)
@@ -239,6 +250,7 @@
                 as-> (expand-as-> ctx expr)
                 quote (do nil #_(prn "quote" expr) (second expr))
                 comment (expand-comment ctx expr)
+                loop (expand-loop ctx expr)
                 ;; else:
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
           (if-let [vf (resolve-symbol ctx f)]
