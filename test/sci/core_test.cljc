@@ -295,7 +295,7 @@
                         (eval* "(for [x [1 2 3] :dude []] [i j])"))))
 
 (deftest doseq-test
-  (when tu/native?
+  (when-not tu/native?
     (is (= "1\n1\n3\n9\n"
            (with-out-str
              (tu/eval* "(doseq [i [1 2 3]
