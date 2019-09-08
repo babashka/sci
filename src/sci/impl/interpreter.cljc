@@ -137,18 +137,28 @@
               :as (recur (assoc opts-map :as fst-opt)
                          rst-opts)
               (:reload :reload-all :verbose) (recur opts-map (cons fst-opt rst-opts))
-              :refer (recur (assoc opts-map :recur fst-opt)
+              :refer (recur (assoc opts-map :refer fst-opt)
                             rst-opts)))))
 
 (defn handle-require-libspec [ctx [lib-name & opts]]
-  (let [opts (parse-libspec-opts opts)]
-    (when-let [as (:as opts)]
-      (swap! (:env ctx) (fn [env]
-                          (if (contains? (:namespaces env) lib-name)
-                            (assoc-in env [:aliases as] lib-name)
-                            (throw (new #?(:clj Exception :cljs js/Error)
-                                        (str "Could not require " lib-name "."))))))
-      nil)))
+  (let [{:keys [:as :refer]} (parse-libspec-opts opts)]
+    (swap! (:env ctx)
+           (fn [env]
+             (if-let [ns-data (get (:namespaces env) lib-name)]
+               (let [env (if as (assoc-in env [:aliases as] lib-name)
+                             env)
+                     env (if refer
+                           (do (when-not (sequential? refer)
+                                 (throw (new #?(:clj Exception :cljs js/Error)
+                                             (str "Invalid option for refer: " refer))))
+                               (reduce (fn [env sym]
+                                         (assoc env sym (get ns-data sym)))
+                                       env
+                                       refer))
+                           env)]
+                 env)
+               (throw (new #?(:clj Exception :cljs js/Error)
+                           (str "Could not require " lib-name "."))))))))
 
 (defn handle-require
   [ctx expr]
