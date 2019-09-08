@@ -245,44 +245,44 @@
            (macroexpand ctx (list 'fn [] (cons 'do body)))))))
 
 (defn macroexpand-call [ctx expr]
-  (if-let [f (first expr)]
-    (if (symbol? f)
-      (let [f (if-let [ns (namespace f)]
-                (if (or (= "clojure.core" ns)
-                        (= "cljs.core" ns))
-                  (symbol (name f))
-                  f)
-                f)]
-        (if (contains? macros f)
-          (do (allow?! ctx f)
-              (case f
-                do (mark-eval-call expr) ;; do will call macroexpand on every
-                ;; subsequent expression
-                let (expand-let ctx expr)
-                (fn fn*) (expand-fn ctx expr)
-                def (expand-def ctx expr)
-                defn (expand-defn ctx expr)
-                -> (expand-> ctx (rest expr))
-                ->> (expand->> ctx (rest expr))
-                as-> (expand-as-> ctx expr)
-                quote (do nil #_(prn "quote" expr) (second expr))
-                comment (expand-comment ctx expr)
-                loop (expand-loop ctx expr)
-                lazy-seq (expand-lazy-seq ctx expr)
-                for (macroexpand ctx (expand-for ctx expr))
-                doseq (macroexpand ctx (expand-doseq ctx expr))
-                require (mark-eval-call
-                         (cons 'require (map #(macroexpand ctx %)
-                                             (rest expr))))
-                ;; else:
-                (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
-          (if-let [vf (resolve-symbol ctx f)]
-            (if (:sci/macro (meta vf))
-              (macroexpand ctx (apply vf (rest expr)))
-              (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
-            (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
-      (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
-    expr))
+  (if (empty? expr) expr
+      (let [f (first expr)]
+        (if (symbol? f)
+          (let [f (if-let [ns (namespace f)]
+                    (if (or (= "clojure.core" ns)
+                            (= "cljs.core" ns))
+                      (symbol (name f))
+                      f)
+                    f)]
+            (if (contains? macros f)
+              (do (allow?! ctx f)
+                  (case f
+                    do (mark-eval-call expr) ;; do will call macroexpand on every
+                    ;; subsequent expression
+                    let (expand-let ctx expr)
+                    (fn fn*) (expand-fn ctx expr)
+                    def (expand-def ctx expr)
+                    defn (expand-defn ctx expr)
+                    -> (expand-> ctx (rest expr))
+                    ->> (expand->> ctx (rest expr))
+                    as-> (expand-as-> ctx expr)
+                    quote (do nil #_(prn "quote" expr) (second expr))
+                    comment (expand-comment ctx expr)
+                    loop (expand-loop ctx expr)
+                    lazy-seq (expand-lazy-seq ctx expr)
+                    for (macroexpand ctx (expand-for ctx expr))
+                    doseq (macroexpand ctx (expand-doseq ctx expr))
+                    require (mark-eval-call
+                             (cons 'require (map #(macroexpand ctx %)
+                                                 (rest expr))))
+                    ;; else:
+                    (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
+              (if-let [vf (resolve-symbol ctx f)]
+                (if (:sci/macro (meta vf))
+                  (macroexpand ctx (apply vf (rest expr)))
+                  (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
+                (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
+          (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))))
 
 (defn macroexpand
   [ctx expr]

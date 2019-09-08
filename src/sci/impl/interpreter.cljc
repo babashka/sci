@@ -168,40 +168,40 @@
 (declare eval-string)
 
 (defn eval-call [ctx expr]
-  (if-let [f (first expr)]
-    (let [f (or
-             (when (= 'recur f) 'recur)
-             (get macros f)
-             (interpret ctx f))]
-      (case f
-        do
-        (eval-do ctx expr)
-        if
-        (eval-if ctx expr)
-        when
-        (eval-when ctx expr)
-        and
-        (eval-and ctx (rest expr))
-        or
-        (eval-or ctx (rest expr))
-        let
-        (apply eval-let ctx (rest expr))
-        def (eval-def ctx expr)
-        lazy-seq (new #?(:clj clojure.lang.LazySeq
-                         :cljs cljs.core/LazySeq)
-                      #?@(:clj []
-                          :cljs [nil])
-                      (interpret ctx (second expr))
-                      #?@(:clj []
-                          :cljs [nil nil]))
-        recur (with-meta (map #(interpret ctx %) (rest expr))
-                {:sci.impl/recur true})
-        require (handle-require ctx expr)
-        ;; else
-        (if (ifn? f) (apply-fn ctx f (rest expr))
-            (throw (new #?(:clj Exception :cljs js/Error)
-                        (str "Cannot call " (pr-str f) " as a function."))))))
-    expr))
+  (if (empty? expr) expr
+      (let [f (first expr)
+            f (or
+               (when (= 'recur f) 'recur)
+               (get macros f)
+               (interpret ctx f))]
+        (case f
+          do
+          (eval-do ctx expr)
+          if
+          (eval-if ctx expr)
+          when
+          (eval-when ctx expr)
+          and
+          (eval-and ctx (rest expr))
+          or
+          (eval-or ctx (rest expr))
+          let
+          (apply eval-let ctx (rest expr))
+          def (eval-def ctx expr)
+          lazy-seq (new #?(:clj clojure.lang.LazySeq
+                           :cljs cljs.core/LazySeq)
+                        #?@(:clj []
+                            :cljs [nil])
+                        (interpret ctx (second expr))
+                        #?@(:clj []
+                            :cljs [nil nil]))
+          recur (with-meta (map #(interpret ctx %) (rest expr))
+                  {:sci.impl/recur true})
+          require (handle-require ctx expr)
+          ;; else
+          (if (ifn? f) (apply-fn ctx f (rest expr))
+              (throw (new #?(:clj Exception :cljs js/Error)
+                          (str "Cannot call " (pr-str f) " as a function."))))))))
 
 (defn interpret
   [ctx expr]
