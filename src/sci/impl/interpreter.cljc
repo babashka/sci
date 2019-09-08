@@ -4,7 +4,7 @@
   (:require
    [clojure.string :as str]
    [sci.impl.fns :as fns]
-   [sci.impl.functions :as f]
+   [sci.impl.namespaces :as namespaces]
    [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.parser :as p]
@@ -87,16 +87,16 @@
 
 (defn lookup [{:keys [:env :bindings]} sym]
   (or
-   (find @env sym)
+   ;; (find @env sym)
    (find bindings sym)
-   (find f/functions sym)
+   (find namespaces/clojure-core sym)
    (when-let [ns (namespace sym)]
      ;; (prn "NS>" ns)
      (when (or (= "clojure.core" ns)
                (= "cljs.core" ns))
-       (find f/functions (symbol (name sym)))))))
+       (find namespaces/clojure-core (symbol (name sym)))))))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn def defn lazy-seq})
+(def macros '#{do if when and or -> ->> as-> quote let fn def defn lazy-seq require})
 
 (defn resolve-symbol [ctx expr]
   ;; (prn "LOOKUP" expr '-> (lookup ctx expr))
@@ -129,6 +129,42 @@
     ;; (prn "ARGS" args)
     (apply do-recur! f args)))
 
+(defn parse-libspec-opts [opts]
+  (loop [opts-map {}
+         [opt-name fst-opt & rst-opts] opts]
+    (if-not opt-name opts-map
+            (case opt-name
+              :as (recur (assoc opts-map :as fst-opt)
+                         rst-opts)
+              (:reload :reload-all :verbose) (recur opts-map (cons fst-opt rst-opts))
+              :refer (recur (assoc opts-map :refer fst-opt)
+                            rst-opts)))))
+
+(defn handle-require-libspec [ctx [lib-name & opts]]
+  (let [{:keys [:as :refer]} (parse-libspec-opts opts)]
+    (swap! (:env ctx)
+           (fn [env]
+             (if-let [ns-data (get (:namespaces env) lib-name)]
+               (let [env (if as (assoc-in env [:aliases as] lib-name)
+                             env)
+                     env (if refer
+                           (do (when-not (sequential? refer)
+                                 (throw (new #?(:clj Exception :cljs js/Error)
+                                             (str "Invalid option for refer: " refer))))
+                               (reduce (fn [env sym]
+                                         (assoc env sym (get ns-data sym)))
+                                       env
+                                       refer))
+                           env)]
+                 env)
+               (throw (new #?(:clj Exception :cljs js/Error)
+                           (str "Could not require " lib-name "."))))))))
+
+(defn handle-require
+  [ctx expr]
+  (let [args (rest expr)]
+    (run! #(handle-require-libspec ctx %) args)))
+
 (declare eval-string)
 
 (defn eval-call [ctx expr]
@@ -160,6 +196,7 @@
                           :cljs [nil nil]))
         recur (with-meta (map #(interpret ctx %) (rest expr))
                 {:sci.impl/recur true})
+        require (handle-require ctx expr)
         ;; else
         (if (ifn? f) (apply-fn ctx f (rest expr))
             (throw (new #?(:clj Exception :cljs js/Error)
@@ -194,11 +231,22 @@
 
 ;;;; Called from public API
 
+(defn init-env! [env bindings aliases namespaces]
+  (swap! env (fn [env]
+               (let [env-val (merge env bindings)
+                     namespaces (merge-with merge namespaces/namespaces (:namespaces env) namespaces)
+                     aliases (merge namespaces/aliases (:aliases env) aliases)]
+                 (assoc env-val
+                        :namespaces namespaces
+                        :aliases aliases)))))
+
 (defn eval-string
   ([s] (eval-string s nil))
-  ([s {:keys [:bindings :env :allow :realize-max]}]
+  ([s {:keys [:bindings :env :allow :realize-max
+              :aliases
+              :namespaces]}]
    (let [env (or env (atom {}))
-         env (do (swap! env merge bindings) env)
+         _ (init-env! env bindings aliases namespaces)
          ctx {:env env
               :bindings {}
               :allow (when allow (set allow))
@@ -210,27 +258,4 @@
 ;;;; Scratch
 
 (comment
-  (interpret '(and *in* 3) 1)
-  (interpret '(and *in* 3 false) 1)
-  (interpret '(or *in* 3) nil)
-  (ifn? 'foo)
-
-  (eval-string "'foo")
-  (str/replace "'foo" #"'(\S.*)" (fn [m]
-                                   (str "#sci/quote "(second m))))
-  (eval-string "((fn [] 1))")
-  (eval-string "((fn [x] x) 1)")
-  (eval-string "((fn [x] x) 1)")
-  (eval-string "((fn [x y] [x y]) 1 2)")
-  (def f (eval-string "#(< %1 10)"))
-  (def f (eval-string "#(< x 10)")) ;; ERROR
-  (f 1000)
-  (eval-string "(quote (1 2 x))" {:bindings {:x 1}})
-  (eval-string "((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0)")
-  (eval-string "(apply (fn [x & xs] xs) 1 2 [3 4])")
-  (eval-string "(map #(+ 1 %) [0 1 2])")
-  (eval-string "list")
-  (eval-string "(list (list \"foo\") (list \"bar\"))")
-  (eval-string "(map (fn [x] x) (list (list \"foo\") (list \"bar\")))")
-  (eval-string "(mapv (fn [x] x) (list (list \"foo\") (list \"bar\")))")
   )

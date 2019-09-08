@@ -305,6 +305,19 @@
                         (println i) (println j))"
                        {:bindings {'println println}}))))))
 
+(deftest require-test
+  (is (= "1-2-3" (eval* "(str/join \"-\" [1 2 3])")))
+  (is (= "1-2-3" (eval* "(require '[clojure.string :as string]) (string/join \"-\" [1 2 3])")))
+  (is (= "1-2-3" (eval* "(require '[clojure.string :refer [join]]) (join \"-\" [1 2 3])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"Invalid"
+                        (eval* "(require '[clojure.string :refer :all]) (join \"-\" [1 2 3])")))
+  (is (= #{1 4 6 3 2 5} (eval* "(set/union #{1 2 3} #{4 5 6})")))
+  (is (= #{1 4 6 3 2 5} (eval* "(require '[clojure.set :as s]) (s/union #{1 2 3} #{4 5 6})")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"clojure.foo"
+                        (eval* "(require '[clojure.foo :as s])"))))
+
 ;;;; Scratch
 
 (comment
