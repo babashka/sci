@@ -1,9 +1,7 @@
 (ns sci.impl.readers
   {:no-doc true}
   (:require [clojure.walk :refer [postwalk]]
-            [sci.impl.utils :refer [mark-resolve-sym]]
-            #?(:clj [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])))
+            [sci.impl.utils :refer [mark-resolve-sym]]))
 
 (defn read-fn [expr]
   (let [state (volatile! {:max-fixed 0 :var-args? false})

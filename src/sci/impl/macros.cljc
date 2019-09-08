@@ -2,17 +2,18 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
+   [clojure.string :as str]
    [sci.impl.destructure :refer [destructure]]
-   [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
-   [sci.impl.functions :as f]
+   [sci.impl.for-macro :refer [expand-for]]
+   [sci.impl.namespaces :as namespaces]
    [sci.impl.utils :refer
     [gensym* mark-resolve-sym mark-eval mark-eval-call constant? throw-error-with-location
-     merge-meta kw-identical?]]
-   [clojure.string :as str]))
+     merge-meta kw-identical?]]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote*
-               let fn fn* def defn comment loop lazy-seq for doseq})
+               let fn fn* def defn comment loop lazy-seq for doseq
+               require})
 
 (defn allow?! [{:keys [:allow]} sym]
   (let [allowed? (if allow (contains? allow sym)
@@ -20,27 +21,36 @@
     (when-not allowed?
       (throw-error-with-location (str sym " is not allowed!") sym))))
 
+(defn lookup-env [env sym sym-ns sym-name]
+  (let [env @env]
+    (or (find env sym)
+        (when sym-ns
+          (or (some-> env :namespaces sym-ns (find sym-name))
+              (when-let [aliased (some-> env :aliases sym-ns)]
+                (some-> env :namespaces aliased (find sym-name))))))))
+
 (defn lookup [{:keys [:env :bindings] :as ctx} sym]
-  (let [[k v :as kv]
+  (let [sym-ns (some-> (namespace sym) symbol)
+        sym-name (symbol (name sym))
+        [k v :as kv]
         (or (when-let [v (get macros sym)]
               (do (allow?! ctx sym)
                   [v v]))
-            (find @env sym)
+            (lookup-env env sym sym-ns sym-name)
             (when-let [[k v]
                        (find bindings sym)]
               (if (:sci/macro (meta v))
                 [k v]
                 ;; never inline a binding at macro time!
                 [k (mark-resolve-sym k)]))
-            (when-let [v (find f/functions sym)]
+            (when-let [v (find namespaces/clojure-core sym)]
               (do (allow?! ctx sym)
                   v))
-            (when-let [ns (namespace sym)]
-              ;; (prn "NS" ns)
-              (when (or (= "clojure.core" ns)
-                        (= "cljs.core" ns))
+            (when sym-ns
+              (when (or (= 'clojure.core sym-ns)
+                        (= 'cljs.core sym-ns))
                 (let [unqualified-sym (symbol (name sym))]
-                  (when-let [v (find f/functions unqualified-sym)]
+                  (when-let [v (find namespaces/clojure-core unqualified-sym)]
                     (do (allow?! ctx unqualified-sym)
                         v)))))
             (when (= 'recur sym)
@@ -213,7 +223,6 @@
     (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (mark-eval-call (list 'def fn-name f))))
 
-
 (defn expand-comment
   "The comment macro from clojure.core."
   [_ctx & _body])
@@ -262,6 +271,9 @@
                 lazy-seq (expand-lazy-seq ctx expr)
                 for (macroexpand ctx (expand-for ctx expr))
                 doseq (macroexpand ctx (expand-doseq ctx expr))
+                require (mark-eval-call
+                         (cons 'require (map #(macroexpand ctx %)
+                                             (rest expr))))
                 ;; else:
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
           (if-let [vf (resolve-symbol ctx f)]
@@ -292,7 +304,7 @@
                mark-eval)
            (or (vector? expr) (set? expr))
            (-> (into (empty expr) (map #(macroexpand ctx %) expr))
-               mark-eval)
+                mark-eval)
            (seq? expr) (macroexpand-call ctx expr)
            :else expr)
          (meta expr))))
@@ -300,10 +312,4 @@
 ;;;; Scratch
 
 (comment
-  (macroexpand {:env (atom {}) :bindings f/functions} '(defn f [x] x))
-  (macroexpand {:env (atom {}) :bindings f/functions} '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x))))
-  (macroexpand {:env (atom {}) :allow '#{int?}} '(int? 1))
-  (macroexpand {:env (atom {}) :allow '#{int?}} '(boolean? 1))
-  (macroexpand {:env (atom {})
-                :allow '#{def}} '(defn f []))
   )
