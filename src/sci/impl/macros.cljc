@@ -13,7 +13,7 @@
 
 (def macros '#{do if when and or -> ->> as-> quote quote*
                let fn fn* def defn comment loop lazy-seq for doseq
-               require})
+               require cond})
 
 (defn allow?! [{:keys [:allow]} sym]
   (let [allowed? (if allow (contains? allow sym)
@@ -244,6 +244,23 @@
      (list 'lazy-seq
            (macroexpand ctx (list 'fn [] (cons 'do body)))))))
 
+(defn expand-cond*
+  "The cond macro from clojure.core"
+  [& clauses]
+  (when clauses
+    (list 'if (first clauses)
+          (if (next clauses)
+            (second clauses)
+            (throw (new #?(:clj IllegalArgumentException
+                           :cljs js/Error)
+                        "cond requires an even number of forms")))
+          (apply expand-cond* (next (next clauses))))))
+
+(defn expand-cond
+  [ctx expr]
+  (let [clauses (rest expr)]
+    (macroexpand ctx (apply expand-cond* clauses))))
+
 (defn macroexpand-call [ctx expr]
   (if (empty? expr) expr
       (let [f (first expr)]
@@ -275,6 +292,7 @@
                     require (mark-eval-call
                              (cons 'require (map #(macroexpand ctx %)
                                                  (rest expr))))
+                    cond (expand-cond ctx expr)
                     ;; else:
                     (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
               (if-let [vf (resolve-symbol ctx f)]

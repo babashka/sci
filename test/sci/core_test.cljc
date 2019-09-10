@@ -321,6 +321,16 @@
                         #"quux does not exist"
                         (eval* "(require '[clojure.set :refer [quux]])"))))
 
+(deftest cond-test
+  (is (= 2 (eval* "(let [x 2]
+                     (cond (string? x) 1 (int? x) 2))")))
+  (is (= 2 (eval* "(let [x 2]
+                     (cond (string? x) 1 :else 2))")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"even"
+                        (eval* "(let [x 2]
+                                  (cond (string? x) 1 :else))"))))
+
 ;;;; Scratch
 
 (comment
