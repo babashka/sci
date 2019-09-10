@@ -304,7 +304,7 @@
                mark-eval)
            (or (vector? expr) (set? expr))
            (-> (into (empty expr) (map #(macroexpand ctx %) expr))
-                mark-eval)
+               mark-eval)
            (seq? expr) (macroexpand-call ctx expr)
            :else expr)
          (meta expr))))

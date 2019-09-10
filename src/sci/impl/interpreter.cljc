@@ -140,7 +140,8 @@
               :refer (recur (assoc opts-map :refer fst-opt)
                             rst-opts)))))
 
-(defn handle-require-libspec [ctx [lib-name & opts]]
+(defn handle-require-libspec
+  [ctx [lib-name & opts]]
   (let [{:keys [:as :refer]} (parse-libspec-opts opts)]
     (swap! (:env ctx)
            (fn [env]
@@ -148,13 +149,18 @@
                (let [env (if as (assoc-in env [:aliases as] lib-name)
                              env)
                      env (if refer
-                           (do (when-not (sequential? refer)
-                                 (throw (new #?(:clj Exception :cljs js/Error)
-                                             (str "Invalid option for refer: " refer))))
-                               (reduce (fn [env sym]
-                                         (assoc env sym (get ns-data sym)))
-                                       env
-                                       refer))
+                           (do
+                             (when-not (sequential? refer)
+                               (throw (new #?(:clj Exception :cljs js/Error)
+                                           (str ":refer value must be a sequential collection of symbols"))))
+                             (reduce (fn [env sym]
+                                       (assoc env sym
+                                              (if-let [[_k v] (find ns-data sym)]
+                                                v
+                                                (throw (new #?(:clj Exception :cljs js/Error)
+                                                            (str sym " does not exist"))))))
+                                     env
+                                     refer))
                            env)]
                  env)
                (throw (new #?(:clj Exception :cljs js/Error)
