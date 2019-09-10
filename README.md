@@ -39,9 +39,9 @@ Use as a dependency:
 ```
 
 Currently the following special forms/macros are supported: `def`, `fn`,
-function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `when`, `let`,
-`and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`, `lazy-seq`, `for`, `doseq`
-and `require`.
+function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `when`, `cond`,
+`let`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`, `lazy-seq`, `for`,
+`doseq`.
 
 In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
