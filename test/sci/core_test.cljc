@@ -334,6 +334,16 @@
 (deftest regex-test
   (is (= "1" (eval* "(re-find #\"\\d\" \"aaa1aaa\")"))))
 
+(deftest case-test
+  (is (= true (eval* "(case 1, 1 true, 2 (+ 1 2 3), 6)")))
+  (is (= true (eval* "(case (inc 0), 1 true, 2 (+ 1 2 3), 6)")))
+  (is (= 6 (eval* "(case (inc 1), 1 true, 2 (+ 1 2 3), 6)")))
+  (is (= 7 (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3), 7)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"matching clause"
+       (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3))"))))
+
 ;;;; Scratch
 
 (comment

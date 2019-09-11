@@ -4,14 +4,17 @@
   (:require
    [clojure.string :as str]
    [sci.impl.fns :as fns]
-   [sci.impl.namespaces :as namespaces]
    [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
+   [sci.impl.namespaces :as namespaces]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
+
+(def macros '#{do if when and or -> ->> as-> quote let fn def defn
+               lazy-seq require})
 
 ;;;; Evaluation
 
@@ -96,8 +99,6 @@
                (= "cljs.core" ns))
        (find namespaces/clojure-core (symbol (name sym)))))))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn def defn lazy-seq require})
-
 (defn resolve-symbol [ctx expr]
   ;; (prn "LOOKUP" expr '-> (lookup ctx expr))
   (second
@@ -166,10 +167,20 @@
                (throw (new #?(:clj Exception :cljs js/Error)
                            (str "Could not require " lib-name "."))))))))
 
-(defn handle-require
+(defn eval-require
   [ctx expr]
   (let [args (rest expr)]
     (run! #(handle-require-libspec ctx %) args)))
+
+(defn eval-case
+  [ctx [_case {:keys [:case-map :case-val :case-default]}]]
+  (let [v (interpret ctx case-val)]
+    (if-let [[_ found] (find case-map v)]
+      (interpret ctx found)
+      (if (vector? case-default)
+        (interpret ctx (second case-default))
+        (throw (new #?(:clj Exception :cljs js/Error)
+                    (str "No matching clause: " v)))))))
 
 (declare eval-string)
 
@@ -203,7 +214,8 @@
                             :cljs [nil nil]))
           recur (with-meta (map #(interpret ctx %) (rest expr))
                   {:sci.impl/recur true})
-          require (handle-require ctx expr)
+          require (eval-require ctx expr)
+          case (eval-case ctx expr)
           ;; else
           (if (ifn? f) (apply-fn ctx f (rest expr))
               (throw (new #?(:clj Exception :cljs js/Error)

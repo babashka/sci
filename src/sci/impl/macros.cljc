@@ -13,7 +13,7 @@
 
 (def macros '#{do if when and or -> ->> as-> quote quote*
                let fn fn* def defn comment loop lazy-seq for doseq
-               require cond})
+               require cond case})
 
 (defn allow?! [{:keys [:allow]} sym]
   (let [allowed? (if allow (contains? allow sym)
@@ -261,6 +261,22 @@
   (let [clauses (rest expr)]
     (macroexpand ctx (apply expand-cond* clauses))))
 
+(defn expand-case
+  [ctx expr]
+  (let [v (macroexpand ctx (second expr))
+        clauses (nnext expr)
+        match-clauses (take-nth 2 clauses)
+        result-clauses (map #(macroexpand ctx %) (take-nth 2 (rest clauses)))
+        default (when (odd? (count clauses))
+                  [:val (macroexpand ctx (last clauses))])
+        case-map (zipmap match-clauses result-clauses)
+        ret (mark-eval-call (list 'case
+                                  {:case-map case-map
+                                   :case-val v
+                                   :case-default default}
+                                  default))]
+    (mark-eval-call ret)))
+
 (defn macroexpand-call [ctx expr]
   (if (empty? expr) expr
       (let [f (first expr)]
@@ -293,6 +309,7 @@
                              (cons 'require (map #(macroexpand ctx %)
                                                  (rest expr))))
                     cond (expand-cond ctx expr)
+                    case (expand-case ctx expr)
                     ;; else:
                     (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
               (if-let [vf (resolve-symbol ctx f)]
