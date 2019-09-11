@@ -5,6 +5,6 @@
   logging context. Otherwise, execute body, returning the result."
   [reader & body]
   `(if (and (source-logging-reader? ~reader)
-            (not (cljs.tools.reader.impl.utils/whitespace? (peek-char ~reader))))
+            (not (sci.impl.toolsreader.v1v3v2.cljs.tools.reader.impl.utils/whitespace? (peek-char ~reader))))
      (log-source* ~reader (^:once fn* [] ~@body))
      (do ~@body)))

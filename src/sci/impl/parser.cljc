@@ -9,7 +9,9 @@
    #?(:clj  [sci.impl.toolsreader.v1v3v2.clojure.tools.reader.reader-types :as r]
       :cljs [sci.impl.toolsreader.v1v3v2.cljs.tools.reader.reader-types :as r])
    [sci.impl.readers :as readers])
-  #?(:clj (:import [java.io Closeable])))
+  #?(:clj (:import [java.io Closeable]
+                   [java.util.regex Pattern]))
+  #?(:cljs (:import [goog.string StringBuffer])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -76,6 +78,27 @@
             " [at line " l ", column " c "]")
        (merge {:row l, :col c} data))))))
 
+(defn read-regex
+  "Modeled after tools.reader/read-regex."
+  [_ctx #?(:cljs ^not-native reader :default reader)]
+  (r/read-char reader) ;; ignore leading double-quote
+  (let [sb #?(:clj (StringBuilder.)
+              :cljs (goog.string.StringBuffer.))]
+    (loop [ch (r/read-char reader)]
+      (if (identical? \" ch)
+        #?(:clj (Pattern/compile (str sb))
+           :cljs (re-pattern (str sb)))
+        (if (nil? ch)
+          (throw-reader reader "Error while parsing regex")
+          (do
+            (.append sb ch )
+            (when (identical? \\ ch)
+              (let [ch (r/read-char reader)]
+                (when (nil? ch)
+                  (throw-reader reader "Error while parsing regex"))
+                (.append sb ch)))
+            (recur (r/read-char reader))))))))
+
 (defn parse-sharp
   [ctx #?(:cljs ^not-native reader :default reader)]
   (r/read-char reader) ;; ignore sharp
@@ -84,8 +107,7 @@
     \{ (parse-to-delimiter ctx reader \} #{})
     \( (let [expr (parse-list ctx reader)]
          (readers/read-fn expr))
-    \" (let [expr (edn/read reader)]
-         (re-pattern expr))
+    \" (read-regex ctx reader)
     \^ (parse-next ctx reader)
     \_ (do (r/read-char reader) ;; ignore underscore
            (parse-next ctx reader) ;; ignore form

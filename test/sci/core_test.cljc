@@ -331,6 +331,9 @@
                         (eval* "(let [x 2]
                                   (cond (string? x) 1 :else))"))))
 
+(deftest regex-test
+  (is (= "1" (eval* "(re-find #\"\\d\" \"aaa1aaa\")"))))
+
 ;;;; Scratch
 
 (comment
