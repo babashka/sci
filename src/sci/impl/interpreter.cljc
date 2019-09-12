@@ -8,7 +8,8 @@
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.parser :as p]
-   [sci.impl.utils :as utils :refer [throw-error-with-location]]))
+   [sci.impl.utils :as utils :refer [throw-error-with-location]]
+   [clojure.set :as set]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -258,17 +259,27 @@
                         :namespaces namespaces
                         :aliases aliases)))))
 
+(def presets
+  {:termination-safe
+   {:deny '[loop recur trampoline]
+    :realize-max 100}})
+
 (defn eval-string
   ([s] (eval-string s nil))
-  ([s {:keys [:bindings :env :allow :realize-max
+  ([s {:keys [:bindings :env
+              :allow :deny
+              :realize-max
+              :preset ;; used by malli
               :aliases
               :namespaces]}]
-   (let [env (or env (atom {}))
+   (let [preset (get presets preset)
+         env (or env (atom {}))
          _ (init-env! env bindings aliases namespaces)
          ctx {:env env
               :bindings {}
-              :allow (when allow (set allow))
-              :realize-max realize-max
+              :allow (not-empty (reduce into #{} [(:allow preset) allow]))
+              :deny (not-empty (reduce into #{} [(:deny preset) deny]))
+              :realize-max (or realize-max (:realize-max preset))
               :start-expression s}
          edn-vals (p/parse-string-all s)]
      (eval-do ctx (cons 'do edn-vals)))))
