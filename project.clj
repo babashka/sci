@@ -7,8 +7,9 @@
         :url "https://github.com/borkdude/sci"}
   :license {:name "Eclipse Public License 1.0"
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
-  :source-paths ["src" "inlined"]
-  :dependencies [[org.clojure/clojure "1.9.0"]]
+  :source-paths ["src"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
+                 [org.clojure/tools.reader "1.3.2"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :clojure-1.10.1 {:dependencies [[org.clojure/clojure "1.10.1"]]}
              :test {:jvm-opts ["-Djdk.attach.allowAttachSelf"]

@@ -4,10 +4,10 @@
   {:no-doc true}
   (:refer-clojure :exclude [read-string])
   (:require
-   #?(:clj  [sci.impl.toolsreader.v1v3v2.clojure.tools.reader.edn :as edn]
-      :cljs [sci.impl.toolsreader.v1v3v2.cljs.tools.reader.edn :as edn])
-   #?(:clj  [sci.impl.toolsreader.v1v3v2.clojure.tools.reader.reader-types :as r]
-      :cljs [sci.impl.toolsreader.v1v3v2.cljs.tools.reader.reader-types :as r])
+   #?(:clj  [clojure.tools.reader.edn :as edn]
+      :cljs [cljs.tools.reader.edn :as edn])
+   #?(:clj  [clojure.tools.reader.reader-types :as r]
+      :cljs [cljs.tools.reader.reader-types :as r])
    [sci.impl.readers :as readers])
   #?(:clj (:import [java.io Closeable]
                    [java.util.regex Pattern]))
