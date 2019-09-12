@@ -192,7 +192,7 @@
   (is (eval* (str `(#(< 10 % 18) 15))))
   (is (eval* (str `(#(and (int? %) (< 10 % 18)))) 15)))
 
-(deftest allow-test
+(deftest permission-test
   (is (tu/eval* "(int? 1)" {:allow '[int?]}))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
@@ -208,7 +208,19 @@
     (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
     (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
   (is (tu/eval* (str (list `#(inc %) 10)) {:allow '[fn* inc]}))
-  (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let]})))
+  (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let]}))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(loop [] (recur))" {:deny '[loop]})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(clojure.core/loop [] (recur))" {:deny '[loop]})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(clojure.core/loop [] (recur))" {:deny '[recur]})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(clojure.core/loop [] (recur))" {:preset :termination-safe}))))
 
 (deftest realize-max-test
   (when-not tu/native?
@@ -223,6 +235,9 @@
   (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
                         #"realized"
                         (doall (tu/eval* "(repeat 1)" {:realize-max 100}))))
+  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+                        #"realized"
+                        (doall (tu/eval* "(repeat 1)" {:preset :termination-safe}))))
   (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100}))))
 
 (deftest idempotent-eval-test
