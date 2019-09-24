@@ -360,9 +360,9 @@
        (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3))"))))
 
 (deftest variable-can-have-macro-or-var-name
-  (is (= Boolean (eval* "(defn foo [merge] (type merge)) (foo true)")))
-  (is (= Boolean (eval* "(defn foo [merge] merge) (defn bar [foo] (type foo)) (bar true)")))
-  (is (= Boolean (eval* "(defn foo [comment] (type comment)) (foo true)"))))
+  (is (= true (eval* "(defn foo [merge] merge) (foo true)")))
+  (is (= true (eval* "(defn foo [merge] merge) (defn bar [foo] foo) (bar true)")))
+  (is (= true (eval* "(defn foo [comment] comment) (foo true)"))))
 
 ;;;; Scratch
 
