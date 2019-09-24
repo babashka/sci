@@ -8,8 +8,7 @@
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.parser :as p]
-   [sci.impl.utils :as utils :refer [throw-error-with-location]]
-   [clojure.set :as set]))
+   [sci.impl.utils :as utils :refer [throw-error-with-location]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -89,7 +88,7 @@
     (swap! (:env ctx) assoc var-name init)
     init))
 
-(defn lookup [{:keys [:env :bindings]} sym]
+(defn lookup [{:keys [:bindings]} sym]
   (or
    ;; (find @env sym)
    (find bindings sym)

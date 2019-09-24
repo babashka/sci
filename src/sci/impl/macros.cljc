@@ -35,16 +35,16 @@
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         [k v :as kv]
-        (or (when-let [v (get macros sym)]
-              (do (check-permission! ctx sym)
-                  [v v]))
-            (lookup-env env sym sym-ns sym-name)
-            (when-let [[k v]
+        (or (when-let [[k v]
                        (find bindings sym)]
               (if (:sci/macro (meta v))
                 [k v]
                 ;; never inline a binding at macro time!
                 [k (mark-resolve-sym k)]))
+            (lookup-env env sym sym-ns sym-name)
+            (when-let [v (get macros sym)]
+              (do (check-permission! ctx sym)
+                  [v v]))
             (when-let [v (find namespaces/clojure-core sym)]
               (do (check-permission! ctx sym)
                   v))
