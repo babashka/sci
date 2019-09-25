@@ -364,6 +364,14 @@
   (is (= true (eval* "(defn foo [merge] merge) (defn bar [foo] foo) (bar true)")))
   (is (= true (eval* "(defn foo [comment] comment) (foo true)"))))
 
+(deftest try-test
+  (when-not tu/native?
+    #?(:clj
+       (do
+         (is (zero? (tu/eval* "(try (/ 1 0) (catch Exception _e 0))"
+                              {:bindings {'Exception Exception}})))
+         (is (thrown? Exception (eval* "(try (/ 1 0))")))))))
+
 ;;;; Scratch
 
 (comment

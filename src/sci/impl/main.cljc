@@ -11,4 +11,5 @@
   (prn (eval-string
         form
         (update (edn/read-string ctx)
-                :bindings merge {'prn prn 'println println}))))
+                :bindings merge {'prn prn 'println println
+                                 #?@(:clj ['Exception Exception])}))))

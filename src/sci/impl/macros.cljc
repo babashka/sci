@@ -285,7 +285,7 @@
   (let [catches (filter #(and (seq? %) (= 'catch (first %))) expr)
         catches (map (fn [c]
                        (let [[_ ex binding & body] c]
-                         {:class #?(:clj (java.lang.Class/forName (str ex)) :cljs ex)
+                         {:class (resolve-symbol ctx ex)
                           :binding binding
                           :body (macroexpand (assoc-in ctx [:bindings binding] nil)
                                              (cons 'do body))}))
