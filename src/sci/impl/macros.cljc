@@ -13,7 +13,7 @@
 
 (def macros '#{do if when and or -> ->> as-> quote quote*
                let fn fn* def defn comment loop lazy-seq for doseq
-               require cond case})
+               require cond case try})
 
 (defn check-permission! [{:keys [:allow :deny]} sym]
   (when-not (if allow (contains? allow sym)
@@ -280,6 +280,25 @@
                                   default))]
     (mark-eval-call ret)))
 
+(defn expand-try
+  [ctx expr]
+  (let [catches (filter #(and (seq? %) (= 'catch (first %))) expr)
+        catches (map (fn [c]
+                       (let [[_ ex binding & body] c]
+                         {:class #?(:clj (java.lang.Class/forName (str ex)) :cljs ex)
+                          :binding binding
+                          :body (macroexpand (assoc-in ctx [:bindings binding] nil)
+                                             (cons 'do body))}))
+                     catches)
+        finally (let [l (last expr)]
+                  (when (= 'finally (first l))
+                    (macroexpand ctx (cons 'do (rest l)))))]
+    (mark-eval
+     {:sci.impl/try
+      {:body (macroexpand ctx (second expr))
+       :catches catches
+       :finally finally}})))
+
 (defn macroexpand-call [ctx expr]
   (if (empty? expr) expr
       (let [f (first expr)]
@@ -313,6 +332,7 @@
                                                  (rest expr))))
                     cond (expand-cond ctx expr)
                     case (expand-case ctx expr)
+                    try (expand-try ctx expr)
                     ;; else:
                     (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
               (if-let [vf (resolve-symbol ctx f)]
