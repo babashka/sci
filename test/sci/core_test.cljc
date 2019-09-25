@@ -364,6 +364,23 @@
   (is (= true (eval* "(defn foo [merge] merge) (defn bar [foo] foo) (bar true)")))
   (is (= true (eval* "(defn foo [comment] comment) (foo true)"))))
 
+(deftest try-test
+  (when-not tu/native?
+    (let [state (atom nil)]
+      (is (zero? (tu/eval* #?(:clj "(try (mapv 1 [1 2 3])
+                                       (catch Exception _e 0)
+                                       (finally (reset! state :finally)))"
+                              :cljs "(try (mapv 1 [1 2 3])
+                                       (catch js/Error _e 0)
+                                       (finally (reset! state :finally)))")
+                           {:bindings #?(:clj {'state state
+                                               'reset! reset!
+                                               'Exception Exception}
+                                         :cljs {'state state
+                                                'reset! reset!
+                                                'js/Error js/Error})})))
+      (is (= :finally @state)))))
+
 ;;;; Scratch
 
 (comment

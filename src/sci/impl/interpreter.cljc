@@ -14,7 +14,7 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def macros '#{do if when and or -> ->> as-> quote let fn def defn
-               lazy-seq require})
+               lazy-seq require try})
 
 ;;;; Evaluation
 
@@ -182,6 +182,24 @@
         (throw (new #?(:clj Exception :cljs js/Error)
                     (str "No matching clause: " v)))))))
 
+(defn eval-try
+  [ctx expr]
+  (let [{:keys [:body :catches :finally]} (:sci.impl/try expr)]
+    (try
+      (interpret ctx body)
+      (catch #?(:clj Throwable :cljs js/Error) e
+        (or (reduce (fn [_ c]
+                      (when (instance? (:class c) e)
+                        (reduced
+                         (interpret (assoc-in ctx [:bindings (:binding c)]
+                                              e)
+                                    (:body c)))))
+                    nil
+                    catches)
+            (throw e)))
+      (finally
+        (interpret ctx finally)))))
+
 (declare eval-string)
 
 (defn eval-call [ctx expr]
@@ -216,6 +234,7 @@
                   {:sci.impl/recur true})
           require (eval-require ctx expr)
           case (eval-case ctx expr)
+          try (eval-try ctx expr)
           ;; else
           (if (ifn? f) (apply-fn ctx f (rest expr))
               (throw (new #?(:clj Exception :cljs js/Error)
@@ -230,6 +249,7 @@
         (cond
           (not eval?) (do nil ;; (prn "not eval" expr)
                           expr)
+          (:sci.impl/try expr) (eval-try ctx expr)
           (:sci/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (symbol? expr) (resolve-symbol ctx expr)
