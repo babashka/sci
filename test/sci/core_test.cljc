@@ -366,11 +366,20 @@
 
 (deftest try-test
   (when-not tu/native?
-    #?(:clj
-       (do
-         (is (zero? (tu/eval* "(try (/ 1 0) (catch Exception _e 0))"
-                              {:bindings {'Exception Exception}})))
-         (is (thrown? Exception (eval* "(try (/ 1 0))")))))))
+    (let [state (atom nil)]
+      (is (zero? (tu/eval* #?(:clj "(try (mapv 1 [1 2 3])
+                                       (catch Exception _e 0)
+                                       (finally (reset! state :finally)))"
+                              :cljs "(try (mapv 1 [1 2 3])
+                                       (catch js/Error _e 0)
+                                       (finally (reset! state :finally)))")
+                           {:bindings #?(:clj {'state state
+                                               'reset! reset!
+                                               'Exception Exception}
+                                         :cljs {'state state
+                                                'reset! reset!
+                                                'js/Error js/Error})})))
+      (is (= :finally @state)))))
 
 ;;;; Scratch
 

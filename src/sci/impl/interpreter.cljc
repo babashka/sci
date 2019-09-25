@@ -187,7 +187,7 @@
   (let [{:keys [:body :catches :finally]} (:sci.impl/try expr)]
     (try
       (interpret ctx body)
-      (catch Throwable e
+      (catch #?(:clj Throwable :cljs js/Error) e
         (or (reduce (fn [_ c]
                       (when (instance? (:class c) e)
                         (reduced
