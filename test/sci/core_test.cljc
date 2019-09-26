@@ -371,15 +371,13 @@
                                        (catch Exception _e 0)
                                        (finally (reset! state :finally)))"
                               :cljs "(try (mapv 1 [1 2 3])
-                                       (catch js/Error _e 0)
-                                       (finally (reset! state :finally)))")
-                           {:bindings #?(:clj {'state state
-                                               'reset! reset!
-                                               'Exception Exception}
-                                         :cljs {'state state
-                                                'reset! reset!
-                                                'js/Error js/Error})})))
-      (is (= :finally @state)))))
+                                     (catch js/Error _e 0)
+                                     (finally (reset! state :finally)))")
+                           {:bindings {'state state
+                                       'reset! reset!}})))
+      (is (= :finally @state)))
+    #?(:clj (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
+       :cljs (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))"))))))
 
 ;;;; Scratch
 

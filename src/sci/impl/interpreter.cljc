@@ -7,6 +7,7 @@
    [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
+   [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location]]))
 
@@ -188,15 +189,20 @@
     (try
       (interpret ctx body)
       (catch #?(:clj Throwable :cljs js/Error) e
-        (or (reduce (fn [_ c]
-                      (when (instance? (:class c) e)
-                        (reduced
-                         (interpret (assoc-in ctx [:bindings (:binding c)]
-                                              e)
-                                    (:body c)))))
-                    nil
-                    catches)
-            (throw e)))
+        (if-let
+            [[_ r]
+             (reduce (fn [_ c]
+                       (let [clazz (resolve-symbol ctx (:class c))]
+                         (when (instance? clazz e)
+                           (reduced
+                            [::try-result
+                             (interpret (assoc-in ctx [:bindings (:binding c)]
+                                                  e)
+                                        (:body c))]))))
+                     nil
+                     catches)]
+          r
+          (throw e)))
       (finally
         (interpret ctx finally)))))
 
@@ -295,7 +301,7 @@
          env (or env (atom {}))
          _ (init-env! env bindings aliases namespaces)
          ctx {:env env
-              :bindings {}
+              :bindings exception-bindings
               :allow (not-empty (reduce into #{} [(:allow preset) allow]))
               :deny (not-empty (reduce into #{} [(:deny preset) deny]))
               :realize-max (or realize-max (:realize-max preset))
