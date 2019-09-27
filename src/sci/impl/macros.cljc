@@ -13,7 +13,7 @@
 
 (def macros '#{do if when and or -> ->> as-> quote quote*
                let fn fn* def defn comment loop lazy-seq for doseq
-               require cond case try})
+               require cond case try defmacro})
 
 (defn check-permission! [{:keys [:allow :deny]} sym]
   (when-not (if allow (contains? allow sym)
@@ -218,11 +218,13 @@
     (swap! (:env ctx) assoc var-name :sci/var.unbound)
     (mark-eval-call (list 'def var-name init))))
 
-(defn expand-defn [ctx [_defn fn-name docstring? & body]]
-  (let [docstring (when (string? docstring?) docstring?)
+(defn expand-defn [ctx [op fn-name docstring? & body]]
+  (let [macro? (= 'defmacro op)
+        docstring (when (string? docstring?) docstring?)
         body (if docstring body (cons docstring? body))
         fn-body (list* 'fn fn-name body)
-        f (expand-fn ctx fn-body)]
+        f (expand-fn ctx fn-body)
+        f (assoc f :sci.impl/macro macro?)]
     (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (mark-eval-call (list 'def fn-name f))))
 
@@ -317,7 +319,7 @@
                     let (expand-let ctx expr)
                     (fn fn*) (expand-fn ctx expr)
                     def (expand-def ctx expr)
-                    defn (expand-defn ctx expr)
+                    (defn defmacro) (expand-defn ctx expr)
                     -> (expand-> ctx (rest expr))
                     ->> (expand->> ctx (rest expr))
                     as-> (expand-as-> ctx expr)
@@ -344,28 +346,30 @@
 
 (defn macroexpand
   [ctx expr]
-  (cond (constant? expr) expr ;; constants do not carry metadata
-        (symbol? expr) (let [v (resolve-symbol ctx expr)]
-                         (cond (kw-identical? :sci/var.unbound v) nil
-                               (constant? v) v
-                               (fn? v) (merge-meta v {:sci.impl/eval false})
-                               :else (merge-meta v (meta expr))))
-        :else
-        (merge-meta
-         (cond
-           ;; already expanded by reader
-           (:sci/fn expr) (expand-fn-literal-body ctx expr)
+  (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
+                  (symbol? expr) (let [v (resolve-symbol ctx expr)]
+                                   (cond (kw-identical? :sci/var.unbound v) nil
+                                         (constant? v) v
+                                         (fn? v) (merge-meta v {:sci.impl/eval false})
+                                         :else (merge-meta v (meta expr))))
+                  :else
+                  (merge-meta
+                   (cond
+                     ;; already expanded by reader
+                     (:sci/fn expr) (expand-fn-literal-body ctx expr)
 
-           (map? expr)
-           (-> (zipmap (map #(macroexpand ctx %) (keys expr))
-                       (map #(macroexpand ctx %) (vals expr)))
-               mark-eval)
-           (or (vector? expr) (set? expr))
-           (-> (into (empty expr) (map #(macroexpand ctx %) expr))
-               mark-eval)
-           (seq? expr) (macroexpand-call ctx expr)
-           :else expr)
-         (meta expr))))
+                     (map? expr)
+                     (-> (zipmap (map #(macroexpand ctx %) (keys expr))
+                                 (map #(macroexpand ctx %) (vals expr)))
+                         mark-eval)
+                     (or (vector? expr) (set? expr))
+                     (-> (into (empty expr) (map #(macroexpand ctx %) expr))
+                         mark-eval)
+                     (seq? expr) (macroexpand-call ctx expr)
+                     :else expr)
+                   (meta expr)))]
+    ;; (prn "expand" expr '-> ret)
+    ret))
 
 ;;;; Scratch
 
