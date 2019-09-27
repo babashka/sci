@@ -17,7 +17,8 @@
          (try (edn/read-string (sci (str form) (str ctx)))
               (catch #?(:clj Exception :cljs :default) e
                 (throw (ex-info (:stderr (ex-data e))
-                                (ex-data e)))))))))
+                                (ex-data e))))))
+       :cljs nil)))
 
 ;;;; Scratch
 

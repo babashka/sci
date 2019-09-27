@@ -2,7 +2,8 @@
   (:require
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [sci.core :refer [eval-string]]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -378,6 +379,14 @@
       (is (= :finally @state)))
     #?(:clj (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
        :cljs (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))"))))))
+
+(deftest defmacro-test
+  (when-not tu/native?
+    (is (= ":dude\n:dude\n"
+           (let [out (with-out-str
+                       (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"
+                                    {:bindings {'prn prn}}))]
+             out)))))
 
 ;;;; Scratch
 
