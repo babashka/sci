@@ -15,7 +15,6 @@
       (case fixed-arity
         0 (with-meta (fn [] (interpret ctx (mark-eval-call (cons 'do body)))) m)
         1 (with-meta (fn [x]
-                       (prn "in func x" x)
                        (interpret ctx (mark-eval-call
                                        `(~'let [~(first arg-list) ~x]
                                          ~@body)))) m)

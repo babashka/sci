@@ -118,7 +118,6 @@
 
 (defn do-recur!
   [f & args]
-  (prn "F" f (meta f) "R" args)
   (let [ret (apply f args)]
     (if-let [m (meta ret)]
       (if (:sci.impl/recur m)
@@ -128,12 +127,10 @@
 
 (defn apply-fn [ctx f args]
   (let [macro? (some-> f meta :sci.impl/macro)
-        _ (when macro? (prn "ARGS" args))
-        args (if macro? args (map #(interpret ctx %) args))
+        args (if macro? (map #(list 'quote %) args) (map #(interpret ctx %) args))
         ret (apply do-recur! f args)]
-    (prn "RET" ret)
-    ret #_(if macro?
-      (interpret ctx (macros/macroexpand ctx ret))
+    (if macro?
+      (eval-do ctx (cons 'do [ret]))
       ret)))
 
 (defn parse-libspec-opts [opts]
