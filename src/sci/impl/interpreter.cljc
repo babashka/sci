@@ -60,9 +60,12 @@
   (loop [exprs (rest expr)]
     (when-let [expr (first exprs)]
       (let [expr (macros/macroexpand ctx expr)
+            ;; _ (prn "MACROEXPANDED!" expr (meta expr))
             ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
-                       (utils/re-throw-with-location-of-node e expr)))]
+                       (utils/re-throw-with-location-of-node e expr)))
+            ;; _ (prn "EVALED" ret)
+            ]
         (if-let [n (next exprs)]
           (recur n)
           ret)))))
@@ -127,12 +130,21 @@
         ret)
       ret)))
 
+(defn no-eval-args [args]
+  #_(map #(list 'quote %) args)
+  (map #(utils/merge-meta % {:sci.impl/eval false}) args) ;; how did these eval come here anyway?
+  )
+
 (defn apply-fn [ctx f args]
   (let [macro? (some-> f meta :sci.impl/macro)
-        args (if macro? (map #(list 'quote %) args) (map #(interpret ctx %) args))
+        args (if macro? (no-eval-args args) (map #(interpret ctx %) args))
         ret (apply do-recur! f args)]
     (if macro?
-      (eval-do ctx (cons 'do [ret]))
+      (do
+        ;; (prn "RET" ret)
+        (let [ret (eval-do ctx (list 'do ret))]
+          ;; (prn "RET>" ret (meta ret))
+          ret))
       ret)))
 
 (defn parse-libspec-opts [opts]
@@ -261,7 +273,6 @@
 
 (defn interpret
   [ctx expr]
-  ;; (prn "to eval expr" expr (meta expr))
   (let [m (meta expr)
         eval? (:sci.impl/eval m)
         ret

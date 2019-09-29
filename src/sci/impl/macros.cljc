@@ -356,7 +356,11 @@
                   (macroexpand ctx (apply vf (rest expr)))
                   (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
-          (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))))
+          (do
+            ;; (prn ">" expr (meta expr))
+            (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
+              ;; (prn ">>" ret (meta ret))
+              ret))))))
 
 (defn macroexpand
   [ctx expr]
@@ -381,7 +385,8 @@
                          mark-eval)
                      (seq? expr) (macroexpand-call ctx expr)
                      :else expr)
-                   (meta expr)))]
+                   (select-keys (meta expr)
+                                [:row :col])))]
     ;; (prn "expand" expr '-> ret)
     ret))
 

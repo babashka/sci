@@ -386,6 +386,9 @@
 
 (deftest defmacro-test
   (when-not tu/native?
+    (is (= [":hello:hello" ":hello:hello"]
+           (eval* "(defmacro foo [x] (let [y (str x x)] `[~y ~y])) (foo :hello)"))))
+  (when-not tu/native?
     (is (= ":dude\n:dude\n"
            (let [out (with-out-str
                        (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"
