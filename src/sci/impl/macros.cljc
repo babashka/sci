@@ -305,12 +305,15 @@
 (defn expand-syntax-quote [ctx expr]
   (let [ret (walk/prewalk
              (fn [x]
-               (cond (seq? x)
-                     (if (= 'unquote (first x))
-                       (let [ret (macroexpand ctx (second x))]
-                         ret)
-                       x)
-                     :else x))
+               (if (seq? x)
+                 (case (first x)
+                   unquote (macroexpand ctx (second x))
+                   unquote-splicing (vary-meta
+                                     (macroexpand ctx (second x))
+                                     (fn [m]
+                                       (assoc m :sci.impl/unquote-splicing true)))
+                   x)
+                 x))
              (second expr))]
     (mark-eval-call (list 'syntax-quote ret))))
 

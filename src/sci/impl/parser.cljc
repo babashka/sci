@@ -11,7 +11,8 @@
 
 (def opts
   {:dispatch {\` (fn [expr] (list 'syntax-quote expr))
-              \~ (fn [expr] (list 'unquote expr))
+              \~ {:default (fn [expr] (list 'unquote expr))
+                  \@ (fn [expr] (list 'unquote-splicing expr))}
               \' (fn [expr] (list 'quote expr))
               \@ (fn [val] (list 'deref val))
               \# {\( readers/read-fn

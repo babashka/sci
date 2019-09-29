@@ -222,13 +222,46 @@
       (finally
         (interpret ctx finally)))))
 
+
+;;;; syntax-quote
+
+(declare walk-syntax-quote)
+
+(defn unquote-splicing? [x]
+  (and (seq? x) (= 'unquote-splicing (first x))))
+
+(defn process-seq [ctx form]
+  (loop [ret []
+         xs form]
+    (if (seq xs)
+      (let [x (first xs)
+            uq? (some-> x meta :sci.impl/unquote-splicing)
+            x' (walk-syntax-quote ctx x)
+            ret (if uq?
+                  (into ret x')
+                  (conj ret x'))]
+        (recur ret (rest xs)))
+      (seq ret))))
+
+(defn walk-syntax-quote
+  [ctx form]
+  (let [ret (cond
+             (list? form) (apply list (process-seq ctx form))
+             (seq? form) (process-seq ctx form)
+             (coll? form) (into (empty form) (process-seq ctx form))
+             :else (interpret ctx form))]
+    ;; (prn form '-> ret)
+    ret))
+
 (defn eval-syntax-quote
   [ctx expr]
-  (let [ret (walk/prewalk
+  (let [ret (walk-syntax-quote ctx (second expr)) #_(walk/prewalk
              (fn [x]
                (interpret ctx x))
              (second expr))]
     ret))
+
+;;;; end syntax-quote
 
 (declare eval-string)
 
