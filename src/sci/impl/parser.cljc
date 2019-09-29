@@ -10,7 +10,9 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def opts
-  {:dispatch {\' (fn [expr] (list 'quote expr))
+  {:dispatch {\` (fn [expr] (list 'syntax-quote expr))
+              \~ (fn [expr] (list 'unquote expr))
+              \' (fn [expr] (list 'quote expr))
               \@ (fn [val] (list 'deref val))
               \# {\( readers/read-fn
                   \" re-pattern}}})

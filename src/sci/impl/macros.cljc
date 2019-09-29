@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    [clojure.string :as str]
+   [clojure.walk :as walk]
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
@@ -11,9 +12,9 @@
     [gensym* mark-resolve-sym mark-eval mark-eval-call constant? throw-error-with-location
      merge-meta kw-identical?]]))
 
-(def macros '#{do if when and or -> ->> as-> quote quote*
-               let fn fn* def defn comment loop lazy-seq for doseq
-               require cond case try defmacro})
+(def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
+               fn* def defn comment loop lazy-seq for doseq require cond case
+               try defmacro})
 
 (defn check-permission! [{:keys [:allow :deny]} sym]
   (when-not (if allow (contains? allow sym)
@@ -301,6 +302,18 @@
        :catches catches
        :finally finally}})))
 
+(defn expand-syntax-quote [ctx expr]
+  (let [ret (walk/prewalk
+             (fn [x]
+               (cond (seq? x)
+                     (if (= 'unquote (first x))
+                       (let [ret (macroexpand ctx (second x))]
+                         ret)
+                       x)
+                     :else x))
+             (second expr))]
+    (mark-eval-call (list 'syntax-quote ret))))
+
 (defn macroexpand-call [ctx expr]
   (if (empty? expr) expr
       (let [f (first expr)]
@@ -324,6 +337,7 @@
                     ->> (expand->> ctx (rest expr))
                     as-> (expand-as-> ctx expr)
                     quote (do nil #_(prn "quote" expr) (second expr))
+                    syntax-quote (expand-syntax-quote ctx expr)
                     comment (expand-comment ctx expr)
                     loop (expand-loop ctx expr)
                     lazy-seq (expand-lazy-seq ctx expr)

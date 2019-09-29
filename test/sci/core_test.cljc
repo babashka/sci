@@ -380,6 +380,10 @@
     #?(:clj (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
        :cljs (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))"))))))
 
+(deftest syntax-quote-test
+  (is (= '(list 10 10)
+         (eval* "(let [x 10] `(list ~x ~x))"))))
+
 (deftest defmacro-test
   (when-not tu/native?
     (is (= ":dude\n:dude\n"

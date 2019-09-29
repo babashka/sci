@@ -9,13 +9,15 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
-   [sci.impl.utils :as utils :refer [throw-error-with-location]]))
+   [sci.impl.utils :as utils :refer [throw-error-with-location]]
+   [clojure.walk :as walk]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn def defn
-               lazy-seq require try})
+(def macros
+  '#{do if when and or -> ->> as-> quote let fn def defn
+     lazy-seq require try syntax-quote})
 
 ;;;; Evaluation
 
@@ -208,6 +210,14 @@
       (finally
         (interpret ctx finally)))))
 
+(defn eval-syntax-quote
+  [ctx expr]
+  (let [ret (walk/prewalk
+             (fn [x]
+               (interpret ctx x))
+             (second expr))]
+    ret))
+
 (declare eval-string)
 
 (defn eval-call [ctx expr]
@@ -243,6 +253,7 @@
           require (eval-require ctx expr)
           case (eval-case ctx expr)
           try (eval-try ctx expr)
+          syntax-quote (eval-syntax-quote ctx expr)
           ;; else
           (if (ifn? f) (apply-fn ctx f (rest expr))
               (throw (new #?(:clj Exception :cljs js/Error)
