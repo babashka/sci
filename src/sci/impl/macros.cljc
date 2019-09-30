@@ -225,7 +225,7 @@
         body (if docstring body (cons docstring? body))
         fn-body (list* 'fn fn-name body)
         f (expand-fn ctx fn-body)
-        f (assoc f :sci.impl/macro macro?)]
+        f (assoc f :sci/macro macro?)]
     (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (mark-eval-call (list 'def fn-name f))))
 
@@ -359,11 +359,8 @@
                   (macroexpand ctx (apply vf (rest expr)))
                   (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
-          (do
-            ;; (prn ">" expr (meta expr))
-            (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
-              ;; (prn ">>" ret (meta ret))
-              ret))))))
+          (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
+            ret)))))
 
 (defn macroexpand
   [ctx expr]

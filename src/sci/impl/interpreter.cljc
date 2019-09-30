@@ -9,8 +9,7 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
-   [sci.impl.utils :as utils :refer [throw-error-with-location]]
-   [clojure.walk :as walk]))
+   [sci.impl.utils :as utils :refer [throw-error-with-location]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -136,7 +135,7 @@
   )
 
 (defn apply-fn [ctx f args]
-  (let [macro? (some-> f meta :sci.impl/macro)
+  (let [macro? (some-> f meta :sci/macro)
         args (if macro? (no-eval-args args) (map #(interpret ctx %) args))
         ret (apply do-recur! f args)]
     (if macro?

@@ -57,7 +57,7 @@
               f))) arities))
 
 (defn eval-fn [ctx interpret {:sci/keys [fn-bodies fn-name] :as f}]
-  (let [macro? (:sci.impl/macro f)
+  (let [macro? (:sci/macro f)
         self-ref (atom nil)
         call-self (fn [& args]
                     (apply @self-ref args))
@@ -73,7 +73,7 @@
                     (apply f args)
                     (throw (new #?(:clj Exception
                                    :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments.")))))))
-            #(assoc % :sci.impl/macro macro?))]
+            #(assoc % :sci/macro macro?))]
     (reset! self-ref f)
     f))
 
