@@ -129,22 +129,10 @@
         ret)
       ret)))
 
-(defn no-eval-args [args]
-  #_(map #(list 'quote %) args)
-  (map #(utils/merge-meta % {:sci.impl/eval false}) args) ;; how did these eval come here anyway?
-  )
-
 (defn apply-fn [ctx f args]
-  (let [macro? (some-> f meta :sci/macro)
-        args (if macro? (no-eval-args args) (map #(interpret ctx %) args))
+  (let [args (map #(interpret ctx %) args)
         ret (apply do-recur! f args)]
-    (if macro?
-      (do
-        ;; (prn "RET" ret)
-        (let [ret (eval-do ctx (list 'do ret))]
-          ;; (prn "RET>" ret (meta ret))
-          ret))
-      ret)))
+    ret))
 
 (defn parse-libspec-opts [opts]
   (loop [opts-map {}
