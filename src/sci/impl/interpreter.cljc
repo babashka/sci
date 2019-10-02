@@ -14,8 +14,9 @@
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
 
-(def macros '#{do if when and or -> ->> as-> quote let fn def defn
-               lazy-seq require try})
+(def macros
+  '#{do if when and or -> ->> as-> quote let fn def defn
+     lazy-seq require try syntax-quote})
 
 ;;;; Evaluation
 
@@ -126,10 +127,9 @@
       ret)))
 
 (defn apply-fn [ctx f args]
-  ;; (prn "apply fn" f)
-  (let [args (map #(interpret ctx %) args)]
-    ;; (prn "ARGS" args)
-    (apply do-recur! f args)))
+  (let [args (map #(interpret ctx %) args)
+        ret (apply do-recur! f args)]
+    ret))
 
 (defn parse-libspec-opts [opts]
   (loop [opts-map {}
@@ -206,6 +206,47 @@
       (finally
         (interpret ctx finally)))))
 
+
+;;;; syntax-quote
+
+(declare walk-syntax-quote)
+
+(defn unquote-splicing? [x]
+  (and (seq? x) (= 'unquote-splicing (first x))))
+
+(defn process-seq [ctx form]
+  (loop [ret []
+         xs form]
+    (if (seq xs)
+      (let [x (first xs)
+            uq? (some-> x meta :sci.impl/unquote-splicing)
+            x' (walk-syntax-quote ctx x)
+            ret (if uq?
+                  (into ret x')
+                  (conj ret x'))]
+        (recur ret (rest xs)))
+      (seq ret))))
+
+(defn walk-syntax-quote
+  [ctx form]
+  (let [ret (cond
+             (list? form) (apply list (process-seq ctx form))
+             (seq? form) (process-seq ctx form)
+             (coll? form) (into (empty form) (process-seq ctx form))
+             :else (interpret ctx form))]
+    ;; (prn form '-> ret)
+    ret))
+
+(defn eval-syntax-quote
+  [ctx expr]
+  (let [ret (walk-syntax-quote ctx (second expr)) #_(walk/prewalk
+             (fn [x]
+               (interpret ctx x))
+             (second expr))]
+    ret))
+
+;;;; end syntax-quote
+
 (declare eval-string)
 
 (defn eval-call [ctx expr]
@@ -241,6 +282,7 @@
           require (eval-require ctx expr)
           case (eval-case ctx expr)
           try (eval-try ctx expr)
+          syntax-quote (eval-syntax-quote ctx expr)
           ;; else
           (if (ifn? f) (apply-fn ctx f (rest expr))
               (throw (new #?(:clj Exception :cljs js/Error)
@@ -248,7 +290,6 @@
 
 (defn interpret
   [ctx expr]
-  ;; (prn "to eval expr" expr (meta expr))
   (let [m (meta expr)
         eval? (:sci.impl/eval m)
         ret

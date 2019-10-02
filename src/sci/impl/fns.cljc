@@ -56,21 +56,24 @@
                            (>= arity min-var-args-arity)))
               f))) arities))
 
-(defn eval-fn [ctx interpret {:sci/keys [fn-bodies fn-name]}]
-  (let [self-ref (atom nil)
+(defn eval-fn [ctx interpret {:sci/keys [fn-bodies fn-name] :as f}]
+  (let [macro? (:sci/macro f)
+        self-ref (atom nil)
         call-self (fn [& args]
                     (apply @self-ref args))
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] call-self)
                 ctx)
         arities (map #(parse-fn-args+body interpret ctx %) fn-bodies)
-        f (if (= 1 (count arities))
-            (first arities)
-            (fn [& args]
-              (let [arg-count (count args)]
-                (if-let [f (lookup-by-arity arities arg-count)]
-                  (apply f args)
-                  (throw (new #?(:clj Exception
-                                 :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments.")))))))]
+        f (vary-meta
+            (if (= 1 (count arities))
+              (first arities)
+              (fn [& args]
+                (let [arg-count (count args)]
+                  (if-let [f (lookup-by-arity arities arg-count)]
+                    (apply f args)
+                    (throw (new #?(:clj Exception
+                                   :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments.")))))))
+            #(assoc % :sci/macro macro?))]
     (reset! self-ref f)
     f))
 

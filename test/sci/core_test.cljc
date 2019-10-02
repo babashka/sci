@@ -2,7 +2,8 @@
   (:require
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [sci.core :refer [eval-string]]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -378,6 +379,27 @@
       (is (= :finally @state)))
     #?(:clj (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
        :cljs (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))"))))))
+
+(deftest syntax-quote-test
+  (is (= '(list 10 10)
+         (eval* "(let [x 10] `(list ~x ~x))"))))
+
+(deftest defmacro-test
+  (is (= [":hello:hello" ":hello:hello"]
+         (eval* "(defmacro foo [x] (let [y (str x x)] `[~y ~y])) (foo :hello)")))
+  (is (= ["hellohello" "hellohello"]
+         (eval* "(defmacro foo [x] (let [y (str x x)] `[~y ~y])) (foo hello)")))
+  (is (= '(1 2 3)
+         (eval* "(defmacro foo [] `(list ~@[1 2 3])) (foo)")))
+  (is (= '(bar)
+         (eval* "(defmacro foo [x] `(list (quote ~x))) (foo bar)")))
+  (is (= "bar" (eval* "(defmacro foo [x] (str x)) (foo bar)")))
+  (when-not tu/native?
+    (is (= ":dude\n:dude\n"
+           (let [out (with-out-str
+                       (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"
+                                    {:bindings {'prn prn}}))]
+             out)))))
 
 ;;;; Scratch
 
