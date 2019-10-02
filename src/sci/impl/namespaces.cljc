@@ -177,6 +177,7 @@
    'partition partition
    'partition-all partition-all
    'partition-by partition-by
+   'pr-str pr-str
    'qualified-ident? qualified-ident?
    'qualified-symbol? qualified-symbol?
    'qualified-keyword? qualified-keyword?
