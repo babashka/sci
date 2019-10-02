@@ -59,12 +59,9 @@
   (loop [exprs (rest expr)]
     (when-let [expr (first exprs)]
       (let [expr (macros/macroexpand ctx expr)
-            ;; _ (prn "MACROEXPANDED!" expr (meta expr))
             ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
-                       (utils/re-throw-with-location-of-node e expr)))
-            ;; _ (prn "EVALED" ret)
-            ]
+                       (utils/re-throw-with-location-of-node e expr)))]
         (if-let [n (next exprs)]
           (recur n)
           ret)))))
