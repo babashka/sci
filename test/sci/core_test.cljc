@@ -365,7 +365,7 @@
   (is (= true (eval* "(defn foo [merge] merge) (defn bar [foo] foo) (bar true)")))
   (is (= true (eval* "(defn foo [comment] comment) (foo true)"))))
 
-(deftest try-test
+(deftest try-catch-finally-throw-test
   (when-not tu/native?
     (let [state (atom nil)]
       (is (zero? (tu/eval* #?(:clj "(try (mapv 1 [1 2 3])
@@ -376,9 +376,11 @@
                                      (finally (reset! state :finally)))")
                            {:bindings {'state state
                                        'reset! reset!}})))
-      (is (= :finally @state)))
-    #?(:clj (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
-       :cljs (is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))"))))))
+      (is (= :finally @state))))
+  #?@(:clj [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
+            (is (= {:a 1} (eval* "(try (throw (ex-info \"\" {:a 1})) (catch Exception e (ex-data e)))")))]
+      :cljs [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))")))
+             (is (= {:a 1} (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))]))
 
 (deftest syntax-quote-test
   (is (= '(list 10 10)

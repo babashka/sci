@@ -1,4 +1,5 @@
-(ns sci.impl.exceptions)
+(ns sci.impl.exceptions
+  {:no-doc true})
 
 #?(:clj
    (defn create-jvm-exception
@@ -25,7 +26,6 @@
    (def js-exception-bindings
      {'js/Error js/Error
       'js/Error. js/Error.}))
-
 
 (def exception-bindings
   #?(:clj java-exception-bindings

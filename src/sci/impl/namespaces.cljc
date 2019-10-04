@@ -3,6 +3,9 @@
   (:require [clojure.string :as str]
             [clojure.set :as set]))
 
+(defn throw* [ex]
+  (throw ex))
+
 (def clojure-core
   {'= =
    '< <
@@ -83,6 +86,8 @@
    'every? every?
    'every-pred every-pred
    'ensure-reduced ensure-reduced
+   'ex-data ex-data
+   'ex-info ex-info
    'first first
    'float? float?
    'floats floats
@@ -245,6 +250,7 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
+   'throw throw*
    'trampoline trampoline
    'transduce transduce
    'tree-seq tree-seq
