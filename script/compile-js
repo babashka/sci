@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -Eeo pipefail
+
+clojure -A:cljs-build

@@ -2,7 +2,7 @@
   (:require
    [sci.impl.interpreter :as i]))
 
-(defn eval-string
+(defn ^:export eval-string
   "Evaluates string `s` as a Clojure form using the Small Clojure Interpreter.
 
   The map `opts` may contain the following:
