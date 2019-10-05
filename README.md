@@ -9,7 +9,7 @@ A tiny implementation of Clojure in Clojure.
 
 ## Quickstart
 
-### From ClojureScript
+### Use from Clojure(Script)
 
 ``` clojure
 (require '[sci.core :as sci])
@@ -17,7 +17,7 @@ A tiny implementation of Clojure in Clojure.
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
-### From JavaScript
+### Use from JavaScript
 
 ``` javascript
 const { evalString } = require('@borkdude/sci');
