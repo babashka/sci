@@ -29,13 +29,27 @@ Experimental. Breaking changes are expected to happen at this phase.
 Use as a dependency:
 
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
+[![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 
-## Usage
+## Usage from Clojure and ClojureScript
 
 ``` clojure
 (require '[sci.core :as sci])
 (sci/eval-string "(inc 1)") => ;; 2
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
+```
+
+## Usage from JavaScript
+
+``` javascript
+const { evalString } = require('@borkdude/sci');
+const program = "(dotimes [i 3] (f))";
+const opts = {"bindings": {"f": function() { console.log('hello') }}};
+> evalString(program, opts);
+hello
+hello
+hello
+null
 ```
 
 Currently the following special forms/macros are supported: `def`, `fn`,

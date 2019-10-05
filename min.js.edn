@@ -1,0 +1,66 @@
+;; borrowed from axel-f with lots of with gratitute
+;; https://github.com/xapix-io/axel-f/blob/9bb72e13699b9559142392c4fa19041b1d072244/axel_f.min.js.edn
+{:output-to "out/min/sci.min.js"
+ :output-dir "out/min"
+ :optimizations :advanced
+ :main "sci.js"
+ :aot-cache true
+ :compiler-stats true
+ :pretty-print  false
+ :elide-asserts true
+ :parallel-build true
+ :checked-arrays :warn
+ :static-fns true
+ :fn-invoke-direct true
+ :warnings {:fn-deprecated false}
+ :optimize-constants true
+ :output-wrapper "/**
+ * Small Clojure Compiler v0.0.9-alpha
+ *
+ * Copyright 2019 Michiel Borkent
+ *
+ * Licensed under Eclipse Public License;
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://github.com/borkdude/sci/blob/master/LICENSE
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an \"AS IS\" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+(function (definition) {
+    // This file will function properly as a <script> tag, or a module
+    // using CommonJS and NodeJS or RequireJS module formats. In
+    // Common/Node/RequireJS, the module exports the sci API and when
+    // executed as a simple <script>, it creates a sci global
+    // instead.
+
+    // Wrapper gratefully adapted from:
+    // https://github.com/kriskowal/q/blob/v1/q.js
+    // https://github.com/swannodette/mori/blob/master/support/wrapper.js
+    // https://github.com/tonsky/datascript/tree/master/release-js
+
+    // CommonJS
+    if (typeof exports === \"object\") {
+        module.exports = definition();
+
+    // RequireJS
+    } else if (typeof define === \"function\" && define.amd) {
+        define(definition);
+
+    // <script>
+    } else {
+        sci = definition();
+    }
+})(function () {
+    return function () {
+
+        %s
+        return this.sci.js;
+
+    }.call({});
+
+});"}

@@ -1,0 +1,32 @@
+{
+  "name": "@borkdude/sci",
+  "version": "0.0.10-alpha.2",
+  "description": "Small Clojure Compiler.",
+  "homepage": "https://github.com/borkdude/sci",
+  "author": "Michiel Borkent (https://github.com/borkdude)",
+  "keywords": [
+    "clojure",
+    "clojurescript",
+    "language",
+    "interpreter"
+  ],
+  "contributors": [
+    "Michiel Borkent (https://github.com/borkdude)"
+  ],
+  "bugs": {
+    "url": "https://github.com/borkdude/sci/issues"
+  },
+  "license": "EPL-1.0",
+  "main": "./sci.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/borkdude/sci.git"
+  },
+  "engines": {
+    "node": ">=12.8.0"
+  },
+  "dependencies": {},
+  "files": [
+    "sci.js"
+  ]
+}
