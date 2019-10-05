@@ -57,12 +57,6 @@ Use as a dependency:
 
 ## Usage
 
-Currently the following special forms/macros are supported: `def`, `fn`,
-function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-not`, `when`,
-`when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`,
-`lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`. It also supports user
-defined macros.
-
 In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
 
@@ -75,8 +69,18 @@ hello
 nil
 ```
 
+## Feature parity
+
+Currently the following special forms/macros are supported: `def`, `fn`,
+function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-not`, `when`,
+`when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`,
+`lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`. It also supports user
+defined macros.
+
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).
+
+If you miss something, feel free to post an issue.
 
 ## Caveats
 
