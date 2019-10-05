@@ -36,7 +36,7 @@ This library works with:
 
 - Clojure on the JVM
 - Clojure compiled with GraalVM native
-- ClojureScript, even when compiled with `:advanced`
+- ClojureScript, even when compiled with `:advanced`, and (as a consequence) JavaScript
 
 It is used as the interpreter for
 [babashka](https://github.com/borkdude/babashka).
