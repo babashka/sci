@@ -53,9 +53,11 @@
               (when (or (= 'clojure.core sym-ns)
                         (= 'cljs.core sym-ns))
                 (let [unqualified-sym (symbol (name sym))]
-                  (when-let [v (find namespaces/clojure-core unqualified-sym)]
-                    (do (check-permission! ctx unqualified-sym)
-                        v)))))
+                  (or (when-let [v (get macros unqualified-sym)]
+                        [v v])
+                      (when-let [v (find namespaces/clojure-core unqualified-sym)]
+                        (do (check-permission! ctx unqualified-sym)
+                            v))))))
             (when (= 'recur sym)
               (check-permission! ctx sym)
               [sym (mark-resolve-sym sym)]))]
