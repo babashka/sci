@@ -3,6 +3,28 @@
   (:require [clojure.string :as str]
             [clojure.set :as set]))
 
+(defn macrofy [f]
+  (vary-meta f #(assoc % :sci/macro true)))
+
+(defn throw* [ex]
+  (throw ex))
+
+(defn dotimes* [[i n] & body]
+  `(let [n# (long ~n)]
+     (loop [~i 0]
+       (when (< ~i n#)
+        ~@body
+        (recur (unchecked-inc ~i))))))
+
+(defn if-not*
+  ([test then] (if-not* test then nil))
+  ([test then else]
+   `(if (not ~test) ~then ~else)))
+
+(defn when-not*
+  [test & body]
+  (list 'if test nil (cons 'do body)))
+
 (def clojure-core
   {'= =
    '< <
@@ -70,6 +92,7 @@
    'distinct distinct
    'distinct? distinct?
    'disj disj
+   'dotimes (macrofy dotimes*)
    'double double
    'double? double?
    'drop drop
@@ -83,6 +106,8 @@
    'every? every?
    'every-pred every-pred
    'ensure-reduced ensure-reduced
+   'ex-data ex-data
+   'ex-info ex-info
    'first first
    'float? float?
    'floats floats
@@ -107,6 +132,7 @@
    'ident? ident?
    'identical? identical?
    'identity identity
+   'if-not (macrofy if-not*)
    'inc inc
    'int-array int-array
    'interleave interleave
@@ -245,6 +271,7 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
+   'throw throw*
    'trampoline trampoline
    'transduce transduce
    'tree-seq tree-seq
@@ -283,6 +310,7 @@
    'vec vec
    'vector vector
    'vector? vector?
+   'when-not (macrofy when-not*)
    'zipmap zipmap
    'zero? zero?
    #?@(:clj ['+' +'

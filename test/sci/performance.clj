@@ -2,10 +2,11 @@
   (:require
    [criterium.core :as cc]
    [sci.core :as sci]
+   [sci.test-utils :refer [native?]]
    [clojure.test :refer [deftest]]
    #_[clj-async-profiler.core :as prof]))
 
-(when-not (= "false" (System/getenv "SCI_TEST_PERFORMANCE"))
+(when-not (or (= "false" (System/getenv "SCI_TEST_PERFORMANCE")) native?)
   (deftest reusable-fn-test
     (println "Testing reusable function result.")
     (doseq [[example args] [["#(assoc (hash-map :a 1 :b 2) %1 %2)" [:b 3]]]]
