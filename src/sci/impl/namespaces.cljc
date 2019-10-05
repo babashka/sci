@@ -6,6 +6,13 @@
 (defn throw* [ex]
   (throw ex))
 
+(defn dotimes* [[i n] & body]
+  `(let [n# (long ~n)]
+     (loop [~i 0]
+       (when (< ~i n#)
+        ~@body
+        (recur (unchecked-inc ~i))))))
+
 (def clojure-core
   {'= =
    '< <
@@ -73,6 +80,7 @@
    'distinct distinct
    'distinct? distinct?
    'disj disj
+   'dotimes (with-meta dotimes* {:sci/macro true})
    'double double
    'double? double?
    'drop drop
