@@ -20,10 +20,7 @@ A tiny implementation of Clojure in Clojure.
 ### Use from JavaScript
 
 ``` javascript
-const { evalString } = require('@borkdude/sci');
-const f = evalString("(fn [obj] (-> obj js->clj frequencies clj->js))")
-> f(["foo", "bar", "foo"]);
-{ foo: 2, bar: 1 }
+> const { evalString } = require('@borkdude/sci');
 > const opts = {"bindings": {"f": function() { console.log('hello'); }}};
 > evalString("(dotimes [i 2] (f))", opts);
 hello
