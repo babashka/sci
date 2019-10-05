@@ -18,4 +18,4 @@
    :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}
   :cljs-build
   {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.520"}}
-   :main-opts ["-m" "cljs.main" "-O" "advanced" "-d" "out" "-c" "sci.core"]}}}
+   :main-opts ["-m" "cljs.main" "-co" "min.js.edn" "-c"]}}}
