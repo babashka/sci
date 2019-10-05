@@ -3,7 +3,7 @@
 {:output-to "out/min/sci.min.js"
  :output-dir "out/min"
  :optimizations :advanced
- :main "sci.core"
+ :main "sci.js"
  :aot-cache true
  :compiler-stats true
  :pretty-print  false
@@ -59,9 +59,7 @@
     return function () {
 
         %s
-        core = this.sci.core;
-        core.evalString = core.eval_string;
-        return core;
+        return this.sci.js;
 
     }.call({});
 
