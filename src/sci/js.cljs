@@ -17,4 +17,8 @@
   in the Clojure form, e.g. `{'x 1}`."
   ([s] (evalString s nil))
   ([s opts]
-   (sci/eval-string s (js-opts->cljs-opts opts))))
+   (let [res (sci/eval-string s (js-opts->cljs-opts opts))]
+     (if (instance? MetaFn res)
+       ;; when returning a function, make it callable from JS
+       (.-afn res)
+       res))))
