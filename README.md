@@ -6,6 +6,29 @@
 
 A tiny implementation of Clojure in Clojure.
 
+## Quickstart
+
+### From ClojureScript
+
+``` clojure
+(require '[sci.core :as sci])
+(sci/eval-string "(inc 1)") => ;; 2
+(sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
+```
+
+### From JavaScript
+
+``` javascript
+const { evalString } = require('@borkdude/sci');
+const f = evalString("(fn [obj] (-> obj js->clj frequencies clj->js))")
+> f(["foo", "bar", "foo"]);
+{ foo: 2, bar: 1 }
+> const opts = {"bindings": {"f": function() { console.log('hello'); }}};
+> evalString("(dotimes [i 2] (f))", opts);
+hello
+hello
+```
+
 ## Rationale
 
 You want to evaluate code from user input, but `eval` isn't safe or simply
@@ -31,27 +54,13 @@ Use as a dependency:
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
 [![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 
-## Usage from Clojure and ClojureScript
-
-``` clojure
-(require '[sci.core :as sci])
-(sci/eval-string "(inc 1)") => ;; 2
-(sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
-```
-
-## Usage from JavaScript
-
-``` javascript
-const { evalString } = require('@borkdude/sci');
-const f = evalString("(fn [obj] (-> obj js->clj frequencies clj->js))")
-> f(["foo", "bar", "foo"]);
-{ foo: 2, bar: 1 }
-```
+## Usage
 
 Currently the following special forms/macros are supported: `def`, `fn`,
-function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `when`, `cond`,
-`let`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`, `lazy-seq`, `for`,
-`doseq`, `case`.
+function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-not`, `when`,
+`when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`,
+`lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`. It also supports user
+defined macros.
 
 In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
