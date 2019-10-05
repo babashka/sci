@@ -63,6 +63,7 @@
    'cat cat
    'char char
    'char? char?
+   #?@(:cljs ['clj->js clj->js])
    'conj conj
    'cons cons
    'contains? contains?
@@ -145,6 +146,7 @@
    'integer? integer?
    'ints ints
    'into-array into-array
+   #?@(:cljs ['js->clj js->clj])
    'juxt juxt
    'keep keep
    'keep-indexed keep-indexed
