@@ -43,13 +43,9 @@ Use as a dependency:
 
 ``` javascript
 const { evalString } = require('@borkdude/sci');
-const program = "(dotimes [i 3] (f))";
-const opts = {"bindings": {"f": function() { console.log('hello') }}};
-> evalString(program, opts);
-hello
-hello
-hello
-null
+const f = evalString("(fn [obj] (-> obj js->clj frequencies clj->js))")
+> f( [1, 2, 1, 1, 2, 3] );
+{ '1': 3, '2': 2, '3': 1 }
 ```
 
 Currently the following special forms/macros are supported: `def`, `fn`,
