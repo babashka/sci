@@ -2,7 +2,9 @@
 
 set -Eeo pipefail
 
+rm -rf /tmp/release-js
 mkdir -p /tmp/release-js
 cp out/min/sci.min.js /tmp/release-js/sci.js
+cp README.md /tmp/release-js
 cp package.json /tmp/release-js
 cd /tmp/release-js
