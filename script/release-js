@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -Eeo pipefail
+
+mkdir -p /tmp/release-js
+cp out/min/sci.min.js /tmp/release-js/sci.js
+cp package.json /tmp/release-js
+cd /tmp/release-js
