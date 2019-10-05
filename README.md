@@ -29,7 +29,7 @@ Experimental. Breaking changes are expected to happen at this phase.
 Use as a dependency:
 
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
-[!(https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
+[![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 
 ## Usage from Clojure and ClojureScript
 
