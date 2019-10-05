@@ -57,6 +57,9 @@ Use as a dependency:
 
 ## Usage
 
+Currently the only API function is `sci.core/eval-string` which takes a string
+to evaluate and an optional options map.
+
 In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
 
