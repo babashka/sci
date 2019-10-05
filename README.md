@@ -21,7 +21,7 @@ A tiny implementation of Clojure in Clojure.
 
 ``` javascript
 > const { evalString } = require('@borkdude/sci');
-> const opts = {"bindings": {"f": function() { console.log('hello'); }}};
+> const opts = {bindings: {f: function() { console.log('hello'); }}};
 > evalString("(dotimes [i 2] (f))", opts);
 hello
 hello
