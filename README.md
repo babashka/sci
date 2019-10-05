@@ -44,8 +44,8 @@ Use as a dependency:
 ``` javascript
 const { evalString } = require('@borkdude/sci');
 const f = evalString("(fn [obj] (-> obj js->clj frequencies clj->js))")
-> f( [1, 2, 1, 1, 2, 3] );
-{ '1': 3, '2': 2, '3': 1 }
+> f(["foo", "bar", "foo"]);
+{ foo: 2, bar: 1 }
 ```
 
 Currently the following special forms/macros are supported: `def`, `fn`,

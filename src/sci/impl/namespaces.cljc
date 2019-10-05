@@ -147,6 +147,7 @@
    'ints ints
    'into-array into-array
    #?@(:cljs ['js->clj js->clj])
+   #?@(:cljs ['js-obj js-obj])
    'juxt juxt
    'keep keep
    'keep-indexed keep-indexed
