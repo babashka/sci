@@ -314,6 +314,7 @@
    'vector vector
    'vector? vector?
    'when-not (macrofy when-not*)
+   'with-meta with-meta
    'zipmap zipmap
    'zero? zero?
    #?@(:clj ['+' +'
