@@ -384,7 +384,10 @@
 
 (deftest syntax-quote-test
   (is (= '(list 10 10)
-         (eval* "(let [x 10] `(list ~x ~x))"))))
+         (eval* "(let [x 10] `(list ~x ~x))")))
+  (let [generated (str (eval* "(let [x 1] `(let [x# ~x] x#))"))]
+    (is (not (str/includes? generated "x#")))
+    (is (= 2 (count (re-seq #"__auto__" generated))))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
@@ -395,6 +398,7 @@
          (eval* "(defmacro foo [] `(list ~@[1 2 3])) (foo)")))
   (is (= '(bar)
          (eval* "(defmacro foo [x] `(list (quote ~x))) (foo bar)")))
+  (is (= 1 (eval* "(defmacro foo [x] `(let [x# ~x] x#)) (foo 1)")))
   (is (= "bar" (eval* "(defmacro foo [x] (str x)) (foo bar)")))
   (when-not tu/native?
     (is (= ":dude\n:dude\n"
