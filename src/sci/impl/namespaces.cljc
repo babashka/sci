@@ -55,6 +55,7 @@
    '/ /
    '== ==
    'aget aget
+   'aset aset
    'alength alength
    'apply apply
    'assoc assoc
