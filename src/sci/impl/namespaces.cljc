@@ -9,7 +9,9 @@
 (defn throw* [ex]
   (throw ex))
 
-(defn dotimes* [[i n] & body]
+(defn dotimes*
+  "dotimes from clojure.core"
+  [[i n] & body]
   `(let [n# (long ~n)]
      (loop [~i 0]
        (when (< ~i n#)
@@ -17,13 +19,29 @@
         (recur (unchecked-inc ~i))))))
 
 (defn if-not*
+  "if-not from clojure.core"
   ([test then] (if-not* test then nil))
   ([test then else]
    `(if (not ~test) ~then ~else)))
 
 (defn when-not*
+  "when-not from clojure.core"
   [test & body]
   (list 'if test nil (cons 'do body)))
+
+(defn doto*
+  "doto from clojure.core"
+  [x & forms]
+  (let [gx (gensym)]
+    `(let [~gx ~x]
+       ~@(map (fn [f]
+                (with-meta
+                  (if (seq? f)
+                    `(~(first f) ~gx ~@(next f))
+                    `(~f ~gx))
+                  (meta f)))
+              forms)
+       ~gx)))
 
 (def clojure-core
   {'= =
@@ -37,6 +55,7 @@
    '/ /
    '== ==
    'aget aget
+   'aset aset
    'alength alength
    'apply apply
    'assoc assoc
@@ -94,6 +113,7 @@
    'distinct? distinct?
    'disj disj
    'dotimes (macrofy dotimes*)
+   'doto (macrofy doto*)
    'double double
    'double? double?
    'drop drop
