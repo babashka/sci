@@ -227,23 +227,39 @@
         (recur ret (rest xs)))
       (seq ret))))
 
+(defn process-symbol [{:keys [:gensyms] :as ctx} sym]
+  (let [m (meta sym)]
+    (if (:sci.impl/eval m)
+      (interpret ctx sym)
+      (if (namespace sym)
+        sym
+        (let [n (name sym)]
+          (if (str/ends-with? n "#")
+            (if-let [generated (get @gensyms sym)]
+              (interpret ctx generated)
+              (let [n (subs n 0 (dec (count n)))
+                    generated (gensym (str n "__"))
+                    generated (symbol (str (name generated) "__auto__"))]
+                (swap! gensyms assoc sym generated)
+                generated))
+            sym))))))
+
 (defn walk-syntax-quote
   [ctx form]
   (let [ret (cond
-             (list? form) (apply list (process-seq ctx form))
-             (seq? form) (process-seq ctx form)
-             (coll? form) (into (empty form) (process-seq ctx form))
-             :else (interpret ctx form))]
+              (list? form) (apply list (process-seq ctx form))
+              (seq? form) (process-seq ctx form)
+              (coll? form) (into (empty form) (process-seq ctx form))
+              (symbol? form) (process-symbol ctx form)
+              :else (interpret ctx form))]
     ;; (prn form '-> ret)
     ret))
 
 (defn eval-syntax-quote
   [ctx expr]
-  (let [ret (walk-syntax-quote ctx (second expr)) #_(walk/prewalk
-             (fn [x]
-               (interpret ctx x))
-             (second expr))]
-    ret))
+  (let [gensyms (atom {})
+        ctx (assoc ctx :gensyms gensyms)]
+    (walk-syntax-quote ctx (second expr))))
 
 ;;;; end syntax-quote
 
