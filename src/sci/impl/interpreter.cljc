@@ -209,23 +209,24 @@
 
 ;;;; syntax-quote
 
-(declare walk-syntax-quote)
+(declare eval-syntax-quote walk-syntax-quote)
 
 (defn unquote-splicing? [x]
   (and (seq? x) (= 'unquote-splicing (first x))))
 
 (defn process-seq [ctx form]
-  (loop [ret []
-         xs form]
-    (if (seq xs)
-      (let [x (first xs)
-            uq? (some-> x meta :sci.impl/unquote-splicing)
-            x' (walk-syntax-quote ctx x)
-            ret (if uq?
-                  (into ret x')
-                  (conj ret x'))]
-        (recur ret (rest xs)))
-      (seq ret))))
+  (let [ret (loop [ret []
+                   xs form]
+              (if (seq xs)
+                (let [x (first xs)
+                      uq? (some-> x meta :sci.impl/unquote-splicing)
+                      x' (walk-syntax-quote ctx x)
+                      ret (if uq?
+                            (into ret x')
+                            (conj ret x'))]
+                  (recur ret (rest xs)))
+                (seq ret)))]
+    ret))
 
 (defn process-symbol [{:keys [:gensyms] :as ctx} sym]
   (let [m (meta sym)]
@@ -246,14 +247,15 @@
 
 (defn walk-syntax-quote
   [ctx form]
-  (let [ret (cond
-              (list? form) (apply list (process-seq ctx form))
-              (seq? form) (process-seq ctx form)
-              (coll? form) (into (empty form) (process-seq ctx form))
-              (symbol? form) (process-symbol ctx form)
-              :else (interpret ctx form))]
-    ;; (prn form '-> ret)
-    ret))
+  (cond
+    (list? form) (let [f (first form)]
+                   (if (= 'syntax-quote f)
+                     (eval-syntax-quote ctx form)
+                     (apply list (process-seq ctx form))))
+    (seq? form) (process-seq ctx form)
+    (coll? form) (into (empty form) (process-seq ctx form))
+    (symbol? form) (process-symbol ctx form)
+    :else (interpret ctx form)))
 
 (defn eval-syntax-quote
   [ctx expr]

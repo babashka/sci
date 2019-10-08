@@ -400,6 +400,7 @@
          (eval* "(defmacro foo [x] `(list (quote ~x))) (foo bar)")))
   (is (= 1 (eval* "(defmacro foo [x] `(let [x# ~x] x#)) (foo 1)")))
   (is (= "bar" (eval* "(defmacro foo [x] (str x)) (foo bar)")))
+  (is (= 1 (eval* "(defmacro nested [x] `(let [x# 1337] ~`(let [x# ~x] x#))) (nested 1)")))
   (when-not tu/native?
     (is (= ":dude\n:dude\n"
            (let [out (with-out-str
