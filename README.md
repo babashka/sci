@@ -74,8 +74,8 @@ nil
 Currently the following special forms/macros are supported: `def`, `fn`,
 function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-not`, `when`,
 `when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`,
-`lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`. It also supports user
-defined macros.
+`lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`, `declare`. It also
+supports user defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).
