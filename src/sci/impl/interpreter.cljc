@@ -90,7 +90,7 @@
     (swap! (:env ctx) assoc var-name init)
     init))
 
-(defn lookup [{:keys [:bindings]} sym]
+(defn lookup [{:keys [:bindings :env]} sym]
   (or
    ;; (find @env sym)
    (find bindings sym)
@@ -99,10 +99,11 @@
      ;; (prn "NS>" ns)
      (when (or (= "clojure.core" ns)
                (= "cljs.core" ns))
-       (find namespaces/clojure-core (symbol (name sym)))))))
+       (find namespaces/clojure-core (symbol (name sym)))))
+   (when (some-> sym meta :sci.impl/var.declared)
+     (find @env sym))))
 
 (defn resolve-symbol [ctx expr]
-  ;; (prn "LOOKUP" expr '-> (lookup ctx expr))
   (second
    (or
     (lookup ctx expr)

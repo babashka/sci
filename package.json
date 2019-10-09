@@ -1,6 +1,6 @@
 {
   "name": "@borkdude/sci",
-  "version": "0.0.10-alpha.10",
+  "version": "0.0.10-alpha.12",
   "description": "Small Clojure Interpreter.",
   "homepage": "https://github.com/borkdude/sci",
   "author": "Michiel Borkent (https://github.com/borkdude)",

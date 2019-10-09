@@ -8,6 +8,12 @@
         bindings (zipmap (map symbol (keys bindings)) (vals bindings))]
     {:bindings bindings}))
 
+(defn ^:export toJS [fn]
+  (if (instance? MetaFn fn)
+    ;; when returning a function, make it callable from JS
+    (.-afn fn)
+    (clj->js fn)))
+
 (defn ^:export evalString
   "Evaluates string `s` as a Clojure form using the Small Clojure Interpreter.
 
@@ -17,8 +23,4 @@
   in the Clojure form, e.g. `{'x 1}`."
   ([s] (evalString s nil))
   ([s opts]
-   (let [res (sci/eval-string s (js-opts->cljs-opts opts))]
-     (if (instance? MetaFn res)
-       ;; when returning a function, make it callable from JS
-       (.-afn res)
-       res))))
+   (sci/eval-string s (js-opts->cljs-opts opts))))

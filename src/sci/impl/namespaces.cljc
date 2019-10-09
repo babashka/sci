@@ -54,14 +54,16 @@
    '* *
    '/ /
    '== ==
+   'add-watch add-watch
    'aget aget
    'aset aset
    'alength alength
    'apply apply
+   'array-map array-map
    'assoc assoc
    'assoc-in assoc-in
    'associative? associative?
-   'array-map array-map
+   'atom atom
    'bit-and-not bit-and-not
    'bit-set bit-set
    'bit-shift-left bit-shift-left
@@ -108,6 +110,7 @@
    'chunked-seq? chunked-seq?
    'dec dec
    'dedupe dedupe
+   'deref deref
    'dissoc dissoc
    'distinct distinct
    'distinct? distinct?
@@ -247,6 +250,7 @@
    'reduce-kv reduce-kv
    'reduced reduced
    'reduced? reduced?
+   'reset! reset!
    'reversible? reversible?
    'rsubseq rsubseq
    'reductions reductions
@@ -290,6 +294,7 @@
    'sequence sequence
    'seqable? seqable?
    'shorts shorts
+   'swap! swap!
    'take take
    'take-last take-last
    'take-nth take-nth
