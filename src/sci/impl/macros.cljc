@@ -320,12 +320,16 @@
     (mark-eval-call (list 'syntax-quote ret))))
 
 (defn expand-declare [ctx [_declare & names :as _expr]]
-  (swap! (:env ctx) merge
-         (zipmap names
-                 (map (fn [n]
-                        (vary-meta (mark-eval n)
-                                   #(assoc % :sci.impl/var.declared true)))
-                      names)))
+  (swap! (:env ctx)
+         (fn [env]
+           ;; declaring an already existing var does nothing
+           ;; that's why env is the last arg to merge, not the first
+           (merge (zipmap names
+                          (map (fn [n]
+                                 (vary-meta (mark-eval n)
+                                            #(assoc % :sci.impl/var.declared true)))
+                               names))
+                  env)))
   nil)
 
 (defn macroexpand-call [ctx expr]

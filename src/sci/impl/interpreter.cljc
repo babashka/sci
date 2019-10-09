@@ -90,7 +90,7 @@
     (swap! (:env ctx) assoc var-name init)
     init))
 
-(defn lookup [{:keys [:bindings]} sym]
+(defn lookup [{:keys [:bindings :env]} sym]
   (or
    ;; (find @env sym)
    (find bindings sym)
@@ -99,24 +99,24 @@
      ;; (prn "NS>" ns)
      (when (or (= "clojure.core" ns)
                (= "cljs.core" ns))
-       (find namespaces/clojure-core (symbol (name sym)))))))
+       (find namespaces/clojure-core (symbol (name sym)))))
+   (when (some-> sym meta :sci.impl/var.declared)
+     (find @env sym))))
 
 (defn resolve-symbol [ctx expr]
-  (if (some-> expr meta :sci.impl/var.declared)
-    (get @(:env ctx) expr)
-    (second
-     (or
-      (lookup ctx expr)
-      ;; TODO: check if symbol is in macros and then emit an error: cannot take
-      ;; the value of a macro
-      (let [n (name expr)]
-        (if (str/starts-with? n "'")
-          (let [v (symbol (subs n 1))]
-            [v v])
-          ;; TODO: can this ever happen now that we resolve symbols at macro-expansion time?
-          (throw-error-with-location
-           (str "Could not resolve symbol: " (str expr))
-           expr)))))))
+  (second
+   (or
+    (lookup ctx expr)
+    ;; TODO: check if symbol is in macros and then emit an error: cannot take
+    ;; the value of a macro
+    (let [n (name expr)]
+      (if (str/starts-with? n "'")
+        (let [v (symbol (subs n 1))]
+          [v v])
+        ;; TODO: can this ever happen now that we resolve symbols at macro-expansion time?
+        (throw-error-with-location
+         (str "Could not resolve symbol: " (str expr))
+         expr))))))
 
 (defn do-recur!
   [f & args]
