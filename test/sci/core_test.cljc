@@ -408,6 +408,9 @@
                                     {:bindings {'prn prn}}))]
              out)))))
 
+(deftest declare-test
+  (is (= [1 2] (eval* "(declare foo bar) (defn f [] [foo bar]) (def foo 1) (def bar 2) (f)"))))
+
 ;;;; Scratch
 
 (comment

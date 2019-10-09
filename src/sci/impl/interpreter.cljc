@@ -102,20 +102,21 @@
        (find namespaces/clojure-core (symbol (name sym)))))))
 
 (defn resolve-symbol [ctx expr]
-  ;; (prn "LOOKUP" expr '-> (lookup ctx expr))
-  (second
-   (or
-    (lookup ctx expr)
-    ;; TODO: check if symbol is in macros and then emit an error: cannot take
-    ;; the value of a macro
-    (let [n (name expr)]
-      (if (str/starts-with? n "'")
-        (let [v (symbol (subs n 1))]
-          [v v])
-        ;; TODO: can this ever happen now that we resolve symbols at macro-expansion time?
-        (throw-error-with-location
-         (str "Could not resolve symbol: " (str expr))
-         expr))))))
+  (if (some-> expr meta :sci.impl/var.declared)
+    (get @(:env ctx) expr)
+    (second
+     (or
+      (lookup ctx expr)
+      ;; TODO: check if symbol is in macros and then emit an error: cannot take
+      ;; the value of a macro
+      (let [n (name expr)]
+        (if (str/starts-with? n "'")
+          (let [v (symbol (subs n 1))]
+            [v v])
+          ;; TODO: can this ever happen now that we resolve symbols at macro-expansion time?
+          (throw-error-with-location
+           (str "Could not resolve symbol: " (str expr))
+           expr)))))))
 
 (defn do-recur!
   [f & args]

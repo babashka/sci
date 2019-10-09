@@ -14,7 +14,7 @@
 
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
-               try defmacro})
+               try defmacro declare})
 
 (defn check-permission! [{:keys [:allow :deny]} sym]
   (when-not (if allow (contains? allow sym)
@@ -319,6 +319,15 @@
              (second expr))]
     (mark-eval-call (list 'syntax-quote ret))))
 
+(defn expand-declare [ctx [_declare & names :as _expr]]
+  (swap! (:env ctx) merge
+         (zipmap names
+                 (map (fn [n]
+                        (vary-meta (mark-eval n)
+                                   #(assoc % :sci.impl/var.declared true)))
+                      names)))
+  nil)
+
 (defn macroexpand-call [ctx expr]
   (if (empty? expr) expr
       (let [f (first expr)]
@@ -354,6 +363,7 @@
                     cond (expand-cond ctx expr)
                     case (expand-case ctx expr)
                     try (expand-try ctx expr)
+                    declare (expand-declare ctx expr)
                     ;; else:
                     (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
               (if-let [vf (resolve-symbol ctx f)]
