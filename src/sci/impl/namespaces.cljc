@@ -43,6 +43,30 @@
               forms)
        ~gx)))
 
+(defn cond->*
+  [expr & clauses]
+  (assert (even? (count clauses)))
+  (let [g (gensym)
+        steps (map (fn [[test step]] `(if ~test (-> ~g ~step) ~g))
+                   (partition 2 clauses))]
+    `(let [~g ~expr
+           ~@(interleave (repeat g) (butlast steps))]
+       ~(if (empty? steps)
+          g
+          (last steps)))))
+
+(defn cond->>*
+  [expr & clauses]
+  (assert (even? (count clauses)))
+  (let [g (gensym)
+        steps (map (fn [[test step]] `(if ~test (->> ~g ~step) ~g))
+                   (partition 2 clauses))]
+    `(let [~g ~expr
+           ~@(interleave (repeat g) (butlast steps))]
+       ~(if (empty? steps)
+          g
+          (last steps)))))
+
 (def clojure-core
   {'= =
    '< <
@@ -85,6 +109,8 @@
    'char char
    'char? char?
    #?@(:cljs ['clj->js clj->js])
+   'cond-> (macrofy cond->*)
+   'cond->> (macrofy cond->>*)
    'conj conj
    'cons cons
    'contains? contains?
