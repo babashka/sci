@@ -64,7 +64,17 @@ By default `sci` only enables access to the pure non-side-effecting functions in
 Clojure.  More functions can be enabled, at your own risk, using `:bindings`:
 
 ``` clojure
+user=> (require '[sci.core :as sci])
 user=> (sci/eval-string "(println \"hello\")" {:bindings {'println println}})
+hello
+nil
+```
+
+It is also possible to provide namespaces which can be required:
+
+``` clojure
+user=> (def opts {:namespaces {'lib {'println println}}})
+user=> (sci/eval-string "(require '[lib]) (lib/println \"hello\")" opts)
 hello
 nil
 ```

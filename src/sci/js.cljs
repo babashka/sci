@@ -2,11 +2,24 @@
   "JavaScript interface to sci."
   (:require [sci.core :as sci]))
 
+(defn map-vals [f m]
+  (reduce-kv (fn [m k v] (assoc m k (f v))) {} m))
+
+(defn map-keys [f m]
+  (reduce-kv (fn [m k v] (assoc m (f k) v)) {} m))
+
+(defn symbolize-keys [m]
+  (map-keys symbol m))
+
 (defn- js-opts->cljs-opts [opts]
   (let [cljs (js->clj opts)
         bindings (get cljs "bindings")
-        bindings (zipmap (map symbol (keys bindings)) (vals bindings))]
-    {:bindings bindings}))
+        bindings (symbolize-keys bindings)
+        namespaces (get cljs "namespaces")
+        namespaces (map-vals symbolize-keys namespaces)
+        namespaces (symbolize-keys namespaces)]
+    {:bindings bindings
+     :namespaces namespaces}))
 
 (defn ^:export toJS [fn]
   (if (instance? MetaFn fn)
