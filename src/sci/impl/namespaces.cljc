@@ -67,6 +67,25 @@
           g
           (last steps)))))
 
+(defn if-let*
+  ([bindings then]
+   `(if-let ~bindings ~then nil))
+  ([bindings then else & _oldform]
+   (let [form (bindings 0) tst (bindings 1)]
+     `(let [temp# ~tst]
+        (if temp#
+          (let [~form temp#]
+            ~then)
+          ~else)))))
+
+(defn when-let*
+  [bindings & body]
+  (let [form (bindings 0) tst (bindings 1)]
+    `(let [temp# ~tst]
+       (when temp#
+         (let [~form temp#]
+           ~@body)))))
+
 (def clojure-core
   {'= =
    '< <
@@ -182,6 +201,7 @@
    'ident? ident?
    'identical? identical?
    'identity identity
+   'if-let (macrofy if-let*)
    'if-not (macrofy if-not*)
    'inc inc
    'int-array int-array
@@ -364,6 +384,7 @@
    'vec vec
    'vector vector
    'vector? vector?
+   'when-let (macrofy when-let*)
    'when-not (macrofy when-not*)
    'with-meta with-meta
    'zipmap zipmap
