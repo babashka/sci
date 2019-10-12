@@ -11,7 +11,7 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/edamame "0.0.6"]
                  [org.clojure/tools.reader "1.3.2"]]
-  :aot [sci.java]
+  :aot [sci.impl.java.options.namespace sci.impl.java.options sci.impl.java]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :clojure-1.10.1 {:dependencies [[org.clojure/clojure "1.10.1"]]}
              :test {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
