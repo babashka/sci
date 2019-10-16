@@ -18,7 +18,9 @@
         bindings (symbolize-keys bindings)
         namespaces (get cljs "namespaces")
         namespaces (map-vals symbolize-keys namespaces)
-        namespaces (symbolize-keys namespaces)]
+        namespaces (symbolize-keys namespaces)
+        allow (get cljs "allow")
+        allow (map symbol allow)]
     {:bindings bindings
      :namespaces namespaces}))
 
