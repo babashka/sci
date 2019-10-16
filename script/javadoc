@@ -2,5 +2,5 @@
 
 javadoc -cp ~/.m2/repository/org/clojure/clojure/1.10.0/clojure-1.10.0.jar \
         -sourcepath src-java \
-        -d ../javadoc \
+        -d javadoc \
         -subpackages .
