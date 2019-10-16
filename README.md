@@ -27,6 +27,20 @@ hello
 hello
 ```
 
+### Use from Java
+
+``` java
+import borkdude.sci.*;
+import borkdude.sci.options.*;
+
+Namespace fooBar = new Namespace("foo.bar");
+fooBar.addVar("x", 1);
+Options opts = new Options().addNamespace(fooBar);
+Sci.evalString("foo.bar/x", opts); // returns 1
+```
+
+[Java documentation](https://borkdude.github.io/sci/javadoc)
+
 ## Rationale
 
 You want to evaluate code from user input, but `eval` isn't safe or simply
