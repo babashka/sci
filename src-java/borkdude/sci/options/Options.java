@@ -41,10 +41,8 @@ public class Options {
     }
 
     /**
-     * This is used to convert this class to a nested HashMap which will then be
-     * used by sci to translate to Clojure. Not part of the `Options` API.
-     * @return: mutable HashMap which is not meant for consumption by the end
-     * user.
+     * Implementation detail, don't use.
+     * @return: irrelevant.
      */
     public HashMap<String, Object> _val() {
         HashMap<String, Object> ret = new HashMap<String, Object>();
