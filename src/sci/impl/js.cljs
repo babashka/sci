@@ -1,5 +1,6 @@
-(ns sci.js
+(ns sci.impl.js
   "JavaScript interface to sci."
+  {:no-doc true}
   (:require [sci.core :as sci]))
 
 (defn map-vals [f m]

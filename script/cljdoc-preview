@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+rm -rf /tmp/cljdoc
+mkdir -p /tmp/cljdoc
+version=$(cat resources/SCI_VERSION)
+
+echo "---- cljdoc preview: installing jar in local repo"
+lein install
+
+echo "---- cljdoc preview: ingesting sci"
+docker run --rm -v "$PWD:/sci" \
+       -v "$HOME/.m2:/root/.m2" -v /tmp/cljdoc:/app/data --entrypoint "clojure" \
+       cljdoc/cljdoc -A:cli ingest -p borkdude/sci -v "$version" \
+       --git /sci
+
+echo "---- cljdoc preview: starting server on port 8000"
+echo "---- go directly to http://localhost:8000/d/borkdude/sci/$version, not via the search"
+docker run --rm -p 8000:8000 -v /tmp/cljdoc:/app/data cljdoc/cljdoc
