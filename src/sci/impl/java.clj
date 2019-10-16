@@ -1,9 +1,6 @@
 (ns sci.impl.java
+  {:no-doc true}
   (:require [sci.core :as sci])
-  (:gen-class
-   :name borkdude.sci.Sci
-   :methods [^:static [evalString [java.lang.String] java.lang.Object]
-             ^:static [evalString [java.lang.String java.lang.Object] java.lang.Object]])
   (:import [borkdude.sci.options Options Namespace]
            [java.util Map List]))
 
@@ -37,7 +34,7 @@
      :deny deny
      :preset preset}))
 
-(defn -evalString
+(defn eval-string
   ([s] (sci/eval-string s))
   ([s ^Options opts]
    (sci/eval-string s (Options->map opts))))

@@ -39,7 +39,7 @@ Options opts = new Options().addNamespace(fooBar);
 Sci.evalString("foo.bar/x", opts); // returns 1
 ```
 
-[Java documentation](https://borkdude.github.io/sci/javadoc)
+[Java documentation](https://borkdude.github.io/sci/javadoc/index.html)
 
 ## Rationale
 
