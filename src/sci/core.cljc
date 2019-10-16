@@ -7,8 +7,9 @@
 
   The map `opts` may contain the following:
 
-  - `:bindings`: a map with bindings that are used to resolve symbols
-  in the Clojure form, e.g. `{'x 1}`.
+  - `:bindings`: a map of symbols to values, e.g.: `{'x 1}`. The
+  symbols will acts as names bound to the corresponding values in the
+  expressions.
 
   - `:namespaces`: a map of symbols to namespaces, where a namespace
   is a map with symbols to values, e.g.: `{'foo.bar {'x 1}}`. These
@@ -16,19 +17,19 @@
 
   - `:allow`: a seqable of allowed symbols. All symbols, even those
   brought in via `:bindings` or `:namespaces` have to be explicitly
-  enumerated.`
+  enumerated.
 
   - `:deny`: a seqable of disallowed symbols, e.g.: `[loop quote
   recur]`.
 
-  - `:realize-max`: integer, when provided, program may realize a
+  - `:realize-max`: integer; when provided, program may realize a
   maximum number of elements from sequences, e.g. `(vec (range))` will
-  throw for any number. This also applies to sequences return from the
-  expression to the caller.
+  throw for any number. This also applies to sequences returned from
+  the expression to the caller.
 
-  - `:preset`: currently only `:termination-safe` is supported, which
-  will set `:realize-max` to `100` and disallows the symbols `loop`,
-  `recur` and `trampoline`."
+  - `:preset`: a pretermined set of options. Currently only
+  `:termination-safe` is supported, which will set `:realize-max` to
+  `100` and disallows the symbols `loop`, `recur` and `trampoline`."
   ([s] (eval-string s nil))
   ([s opts]
    (i/eval-string s opts)))
