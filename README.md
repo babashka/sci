@@ -17,7 +17,7 @@ A tiny implementation of Clojure in Clojure.
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
-Read [here](#Usage).  how to use sci from Clojure.
+Read [here](#Usage) how to use sci from Clojure.
 
 ### Use from JavaScript
 
@@ -29,8 +29,8 @@ hello
 hello
 ```
 
-Note for JavaScript users: the JS API is similar to the Clojure one. Read [here](#Usage).
-how to use sci from Clojure.
+Note for JavaScript users: the JS API is similar to the Clojure one. Read
+[here](#Usage) how to use sci from Clojure.
 
 ### Use from Java
 
