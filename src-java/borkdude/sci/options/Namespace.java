@@ -20,7 +20,14 @@ public class Namespace {
         return this;
     }
 
-    public HashMap<String, Object> val() {
+    /**
+     * This is used to convert this class to a nested HashMap which will then be
+     * used by sci to translate to Clojure. Not part of the `Options`
+     * API.
+     * @return: mutable HashMap which is not meant for consumption by the end
+     * user.
+     */
+    public HashMap<String, Object> _val() {
         return _vars;
     }
 }

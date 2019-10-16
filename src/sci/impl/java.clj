@@ -16,11 +16,11 @@
   (mapv symbol List))
 
 (defn Namespace->map [^Namespace ns]
-  (let [v (.val ns)]
+  (let [v (._val ns)]
     (Map->map v)))
 
 (defn Options->map [^Options opts]
-  (let [v (.val opts)
+  (let [v (._val opts)
         namespaces (.get v "namespaces")
         ns-keys (map symbol (keys namespaces))
         ns-vals (map Namespace->map (vals namespaces))
@@ -28,11 +28,14 @@
         bindings (.get v "bindings")
         bindings (Map->map bindings)
         allow (List->vec (.get v "allow"))
-        deny (List->vec (.get v "deny"))]
+        deny (List->vec (.get v "deny"))
+        preset (when-let [v (.get v "preset")]
+                 (keyword v))]
     {:namespaces namespaces
      :bindings bindings
      :allow allow
-     :deny deny}))
+     :deny deny
+     :preset preset}))
 
 (defn -evalString
   ([s] (sci/eval-string s))
