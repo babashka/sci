@@ -1,5 +1,6 @@
-(ns sci.js
+(ns sci.impl.js
   "JavaScript interface to sci."
+  {:no-doc true}
   (:require [sci.core :as sci]))
 
 (defn map-vals [f m]
@@ -17,9 +18,20 @@
         bindings (symbolize-keys bindings)
         namespaces (get cljs "namespaces")
         namespaces (map-vals symbolize-keys namespaces)
-        namespaces (symbolize-keys namespaces)]
+        namespaces (symbolize-keys namespaces)
+        allow (get cljs "allow")
+        allow (mapv symbol allow)
+        deny (get cljs "deny")
+        deny (mapv symbol deny)
+        realize-max (get cljs "realizeMax")
+        preset (when-let [v (get cljs "preset")]
+                 (keyword v))]
     {:bindings bindings
-     :namespaces namespaces}))
+     :namespaces namespaces
+     :allow allow
+     :deny deny
+     :preset preset
+     :realize-max realize-max}))
 
 (defn ^:export toJS [fn]
   (if (instance? MetaFn fn)

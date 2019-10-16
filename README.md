@@ -17,6 +17,8 @@ A tiny implementation of Clojure in Clojure.
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
+Read [here](#Usage) how to use sci from Clojure.
+
 ### Use from JavaScript
 
 ``` javascript
@@ -26,6 +28,10 @@ A tiny implementation of Clojure in Clojure.
 hello
 hello
 ```
+
+Note for JavaScript users: the JS API is similar to the Clojure one. Instead of
+symbols and keywords it expects strings. Instead of kebab-case, use
+camelCase. Read [here](#Usage) how to use sci from Clojure.
 
 ### Use from Java
 
@@ -39,12 +45,14 @@ Options opts = new Options().addNamespace(fooBar);
 Sci.evalString("foo.bar/x", opts); // returns 1
 ```
 
-[Java documentation](https://borkdude.github.io/sci/javadoc/index.html)
+Note for Java users: the Java API for is conceptually similar to the Clojure
+one, but made more idiomatic for Java users. Check the generated [Java
+documentation](https://borkdude.github.io/sci/javadoc/index.html).
 
 ## Rationale
 
-You want to evaluate code from user input, but `eval` isn't safe or simply
-doesn't work.
+You want to evaluate code from user input, or use Clojure for a DSL inside
+configuration files, but `eval` isn't safe or simply doesn't work.
 
 This library works with:
 
@@ -87,8 +95,49 @@ nil
 It is also possible to provide namespaces which can be required:
 
 ``` clojure
-user=> (def opts {:namespaces {'lib {'println println}}})
-user=> (sci/eval-string "(require '[lib]) (lib/println \"hello\")" opts)
+user=> (def opts {:namespaces {'foo.bar {'println println}}})
+user=> (sci/eval-string "(require '[foo.bar :as lib]) (lib/println \"hello\")" opts)
+hello
+nil
+```
+
+You can provide a list of allowed symbols. Using other symbols causes an exception:
+
+``` clojure
+user=> (sci/eval-string "(inc 1)" {:allow '[inc]})
+2
+user=> (sci/eval-string "(dec 1)" {:allow '[inc]})
+ExceptionInfo dec is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
+```
+
+Providing a list of disallowed symbols has the opposite effect:
+
+``` clojure
+user=> (sci/eval-string "(inc 1)" {:deny '[inc]})
+ExceptionInfo inc is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
+```
+
+Preventing forever lasting evaluation of infinite sequences can be achieved with
+`:realize-max`:
+
+``` clojure
+user=> (sci/eval-string "(vec (range))" {:realize-max 10})
+ExceptionInfo Maximum number of elements realized: 10 [at line 1, column 1]  clojure.core/ex-info (core.clj:4739)
+```
+
+The preset `:termination-safe`, which is currently `{:deny '[loop recur
+trampoline] :realize-max 100}`, is helpful for making expressions terminate:
+
+``` clojure
+user=> (sci/eval-string "(loop [] (recur))" {:preset :termination-safe})
+ExceptionInfo loop is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
+```
+
+Providing a macro as a binding can be done by providing a normal function that has `:sci/macro` on the metadata set to `true`:
+
+``` clojure
+user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice ^:sci/macro (fn [x] (list 'do x x)) 'f #(println "hello")}})
+hello
 hello
 nil
 ```
@@ -99,7 +148,7 @@ Currently the following special forms/macros are supported: `def`, `fn`,
 function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
 `when`, `when-let`, `when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`,
 `comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`,
-`declare`, `cond->`, `cond->>`. It also supports user defined macros.
+`declare`, `cond->`, `cond->>`. Sci also supports user defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).

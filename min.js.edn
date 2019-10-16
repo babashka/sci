@@ -3,7 +3,7 @@
 {:output-to "out/min/sci.min.js"
  :output-dir "out/min"
  :optimizations :advanced
- :main "sci.js"
+ :main "sci.impl.js"
  :aot-cache true
  :compiler-stats true
  :pretty-print  false
@@ -59,7 +59,7 @@
     return function () {
 
         %s
-        return this.sci.js;
+        return this.sci.impl.js;
 
     }.call({});
 
