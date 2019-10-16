@@ -30,7 +30,8 @@
         (when sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [aliased (some-> env :aliases sym-ns)]
-                (some-> env :namespaces aliased (find sym-name))))))))
+                (when-let [v (some-> env :namespaces aliased (get sym-name))]
+                  [(symbol (str aliased) (str sym-name)) v])))))))
 
 (defn lookup [{:keys [:env :bindings] :as ctx} sym]
   (let [sym-ns (some-> (namespace sym) symbol)
@@ -42,7 +43,10 @@
                 [k v]
                 ;; never inline a binding at macro time!
                 [k (mark-resolve-sym k)]))
-            (lookup-env env sym sym-ns sym-name)
+            (when-let [[k _ :as kv] (lookup-env env sym sym-ns sym-name)]
+              (do
+                (check-permission! ctx k)
+                kv))
             (when-let [v (get macros sym)]
               (do (check-permission! ctx sym)
                   [v v]))
