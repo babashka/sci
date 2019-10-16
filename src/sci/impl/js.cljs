@@ -20,9 +20,18 @@
         namespaces (map-vals symbolize-keys namespaces)
         namespaces (symbolize-keys namespaces)
         allow (get cljs "allow")
-        allow (map symbol allow)]
+        allow (mapv symbol allow)
+        deny (get cljs "deny")
+        deny (mapv symbol deny)
+        realize-max (get cljs "realizeMax")
+        preset (when-let [v (get cljs "preset")]
+                 (keyword v))]
     {:bindings bindings
-     :namespaces namespaces}))
+     :namespaces namespaces
+     :allow allow
+     :deny deny
+     :preset preset
+     :realize-max realize-max}))
 
 (defn ^:export toJS [fn]
   (if (instance? MetaFn fn)

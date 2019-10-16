@@ -59,7 +59,7 @@
     return function () {
 
         %s
-        return this.sci.js;
+        return this.sci.impl.js;
 
     }.call({});
 

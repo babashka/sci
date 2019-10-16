@@ -30,8 +30,8 @@ hello
 ```
 
 Note for JavaScript users: the JS API is similar to the Clojure one. Instead of
-symbols and keywords it expects strings. Read [here](#Usage) how to use sci from
-Clojure.
+symbols and keywords it expects strings. Instead of kebab-case, use
+camelCase. Read [here](#Usage) how to use sci from Clojure.
 
 ### Use from Java
 
