@@ -16,11 +16,11 @@
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare})
 
-(defn check-permission! [{:keys [:allow :deny]} sym]
-  (when-not (if allow (contains? allow sym)
+(defn check-permission! [{:keys [:allow :deny]} check-sym sym]
+  (when-not (if allow (contains? allow check-sym)
                 true)
     (throw-error-with-location (str sym " is not allowed!") sym))
-  (when (if deny (contains? deny sym)
+  (when (if deny (contains? deny check-sym)
             false)
     (throw-error-with-location (str sym " is not allowed!") sym)))
 
@@ -37,34 +37,30 @@
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         [k v :as kv]
-        (or (when-let [[k v]
-                       (find bindings sym)]
-              (if (:sci/macro (meta v))
-                [k v]
-                ;; never inline a binding at macro time!
-                [k (mark-resolve-sym k)]))
-            (when-let [[k _ :as kv] (lookup-env env sym sym-ns sym-name)]
-              (do
-                (check-permission! ctx k)
-                kv))
-            (when-let [v (get macros sym)]
-              (do (check-permission! ctx sym)
-                  [v v]))
-            (when-let [v (find namespaces/clojure-core sym)]
-              (do (check-permission! ctx sym)
-                  v))
-            (when sym-ns
-              (when (or (= 'clojure.core sym-ns)
-                        (= 'cljs.core sym-ns))
-                (let [unqualified-sym (symbol (name sym))]
-                  (or (when-let [v (get macros unqualified-sym)]
-                        [v v])
-                      (when-let [v (find namespaces/clojure-core unqualified-sym)]
-                        (do (check-permission! ctx unqualified-sym)
-                            v))))))
-            (when (= 'recur sym)
-              (check-permission! ctx sym)
-              [sym (mark-resolve-sym sym)]))]
+        (or
+         ;; bindings are not checked for permissions
+         (when-let [[k _v]
+                    (find bindings sym)]
+           ;; never inline a binding at macro time!
+           [k (mark-resolve-sym k)])
+         (when-let
+             [[k _ :as kv]
+              (or
+               (lookup-env env sym sym-ns sym-name)
+               (when-let [v (get macros sym)]
+                 [v v])
+               (find namespaces/clojure-core sym)
+               (when sym-ns
+                 (when (or (= 'clojure.core sym-ns)
+                           (= 'cljs.core sym-ns))
+                   (let [unqualified-sym (symbol (name sym))]
+                     (or (when-let [v (get macros unqualified-sym)]
+                           [v v])
+                         (find namespaces/clojure-core unqualified-sym)))))
+               (when (= 'recur sym)
+                 [sym (mark-resolve-sym sym)]))]
+           (check-permission! ctx k sym)
+           kv))]
     ;; (prn 'lookup sym '-> res)
     (if-let [m (meta k)]
       (if (:sci/deref! m)
@@ -347,7 +343,7 @@
                       f)
                     f)]
             (if (contains? macros f)
-              (do (check-permission! ctx f)
+              (do (check-permission! ctx f f)
                   (case f
                     do (mark-eval-call expr) ;; do will call macroexpand on every
                     ;; subsequent expression
@@ -413,4 +409,4 @@
 ;;;; Scratch
 
 (comment
-   )
+  )
