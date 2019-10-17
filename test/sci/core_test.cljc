@@ -292,7 +292,11 @@
 
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
-                         {}))))
+                         {})))
+  (testing "function with recur may be returned"
+    (when-not tu/native?
+      (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
+        (f 0)))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))"

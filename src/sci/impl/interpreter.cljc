@@ -96,7 +96,6 @@
    (find bindings sym)
    (find namespaces/clojure-core sym)
    (when-let [ns (namespace sym)]
-     ;; (prn "NS>" ns)
      (when (or (= "clojure.core" ns)
                (= "cljs.core" ns))
        (find namespaces/clojure-core (symbol (name sym)))))
@@ -366,10 +365,17 @@
               :deny (not-empty (reduce into #{} [(:deny preset) deny]))
               :realize-max (or realize-max (:realize-max preset))
               :start-expression s}
-         edn-vals (p/parse-string-all s)]
-     (eval-do ctx (cons 'do edn-vals)))))
+         edn-vals (p/parse-string-all s)
+         ret (eval-do ctx (cons 'do edn-vals))]
+     (if (and (fn? ret)
+              (some-> (meta ret) :sci.impl/fn))
+       (fn [& args]
+         ;; we have to wrap because of recur and make the function behave well in JS
+         (apply-fn ctx ret args))
+       ret))))
 
 ;;;; Scratch
 
 (comment
+  (eval-string "((fn f [x] (if (< x 3) (recur (inc x)) x)) 0)")
   )
