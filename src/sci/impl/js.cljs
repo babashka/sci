@@ -33,11 +33,11 @@
      :preset preset
      :realize-max realize-max}))
 
-(defn ^:export toJS [fn]
-  (if (instance? MetaFn fn)
+(defn ^:export toJS [v]
+  (if (instance? MetaFn v)
     ;; when returning a function, make it callable from JS
-    (.-afn fn)
-    (clj->js fn)))
+    (.-afn v)
+    (clj->js v)))
 
 (defn ^:export evalString
   "Evaluates string `s` as a Clojure form using the Small Clojure Interpreter.

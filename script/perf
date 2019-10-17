@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+SCI_TEST_PERFORMANCE=true lein test :only sci.performance
