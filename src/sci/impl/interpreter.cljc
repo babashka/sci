@@ -117,20 +117,6 @@
          (str "Could not resolve symbol: " (str expr))
          expr))))))
 
-(defn do-recur!
-  [f & args]
-  (let [ret (apply f args)]
-    (if-let [m (meta ret)]
-      (if (:sci.impl/recur m)
-        (recur f ret)
-        ret)
-      ret)))
-
-(defn apply-fn [ctx f args]
-  (let [args (map #(interpret ctx %) args)
-        ret (apply do-recur! f args)]
-    ret))
-
 (defn parse-libspec-opts [opts]
   (loop [opts-map {}
          [opt-name fst-opt & rst-opts] opts]
@@ -302,7 +288,7 @@
           try (eval-try ctx expr)
           syntax-quote (eval-syntax-quote ctx expr)
           ;; else
-          (if (ifn? f) (apply-fn ctx f (rest expr))
+          (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
               (throw (new #?(:clj Exception :cljs js/Error)
                           (str "Cannot call " (pr-str f) " as a function."))))))))
 
@@ -367,11 +353,12 @@
               :start-expression s}
          edn-vals (p/parse-string-all s)
          ret (eval-do ctx (cons 'do edn-vals))]
+     ret
      (if (and (fn? ret)
               (some-> (meta ret) :sci.impl/fn))
        (fn [& args]
          ;; we have to wrap because of recur and make the function behave well in JS
-         (apply-fn ctx ret args))
+         (apply ret args))
        ret))))
 
 ;;;; Scratch
