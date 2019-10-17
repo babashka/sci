@@ -195,16 +195,23 @@
 
 (deftest permission-test
   (is (tu/eval* "(int? 1)" {:allow '[int?]}))
+  (is (tu/eval* "(int? 1)" {:deny '[double?]}))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(int? 1)" {:allow '[boolean?]})))
-  (is (= 3 (tu/eval* "(do (defn foo []) 3)" {})))
+  (is (= 3 (tu/eval* "(do (defn foo []) 3)" {:allow nil :deny []})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(defn foo [])" {:allow '[fn]})))
   (if tu/native?
-    (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[pos-int?]}))
-    (is ((tu/eval* "#(pos-int? %)" {:allow '[pos-int?]}) 10)))
+    (do (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[pos-int?]}))
+        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[pos-int?]}))
+        (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[clojure.core/pos-int?]}))
+        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[clojure.core/pos-int?]})))
+    (do (is ((tu/eval* "#(pos-int? %)" {:allow '[pos-int?]}) 10))
+        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[pos-int?]}) 10))
+        (is ((tu/eval* "#(pos-int? %)" {:allow '[clojure.core/pos-int?]}) 10))
+        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[clojure.core/pos-int?]}) 10))))
   (if tu/native?
     (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
     (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
@@ -219,6 +226,9 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/loop [] (recur))" {:deny '[recur]})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/loop [] (recur))" {:preset :termination-safe}))))
