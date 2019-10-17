@@ -61,10 +61,7 @@
                    (apply f args)
                    (throw (new #?(:clj Exception
                                   :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments.")))))))
-           #(assoc %
-                   ;; :sci.impl/fn true
-                   :sci/macro macro?
-                   ))]
+           #(assoc % :sci/macro macro?))]
     (reset! self-ref f)
     f))
 

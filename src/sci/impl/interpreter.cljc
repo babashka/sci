@@ -353,13 +353,7 @@
               :start-expression s}
          edn-vals (p/parse-string-all s)
          ret (eval-do ctx (cons 'do edn-vals))]
-     ret
-     (if (and (fn? ret)
-              (some-> (meta ret) :sci.impl/fn))
-       (fn [& args]
-         ;; we have to wrap because of recur and make the function behave well in JS
-         (apply ret args))
-       ret))))
+     ret)))
 
 ;;;; Scratch
 
