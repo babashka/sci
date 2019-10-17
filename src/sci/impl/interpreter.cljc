@@ -334,6 +334,14 @@
    {:deny '[loop recur trampoline]
     :realize-max 100}})
 
+(defn strip-core-ns [sym]
+  (case (namespace sym)
+    ("clojure.core" "cljs.core") (symbol (name sym))
+    sym))
+
+(defn process-permissions [& permissions]
+  (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
+
 (defn eval-string
   ([s] (eval-string s nil))
   ([s {:keys [:bindings :env
@@ -347,8 +355,8 @@
          _ (init-env! env bindings aliases namespaces)
          ctx {:env env
               :bindings exception-bindings
-              :allow (not-empty (reduce into #{} [(:allow preset) allow]))
-              :deny (not-empty (reduce into #{} [(:deny preset) deny]))
+              :allow (process-permissions (:allow preset) allow)
+              :deny (process-permissions (:deny preset) deny)
               :realize-max (or realize-max (:realize-max preset))
               :start-expression s}
          edn-vals (p/parse-string-all s)
