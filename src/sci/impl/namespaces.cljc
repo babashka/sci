@@ -69,7 +69,7 @@
 
 (defn if-let*
   ([&form &env bindings then]
-   (if-let* &form &env ~bindings ~then nil))
+   (if-let* &form &env bindings then nil))
   ([_&form _&env bindings then else & _oldform]
    (let [form (bindings 0) tst (bindings 1)]
      `(let [temp# ~tst]
