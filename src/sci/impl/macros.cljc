@@ -33,7 +33,7 @@
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
                   [(symbol (str aliased) (str sym-name)) v])))))))
 
-(defn lookup [{:keys [:env :bindings] :as ctx} sym]
+(defn lookup [{:keys [:env :bindings :interop] :as ctx} sym]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         [k v :as kv]
@@ -43,6 +43,9 @@
                     (find bindings sym)]
            ;; never inline a binding at macro time!
            [k (mark-resolve-sym k)])
+         (when-let [[k _v]
+                    (find interop sym)]
+           [k k])
          (when-let
              [[k _ :as kv]
               (or
@@ -87,8 +90,10 @@
 
 (declare macroexpand)
 
-(defn expand-fn-args+body [ctx fn-name [binding-vector & body-exprs]]
-  (let [fixed-args (take-while #(not= '& %) binding-vector)
+(defn expand-fn-args+body [ctx fn-name [binding-vector & body-exprs] macro?]
+  (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
+                           binding-vector)
+        fixed-args (take-while #(not= '& %) binding-vector)
         var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
         fixed-names (vec (repeatedly fixed-arity gensym*))
@@ -119,7 +124,7 @@
      :sci/var-arg-name var-arg-name
      :sci/fn-name fn-name}))
 
-(defn expand-fn [ctx [_fn name? & body]]
+(defn expand-fn [ctx [_fn name? & body] macro?]
   (let [fn-name (if (symbol? name?)
                   name?
                   nil)
@@ -131,7 +136,7 @@
                  body
                  [body])
         ctx (assoc-in ctx [:bindings fn-name] nil)
-        arities (doall (map #(expand-fn-args+body ctx fn-name %) bodies))]
+        arities (doall (map #(expand-fn-args+body ctx fn-name % macro?) bodies))]
     (mark-eval
      {:sci/fn-bodies arities
       :sci/fn-name fn-name
@@ -226,7 +231,7 @@
         docstring (when (string? docstring?) docstring?)
         body (if docstring body (cons docstring? body))
         fn-body (list* 'fn fn-name body)
-        f (expand-fn ctx fn-body)
+        f (expand-fn ctx fn-body macro?)
         f (assoc f :sci/macro macro?)]
     (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (mark-eval-call (list 'def fn-name f))))
@@ -348,9 +353,10 @@
                     do (mark-eval-call expr) ;; do will call macroexpand on every
                     ;; subsequent expression
                     let (expand-let ctx expr)
-                    (fn fn*) (expand-fn ctx expr)
+                    (fn fn*) (expand-fn ctx expr false)
                     def (expand-def ctx expr)
-                    (defn defmacro) (expand-defn ctx expr)
+                    (defn defmacro) (let [ret (expand-defn ctx expr)]
+                                      ret)
                     -> (expand-> ctx (rest expr))
                     ->> (expand->> ctx (rest expr))
                     as-> (expand-as-> ctx expr)
@@ -372,7 +378,10 @@
                     (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
               (if-let [vf (resolve-symbol ctx f)]
                 (if (:sci/macro (meta vf))
-                  (macroexpand ctx (apply vf (rest expr)))
+                  (let [v (apply vf expr
+                                 (:bindings ctx) (rest expr))
+                        expanded (macroexpand ctx v)]
+                    expanded)
                   (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
           (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
