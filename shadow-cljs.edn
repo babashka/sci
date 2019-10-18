@@ -1,0 +1,6 @@
+{:lein {:profile "+dev"}
+ :builds
+ {:sci
+  {:target :browser
+   :modules
+   {:sci {:entries [sci.core]}}}}}

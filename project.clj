@@ -15,6 +15,7 @@
   :aot [sci.impl.java]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :clojure-1.10.1 {:dependencies [[org.clojure/clojure "1.10.1"]]}
+             :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
              :test {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
                     :dependencies [[clj-commons/conch "0.9.2"]
                                    [criterium "0.4.5"]
@@ -29,3 +30,7 @@
                                     :username :env/clojars_user
                                     :password :env/clojars_pass
                                     :sign-releases false}]])
+
+;; Notes
+;; Generate a bundle size report with shadow-cljs:
+;; npx shadow-cljs run shadow.cljs.build-report sci report.html
