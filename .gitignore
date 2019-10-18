@@ -17,3 +17,5 @@ pom.xml.asc
 /sci
 /cljs-opts.edn
 /out
+/.shadow-cljs
+/report.html
