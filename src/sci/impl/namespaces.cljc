@@ -20,18 +20,18 @@
 
 (defn if-not*
   "if-not from clojure.core"
-  ([test then] (if-not* test then nil))
-  ([test then else]
+  ([&form &env test then] (if-not* &form &env test then nil))
+  ([_&form _&env test then else]
    `(if (not ~test) ~then ~else)))
 
 (defn when-not*
   "when-not from clojure.core"
-  [test & body]
+  [_&form _&env test & body]
   (list 'if test nil (cons 'do body)))
 
 (defn doto*
   "doto from clojure.core"
-  [x & forms]
+  [_&form _&env x & forms]
   (let [gx (gensym)]
     `(let [~gx ~x]
        ~@(map (fn [f]
@@ -44,7 +44,7 @@
        ~gx)))
 
 (defn cond->*
-  [expr & clauses]
+  [_&form _&env expr & clauses]
   (assert (even? (count clauses)))
   (let [g (gensym)
         steps (map (fn [[test step]] `(if ~test (-> ~g ~step) ~g))
@@ -56,7 +56,7 @@
           (last steps)))))
 
 (defn cond->>*
-  [expr & clauses]
+  [_&form _&env expr & clauses]
   (assert (even? (count clauses)))
   (let [g (gensym)
         steps (map (fn [[test step]] `(if ~test (->> ~g ~step) ~g))
@@ -68,9 +68,9 @@
           (last steps)))))
 
 (defn if-let*
-  ([bindings then]
-   `(if-let ~bindings ~then nil))
-  ([bindings then else & _oldform]
+  ([&form &env bindings then]
+   (if-let* &form &env ~bindings ~then nil))
+  ([_&form _&env bindings then else & _oldform]
    (let [form (bindings 0) tst (bindings 1)]
      `(let [temp# ~tst]
         (if temp#
@@ -79,7 +79,7 @@
           ~else)))))
 
 (defn when-let*
-  [bindings & body]
+  [_&form _&env bindings & body]
   (let [form (bindings 0) tst (bindings 1)]
     `(let [temp# ~tst]
        (when temp#
