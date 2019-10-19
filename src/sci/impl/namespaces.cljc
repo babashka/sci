@@ -86,6 +86,12 @@
          (let [~form temp#]
            ~@body)))))
 
+(defn when-first* [_ _ bindings & body]
+  (let [[x xs] bindings]
+    `(when-let [xs# (seq ~xs)]
+       (let [~x (first xs#)]
+         ~@body))))
+
 (def clojure-core
   {'= =
    '< <
@@ -384,6 +390,7 @@
    'vec vec
    'vector vector
    'vector? vector?
+   'when-first (macrofy when-first*)
    'when-let (macrofy when-let*)
    'when-not (macrofy when-not*)
    'with-meta with-meta

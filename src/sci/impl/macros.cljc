@@ -337,6 +337,10 @@
                   env)))
   nil)
 
+(defn macro? [f]
+  (when-let [m (meta f)]
+    (:sci/macro m)))
+
 (defn macroexpand-call [ctx expr]
   (if (empty? expr) expr
       (let [f (first expr)]
@@ -377,7 +381,7 @@
                     ;; else:
                     (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
               (if-let [vf (resolve-symbol ctx f)]
-                (if (:sci/macro (meta vf))
+                (if (macro? vf)
                   (let [v (apply vf expr
                                  (:bindings ctx) (rest expr))
                         expanded (macroexpand ctx v)]
