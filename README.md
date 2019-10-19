@@ -133,10 +133,13 @@ user=> (sci/eval-string "(loop [] (recur))" {:preset :termination-safe})
 ExceptionInfo loop is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
 ```
 
-Providing a macro as a binding can be done by providing a normal function that has `:sci/macro` on the metadata set to `true`:
+Providing a macro as a binding can be done by providing a normal function that:
+- has `:sci/macro` on the metadata set to `true`
+- has two extra arguments at the start for `&form` and `&env`:
 
 ``` clojure
-user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice ^:sci/macro (fn [x] (list 'do x x)) 'f #(println "hello")}})
+user=> (def do-twice ^:sci/macro (fn [_&env _&form x] (list 'do x x))
+user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice do-twice 'f #(println "hello")}})
 hello
 hello
 nil

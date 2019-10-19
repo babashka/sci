@@ -275,9 +275,18 @@
     (is (= [1 1]
            (tu/eval*
             '(do-twice 1)
-            {:bindings {'do-twice (with-meta (fn [& body]
+            {:bindings {'do-twice (with-meta (fn [_&form _&env & body]
                                                `(vector (do ~@body) (do ~@body)))
-                                    {:sci/macro true})}})))))
+                                    {:sci/macro true})}}))))
+  (is (= '{x 1} (eval* "
+(defmacro lets []
+  (let [res (zipmap (map (fn [sym]
+                           (list 'quote sym)) (keys &env)) (keys &env))]
+    res))
+
+(let [x 1]
+  (lets))")))
+  (is (= '(foo 1 2 3) (eval* "(defmacro foo [x y z] (list 'quote &form)) (foo 1 2 3)"))))
 
 (deftest comment-test
   (is (nil? (eval* '(comment "anything"))))

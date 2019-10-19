@@ -90,10 +90,10 @@
     (swap! (:env ctx) assoc var-name init)
     init))
 
-(defn lookup [{:keys [:bindings :env]} sym]
+(defn lookup [{:keys [:bindings :env :interop]} sym]
   (or
-   ;; (find @env sym)
    (find bindings sym)
+   (find interop sym)
    (find namespaces/clojure-core sym)
    (when-let [ns (namespace sym)]
      (when (or (= "clojure.core" ns)
@@ -354,7 +354,8 @@
          env (or env (atom {}))
          _ (init-env! env bindings aliases namespaces)
          ctx {:env env
-              :bindings exception-bindings
+              :interop exception-bindings
+              :bindings {}
               :allow (process-permissions (:allow preset) allow)
               :deny (process-permissions (:deny preset) deny)
               :realize-max (or realize-max (:realize-max preset))
