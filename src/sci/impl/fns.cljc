@@ -4,7 +4,7 @@
 
 (defn parse-fn-args+body
   [interpret ctx
-   {:sci/keys [fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m}]
+   {:sci/keys [fn-name fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m}]
   (let [;; _ (prn "M" _m)
         min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity

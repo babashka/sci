@@ -102,10 +102,9 @@
         destructure-vec (if var-arg
                           (conj destructure-vec var-arg var-arg-name)
                           destructure-vec)
-        arg-bindings (apply hash-map (interleave fixed-names (repeat nil)))
-        ctx (cond-> (update ctx :bindings merge arg-bindings)
-              var-arg
-              (assoc-in [:bindings var-arg-name] nil))
+        ;; arg-bindings (apply hash-map (interleave fixed-names (repeat nil)))
+        ;; arg-bindings (if var-arg (assoc arg-bindings var-arg-name nil) arg-bindings)
+        ;; ctx (update ctx :helper-bindings merge arg-bindings)
         destructured-vec (destructure destructure-vec)
         ctx (update ctx :bindings merge (zipmap (take-nth 2 destructured-vec)
                                                 (repeat nil)))
