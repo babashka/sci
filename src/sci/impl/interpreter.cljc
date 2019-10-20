@@ -342,26 +342,32 @@
 (defn process-permissions [& permissions]
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
 
+(defn opts->ctx [{:keys [:bindings :env
+                         :allow :deny
+                         :realize-max
+                         :preset ;; used by malli
+                         :aliases
+                         :namespaces]}]
+  (let [preset (get presets preset)
+        env (or env (atom {}))
+        _ (init-env! env bindings aliases namespaces)
+        ctx {:env env
+             :interop exception-bindings
+             :bindings {}
+             :allow (process-permissions (:allow preset) allow)
+             :deny (process-permissions (:deny preset) deny)
+             :realize-max (or realize-max (:realize-max preset))}]
+    ctx))
+
+(defn eval-edn-vals [ctx edn-vals]
+  (eval-do ctx (cons 'do edn-vals)))
+
 (defn eval-string
   ([s] (eval-string s nil))
-  ([s {:keys [:bindings :env
-              :allow :deny
-              :realize-max
-              :preset ;; used by malli
-              :aliases
-              :namespaces]}]
-   (let [preset (get presets preset)
-         env (or env (atom {}))
-         _ (init-env! env bindings aliases namespaces)
-         ctx {:env env
-              :interop exception-bindings
-              :bindings {}
-              :allow (process-permissions (:allow preset) allow)
-              :deny (process-permissions (:deny preset) deny)
-              :realize-max (or realize-max (:realize-max preset))
-              :start-expression s}
+  ([s opts]
+   (let [init-ctx (opts->ctx opts)
          edn-vals (p/parse-string-all s)
-         ret (eval-do ctx (cons 'do edn-vals))]
+         ret (eval-edn-vals init-ctx edn-vals)]
      ret)))
 
 ;;;; Scratch
