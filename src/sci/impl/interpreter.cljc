@@ -114,7 +114,7 @@
           [v v])
         ;; TODO: can this ever happen now that we resolve symbols at macro-expansion time?
         (throw-error-with-location
-         (str "Could not resolve symbol: " (str expr))
+         (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
          expr))))))
 
 (defn parse-libspec-opts [opts]

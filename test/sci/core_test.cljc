@@ -278,14 +278,28 @@
             {:bindings {'do-twice (with-meta (fn [_&form _&env & body]
                                                `(vector (do ~@body) (do ~@body)))
                                     {:sci/macro true})}}))))
-  (is (= '{x 1} (eval* "
+  (testing "defn doesn't add binding to &env"
+    (is (= '[x y] (eval* "
 (defmacro lets []
-  (let [res (zipmap (map (fn [sym]
-                           (list 'quote sym)) (keys &env)) (keys &env))]
+  (let [res (mapv (fn [sym]
+                           (list 'quote sym)) (keys &env))]
     res))
 
-(let [x 1]
-  (lets))")))
+(defn foo [x] (let [y 1]
+  (lets)))
+
+(foo 10)"))))
+  (testing "def with anon named fn adds binding to &env"
+    (is (= '[foo x y] (eval* "
+(defmacro lets []
+  (let [res (mapv (fn [sym]
+                           (list 'quote sym)) (keys &env))]
+    res))
+
+(def foo (fn foo [x] (let [y 1]
+  (lets))))
+
+(foo 10)"))))
   (is (= '(foo 1 2 3) (eval* "(defmacro foo [x y z] (list 'quote &form)) (foo 1 2 3)"))))
 
 (deftest comment-test

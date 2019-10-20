@@ -102,11 +102,10 @@
         destructure-vec (if var-arg
                           (conj destructure-vec var-arg var-arg-name)
                           destructure-vec)
-        arg-bindings (apply hash-map (interleave fixed-names (repeat nil)))
-        ctx (cond-> (update ctx :bindings merge arg-bindings)
-              var-arg
-              (assoc-in [:bindings var-arg-name] nil))
         destructured-vec (destructure destructure-vec)
+        ;; all user-provided bindings are extracted by the destructure macro and
+        ;; now we add them to bindings and continue the macroexpansion of the
+        ;; body
         ctx (update ctx :bindings merge (zipmap (take-nth 2 destructured-vec)
                                                 (repeat nil)))
         body-form (mark-eval-call
@@ -131,11 +130,12 @@
         body (if fn-name
                body
                (cons name? body))
-        fn-name (or fn-name (gensym* "fn"))
+        ;; fn-name (or fn-name (gensym* "fn"))
         bodies (if (seq? (first body))
                  body
                  [body])
-        ctx (assoc-in ctx [:bindings fn-name] nil)
+        ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
+                ctx)
         arities (doall (map #(expand-fn-args+body ctx fn-name % macro?) bodies))]
     (mark-eval
      {:sci/fn-bodies arities
@@ -226,14 +226,16 @@
     (swap! (:env ctx) assoc var-name :sci/var.unbound)
     (mark-eval-call (list 'def var-name init))))
 
+(declare expand-declare)
+
 (defn expand-defn [ctx [op fn-name docstring? & body]]
+  (expand-declare ctx [nil fn-name])
   (let [macro? (= 'defmacro op)
         docstring (when (string? docstring?) docstring?)
         body (if docstring body (cons docstring? body))
-        fn-body (list* 'fn fn-name body)
+        fn-body (list* 'fn #_fn-name body)
         f (expand-fn ctx fn-body macro?)
         f (assoc f :sci/macro macro?)]
-    (swap! (:env ctx) assoc fn-name :sci/var.unbound)
     (mark-eval-call (list 'def fn-name f))))
 
 (defn expand-comment
