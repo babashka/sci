@@ -20,9 +20,8 @@
   (take* n coll
          (bottom n (merge {:coll (delay coll)
                            :type :sci.error/realized-beyond-max
-                           :realize-max n}
-                          (select-keys ctx [:start-expression
-                                            :expression])))))
+                           :realize-max n
+                           :expression (:expression ctx)}))))
 
 (extend-protocol MaxOrThrow
 
@@ -37,7 +36,7 @@
   #?(:clj clojure.lang.LazySeq :cljs LazySeq)
   (max-or-throw
     ([this ctx n]
-     (take-or-throw ctx n this)))
+     (take-or-throw this ctx n)))
 
   #?(:clj clojure.lang.Cons :cljs Cons)
   (max-or-throw
