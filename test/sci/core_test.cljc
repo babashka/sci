@@ -248,7 +248,8 @@
   (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
                         #"realized"
                         (doall (tu/eval* "(repeat 1)" {:preset :termination-safe}))))
-  (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100}))))
+  (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100})))
+  (is (= (map #(* % %) (range 99)) (tu/eval* "(map #(* % %) (range 99))" {:realize-max 100}))))
 
 (deftest idempotent-eval-test
   (is (= '(foo/f1 foo/f2)
