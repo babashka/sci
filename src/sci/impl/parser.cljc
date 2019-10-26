@@ -18,11 +18,22 @@
               \# {\( readers/read-fn
                   \" re-pattern}}})
 
-(defn parse-next [r]
-  (edamame.impl.parser/parse-next opts r))
+(defn parse-next
+  ([r]
+   (edamame.impl.parser/parse-next opts r))
+  ([r features]
+   (edamame.impl.parser/parse-next (assoc opts
+                                          :read-cond :allow
+                                          :features features)
+                                   r)))
 
-(defn parse-string [s]
-  (edamame/parse-string s opts))
+(defn parse-string
+  ([s]
+   (edamame/parse-string s opts))
+  ([s features]
+   (edamame/parse-string s (assoc opts
+                                  :read-cond :allow
+                                  :features features))))
 
 (defn parse-string-all
   ([s]
