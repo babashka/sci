@@ -24,8 +24,13 @@
 (defn parse-string [s]
   (edamame/parse-string s opts))
 
-(defn parse-string-all [s]
-  (edamame/parse-string-all s opts))
+(defn parse-string-all
+  ([s]
+   (edamame/parse-string-all s opts))
+  ([s features]
+   (edamame/parse-string-all s (assoc opts
+                                      :read-cond :allow
+                                      :features features))))
 
 ;;;; Scratch
 

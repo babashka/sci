@@ -366,7 +366,8 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts->ctx opts)
-         edn-vals (p/parse-string-all s)
+         features (:features opts)
+         edn-vals (p/parse-string-all s features)
          ret (eval-edn-vals init-ctx edn-vals)]
      ret)))
 
