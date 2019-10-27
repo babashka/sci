@@ -7,12 +7,10 @@
         :url "https://github.com/borkdude/sci"}
   :license {:name "Eclipse Public License 1.0"
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
-  :java-source-paths ["src-java"]
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/edamame "0.0.8-alpha.2"]
                  [org.clojure/tools.reader "1.3.2"]]
-  :aot [sci.impl.java]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :clojure-1.10.1 {:dependencies [[org.clojure/clojure "1.10.1"]]}
              :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
@@ -20,6 +18,9 @@
                     :dependencies [[clj-commons/conch "0.9.2"]
                                    [criterium "0.4.5"]
                                    [com.clojure-goes-fast/clj-async-profiler "0.4.0"]]}
+             :compile-java {:java-source-paths ["src-java"]
+                            :source-paths ["src" "src-java"]
+                            :aot [sci.impl.java]}
              :uberjar {:global-vars {*assert* false}
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]

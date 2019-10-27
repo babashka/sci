@@ -2,7 +2,7 @@
 
 if [ -z "$CIRCLE_PULL_REQUEST" ] && [ "$CIRCLE_BRANCH" = "master" ]
 then
-    lein deploy clojars
+    lein with-profiles +compile-java do clean, deploy clojars
 fi
 
 exit 0;
