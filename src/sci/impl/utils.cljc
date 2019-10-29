@@ -78,3 +78,8 @@
       (with-meta obj (merge m d))
       obj)
     obj))
+
+(defn strip-core-ns [sym]
+  (case (namespace sym)
+    ("clojure.core" "cljs.core") (symbol (name sym))
+    sym))

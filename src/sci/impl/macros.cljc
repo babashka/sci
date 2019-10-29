@@ -9,7 +9,7 @@
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.utils :refer
     [gensym* mark-resolve-sym mark-eval mark-eval-call constant? throw-error-with-location
-     merge-meta kw-identical?]]))
+     merge-meta kw-identical? strip-core-ns]]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
@@ -63,19 +63,20 @@
         [k @v] kv)
       kv)))
 
-(defn resolve-symbol [ctx expr]
-  (let [res (second
+(defn resolve-symbol [ctx sym]
+  (let [sym (strip-core-ns sym)
+        res (second
              (or
-              (lookup ctx expr)
+              (lookup ctx sym)
               ;; TODO: check if symbol is in macros and then emit an error: cannot take
               ;; the value of a macro
-              (let [n (name expr)]
+              (let [n (name sym)]
                 (if (str/starts-with? n "'")
                   (let [v (symbol (subs n 1))]
                     [v v])
                   (throw-error-with-location
-                   (str "Could not resolve symbol: " (str expr))
-                   expr)))))]
+                   (str "Could not resolve symbol: " (str sym))
+                   sym)))))]
     ;; (prn 'resolve expr '-> res)
     res))
 

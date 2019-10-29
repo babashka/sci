@@ -9,7 +9,7 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
-   [sci.impl.utils :as utils :refer [throw-error-with-location]]))
+   [sci.impl.utils :as utils :refer [throw-error-with-location strip-core-ns]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -333,11 +333,6 @@
   {:termination-safe
    {:deny '[loop recur trampoline]
     :realize-max 100}})
-
-(defn strip-core-ns [sym]
-  (case (namespace sym)
-    ("clojure.core" "cljs.core") (symbol (name sym))
-    sym))
 
 (defn process-permissions [& permissions]
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
