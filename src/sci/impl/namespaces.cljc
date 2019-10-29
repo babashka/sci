@@ -254,6 +254,7 @@
    'mod mod
    'make-array make-array
    'name name
+   'namespace namespace
    'newline newline
    'nfirst nfirst
    'not not
