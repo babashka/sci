@@ -7,7 +7,6 @@
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
-   [sci.impl.namespaces :as namespaces]
    [sci.impl.utils :refer
     [gensym* mark-resolve-sym mark-eval mark-eval-call constant? throw-error-with-location
      merge-meta kw-identical?]]))
@@ -26,14 +25,16 @@
 
 (defn lookup-env [env sym sym-ns sym-name]
   (let [env @env]
-    (or (find env sym)
-        (when sym-ns
+    (or (find env sym) ;; env can contains foo/bar symbols from bindings
+        (if sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [aliased (some-> env :aliases sym-ns)]
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
-                  [(symbol (str aliased) (str sym-name)) v])))))))
+                  [(symbol (str aliased) (str sym-name)) v])))
+          ;; no sym-ns, this could be a symbol from clojure.core
+          (some-> env :namespaces (get 'clojure.core) (find sym-name))))))
 
-(defn lookup [{:keys [:env :bindings :interop] :as ctx} sym]
+(defn lookup [{:keys [:env :bindings :classes] :as ctx} sym]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         [k v :as kv]
@@ -43,23 +44,13 @@
                     (find bindings sym)]
            ;; never inline a binding at macro time!
            [k (mark-resolve-sym k)])
-         (when-let [[k _v]
-                    (find interop sym)]
-           [k k])
          (when-let
              [[k _ :as kv]
               (or
                (lookup-env env sym sym-ns sym-name)
+               (find classes sym)
                (when-let [v (get macros sym)]
                  [v v])
-               (find namespaces/clojure-core sym)
-               (when sym-ns
-                 (when (or (= 'clojure.core sym-ns)
-                           (= 'cljs.core sym-ns))
-                   (let [unqualified-sym (symbol (name sym))]
-                     (or (when-let [v (get macros unqualified-sym)]
-                           [v v])
-                         (find namespaces/clojure-core unqualified-sym)))))
                (when (= 'recur sym)
                  [sym (mark-resolve-sym sym)]))]
            (check-permission! ctx k sym)
@@ -295,13 +286,14 @@
 (defn expand-try
   [ctx expr]
   (let [catches (filter #(and (seq? %) (= 'catch (first %))) expr)
-        catches (map (fn [c]
-                       (let [[_ ex binding & body] c]
-                         {:class (resolve-symbol ctx ex)
-                          :binding binding
-                          :body (macroexpand (assoc-in ctx [:bindings binding] nil)
-                                             (cons 'do body))}))
-                     catches)
+        catches (mapv (fn [c]
+                        (let [[_ ex binding & body] c
+                              clazz (resolve-symbol ctx ex)]
+                          {:class clazz
+                           :binding binding
+                           :body (macroexpand (assoc-in ctx [:bindings binding] nil)
+                                              (cons 'do body))}))
+                      catches)
         finally (let [l (last expr)]
                   (when (= 'finally (first l))
                     (macroexpand ctx (cons 'do (rest l)))))]

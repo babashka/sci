@@ -417,7 +417,9 @@
   #?@(:clj [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
             (is (= {:a 1} (eval* "(try (throw (ex-info \"\" {:a 1})) (catch Exception e (ex-data e)))")))]
       :cljs [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))")))
-             (is (= {:a 1} (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))]))
+             (is (= {:a 1} (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))])
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Foo"
+                        (eval* "(try 1 (catch Foo e e))"))))
 
 (deftest syntax-quote-test
   (is (= '(list 10 10)
@@ -452,6 +454,9 @@
 (deftest reader-conditionals
   (is (= 6 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:bb}})))
   (is (= 103 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:clj}}))))
+
+(deftest add-to-clojure-core-test
+  (is (= 10 (tu/eval* "dude" {:namespaces '{clojure.core {dude 10}}}))))
 
 ;;;; Scratch
 

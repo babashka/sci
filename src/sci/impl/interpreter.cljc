@@ -90,17 +90,18 @@
     (swap! (:env ctx) assoc var-name init)
     init))
 
-(defn lookup [{:keys [:bindings :env :interop]} sym]
+(defn lookup [{:keys [:bindings :env :classes]} sym]
   (or
    (find bindings sym)
-   (find interop sym)
-   (find namespaces/clojure-core sym)
-   (when-let [ns (namespace sym)]
-     (when (or (= "clojure.core" ns)
-               (= "cljs.core" ns))
-       (find namespaces/clojure-core (symbol (name sym)))))
    (when (some-> sym meta :sci.impl/var.declared)
-     (find @env sym))))
+     (find @env sym))
+   (find classes sym)
+   ;; (find namespaces/clojure-core sym)
+   #_(when-let [ns (namespace sym)]
+       (when (or (= "clojure.core" ns)
+                 (= "cljs.core" ns))
+         (find namespaces/clojure-core (symbol (name sym)))))
+   ))
 
 (defn resolve-symbol [ctx expr]
   (second
@@ -178,7 +179,7 @@
         (if-let
             [[_ r]
              (reduce (fn [_ c]
-                       (let [clazz (resolve-symbol ctx (:class c))]
+                       (let [clazz (:class c)]
                          (when (instance? clazz e)
                            (reduced
                             [::try-result
@@ -191,7 +192,6 @@
           (throw e)))
       (finally
         (interpret ctx finally)))))
-
 
 ;;;; syntax-quote
 
@@ -352,7 +352,7 @@
         env (or env (atom {}))
         _ (init-env! env bindings aliases namespaces)
         ctx {:env env
-             :interop exception-bindings
+             :classes exception-bindings
              :bindings {}
              :allow (process-permissions (:allow preset) allow)
              :deny (process-permissions (:deny preset) deny)

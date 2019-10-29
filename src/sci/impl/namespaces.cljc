@@ -428,7 +428,8 @@
              'xml-seq xml-seq])})
 
 (def namespaces
-  {'clojure.string {'blank? str/blank?
+  {'clojure.core clojure-core
+   'clojure.string {'blank? str/blank?
                     'capitalize str/capitalize
                     'ends-with? str/ends-with?
                     'escape str/escape
