@@ -4,12 +4,18 @@
 
 (defn parse-fn-args+body
   [interpret ctx
-   {:sci/keys [fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m}]
+   {:sci/keys [fixed-args fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m}]
   (let [;; _ (prn "M" _m)
         min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
             {:sci/min-var-args-arity min-var-args-arity}
-            {:sci/fixed-arity fixed-arity})]
+            {:sci/fixed-arity fixed-arity})
+        macro? (and (>= fixed-arity 2)
+                    (= '&form (first fixed-args))
+                    (= '&env (second fixed-args)))
+        expected-count (if macro?
+                         (- fixed-arity 2)
+                         fixed-arity)]
     (with-meta
       (fn [& args]
         ;; check arity
@@ -22,7 +28,11 @@
           (when-not (= (count (take (inc fixed-arity) args))
                        fixed-arity)
             (throw (new #?(:clj Exception
-                           :cljs js/Error) (str "Wrong number of arguments. Expected: " fixed-arity ", got: " (count args) ", " args)))))
+                           :cljs js/Error)
+                        (let [raw-args-count (count args)
+                              actual-count (if macro? (- raw-args-count 2)
+                                               raw-args-count)]
+                          (str "Wrong number of arguments. Expected: " expected-count ", got: " actual-count ", " args))))))
         (let [runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
               runtime-bindings (if var-arg-name
                                  (conj runtime-bindings var-arg-name
