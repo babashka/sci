@@ -9,7 +9,9 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
-   [sci.impl.utils :as utils :refer [throw-error-with-location strip-core-ns]]))
+   [sci.impl.utils :as utils :refer [throw-error-with-location
+                                     re-throw-with-location-of-node
+                                     strip-core-ns]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -254,43 +256,46 @@
 (declare eval-string)
 
 (defn eval-call [ctx expr]
-  (if (empty? expr) expr
-      (let [f (first expr)
-            f (or
-               (when (= 'recur f) 'recur)
-               (get macros f)
-               (interpret ctx f))]
-        (case f
-          do
-          (eval-do ctx expr)
-          if
-          (eval-if ctx expr)
-          when
-          (eval-when ctx expr)
-          and
-          (eval-and ctx (rest expr))
-          or
-          (eval-or ctx (rest expr))
-          let
-          (apply eval-let ctx (rest expr))
-          def (eval-def ctx expr)
-          lazy-seq (new #?(:clj clojure.lang.LazySeq
-                           :cljs cljs.core/LazySeq)
-                        #?@(:clj []
-                            :cljs [nil])
-                        (interpret ctx (second expr))
-                        #?@(:clj []
-                            :cljs [nil nil]))
-          recur (with-meta (map #(interpret ctx %) (rest expr))
-                  {:sci.impl/recur true})
-          require (eval-require ctx expr)
-          case (eval-case ctx expr)
-          try (eval-try ctx expr)
-          syntax-quote (eval-syntax-quote ctx expr)
-          ;; else
-          (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-              (throw (new #?(:clj Exception :cljs js/Error)
-                          (str "Cannot call " (pr-str f) " as a function."))))))))
+  (try (if (empty? expr) expr
+           (if (empty? expr) expr
+               (let [f (first expr)
+                     f (or
+                        (when (= 'recur f) 'recur)
+                        (get macros f)
+                        (interpret ctx f))]
+                 (case f
+                   do
+                   (eval-do ctx expr)
+                   if
+                   (eval-if ctx expr)
+                   when
+                   (eval-when ctx expr)
+                   and
+                   (eval-and ctx (rest expr))
+                   or
+                   (eval-or ctx (rest expr))
+                   let
+                   (apply eval-let ctx (rest expr))
+                   def (eval-def ctx expr)
+                   lazy-seq (new #?(:clj clojure.lang.LazySeq
+                                    :cljs cljs.core/LazySeq)
+                                 #?@(:clj []
+                                     :cljs [nil])
+                                 (interpret ctx (second expr))
+                                 #?@(:clj []
+                                     :cljs [nil nil]))
+                   recur (with-meta (map #(interpret ctx %) (rest expr))
+                           {:sci.impl/recur true})
+                   require (eval-require ctx expr)
+                   case (eval-case ctx expr)
+                   try (eval-try ctx expr)
+                   syntax-quote (eval-syntax-quote ctx expr)
+                   ;; else
+                   (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                       (throw (new #?(:clj Exception :cljs js/Error)
+                                   (str "Cannot call " (pr-str f) " as a function."))))))))
+       (catch #?(:clj Exception :cljs js/Error) e
+         (re-throw-with-location-of-node e expr))))
 
 (defn interpret
   [ctx expr]
