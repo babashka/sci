@@ -54,18 +54,16 @@
 
 (defn re-throw-with-location-of-node [^Exception e node]
   (if-let [m #?(:clj (.getMessage e)
-             :cljs (.-message e))]
+                :cljs (.-message e))]
     (if (str/includes? m "[at line")
       (throw e)
       (let [{:keys [:row :col]} (meta node)]
         (if (and row col)
           (let [m (str m " [at line " row ", column " col "]")
-                new-exception (if-let [d (ex-data e)]
+                new-exception (let [d (ex-data e)]
                                 (ex-info m (merge {:type :sci/error
                                                    :row row
-                                                   :col col} d))
-                                #?(:clj (Exception. m e)
-                                   :cljs (do (set! (.-message e) m) e)))]
+                                                   :col col} d) e))]
             (throw new-exception))
           (throw e))))
     (throw e)))
