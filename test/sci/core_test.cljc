@@ -268,7 +268,17 @@
                         (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"\[at line 1, column 19\]"
-                        (tu/eval* "(+ 1 2 3 4 5) (do x)" {}))))
+                        (tu/eval* "(+ 1 2 3 4 5) (do x)" {})))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"Wrong number of arguments. Expected: 0, got: 1, \(1\) \[at line 1, column 15\]"
+       (tu/eval* "(defn foo []) (foo 1)" {})))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"Wrong number of arguments. Expected: 1, got: 0, \(\(bindings\) \{x 1\}\) \[at line 1, column 93\]"
+       (tu/eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
+                      "(let [x 1] (bindings))")
+                 {}))))
 
 (deftest macro-test
   (when-not tu/native?
