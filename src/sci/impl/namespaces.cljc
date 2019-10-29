@@ -283,6 +283,8 @@
    'partition-all partition-all
    'partition-by partition-by
    'pr-str pr-str
+   'prn-str prn-str
+   'print-str print-str
    'qualified-ident? qualified-ident?
    'qualified-symbol? qualified-symbol?
    'qualified-keyword? qualified-keyword?
@@ -312,6 +314,7 @@
    'rseq rseq
    'random-sample random-sample
    'repeat repeat
+   'run! run!
    'set? set?
    'sequential? sequential?
    'select-keys select-keys
@@ -348,6 +351,7 @@
    'seqable? seqable?
    'shorts shorts
    'swap! swap!
+   'swap-vals! swap-vals!
    'take take
    'take-last take-last
    'take-nth take-nth
