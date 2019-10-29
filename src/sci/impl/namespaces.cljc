@@ -254,6 +254,7 @@
    'mod mod
    'make-array make-array
    'name name
+   'namespace namespace
    'newline newline
    'nfirst nfirst
    'not not
@@ -428,7 +429,8 @@
              'xml-seq xml-seq])})
 
 (def namespaces
-  {'clojure.string {'blank? str/blank?
+  {'clojure.core clojure-core
+   'clojure.string {'blank? str/blank?
                     'capitalize str/capitalize
                     'ends-with? str/ends-with?
                     'escape str/escape
