@@ -12,30 +12,6 @@
             {:sci/fixed-arity fixed-arity})]
     (with-meta
       (fn [& args]
-        ;; check arity
-        (if var-arg-name
-          (when (< (count (take min-var-args-arity args))
-                   min-var-args-arity)
-            (throw (new #?(:clj Exception
-                           :cljs js/Error)
-                        (let [raw-args-count (count args)
-                              actual-count (if macro? (- raw-args-count 2)
-                                               raw-args-count)
-                              expected-count (if macro?
-                                               (- min-var-args-arity 2)
-                                               min-var-args-arity)]
-                          (str "Wrong number of arguments. Expected at least: " expected-count ", got: " actual-count)))))
-          (when-not (= (count (take (inc fixed-arity) args))
-                       fixed-arity)
-            (throw (new #?(:clj Exception
-                           :cljs js/Error)
-                        (let [raw-args-count (count args)
-                              actual-count (if macro? (- raw-args-count 2)
-                                               raw-args-count)
-                              expected-count (if macro?
-                                               (- fixed-arity 2)
-                                               fixed-arity)]
-                          (str "Wrong number of arguments. Expected: " expected-count ", got: " actual-count ", " args))))))
         (let [runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
               runtime-bindings (if var-arg-name
                                  (conj runtime-bindings var-arg-name
@@ -66,14 +42,15 @@
                 ctx)
         arities (map #(parse-fn-args+body interpret ctx % macro?) fn-bodies)
         f (vary-meta
-           (if (= 1 (count arities))
-             (first arities)
-             (fn [& args]
-               (let [arg-count (count args)]
-                 (if-let [f (lookup-by-arity arities arg-count)]
-                   (apply f args)
-                   (throw (new #?(:clj Exception
-                                  :cljs js/Error) (str "Cannot call " fn-name " with " arg-count " arguments.")))))))
+           (fn [& args]
+             (let [arg-count (count args)]
+               (if-let [f (lookup-by-arity arities arg-count)]
+                 (apply f args)
+                 (throw (new #?(:clj Exception
+                                :cljs js/Error)
+                             (let [actual-count (if macro? (- arg-count 2)
+                                                    arg-count)]
+                               (str "Cannot call " fn-name " with " actual-count " arguments")))))))
            #(assoc % :sci/macro macro?))]
     (reset! self-ref f)
     f))

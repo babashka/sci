@@ -63,7 +63,8 @@
                 new-exception (let [d (ex-data e)]
                                 (ex-info m (merge {:type :sci/error
                                                    :row row
-                                                   :col col} d) e))]
+                                                   :col col
+                                                   :message m} d) e))]
             (throw new-exception))
           (throw e))))
     (throw e)))

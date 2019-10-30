@@ -228,7 +228,8 @@
         body (if docstring body (cons docstring? body))
         fn-body (list* 'fn #_fn-name body)
         f (expand-fn ctx fn-body macro?)
-        f (assoc f :sci/macro macro?)]
+        f (assoc f :sci/macro macro?
+                   :sci/fn-name fn-name)]
     (mark-eval-call (list 'def fn-name f))))
 
 (defn expand-comment
