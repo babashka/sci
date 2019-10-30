@@ -3,13 +3,15 @@
   (:refer-clojure :exclude [destructure macroexpand])
   (:require
    [clojure.string :as str]
+   [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
-   [sci.impl.macros :as macros]
+   [sci.impl.analyzer :as ana]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
-   [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
-   [sci.impl.utils :as utils :refer [throw-error-with-location strip-core-ns]]))
+   [sci.impl.utils :as utils :refer [throw-error-with-location
+                                     rethrow-with-location-of-node
+                                     strip-core-ns]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -58,10 +60,10 @@
   [ctx expr]
   (loop [exprs (rest expr)]
     (when-let [expr (first exprs)]
-      (let [expr (macros/macroexpand ctx expr)
+      (let [expr (ana/macroexpand ctx expr)
             ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
-                       (utils/re-throw-with-location-of-node e expr)))]
+                       (utils/rethrow-with-location-of-node e expr)))]
         (if-let [n (next exprs)]
           (recur n)
           ret)))))
@@ -83,7 +85,6 @@
   [ctx [_def var-name ?docstring ?init]]
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
-        ;; _ (prn "init" (meta init))
         init (interpret ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
@@ -95,13 +96,7 @@
    (find bindings sym)
    (when (some-> sym meta :sci.impl/var.declared)
      (find @env sym))
-   (find classes sym)
-   ;; (find namespaces/clojure-core sym)
-   #_(when-let [ns (namespace sym)]
-       (when (or (= "clojure.core" ns)
-                 (= "cljs.core" ns))
-         (find namespaces/clojure-core (symbol (name sym)))))
-   ))
+   (find classes sym)))
 
 (defn resolve-symbol [ctx expr]
   (second
@@ -254,43 +249,46 @@
 (declare eval-string)
 
 (defn eval-call [ctx expr]
-  (if (empty? expr) expr
-      (let [f (first expr)
-            f (or
-               (when (= 'recur f) 'recur)
-               (get macros f)
-               (interpret ctx f))]
-        (case f
-          do
-          (eval-do ctx expr)
-          if
-          (eval-if ctx expr)
-          when
-          (eval-when ctx expr)
-          and
-          (eval-and ctx (rest expr))
-          or
-          (eval-or ctx (rest expr))
-          let
-          (apply eval-let ctx (rest expr))
-          def (eval-def ctx expr)
-          lazy-seq (new #?(:clj clojure.lang.LazySeq
-                           :cljs cljs.core/LazySeq)
-                        #?@(:clj []
-                            :cljs [nil])
-                        (interpret ctx (second expr))
-                        #?@(:clj []
-                            :cljs [nil nil]))
-          recur (with-meta (map #(interpret ctx %) (rest expr))
-                  {:sci.impl/recur true})
-          require (eval-require ctx expr)
-          case (eval-case ctx expr)
-          try (eval-try ctx expr)
-          syntax-quote (eval-syntax-quote ctx expr)
-          ;; else
-          (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-              (throw (new #?(:clj Exception :cljs js/Error)
-                          (str "Cannot call " (pr-str f) " as a function."))))))))
+  (try (if (empty? expr) expr
+           (if (empty? expr) expr
+               (let [f (first expr)
+                     f (or
+                        (when (= 'recur f) 'recur)
+                        (get macros f)
+                        (interpret ctx f))]
+                 (case f
+                   do
+                   (eval-do ctx expr)
+                   if
+                   (eval-if ctx expr)
+                   when
+                   (eval-when ctx expr)
+                   and
+                   (eval-and ctx (rest expr))
+                   or
+                   (eval-or ctx (rest expr))
+                   let
+                   (apply eval-let ctx (rest expr))
+                   def (eval-def ctx expr)
+                   lazy-seq (new #?(:clj clojure.lang.LazySeq
+                                    :cljs cljs.core/LazySeq)
+                                 #?@(:clj []
+                                     :cljs [nil])
+                                 (interpret ctx (second expr))
+                                 #?@(:clj []
+                                     :cljs [nil nil]))
+                   recur (with-meta (map #(interpret ctx %) (rest expr))
+                           {:sci.impl/recur true})
+                   require (eval-require ctx expr)
+                   case (eval-case ctx expr)
+                   try (eval-try ctx expr)
+                   syntax-quote (eval-syntax-quote ctx expr)
+                   ;; else
+                   (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                       (throw (new #?(:clj Exception :cljs js/Error)
+                                   (str "Cannot call " (pr-str f) " as a function."))))))))
+       (catch #?(:clj Exception :cljs js/Error) e
+         (rethrow-with-location-of-node e expr))))
 
 (defn interpret
   [ctx expr]
@@ -301,7 +299,7 @@
           (not eval?) (do nil ;; (prn "not eval" expr)
                           expr)
           (:sci.impl/try expr) (eval-try ctx expr)
-          (:sci/fn expr) (fns/eval-fn ctx interpret expr)
+          (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))

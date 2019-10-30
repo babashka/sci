@@ -31,16 +31,16 @@
         destructure-vec (if var-args?
                           (conj destructure-vec var-args-sym var-args-sym)
                           destructure-vec)
-        form {:sci/fn true
-              :sci/fn-bodies
-              [{:sci/binding-vector arg-list
-                ;; body gets macroexpanded after read phase
-                :sci/body [expr]
-                :sci/fixed-arity (count fixed-names)
-                :sci/destructure-vec destructure-vec
-                :sci/arg-list arg-list
-                :sci/fixed-names fixed-names
-                :sci/var-arg-name (when var-args? '%&)}]}]
+        form #:sci.impl{:fn true
+                        :fn-bodies
+                        [#:sci.impl{:binding-vector arg-list
+                                    ;; body gets macroexpanded after read phase
+                                    :body [expr]
+                                    :fixed-arity (count fixed-names)
+                                    :destructure-vec destructure-vec
+                                    :arg-list arg-list
+                                    :fixed-names fixed-names
+                                    :var-arg-name (when var-args? '%&)}]}]
     form))
 
 ;;;; Scratch
