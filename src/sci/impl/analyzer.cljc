@@ -385,7 +385,7 @@
                          expanded)
                        (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
                      (catch #?(:clj Exception :cljs js/Error) e
-                       (rethrow-with-location-of-node e expr)))
+                       (rethrow-with-location-of-node ctx e expr)))
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
           (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
             ret)))))

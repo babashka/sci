@@ -3,9 +3,9 @@
   (:refer-clojure :exclude [destructure macroexpand])
   (:require
    [clojure.string :as str]
+   [sci.impl.analyzer :as ana]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
-   [sci.impl.analyzer :as ana]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.parser :as p]
@@ -63,7 +63,7 @@
       (let [expr (ana/macroexpand ctx expr)
             ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
-                       (utils/rethrow-with-location-of-node e expr)))]
+                       (rethrow-with-location-of-node ctx e expr)))]
         (if-let [n (next exprs)]
           (recur n)
           ret)))))
@@ -108,7 +108,6 @@
       (if (str/starts-with? n "'")
         (let [v (symbol (subs n 1))]
           [v v])
-        ;; TODO: can this ever happen now that we resolve symbols at macro-expansion time?
         (throw-error-with-location
          (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
          expr))))))
@@ -169,7 +168,7 @@
   [ctx expr]
   (let [{:keys [:body :catches :finally]} (:sci.impl/try expr)]
     (try
-      (interpret ctx body)
+      (interpret (assoc ctx :sci.impl/in-try true) body)
       (catch #?(:clj Throwable :cljs js/Error) e
         (if-let
             [[_ r]
@@ -184,7 +183,7 @@
                      nil
                      catches)]
           r
-          (throw e)))
+          (rethrow-with-location-of-node ctx e body)))
       (finally
         (interpret ctx finally)))))
 
@@ -288,7 +287,7 @@
                        (throw (new #?(:clj Exception :cljs js/Error)
                                    (str "Cannot call " (pr-str f) " as a function."))))))))
        (catch #?(:clj Exception :cljs js/Error) e
-         (rethrow-with-location-of-node e expr))))
+         (rethrow-with-location-of-node ctx e expr))))
 
 (defn interpret
   [ctx expr]
