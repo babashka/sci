@@ -10,13 +10,10 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def opts
-  {:dispatch {\` (fn [expr] (list 'syntax-quote expr))
-              \~ {:default (fn [expr] (list 'unquote expr))
-                  \@ (fn [expr] (list 'unquote-splicing expr))}
-              \' (fn [expr] (list 'quote expr))
-              \@ (fn [val] (list 'deref val))
-              \# {\( readers/read-fn
-                  \" re-pattern}}})
+  (edamame.impl.parser/normalize-opts
+   {:all true
+    :read-eval false
+    :fn readers/read-fn}))
 
 (defn parse-next
   ([r]
