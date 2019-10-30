@@ -52,21 +52,23 @@
                                  :row row
                                  :col col} data))))))
 
-(defn rethrow-with-location-of-node [^Exception e node]
-  (if-let [m #?(:clj (.getMessage e)
-                :cljs (.-message e))]
-    (if (str/includes? m "[at line")
-      (throw e)
-      (let [{:keys [:row :col]} (meta node)]
-        (if (and row col)
-          (let [m (str m " [at line " row ", column " col "]")
-                new-exception (let [d (ex-data e)]
-                                (ex-info m (merge {:type :sci/error
-                                                   :row row
-                                                   :col col
-                                                   :message m} d) e))]
-            (throw new-exception))
-          (throw e))))
+(defn rethrow-with-location-of-node [ctx ^Exception e node]
+  (if-not (:sci.impl/in-try ctx)
+    (if-let [m #?(:clj (.getMessage e)
+                  :cljs (.-message e))]
+      (if (str/includes? m "[at line")
+        (throw e)
+        (let [{:keys [:row :col]} (meta node)]
+          (if (and row col)
+            (let [m (str m " [at line " row ", column " col "]")
+                  new-exception (let [d (ex-data e)]
+                                  (ex-info m (merge {:type :sci/error
+                                                     :row row
+                                                     :col col
+                                                     :message m} d) e))]
+              (throw new-exception))
+            (throw e))))
+      (throw e))
     (throw e)))
 
 (defn merge-meta
