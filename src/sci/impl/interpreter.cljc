@@ -3,11 +3,11 @@
   (:refer-clojure :exclude [destructure macroexpand])
   (:require
    [clojure.string :as str]
+   [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
    [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
-   [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
@@ -85,7 +85,6 @@
   [ctx [_def var-name ?docstring ?init]]
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
-        ;; _ (prn "init" (meta init))
         init (interpret ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
@@ -97,13 +96,7 @@
    (find bindings sym)
    (when (some-> sym meta :sci.impl/var.declared)
      (find @env sym))
-   (find classes sym)
-   ;; (find namespaces/clojure-core sym)
-   #_(when-let [ns (namespace sym)]
-       (when (or (= "clojure.core" ns)
-                 (= "cljs.core" ns))
-         (find namespaces/clojure-core (symbol (name sym)))))
-   ))
+   (find classes sym)))
 
 (defn resolve-symbol [ctx expr]
   (second
@@ -306,7 +299,7 @@
           (not eval?) (do nil ;; (prn "not eval" expr)
                           expr)
           (:sci.impl/try expr) (eval-try ctx expr)
-          (:sci/fn expr) (fns/eval-fn ctx interpret expr)
+          (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))

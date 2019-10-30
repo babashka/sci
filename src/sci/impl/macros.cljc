@@ -107,14 +107,14 @@
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
-    {:sci/arg-list arg-list
-     :sci/body [body-form]
-     :sci/fixed-arity fixed-arity
-     :sci/destructure-vec destructure-vec
-     :sci/fixed-names fixed-names
-     :sci/fixed-args fixed-args
-     :sci/var-arg-name var-arg-name
-     :sci/fn-name fn-name}))
+    #:sci.impl{:arg-list arg-list
+               :body [body-form]
+               :fixed-arity fixed-arity
+               :destructure-vec destructure-vec
+               :fixed-names fixed-names
+               :fixed-args fixed-args
+               :var-arg-name var-arg-name
+               :fn-name fn-name}))
 
 (defn expand-fn [ctx [_fn name? & body] macro?]
   (let [fn-name (if (symbol? name?)
@@ -131,21 +131,21 @@
                 ctx)
         arities (doall (map #(expand-fn-args+body ctx fn-name % macro?) bodies))]
     (mark-eval
-     {:sci/fn-bodies arities
-      :sci/fn-name fn-name
-      :sci/fn true})))
+     #:sci.impl{:fn-bodies arities
+                :fn-name fn-name
+                :fn true})))
 
 (defn expand-fn-literal-body [ctx expr]
-  (let [fn-body (get-in expr [:sci/fn-bodies 0])
-        fixed-names (:sci/fixed-names fn-body)
-        var-arg-name (:sci/var-arg-name fn-body)
+  (let [fn-body (get-in expr [:sci.impl/fn-bodies 0])
+        fixed-names (:sci.impl/fixed-names fn-body)
+        var-arg-name (:sci.impl/var-arg-name fn-body)
         bindings (if var-arg-name
                    (conj fixed-names var-arg-name)
                    fixed-names)
         bindings (zipmap bindings (repeat nil))
         ctx (update ctx :bindings merge bindings)]
     ;; expr
-    (-> (update-in expr [:sci/fn-bodies 0 :sci/body 0]
+    (-> (update-in expr [:sci.impl/fn-bodies 0 :sci.impl/body 0]
                    (fn [expr]
                      (macroexpand ctx expr)))
         mark-eval)))
@@ -229,7 +229,7 @@
         fn-body (list* 'fn #_fn-name body)
         f (expand-fn ctx fn-body macro?)
         f (assoc f :sci/macro macro?
-                   :sci/fn-name fn-name)]
+                 :sci.impl/fn-name fn-name)]
     (mark-eval-call (list 'def fn-name f))))
 
 (defn expand-comment
@@ -402,8 +402,7 @@
                   (merge-meta
                    (cond
                      ;; already expanded by reader
-                     (:sci/fn expr) (expand-fn-literal-body ctx expr)
-
+                     (:sci.impl/fn expr) (expand-fn-literal-body ctx expr)
                      (map? expr)
                      (-> (zipmap (map #(macroexpand ctx %) (keys expr))
                                  (map #(macroexpand ctx %) (vals expr)))

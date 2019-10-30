@@ -4,12 +4,12 @@
 
 (defn parse-fn-args+body
   [interpret ctx
-   {:sci/keys [fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m} macro?]
+   {:sci.impl/keys [fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m} _macro?]
   (let [;; _ (prn macro?)
         min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
-            {:sci/min-var-args-arity min-var-args-arity}
-            {:sci/fixed-arity fixed-arity})]
+            {:sci.impl/min-var-args-arity min-var-args-arity}
+            {:sci.impl/fixed-arity fixed-arity})]
     (with-meta
       (fn [& args]
         (let [runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
@@ -27,13 +27,13 @@
 
 (defn lookup-by-arity [arities arity]
   (some (fn [f]
-          (let [{:keys [:sci/fixed-arity :sci/min-var-args-arity]} (meta f)]
+          (let [{:sci.impl/keys [fixed-arity min-var-args-arity]} (meta f)]
             (when (or (= arity fixed-arity )
                       (and min-var-args-arity
                            (>= arity min-var-args-arity)))
               f))) arities))
 
-(defn eval-fn [ctx interpret {:sci/keys [fn-bodies fn-name] :as f}]
+(defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name] :as f}]
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
         call-self (fn [& args]
