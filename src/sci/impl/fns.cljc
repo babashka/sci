@@ -4,18 +4,12 @@
 
 (defn parse-fn-args+body
   [interpret ctx
-   {:sci/keys [fixed-args fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m}]
-  (let [;; _ (prn "M" _m)
+   {:sci/keys [fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m} macro?]
+  (let [;; _ (prn macro?)
         min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
             {:sci/min-var-args-arity min-var-args-arity}
-            {:sci/fixed-arity fixed-arity})
-        macro? (and (>= fixed-arity 2)
-                    (= '&form (first fixed-args))
-                    (= '&env (second fixed-args)))
-        expected-count (if macro?
-                         (- fixed-arity 2)
-                         fixed-arity)]
+            {:sci/fixed-arity fixed-arity})]
     (with-meta
       (fn [& args]
         ;; check arity
@@ -24,14 +18,23 @@
                    min-var-args-arity)
             (throw (new #?(:clj Exception
                            :cljs js/Error)
-                        (str "Wrong number of arguments. Expected at least: " min-var-args-arity ", got: " (count args)))))
+                        (let [raw-args-count (count args)
+                              actual-count (if macro? (- raw-args-count 2)
+                                               raw-args-count)
+                              expected-count (if macro?
+                                               (- min-var-args-arity 2)
+                                               min-var-args-arity)]
+                          (str "Wrong number of arguments. Expected at least: " expected-count ", got: " actual-count)))))
           (when-not (= (count (take (inc fixed-arity) args))
                        fixed-arity)
             (throw (new #?(:clj Exception
                            :cljs js/Error)
                         (let [raw-args-count (count args)
                               actual-count (if macro? (- raw-args-count 2)
-                                               raw-args-count)]
+                                               raw-args-count)
+                              expected-count (if macro?
+                                               (- fixed-arity 2)
+                                               fixed-arity)]
                           (str "Wrong number of arguments. Expected: " expected-count ", got: " actual-count ", " args))))))
         (let [runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
               runtime-bindings (if var-arg-name
@@ -61,7 +64,7 @@
                     (apply @self-ref args))
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] call-self)
                 ctx)
-        arities (map #(parse-fn-args+body interpret ctx %) fn-bodies)
+        arities (map #(parse-fn-args+body interpret ctx % macro?) fn-bodies)
         f (vary-meta
            (if (= 1 (count arities))
              (first arities)
