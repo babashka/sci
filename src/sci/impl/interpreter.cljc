@@ -10,7 +10,7 @@
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
-                                     re-throw-with-location-of-node
+                                     rethrow-with-location-of-node
                                      strip-core-ns]]))
 
 (declare interpret)
@@ -63,7 +63,7 @@
       (let [expr (macros/macroexpand ctx expr)
             ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
-                       (utils/re-throw-with-location-of-node e expr)))]
+                       (utils/rethrow-with-location-of-node e expr)))]
         (if-let [n (next exprs)]
           (recur n)
           ret)))))
@@ -295,7 +295,7 @@
                        (throw (new #?(:clj Exception :cljs js/Error)
                                    (str "Cannot call " (pr-str f) " as a function."))))))))
        (catch #?(:clj Exception :cljs js/Error) e
-         (re-throw-with-location-of-node e expr))))
+         (rethrow-with-location-of-node e expr))))
 
 (defn interpret
   [ctx expr]

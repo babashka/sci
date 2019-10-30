@@ -9,7 +9,7 @@
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.utils :refer
     [gensym* mark-resolve-sym mark-eval mark-eval-call constant?
-     re-throw-with-location-of-node throw-error-with-location
+     rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns]]))
 
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
@@ -384,7 +384,7 @@
                          expanded)
                        (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
                      (catch #?(:clj Exception :cljs js/Error) e
-                       (re-throw-with-location-of-node e expr)))
+                       (rethrow-with-location-of-node e expr)))
                 (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
           (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
             ret)))))
