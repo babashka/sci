@@ -5,7 +5,7 @@
    [clojure.string :as str]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
-   [sci.impl.macros :as macros]
+   [sci.impl.analyzer :as ana]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.parser :as p]
@@ -60,7 +60,7 @@
   [ctx expr]
   (loop [exprs (rest expr)]
     (when-let [expr (first exprs)]
-      (let [expr (macros/macroexpand ctx expr)
+      (let [expr (ana/macroexpand ctx expr)
             ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
                        (utils/rethrow-with-location-of-node e expr)))]

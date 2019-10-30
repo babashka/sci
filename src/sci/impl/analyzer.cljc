@@ -1,4 +1,4 @@
-(ns sci.impl.macros
+(ns sci.impl.analyzer
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
