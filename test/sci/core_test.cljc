@@ -444,13 +444,15 @@
       (is (= :finally @state))))
   #?@(:clj
       [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
-       (tu/assert-submap {:type :sci/error, :row 1, :col 4}
-                         (try (eval* "   (/ 1 0)")
-                              (catch Exception e (ex-data e))))]
+       (when-not tu/native?
+         (tu/assert-submap {:type :sci/error, :row 1, :col 4}
+                           (try (eval* "   (/ 1 0)")
+                                (catch Exception e (ex-data e)))))]
       :cljs
       [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))")))
-       (tu/assert-submap {:type :sci/error, :row 1, :col 6, :a 1}
-                         (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))"))])
+       (when-not tu/native?
+         (tu/assert-submap {:type :sci/error, :row 1, :col 6, :a 1}
+                           (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))])
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Foo"
                         (eval* "(try 1 (catch Foo e e))"))))
 
