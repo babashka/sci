@@ -1,11 +1,11 @@
-# Small Clojure Interpreter
+<img src="logo/logo-300dpi.png" width="100px">
 
 [![CircleCI](https://circleci.com/gh/borkdude/sci/tree/master.svg?style=shield)](https://circleci.com/gh/borkdude/sci/tree/master)
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
 [![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 [![cljdoc badge](https://cljdoc.org/badge/borkdude/sci)](https://cljdoc.org/d/borkdude/sci/CURRENT)
 
-A tiny implementation of Clojure in Clojure.
+**Small Clojure Interpreter** - a tiny implementation of Clojure in Clojure.
 
 ## Quickstart
 
