@@ -17,37 +17,8 @@ A tiny implementation of Clojure in Clojure.
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
-Read [here](#Usage) how to use sci from Clojure.
-
-### Use from JavaScript
-
-``` javascript
-> const { evalString } = require('@borkdude/sci');
-> const opts = {bindings: {f: function() { console.log('hello'); }}};
-> evalString("(dotimes [i 2] (f))", opts);
-hello
-hello
-```
-
-Note for JavaScript users: the JS API is similar to the Clojure one. Instead of
-symbols and keywords it expects strings. Instead of kebab-case, use
-camelCase. Read [here](#Usage) how to use sci from Clojure.
-
-### Use from Java
-
-``` java
-import borkdude.sci.*;
-import borkdude.sci.options.*;
-
-Namespace fooBar = new Namespace("foo.bar");
-fooBar.addVar("x", 1);
-Options opts = new Options().addNamespace(fooBar);
-Sci.evalString("foo.bar/x", opts); // returns 1
-```
-
-Note for Java users: the Java API for is conceptually similar to the Clojure
-one, but made more idiomatic for Java users. Check the generated [Java
-documentation](https://borkdude.github.io/sci/javadoc/index.html).
+[More](#Usage) on how to use sci from Clojure.
+Use from [JavaScript](#use-from-javaScript). Use from [Java](#use-from-java).
 
 ## Rationale
 
@@ -165,6 +136,36 @@ To make the `rand-*` functions behave well when compiling to a GraalVM native bi
 ``` clojure
 --initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder
 ```
+
+## Use from JavaScript
+
+``` javascript
+> const { evalString } = require('@borkdude/sci');
+> const opts = {bindings: {f: function() { console.log('hello'); }}};
+> evalString("(dotimes [i 2] (f))", opts);
+hello
+hello
+```
+
+Note for JavaScript users: the JS API is similar to the Clojure one. Instead of
+symbols and keywords it expects strings. Instead of kebab-case, use
+camelCase. Read [here](#Usage) how to use sci from Clojure.
+
+## Use from Java
+
+``` java
+import borkdude.sci.*;
+import borkdude.sci.options.*;
+
+Namespace fooBar = new Namespace("foo.bar");
+fooBar.addVar("x", 1);
+Options opts = new Options().addNamespace(fooBar);
+Sci.evalString("foo.bar/x", opts); // returns 1
+```
+
+Note for Java users: the Java API for is conceptually similar to the Clojure
+one, but made more idiomatic for Java users. Check the generated [Java
+documentation](https://borkdude.github.io/sci/javadoc/index.html).
 
 ## Test
 
