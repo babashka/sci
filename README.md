@@ -1,3 +1,5 @@
+<img src="logo/logo-300dpi.png" width="100px">
+
 # Small Clojure Interpreter
 
 [![CircleCI](https://circleci.com/gh/borkdude/sci/tree/master.svg?style=shield)](https://circleci.com/gh/borkdude/sci/tree/master)
