@@ -11,6 +11,7 @@
     (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                 "for requires an even number of forms in binding vector"))))
 
+;; see clojurescript core.cljc defmacro for
 (defn expand-for
   [_ [_ seq-exprs body-expr]]
   (assert-args seq-exprs body-expr)
@@ -47,9 +48,8 @@
                         `(fn ~giter [~gxs]
                            (lazy-seq
                              (loop [~gxs ~gxs]
-                               (let [~bind (~'first ~gxs)]
-                                 (~'when ~bind
-                                   ~(do-mod mod-pairs))))))
+                               (when-first [~bind ~gxs]
+                                 ~(do-mod mod-pairs)))))
                         #_"inner-most loop"
                         (let [gi (gensym "i__")
                               gb (gensym "b__")
