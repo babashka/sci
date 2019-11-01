@@ -166,6 +166,8 @@
    'distinct distinct
    'distinct? distinct?
    'disj disj
+   'doall doall
+   'dorun dorun
    'dotimes (macrofy dotimes*)
    'doto (macrofy doto*)
    'double double
