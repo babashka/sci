@@ -501,6 +501,11 @@
                         :features #?(:clj #{:clj}
                                      :cljs #{:cljs})}))))
 
+(deftest recursion-test
+  (testing "stack usage didn't get worse"
+    (is (= 37
+           (eval* "((fn foo [x] (if (= 37 x) x (foo (inc x)))) 0)")))))
+
 ;;;; Scratch
 
 (comment
