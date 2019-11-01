@@ -16,8 +16,8 @@
           ;; no argument arity check has happened yet so we do it now
           (let [arity (count args)]
             (when-not (or (= arity fixed-arity)
-                      (and min-var-args-arity
-                           (>= arity min-var-args-arity)))
+                          (and min-var-args-arity
+                               (>= arity min-var-args-arity)))
               (throw (new #?(:clj Exception
                              :cljs js/Error)
                           (let [actual-count (if macro? (- arity 2)
