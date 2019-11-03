@@ -180,6 +180,10 @@ To run all tests:
 
 For running individual tests, see the scripts in `script/test`.
 
+## Thanks
+
+- [adgoji](https://www.adgoji.com/) for a financial donation
+
 ## License
 
 Copyright © 2019 Michiel Borkent
