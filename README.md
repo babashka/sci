@@ -182,7 +182,7 @@ For running individual tests, see the scripts in `script/test`.
 
 ## Thanks
 
-- [adgoji](https://www.adgoji.com/) for a financial donation
+- [adgoji](https://www.adgoji.com/) for financial support
 
 ## License
 
