@@ -5,7 +5,13 @@
 [![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 [![cljdoc badge](https://cljdoc.org/badge/borkdude/sci)](https://cljdoc.org/d/borkdude/sci/CURRENT)
 
-**Small Clojure Interpreter** - a tiny implementation of Clojure in Clojure.
+**Small Clojure Interpreter**
+
+<blockquote class="twitter-tweet" data-lang="en">
+    <p lang="en" dir="ltr">I want a limited dialect of Clojure for a single-purpose, scripted application. Sci will fit nicely.</p>
+    &mdash;
+    <a href="https://twitter.com/tiagoluchini/status/1193144124142211073">@tiagoluchini</a>
+</blockquote>
 
 ## Quickstart
 
