@@ -37,8 +37,11 @@ This library works with:
 - Clojure compiled with GraalVM native
 - ClojureScript, even when compiled with `:advanced`, and (as a consequence) JavaScript
 
-It is used as the interpreter for
-[babashka](https://github.com/borkdude/babashka).
+It is used in:
+
+- [babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
+- [bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
+- [closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
 
 ## Status
 
