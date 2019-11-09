@@ -42,6 +42,7 @@ It is used in:
 - [babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
 - [bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
+- [jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit. It uses Sci to evaluate the argument passed to `--keywordize` which can be a function.
 - [malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 
 ## Status
