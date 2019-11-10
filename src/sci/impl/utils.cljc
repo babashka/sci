@@ -84,3 +84,6 @@
   (case (namespace sym)
     ("clojure.core" "cljs.core") (symbol (name sym))
     sym))
+
+(def allowed-loop (with-meta (symbol "loop") {:row :allow}))
+(def allowed-recur (with-meta (symbol "recur") {:row :allow}))
