@@ -1,5 +1,6 @@
 (ns sci.impl.doseq-macro
-  {:no-doc true})
+  {:no-doc true}
+  (:require [sci.impl.utils :refer [allowed-loop allowed-recur]]))
 
 ;; based on the source of clojure.core/doseq
 
@@ -26,8 +27,8 @@
                        (cond
                          (= k :let) [needrec `(let ~v ~subform)]
                          (= k :while) [false `(~'when ~v
-                                                ~subform
-                                                ~@(when needrec [recform]))]
+                                               ~subform
+                                               ~@(when needrec [recform]))]
                          (= k :when) [false `(if ~v
                                                (do
                                                  ~subform
@@ -35,31 +36,31 @@
                                                ~recform)]))
                      (let [seq- (gensym "seq_")
                            chunk- (with-meta (gensym "chunk_")
-                                             {:tag 'clojure.lang.IChunk})
+                                    {:tag 'clojure.lang.IChunk})
                            count- (gensym "count_")
                            i- (gensym "i_")
-                           recform `(recur (next ~seq-) nil 0 0)
+                           recform `(~allowed-recur (next ~seq-) nil 0 0)
                            steppair (step recform (nnext exprs))
                            needrec (steppair 0)
                            subform (steppair 1)
                            recform-chunk
-                             `(recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
+                           `(~allowed-recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true
-                        `(loop [~seq- (seq ~v), ~chunk- nil,
-                                ~count- 0, ~i- 0]
-                           (if (< ~i- ~count-)
-                             (let [~k (nth ~chunk- ~i-)]
-                               ~subform-chunk
-                               ~@(when needrec [recform-chunk]))
-                             (let [~seq- (seq ~seq-)]
-                               (~'when ~seq-
-                                 (if (chunked-seq? ~seq-)
-                                   (let [c# (chunk-first ~seq-)]
-                                     (recur (chunk-rest ~seq-) c#
-                                            (int (count c#)) (int 0)))
-                                   (let [~k (first ~seq-)]
-                                     ~subform
-                                     ~@(when needrec [recform])))))))])))))]
+                        `(~allowed-loop [~seq- (seq ~v), ~chunk- nil,
+                                         ~count- 0, ~i- 0]
+                          (if (< ~i- ~count-)
+                            (let [~k (nth ~chunk- ~i-)]
+                              ~subform-chunk
+                              ~@(when needrec [recform-chunk]))
+                            (let [~seq- (seq ~seq-)]
+                              (~'when ~seq-
+                               (if (chunked-seq? ~seq-)
+                                 (let [c# (chunk-first ~seq-)]
+                                   (~allowed-recur (chunk-rest ~seq-) c#
+                                          (int (count c#)) (int 0)))
+                                 (let [~k (first ~seq-)]
+                                   ~subform
+                                   ~@(when needrec [recform])))))))])))))]
     (nth (step nil (seq seq-exprs)) 1)))

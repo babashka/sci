@@ -17,12 +17,13 @@
                try defmacro declare})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
-  (when-not (if allow (contains? allow check-sym)
-                true)
-    (throw-error-with-location (str sym " is not allowed!") sym))
-  (when (if deny (contains? deny check-sym)
-            false)
-    (throw-error-with-location (str sym " is not allowed!") sym)))
+  (when-not (kw-identical? :allow (-> sym meta :row))
+    (when-not (if allow (contains? allow check-sym)
+                  true)
+      (throw-error-with-location (str sym " is not allowed!") sym))
+    (when (if deny (contains? deny check-sym)
+              false)
+      (throw-error-with-location (str sym " is not allowed!") sym))))
 
 (defn lookup-env [env sym sym-ns sym-name]
   (let [env @env]
@@ -414,7 +415,6 @@
                      :else expr)
                    (select-keys (meta expr)
                                 [:row :col])))]
-    ;; (prn "expand" expr '-> ret)
     ret))
 
 ;;;; Scratch

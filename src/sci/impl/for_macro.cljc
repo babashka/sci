@@ -1,5 +1,6 @@
 (ns sci.impl.for-macro
-  {:no-doc true})
+  {:no-doc true}
+  (:require [sci.impl.utils :refer [allowed-loop allowed-recur]]))
 
 ;; based on the source of clojure.core/for
 
@@ -33,23 +34,23 @@
                                      (= k :while) `(~'when ~v ~(do-mod etc))
                                      (= k :when) `(if ~v
                                                     ~(do-mod etc)
-                                                    (recur (rest ~gxs)))
+                                                    (~allowed-recur (rest ~gxs)))
                                      (keyword? k) (err "Invalid 'for' keyword " k)
                                      next-groups
-                                      `(let [iterys# ~(emit-bind next-groups)
-                                             fs# (seq (iterys# ~next-expr))]
-                                         (if fs#
-                                           (concat fs# (~giter (rest ~gxs)))
-                                           (recur (rest ~gxs))))
+                                     `(let [iterys# ~(emit-bind next-groups)
+                                            fs# (seq (iterys# ~next-expr))]
+                                        (if fs#
+                                          (concat fs# (~giter (rest ~gxs)))
+                                          (~allowed-recur (rest ~gxs))))
                                      :else `(cons ~body-expr
                                                   (~giter (rest ~gxs)))))]
                       (if next-groups
                         #_"not the inner-most loop"
                         `(fn ~giter [~gxs]
                            (lazy-seq
-                             (loop [~gxs ~gxs]
-                               (when-first [~bind ~gxs]
-                                 ~(do-mod mod-pairs)))))
+                            (~allowed-loop [~gxs ~gxs]
+                             (when-first [~bind ~gxs]
+                               ~(do-mod mod-pairs)))))
                         #_"inner-most loop"
                         (let [gi (gensym "i__")
                               gb (gensym "b__")
@@ -59,32 +60,32 @@
                                           (= k :while) `(~'when ~v ~(do-cmod etc))
                                           (= k :when) `(if ~v
                                                          ~(do-cmod etc)
-                                                         (recur
-                                                           (unchecked-inc ~gi)))
+                                                         (~allowed-recur
+                                                          (unchecked-inc ~gi)))
                                           (keyword? k)
-                                            (err "Invalid 'for' keyword " k)
+                                          (err "Invalid 'for' keyword " k)
                                           :else
-                                            `(do (chunk-append ~gb ~body-expr)
-                                                 (recur (unchecked-inc ~gi)))))]
+                                          `(do (chunk-append ~gb ~body-expr)
+                                               (~allowed-recur (unchecked-inc ~gi)))))]
                           `(fn ~giter [~gxs]
                              (lazy-seq
-                               (loop [~gxs ~gxs]
-                                 (let [~gxs (seq ~gxs)]
-                                   (~'when ~gxs
-                                     (if (chunked-seq? ~gxs)
-                                       (let [c# (chunk-first ~gxs)
-                                             size# (int (count c#))
-                                             ~gb (chunk-buffer size#)]
-                                         (if (loop [~gi (int 0)]
-                                               (if (< ~gi size#)
-                                                 (let [~bind (~'nth c# ~gi)]
-                                                   ~(do-cmod mod-pairs))
-                                                 true))
-                                           (chunk-cons
-                                            (chunk ~gb)
-                                            (~giter (chunk-rest ~gxs)))
-                                           (chunk-cons (chunk ~gb) nil)))
-                                       (let [~bind (first ~gxs)]
-                                         ~(do-mod mod-pairs))))))))))))]
+                              (~allowed-loop [~gxs ~gxs]
+                               (let [~gxs (seq ~gxs)]
+                                 (~'when ~gxs
+                                  (if (chunked-seq? ~gxs)
+                                    (let [c# (chunk-first ~gxs)
+                                          size# (int (count c#))
+                                          ~gb (chunk-buffer size#)]
+                                      (if (~allowed-loop [~gi (int 0)]
+                                           (if (< ~gi size#)
+                                             (let [~bind (~'nth c# ~gi)]
+                                               ~(do-cmod mod-pairs))
+                                             true))
+                                        (chunk-cons
+                                         (chunk ~gb)
+                                         (~giter (chunk-rest ~gxs)))
+                                        (chunk-cons (chunk ~gb) nil)))
+                                    (let [~bind (first ~gxs)]
+                                      ~(do-mod mod-pairs))))))))))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
-        (iter# ~(second seq-exprs)))))
+       (iter# ~(second seq-exprs)))))
