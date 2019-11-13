@@ -97,8 +97,8 @@
    (when (some-> sym meta :sci.impl/var.declared)
      (find @env sym))
    (find classes sym)
-   (when-let [v (get macros sym)]
-     [v v])))
+   (when (get macros sym)
+     [sym sym])))
 
 (defn resolve-symbol [ctx expr]
   (second
