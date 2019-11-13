@@ -177,6 +177,7 @@
          (eval* "(defn foo [] (as-> 10 x (inc y)))"))))
   (is (= 1 (eval* "((symbol \"do\") {'do 1})")))
   (is (= 1 (eval* "(let [x 'do] (x {'do 1}))")))
+  ;; see https://clojure.atlassian.net/browse/CLJ-1216
   (is (= 1 (eval* "(let [do 'do] (do {'do 1}))")))
   (is (= 1 (eval* "(let [case 'case] (case {'case 1}))"))))
 
