@@ -175,7 +175,10 @@
     (is (thrown-with-msg?
          #?(:clj Exception :cljs js/Error) #"y"
          (eval* "(defn foo [] (as-> 10 x (inc y)))"))))
-  (is (= 1 (eval* "((symbol \"do\") {'do 1})"))))
+  (is (= 1 (eval* "((symbol \"do\") {'do 1})")))
+  (is (= 1 (eval* "(let [x 'do] (x {'do 1}))")))
+  (is (= 1 (eval* "(let [do 'do] (do {'do 1}))")))
+  (is (= 1 (eval* "(let [case 'case] (case {'case 1}))"))))
 
 (deftest do-test
   (testing "expressions with do are evaluated in order and have side effects,

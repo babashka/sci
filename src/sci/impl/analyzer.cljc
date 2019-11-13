@@ -54,7 +54,7 @@
                (when (get macros sym)
                  [sym sym])
                (when (= 'recur sym)
-                 [sym (mark-resolve-sym sym)]))]
+                 [sym sym #_(mark-resolve-sym sym)]))]
            (check-permission! ctx k sym)
            kv))]
     ;; (prn 'lookup sym '-> res)

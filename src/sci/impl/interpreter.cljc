@@ -11,7 +11,7 @@
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
-                                     strip-core-ns]]))
+                                     strip-core-ns eval?]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -251,44 +251,46 @@
 
 (defn eval-call [ctx expr]
   (try (if (empty? expr) expr
-           (if (empty? expr) expr
-               (let [raw-f (first expr)
-                     f (if (symbol? raw-f)
+           (let [raw-f (first expr)
+                 sym-f (when (symbol? raw-f)
                          (or
-                          (when (= 'recur raw-f) 'recur)
-                          (resolve-symbol ctx raw-f))
-                         (interpret ctx raw-f))]
-                 (case f
-                   do
-                   (eval-do ctx expr)
-                   if
-                   (eval-if ctx expr)
-                   when
-                   (eval-when ctx expr)
-                   and
-                   (eval-and ctx (rest expr))
-                   or
-                   (eval-or ctx (rest expr))
-                   let
-                   (apply eval-let ctx (rest expr))
-                   def (eval-def ctx expr)
-                   lazy-seq (new #?(:clj clojure.lang.LazySeq
-                                    :cljs cljs.core/LazySeq)
-                                 #?@(:clj []
-                                     :cljs [nil])
-                                 (interpret ctx (second expr))
-                                 #?@(:clj []
-                                     :cljs [nil nil]))
-                   recur (with-meta (map #(interpret ctx %) (rest expr))
-                           {:sci.impl/recur true})
-                   require (eval-require ctx expr)
-                   case (eval-case ctx expr)
-                   try (eval-try ctx expr)
-                   syntax-quote (eval-syntax-quote ctx expr)
-                   ;; else
-                   (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-                       (throw (new #?(:clj Exception :cljs js/Error)
-                                   (str "Cannot call " (pr-str f) " as a function."))))))))
+                          (when (= 'recur raw-f) raw-f)
+                          (resolve-symbol ctx raw-f)))
+                 special? (and sym-f
+                               (not (eval? raw-f))
+                               (= raw-f sym-f))]
+             (if special?
+               (case raw-f
+                 do
+                 (eval-do ctx expr)
+                 if
+                 (eval-if ctx expr)
+                 when
+                 (eval-when ctx expr)
+                 and
+                 (eval-and ctx (rest expr))
+                 or
+                 (eval-or ctx (rest expr))
+                 let
+                 (apply eval-let ctx (rest expr))
+                 def (eval-def ctx expr)
+                 lazy-seq (new #?(:clj clojure.lang.LazySeq
+                                  :cljs cljs.core/LazySeq)
+                               #?@(:clj []
+                                   :cljs [nil])
+                               (interpret ctx (second expr))
+                               #?@(:clj []
+                                   :cljs [nil nil]))
+                 recur (with-meta (map #(interpret ctx %) (rest expr))
+                         {:sci.impl/recur true})
+                 require (eval-require ctx expr)
+                 case (eval-case ctx expr)
+                 try (eval-try ctx expr)
+                 syntax-quote (eval-syntax-quote ctx expr))
+               (let [f (interpret ctx raw-f)]
+                 (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                     (throw (new #?(:clj Exception :cljs js/Error)
+                                 (str "Cannot call " (pr-str f) " as a function."))))))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
