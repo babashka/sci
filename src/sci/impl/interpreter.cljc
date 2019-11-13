@@ -251,16 +251,14 @@
 
 (defn eval-call [ctx expr]
   (try (if (empty? expr) expr
-           (let [raw-f (first expr)
-                 sym-f (when (symbol? raw-f)
-                         (or
-                          (when (= 'recur raw-f) raw-f)
-                          (resolve-symbol ctx raw-f)))
-                 special? (and sym-f
-                               (not (eval? raw-f))
-                               (= raw-f sym-f))]
-             (if special?
-               (case raw-f
+           (let [f (first expr)]
+             (if (or (not (symbol? f)) (eval? f))
+               (let [f (interpret ctx f)]
+                 (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                     (throw (new #?(:clj Exception :cljs js/Error)
+                                 (str "Cannot call " (pr-str f) " as a function.")))))
+               ;; if f is a symbol that we should not interpret anymore, it must be one of these:
+               (case f
                  do
                  (eval-do ctx expr)
                  if
@@ -286,11 +284,7 @@
                  require (eval-require ctx expr)
                  case (eval-case ctx expr)
                  try (eval-try ctx expr)
-                 syntax-quote (eval-syntax-quote ctx expr))
-               (let [f (interpret ctx raw-f)]
-                 (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-                     (throw (new #?(:clj Exception :cljs js/Error)
-                                 (str "Cannot call " (pr-str f) " as a function."))))))))
+                 syntax-quote (eval-syntax-quote ctx expr)))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
