@@ -60,7 +60,7 @@
   [ctx expr]
   (loop [exprs (rest expr)]
     (when-let [expr (first exprs)]
-      (let [expr (ana/macroexpand ctx expr)
+      (let [expr (ana/analyze ctx expr)
             ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
                        (rethrow-with-location-of-node ctx e expr)))]
