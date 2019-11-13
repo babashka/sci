@@ -8,7 +8,7 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.utils :refer
-    [gensym* mark-resolve-sym mark-eval mark-eval-call constant?
+    [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns]]))
 
@@ -51,8 +51,8 @@
               (or
                (lookup-env env sym sym-ns sym-name)
                (find classes sym)
-               (when-let [v (get macros sym)]
-                 [v v])
+               (when (get macros sym)
+                 [sym sym])
                (when (= 'recur sym)
                  [sym (mark-resolve-sym sym)]))]
            (check-permission! ctx k sym)
@@ -343,13 +343,8 @@
   (if (empty? expr) expr
       (let [f (first expr)]
         (if (symbol? f)
-          (let [f (if-let [ns (namespace f)]
-                    (if (or (= "clojure.core" ns)
-                            (= "cljs.core" ns))
-                      (symbol (name f))
-                      f)
-                    f)]
-            (if (contains? macros f)
+          (let [f (resolve-symbol ctx f)]
+            (if (and (not (eval? f)) (contains? macros f))
               (do (check-permission! ctx f f)
                   (case f
                     do (mark-eval-call expr) ;; do will call macroexpand on every
@@ -378,16 +373,14 @@
                     declare (expand-declare ctx expr)
                     ;; else:
                     (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
-              (if-let [vf (resolve-symbol ctx f)]
-                (try (if (macro? vf)
-                       (let [v (apply vf expr
-                                      (:bindings ctx) (rest expr))
-                             expanded (macroexpand ctx v)]
-                         expanded)
-                       (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
-                     (catch #?(:clj Exception :cljs js/Error) e
-                       (rethrow-with-location-of-node ctx e expr)))
-                (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
+              (try (if (macro? f)
+                     (let [v (apply f expr
+                                    (:bindings ctx) (rest expr))
+                           expanded (macroexpand ctx v)]
+                       expanded)
+                     (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
+                   (catch #?(:clj Exception :cljs js/Error) e
+                     (rethrow-with-location-of-node ctx e expr)))))
           (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
             ret)))))
 

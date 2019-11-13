@@ -18,7 +18,7 @@
 
 (def macros
   '#{do if when and or -> ->> as-> quote let fn def defn
-     lazy-seq require try syntax-quote})
+     lazy-seq require try syntax-quote case})
 
 ;;;; Evaluation
 
@@ -96,7 +96,9 @@
    (find bindings sym)
    (when (some-> sym meta :sci.impl/var.declared)
      (find @env sym))
-   (find classes sym)))
+   (find classes sym)
+   (when-let [v (get macros sym)]
+     [v v])))
 
 (defn resolve-symbol [ctx expr]
   (second
@@ -251,10 +253,12 @@
   (try (if (empty? expr) expr
            (if (empty? expr) expr
                (let [f (first expr)
-                     f (or
-                        (when (= 'recur f) 'recur)
-                        (get macros f)
-                        (interpret ctx f))]
+                     f (if (symbol? f)
+                         (or
+                          (when (= 'recur f) 'recur)
+                          (resolve-symbol ctx f)
+                          #_(get macros f))
+                         (interpret ctx f))]
                  (case f
                    do
                    (eval-do ctx expr)

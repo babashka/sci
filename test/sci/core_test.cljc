@@ -443,7 +443,8 @@
 (deftest variable-can-have-macro-or-var-name
   (is (= true (eval* "(defn foo [merge] merge) (foo true)")))
   (is (= true (eval* "(defn foo [merge] merge) (defn bar [foo] foo) (bar true)")))
-  (is (= true (eval* "(defn foo [comment] comment) (foo true)"))))
+  (is (= true (eval* "(defn foo [comment] comment) (foo true)")))
+  (is (= 2 (eval* "(defn foo [fn] (fn 1)) (foo inc)"))))
 
 (deftest try-catch-finally-throw-test
   (when-not tu/native?
