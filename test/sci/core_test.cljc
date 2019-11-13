@@ -528,6 +528,20 @@
     (is (= 37
            (eval* "((fn foo [x] (if (= 37 x) x (foo (inc x)))) 0)")))))
 
+(deftest syntax-errors
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
+                        (eval* "(def f/b 1)")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
+                        (eval* "(defn f/b [])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
+                        (eval* "(defn foo)")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
+                        (eval* "(defn foo ())")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
+                        (eval* "(defn foo {})")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
+                        (eval* "(fn foo {})"))))
+
 ;;;; Scratch
 
 (comment

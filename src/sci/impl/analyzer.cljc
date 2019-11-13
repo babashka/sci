@@ -87,7 +87,11 @@
 
 (declare analyze)
 
-(defn expand-fn-args+body [ctx fn-name [binding-vector & body-exprs] macro?]
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
+  (when-not binding-vector
+    (throw-error-with-location "Parameter declaration missing." fn-expr))
+  (when-not (vector? binding-vector)
+    (throw-error-with-location "Parameter declaration should be a vector" fn-expr))
   (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
                            binding-vector)
         fixed-args (take-while #(not= '& %) binding-vector)
@@ -120,8 +124,9 @@
                :var-arg-name var-arg-name
                :fn-name fn-name}))
 
-(defn expand-fn [ctx [_fn name? & body] macro?]
-  (let [fn-name (if (symbol? name?)
+(defn expand-fn [ctx [_fn name? & body :as fn-expr] macro?]
+  (let [ctx (assoc ctx :fn-expr fn-expr)
+        fn-name (if (symbol? name?)
                   name?
                   nil)
         body (if fn-name
@@ -214,7 +219,9 @@
     (expand-let* ctx let-bindings body)))
 
 (defn expand-def
-  [ctx [_def var-name ?docstring ?init]]
+  [ctx [_def var-name ?docstring ?init :as expr]]
+  (when-not (simple-symbol? var-name)
+    (throw-error-with-location "Var name should be simple symbol." expr))
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (analyze ctx init)
@@ -225,12 +232,18 @@
 
 (declare expand-declare)
 
-(defn expand-defn [ctx [op fn-name docstring? & body]]
+(defn expand-defn [ctx [op fn-name docstring? & body :as expr]]
+  (when-not (simple-symbol? fn-name)
+    (throw-error-with-location "Var name should be simple symbol." expr))
   (expand-declare ctx [nil fn-name])
   (let [macro? (= 'defmacro op)
         docstring (when (string? docstring?) docstring?)
-        body (if docstring body (cons docstring? body))
-        fn-body (list* 'fn #_fn-name body)
+        body (if docstring body
+                 (if docstring?
+                   (cons docstring? body)
+                   (throw-error-with-location "Parameter declaration missing." expr)))
+        fn-body (with-meta (list* 'fn body)
+                  (meta expr))
         f (expand-fn ctx fn-body macro?)
         f (assoc f :sci/macro macro?
                  :sci.impl/fn-name fn-name)]
@@ -247,8 +260,8 @@
         init-vals (take-nth 2 (rest bv))
         body (nnext expr)]
     (analyze ctx (apply list (list 'fn (vec arg-names)
-                                       (cons 'do body))
-                            init-vals))))
+                                   (cons 'do body))
+                        init-vals))))
 
 (defn expand-lazy-seq
   [ctx expr]
@@ -299,7 +312,7 @@
                           {:class clazz
                            :binding binding
                            :body (analyze (assoc-in ctx [:bindings binding] nil)
-                                              (cons 'do body))}))
+                                          (cons 'do body))}))
                       catches)
         finally (let [l (last expr)]
                   (when (= 'finally (first l))
@@ -347,8 +360,8 @@
       (let [f (first expr)]
         (if (symbol? f)
           (let [f (or (get special-syms f) ;; in call position Clojure
-                                           ;; prioritizes special symbols over
-                                           ;; bindings
+                      ;; prioritizes special symbols over
+                      ;; bindings
                       (resolve-symbol ctx f))]
             (if (and (not (eval? f)) ;; the symbol is not a binding
                      (contains? macros f))
@@ -379,14 +392,15 @@
                 declare (expand-declare ctx expr)
                 ;; else:
                 (mark-eval-call (doall (map #(analyze ctx %) expr))))
-              (try (if (macro? f)
-                     (let [v (apply f expr
-                                    (:bindings ctx) (rest expr))
-                           expanded (analyze ctx v)]
-                       expanded)
-                     (mark-eval-call (doall (map #(analyze ctx %) expr))))
-                   (catch #?(:clj Exception :cljs js/Error) e
-                     (rethrow-with-location-of-node ctx e expr)))))
+              (try
+                (if (macro? f)
+                  (let [v (apply f expr
+                                 (:bindings ctx) (rest expr))
+                        expanded (analyze ctx v)]
+                    expanded)
+                  (mark-eval-call (doall (map #(analyze ctx %) expr))))
+                (catch #?(:clj Exception :cljs js/Error) e
+                  (rethrow-with-location-of-node ctx e expr)))))
           (let [ret (mark-eval-call (doall (map #(analyze ctx %) expr)))]
             ret)))))
 
