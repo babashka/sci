@@ -179,7 +179,8 @@
   (is (= 1 (eval* "(let [x 'do] (x {'do 1}))")))
   (is (= 1 (eval* "(let [case 'case] (case {'case 1}))")))
   ;; in call position Clojure prioritizes special symbols over bindings
-  (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))"))))
+  (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
+  (is (= 1 (eval* "((symbol \"recur\") {'recur 1})"))))
 
 (deftest do-test
   (testing "expressions with do are evaluated in order and have side effects,
