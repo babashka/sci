@@ -8,10 +8,13 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.utils :refer
-    [gensym* mark-resolve-sym mark-eval mark-eval-call constant?
+    [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns]]))
 
+;; derived from (keys (. clojure.lang.Compiler specials))
+(def special-syms '#{try finally do if new recur quote catch throw def})
+;; built-in macros
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare})
@@ -25,8 +28,10 @@
               false)
       (throw-error-with-location (str sym " is not allowed!") sym))))
 
-(defn lookup-env [env sym sym-ns sym-name]
-  (let [env @env]
+(defn lookup-env [env sym]
+  (let [sym-ns (some-> (namespace sym) symbol)
+        sym-name (symbol (name sym))
+        env @env]
     (or (find env sym) ;; env can contains foo/bar symbols from bindings
         (if sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
@@ -37,9 +42,7 @@
           (some-> env :namespaces (get 'clojure.core) (find sym-name))))))
 
 (defn lookup [{:keys [:env :bindings :classes] :as ctx} sym]
-  (let [sym-ns (some-> (namespace sym) symbol)
-        sym-name (symbol (name sym))
-        [k v :as kv]
+  (let [[k v :as kv]
         (or
          ;; bindings are not checked for permissions
          (when-let [[k _v]
@@ -49,12 +52,12 @@
          (when-let
              [[k _ :as kv]
               (or
-               (lookup-env env sym sym-ns sym-name)
+               (lookup-env env sym)
                (find classes sym)
-               (when-let [v (get macros sym)]
-                 [v v])
+               (when (get macros sym)
+                 [sym sym])
                (when (= 'recur sym)
-                 [sym (mark-resolve-sym sym)]))]
+                 [sym sym #_(mark-resolve-sym sym)]))]
            (check-permission! ctx k sym)
            kv))]
     ;; (prn 'lookup sym '-> res)
@@ -82,7 +85,7 @@
     ;; (prn 'resolve expr '-> res)
     res))
 
-(declare macroexpand)
+(declare analyze)
 
 (defn expand-fn-args+body [ctx fn-name [binding-vector & body-exprs] macro?]
   (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
@@ -104,7 +107,7 @@
                                                 (repeat nil)))
         body-form (mark-eval-call
                    `(~'let ~destructured-vec
-                     ~@(doall (map #(macroexpand ctx %) body-exprs))))
+                     ~@(doall (map #(analyze ctx %) body-exprs))))
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
@@ -148,7 +151,7 @@
     ;; expr
     (-> (update-in expr [:sci.impl/fn-bodies 0 :sci.impl/body 0]
                    (fn [expr]
-                     (macroexpand ctx expr)))
+                     (analyze ctx expr)))
         mark-eval)))
 
 (defn expand-let*
@@ -156,12 +159,12 @@
   (let [[ctx new-let-bindings]
         (reduce
          (fn [[ctx new-let-bindings] [binding-name binding-value]]
-           (let [v (macroexpand ctx binding-value)]
+           (let [v (analyze ctx binding-value)]
              [(update ctx :bindings assoc binding-name v)
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))]
-    (mark-eval-call `(~'let ~new-let-bindings ~@(doall (map #(macroexpand ctx %) exprs))))))
+    (mark-eval-call `(~'let ~new-let-bindings ~@(doall (map #(analyze ctx %) exprs))))))
 
 (defn expand-let
   "The let macro from clojure.core"
@@ -182,7 +185,7 @@
                                (meta form))
                              (list form x))]
               (recur threaded (next forms))) x))]
-    (macroexpand ctx expanded)))
+    (analyze ctx expanded)))
 
 (defn expand->>
   "The ->> macro from clojure.core."
@@ -198,7 +201,7 @@
                                (meta form))
                              (list form x))]
               (recur threaded (next forms))) x))]
-    (macroexpand ctx expanded)))
+    (analyze ctx expanded)))
 
 (defn expand-as->
   "The ->> macro from clojure.core."
@@ -214,7 +217,7 @@
   [ctx [_def var-name ?docstring ?init]]
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
-        init (macroexpand ctx init)
+        init (analyze ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
     (swap! (:env ctx) assoc var-name :sci/var.unbound)
@@ -243,7 +246,7 @@
         arg-names (take-nth 2 bv)
         init-vals (take-nth 2 (rest bv))
         body (nnext expr)]
-    (macroexpand ctx (apply list (list 'fn (vec arg-names)
+    (analyze ctx (apply list (list 'fn (vec arg-names)
                                        (cons 'do body))
                             init-vals))))
 
@@ -252,7 +255,7 @@
   (let [body (rest expr)]
     (mark-eval-call
      (list 'lazy-seq
-           (macroexpand ctx (list 'fn [] (cons 'do body)))))))
+           (analyze ctx (list 'fn [] (cons 'do body)))))))
 
 (defn expand-cond*
   "The cond macro from clojure.core"
@@ -269,16 +272,16 @@
 (defn expand-cond
   [ctx expr]
   (let [clauses (rest expr)]
-    (macroexpand ctx (apply expand-cond* clauses))))
+    (analyze ctx (apply expand-cond* clauses))))
 
 (defn expand-case
   [ctx expr]
-  (let [v (macroexpand ctx (second expr))
+  (let [v (analyze ctx (second expr))
         clauses (nnext expr)
         match-clauses (take-nth 2 clauses)
-        result-clauses (map #(macroexpand ctx %) (take-nth 2 (rest clauses)))
+        result-clauses (map #(analyze ctx %) (take-nth 2 (rest clauses)))
         default (when (odd? (count clauses))
-                  [:val (macroexpand ctx (last clauses))])
+                  [:val (analyze ctx (last clauses))])
         case-map (zipmap match-clauses result-clauses)
         ret (mark-eval-call (list 'case
                                   {:case-map case-map
@@ -295,15 +298,15 @@
                               clazz (resolve-symbol ctx ex)]
                           {:class clazz
                            :binding binding
-                           :body (macroexpand (assoc-in ctx [:bindings binding] nil)
+                           :body (analyze (assoc-in ctx [:bindings binding] nil)
                                               (cons 'do body))}))
                       catches)
         finally (let [l (last expr)]
                   (when (= 'finally (first l))
-                    (macroexpand ctx (cons 'do (rest l)))))]
+                    (analyze ctx (cons 'do (rest l)))))]
     (mark-eval
      {:sci.impl/try
-      {:body (macroexpand ctx (second expr))
+      {:body (analyze ctx (second expr))
        :catches catches
        :finally finally}})))
 
@@ -312,9 +315,9 @@
              (fn [x]
                (if (seq? x)
                  (case (first x)
-                   unquote (macroexpand ctx (second x))
+                   unquote (analyze ctx (second x))
                    unquote-splicing (vary-meta
-                                     (macroexpand ctx (second x))
+                                     (analyze ctx (second x))
                                      (fn [m]
                                        (assoc m :sci.impl/unquote-splicing true)))
                    x)
@@ -339,59 +342,55 @@
   (when-let [m (meta f)]
     (:sci/macro m)))
 
-(defn macroexpand-call [ctx expr]
+(defn analyze-call [ctx expr]
   (if (empty? expr) expr
       (let [f (first expr)]
         (if (symbol? f)
-          (let [f (if-let [ns (namespace f)]
-                    (if (or (= "clojure.core" ns)
-                            (= "cljs.core" ns))
-                      (symbol (name f))
-                      f)
-                    f)]
-            (if (contains? macros f)
-              (do (check-permission! ctx f f)
-                  (case f
-                    do (mark-eval-call expr) ;; do will call macroexpand on every
-                    ;; subsequent expression
-                    let (expand-let ctx expr)
-                    (fn fn*) (expand-fn ctx expr false)
-                    def (expand-def ctx expr)
-                    (defn defmacro) (let [ret (expand-defn ctx expr)]
-                                      ret)
-                    -> (expand-> ctx (rest expr))
-                    ->> (expand->> ctx (rest expr))
-                    as-> (expand-as-> ctx expr)
-                    quote (do nil #_(prn "quote" expr) (second expr))
-                    syntax-quote (expand-syntax-quote ctx expr)
-                    comment (expand-comment ctx expr)
-                    loop (expand-loop ctx expr)
-                    lazy-seq (expand-lazy-seq ctx expr)
-                    for (macroexpand ctx (expand-for ctx expr))
-                    doseq (macroexpand ctx (expand-doseq ctx expr))
-                    require (mark-eval-call
-                             (cons 'require (map #(macroexpand ctx %)
-                                                 (rest expr))))
-                    cond (expand-cond ctx expr)
-                    case (expand-case ctx expr)
-                    try (expand-try ctx expr)
-                    declare (expand-declare ctx expr)
-                    ;; else:
-                    (mark-eval-call (doall (map #(macroexpand ctx %) expr)))))
-              (if-let [vf (resolve-symbol ctx f)]
-                (try (if (macro? vf)
-                       (let [v (apply vf expr
-                                      (:bindings ctx) (rest expr))
-                             expanded (macroexpand ctx v)]
-                         expanded)
-                       (mark-eval-call (doall (map #(macroexpand ctx %) expr))))
-                     (catch #?(:clj Exception :cljs js/Error) e
-                       (rethrow-with-location-of-node ctx e expr)))
-                (mark-eval-call (doall (map #(macroexpand ctx %) expr))))))
-          (let [ret (mark-eval-call (doall (map #(macroexpand ctx %) expr)))]
+          (let [f (or (get special-syms f) ;; in call position Clojure
+                                           ;; prioritizes special symbols over
+                                           ;; bindings
+                      (resolve-symbol ctx f))]
+            (if (and (not (eval? f)) ;; the symbol is not a binding
+                     (contains? macros f))
+              (case f
+                do (mark-eval-call expr) ;; do will call macroexpand on every
+                ;; subsequent expression
+                let (expand-let ctx expr)
+                (fn fn*) (expand-fn ctx expr false)
+                def (expand-def ctx expr)
+                (defn defmacro) (let [ret (expand-defn ctx expr)]
+                                  ret)
+                -> (expand-> ctx (rest expr))
+                ->> (expand->> ctx (rest expr))
+                as-> (expand-as-> ctx expr)
+                quote (do nil #_(prn "quote" expr) (second expr))
+                syntax-quote (expand-syntax-quote ctx expr)
+                comment (expand-comment ctx expr)
+                loop (expand-loop ctx expr)
+                lazy-seq (expand-lazy-seq ctx expr)
+                for (analyze ctx (expand-for ctx expr))
+                doseq (analyze ctx (expand-doseq ctx expr))
+                require (mark-eval-call
+                         (cons 'require (map #(analyze ctx %)
+                                             (rest expr))))
+                cond (expand-cond ctx expr)
+                case (expand-case ctx expr)
+                try (expand-try ctx expr)
+                declare (expand-declare ctx expr)
+                ;; else:
+                (mark-eval-call (doall (map #(analyze ctx %) expr))))
+              (try (if (macro? f)
+                     (let [v (apply f expr
+                                    (:bindings ctx) (rest expr))
+                           expanded (analyze ctx v)]
+                       expanded)
+                     (mark-eval-call (doall (map #(analyze ctx %) expr))))
+                   (catch #?(:clj Exception :cljs js/Error) e
+                     (rethrow-with-location-of-node ctx e expr)))))
+          (let [ret (mark-eval-call (doall (map #(analyze ctx %) expr)))]
             ret)))))
 
-(defn macroexpand
+(defn analyze
   [ctx expr]
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
@@ -405,13 +404,13 @@
                      ;; already expanded by reader
                      (:sci.impl/fn expr) (expand-fn-literal-body ctx expr)
                      (map? expr)
-                     (-> (zipmap (map #(macroexpand ctx %) (keys expr))
-                                 (map #(macroexpand ctx %) (vals expr)))
+                     (-> (zipmap (map #(analyze ctx %) (keys expr))
+                                 (map #(analyze ctx %) (vals expr)))
                          mark-eval)
                      (or (vector? expr) (set? expr))
-                     (-> (into (empty expr) (map #(macroexpand ctx %) expr))
+                     (-> (into (empty expr) (map #(analyze ctx %) expr))
                          mark-eval)
-                     (seq? expr) (macroexpand-call ctx expr)
+                     (seq? expr) (analyze-call ctx expr)
                      :else expr)
                    (select-keys (meta expr)
                                 [:row :col])))]

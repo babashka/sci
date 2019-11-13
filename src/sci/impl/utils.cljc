@@ -18,6 +18,9 @@
      (assoc m
             :sci.impl/eval true))))
 
+(defn eval? [x]
+  (some-> x meta :sci.impl/eval))
+
 (defn kw-identical? [k v]
   (#?(:clj identical? :cljs keyword-identical?)
    k v))

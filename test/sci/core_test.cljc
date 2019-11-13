@@ -174,7 +174,13 @@
          (eval* "(defn foo [] (as-> y x (inc y)))")))
     (is (thrown-with-msg?
          #?(:clj Exception :cljs js/Error) #"y"
-         (eval* "(defn foo [] (as-> 10 x (inc y)))")))))
+         (eval* "(defn foo [] (as-> 10 x (inc y)))"))))
+  (is (= 1 (eval* "((symbol \"do\") {'do 1})")))
+  (is (= 1 (eval* "(let [x 'do] (x {'do 1}))")))
+  (is (= 1 (eval* "(let [case 'case] (case {'case 1}))")))
+  ;; in call position Clojure prioritizes special symbols over bindings
+  (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
+  (is (= 1 (eval* "((symbol \"recur\") {'recur 1})"))))
 
 (deftest do-test
   (testing "expressions with do are evaluated in order and have side effects,
@@ -443,7 +449,8 @@
 (deftest variable-can-have-macro-or-var-name
   (is (= true (eval* "(defn foo [merge] merge) (foo true)")))
   (is (= true (eval* "(defn foo [merge] merge) (defn bar [foo] foo) (bar true)")))
-  (is (= true (eval* "(defn foo [comment] comment) (foo true)"))))
+  (is (= true (eval* "(defn foo [comment] comment) (foo true)")))
+  (is (= 2 (eval* "(defn foo [fn] (fn 1)) (foo inc)"))))
 
 (deftest try-catch-finally-throw-test
   (when-not tu/native?
