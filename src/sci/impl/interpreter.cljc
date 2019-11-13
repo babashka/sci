@@ -252,13 +252,12 @@
 (defn eval-call [ctx expr]
   (try (if (empty? expr) expr
            (if (empty? expr) expr
-               (let [f (first expr)
-                     f (if (symbol? f)
+               (let [raw-f (first expr)
+                     f (if (symbol? raw-f)
                          (or
-                          (when (= 'recur f) 'recur)
-                          (resolve-symbol ctx f)
-                          #_(get macros f))
-                         (interpret ctx f))]
+                          (when (= 'recur raw-f) 'recur)
+                          (resolve-symbol ctx raw-f))
+                         (interpret ctx raw-f))]
                  (case f
                    do
                    (eval-do ctx expr)
