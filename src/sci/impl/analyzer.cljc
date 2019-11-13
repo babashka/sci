@@ -12,6 +12,9 @@
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns]]))
 
+;; derived from (keys (. clojure.lang.Compiler specials))
+(def special-syms '#{try finally do if new recur quote catch throw def})
+;; built-in macros
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare})
@@ -25,8 +28,10 @@
               false)
       (throw-error-with-location (str sym " is not allowed!") sym))))
 
-(defn lookup-env [env sym sym-ns sym-name]
-  (let [env @env]
+(defn lookup-env [env sym]
+  (let [sym-ns (some-> (namespace sym) symbol)
+        sym-name (symbol (name sym))
+        env @env]
     (or (find env sym) ;; env can contains foo/bar symbols from bindings
         (if sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
@@ -37,9 +42,7 @@
           (some-> env :namespaces (get 'clojure.core) (find sym-name))))))
 
 (defn lookup [{:keys [:env :bindings :classes] :as ctx} sym]
-  (let [sym-ns (some-> (namespace sym) symbol)
-        sym-name (symbol (name sym))
-        [k v :as kv]
+  (let [[k v :as kv]
         (or
          ;; bindings are not checked for permissions
          (when-let [[k _v]
@@ -49,7 +52,7 @@
          (when-let
              [[k _ :as kv]
               (or
-               (lookup-env env sym sym-ns sym-name)
+               (lookup-env env sym)
                (find classes sym)
                (when (get macros sym)
                  [sym sym])
@@ -343,7 +346,10 @@
   (if (empty? expr) expr
       (let [f (first expr)]
         (if (symbol? f)
-          (let [f (resolve-symbol ctx f)]
+          (let [f (or (get special-syms f) ;; in call position Clojure
+                                           ;; prioritizes special symbols over
+                                           ;; bindings
+                      (resolve-symbol ctx f))]
             (if (and (not (eval? f)) ;; the symbol is not a binding
                      (contains? macros f))
               (case f

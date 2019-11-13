@@ -177,9 +177,9 @@
          (eval* "(defn foo [] (as-> 10 x (inc y)))"))))
   (is (= 1 (eval* "((symbol \"do\") {'do 1})")))
   (is (= 1 (eval* "(let [x 'do] (x {'do 1}))")))
-  ;; see https://clojure.atlassian.net/browse/CLJ-1216
-  (is (= 1 (eval* "(let [do 'do] (do {'do 1}))")))
-  (is (= 1 (eval* "(let [case 'case] (case {'case 1}))"))))
+  (is (= 1 (eval* "(let [case 'case] (case {'case 1}))")))
+  ;; in call position Clojure prioritizes special symbols over bindings
+  (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))"))))
 
 (deftest do-test
   (testing "expressions with do are evaluated in order and have side effects,
