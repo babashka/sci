@@ -344,35 +344,35 @@
       (let [f (first expr)]
         (if (symbol? f)
           (let [f (resolve-symbol ctx f)]
-            (if (and (not (eval? f)) (contains? macros f))
-              (do (check-permission! ctx f f)
-                  (case f
-                    do (mark-eval-call expr) ;; do will call macroexpand on every
-                    ;; subsequent expression
-                    let (expand-let ctx expr)
-                    (fn fn*) (expand-fn ctx expr false)
-                    def (expand-def ctx expr)
-                    (defn defmacro) (let [ret (expand-defn ctx expr)]
-                                      ret)
-                    -> (expand-> ctx (rest expr))
-                    ->> (expand->> ctx (rest expr))
-                    as-> (expand-as-> ctx expr)
-                    quote (do nil #_(prn "quote" expr) (second expr))
-                    syntax-quote (expand-syntax-quote ctx expr)
-                    comment (expand-comment ctx expr)
-                    loop (expand-loop ctx expr)
-                    lazy-seq (expand-lazy-seq ctx expr)
-                    for (analyze ctx (expand-for ctx expr))
-                    doseq (analyze ctx (expand-doseq ctx expr))
-                    require (mark-eval-call
-                             (cons 'require (map #(analyze ctx %)
-                                                 (rest expr))))
-                    cond (expand-cond ctx expr)
-                    case (expand-case ctx expr)
-                    try (expand-try ctx expr)
-                    declare (expand-declare ctx expr)
-                    ;; else:
-                    (mark-eval-call (doall (map #(analyze ctx %) expr)))))
+            (if (and (not (eval? f)) ;; the symbol is not a binding
+                     (contains? macros f))
+              (case f
+                do (mark-eval-call expr) ;; do will call macroexpand on every
+                ;; subsequent expression
+                let (expand-let ctx expr)
+                (fn fn*) (expand-fn ctx expr false)
+                def (expand-def ctx expr)
+                (defn defmacro) (let [ret (expand-defn ctx expr)]
+                                  ret)
+                -> (expand-> ctx (rest expr))
+                ->> (expand->> ctx (rest expr))
+                as-> (expand-as-> ctx expr)
+                quote (do nil #_(prn "quote" expr) (second expr))
+                syntax-quote (expand-syntax-quote ctx expr)
+                comment (expand-comment ctx expr)
+                loop (expand-loop ctx expr)
+                lazy-seq (expand-lazy-seq ctx expr)
+                for (analyze ctx (expand-for ctx expr))
+                doseq (analyze ctx (expand-doseq ctx expr))
+                require (mark-eval-call
+                         (cons 'require (map #(analyze ctx %)
+                                             (rest expr))))
+                cond (expand-cond ctx expr)
+                case (expand-case ctx expr)
+                try (expand-try ctx expr)
+                declare (expand-declare ctx expr)
+                ;; else:
+                (mark-eval-call (doall (map #(analyze ctx %) expr))))
               (try (if (macro? f)
                      (let [v (apply f expr
                                     (:bindings ctx) (rest expr))
