@@ -17,7 +17,7 @@
 ;; built-in macros
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
-               try defmacro declare})
+               try defmacro declare expand-dot})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -68,22 +68,29 @@
         [k @v] kv)
       kv)))
 
-(defn resolve-symbol [ctx sym]
-  (let [sym (strip-core-ns sym)
-        res (second
-             (or
-              (lookup ctx sym)
-              ;; TODO: check if symbol is in macros and then emit an error: cannot take
-              ;; the value of a macro
-              (let [n (name sym)]
-                (if (str/starts-with? n "'")
-                  (let [v (symbol (subs n 1))]
-                    [v v])
-                  (throw-error-with-location
-                   (str "Could not resolve symbol: " (str sym))
-                   sym)))))]
-    ;; (prn 'resolve expr '-> res)
-    res))
+(defn resolve-symbol
+  ([ctx sym] (resolve-symbol ctx sym false))
+  ([ctx sym call?]
+   (let [sym (strip-core-ns sym)
+         res (second
+              (or
+               (lookup ctx sym)
+               ;; TODO: check if symbol is in macros and then emit an error: cannot take
+               ;; the value of a macro
+               (let [n (name sym)]
+                 (cond
+                   (and call?
+                        (str/starts-with? n ".")
+                        (> (count n) 1))
+                   [sym 'expand-dot] ;; method invocation
+                   (str/starts-with? n "'")
+                   (let [v (symbol (subs n 1))]
+                     [v v])
+                   :else (throw-error-with-location
+                          (str "Could not resolve symbol: " (str sym))
+                          sym)))))]
+     ;; (prn 'resolve expr '-> res)
+     res)))
 
 (declare analyze)
 
@@ -351,6 +358,10 @@
                   env)))
   nil)
 
+(defn expand-dot [ctx [method-name obj & args]]
+  ;; TODO: expand into more forms than only method call
+  (analyze ctx (list '. obj (cons (symbol (subs (str method-name) 1)) args))))
+
 (defn macro? [f]
   (when-let [m (meta f)]
     (:sci/macro m)))
@@ -362,7 +373,7 @@
           (let [f (or (get special-syms f) ;; in call position Clojure
                       ;; prioritizes special symbols over
                       ;; bindings
-                      (resolve-symbol ctx f))]
+                      (resolve-symbol ctx f true))]
             (if (and (not (eval? f)) ;; the symbol is not a binding
                      (contains? macros f))
               (case f
@@ -390,6 +401,7 @@
                 case (expand-case ctx expr)
                 try (expand-try ctx expr)
                 declare (expand-declare ctx expr)
+                expand-dot (expand-dot ctx expr)
                 ;; else:
                 (mark-eval-call (doall (map #(analyze ctx %) expr))))
               (try
