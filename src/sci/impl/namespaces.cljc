@@ -1,7 +1,8 @@
 (ns sci.impl.namespaces
   {:no-doc true}
   (:require [clojure.string :as str]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [sci.impl.interop :as interop]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -403,6 +404,9 @@
    'with-meta with-meta
    'zipmap zipmap
    'zero? zero?
+   ;; interop
+   '__invoke-instance-method__ interop/invoke-instance-method
+   '. (with-meta interop/dot-macro {:sci/macro true})
    #?@(:clj ['+' +'
              '-' -'
              '*' *'

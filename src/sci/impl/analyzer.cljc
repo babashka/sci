@@ -28,7 +28,16 @@
               false)
       (throw-error-with-location (str sym " is not allowed!") sym))))
 
-(defn lookup-env [env sym]
+;; TODO: this is too dangerous on the JVM
+;; #?(:clj
+;;    (defn resolve-class [sym]
+;;      (or
+;;       (get clojure.lang.RT/DEFAULT_IMPORTS sym)
+;;       (try
+;;         (Class/forName (str sym))
+;;         (catch Exception _ nil)))))
+
+(defn lookup-env [env classes sym]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         env @env]
@@ -37,7 +46,9 @@
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [aliased (some-> env :aliases sym-ns)]
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
-                  [(symbol (str aliased) (str sym-name)) v])))
+                  [(symbol (str aliased) (str sym-name)) v]))
+              (when-let [clazz (get classes sym-ns)]
+                [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
           ;; no sym-ns, this could be a symbol from clojure.core
           (some-> env :namespaces (get 'clojure.core) (find sym-name))))))
 
@@ -52,12 +63,15 @@
          (when-let
              [[k _ :as kv]
               (or
-               (lookup-env env sym)
+               (lookup-env env classes sym)
                (find classes sym)
                (when (get macros sym)
                  [sym sym])
                (when (= 'recur sym)
-                 [sym sym #_(mark-resolve-sym sym)]))]
+                 [sym sym #_(mark-resolve-sym sym)])
+               ;; #?(:clj (when-let [v (resolve-class sym)]
+               ;;           [v v]))
+               )]
            (check-permission! ctx k sym)
            kv))]
     ;; (prn 'lookup sym '-> res)
@@ -367,54 +381,53 @@
     (:sci/macro m)))
 
 (defn analyze-call [ctx expr]
-  (if (empty? expr) expr
-      (let [f (first expr)]
-        (if (symbol? f)
-          (let [f (or (get special-syms f) ;; in call position Clojure
-                      ;; prioritizes special symbols over
-                      ;; bindings
-                      (resolve-symbol ctx f true))]
-            (if (and (not (eval? f)) ;; the symbol is not a binding
-                     (contains? macros f))
-              (case f
-                do (mark-eval-call expr) ;; do will call macroexpand on every
-                ;; subsequent expression
-                let (expand-let ctx expr)
-                (fn fn*) (expand-fn ctx expr false)
-                def (expand-def ctx expr)
-                (defn defmacro) (let [ret (expand-defn ctx expr)]
-                                  ret)
-                -> (expand-> ctx (rest expr))
-                ->> (expand->> ctx (rest expr))
-                as-> (expand-as-> ctx expr)
-                quote (do nil #_(prn "quote" expr) (second expr))
-                syntax-quote (expand-syntax-quote ctx expr)
-                comment (expand-comment ctx expr)
-                loop (expand-loop ctx expr)
-                lazy-seq (expand-lazy-seq ctx expr)
-                for (analyze ctx (expand-for ctx expr))
-                doseq (analyze ctx (expand-doseq ctx expr))
-                require (mark-eval-call
-                         (cons 'require (map #(analyze ctx %)
-                                             (rest expr))))
-                cond (expand-cond ctx expr)
-                case (expand-case ctx expr)
-                try (expand-try ctx expr)
-                declare (expand-declare ctx expr)
-                expand-dot (expand-dot ctx expr)
-                ;; else:
-                (mark-eval-call (doall (map #(analyze ctx %) expr))))
-              (try
-                (if (macro? f)
-                  (let [v (apply f expr
-                                 (:bindings ctx) (rest expr))
-                        expanded (analyze ctx v)]
-                    expanded)
-                  (mark-eval-call (doall (map #(analyze ctx %) expr))))
-                (catch #?(:clj Exception :cljs js/Error) e
-                  (rethrow-with-location-of-node ctx e expr)))))
-          (let [ret (mark-eval-call (doall (map #(analyze ctx %) expr)))]
-            ret)))))
+  (let [f (first expr)]
+    (if (symbol? f)
+      (let [f (or (get special-syms f) ;; in call position Clojure
+                  ;; prioritizes special symbols over
+                  ;; bindings
+                  (resolve-symbol ctx f true))]
+        (if (and (not (eval? f)) ;; the symbol is not a binding
+                 (contains? macros f))
+          (case f
+            do (mark-eval-call expr) ;; do will call macroexpand on every
+            ;; subsequent expression
+            let (expand-let ctx expr)
+            (fn fn*) (expand-fn ctx expr false)
+            def (expand-def ctx expr)
+            (defn defmacro) (let [ret (expand-defn ctx expr)]
+                              ret)
+            -> (expand-> ctx (rest expr))
+            ->> (expand->> ctx (rest expr))
+            as-> (expand-as-> ctx expr)
+            quote (do nil #_(prn "quote" expr) (second expr))
+            syntax-quote (expand-syntax-quote ctx expr)
+            comment (expand-comment ctx expr)
+            loop (expand-loop ctx expr)
+            lazy-seq (expand-lazy-seq ctx expr)
+            for (analyze ctx (expand-for ctx expr))
+            doseq (analyze ctx (expand-doseq ctx expr))
+            require (mark-eval-call
+                     (cons 'require (map #(analyze ctx %)
+                                         (rest expr))))
+            cond (expand-cond ctx expr)
+            case (expand-case ctx expr)
+            try (expand-try ctx expr)
+            declare (expand-declare ctx expr)
+            expand-dot (expand-dot ctx expr)
+            ;; else:
+            (mark-eval-call (doall (map #(analyze ctx %) expr))))
+          (try
+            (if (macro? f)
+              (let [v (apply f expr
+                             (:bindings ctx) (rest expr))
+                    expanded (analyze ctx v)]
+                expanded)
+              (mark-eval-call (doall (map #(analyze ctx %) expr))))
+            (catch #?(:clj Exception :cljs js/Error) e
+              (rethrow-with-location-of-node ctx e expr)))))
+      (let [ret (mark-eval-call (doall (map #(analyze ctx %) expr)))]
+        ret))))
 
 (defn analyze
   [ctx expr]
@@ -436,7 +449,7 @@
                      (or (vector? expr) (set? expr))
                      (-> (into (empty expr) (map #(analyze ctx %) expr))
                          mark-eval)
-                     (seq? expr) (analyze-call ctx expr)
+                     (and (seq? expr) (seq expr)) (analyze-call ctx expr)
                      :else expr)
                    (select-keys (meta expr)
                                 [:row :col])))]

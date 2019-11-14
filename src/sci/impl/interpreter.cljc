@@ -6,6 +6,7 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
+   [sci.impl.interop :as interop]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.parser :as p]
@@ -245,19 +246,27 @@
         ctx (assoc ctx :gensyms gensyms)]
     (walk-syntax-quote ctx (second expr))))
 
+(defn eval-static-method-invocation [ctx expr]
+  (interop/invoke-static-method ctx
+                                (cons (first expr)
+                                      (map #(interpret ctx %) (rest expr)))))
+
 ;;;; end syntax-quote
 
 (declare eval-string)
 
 (defn eval-call [ctx expr]
-  (try (if (empty? expr) expr
-           (let [f (first expr)]
-             (if (or (not (symbol? f)) (eval? f))
+  (try (let [f (first expr)
+             m (meta f)
+             eval? (:sci.impl/eval m)]
+         (cond (:sci.impl/static-access m)
+               (eval-static-method-invocation ctx expr)
+               (or eval? (not (symbol? f)))
                (let [f (interpret ctx f)]
                  (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
                      (throw (new #?(:clj Exception :cljs js/Error)
                                  (str "Cannot call " (pr-str f) " as a function.")))))
-               ;; if f is a symbol that we should not interpret anymore, it must be one of these:
+               :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
                (case f
                  do
                  (eval-do ctx expr)
@@ -284,7 +293,7 @@
                  require (eval-require ctx expr)
                  case (eval-case ctx expr)
                  try (eval-try ctx expr)
-                 syntax-quote (eval-syntax-quote ctx expr)))))
+                 syntax-quote (eval-syntax-quote ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -299,6 +308,7 @@
           (:sci.impl/try expr) (eval-try ctx expr)
           (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
+          (:sci.impl/static-field m) (interop/get-static-field ctx expr)
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
                               (map #(interpret ctx %) (vals expr)))
@@ -338,12 +348,13 @@
                          :realize-max
                          :preset ;; used by malli
                          :aliases
-                         :namespaces]}]
+                         :namespaces
+                         :classes]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         _ (init-env! env bindings aliases namespaces)
         ctx {:env env
-             :classes exception-bindings
+             :classes (merge exception-bindings classes)
              :bindings {}
              :allow (process-permissions (:allow preset) allow)
              :deny (process-permissions (:deny preset) deny)
