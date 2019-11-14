@@ -308,7 +308,7 @@
           (:sci.impl/try expr) (eval-try ctx expr)
           (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
-          (:sci.impl/static-field m) (interop/get-static-field ctx expr)
+          (:sci.impl/static-access m) (interop/get-static-field ctx expr)
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
                               (map #(interpret ctx %) (vals expr)))
