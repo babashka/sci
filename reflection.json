@@ -5,5 +5,9 @@
     "allPublicConstructors": true,
     "allDeclaredMethods": true,
     "allPublicMethods": true
+  },
+  {
+    "name":"java.lang.String",
+    "allPublicMethods":true
   }
 ]

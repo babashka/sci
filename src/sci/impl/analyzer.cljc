@@ -10,14 +10,15 @@
    [sci.impl.utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
-     merge-meta kw-identical? strip-core-ns]]))
+     merge-meta kw-identical? strip-core-ns resolve-class]]))
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
-(def special-syms '#{try finally do if new recur quote catch throw def})
+;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
+(def special-syms '#{try finally do if new recur quote catch throw def .})
 ;; built-in macros
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
-               try defmacro declare expand-dot})
+               try defmacro declare expand-dot* expand-constructor new .})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -37,7 +38,7 @@
 ;;         (Class/forName (str sym))
 ;;         (catch Exception _ nil)))))
 
-(defn lookup-env [env classes sym]
+(defn lookup* [{:keys [:env] :as ctx} sym]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         env @env]
@@ -47,12 +48,14 @@
               (when-let [aliased (some-> env :aliases sym-ns)]
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
                   [(symbol (str aliased) (str sym-name)) v]))
-              (when-let [clazz (get classes sym-ns)]
+              (when-let [clazz (resolve-class ctx sym-ns)]
                 [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
           ;; no sym-ns, this could be a symbol from clojure.core
-          (some-> env :namespaces (get 'clojure.core) (find sym-name))))))
+          (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
+              (when-let [c (resolve-class ctx sym-ns)]
+                [sym c]))))))
 
-(defn lookup [{:keys [:env :bindings :classes] :as ctx} sym]
+(defn lookup [{:keys [:bindings] :as ctx} sym]
   (let [[k v :as kv]
         (or
          ;; bindings are not checked for permissions
@@ -63,8 +66,7 @@
          (when-let
              [[k _ :as kv]
               (or
-               (lookup-env env classes sym)
-               (find classes sym)
+               (lookup* ctx sym)
                (when (get macros sym)
                  [sym sym])
                (when (= 'recur sym)
@@ -96,8 +98,12 @@
                    (and call?
                         (str/starts-with? n ".")
                         (> (count n) 1))
-                   [sym 'expand-dot] ;; method invocation
-                   (str/starts-with? n "'")
+                   [sym 'expand-dot*] ;; method invocation
+                   (and call?
+                        (str/ends-with? n ".")
+                        (> (count n) 1))
+                   [sym 'expand-constructor]
+                   (str/starts-with? n "'") ;; TODO: deprecated?
                    (let [v (symbol (subs n 1))]
                      [v v])
                    :else (throw-error-with-location
@@ -328,12 +334,13 @@
   [ctx expr]
   (let [catches (filter #(and (seq? %) (= 'catch (first %))) expr)
         catches (mapv (fn [c]
-                        (let [[_ ex binding & body] c
-                              clazz (resolve-symbol ctx ex)]
-                          {:class clazz
-                           :binding binding
-                           :body (analyze (assoc-in ctx [:bindings binding] nil)
-                                          (cons 'do body))}))
+                        (let [[_ ex binding & body] c]
+                          (if-let [clazz (resolve-class ctx ex)]
+                            {:class clazz
+                             :binding binding
+                             :body (analyze (assoc-in ctx [:bindings binding] nil)
+                                            (cons 'do body))}
+                            (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
         finally (let [l (last expr)]
                   (when (= 'finally (first l))
@@ -372,9 +379,32 @@
                   env)))
   nil)
 
-(defn expand-dot [ctx [method-name obj & args]]
-  ;; TODO: expand into more forms than only method call
-  (analyze ctx (list '. obj (cons (symbol (subs (str method-name) 1)) args))))
+;;;; Interop
+
+(defn expand-dot [ctx [_dot instance-expr [method-expr & args]]]
+  (let [instance-expr (analyze ctx instance-expr)
+        method-expr (str method-expr)
+        args (map #(analyze ctx %) args)
+        res `(~'. ~instance-expr ~method-expr ~args)]
+    (mark-eval-call res)))
+
+(defn expand-dot* [ctx [method-name obj & args]]
+  (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
+
+(defn expand-constructor [ctx [constructor-sym & args]]
+  (let [constructor-name (name constructor-sym)
+        args (map #(analyze ctx %) args)]
+    (mark-eval-call (list* 'new (with-meta (symbol (subs constructor-name 0
+                                                      (dec (count constructor-name))))
+                                  (meta constructor-sym))
+                           args))))
+
+(defn expand-new [ctx [_new class-sym & args]]
+  (if-let [clazz (resolve-class ctx class-sym)]
+    (mark-eval-call (list 'new clazz args))
+    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
+
+;;;; End interop
 
 (defn macro? [f]
   (when-let [m (meta f)]
@@ -414,7 +444,10 @@
             case (expand-case ctx expr)
             try (expand-try ctx expr)
             declare (expand-declare ctx expr)
-            expand-dot (expand-dot ctx expr)
+            expand-dot* (expand-dot* ctx expr)
+            . (expand-dot ctx expr)
+            expand-constructor (expand-constructor ctx expr)
+            new (expand-new ctx expr)
             ;; else:
             (mark-eval-call (doall (map #(analyze ctx %) expr))))
           (try

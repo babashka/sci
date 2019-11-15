@@ -11,9 +11,9 @@
 
 #?(:clj
    (def java-exception-bindings
-     {'Exception Exception
-      'Exception. create-jvm-exception
-      'java.lang.Exception Exception
+     {;; 'Exception Exception
+      ;; 'Exception. create-jvm-exception
+      ;; 'java.lang.Exception Exception
       'java.lang.Exception. create-jvm-exception
       'ArithmeticException ArithmeticException
       'java.lang.ArithMeticException ArithmeticException}))
