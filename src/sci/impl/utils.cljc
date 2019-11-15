@@ -91,7 +91,7 @@
 (def allowed-loop (with-meta (symbol "loop") {:row :allow}))
 (def allowed-recur (with-meta (symbol "recur") {:row :allow}))
 
-(defn resolve-class [{:keys [:env :classes]} sym]
-  (or (get classes sym)
+(defn resolve-class [{:keys [:env :sym->class]} sym]
+  (or (get sym->class sym)
       (when-let [v (get (:imports @env) sym)]
-        (get classes v))))
+        (get sym->class v))))

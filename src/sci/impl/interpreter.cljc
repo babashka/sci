@@ -367,16 +367,33 @@
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
 
 (def default-classes
-  #?(:clj {'Exception Exception
-           'java.lang.Exception Exception
-           'String String
-           'java.lang.String String}
-     :cljs {}))
+  #?(:clj {'java.lang.Exception {:class Exception}
+           'java.lang.String {:class String}
+           'java.lang.ArithmeticException ArithmeticException}
+     :cljs []))
 
 (def default-imports
-  #?(:clj {'Exception 'java.lang.Exception
-           'String 'java.lang.String}
+  #?(:clj '{Exception java.lang.Exception
+            String java.lang.String
+            ArithmeticException java.lang.ArithmeticException}
      :cljs {}))
+
+(defn normalize-classes [classes]
+  (let [sym->class (transient {})
+        class->sym (transient {})
+        sym->class-opts (transient {})]
+    (reduce-kv (fn [_ sym class-opts]
+                 (let [[class class-opts] (if (map? class-opts)
+                                            [(:class class-opts) class-opts]
+                                            [class-opts nil])]
+                   (assoc! sym->class sym class)
+                   (assoc! class->sym class sym)
+                   (when class-opts (assoc! sym->class-opts sym class-opts))))
+               nil
+               classes)
+    {:sym->class (persistent! sym->class)
+     :class->sym (persistent! class->sym)
+     :sym->class-opts (persistent! sym->class-opts)}))
 
 (defn opts->ctx [{:keys [:bindings :env
                          :allow :deny
@@ -389,13 +406,14 @@
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
+        bindings (merge exception-bindings bindings)
         _ (init-env! env bindings aliases namespaces imports)
-        ctx {:classes (merge default-classes exception-bindings classes)
-             :env env
-             :bindings {}
-             :allow (process-permissions (:allow preset) allow)
-             :deny (process-permissions (:deny preset) deny)
-             :realize-max (or realize-max (:realize-max preset))}]
+        ctx (merge {:env env
+                    :bindings {}
+                    :allow (process-permissions (:allow preset) allow)
+                    :deny (process-permissions (:deny preset) deny)
+                    :realize-max (or realize-max (:realize-max preset))}
+                   (normalize-classes (merge default-classes classes)))]
     ctx))
 
 (defn eval-edn-vals [ctx edn-vals]
