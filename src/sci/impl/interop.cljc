@@ -25,7 +25,7 @@
      :cljs (throw (js/Error. "Not imlemented yet."))))
 
 (defn invoke-constructor #?(:clj [_ctx ^Class class args]
-                          :cljs [_ctx _ _])
+                            :cljs [_ctx _ _])
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (throw (js/Error. "Not imlemented yet."))))
 
