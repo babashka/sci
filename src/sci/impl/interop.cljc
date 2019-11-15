@@ -9,7 +9,8 @@
 
 (defn invoke-instance-method #?(:clj [_ctx obj method args]
                                 :cljs [_ctx _obj _method _args])
-  #?(:clj (Reflector/invokeInstanceMethod obj method (object-array args))
+  #?(:clj
+     (Reflector/invokeInstanceMethod obj method (object-array args))
      :cljs (throw (js/Error. "Not imlemented yet."))))
 
 (defn invoke-static-method #?(:clj [_ctx [[^Class class method-name] & args]]

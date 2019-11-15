@@ -262,12 +262,16 @@
   (let [args (map #(interpret ctx %) args)] ;; eval args!
     (interop/invoke-constructor ctx class args)))
 
-(defn eval-instance-method-invocation [ctx [_dot instance-expr method-str args]]
-  (let [instance-expr (interpret ctx instance-expr)
-        clazz (type instance-expr)
-        ;; _ (assert (contains? (:classes ctx) clazz) (str "Instance call on " clazz " not allowed."))
-        args (map #(interpret ctx %) args)] ;; eval args!
-    (interop/invoke-instance-method ctx instance-expr method-str args)))
+(defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
+  (let [instance-expr* (interpret ctx instance-expr)
+        clazz (type instance-expr*)
+        opts (get class->opts clazz)]
+    ;; we have to check options at run time, since we don't know what the class
+    ;; of instance-expr is at analysis time
+    (when-not opts
+      (throw-error-with-location (str "Method " method-str " on " clazz " not allowed!") instance-expr))
+    (let [args (map #(interpret ctx %) args)] ;; eval args!
+      (interop/invoke-instance-method ctx instance-expr* method-str args))))
 
 ;;;; End interop
 
@@ -380,20 +384,17 @@
 
 (defn normalize-classes [classes]
   (let [sym->class (transient {})
-        class->sym (transient {})
-        sym->class-opts (transient {})]
+        class->opts (transient {})]
     (reduce-kv (fn [_ sym class-opts]
                  (let [[class class-opts] (if (map? class-opts)
                                             [(:class class-opts) class-opts]
-                                            [class-opts nil])]
+                                            [class-opts {}])]
                    (assoc! sym->class sym class)
-                   (assoc! class->sym class sym)
-                   (when class-opts (assoc! sym->class-opts sym class-opts))))
+                   (assoc! class->opts class class-opts)))
                nil
                classes)
     {:sym->class (persistent! sym->class)
-     :class->sym (persistent! class->sym)
-     :sym->class-opts (persistent! sym->class-opts)}))
+     :class->opts (persistent! class->opts)}))
 
 (defn opts->ctx [{:keys [:bindings :env
                          :allow :deny

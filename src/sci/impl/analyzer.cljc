@@ -335,7 +335,9 @@
   (let [catches (filter #(and (seq? %) (= 'catch (first %))) expr)
         catches (mapv (fn [c]
                         (let [[_ ex binding & body] c]
-                          (if-let [clazz (resolve-class ctx ex)]
+                          (if-let [clazz (or (resolve-class ctx ex)
+                                             ;; the JS version still defines js/Error as a "var"
+                                             (resolve-symbol ctx ex))]
                             {:class clazz
                              :binding binding
                              :body (analyze (assoc-in ctx [:bindings binding] nil)
