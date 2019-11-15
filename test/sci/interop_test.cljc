@@ -31,7 +31,8 @@
 
 #?(:clj
    (deftest constructor-test
-     (is (= "dude" (eval* "(String. (str \"dude\"))")))))
+     (is (= "dude" (eval* "(String. (str \"dude\"))")))
+     (is (= "dude" (eval* "(new String (str \"dude\"))")))))
 
 #?(:clj
    (deftest import-test
