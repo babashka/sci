@@ -264,8 +264,10 @@
 
 (defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
   (let [instance-expr* (interpret ctx instance-expr)
-        clazz (type instance-expr*)
-        opts (get class->opts clazz)]
+        clazz (#?(:clj class :cljs type) instance-expr*)
+        class-name (#?(:clj .getName :cljs str) clazz)
+        class-symbol (symbol class-name)
+        opts (get class->opts class-symbol)]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
     (when-not opts
@@ -390,7 +392,9 @@
                                             [(:class class-opts) class-opts]
                                             [class-opts {}])]
                    (assoc! sym->class sym class)
-                   (assoc! class->opts class class-opts)))
+                   ;; storing the physical class as key didn't work well with
+                   ;; GraalVM
+                   (assoc! class->opts sym class-opts)))
                nil
                classes)
     {:sym->class (persistent! sym->class)
