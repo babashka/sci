@@ -392,17 +392,16 @@
 (defn normalize-classes [classes]
   (loop [sym->class (transient {})
          class->opts (transient {})
-         [kv & rest-kvs] classes]
-    (if kv
-      (let [[sym class-opts] kv
-            [class class-opts] (if (map? class-opts)
+         kvs classes]
+    (if-let [[sym class-opts] (first kvs)]
+      (let [[class class-opts] (if (map? class-opts)
                                  [(:class class-opts) class-opts]
                                  [class-opts {}])]
         (recur (assoc! sym->class sym class)
                ;; storing the physical class as key didn't work well with
                ;; GraalVM
                (assoc! class->opts sym class-opts)
-               rest-kvs))
+               (rest kvs)))
       {:sym->class (persistent! sym->class)
        :class->opts (persistent! class->opts)})))
 
