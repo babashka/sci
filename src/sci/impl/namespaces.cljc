@@ -1,8 +1,7 @@
 (ns sci.impl.namespaces
   {:no-doc true}
   (:require [clojure.string :as str]
-            [clojure.set :as set]
-            [sci.impl.interop :as interop]))
+            [clojure.set :as set]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -16,8 +15,8 @@
   `(let [n# (long ~n)]
      (loop [~i 0]
        (when (< ~i n#)
-        ~@body
-        (recur (unchecked-inc ~i))))))
+         ~@body
+         (recur (unchecked-inc ~i))))))
 
 (defn if-not*
   "if-not from clojure.core"
@@ -404,9 +403,6 @@
    'with-meta with-meta
    'zipmap zipmap
    'zero? zero?
-   ;; interop
-   '__invoke-instance-method__ interop/invoke-instance-method
-   '. (with-meta interop/dot-macro {:sci/macro true})
    #?@(:clj ['+' +'
              '-' -'
              '*' *'

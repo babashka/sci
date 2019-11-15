@@ -12,14 +12,14 @@
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
-                                     strip-core-ns eval?]]))
+                                     strip-core-ns]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
 
 (def macros
   '#{do if when and or -> ->> as-> quote let fn def defn
-     lazy-seq require try syntax-quote case})
+     lazy-seq require try syntax-quote case .})
 
 ;;;; Evaluation
 
@@ -92,14 +92,16 @@
     (swap! (:env ctx) assoc var-name init)
     init))
 
-(defn lookup [{:keys [:bindings :env :classes]} sym]
-  (or
-   (find bindings sym)
-   (when (some-> sym meta :sci.impl/var.declared)
-     (find @env sym))
-   (find classes sym)
-   (when (get macros sym)
-     [sym sym])))
+(defn lookup [{:keys [:bindings :env] :as ctx} sym]
+  (let [env @env]
+    (or
+     (find bindings sym)
+     (when (some-> sym meta :sci.impl/var.declared)
+       (find env sym))
+     (when-let [c (interop/resolve-class ctx sym)]
+       [sym c]) ;; TODO, don't we resolve classes in the analyzer??
+     (when (get macros sym)
+       [sym sym]))))
 
 (defn resolve-symbol [ctx expr]
   (second
@@ -246,12 +248,34 @@
         ctx (assoc ctx :gensyms gensyms)]
     (walk-syntax-quote ctx (second expr))))
 
+;;;; End syntax-quote
+
+;;;; Interop
+
 (defn eval-static-method-invocation [ctx expr]
   (interop/invoke-static-method ctx
                                 (cons (first expr)
+                                      ;; eval args!
                                       (map #(interpret ctx %) (rest expr)))))
 
-;;;; end syntax-quote
+(defn eval-constructor-invocation [ctx [_new class args]]
+  (let [args (map #(interpret ctx %) args)] ;; eval args!
+    (interop/invoke-constructor ctx class args)))
+
+(defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
+  (let [instance-expr* (interpret ctx instance-expr)
+        clazz (#?(:clj class :cljs type) instance-expr*)
+        class-name (#?(:clj .getName :cljs str) clazz)
+        class-symbol (symbol class-name)
+        opts (get class->opts class-symbol)]
+    ;; we have to check options at run time, since we don't know what the class
+    ;; of instance-expr is at analysis time
+    (when-not opts
+      (throw-error-with-location (str "Method " method-str " on " clazz " not allowed!") instance-expr))
+    (let [args (map #(interpret ctx %) args)] ;; eval args!
+      (interop/invoke-instance-method ctx instance-expr* method-str args))))
+
+;;;; End interop
 
 (declare eval-string)
 
@@ -293,7 +317,10 @@
                  require (eval-require ctx expr)
                  case (eval-case ctx expr)
                  try (eval-try ctx expr)
-                 syntax-quote (eval-syntax-quote ctx expr))))
+                 syntax-quote (eval-syntax-quote ctx expr)
+                 ;; interop
+                 new (eval-constructor-invocation ctx expr)
+                 . (eval-instance-method-invocation ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -324,16 +351,18 @@
                     n)
       ret)))
 
-;;;; Called from public API
 
-(defn init-env! [env bindings aliases namespaces]
+;;;; Initialization
+
+(defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
                (let [env-val (merge env bindings)
                      namespaces (merge-with merge namespaces/namespaces (:namespaces env) namespaces)
                      aliases (merge namespaces/aliases (:aliases env) aliases)]
                  (assoc env-val
                         :namespaces namespaces
-                        :aliases aliases)))))
+                        :aliases aliases
+                        :imports imports)))))
 
 (def presets
   {:termination-safe
@@ -343,26 +372,64 @@
 (defn process-permissions [& permissions]
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
 
+(def default-classes
+  #?(:clj {'java.lang.Exception {:class Exception}
+           'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
+           'java.lang.String {:class String}
+           'java.lang.Integer Integer
+           'java.lang.Double Double
+           'java.lang.ArithmeticException ArithmeticException}
+     :cljs []))
+
+(def default-imports
+  #?(:clj '{Exception java.lang.Exception
+            String java.lang.String
+            ArithmeticException java.lang.ArithmeticException
+            Integer java.lang.Integer
+            Double java.lang.Double}
+     :cljs {}))
+
+(defn normalize-classes [classes]
+  (let [sym->class (transient {})
+        class->opts (transient {})]
+    (reduce-kv (fn [_ sym class-opts]
+                 (let [[class class-opts] (if (map? class-opts)
+                                            [(:class class-opts) class-opts]
+                                            [class-opts {}])]
+                   (assoc! sym->class sym class)
+                   ;; storing the physical class as key didn't work well with
+                   ;; GraalVM
+                   (assoc! class->opts sym class-opts)))
+               nil
+               classes)
+    {:sym->class (persistent! sym->class)
+     :class->opts (persistent! class->opts)}))
+
 (defn opts->ctx [{:keys [:bindings :env
                          :allow :deny
                          :realize-max
                          :preset ;; used by malli
                          :aliases
                          :namespaces
-                         :classes]}]
+                         :classes
+                         :imports]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
-        _ (init-env! env bindings aliases namespaces)
-        ctx {:env env
-             :classes (merge exception-bindings classes)
-             :bindings {}
-             :allow (process-permissions (:allow preset) allow)
-             :deny (process-permissions (:deny preset) deny)
-             :realize-max (or realize-max (:realize-max preset))}]
+        imports (merge default-imports imports)
+        bindings (merge exception-bindings bindings)
+        _ (init-env! env bindings aliases namespaces imports)
+        ctx (merge {:env env
+                    :bindings {}
+                    :allow (process-permissions (:allow preset) allow)
+                    :deny (process-permissions (:deny preset) deny)
+                    :realize-max (or realize-max (:realize-max preset))}
+                   (normalize-classes (merge default-classes classes)))]
     ctx))
 
 (defn eval-edn-vals [ctx edn-vals]
   (eval-do ctx (cons 'do edn-vals)))
+
+;;;; Called from public API
 
 (defn eval-string
   ([s] (eval-string s nil))
