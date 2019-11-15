@@ -375,13 +375,17 @@
 (def default-classes
   #?(:clj {'java.lang.Exception {:class Exception}
            'java.lang.String {:class String}
+           'java.lang.Integer Integer
+           'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException}
      :cljs []))
 
 (def default-imports
   #?(:clj '{Exception java.lang.Exception
             String java.lang.String
-            ArithmeticException java.lang.ArithmeticException}
+            ArithmeticException java.lang.ArithmeticException
+            Integer java.lang.Integer
+            Double java.lang.Double}
      :cljs {}))
 
 (defn normalize-classes [classes]

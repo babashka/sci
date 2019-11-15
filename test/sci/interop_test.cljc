@@ -3,15 +3,28 @@
    #?(:clj [clojure.test :as test :refer [deftest is testing]])
    [sci.test-utils :as tu]))
 
-(defn with-string-class [expr]
-  (tu/eval* expr #?(:clj {:classes {'java.lang.String String}
-                          :imports {'String 'java.lang.String}}
-                    :cljs {})))
+(defn eval* [expr]
+  (tu/eval* expr {}))
 
 #?(:clj
    (deftest instance-methods
-     (is (= 3 (with-string-class "(.length \"foo\")")))
+     (is (= 3 (eval* "(.length \"foo\")")))
      (testing "calling instance methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"getName.*Class.*allowed"
-                             (with-string-class "(-> \"foo\" .getClass .getName)"))))
-     (is (= "hii" (with-string-class "(def x \"foo\") (-> x (.replace \\o \\i) (.replace \"f\" \"h\"))")))))
+                             (eval* "(-> \"foo\" .getClass .getName)"))))
+     (is (= "hii" (eval* "(def x \"foo\") (-> x (.replace \\o \\i) (.replace \"f\" \"h\"))")))))
+
+#?(:clj
+   (deftest static-methods
+     (is (= 123 (eval* "(Integer/parseInt \"123\")")))
+     (is (= 123 (eval* "(Integer/parseInt (str \"12\" \"3\") (inc 9))")))
+     (testing "calling static methods on unconfigured classes is not allowed"
+       (is (thrown-with-msg? Exception #"not"
+                             (eval* "(System/exit 0)"))))))
+
+#?(:clj
+   (deftest static-fields
+     (is (some? (eval* "Integer/SIZE")))
+     (testing "calling static field on unconfigured classes is not allowed"
+       (is (thrown-with-msg? Exception #"not"
+                             (eval* "System/PrintStream"))))))
