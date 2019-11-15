@@ -14,5 +14,4 @@
      (testing "calling instance methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"getName.*Class.*allowed"
                              (with-string-class "(-> \"foo\" .getClass .getName)"))))
-     (is (= \o (with-string-class "(def x 0) (.charAt \"foo\" (inc x))")))
-     #_(is (= \o (with-string-class "(-> \"foo\" (.charAt) )")))))
+     (is (= "hii" (with-string-class "(def x \"foo\") (-> x (.replace \\o \\i) (.replace \"f\" \"h\"))")))))
