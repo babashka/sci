@@ -382,7 +382,7 @@
                   env)))
   nil)
 
-(defn do-import [{:keys [:env]} [_ & import-symbols-or-lists]]
+(defn do-import [{:keys [:env] :as ctx} [_ & import-symbols-or-lists :as expr]]
   (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
                    import-symbols-or-lists)]
     (doseq [spec (reduce (fn [v spec]
@@ -391,9 +391,12 @@
                             (let [p (first spec) cs (rest spec)]
                               (into v (map #(str p "." %) cs)))))
                          [] specs)]
-      (let [last-dot (str/last-index-of spec ".")
-            class-name (subs spec (inc last-dot) (count spec))]
-        (swap! env assoc-in [:imports (symbol class-name)] (symbol spec))))))
+      (let [fq-class-name (symbol spec)]
+        (when-not (interop/resolve-class ctx fq-class-name)
+          (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
+        (let [last-dot (str/last-index-of spec ".")
+              class-name (subs spec (inc last-dot) (count spec))]
+          (swap! env assoc-in [:imports (symbol class-name)] fq-class-name))))))
 
 ;;;; Interop
 

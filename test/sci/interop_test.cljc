@@ -31,4 +31,6 @@
 
 #?(:clj
    (deftest import-test
-     (is (some? (eval* "(import clojure.lang.ExceptionInfo) (type ExceptionInfo)")))))
+     (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
+     (is (thrown-with-msg? Exception #"resolve.*at.*1"
+                           (eval* "(import foo.bar.Baz)")))))
