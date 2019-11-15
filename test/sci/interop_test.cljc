@@ -30,6 +30,10 @@
                              (eval* "System/PrintStream"))))))
 
 #?(:clj
+   (deftest constructor-test
+     (is (= "dude" (eval* "(String. (str \"dude\"))")))))
+
+#?(:clj
    (deftest import-test
      (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
      (is (thrown-with-msg? Exception #"resolve.*at.*1"

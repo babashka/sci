@@ -410,18 +410,20 @@
 (defn expand-dot* [ctx [method-name obj & args]]
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
-(defn expand-constructor [ctx [constructor-sym & args]]
-  (let [constructor-name (name constructor-sym)
-        args (map #(analyze ctx %) args)]
-    (mark-eval-call (list* 'new (with-meta (symbol (subs constructor-name 0
-                                                      (dec (count constructor-name))))
-                                  (meta constructor-sym))
-                           args))))
 
 (defn expand-new [ctx [_new class-sym & args]]
   (if-let [clazz (interop/resolve-class ctx class-sym)]
-    (mark-eval-call (list 'new clazz args))
+    (let [args (map #(analyze ctx %) args)] ;; analyze args!
+      (mark-eval-call (list 'new clazz args)))
     (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
+
+(defn expand-constructor [ctx [constructor-sym & args]]
+  (let [constructor-name (name constructor-sym)
+        class-sym (with-meta (symbol (subs constructor-name 0
+                                           (dec (count constructor-name))))
+                    (meta constructor-sym))]
+    (expand-new ctx (with-meta (list* 'new class-sym args)
+                      (meta constructor-sym)))))
 
 ;;;; End interop
 
