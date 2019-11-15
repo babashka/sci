@@ -12,7 +12,7 @@
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
-                                     strip-core-ns resolve-class]]))
+                                     strip-core-ns]]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -98,7 +98,7 @@
      (find bindings sym)
      (when (some-> sym meta :sci.impl/var.declared)
        (find env sym))
-     (when-let [c (resolve-class ctx sym)]
+     (when-let [c (interop/resolve-class ctx sym)]
        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
      (when (get macros sym)
        [sym sym]))))
@@ -374,6 +374,7 @@
 
 (def default-classes
   #?(:clj {'java.lang.Exception {:class Exception}
+           'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
            'java.lang.String {:class String}
            'java.lang.Integer Integer
            'java.lang.Double Double

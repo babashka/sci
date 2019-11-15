@@ -7,6 +7,12 @@
     "allPublicMethods": true
   },
   {
+    "name": "clojure.lang.ExceptionInfo",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
+  },
+  {
     "name":"java.lang.String",
     "allPublicMethods":true,
     "allPublicFields": true,

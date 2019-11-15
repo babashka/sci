@@ -28,3 +28,7 @@
      (testing "calling static field on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
                              (eval* "System/PrintStream"))))))
+
+#?(:clj
+   (deftest import-test
+     (is (some? (eval* "(import clojure.lang.ExceptionInfo) (type ExceptionInfo)")))))

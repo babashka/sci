@@ -28,3 +28,8 @@
                           :cljs [_ctx _ _])
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (throw (js/Error. "Not imlemented yet."))))
+
+(defn resolve-class [{:keys [:env :sym->class]} sym]
+  (or (get sym->class sym)
+      (when-let [v (get (:imports @env) sym)]
+        (get sym->class v))))

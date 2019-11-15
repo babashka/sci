@@ -7,10 +7,11 @@
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
+   [sci.impl.interop :as interop]
    [sci.impl.utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
-     merge-meta kw-identical? strip-core-ns resolve-class]]))
+     merge-meta kw-identical? strip-core-ns]]))
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
@@ -18,7 +19,7 @@
 ;; built-in macros
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
-               try defmacro declare expand-dot* expand-constructor new .})
+               try defmacro declare expand-dot* expand-constructor new . import})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -48,11 +49,11 @@
               (when-let [aliased (some-> env :aliases sym-ns)]
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
                   [(symbol (str aliased) (str sym-name)) v]))
-              (when-let [clazz (resolve-class ctx sym-ns)]
+              (when-let [clazz (interop/resolve-class ctx sym-ns)]
                 [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
           ;; no sym-ns, this could be a symbol from clojure.core
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
-              (when-let [c (resolve-class ctx sym-ns)]
+              (when-let [c (interop/resolve-class ctx sym)]
                 [sym c]))))))
 
 (defn lookup [{:keys [:bindings] :as ctx} sym]
@@ -335,7 +336,7 @@
   (let [catches (filter #(and (seq? %) (= 'catch (first %))) expr)
         catches (mapv (fn [c]
                         (let [[_ ex binding & body] c]
-                          (if-let [clazz (or (resolve-class ctx ex)
+                          (if-let [clazz (or (interop/resolve-class ctx ex)
                                              ;; the JS version still defines js/Error as a "var"
                                              (resolve-symbol ctx ex))]
                             {:class clazz
@@ -381,6 +382,19 @@
                   env)))
   nil)
 
+(defn do-import [{:keys [:env]} [_ & import-symbols-or-lists]]
+  (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
+                   import-symbols-or-lists)]
+    (doseq [spec (reduce (fn [v spec]
+                          (if (symbol? spec)
+                            (conj v (name spec))
+                            (let [p (first spec) cs (rest spec)]
+                              (into v (map #(str p "." %) cs)))))
+                         [] specs)]
+      (let [last-dot (str/last-index-of spec ".")
+            class-name (subs spec (inc last-dot) (count spec))]
+        (swap! env assoc-in [:imports (symbol class-name)] (symbol spec))))))
+
 ;;;; Interop
 
 (defn expand-dot [ctx [_dot instance-expr [method-expr & args]]]
@@ -402,7 +416,7 @@
                            args))))
 
 (defn expand-new [ctx [_new class-sym & args]]
-  (if-let [clazz (resolve-class ctx class-sym)]
+  (if-let [clazz (interop/resolve-class ctx class-sym)]
     (mark-eval-call (list 'new clazz args))
     (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
 
@@ -450,6 +464,7 @@
             . (expand-dot ctx expr)
             expand-constructor (expand-constructor ctx expr)
             new (expand-new ctx expr)
+            import (do-import ctx expr)
             ;; else:
             (mark-eval-call (doall (map #(analyze ctx %) expr))))
           (try
