@@ -390,20 +390,21 @@
      :cljs {}))
 
 (defn normalize-classes [classes]
-  (let [sym->class (transient {})
-        class->opts (transient {})]
-    (reduce-kv (fn [_ sym class-opts]
-                 (let [[class class-opts] (if (map? class-opts)
-                                            [(:class class-opts) class-opts]
-                                            [class-opts {}])]
-                   (assoc! sym->class sym class)
-                   ;; storing the physical class as key didn't work well with
-                   ;; GraalVM
-                   (assoc! class->opts sym class-opts)))
-               nil
-               classes)
-    {:sym->class (persistent! sym->class)
-     :class->opts (persistent! class->opts)}))
+  (loop [sym->class (transient {})
+         class->opts (transient {})
+         [kv & rest-kvs] classes]
+    (if kv
+      (let [[sym class-opts] kv
+            [class class-opts] (if (map? class-opts)
+                                 [(:class class-opts) class-opts]
+                                 [class-opts {}])]
+        (recur (assoc! sym->class sym class)
+               ;; storing the physical class as key didn't work well with
+               ;; GraalVM
+               (assoc! class->opts sym class-opts)
+               rest-kvs))
+      {:sym->class (persistent! sym->class)
+       :class->opts (persistent! class->opts)})))
 
 (defn opts->ctx [{:keys [:bindings :env
                          :allow :deny

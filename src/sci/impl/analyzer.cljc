@@ -338,7 +338,7 @@
                         (let [[_ ex binding & body] c]
                           (if-let [clazz (or (interop/resolve-class ctx ex)
                                              ;; the JS version still defines js/Error as a "var"
-                                             (resolve-symbol ctx ex))]
+                                             #?(:cljs (resolve-symbol ctx ex)))]
                             {:class clazz
                              :binding binding
                              :body (analyze (assoc-in ctx [:bindings binding] nil)
