@@ -280,6 +280,7 @@
 (declare eval-string)
 
 (defn eval-call [ctx expr]
+  ;; (prn "EXPR" expr)
   (try (let [f (first expr)
              m (meta f)
              eval? (:sci.impl/eval m)]
