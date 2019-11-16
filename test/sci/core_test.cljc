@@ -481,7 +481,9 @@
          (tu/assert-submap {:type :sci/error, :row 1, :col 6, :a 1}
                            (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))])
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Foo"
-                        (eval* "(try 1 (catch Foo e e))"))))
+                        (eval* "(try 1 (catch Foo e e))")))
+  (testing "try block can have multiple expressions"
+    (is (= 3 (eval* "(try 1 2 3)")))))
 
 (deftest syntax-quote-test
   (is (= '(list 10 10)
