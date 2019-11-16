@@ -195,6 +195,7 @@
    'find find
    'frequencies frequencies
    'float float
+   'fn? fn?
    'get get
    'get-in get-in
    'group-by group-by
