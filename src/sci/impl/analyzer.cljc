@@ -46,7 +46,7 @@
         env @env]
     (or (find env sym) ;; env can contain foo/bar symbols from bindings
         (cond
-          (and sym-ns (= sym-ns 'clojure.core)) ;; or cljs.core?
+          (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))) ;; or cljs.core?
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
               (when-let [v (get macros sym-name)]
                 [sym v]))
