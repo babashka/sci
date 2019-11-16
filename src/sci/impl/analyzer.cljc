@@ -337,8 +337,24 @@
     (mark-eval-call ret)))
 
 (defn expand-try
-  [ctx expr]
-  (let [catches (filter #(and (seq? %) (= 'catch (first %))) expr)
+  [ctx [_try & body]]
+  (let [[body-exprs
+         catches
+         finally]
+        (loop [[expr & exprs] body
+               body-exprs []
+               catch-exprs []
+               finally-expr nil]
+          (if expr
+            (cond (and (seq? expr) (= 'catch (first expr)))
+                  (recur exprs body-exprs (conj catch-exprs expr) finally-expr)
+                  (and (empty? exprs) (and (seq? expr) (= 'finally (first expr))))
+                  [body-exprs catch-exprs expr]
+                  :else
+                  ;; TODO: cannot add body expression when catch is not empty
+                  ;; TODO: can't have finally as non-last expression
+                  (recur exprs (conj body-exprs expr) catch-exprs finally-expr))
+            [body-exprs catch-exprs finally-expr]))
         catches (mapv (fn [c]
                         (let [[_ ex binding & body] c]
                           (if-let [clazz (or (interop/resolve-class ctx ex)
@@ -350,12 +366,11 @@
                                             (cons 'do body))}
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
-        finally (let [l (last expr)]
-                  (when (= 'finally (first l))
-                    (analyze ctx (cons 'do (rest l)))))]
+        finally (when finally
+                  (analyze ctx (cons 'do (rest finally))))]
     (mark-eval
      {:sci.impl/try
-      {:body (analyze ctx (second expr))
+      {:body (analyze ctx (cons 'do body-exprs))
        :catches catches
        :finally finally}})))
 

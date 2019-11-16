@@ -350,7 +350,7 @@
                                                      expr))
           :else (throw (new #?(:clj Exception :cljs js/Error) (str "unexpected: " expr))))]
     ;; for debugging:
-    ;; (prn expr '-> ret)
+    ;; (prn expr (meta expr) '-> ret)
     (if-let [n (:realize-max ctx)]
       (max-or-throw ret (assoc ctx
                                :expression expr)
