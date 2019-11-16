@@ -23,12 +23,13 @@
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
-    (when-not (if allow (contains? allow check-sym)
-                  true)
-      (throw-error-with-location (str sym " is not allowed!") sym))
-    (when (if deny (contains? deny check-sym)
-              false)
-      (throw-error-with-location (str sym " is not allowed!") sym))))
+    (let [check-sym (strip-core-ns check-sym)]
+      (when-not (if allow (contains? allow check-sym)
+                    true)
+        (throw-error-with-location (str sym " is not allowed!") sym))
+      (when (if deny (contains? deny check-sym)
+                false)
+        (throw-error-with-location (str sym " is not allowed!") sym)))))
 
 ;; TODO: this is too dangerous on the JVM
 ;; #?(:clj
@@ -43,18 +44,27 @@
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         env @env]
-    (or (find env sym) ;; env can contains foo/bar symbols from bindings
-        (if sym-ns
+    (or (find env sym) ;; env can contain foo/bar symbols from bindings
+        (cond
+          (and sym-ns (= sym-ns 'clojure.core)) ;; or cljs.core?
+          (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
+              (when-let [v (get macros sym-name)]
+                [sym v]))
+          sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [aliased (some-> env :aliases sym-ns)]
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
                   [(symbol (str aliased) (str sym-name)) v]))
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
                 [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
+          :else
           ;; no sym-ns, this could be a symbol from clojure.core
-          (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
-              (when-let [c (interop/resolve-class ctx sym)]
-                [sym c]))))))
+          (or
+           (some-> env :namespaces (get 'clojure.core) (find sym-name))
+           (when (get macros sym)
+             [sym sym])
+           (when-let [c (interop/resolve-class ctx sym)]
+             [sym c]))))))
 
 (defn lookup [{:keys [:bindings] :as ctx} sym]
   (let [[k v :as kv]
@@ -68,13 +78,8 @@
              [[k _ :as kv]
               (or
                (lookup* ctx sym)
-               (when (get macros sym)
-                 [sym sym])
-               (when (= 'recur sym)
-                 [sym sym #_(mark-resolve-sym sym)])
-               ;; #?(:clj (when-let [v (resolve-class sym)]
-               ;;           [v v]))
-               )]
+               #_(when (= 'recur sym)
+                   [sym sym]))]
            (check-permission! ctx k sym)
            kv))]
     ;; (prn 'lookup sym '-> res)
@@ -88,7 +93,7 @@
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false))
   ([ctx sym call?]
-   (let [sym (strip-core-ns sym)
+   (let [sym sym ;; (strip-core-ns sym)
          res (second
               (or
                (lookup ctx sym)
@@ -386,10 +391,10 @@
   (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
                    import-symbols-or-lists)]
     (doseq [spec (reduce (fn [v spec]
-                          (if (symbol? spec)
-                            (conj v (name spec))
-                            (let [p (first spec) cs (rest spec)]
-                              (into v (map #(str p "." %) cs)))))
+                           (if (symbol? spec)
+                             (conj v (name spec))
+                             (let [p (first spec) cs (rest spec)]
+                               (into v (map #(str p "." %) cs)))))
                          [] specs)]
       (let [fq-class-name (symbol spec)]
         (when-not (interop/resolve-class ctx fq-class-name)
@@ -434,12 +439,16 @@
 (defn analyze-call [ctx expr]
   (let [f (first expr)]
     (if (symbol? f)
-      (let [f (or (get special-syms f) ;; in call position Clojure
-                  ;; prioritizes special symbols over
-                  ;; bindings
+      (let [;; in call position Clojure prioritizes special symbols over
+            ;; bindings
+            special-sym (get special-syms f)
+            _ (when special-sym (check-permission! ctx special-sym f))
+            f (or special-sym
                   (resolve-symbol ctx f true))]
         (if (and (not (eval? f)) ;; the symbol is not a binding
-                 (contains? macros f))
+                 (or
+                  special-sym
+                  (contains? macros f)))
           (case f
             do (mark-eval-call expr) ;; do will call macroexpand on every
             ;; subsequent expression
@@ -471,7 +480,7 @@
             new (expand-new ctx expr)
             import (do-import ctx expr)
             ;; else:
-            (mark-eval-call (doall (map #(analyze ctx %) expr))))
+            (mark-eval-call (doall (cons f (map #(analyze ctx %) (rest expr))))))
           (try
             (if (macro? f)
               (let [v (apply f expr
