@@ -452,6 +452,11 @@
   (is (= true (eval* "(defn foo [comment] comment) (foo true)")))
   (is (= 2 (eval* "(defn foo [fn] (fn 1)) (foo inc)"))))
 
+(deftest throw-test
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"foo"
+                        #?(:clj (eval* "(throw (Exception. \"foo\"))")
+                           :cljs (eval* "(throw (js/Error. \"foo\"))")))))
+
 (deftest try-catch-finally-throw-test
   (when-not tu/native?
     (let [state (atom nil)]

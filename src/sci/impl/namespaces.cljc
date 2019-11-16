@@ -6,9 +6,6 @@
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
 
-(defn throw* [ex]
-  (throw ex))
-
 (defn dotimes*
   "dotimes from clojure.core"
   [[i n] & body]
@@ -358,7 +355,7 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
-   'throw throw*
+   ;; 'throw throw*
    'trampoline trampoline
    'transduce transduce
    'tree-seq tree-seq

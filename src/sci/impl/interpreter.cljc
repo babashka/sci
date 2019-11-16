@@ -192,6 +192,10 @@
       (finally
         (interpret ctx finally)))))
 
+(defn eval-throw [ctx [_throw ex]]
+  (let [ex (interpret ctx ex)]
+    (throw ex)))
+
 ;;;; syntax-quote
 
 (declare eval-syntax-quote walk-syntax-quote)
@@ -321,7 +325,8 @@
                  syntax-quote (eval-syntax-quote ctx expr)
                  ;; interop
                  new (eval-constructor-invocation ctx expr)
-                 . (eval-instance-method-invocation ctx expr))))
+                 . (eval-instance-method-invocation ctx expr)
+                 throw (eval-throw ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
