@@ -18,7 +18,7 @@
 (def special-syms '#{try finally do if new recur quote catch throw def .})
 
 ;; Built-in macros. `do*` is an internal alias for a non-top-level do.
-(def macros '#{do do* if when and or -> ->> as-> quote quote* syntax-quote let fn
+(def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import})
 
@@ -122,7 +122,7 @@
 (declare analyze)
 
 (defn analyze-children [ctx children]
-  (map #(analyze ctx %) children))
+  (mapv #(analyze ctx %) children))
 
 (defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
   (when-not binding-vector
@@ -177,11 +177,10 @@
                  [body])
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
                 ctx)
-        arities (doall (map #(expand-fn-args+body ctx fn-name % macro?) bodies))]
-    (mark-eval
-     #:sci.impl{:fn-bodies arities
-                :fn-name fn-name
-                :fn true})))
+        arities (mapv #(expand-fn-args+body ctx fn-name % macro?) bodies)]
+    (mark-eval #:sci.impl{:fn-bodies arities
+                          :fn-name fn-name
+                          :fn true})))
 
 (defn expand-fn-literal-body [ctx expr]
   (let [fn-body (get-in expr [:sci.impl/fn-bodies 0])
@@ -196,6 +195,7 @@
     (-> (update-in expr [:sci.impl/fn-bodies 0 :sci.impl/body 0]
                    (fn [expr]
                      (analyze ctx expr)))
+        (assoc :sci.impl/fn true)
         mark-eval)))
 
 (defn expand-let*
@@ -300,7 +300,7 @@
         body (nnext expr)]
     (analyze ctx (apply list (list 'fn (vec arg-names)
                                    ;; expand-fn will take care of the analysis of the body
-                                   (cons 'do* body))
+                                   (cons 'do body))
                         init-vals))))
 
 (defn expand-lazy-seq
@@ -310,7 +310,7 @@
      (list 'lazy-seq
            (analyze ctx
                     ;; expand-fn will take care of the analysis of the body
-                    (list 'fn [] (cons 'do* body)))))))
+                    (list 'fn [] (cons 'do body)))))))
 
 (defn expand-cond*
   "The cond macro from clojure.core"
@@ -372,14 +372,14 @@
                             {:class clazz
                              :binding binding
                              :body (analyze (assoc-in ctx [:bindings binding] nil)
-                                            (cons 'do* body))}
+                                            (cons 'do body))}
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
         finally (when finally
-                  (analyze ctx (cons 'do* (rest finally))))]
+                  (analyze ctx (cons 'do (rest finally))))]
     (mark-eval
      {:sci.impl/try
-      {:body (analyze ctx (cons 'do* body-exprs))
+      {:body (analyze ctx (cons 'do body-exprs))
        :catches catches
        :finally finally}})))
 
@@ -462,8 +462,8 @@
 
 (defn analyze-call [{:keys [:top-level?] :as ctx} expr]
   (let [f (first expr)
+        ;; _ (prn "F" f (meta expr))
         ctx (assoc ctx :top-level? false)]
-    ;; (prn "F" f)
     (if (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
             ;; bindings
@@ -482,7 +482,8 @@
             ;; every sub expression
             do (if top-level?
                  (mark-eval-call expr)
-                 (mark-eval-call (cons 'do* (analyze-children ctx (rest expr)))))
+                 (mark-eval-call (cons 'do
+                                       (analyze-children ctx (rest expr)))))
             let (expand-let ctx expr)
             (fn fn*) (expand-fn ctx expr false)
             def (expand-def ctx expr)
@@ -510,7 +511,9 @@
             new (expand-new ctx expr)
             import (do-import ctx expr)
             ;; else:
-            (mark-eval-call (doall (cons f (analyze-children ctx (rest expr))))))
+            (do
+              ;; (prn "ELSE" expr)
+              (mark-eval-call (doall (cons f (analyze-children ctx (rest expr)))))))
           (try
             (if (macro? f)
               (let [v (apply f expr
@@ -521,10 +524,12 @@
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
       (let [ret (mark-eval-call (doall (analyze-children ctx expr)))]
+        ;; (prn "RET" ret)
         ret))))
 
 (defn analyze
   [ctx expr]
+  ;; (prn "ANA" expr)
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (kw-identical? :sci/var.unbound v) nil
@@ -535,7 +540,7 @@
                   (merge-meta
                    (cond
                      ;; already expanded by reader
-                     (:sci.impl/fn expr) (expand-fn-literal-body ctx expr)
+                     (:sci.impl/fn-literal expr) (expand-fn-literal-body ctx expr)
                      (map? expr)
                      (-> (zipmap (analyze-children ctx (keys expr))
                                  (analyze-children ctx (vals expr)))
@@ -543,7 +548,8 @@
                      (or (vector? expr) (set? expr))
                      (-> (into (empty expr) (analyze-children ctx expr))
                          mark-eval)
-                     (and (seq? expr) (seq expr)) (analyze-call ctx expr)
+                     (and (seq? expr) (seq expr))
+                     (analyze-call ctx expr)
                      :else expr)
                    (select-keys (meta expr)
                                 [:row :col])))]
