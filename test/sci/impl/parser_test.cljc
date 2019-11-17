@@ -21,7 +21,7 @@
   (is (= '(defn foo []) (p/parse-string "(defn foo [])")))
   (let [foo-sym (second (p/parse-string "(defn foo [])"))]
     (is (= {:row 1 :col 7} (meta foo-sym))))
-  (is (:sci.impl/fn (p/parse-string "#(inc 1 2 %)")))
+  (is (:sci.impl/fn-literal (p/parse-string "#(inc 1 2 %)")))
   (is (re-find (p/parse-string "#\"foo\"") "foo"))
   (is (= '(do (+ 1 2 3)) (p/parse-string "(do (+ 1 2 3)\n)")))
   (is (= [1 2] (p/parse-string-all "#_(+ 1 2 3) 1 2"))))

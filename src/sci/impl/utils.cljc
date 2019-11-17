@@ -77,7 +77,7 @@
 (defn merge-meta
   "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
   [obj d]
-  (if (and d (not (var? obj)))
+  (if (and d (not (var? obj))) ;; vars can have metadata but don't support with-meta
     (if-let [m (meta obj)]
       (with-meta obj (merge m d))
       obj)

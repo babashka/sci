@@ -31,7 +31,7 @@
         destructure-vec (if var-args?
                           (conj destructure-vec var-args-sym var-args-sym)
                           destructure-vec)
-        form #:sci.impl{:fn true
+        form #:sci.impl{:fn-literal true
                         :fn-bodies
                         [#:sci.impl{:binding-vector arg-list
                                     ;; body gets macroexpanded after read phase
