@@ -462,7 +462,6 @@
 
 (defn analyze-call [{:keys [:top-level?] :as ctx} expr]
   (let [f (first expr)
-        ;; _ (prn "F" f (meta expr))
         ctx (assoc ctx :top-level? false)]
     (if (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
@@ -511,9 +510,7 @@
             new (expand-new ctx expr)
             import (do-import ctx expr)
             ;; else:
-            (do
-              ;; (prn "ELSE" expr)
-              (mark-eval-call (doall (cons f (analyze-children ctx (rest expr)))))))
+            (mark-eval-call (doall (cons f (analyze-children ctx (rest expr))))))
           (try
             (if (macro? f)
               (let [v (apply f expr
@@ -529,7 +526,6 @@
 
 (defn analyze
   [ctx expr]
-  ;; (prn "ANA" expr)
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (kw-identical? :sci/var.unbound v) nil
@@ -539,7 +535,7 @@
                   :else
                   (merge-meta
                    (cond
-                     ;; already expanded by reader
+                     ;; reader result still needs analysis
                      (:sci.impl/fn-literal expr) (expand-fn-literal-body ctx expr)
                      (map? expr)
                      (-> (zipmap (analyze-children ctx (keys expr))

@@ -272,8 +272,7 @@
   (let [analyzed? (not top-level?)]
     (loop [exprs (rest expr)]
       (when-let [expr (first exprs)]
-        (let [expr (if analyzed? expr (do
-                                        (ana/analyze ctx expr)))
+        (let [expr (if analyzed? expr (ana/analyze ctx expr))
               ret (try (interpret ctx expr)
                        (catch #?(:clj Exception :cljs js/Error) e
                          (rethrow-with-location-of-node ctx e expr)))]
@@ -329,11 +328,7 @@
         eval? (:sci.impl/eval m)
         ret
         (cond
-          #_#_(:sci.impl/fn-literal expr)
-          (let [v (ana/expand-fn-literal-body ctx expr)]
-            (fns/eval-fn ctx interpret v))
-          (not eval?) (do nil ;; (prn "not eval" expr)
-                          expr)
+          (not eval?) (do nil expr)
           (:sci.impl/try expr) (eval-try ctx expr)
           (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
