@@ -281,46 +281,46 @@
             ret))))))
 
 (defn eval-call [ctx expr]
-  (let [ctx* ctx
-        ctx (assoc ctx :top-level? false)]
-    (try (let [f (first expr)
-               m (meta f)
-               eval? (:sci.impl/eval m)]
-           (cond (:sci.impl/static-access m)
-                 (eval-static-method-invocation ctx expr)
-                 (or eval? (not (symbol? f)))
-                 (let [f (interpret ctx f)]
-                   (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-                       (throw (new #?(:clj Exception :cljs js/Error)
-                                   (str "Cannot call " (pr-str f) " as a function.")))))
-                 :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
-                 (case f
-                   do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
-                   if (eval-if ctx expr)
-                   when (eval-when ctx expr)
-                   and (eval-and ctx (rest expr))
-                   or (eval-or ctx (rest expr))
-                   let (apply eval-let ctx (rest expr))
-                   def (eval-def ctx expr)
-                   lazy-seq (new #?(:clj clojure.lang.LazySeq
-                                    :cljs cljs.core/LazySeq)
-                                 #?@(:clj []
-                                     :cljs [nil])
-                                 (interpret ctx (second expr))
-                                 #?@(:clj []
-                                     :cljs [nil nil]))
-                   recur (with-meta (map #(interpret ctx %) (rest expr))
-                           {:sci.impl/recur true})
-                   require (eval-require ctx expr)
-                   case (eval-case ctx expr)
-                   try (eval-try ctx expr)
-                   syntax-quote (eval-syntax-quote ctx expr)
-                   ;; interop
-                   new (eval-constructor-invocation ctx expr)
-                   . (eval-instance-method-invocation ctx expr)
-                   throw (eval-throw ctx expr))))
-         (catch #?(:clj Exception :cljs js/Error) e
-           (rethrow-with-location-of-node ctx e expr)))))
+  (try (let [ctx* ctx
+             ctx (assoc ctx :top-level? false)
+             f (first expr)
+             m (meta f)
+             eval? (:sci.impl/eval m)]
+         (cond (:sci.impl/static-access m)
+               (eval-static-method-invocation ctx expr)
+               (or eval? (not (symbol? f)))
+               (let [f (interpret ctx f)]
+                 (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                     (throw (new #?(:clj Exception :cljs js/Error)
+                                 (str "Cannot call " (pr-str f) " as a function.")))))
+               :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
+               (case f
+                 do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
+                 if (eval-if ctx expr)
+                 when (eval-when ctx expr)
+                 and (eval-and ctx (rest expr))
+                 or (eval-or ctx (rest expr))
+                 let (apply eval-let ctx (rest expr))
+                 def (eval-def ctx expr)
+                 lazy-seq (new #?(:clj clojure.lang.LazySeq
+                                  :cljs cljs.core/LazySeq)
+                               #?@(:clj []
+                                   :cljs [nil])
+                               (interpret ctx (second expr))
+                               #?@(:clj []
+                                   :cljs [nil nil]))
+                 recur (with-meta (map #(interpret ctx %) (rest expr))
+                         {:sci.impl/recur true})
+                 require (eval-require ctx expr)
+                 case (eval-case ctx expr)
+                 try (eval-try ctx expr)
+                 syntax-quote (eval-syntax-quote ctx expr)
+                 ;; interop
+                 new (eval-constructor-invocation ctx expr)
+                 . (eval-instance-method-invocation ctx expr)
+                 throw (eval-throw ctx expr))))
+       (catch #?(:clj Exception :cljs js/Error) e
+         (rethrow-with-location-of-node ctx e expr))))
 
 (defn interpret
   [ctx expr]
