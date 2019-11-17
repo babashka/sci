@@ -17,7 +17,7 @@
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
 (def special-syms '#{try finally do if new recur quote catch throw def .})
 
-;; Built-in macros. `do*` is an internal alias for a non-top-level do.
+;; Built-in macros.
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import})
@@ -31,15 +31,6 @@
       (when (if deny (contains? deny check-sym)
                 false)
         (throw-error-with-location (str sym " is not allowed!") sym)))))
-
-;; TODO: this is too dangerous on the JVM
-;; #?(:clj
-;;    (defn resolve-class [sym]
-;;      (or
-;;       (get clojure.lang.RT/DEFAULT_IMPORTS sym)
-;;       (try
-;;         (Class/forName (str sym))
-;;         (catch Exception _ nil)))))
 
 (defn lookup* [{:keys [:env] :as ctx} sym]
   (let [sym-ns (some-> (namespace sym) symbol)
@@ -150,7 +141,7 @@
                    `(~'let ~destructured-vec
                      ;; we analyze the body expressions only once with the
                      ;; bindings in scope
-                     ~@(doall (analyze-children ctx body-exprs))))
+                     ~@(analyze-children ctx body-exprs)))
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
@@ -208,7 +199,7 @@
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))]
-    (mark-eval-call `(~'let ~new-let-bindings ~@(doall (analyze-children ctx exprs))))))
+    (mark-eval-call `(~'let ~new-let-bindings ~@(analyze-children ctx exprs)))))
 
 (defn expand-let
   "The let macro from clojure.core"
@@ -510,17 +501,17 @@
             new (expand-new ctx expr)
             import (do-import ctx expr)
             ;; else:
-            (mark-eval-call (doall (cons f (analyze-children ctx (rest expr))))))
+            (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
             (if (macro? f)
               (let [v (apply f expr
                              (:bindings ctx) (rest expr))
                     expanded (analyze ctx v)]
                 expanded)
-              (mark-eval-call (doall (analyze-children ctx expr))))
+              (mark-eval-call (analyze-children ctx expr)))
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
-      (let [ret (mark-eval-call (doall (analyze-children ctx expr)))]
+      (let [ret (mark-eval-call (analyze-children ctx expr))]
         ;; (prn "RET" ret)
         ret))))
 
