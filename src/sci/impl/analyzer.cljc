@@ -16,8 +16,9 @@
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
 (def special-syms '#{try finally do if new recur quote catch throw def .})
-;; built-in macros
-(def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
+
+;; Built-in macros. `do*` is an internal alias for a non-top-level do.
+(def macros '#{do do* if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import})
 
@@ -120,6 +121,9 @@
 
 (declare analyze)
 
+(defn analyze-children [ctx children]
+  (map #(analyze ctx %) children))
+
 (defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
@@ -144,7 +148,9 @@
                                                 (repeat nil)))
         body-form (mark-eval-call
                    `(~'let ~destructured-vec
-                     ~@(doall (map #(analyze ctx %) body-exprs))))
+                     ;; we analyze the body expressions only once with the
+                     ;; bindings in scope
+                     ~@(doall (analyze-children ctx body-exprs))))
         arg-list (if var-arg
                    (conj fixed-names '& var-arg-name)
                    fixed-names)]
@@ -202,7 +208,7 @@
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))]
-    (mark-eval-call `(~'let ~new-let-bindings ~@(doall (map #(analyze ctx %) exprs))))))
+    (mark-eval-call `(~'let ~new-let-bindings ~@(doall (analyze-children ctx exprs))))))
 
 (defn expand-let
   "The let macro from clojure.core"
@@ -293,7 +299,8 @@
         init-vals (take-nth 2 (rest bv))
         body (nnext expr)]
     (analyze ctx (apply list (list 'fn (vec arg-names)
-                                   (cons 'do body))
+                                   ;; expand-fn will take care of the analysis of the body
+                                   (cons 'do* body))
                         init-vals))))
 
 (defn expand-lazy-seq
@@ -301,7 +308,9 @@
   (let [body (rest expr)]
     (mark-eval-call
      (list 'lazy-seq
-           (analyze ctx (list 'fn [] (cons 'do body)))))))
+           (analyze ctx
+                    ;; expand-fn will take care of the analysis of the body
+                    (list 'fn [] (cons 'do* body)))))))
 
 (defn expand-cond*
   "The cond macro from clojure.core"
@@ -325,7 +334,7 @@
   (let [v (analyze ctx (second expr))
         clauses (nnext expr)
         match-clauses (take-nth 2 clauses)
-        result-clauses (map #(analyze ctx %) (take-nth 2 (rest clauses)))
+        result-clauses (analyze-children ctx (take-nth 2 (rest clauses)))
         default (when (odd? (count clauses))
                   [:val (analyze ctx (last clauses))])
         case-map (zipmap match-clauses result-clauses)
@@ -363,14 +372,14 @@
                             {:class clazz
                              :binding binding
                              :body (analyze (assoc-in ctx [:bindings binding] nil)
-                                            (cons 'do body))}
+                                            (cons 'do* body))}
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
         finally (when finally
-                  (analyze ctx (cons 'do (rest finally))))]
+                  (analyze ctx (cons 'do* (rest finally))))]
     (mark-eval
      {:sci.impl/try
-      {:body (analyze ctx (cons 'do body-exprs))
+      {:body (analyze ctx (cons 'do* body-exprs))
        :catches catches
        :finally finally}})))
 
@@ -423,7 +432,7 @@
 (defn expand-dot [ctx [_dot instance-expr [method-expr & args]]]
   (let [instance-expr (analyze ctx instance-expr)
         method-expr (str method-expr)
-        args (map #(analyze ctx %) args)
+        args (analyze-children ctx args)
         res `(~'. ~instance-expr ~method-expr ~args)]
     (mark-eval-call res)))
 
@@ -433,7 +442,7 @@
 
 (defn expand-new [ctx [_new class-sym & args]]
   (if-let [clazz (interop/resolve-class ctx class-sym)]
-    (let [args (map #(analyze ctx %) args)] ;; analyze args!
+    (let [args (analyze-children ctx args)] ;; analyze args!
       (mark-eval-call (list 'new clazz args)))
     (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
 
@@ -451,8 +460,10 @@
   (when-let [m (meta f)]
     (:sci/macro m)))
 
-(defn analyze-call [ctx expr]
-  (let [f (first expr)]
+(defn analyze-call [{:keys [:top-level?] :as ctx} expr]
+  (let [f (first expr)
+        ctx (assoc ctx :top-level? false)]
+    ;; (prn "F" f)
     (if (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
             ;; bindings
@@ -465,8 +476,13 @@
                   special-sym
                   (contains? macros f)))
           (case f
-            do (mark-eval-call expr) ;; do will call macroexpand on every
-            ;; subsequent expression
+            ;; we treat every subexpression of a top-level do as a separate
+            ;; analysis/interpretation unit so we hand this over to the
+            ;; interpreter again, which will invoke analysis + evaluation on
+            ;; every sub expression
+            do (if top-level?
+                 (mark-eval-call expr)
+                 (mark-eval-call (cons 'do* (analyze-children ctx (rest expr)))))
             let (expand-let ctx expr)
             (fn fn*) (expand-fn ctx expr false)
             def (expand-def ctx expr)
@@ -483,8 +499,7 @@
             for (analyze ctx (expand-for ctx expr))
             doseq (analyze ctx (expand-doseq ctx expr))
             require (mark-eval-call
-                     (cons 'require (map #(analyze ctx %)
-                                         (rest expr))))
+                     (cons 'require (analyze-children ctx (rest expr))))
             cond (expand-cond ctx expr)
             case (expand-case ctx expr)
             try (expand-try ctx expr)
@@ -495,17 +510,17 @@
             new (expand-new ctx expr)
             import (do-import ctx expr)
             ;; else:
-            (mark-eval-call (doall (cons f (map #(analyze ctx %) (rest expr))))))
+            (mark-eval-call (doall (cons f (analyze-children ctx (rest expr))))))
           (try
             (if (macro? f)
               (let [v (apply f expr
                              (:bindings ctx) (rest expr))
                     expanded (analyze ctx v)]
                 expanded)
-              (mark-eval-call (doall (map #(analyze ctx %) expr))))
+              (mark-eval-call (doall (analyze-children ctx expr))))
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
-      (let [ret (mark-eval-call (doall (map #(analyze ctx %) expr)))]
+      (let [ret (mark-eval-call (doall (analyze-children ctx expr)))]
         ret))))
 
 (defn analyze
@@ -522,11 +537,11 @@
                      ;; already expanded by reader
                      (:sci.impl/fn expr) (expand-fn-literal-body ctx expr)
                      (map? expr)
-                     (-> (zipmap (map #(analyze ctx %) (keys expr))
-                                 (map #(analyze ctx %) (vals expr)))
+                     (-> (zipmap (analyze-children ctx (keys expr))
+                                 (analyze-children ctx (vals expr)))
                          mark-eval)
                      (or (vector? expr) (set? expr))
-                     (-> (into (empty expr) (map #(analyze ctx %) expr))
+                     (-> (into (empty expr) (analyze-children ctx expr))
                          mark-eval)
                      (and (seq? expr) (seq expr)) (analyze-call ctx expr)
                      :else expr)

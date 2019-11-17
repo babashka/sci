@@ -59,15 +59,16 @@
 
 (defn eval-do
   [ctx expr]
-  (loop [exprs (rest expr)]
-    (when-let [expr (first exprs)]
-      (let [expr (ana/analyze ctx expr)
-            ret (try (interpret ctx expr)
-                     (catch #?(:clj Exception :cljs js/Error) e
-                       (rethrow-with-location-of-node ctx e expr)))]
-        (if-let [n (next exprs)]
-          (recur n)
-          ret)))))
+  (let [analyzed? (= 'do* (first expr))]
+    (loop [exprs (rest expr)]
+      (when-let [expr (first exprs)]
+        (let [expr (if analyzed? expr (ana/analyze ctx expr))
+              ret (try (interpret ctx expr)
+                       (catch #?(:clj Exception :cljs js/Error) e
+                         (rethrow-with-location-of-node ctx e expr)))]
+          (if-let [n (next exprs)]
+            (recur n)
+            ret))))))
 
 (defn eval-if
   [ctx expr]
@@ -109,13 +110,9 @@
     (lookup ctx expr)
     ;; TODO: check if symbol is in macros and then emit an error: cannot take
     ;; the value of a macro
-    (let [n (name expr)]
-      (if (str/starts-with? n "'")
-        (let [v (symbol (subs n 1))]
-          [v v])
-        (throw-error-with-location
-         (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
-         expr))))))
+    (throw-error-with-location
+     (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
+     expr))))
 
 (defn parse-libspec-opts [opts]
   (loop [opts-map {}
@@ -284,7 +281,6 @@
 (declare eval-string)
 
 (defn eval-call [ctx expr]
-  ;; (prn "EXPR" expr)
   (try (let [f (first expr)
              m (meta f)
              eval? (:sci.impl/eval m)]
@@ -297,7 +293,7 @@
                                  (str "Cannot call " (pr-str f) " as a function.")))))
                :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
                (case f
-                 do
+                 (do do*)
                  (eval-do ctx expr)
                  if
                  (eval-if ctx expr)
@@ -433,7 +429,7 @@
     ctx))
 
 (defn eval-edn-vals [ctx edn-vals]
-  (eval-do ctx (cons 'do edn-vals)))
+  (eval-do (assoc ctx :top-level? true) (cons 'do edn-vals)))
 
 ;;;; Called from public API
 
