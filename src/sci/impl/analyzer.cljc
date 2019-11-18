@@ -385,8 +385,9 @@
   (cond
     (list? form) (with-meta (outer (apply list (map inner form)))
                    (meta form))
-    (instance? clojure.lang.IMapEntry form)
-    (outer (clojure.lang.MapEntry/create (inner (key form)) (inner (val form))))
+    #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
+    (outer #?(:clj (clojure.lang.MapEntry/create (inner (key form)) (inner (val form)))
+              :cljs (MapEntry. (inner (key form)) (inner (val form)))))
     (seq? form) (with-meta (outer (doall (map inner form)))
                   (meta form))
     (instance? clojure.lang.IRecord form)
