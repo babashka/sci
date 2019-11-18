@@ -92,9 +92,8 @@
          ~@body))))
 
 (def ex-message
-  (if  #?(:clj (resolve 'ex-message)
-          :cljs (exists? ex-message))
-    clojure.core/ex-message
+  (if-let [v (resolve 'ex-message)]
+    @v
     (fn ex-message [ex]
       (when (instance? #?(:clj Throwable :cljs js/Error) ex)
         #?(:clj (.getMessage ^Throwable ex)
