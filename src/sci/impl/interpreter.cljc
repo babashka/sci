@@ -221,6 +221,7 @@
 (defn walk-syntax-quote
   [ctx form]
   (cond
+    (:sci.impl/eval (meta form)) (interpret ctx form)
     (list? form) (let [f (first form)]
                    (if (= 'syntax-quote f)
                      (eval-syntax-quote ctx form)
