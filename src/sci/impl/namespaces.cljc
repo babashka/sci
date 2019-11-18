@@ -182,6 +182,7 @@
    'ensure-reduced ensure-reduced
    'ex-data ex-data
    'ex-info ex-info
+   'ex-message ex-message
    'first first
    'float? float?
    'floats floats
