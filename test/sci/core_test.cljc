@@ -549,6 +549,10 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
                         (eval* "(fn foo {})"))))
 
+(deftest ex-message-test
+  (is (= "foo" #?(:clj (eval* "(ex-message (Exception. \"foo\"))")
+                  :cljs (eval* "(ex-message (js/Error. \"foo\"))")))))
+
 ;;;; Scratch
 
 (comment
