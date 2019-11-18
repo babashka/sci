@@ -1,7 +1,9 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:require [clojure.string :as str]
-            [clojure.set :as set]))
+  (:refer-clojure :exclude [ex-message])
+  (:require
+   [clojure.string :as str]
+   [clojure.set :as set]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -89,10 +91,14 @@
        (let [~x (first xs#)]
          ~@body))))
 
-(when-not (resolve 'ex-message)
-  (defn ex-message [ex]
-    (when (instance? Throwable ex)
-      (.getMessage ^Throwable ex))))
+(def ex-message
+  (if  #?(:clj (resolve 'ex-message)
+          :cljs (exists? ex-message))
+    clojure.core/ex-message
+    (fn ex-message [ex]
+      (when (instance? #?(:clj Throwable :cljs js/Error) ex)
+        #?(:clj (.getMessage ^Throwable ex)
+           :cljs (.-message ex))))))
 
 (def clojure-core
   {'= =
