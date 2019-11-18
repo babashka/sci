@@ -153,7 +153,10 @@
 (deftest def-test
   (is (= "nice val" (eval* '(do (def foo "nice val") foo))))
   (is (nil? (eval* '(do (def foo) foo))))
-  (is (= 2 (eval* '(do (def foo) (def foo "docstring" 2) foo)))))
+  (is (= 2 (eval* '(do (def foo) (def foo "docstring" 2) foo))))
+  (is (= 1 (eval* "(try (def x 1) x)")))
+  (is (= 1 (eval* "(try (defn x [] 1) (x))")))
+  (is (= 1 (eval* "(try (let [] (def x 1) x))"))))
 
 (deftest defn-test
   (is (= 2 (eval* '(do (defn foo "increment c" [x] (inc x)) (foo 1)))))
@@ -191,7 +194,9 @@
         (with-out-str (try (tu/eval* "(defn foo []) (foo) (println \"hello\") (defn bar [] x)"
                                      {:bindings {'println println}})
                            (catch #?(:clj Exception :cljs js/Error) _ nil)))
-        "hello")))))
+        "hello"))))
+  (testing "nil as last expression returns nil as a whole"
+    (is (nil? (eval* "1 2 nil")))))
 
 (deftest macroexpand-test
   (is (= [6] (eval* "[(-> 3 inc inc inc)]")))

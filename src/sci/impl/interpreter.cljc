@@ -269,14 +269,18 @@
 
 (defn eval-do
   [ctx expr]
-  (loop [exprs (rest expr)
-         ret nil]
-    (if-let [expr (first exprs)]
+  (when-let [exprs (next expr)]
+    (loop [[expr & exprs] exprs]
+      ;; (prn "DO" expr)
       (let [ret (try (interpret ctx expr)
                      (catch #?(:clj Exception :cljs js/Error) e
                        (rethrow-with-location-of-node ctx e expr)))]
-        (recur (rest exprs) ret))
-      ret)))
+        ;; (prn "RET" expr ret)
+        (if-let [exprs (seq exprs)]
+          (do
+            ;; (prn "EXPRS" exprs)
+            (recur exprs))
+          ret)))))
 
 (defn eval-call [ctx expr]
   (try (let [ctx* ctx
@@ -423,14 +427,20 @@
                    (normalize-classes (merge default-classes classes)))]
     ctx))
 
+(defn do? [expr]
+  (and (list? expr)
+       (= 'do (first expr))))
+
 (defn eval-edn-vals [ctx edn-vals]
-  (loop [vals edn-vals
-         ret nil]
-    (if-let [v (first vals)]
-      (let [analyzed (ana/analyze ctx v)
-            ret (interpret ctx analyzed)]
-        (recur (rest vals) ret))
-      ret)))
+  (when-let [vals (seq edn-vals)]
+    (loop [[expr & exprs] vals]
+      (if (do? expr)
+        (recur (concat (rest expr) exprs)) ;; splice top level dos
+        (let [analyzed (ana/analyze ctx expr)
+              ret (interpret ctx analyzed)]
+          (if (seq exprs)
+            (recur exprs)
+            ret))))))
 
 ;;;; Called from public API
 
