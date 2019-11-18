@@ -374,7 +374,7 @@
        :catches catches
        :finally finally}})))
 
-;; TODO: this doesn't preserve metadata produced by analyze
+;; TODO: we need prewalk, this doesn't preserve metadata produced by analyze
 (defn expand-syntax-quote [ctx expr]
   (let [ret (walk/postwalk
              (fn [x]
