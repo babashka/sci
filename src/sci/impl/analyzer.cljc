@@ -374,9 +374,35 @@
        :catches catches
        :finally finally}})))
 
+(defn walk
+  "Traverses form, an arbitrary data structure.  inner and outer are
+  functions.  Applies inner to each element of form, building up a
+  data structure of the same type, then applies outer to the result.
+  Recognizes all Clojure data structures. Consumes seqs as with doall."
+
+  {:added "1.1"}
+  [inner outer form]
+  (cond
+    (list? form) (with-meta (outer (apply list (map inner form)))
+                   (meta form))
+    (instance? clojure.lang.IMapEntry form)
+    (outer (clojure.lang.MapEntry/create (inner (key form)) (inner (val form))))
+    (seq? form) (with-meta (outer (doall (map inner form)))
+                  (meta form))
+    (instance? clojure.lang.IRecord form)
+    (outer (reduce (fn [r x] (conj r (inner x))) form form))
+    (coll? form) (outer (into (empty form) (map inner form)))
+    :else (outer form)))
+
+(defn prewalk
+  "Like postwalk, but does pre-order traversal."
+  {:added "1.1"}
+  [f form]
+  (walk (partial prewalk f) identity (f form)))
+
 ;; TODO: we need prewalk, this doesn't preserve metadata produced by analyze
 (defn expand-syntax-quote [ctx expr]
-  (let [ret (walk/postwalk
+  (let [ret (prewalk
              (fn [x]
                (if (seq? x)
                  (case (first x)
