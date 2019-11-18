@@ -268,17 +268,15 @@
 (declare eval-string)
 
 (defn eval-do
-  [{:keys [:top-level?] :as ctx} expr]
-  (let [analyzed? (not top-level?)]
-    (loop [exprs (rest expr)]
-      (when-let [expr (first exprs)]
-        (let [expr (if analyzed? expr (ana/analyze ctx expr))
-              ret (try (interpret ctx expr)
-                       (catch #?(:clj Exception :cljs js/Error) e
-                         (rethrow-with-location-of-node ctx e expr)))]
-          (if-let [n (next exprs)]
-            (recur n)
-            ret))))))
+  [ctx expr]
+  (loop [exprs (rest expr)
+         ret nil]
+    (if-let [expr (first exprs)]
+      (let [ret (try (interpret ctx expr)
+                     (catch #?(:clj Exception :cljs js/Error) e
+                       (rethrow-with-location-of-node ctx e expr)))]
+        (recur (rest exprs) ret))
+      ret)))
 
 (defn eval-call [ctx expr]
   (try (let [ctx* ctx
@@ -324,7 +322,9 @@
 
 (defn interpret
   [ctx expr]
-  (let [m (meta expr)
+  ;; (prn "expr" expr)
+  (let [ctx (assoc ctx :top-level? false)
+        m (meta expr)
         eval? (:sci.impl/eval m)
         ret
         (cond
@@ -424,7 +424,13 @@
     ctx))
 
 (defn eval-edn-vals [ctx edn-vals]
-  (eval-do (assoc ctx :top-level? true) (cons 'do edn-vals)))
+  (loop [vals edn-vals
+         ret nil]
+    (if-let [v (first vals)]
+      (let [analyzed (ana/analyze ctx v)
+            ret (interpret ctx analyzed)]
+        (recur (rest vals) ret))
+      ret)))
 
 ;;;; Called from public API
 

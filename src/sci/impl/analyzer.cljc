@@ -451,9 +451,8 @@
   (when-let [m (meta f)]
     (:sci/macro m)))
 
-(defn analyze-call [{:keys [:top-level?] :as ctx} expr]
-  (let [f (first expr)
-        ctx (assoc ctx :top-level? false)]
+(defn analyze-call [ctx expr]
+  (let [f (first expr)]
     (if (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
             ;; bindings
@@ -470,10 +469,8 @@
             ;; analysis/interpretation unit so we hand this over to the
             ;; interpreter again, which will invoke analysis + evaluation on
             ;; every sub expression
-            do (if top-level?
-                 (mark-eval-call expr)
-                 (mark-eval-call (cons 'do
-                                       (analyze-children ctx (rest expr)))))
+            do (mark-eval-call (cons 'do
+                                     (analyze-children ctx (rest expr))))
             let (expand-let ctx expr)
             (fn fn*) (expand-fn ctx expr false)
             def (expand-def ctx expr)
@@ -482,7 +479,7 @@
             -> (expand-> ctx (rest expr))
             ->> (expand->> ctx (rest expr))
             as-> (expand-as-> ctx expr)
-            quote (do nil #_(prn "quote" expr) (second expr))
+            quote (do nil (second expr))
             syntax-quote (expand-syntax-quote ctx expr)
             comment (expand-comment ctx expr)
             loop (expand-loop ctx expr)
