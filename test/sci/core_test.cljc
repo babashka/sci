@@ -18,6 +18,8 @@
                  (tu/eval*
                   '(do (f) (f)) {:bindings {'f #(swap! a inc)}})
                  @a)))))
+  (testing "do can return nil"
+    (is (= [nil] (eval* "[(do 1 2 nil)]"))))
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
