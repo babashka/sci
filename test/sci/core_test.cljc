@@ -182,13 +182,13 @@
   (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
   (is (= 1 (eval* "((symbol \"recur\") {'recur 1})"))))
 
-(deftest do-test
-  (testing "expressions with do are evaluated in order and have side effects,
+(deftest top-level-test
+  (testing "top level expressions are evaluated in order and have side effects,
   even when one of the following expressions have an unresolved symbol"
     (when-not tu/native?
       (is
        (str/includes?
-        (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
+        (with-out-str (try (tu/eval* "(defn foo []) (foo) (println \"hello\") (defn bar [] x)"
                                      {:bindings {'println println}})
                            (catch #?(:clj Exception :cljs js/Error) _ nil)))
         "hello")))))
@@ -357,11 +357,11 @@
 
 (deftest GH-54-recursive-function-test
   (when-not tu/native?
-    (is (= 5 (tu/eval* "(do (def c (atom 0))
-                            (defn hello []
-                              (swap! c inc)
-                              (if (< @c 5) (hello) @c))
-                            (hello))"
+    (is (= 5 (tu/eval* "(def c (atom 0))
+                        (defn hello []
+                        (swap! c inc)
+                        (if (< @c 5) (hello) @c))
+                        (hello)"
                        {:bindings {'atom atom
                                    'swap! swap!
                                    'deref deref}})))))
@@ -483,7 +483,9 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Foo"
                         (eval* "(try 1 (catch Foo e e))")))
   (testing "try block can have multiple expressions"
-    (is (= 3 (eval* "(try 1 2 3)")))))
+    (is (= 3 (eval* "(try 1 2 3)"))))
+  (testing "babashka GH-117"
+    (is (= 'hello (eval* "(try 'hello)")))))
 
 (deftest syntax-quote-test
   (is (= '(list 10 10)
