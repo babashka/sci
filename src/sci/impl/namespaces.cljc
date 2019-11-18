@@ -89,6 +89,11 @@
        (let [~x (first xs#)]
          ~@body))))
 
+(when-not (resolve 'ex-message)
+  (defn ex-message [ex]
+    (when (instance? Throwable ex)
+      (.getMessage ^Throwable ex))))
+
 (def clojure-core
   {'= =
    '< <
