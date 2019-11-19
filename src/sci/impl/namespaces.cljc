@@ -1,7 +1,9 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:require [clojure.string :as str]
-            [clojure.set :as set]))
+  (:refer-clojure :exclude [ex-message])
+  (:require
+   [clojure.string :as str]
+   [clojure.set :as set]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -88,6 +90,14 @@
     `(when-let [xs# (seq ~xs)]
        (let [~x (first xs#)]
          ~@body))))
+
+(def ex-message
+  (if-let [v (resolve 'clojure.core/ex-message)]
+    @v
+    (fn ex-message [ex]
+      (when (instance? #?(:clj Throwable :cljs js/Error) ex)
+        #?(:clj (.getMessage ^Throwable ex)
+           :cljs (.-message ex))))))
 
 (def clojure-core
   {'= =
@@ -182,6 +192,7 @@
    'ensure-reduced ensure-reduced
    'ex-data ex-data
    'ex-info ex-info
+   'ex-message ex-message
    'first first
    'float? float?
    'floats floats

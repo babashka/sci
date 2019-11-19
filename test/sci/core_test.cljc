@@ -18,6 +18,8 @@
                  (tu/eval*
                   '(do (f) (f)) {:bindings {'f #(swap! a inc)}})
                  @a)))))
+  (testing "do can return nil"
+    (is (= [nil] (eval* "[(do 1 2 nil)]"))))
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
@@ -153,7 +155,10 @@
 (deftest def-test
   (is (= "nice val" (eval* '(do (def foo "nice val") foo))))
   (is (nil? (eval* '(do (def foo) foo))))
-  (is (= 2 (eval* '(do (def foo) (def foo "docstring" 2) foo)))))
+  (is (= 2 (eval* '(do (def foo) (def foo "docstring" 2) foo))))
+  (is (= 1 (eval* "(try (def x 1) x)")))
+  (is (= 1 (eval* "(try (defn x [] 1) (x))")))
+  (is (= 1 (eval* "(try (let [] (def x 1) x))"))))
 
 (deftest defn-test
   (is (= 2 (eval* '(do (defn foo "increment c" [x] (inc x)) (foo 1)))))
@@ -182,16 +187,18 @@
   (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
   (is (= 1 (eval* "((symbol \"recur\") {'recur 1})"))))
 
-(deftest do-test
-  (testing "expressions with do are evaluated in order and have side effects,
+(deftest top-level-test
+  (testing "top level expressions are evaluated in order and have side effects,
   even when one of the following expressions have an unresolved symbol"
     (when-not tu/native?
       (is
        (str/includes?
-        (with-out-str (try (tu/eval* "(do (defn foo []) (foo) (println \"hello\") (defn bar [] x))"
+        (with-out-str (try (tu/eval* "(defn foo []) (foo) (println \"hello\") (defn bar [] x)"
                                      {:bindings {'println println}})
                            (catch #?(:clj Exception :cljs js/Error) _ nil)))
-        "hello")))))
+        "hello"))))
+  (testing "nil as last expression returns nil as a whole"
+    (is (nil? (eval* "1 2 nil")))))
 
 (deftest macroexpand-test
   (is (= [6] (eval* "[(-> 3 inc inc inc)]")))
@@ -357,11 +364,11 @@
 
 (deftest GH-54-recursive-function-test
   (when-not tu/native?
-    (is (= 5 (tu/eval* "(do (def c (atom 0))
-                            (defn hello []
-                              (swap! c inc)
-                              (if (< @c 5) (hello) @c))
-                            (hello))"
+    (is (= 5 (tu/eval* "(def c (atom 0))
+                        (defn hello []
+                        (swap! c inc)
+                        (if (< @c 5) (hello) @c))
+                        (hello)"
                        {:bindings {'atom atom
                                    'swap! swap!
                                    'deref deref}})))))
@@ -483,7 +490,9 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Foo"
                         (eval* "(try 1 (catch Foo e e))")))
   (testing "try block can have multiple expressions"
-    (is (= 3 (eval* "(try 1 2 3)")))))
+    (is (= 3 (eval* "(try 1 2 3)"))))
+  (testing "babashka GH-117"
+    (is (= 'hello (eval* "(try 'hello)")))))
 
 (deftest syntax-quote-test
   (is (= '(list 10 10)
@@ -548,6 +557,10 @@
                         (eval* "(defn foo {})")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
                         (eval* "(fn foo {})"))))
+
+(deftest ex-message-test
+  (is (= "foo" #?(:clj (eval* "(ex-message (Exception. \"foo\"))")
+                  :cljs (eval* "(ex-message (js/Error. \"foo\"))")))))
 
 ;;;; Scratch
 

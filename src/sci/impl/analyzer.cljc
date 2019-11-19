@@ -107,7 +107,7 @@
                    :else (throw-error-with-location
                           (str "Could not resolve symbol: " (str sym))
                           sym)))))]
-     ;; (prn 'resolve expr '-> res)
+     ;; (prn 'resolve sym '-> res)
      res)))
 
 (declare analyze)
@@ -248,6 +248,8 @@
                                    (last forms)))]
     (expand-let* ctx let-bindings body)))
 
+(declare expand-declare)
+
 (defn expand-def
   [ctx [_def var-name ?docstring ?init :as expr]]
   (when-not (simple-symbol? var-name)
@@ -257,10 +259,8 @@
         init (analyze ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
-    (swap! (:env ctx) assoc var-name :sci/var.unbound)
+    (expand-declare ctx [nil var-name])
     (mark-eval-call (list 'def var-name init))))
-
-(declare expand-declare)
 
 (defn expand-defn [ctx [op fn-name docstring? & body :as expr]]
   (when-not (simple-symbol? fn-name)
@@ -480,9 +480,8 @@
   (when-let [m (meta f)]
     (:sci/macro m)))
 
-(defn analyze-call [{:keys [:top-level?] :as ctx} expr]
-  (let [f (first expr)
-        ctx (assoc ctx :top-level? false)]
+(defn analyze-call [ctx expr]
+  (let [f (first expr)]
     (if (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
             ;; bindings
@@ -499,10 +498,8 @@
             ;; analysis/interpretation unit so we hand this over to the
             ;; interpreter again, which will invoke analysis + evaluation on
             ;; every sub expression
-            do (if top-level?
-                 (mark-eval-call expr)
-                 (mark-eval-call (cons 'do
-                                       (analyze-children ctx (rest expr)))))
+            do (mark-eval-call (cons 'do
+                                     (analyze-children ctx (rest expr))))
             let (expand-let ctx expr)
             (fn fn*) (expand-fn ctx expr false)
             def (expand-def ctx expr)
@@ -511,7 +508,7 @@
             -> (expand-> ctx (rest expr))
             ->> (expand->> ctx (rest expr))
             as-> (expand-as-> ctx expr)
-            quote (do nil #_(prn "quote" expr) (second expr))
+            quote (do nil (second expr))
             syntax-quote (expand-syntax-quote ctx expr)
             comment (expand-comment ctx expr)
             loop (expand-loop ctx expr)
@@ -541,15 +538,13 @@
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
       (let [ret (mark-eval-call (analyze-children ctx expr))]
-        ;; (prn "RET" ret)
         ret))))
 
 (defn analyze
   [ctx expr]
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
-                                   (cond (kw-identical? :sci/var.unbound v) nil
-                                         (constant? v) v
+                                   (cond (constant? v) v
                                          (fn? v) (merge-meta v {:sci.impl/eval false})
                                          :else (merge-meta v (meta expr))))
                   :else
