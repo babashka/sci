@@ -499,7 +499,10 @@
          (eval* "(let [x 10] `(list ~x ~x))")))
   (let [generated (str (eval* "(let [x 1] `(let [x# ~x] x#))"))]
     (is (not (str/includes? generated "x#")))
-    (is (= 2 (count (re-seq #"__auto__" generated))))))
+    (is (= 2 (count (re-seq #"__auto__" generated)))))
+  (is (= 1 (eval* "`~(let [x 1] x)")))
+  (is (= [1 2 3]
+         (eval* "`[~@(for [x [1 2 3]] x)]"))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]

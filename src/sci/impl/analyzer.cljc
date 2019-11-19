@@ -3,12 +3,11 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    [clojure.string :as str]
-   [clojure.walk :as walk]
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
-   [sci.impl.utils :refer
+   [sci.impl.utils :as utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns]]))
@@ -374,37 +373,8 @@
        :catches catches
        :finally finally}})))
 
-(defn walk
-  "Traverses form, an arbitrary data structure.  inner and outer are
-  functions.  Applies inner to each element of form, building up a
-  data structure of the same type, then applies outer to the result.
-  Recognizes all Clojure data structures. Consumes seqs as with doall."
-
-  {:added "1.1"}
-  [inner outer form]
-  (cond
-    (list? form) (with-meta (outer (apply list (map inner form)))
-                   (meta form))
-    #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
-    (outer #?(:clj (clojure.lang.MapEntry/create (inner (key form)) (inner (val form)))
-              :cljs (MapEntry. (inner (key form)) (inner (val form)) nil)))
-    (seq? form) (with-meta (outer (doall (map inner form)))
-                  (meta form))
-    #?(:clj (instance? clojure.lang.IRecord form)
-       :cljs (record? form))
-    (outer (reduce (fn [r x] (conj r (inner x))) form form))
-    (coll? form) (outer (into (empty form) (map inner form)))
-    :else (outer form)))
-
-(defn prewalk
-  "Like postwalk, but does pre-order traversal."
-  {:added "1.1"}
-  [f form]
-  (walk (partial prewalk f) identity (f form)))
-
-;; TODO: we need prewalk, this doesn't preserve metadata produced by analyze
 (defn expand-syntax-quote [ctx expr]
-  (let [ret (prewalk
+  (let [ret (utils/prewalk
              (fn [x]
                (if (seq? x)
                  (case (first x)
