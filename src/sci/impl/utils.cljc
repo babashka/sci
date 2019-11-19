@@ -90,3 +90,24 @@
 
 (def allowed-loop (with-meta (symbol "loop") {:row :allow}))
 (def allowed-recur (with-meta (symbol "recur") {:row :allow}))
+
+(defn walk*
+  [inner form]
+  (cond
+    (list? form) (with-meta (apply list (map inner form))
+                   (meta form))
+    #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
+    #?(:clj (clojure.lang.MapEntry/create (inner (key form)) (inner (val form)))
+       :cljs (MapEntry. (inner (key form)) (inner (val form)) nil))
+    (seq? form) (with-meta (doall (map inner form))
+                  (meta form))
+    #?(:clj (instance? clojure.lang.IRecord form)
+       :cljs (record? form))
+    (reduce (fn [r x] (conj r (inner x))) form form)
+    (coll? form) (into (empty form) (map inner form))
+    :else form))
+
+(defn prewalk
+  "Prewalk with metadata preservation"
+  [f form]
+  (walk* (partial prewalk f) (f form)))

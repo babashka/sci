@@ -3,12 +3,11 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    [clojure.string :as str]
-   [clojure.walk :as walk]
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
-   [sci.impl.utils :refer
+   [sci.impl.utils :as utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns]]))
@@ -375,7 +374,7 @@
        :finally finally}})))
 
 (defn expand-syntax-quote [ctx expr]
-  (let [ret (walk/prewalk
+  (let [ret (utils/prewalk
              (fn [x]
                (if (seq? x)
                  (case (first x)
