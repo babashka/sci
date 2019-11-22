@@ -85,7 +85,10 @@
     (or
      (find bindings sym)
      (when (some-> sym meta :sci.impl/var.declared)
-       (find env sym))
+       (when-let [[k v] (find env sym)]
+         (if (some-> v meta :sci.impl/var.declared)
+           [k nil]
+           [k v])))
      (when-let [c (interop/resolve-class ctx sym)]
        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
      (when (get macros sym)
