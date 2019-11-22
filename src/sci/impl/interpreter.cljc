@@ -85,7 +85,12 @@
     (or
      (find bindings sym)
      (when (some-> sym meta :sci.impl/var.declared)
-       (find env sym))
+       (do
+         ;; (prn (find env sym) (map meta (find env sym)))
+         (when-let [[k v] (find env sym)]
+           (if (:sci.impl/eval (meta v)) ;; temp hack
+             [k nil]
+             [k v]))))
      (when-let [c (interop/resolve-class ctx sym)]
        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
      (when (get macros sym)
