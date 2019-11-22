@@ -57,6 +57,9 @@
   (testing "as->"
     (is (= "4444444444"
            (eval* '(as-> 1 x (inc x) (inc x) (inc x) (apply str (repeat 10 (str x))))))))
+  (testing "some->"
+    (is (= nil   (eval* '(some-> {:a {:a nil}}        :a :a :a (clojure.string/lower-case)))))
+    (is (= "aaa" (eval* '(some-> {:a {:a {:a "AAA"}}} :a :a :a (clojure.string/lower-case))))))
   (testing "literals"
     (is (= {:a 4
             :b {:a 2}

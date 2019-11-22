@@ -91,6 +91,17 @@
        (let [~x (first xs#)]
          ~@body))))
 
+(defn some->*
+  [_&form _&env expr & forms]
+  (let [g (gensym)
+        steps (map (fn [step] `(if (nil? ~g) nil (-> ~g ~step)))
+                   forms)]
+    `(let [~g ~expr
+           ~@(interleave (repeat g) (butlast steps))]
+       ~(if (empty? steps)
+          g
+          (last steps)))))
+
 (def ex-message
   (if-let [v (resolve 'clojure.core/ex-message)]
     @v
@@ -332,6 +343,7 @@
    'simple-keyword? simple-keyword?
    'simple-symbol? simple-symbol?
    'some? some?
+   'some-> (macrofy some->*)
    'string? string?
    'str str
    'second second
