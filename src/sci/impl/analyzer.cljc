@@ -354,6 +354,7 @@
                   ;; TODO: can't have finally as non-last expression
                   (recur exprs (conj body-exprs expr) catch-exprs finally-expr))
             [body-exprs catch-exprs finally-expr]))
+        body (analyze ctx (cons 'do body-exprs))
         catches (mapv (fn [c]
                         (let [[_ ex binding & body] c]
                           (if-let [clazz (or (interop/resolve-class ctx ex)
@@ -369,7 +370,7 @@
                   (analyze ctx (cons 'do (rest finally))))]
     (mark-eval
      {:sci.impl/try
-      {:body (analyze ctx (cons 'do body-exprs))
+      {:body body
        :catches catches
        :finally finally}})))
 

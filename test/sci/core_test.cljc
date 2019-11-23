@@ -544,7 +544,12 @@
                           (catch #?(:clj ArithmeticException :cljs js/Error) _ 0))"
                        {:read-cond :allow
                         :features #?(:clj #{:clj}
-                                     :cljs #{:cljs})}))))
+                                     :cljs #{:cljs})})))
+  (is (= 4 (eval* "(def x 1)
+                   (try (pos? x)
+                     (def y (+ 1 2 x))
+                     y
+                     (finally (pos? y)))"))))
 
 (deftest recursion-test
   (testing "stack usage didn't get worse"
