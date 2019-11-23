@@ -55,7 +55,7 @@
                                  :row row
                                  :col col} data))))))
 
-(defn rethrow-with-location-of-node [ctx ^Exception e node]
+(defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (if-not (:sci.impl/in-try ctx)
     (if-let [m #?(:clj (.getMessage e)
                   :cljs (.-message e))]

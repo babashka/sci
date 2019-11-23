@@ -275,15 +275,11 @@
   [ctx expr]
   (when-let [exprs (next expr)]
     (loop [[expr & exprs] exprs]
-      ;; (prn "DO" expr)
       (let [ret (try (interpret ctx expr)
-                     (catch #?(:clj Exception :cljs js/Error) e
+                     (catch #?(:clj Throwable :cljs js/Error) e
                        (rethrow-with-location-of-node ctx e expr)))]
-        ;; (prn "RET" expr ret)
         (if-let [exprs (seq exprs)]
-          (do
-            ;; (prn "EXPRS" exprs)
-            (recur exprs))
+          (recur exprs)
           ret)))))
 
 (defn eval-call [ctx expr]
