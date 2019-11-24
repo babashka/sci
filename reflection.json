@@ -1,5 +1,11 @@
 [
   {
+    "name": "java.lang.AssertionError",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
+  },
+  {
     "name": "java.lang.Class",
     "allDeclaredConstructors": true,
     "allPublicConstructors": true,

@@ -326,9 +326,14 @@
 
 (defn interpret
   [ctx expr]
-  ;; (prn "expr" expr)
-  (let [ctx (assoc ctx :top-level? false)
-        m (meta expr)
+  (let [m (meta expr)
+        ctx (assoc ctx :top-level? false)
+        ctx (if m
+              (let [{:keys [:row :col]} m]
+                (if (and row col)
+                  (assoc ctx :row row :col col)
+                  ctx))
+              ctx)
         eval? (:sci.impl/eval m)
         ret
         (cond
@@ -374,7 +379,8 @@
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
 
 (def default-classes
-  #?(:clj {'java.lang.Exception {:class Exception}
+  #?(:clj {'java.lang.AssertionError AssertionError
+           'java.lang.Exception {:class Exception}
            'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
            'java.lang.String {:class String}
            'java.lang.Integer Integer
@@ -383,7 +389,8 @@
      :cljs []))
 
 (def default-imports
-  #?(:clj '{Exception java.lang.Exception
+  #?(:clj '{AssertionError java.lang.AssertionError
+            Exception java.lang.Exception
             String java.lang.String
             ArithmeticException java.lang.ArithmeticException
             Integer java.lang.Integer

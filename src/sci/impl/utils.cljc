@@ -61,7 +61,8 @@
                   :cljs (.-message e))]
       (if (str/includes? m "[at line")
         (throw e)
-        (let [{:keys [:row :col]} (meta node)]
+        (let [{:keys [:row :col] :or {row (:row ctx)
+                                      col (:col ctx)}} (meta node)]
           (if (and row col)
             (let [m (str m " [at line " row ", column " col "]")
                   new-exception (let [d (ex-data e)]
