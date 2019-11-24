@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [destructure macroexpand])
   (:require
    [clojure.string :as str]
+   [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
    [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
@@ -19,7 +20,7 @@
 
 (def macros
   '#{do if when and or -> ->> as-> quote let fn def defn
-     lazy-seq require try syntax-quote case .})
+     lazy-seq require try syntax-quote case . in-ns})
 
 ;;;; Evaluation
 
@@ -269,6 +270,15 @@
 
 ;;;; End interop
 
+;;;; Namespaces
+
+(defn eval-in-ns [ctx [_in-ns ns-expr]]
+  (let [ns-sym (interpret ctx ns-expr)]
+    (swap! (:env ctx) assoc :current-ns ns-sym)
+    nil))
+
+;;;; End namespaces
+
 (declare eval-string)
 
 (defn eval-do
@@ -320,7 +330,8 @@
                  ;; interop
                  new (eval-constructor-invocation ctx expr)
                  . (eval-instance-method-invocation ctx expr)
-                 throw (eval-throw ctx expr))))
+                 throw (eval-throw ctx expr)
+                 in-ns (eval-in-ns ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -421,7 +432,8 @@
                          :aliases
                          :namespaces
                          :classes
-                         :imports]}]
+                         :imports
+                         :features]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -431,7 +443,8 @@
                     :bindings {}
                     :allow (process-permissions (:allow preset) allow)
                     :deny (process-permissions (:deny preset) deny)
-                    :realize-max (or realize-max (:realize-max preset))}
+                    :realize-max (or realize-max (:realize-max preset))
+                    :features features}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
 
@@ -439,16 +452,29 @@
   (and (list? expr)
        (= 'do (first expr))))
 
-(defn eval-edn-vals [ctx edn-vals]
-  (when-let [vals (seq edn-vals)]
-    (loop [[expr & exprs] vals]
-      (if (do? expr)
-        (recur (concat (rest expr) exprs)) ;; splice top level dos
-        (let [analyzed (ana/analyze ctx expr)
-              ret (interpret ctx analyzed)]
-          (if (seq exprs)
-            (recur exprs)
-            ret))))))
+(defn eval-form [ctx form]
+  (if (do? form) (loop [exprs (rest form)
+                        ret nil]
+                   (if (seq exprs)
+                     (recur
+                      (rest exprs)
+                      (eval-form ctx (first exprs)))
+                     ret))
+      (let [analyzed (ana/analyze ctx form)
+            ret (interpret ctx analyzed)]
+        ret)))
+
+(defn eval-string* [ctx s]
+  (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
+        features (:features ctx)]
+    (loop [queue []
+           ret nil]
+      (let [expr (or (first queue)
+                     (p/parse-next reader features {:current (-> ctx :env deref :current-ns)}))]
+        (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
+            (let [ret (eval-form ctx expr)]
+              (if (seq queue) (recur (rest queue) ret)
+                  (recur [] ret))))))))
 
 ;;;; Called from public API
 
@@ -456,10 +482,7 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts->ctx opts)
-         features (:features opts)
-         ;; use parse-next instead of parse-string-all
-         edn-vals (p/parse-string-all s features {:current 'user})
-         ret (eval-edn-vals init-ctx edn-vals)]
+         ret (eval-string* init-ctx s)]
      ret)))
 
 ;;;; Scratch

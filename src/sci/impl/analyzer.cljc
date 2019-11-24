@@ -19,7 +19,8 @@
 ;; Built-in macros.
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
-               try defmacro declare expand-dot* expand-constructor new . import})
+               try defmacro declare expand-dot* expand-constructor new . import
+               in-ns})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -446,6 +447,10 @@
                       (meta constructor-sym)))))
 
 ;;;; End interop
+
+;;;; Namespaces
+
+;;;; End namespaces
 
 (defn macro? [f]
   (when-let [m (meta f)]

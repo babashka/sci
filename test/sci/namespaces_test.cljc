@@ -9,4 +9,5 @@
    (tu/eval* form {:bindings {'*in* binding}})))
 
 (deftest autoresolve-test
-  (is (= :user/foo (eval* "::foo"))))
+  (is (= :user/foo (eval* "::foo")))
+  (is (= :bar/foo (eval* "(in-ns 'bar) ::foo"))))
