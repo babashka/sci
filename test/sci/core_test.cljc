@@ -574,6 +574,10 @@
   (is (= "foo" #?(:clj (eval* "(ex-message (Exception. \"foo\"))")
                   :cljs (eval* "(ex-message (js/Error. \"foo\"))")))))
 
+(deftest assert-test
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"should-be-true.*\[at line 1"
+                        (eval* "(def should-be-true false) (assert should-be-true)"))))
+
 ;;;; Scratch
 
 (comment

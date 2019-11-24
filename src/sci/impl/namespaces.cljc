@@ -110,6 +110,14 @@
         #?(:clj (.getMessage ^Throwable ex)
            :cljs (.-message ex))))))
 
+(defn assert*
+  ([_&form _ x]
+   `(when-not ~x
+      (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " (pr-str '~x))))))
+  ([_&form _ x message]
+   `(when-not ~x
+      (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
+
 (def clojure-core
   {'= =
    '< <
@@ -127,6 +135,7 @@
    'alength alength
    'apply apply
    'array-map array-map
+   'assert (with-meta assert* {:sci/macro true})
    'assoc assoc
    'assoc-in assoc-in
    'associative? associative?
