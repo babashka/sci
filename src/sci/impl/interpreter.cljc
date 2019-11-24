@@ -368,7 +368,8 @@
                  (assoc env-val
                         :namespaces namespaces
                         :aliases aliases
-                        :imports imports)))))
+                        :imports imports
+                        :current-ns 'user)))))
 
 (def presets
   {:termination-safe
@@ -456,7 +457,8 @@
   ([s opts]
    (let [init-ctx (opts->ctx opts)
          features (:features opts)
-         edn-vals (p/parse-string-all s features)
+         ;; use parse-next instead of parse-string-all
+         edn-vals (p/parse-string-all s features {:current 'user})
          ret (eval-edn-vals init-ctx edn-vals)]
      ret)))
 

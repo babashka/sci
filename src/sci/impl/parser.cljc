@@ -18,27 +18,30 @@
 (defn parse-next
   ([r]
    (edamame.impl.parser/parse-next opts r))
-  ([r features]
+  ([r features auto-resolve]
    (edamame.impl.parser/parse-next (assoc opts
                                           :read-cond :allow
-                                          :features features)
+                                          :features features
+                                          :auto-resolve auto-resolve)
                                    r)))
 
 (defn parse-string
   ([s]
    (edamame/parse-string s opts))
-  ([s features]
+  ([s features auto-resolve]
    (edamame/parse-string s (assoc opts
                                   :read-cond :allow
-                                  :features features))))
+                                  :features features
+                                  :auto-resolve auto-resolve))))
 
 (defn parse-string-all
   ([s]
    (edamame/parse-string-all s opts))
-  ([s features]
+  ([s features auto-resolve]
    (edamame/parse-string-all s (assoc opts
                                       :read-cond :allow
-                                      :features features))))
+                                      :features features
+                                      :auto-resolve auto-resolve))))
 
 ;;;; Scratch
 
