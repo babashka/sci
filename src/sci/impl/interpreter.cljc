@@ -78,7 +78,9 @@
         init (interpret ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
-    (swap! (:env ctx) assoc var-name init)
+    (swap! (:env ctx) (fn [env]
+                        (let [current-ns (:current-ns env)]
+                          (update-in env [:namespaces current-ns] assoc var-name init))))
     init))
 
 (defn lookup [{:keys [:bindings :env] :as ctx} sym]
@@ -86,10 +88,12 @@
     (or
      (find bindings sym)
      (when (some-> sym meta :sci.impl/var.declared)
-       (when-let [[k v] (find env sym)]
-         (if (some-> v meta :sci.impl/var.declared)
-           [k nil]
-           [k v])))
+       (let [current-ns (:current-ns env)
+             current-ns-map (-> env :namespaces current-ns)]
+         (when-let [[k v] (find current-ns-map sym)]
+           (if (some-> v meta :sci.impl/var.declared)
+             [k nil]
+             [k v]))))
      (when-let [c (interop/resolve-class ctx sym)]
        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
      (when (get macros sym)
@@ -130,11 +134,12 @@
                                (throw (new #?(:clj Exception :cljs js/Error)
                                            (str ":refer value must be a sequential collection of symbols"))))
                              (reduce (fn [env sym]
-                                       (assoc env sym
-                                              (if-let [[_k v] (find ns-data sym)]
-                                                v
-                                                (throw (new #?(:clj Exception :cljs js/Error)
-                                                            (str sym " does not exist"))))))
+                                       (let [current-ns (:current-ns env)]
+                                         (assoc-in env [:namespaces current-ns sym]
+                                                   (if-let [[_k v] (find ns-data sym)]
+                                                     v
+                                                     (throw (new #?(:clj Exception :cljs js/Error)
+                                                                 (str sym " does not exist")))))))
                                      env
                                      refer))
                            env)]
@@ -373,10 +378,9 @@
 
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
-               (let [env-val (merge env bindings)
-                     namespaces (merge-with merge namespaces/namespaces (:namespaces env) namespaces)
+               (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
                      aliases (merge namespaces/aliases (:aliases env) aliases)]
-                 (assoc env-val
+                 (assoc env
                         :namespaces namespaces
                         :aliases aliases
                         :imports imports

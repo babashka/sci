@@ -35,8 +35,10 @@
 (defn lookup* [{:keys [:env] :as ctx} sym]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
-        env @env]
-    (or (find env sym) ;; env can contain foo/bar symbols from bindings
+        env @env
+        current-ns (:current-ns env)
+        current-ns-map (-> env :namespaces current-ns)]
+    (or (find current-ns-map sym) ;; env can contain foo/bar symbols from bindings
         (cond
           (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))) ;; or cljs.core?
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
@@ -393,14 +395,18 @@
 (defn expand-declare [ctx [_declare & names :as _expr]]
   (swap! (:env ctx)
          (fn [env]
-           ;; declaring an already existing var does nothing
-           ;; that's why env is the last arg to merge, not the first
-           (merge (zipmap names
-                          (map (fn [n]
-                                 (vary-meta (mark-eval n)
-                                            #(assoc % :sci.impl/var.declared true)))
-                               names))
-                  env)))
+           (let [current-ns (:current-ns env)]
+             (update-in env [:namespaces current-ns]
+                        (fn [current-ns]
+                          (reduce (fn [acc name]
+                                    (if (contains? acc name)
+                                      ;; declare does not override an existing
+                                      ;; var
+                                      acc
+                                      (assoc acc name (vary-meta (mark-eval name)
+                                                                 #(assoc % :sci.impl/var.declared true)))))
+                                  current-ns
+                                  names))))))
   nil)
 
 (defn do-import [{:keys [:env] :as ctx} [_ & import-symbols-or-lists :as expr]]
