@@ -20,7 +20,7 @@
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import
-               in-ns})
+               in-ns ns})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -456,6 +456,23 @@
 
 ;;;; Namespaces
 
+(defn analyze-ns-form [ctx [_ns ns-name & exprs]]
+  (let [;; skip docstring
+        exprs (if (string? (first exprs))
+                (rest exprs)
+                exprs)
+        ;; skip attr-map
+        exprs (if (map? (first exprs))
+                (rest exprs)
+                exprs)]
+    (loop [exprs exprs
+           ret [(mark-eval-call (list 'in-ns ns-name))]]
+      (if exprs
+        (let [[k & args] (first exprs)]
+          (case k
+            :require (recur (next exprs) ret)))
+        (mark-eval-call (list* 'do ret))))))
+
 ;;;; End namespaces
 
 (defn macro? [f]
@@ -508,6 +525,7 @@
             expand-constructor (expand-constructor ctx expr)
             new (expand-new ctx expr)
             import (do-import ctx expr)
+            ns (analyze-ns-form ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
