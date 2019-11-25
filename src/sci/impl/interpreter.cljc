@@ -470,11 +470,14 @@
 
 (defn eval-string* [ctx s]
   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
-        features (:features ctx)]
+        features (:features ctx)
+        env (:env ctx)]
     (loop [queue []
            ret nil]
       (let [expr (or (first queue)
-                     (p/parse-next reader features {:current (-> ctx :env deref :current-ns)}))]
+                     (p/parse-next reader features
+                                   (assoc (:aliases @env)
+                                          :current (-> env deref :current-ns))))]
         (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
             (let [ret (eval-form ctx expr)]
               (if (seq queue) (recur (rest queue) ret)
