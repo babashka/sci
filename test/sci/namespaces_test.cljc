@@ -20,4 +20,8 @@
   (is (= 10 (eval* "(in-ns 'foo) (def x 10) (in-ns 'bar) (def x 11) (in-ns 'foo) x"))))
 
 (deftest ns-form-test
-  (is (= #{1} (eval* "(ns foo (:require [clojure.set :as x])) (x/difference #{1 2 3} #{2 3 4})"))))
+  (is (= #{1} (eval* "(ns foo (:require [clojure.set :as x])) (x/difference #{1 2 3} #{2 3 4})")))
+  (is (= #{1} (eval* "(ns foo
+                        \"docstring\"
+                        {:metadata 1}
+                        (:require [clojure.set :refer [difference]])) (difference #{1 2 3} #{2 3 4})"))))
