@@ -465,13 +465,18 @@
         exprs (if (map? (first exprs))
                 (rest exprs)
                 exprs)]
+    (swap! (:env ctx) assoc :current-ns ns-name)
     (loop [exprs exprs
            ret [(mark-eval-call (list 'in-ns ns-name))]]
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
             :require (recur (next exprs) (conj ret
-                                               (mark-eval-call `(~'require ~@args))))))
+                                               (mark-eval-call `(~'require ~@args))))
+            :import (do
+                      ;; imports are processed analysis time
+                      (do-import ctx `(~'import ~@args))
+                      (recur (next exprs) ret))))
         (mark-eval-call (list* 'do ret))))))
 
 ;;;; End namespaces

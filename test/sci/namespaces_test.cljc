@@ -24,4 +24,6 @@
   (is (= #{1} (eval* "(ns foo
                         \"docstring\"
                         {:metadata 1}
-                        (:require [clojure.set :refer [difference]])) (difference #{1 2 3} #{2 3 4})"))))
+                        (:require [clojure.set :refer [difference]])) (difference #{1 2 3} #{2 3 4})")))
+  #?(:clj (is (= [clojure.lang.ExceptionInfo :foo/foo]
+                 (eval* "(ns foo (:import [clojure.lang ExceptionInfo])) [ExceptionInfo ::foo]")))))
