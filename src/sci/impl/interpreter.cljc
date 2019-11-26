@@ -125,27 +125,31 @@
   (let [{:keys [:as :refer]} (parse-libspec-opts opts)]
     (swap! (:env ctx)
            (fn [env]
-             (if-let [ns-data (get (:namespaces env) lib-name)]
-               (let [env (if as (assoc-in env [:aliases as] lib-name)
-                             env)
-                     env (if refer
-                           (do
-                             (when-not (sequential? refer)
-                               (throw (new #?(:clj Exception :cljs js/Error)
-                                           (str ":refer value must be a sequential collection of symbols"))))
-                             (reduce (fn [env sym]
-                                       (let [current-ns (:current-ns env)]
-                                         (assoc-in env [:namespaces current-ns sym]
-                                                   (if-let [[_k v] (find ns-data sym)]
-                                                     v
-                                                     (throw (new #?(:clj Exception :cljs js/Error)
-                                                                 (str sym " does not exist")))))))
-                                     env
-                                     refer))
-                           env)]
-                 env)
-               (throw (new #?(:clj Exception :cljs js/Error)
-                           (str "Could not require " lib-name "."))))))))
+             (let [namespaces (get env :namespaces)]
+               (if-let [ns-data (get namespaces lib-name)]
+                 (let [current-ns (:current-ns env)
+                       the-current-ns (get-in env [:namespaces current-ns])
+                       the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
+                                          the-current-ns)
+                       the-current-ns
+                       (if refer
+                         (do
+                           (when-not (sequential? refer)
+                             (throw (new #?(:clj Exception :cljs js/Error)
+                                         (str ":refer value must be a sequential collection of symbols"))))
+                           (reduce (fn [ns sym]
+                                     (assoc ns sym
+                                            (if-let [[_k v] (find ns-data sym)]
+                                              v
+                                              (throw (new #?(:clj Exception :cljs js/Error)
+                                                          (str sym " does not exist"))))))
+                                   the-current-ns
+                                   refer))
+                         the-current-ns)
+                       env (assoc-in env [:namespaces current-ns] the-current-ns)]
+                   env)
+                 (throw (new #?(:clj Exception :cljs js/Error)
+                             (str "Could not require " lib-name ".")))))))))
 
 (defn eval-require
   [ctx expr]
@@ -379,10 +383,10 @@
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
                (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
-                     aliases (merge namespaces/aliases (:aliases env) aliases)]
+                     aliases (merge namespaces/aliases (:aliases env) aliases)
+                     namespaces (update namespaces 'user assoc :aliases aliases)]
                  (assoc env
                         :namespaces namespaces
-                        :aliases aliases
                         :imports imports
                         :current-ns 'user)))))
 
@@ -474,10 +478,14 @@
         env (:env ctx)]
     (loop [queue []
            ret nil]
-      (let [expr (or (first queue)
+      (let [env-val @env
+            current-ns (:current-ns env-val)
+            the-current-ns (get-in env-val [:namespaces current-ns])
+            aliases (:aliases the-current-ns)
+            expr (or (first queue)
                      (p/parse-next reader features
-                                   (assoc (:aliases @env)
-                                          :current (-> env deref :current-ns))))]
+                                   (assoc aliases
+                                          :current current-ns)))]
         (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
             (let [ret (eval-form ctx expr)]
               (if (seq queue) (recur (rest queue) ret)

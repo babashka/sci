@@ -37,8 +37,8 @@
         sym-name (symbol (name sym))
         env @env
         current-ns (:current-ns env)
-        current-ns-map (-> env :namespaces current-ns)]
-    (or (find current-ns-map sym) ;; env can contain foo/bar symbols from bindings
+        the-current-ns (-> env :namespaces current-ns)]
+    (or (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
         (cond
           (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))) ;; or cljs.core?
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
@@ -46,7 +46,7 @@
                 [sym v]))
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
-              (when-let [aliased (some-> env :aliases sym-ns)]
+              (when-let [aliased (-> the-current-ns :aliases sym-ns)]
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
                   [(symbol (str aliased) (str sym-name)) v]))
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
