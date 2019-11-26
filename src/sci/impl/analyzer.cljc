@@ -470,7 +470,8 @@
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
-            :require (recur (next exprs) ret)))
+            :require (recur (next exprs) (conj ret
+                                               (mark-eval-call `(~'require ~@args))))))
         (mark-eval-call (list* 'do ret))))))
 
 ;;;; End namespaces
