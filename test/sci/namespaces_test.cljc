@@ -25,6 +25,7 @@
                         \"docstring\"
                         {:metadata 1}
                         (:require [clojure.set :refer [difference]])) (difference #{1 2 3} #{2 3 4})")))
-  (when-not tu/native?
-    #?(:clj (is (= [clojure.lang.ExceptionInfo :foo/foo]
-                   (eval* "(ns foo (:import [clojure.lang ExceptionInfo])) [ExceptionInfo ::foo]"))))))
+  #?(:clj
+     (is (= :foo/foo
+            (eval* "(ns foo (:import [clojure.lang ExceptionInfo]))
+                    (try ::foo (catch ExceptionInfo e nil))")))))
