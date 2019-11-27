@@ -501,7 +501,16 @@
                  'select set/select
                  'subset? set/subset?
                  'superset? set/superset?
-                 'union set/union}})
+                 'union set/union}
+   'clojure.walk {'walk clojure.walk/walk
+                  'postwalk clojure.walk/postwalk
+                  'prewalk clojure.walk/prewalk
+                  'postwalk-demo clojure.walk/postwalk-demo
+                  'prewalk-demo clojure.walk/prewalk-demo
+                  'kewordize-keys clojure.walk/keywordize-keys
+                  'stringify-keys clojure.walk/stringify-keys
+                  'prewalk-replace clojure.walk/prewalk-replace
+                  'postwalk-replace clojure.walk/postwalk-replace}})
 
 (def aliases
   '{str clojure.string

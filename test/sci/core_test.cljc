@@ -584,6 +584,9 @@
       (tu/eval* "(dotimes [i 10] (swap! state inc))" {:bindings {'state state}})
       (is (= 10 @state)))))
 
+(deftest clojure-walk-test
+  (is (= {"a" {"b" 1}} (eval* "(clojure.walk/stringify-keys {:a {:b 1}})"))))
+
 ;;;; Scratch
 
 (comment
