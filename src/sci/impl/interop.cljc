@@ -33,6 +33,7 @@
   (or #?(:clj (get sym->class sym)
          :cljs (if-let [ns* (namespace sym)]
                  (when (identical? "js" ns*)
-                   (get sym->class (symbol (name sym))))))
+                   (get sym->class (symbol (name sym))))
+                 (get sym->class sym)))
       (when-let [v (get (:imports @env) sym)]
         (get sym->class v))))
