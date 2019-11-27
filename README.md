@@ -133,7 +133,8 @@ Currently the following special forms/macros are supported: `def`, `fn`,
 function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
 `when`, `when-let`, `when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`,
 `comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`,
-`declare`, `cond->`, `cond->>`. Sci also supports user defined macros.
+`declare`, `cond->`, `cond->>`, `require`, `import`, `in-ns`, `ns`. Sci also
+supports user defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).
