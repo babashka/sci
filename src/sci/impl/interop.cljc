@@ -27,7 +27,10 @@
 (defn invoke-constructor #?(:clj [_ctx ^Class class args]
                             :cljs [_ctx class args])
   #?(:clj (Reflector/invokeConstructor class (object-array args))
-     :cljs (apply class args)))
+     :cljs (let [args (into-array args)
+                 obj (js/Object.create (.-prototype class))
+                 obj (.apply class obj args)]
+             obj)))
 
 (defn resolve-class [{:keys [:env :sym->class]} sym]
   (or #?(:clj (get sym->class sym)
