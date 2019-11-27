@@ -3,8 +3,8 @@
   (:refer-clojure :exclude [destructure macroexpand])
   (:require
    [clojure.string :as str]
+   [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
-   [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.max-or-throw :refer [max-or-throw]]
@@ -19,7 +19,7 @@
 
 (def macros
   '#{do if when and or -> ->> as-> quote let fn def defn
-     lazy-seq require try syntax-quote case .})
+     lazy-seq require try syntax-quote case . in-ns})
 
 ;;;; Evaluation
 
@@ -77,7 +77,9 @@
         init (interpret ctx init)
         m (if docstring {:sci/doc docstring} {})
         var-name (with-meta var-name m)]
-    (swap! (:env ctx) assoc var-name init)
+    (swap! (:env ctx) (fn [env]
+                        (let [current-ns (:current-ns env)]
+                          (update-in env [:namespaces current-ns] assoc var-name init))))
     init))
 
 (defn lookup [{:keys [:bindings :env] :as ctx} sym]
@@ -85,10 +87,12 @@
     (or
      (find bindings sym)
      (when (some-> sym meta :sci.impl/var.declared)
-       (when-let [[k v] (find env sym)]
-         (if (some-> v meta :sci.impl/var.declared)
-           [k nil]
-           [k v])))
+       (let [current-ns (:current-ns env)
+             current-ns-map (-> env :namespaces current-ns)]
+         (when-let [[k v] (find current-ns-map sym)]
+           (if (some-> v meta :sci.impl/var.declared)
+             [k nil]
+             [k v]))))
      (when-let [c (interop/resolve-class ctx sym)]
        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
      (when (get macros sym)
@@ -120,26 +124,31 @@
   (let [{:keys [:as :refer]} (parse-libspec-opts opts)]
     (swap! (:env ctx)
            (fn [env]
-             (if-let [ns-data (get (:namespaces env) lib-name)]
-               (let [env (if as (assoc-in env [:aliases as] lib-name)
-                             env)
-                     env (if refer
-                           (do
-                             (when-not (sequential? refer)
-                               (throw (new #?(:clj Exception :cljs js/Error)
-                                           (str ":refer value must be a sequential collection of symbols"))))
-                             (reduce (fn [env sym]
-                                       (assoc env sym
-                                              (if-let [[_k v] (find ns-data sym)]
-                                                v
-                                                (throw (new #?(:clj Exception :cljs js/Error)
-                                                            (str sym " does not exist"))))))
-                                     env
-                                     refer))
-                           env)]
-                 env)
-               (throw (new #?(:clj Exception :cljs js/Error)
-                           (str "Could not require " lib-name "."))))))))
+             (let [namespaces (get env :namespaces)]
+               (if-let [ns-data (get namespaces lib-name)]
+                 (let [current-ns (:current-ns env)
+                       the-current-ns (get-in env [:namespaces current-ns])
+                       the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
+                                          the-current-ns)
+                       the-current-ns
+                       (if refer
+                         (do
+                           (when-not (sequential? refer)
+                             (throw (new #?(:clj Exception :cljs js/Error)
+                                         (str ":refer value must be a sequential collection of symbols"))))
+                           (reduce (fn [ns sym]
+                                     (assoc ns sym
+                                            (if-let [[_k v] (find ns-data sym)]
+                                              v
+                                              (throw (new #?(:clj Exception :cljs js/Error)
+                                                          (str sym " does not exist"))))))
+                                   the-current-ns
+                                   refer))
+                         the-current-ns)
+                       env (assoc-in env [:namespaces current-ns] the-current-ns)]
+                   env)
+                 (throw (new #?(:clj Exception :cljs js/Error)
+                             (str "Could not require " lib-name ".")))))))))
 
 (defn eval-require
   [ctx expr]
@@ -269,6 +278,15 @@
 
 ;;;; End interop
 
+;;;; Namespaces
+
+(defn eval-in-ns [ctx [_in-ns ns-expr]]
+  (let [ns-sym (interpret ctx ns-expr)]
+    (swap! (:env ctx) assoc :current-ns ns-sym)
+    nil))
+
+;;;; End namespaces
+
 (declare eval-string)
 
 (defn eval-do
@@ -320,7 +338,8 @@
                  ;; interop
                  new (eval-constructor-invocation ctx expr)
                  . (eval-instance-method-invocation ctx expr)
-                 throw (eval-throw ctx expr))))
+                 throw (eval-throw ctx expr)
+                 in-ns (eval-in-ns ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -362,13 +381,13 @@
 
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
-               (let [env-val (merge env bindings)
-                     namespaces (merge-with merge namespaces/namespaces (:namespaces env) namespaces)
-                     aliases (merge namespaces/aliases (:aliases env) aliases)]
-                 (assoc env-val
+               (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
+                     aliases (merge namespaces/aliases (:aliases env) aliases)
+                     namespaces (update namespaces 'user assoc :aliases aliases)]
+                 (assoc env
                         :namespaces namespaces
-                        :aliases aliases
-                        :imports imports)))))
+                        :imports imports
+                        :current-ns 'user)))))
 
 (def presets
   {:termination-safe
@@ -386,7 +405,7 @@
            'java.lang.Integer Integer
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException}
-     :cljs []))
+     :cljs {'Error js/Error}))
 
 (def default-imports
   #?(:clj '{AssertionError java.lang.AssertionError
@@ -420,17 +439,19 @@
                          :aliases
                          :namespaces
                          :classes
-                         :imports]}]
+                         :imports
+                         :features]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
-        bindings (merge exception-bindings bindings)
+        bindings bindings
         _ (init-env! env bindings aliases namespaces imports)
         ctx (merge {:env env
                     :bindings {}
                     :allow (process-permissions (:allow preset) allow)
                     :deny (process-permissions (:deny preset) deny)
-                    :realize-max (or realize-max (:realize-max preset))}
+                    :realize-max (or realize-max (:realize-max preset))
+                    :features features}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
 
@@ -438,16 +459,36 @@
   (and (list? expr)
        (= 'do (first expr))))
 
-(defn eval-edn-vals [ctx edn-vals]
-  (when-let [vals (seq edn-vals)]
-    (loop [[expr & exprs] vals]
-      (if (do? expr)
-        (recur (concat (rest expr) exprs)) ;; splice top level dos
-        (let [analyzed (ana/analyze ctx expr)
-              ret (interpret ctx analyzed)]
-          (if (seq exprs)
-            (recur exprs)
-            ret))))))
+(defn eval-form [ctx form]
+  (if (do? form) (loop [exprs (rest form)
+                        ret nil]
+                   (if (seq exprs)
+                     (recur
+                      (rest exprs)
+                      (eval-form ctx (first exprs)))
+                     ret))
+      (let [analyzed (ana/analyze ctx form)
+            ret (interpret ctx analyzed)]
+        ret)))
+
+(defn eval-string* [ctx s]
+  (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
+        features (:features ctx)
+        env (:env ctx)]
+    (loop [queue []
+           ret nil]
+      (let [env-val @env
+            current-ns (:current-ns env-val)
+            the-current-ns (get-in env-val [:namespaces current-ns])
+            aliases (:aliases the-current-ns)
+            expr (or (first queue)
+                     (p/parse-next reader features
+                                   (assoc aliases
+                                          :current current-ns)))]
+        (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
+            (let [ret (eval-form ctx expr)]
+              (if (seq queue) (recur (rest queue) ret)
+                  (recur [] ret))))))))
 
 ;;;; Called from public API
 
@@ -455,9 +496,7 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts->ctx opts)
-         features (:features opts)
-         edn-vals (p/parse-string-all s features)
-         ret (eval-edn-vals init-ctx edn-vals)]
+         ret (eval-string* init-ctx s)]
      ret)))
 
 ;;;; Scratch

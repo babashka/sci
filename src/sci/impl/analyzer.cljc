@@ -19,7 +19,8 @@
 ;; Built-in macros.
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
-               try defmacro declare expand-dot* expand-constructor new . import})
+               try defmacro declare expand-dot* expand-constructor new . import
+               in-ns ns})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -34,8 +35,10 @@
 (defn lookup* [{:keys [:env] :as ctx} sym]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
-        env @env]
-    (or (find env sym) ;; env can contain foo/bar symbols from bindings
+        env @env
+        current-ns (:current-ns env)
+        the-current-ns (-> env :namespaces current-ns)]
+    (or (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
         (cond
           (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))) ;; or cljs.core?
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
@@ -43,7 +46,7 @@
                 [sym v]))
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
-              (when-let [aliased (some-> env :aliases sym-ns)]
+              (when-let [aliased (-> the-current-ns :aliases sym-ns)]
                 (when-let [v (some-> env :namespaces aliased (get sym-name))]
                   [(symbol (str aliased) (str sym-name)) v]))
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
@@ -357,9 +360,7 @@
         body (analyze ctx (cons 'do body-exprs))
         catches (mapv (fn [c]
                         (let [[_ ex binding & body] c]
-                          (if-let [clazz (or (interop/resolve-class ctx ex)
-                                             ;; the JS version still defines js/Error as a "var"
-                                             #?(:cljs (resolve-symbol ctx ex)))]
+                          (if-let [clazz (interop/resolve-class ctx ex)]
                             {:class clazz
                              :binding binding
                              :body (analyze (assoc-in ctx [:bindings binding] nil)
@@ -392,14 +393,18 @@
 (defn expand-declare [ctx [_declare & names :as _expr]]
   (swap! (:env ctx)
          (fn [env]
-           ;; declaring an already existing var does nothing
-           ;; that's why env is the last arg to merge, not the first
-           (merge (zipmap names
-                          (map (fn [n]
-                                 (vary-meta (mark-eval n)
-                                            #(assoc % :sci.impl/var.declared true)))
-                               names))
-                  env)))
+           (let [current-ns (:current-ns env)]
+             (update-in env [:namespaces current-ns]
+                        (fn [current-ns]
+                          (reduce (fn [acc name]
+                                    (if (contains? acc name)
+                                      ;; declare does not override an existing
+                                      ;; var
+                                      acc
+                                      (assoc acc name (vary-meta (mark-eval name)
+                                                                 #(assoc % :sci.impl/var.declared true)))))
+                                  current-ns
+                                  names))))))
   nil)
 
 (defn do-import [{:keys [:env] :as ctx} [_ & import-symbols-or-lists :as expr]]
@@ -438,7 +443,10 @@
     (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
-  (let [constructor-name (name constructor-sym)
+  (let [;; TODO:
+        ;; here is strips the namespace, which is correct in the case of
+        ;; js/Error. but not in clj
+        constructor-name (name constructor-sym)
         class-sym (with-meta (symbol (subs constructor-name 0
                                            (dec (count constructor-name))))
                     (meta constructor-sym))]
@@ -446,6 +454,33 @@
                       (meta constructor-sym)))))
 
 ;;;; End interop
+
+;;;; Namespaces
+
+(defn analyze-ns-form [ctx [_ns ns-name & exprs]]
+  (let [;; skip docstring
+        exprs (if (string? (first exprs))
+                (rest exprs)
+                exprs)
+        ;; skip attr-map
+        exprs (if (map? (first exprs))
+                (rest exprs)
+                exprs)]
+    (swap! (:env ctx) assoc :current-ns ns-name)
+    (loop [exprs exprs
+           ret [(mark-eval-call (list 'in-ns ns-name))]]
+      (if exprs
+        (let [[k & args] (first exprs)]
+          (case k
+            :require (recur (next exprs) (conj ret
+                                               (mark-eval-call `(~'require ~@args))))
+            :import (do
+                      ;; imports are processed analysis time
+                      (do-import ctx `(~'import ~@args))
+                      (recur (next exprs) ret))))
+        (mark-eval-call (list* 'do ret))))))
+
+;;;; End namespaces
 
 (defn macro? [f]
   (when-let [m (meta f)]
@@ -497,6 +532,7 @@
             expand-constructor (expand-constructor ctx expr)
             new (expand-new ctx expr)
             import (do-import ctx expr)
+            ns (analyze-ns-form ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try

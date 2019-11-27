@@ -486,7 +486,7 @@
                            (try (eval* "   (/ 1 0)")
                                 (catch Exception e (ex-data e)))))]
       :cljs
-      [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e nil))")))
+      [(is (= :foo (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e :foo))")))
        (when-not tu/native?
          (tu/assert-submap {:type :sci/error, :row 1, :col 6, :a 1}
                            (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))])
