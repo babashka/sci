@@ -5,7 +5,6 @@
    [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
-   [sci.impl.exceptions :refer [exception-bindings]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.max-or-throw :refer [max-or-throw]]
@@ -445,7 +444,7 @@
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
-        bindings (merge exception-bindings bindings)
+        bindings bindings
         _ (init-env! env bindings aliases namespaces imports)
         ctx (merge {:env env
                     :bindings {}
