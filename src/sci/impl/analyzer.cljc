@@ -360,9 +360,7 @@
         body (analyze ctx (cons 'do body-exprs))
         catches (mapv (fn [c]
                         (let [[_ ex binding & body] c]
-                          (if-let [clazz (or (interop/resolve-class ctx ex)
-                                             ;; the JS version still defines js/Error as a "var"
-                                             #?(:cljs (resolve-symbol ctx ex)))]
+                          (if-let [clazz (interop/resolve-class ctx ex)]
                             {:class clazz
                              :binding binding
                              :body (analyze (assoc-in ctx [:bindings binding] nil)

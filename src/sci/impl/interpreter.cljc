@@ -406,7 +406,7 @@
            'java.lang.Integer Integer
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException}
-     :cljs []))
+     :cljs {'Error js/Error}))
 
 (def default-imports
   #?(:clj '{AssertionError java.lang.AssertionError
