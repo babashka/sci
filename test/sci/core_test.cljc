@@ -578,6 +578,12 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"should-be-true.*\[at line 1"
                         (eval* "(def should-be-true false) (assert should-be-true)"))))
 
+(deftest dotimes-test
+  (when-not tu/native?
+    (let [state (atom 0)]
+      (tu/eval* "(dotimes [i 10] (swap! state inc))" {:bindings {'state state}})
+      (is (= 10 @state)))))
+
 ;;;; Scratch
 
 (comment

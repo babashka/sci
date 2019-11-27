@@ -9,13 +9,16 @@
   (vary-meta f #(assoc % :sci/macro true)))
 
 (defn dotimes*
-  "dotimes from clojure.core"
-  [[i n] & body]
-  `(let [n# (long ~n)]
-     (loop [~i 0]
-       (when (< ~i n#)
-         ~@body
-         (recur (unchecked-inc ~i))))))
+  [_ _ bindings & body]
+  (assert (vector? bindings))
+  (assert (= 2 (count bindings)))
+  (let [i (first bindings)
+        n (second bindings)]
+    `(let [n# (long ~n)]
+       (loop [~i 0]
+         (when (< ~i n#)
+           ~@body
+           (recur (unchecked-inc ~i)))))))
 
 (defn if-not*
   "if-not from clojure.core"
