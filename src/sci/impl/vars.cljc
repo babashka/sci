@@ -17,8 +17,8 @@
      (deftype Frame [bindings prev])
      (def top-frame (Frame. {} nil))
 
-     (def ^ThreadLocal dvals (doto (ThreadLocal.)
-                               (.set top-frame)))
+     (def ^ThreadLocal dvals (proxy [ThreadLocal] []
+                               (initialValue [] top-frame)))
 
      (defn get-thread-binding-frame ^Frame []
        (.get dvals))
