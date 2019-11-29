@@ -20,7 +20,7 @@
 
 (def macros
   '#{do if when and or -> ->> as-> quote let fn def defn
-     lazy-seq require try syntax-quote case . in-ns})
+     lazy-seq require try syntax-quote case . in-ns set!})
 
 ;;;; Evaluation
 
@@ -289,6 +289,11 @@
 
 ;;;; End namespaces
 
+(defn eval-set! [ctx [_ obj v]]
+  (let [v (interpret ctx v)]
+    (if (var?* obj)
+      (sci.impl.var/setVal obj v))))
+
 (declare eval-string)
 
 (defn eval-do
@@ -341,7 +346,8 @@
                  new (eval-constructor-invocation ctx expr)
                  . (eval-instance-method-invocation ctx expr)
                  throw (eval-throw ctx expr)
-                 in-ns (eval-in-ns ctx expr))))
+                 in-ns (eval-in-ns ctx expr)
+                 set! (eval-set! ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 

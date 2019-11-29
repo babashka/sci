@@ -16,13 +16,13 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def . var})
+(def special-syms '#{try finally do if new recur quote catch throw def . var set!})
 
 ;; Built-in macros.
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import
-               in-ns ns var})
+               in-ns ns var set!})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -485,12 +485,22 @@
 
 ;;;; End namespaces
 
+
+;;;; Vars
+
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol ctx var-name)]
     (when (var?* v)
       v
       ;; TODO: exception?
       )))
+
+(defn analyze-set! [ctx [_ obj v]]
+  (let [obj (analyze ctx obj)
+        v (analyze ctx v)]
+    (mark-eval-call (list 'set! obj v))))
+
+;;;;
 
 (defn macro? [f]
   (when-let [m (meta f)]
@@ -544,6 +554,7 @@
             import (do-import ctx expr)
             ns (analyze-ns-form ctx expr)
             var (analyze-var ctx expr)
+            set! (analyze-set! ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try

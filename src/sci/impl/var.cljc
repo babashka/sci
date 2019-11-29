@@ -1,8 +1,14 @@
 (ns sci.impl.var
   {:no-doc true})
 
+(defprotocol ISettable
+  (setVal [_ _]))
+
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
-(deftype SciVar [val sym _meta]
+(deftype SciVar [#?(:clj ^:volatile-mutable val
+                    :cljs ^:mutable val) sym _meta]
+  ISettable
+  (setVal [_ v] (set! val (fn [] v)))
   Object
   #?(:cljs
      (isMacro [_]
