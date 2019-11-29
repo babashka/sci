@@ -7,6 +7,7 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
+   [sci.impl.var]
    [sci.impl.utils :as utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
@@ -14,13 +15,13 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def .})
+(def special-syms '#{try finally do if new recur quote catch throw def . var})
 
 ;; Built-in macros.
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import
-               in-ns ns})
+               in-ns ns var})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -482,6 +483,12 @@
 
 ;;;; End namespaces
 
+(defn analyze-var [ctx [_ var-name]]
+  (let [v (resolve-symbol ctx var-name)]
+    (if (var? v)
+      v
+      (sci.impl.var.SciVar. (fn [] v) var-name nil))))
+
 (defn macro? [f]
   (when-let [m (meta f)]
     (:sci/macro m)))
@@ -533,6 +540,7 @@
             new (expand-new ctx expr)
             import (do-import ctx expr)
             ns (analyze-ns-form ctx expr)
+            var (analyze-var ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
