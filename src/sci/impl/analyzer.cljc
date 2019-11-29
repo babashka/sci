@@ -110,7 +110,7 @@
                    :else (throw-error-with-location
                           (str "Could not resolve symbol: " (str sym))
                           sym)))))]
-     ;; (prn 'resolve sym '-> res)
+     ;; (prn 'resolve sym '-> res (meta res))
      res)))
 
 (declare analyze)
@@ -496,7 +496,10 @@
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)
-        v (analyze ctx v)]
+        v (analyze ctx v)
+        obj (with-meta [obj]
+              {:sci.impl/eval true
+               :sci.impl/var-value true})]
     (mark-eval-call (list 'set! obj v))))
 
 ;;;;
@@ -593,6 +596,7 @@
                      :else expr)
                    (select-keys (meta expr)
                                 [:row :col])))]
+    ;; (prn "ana" expr '-> ret)
     ret))
 
 ;;;; Scratch

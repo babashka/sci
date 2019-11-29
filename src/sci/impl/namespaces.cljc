@@ -123,23 +123,6 @@
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
-(defn with-redefs*
-  [_ _ bindings & body]
-  (let [names (take-nth 2 bindings)
-        vals (take-nth 2 (drop 1 bindings))
-        orig-val-syms (map (comp gensym #(str % "-orig-val__") name) names)
-        temp-val-syms (map (comp gensym #(str % "-temp-val__") name) names)
-        binds (map vector names temp-val-syms)
-        resets (reverse (map vector names orig-val-syms))
-        bind-value (fn [[k v]] (list 'set! k v))]
-    `(let [~@(interleave orig-val-syms names)
-           ~@(interleave temp-val-syms vals)]
-       ~@(map bind-value binds)
-       (try
-         ~@body
-         (finally
-           ~@(map bind-value resets))))))
-
 (def clojure-core
   {'= =
    '< <
@@ -330,7 +313,7 @@
    'object-array object-array
    'peek peek
    'pop pop
-   'pop-thread-bindings vars/pop-thread-bindings
+   #?@(:clj ['pop-thread-bindings vars/pop-thread-bindings])
    'pos? pos?
    'pos-int? pos-int?
    'partial partial
@@ -340,7 +323,7 @@
    'pr-str pr-str
    'prn-str prn-str
    'print-str print-str
-   'push-thread-bindings vars/push-thread-bindings
+   #?@(:clj ['push-thread-bindings vars/push-thread-bindings])
    'qualified-ident? qualified-ident?
    'qualified-symbol? qualified-symbol?
    'qualified-keyword? qualified-keyword?
@@ -457,7 +440,7 @@
    'when-let (macrofy when-let*)
    'when-not (macrofy when-not*)
    'with-meta with-meta
-   'with-redefs (macrofy with-redefs*)
+   'with-redefs (macrofy vars/with-redefs)
    'zipmap zipmap
    'zero? zero?
    #?@(:clj ['+' +'

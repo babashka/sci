@@ -78,7 +78,7 @@
         init (interpret ctx init)
         m (meta var-name)
         varify? (or (:dynamic m) (:redef m)) ;; see https://clojure.org/reference/compilation#directlinking
-        init (if varify? (sci.impl.vars.SciVar. init var-name (meta var-name))
+        init (if varify? (sci.impl.vars.SciVar. init var-name m)
                  init)]
     (swap! (:env ctx) (fn [env]
                         (let [current-ns (:current-ns env)]
@@ -291,9 +291,11 @@
 ;;;; End namespaces
 
 (defn eval-set! [ctx [_ obj v]]
-  (let [v (interpret ctx v)]
+  (let [obj (interpret ctx obj)
+        v (interpret ctx v)]
     (if (vars/var? obj)
-      (sci.impl.vars/setVal obj v))))
+      (vars/setVal obj v)
+      (throw (ex-info "duuuude" {:obj obj :v v})))))
 
 (declare eval-string)
 

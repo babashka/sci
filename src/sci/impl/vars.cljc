@@ -3,11 +3,12 @@
   (:refer-clojure :exclude [var? binding
                             push-thread-bindings
                             get-thread-bindings
-                            pop-thread-bindings]))
+                            pop-thread-bindings
+                            with-redefs]))
 
 (defprotocol IBox
-  (setVal [_ _])
-  (getVal [_]))
+  (setVal [_this _v])
+  (getVal [_this]))
 
 ;; adapted from https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Var.java
 #?(:clj
@@ -79,7 +80,7 @@
                     :cljs ^:mutable _meta)]
   IBox
   (setVal [this v]
-    #?(:cljs (set! root v)
+    #?(:cljs (set! (.-root this) v)
        :clj
        (let [b (get-thread-binding this)]
          (if (some? b)
@@ -121,8 +122,7 @@
   ;; #?(:clj clojure.lang.IHashEq :cljs IHash)
   ;; (-hash [_]
   ;;   (hash-symbol sym))
-  #?@(:clj [clojure.lang.IFn] :cljs [Fn
-                                     IFn])
+  #?@(:clj [clojure.lang.IFn] :cljs [IFn])
   (#?(:clj invoke :cljs -invoke) [_]
     (root))
   (#?(:clj invoke :cljs -invoke) [_ a]
@@ -169,26 +169,46 @@
     (apply root a b c d e f g h i j k l m n o p q r s t rest)))
 
 (defn var? [x]
+  ;; (prn "X" x (instance? sci.impl.vars.SciVar x))
   (instance? sci.impl.vars.SciVar x))
 
-#?(:clj ;; TODO: cljs
-   (defn binding
-     [_ _ bindings & body]
-     #_(assert-args
-        (vector? bindings) "a vector for its binding"
-        (even? (count bindings)) "an even number of forms in binding vector")
-     (let [var-ize (fn [var-vals]
-                     (loop [ret [] vvs (seq var-vals)]
-                       (if vvs
-                         (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
-                                 (next (next vvs)))
-                         (seq ret))))]
-       `(let []
-          (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
-          (try
-            ~@body
-            (finally
-              (clojure.core/pop-thread-bindings)))))))
+(defn binding
+  [_ _ bindings & body]
+  #_(assert-args
+     (vector? bindings) "a vector for its binding"
+     (even? (count bindings)) "an even number of forms in binding vector")
+  #?(:clj (let [var-ize (fn [var-vals]
+                          (loop [ret [] vvs (seq var-vals)]
+                            (if vvs
+                              (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
+                                      (next (next vvs)))
+                              (seq ret))))]
+            `(let []
+               (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
+               (try
+                 ~@body
+                 (finally
+                   (clojure.core/pop-thread-bindings)))))
+     :cljs  (let [names (take-nth 2 bindings)]
+              ;; TODO: confirm bindings
+              `(clojure.core/with-redefs ~bindings ~@body))))
+
+(defn with-redefs
+  [_ _ bindings & body]
+  (let [names (take-nth 2 bindings)
+        vals (take-nth 2 (drop 1 bindings))
+        orig-val-syms (map (comp gensym #(str % "-orig-val__") name) names)
+        temp-val-syms (map (comp gensym #(str % "-temp-val__") name) names)
+        binds (map vector names temp-val-syms)
+        resets (reverse (map vector names orig-val-syms))
+        bind-value (fn [[k v]] (list 'set! k v))]
+    `(let [~@(interleave orig-val-syms names)
+           ~@(interleave temp-val-syms vals)]
+       ~@(map bind-value binds)
+       (try
+         ~@body
+         (finally
+           ~@(map bind-value resets))))))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
