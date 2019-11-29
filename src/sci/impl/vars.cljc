@@ -23,18 +23,18 @@
      (deftype TBox [thread val])
 
      (defn push-thread-bindings [bindings]
-       (prn "B" bindings)
-       (let [f (get-thread-binding-frame)
-             bmap (.-bindings f)]
-         (doseq [bs bindings
-                 :let [[var* val*] bs
-                       bmap (assoc bmap var* (TBox. (Thread/currentThread) val*))]]
-           (reset-thread-binding-frame (Frame. bmap f)))))
+       (let [frame (get-thread-binding-frame)
+             bmap (.-bindings frame)
+             bmap (reduce (fn [acc [var* val*]]
+                            (assoc acc var* (TBox. (Thread/currentThread) val*)))
+                          bmap
+                          bindings)]
+         (reset-thread-binding-frame (Frame. bmap frame))))
 
      (defn pop-thread-bindings []
        (if-let [f (.-prev (get-thread-binding-frame))]
          (if (identical? top-frame f)
-           (throw (Exception. "nothing to pop!")) ;;(.remove dvals)
+           (.remove dvals)
            (reset-thread-binding-frame f))
          (throw (Exception. "nothing to pop!"))))
 
@@ -153,7 +153,6 @@
 #?(:clj ;; TODO: cljs
    (defn binding
      [_ _ bindings & body]
-     (prn "Bs" bindings)
      #_(assert-args
         (vector? bindings) "a vector for its binding"
         (even? (count bindings)) "an even number of forms in binding vector")
@@ -163,7 +162,6 @@
                          (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
                                  (next (next vvs)))
                          (seq ret))))]
-       (prn "B>" (var-ize bindings))
        `(let []
           (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
           (try

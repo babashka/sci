@@ -490,9 +490,7 @@
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol ctx var-name)]
     (when (vars/var? v)
-      (vary-meta v #(assoc % :sci.impl/eval false))
-      ;; TODO: exception?
-      )))
+      (vary-meta v #(assoc % :sci.impl/the-var true)))))
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)
