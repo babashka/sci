@@ -5,6 +5,11 @@
                             get-thread-bindings
                             pop-thread-bindings]))
 
+(defprotocol IBox
+  (setVal [_ _])
+  (getVal [_]))
+
+;; adapted from https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Var.java
 #?(:clj
    (do
      (set! *warn-on-reflection* true)
@@ -20,12 +25,22 @@
      (defn reset-thread-binding-frame [frame]
        (.set dvals frame))
 
-     (deftype TBox [thread val])
+     (deftype TBox [thread ^:volatile-mutable val]
+       IBox
+       (setVal [_ v]
+         (set! val v))
+       (getVal [_] val))
+
+     (defn dynamic-var? [v]
+       (:dynamic (meta v)))
 
      (defn push-thread-bindings [bindings]
        (let [frame (get-thread-binding-frame)
              bmap (.-bindings frame)
              bmap (reduce (fn [acc [var* val*]]
+                            (when-not (dynamic-var? var*)
+                              (throw (new IllegalStateException
+                                          (str "Can't dynamically bind non-dynamic var " var*))))
                             (assoc acc var* (TBox. (Thread/currentThread) val*)))
                           bmap
                           bindings)]
@@ -44,43 +59,49 @@
                 kvs (seq (.-bindings f))]
            (if kvs
              (let [[var* ^TBox tbox] (first kvs)
-                   tbox-val (.-val tbox)]
+                   tbox-val (getVal tbox)]
                (recur (assoc ret var* tbox-val)
                       (next kvs)))
              ret))))
 
-     (comment
-
-       (get-thread-bindings))
-
-     (defn get-thread-binding [sci-var]
+     (defn get-thread-binding ^TBox [sci-var]
        (when-let [^Frame f (.get dvals)]
          (when-let [bindings (.-bindings f)]
-           (when-let [tbox (get bindings sci-var)]
-             (.-val ^TBox tbox)))))))
+           (get bindings sci-var))))))
 
-(defprotocol ISettable
-  (setVal [_ _]))
+
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
-(deftype SciVar [#?(:clj ^:volatile-mutable val
-                    :cljs ^:mutable val)
+(deftype SciVar [#?(:clj ^:volatile-mutable root
+                    :cljs ^:mutable root)
                  sym
                  #?(:clj ^:volatile-mutable _meta
                     :cljs ^:mutable _meta)]
-  ISettable
-  (setVal [_ v]
-    (set! val (fn [] v)))
+  IBox
+  (setVal [this v]
+    #?(:cljs (set! root v)
+       :clj
+       (let [b (get-thread-binding this)]
+         (if (some? b)
+           (let [t (.-thread b)]
+             (if (not (identical? t (Thread/currentThread)))
+               (throw (new IllegalStateException
+                           (str "Can't change/establish root binding of " this " with set")))
+               (setVal b v)))
+           (throw (new IllegalStateException
+                       (str "Can't change/establish root binding of " this " with set")))))))
+  (getVal [this] root)
   Object
-  #?(:cljs
-     (isMacro [_]
-              (. (val) -cljs$lang$macro)))
+  ;; #?(:cljs
+  ;;    (isMacro [_]
+  ;;             (. (val) -cljs$lang$macro)))
   (toString [_]
     (str "#'" sym))
   #?(:clj clojure.lang.IDeref :cljs IDeref)
-  #?(:clj (deref [this] (or (get-thread-binding this)
-                            (val)))
-     :cljs (-deref [_] (val)))
+  #?(:clj (deref [this] (or (when-let [tbox (get-thread-binding this)]
+                              (getVal tbox))
+                            root))
+     :cljs (-deref [_] root))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (meta [_] _meta) :cljs (-meta [_] _meta))
   #?(:clj clojure.lang.IObj :cljs IWithMeta)
@@ -103,49 +124,49 @@
   #?@(:clj [clojure.lang.IFn] :cljs [Fn
                                      IFn])
   (#?(:clj invoke :cljs -invoke) [_]
-    ((val)))
+    (root))
   (#?(:clj invoke :cljs -invoke) [_ a]
-    ((val) a))
+    (root a))
   (#?(:clj invoke :cljs -invoke) [_ a b]
-    ((val) a b))
+    (root a b))
   (#?(:clj invoke :cljs -invoke) [_ a b c]
-    ((val) a b c))
+    (root a b c))
   (#?(:clj invoke :cljs -invoke) [_ a b c d]
-    ((val) a b c d))
+    (root a b c d))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e]
-    ((val) a b c d e))
+    (root a b c d e))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f]
-    ((val) a b c d e f))
+    (root a b c d e f))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g]
-    ((val) a b c d e f g))
+    (root a b c d e f g))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h]
-    ((val) a b c d e f g h))
+    (root a b c d e f g h))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i]
-    ((val) a b c d e f g h i))
+    (root a b c d e f g h i))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j]
-    ((val) a b c d e f g h i j))
+    (root a b c d e f g h i j))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k]
-    ((val) a b c d e f g h i j k))
+    (root a b c d e f g h i j k))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l]
-    ((val) a b c d e f g h i j k l))
+    (root a b c d e f g h i j k l))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m]
-    ((val) a b c d e f g h i j k l m))
+    (root a b c d e f g h i j k l m))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n]
-    ((val) a b c d e f g h i j k l m n))
+    (root a b c d e f g h i j k l m n))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o]
-    ((val) a b c d e f g h i j k l m n o))
+    (root a b c d e f g h i j k l m n o))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p]
-    ((val) a b c d e f g h i j k l m n o p))
+    (root a b c d e f g h i j k l m n o p))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q]
-    ((val) a b c d e f g h i j k l m n o p q))
+    (root a b c d e f g h i j k l m n o p q))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r]
-    ((val) a b c d e f g h i j k l m n o p q r))
+    (root a b c d e f g h i j k l m n o p q r))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s]
-    ((val) a b c d e f g h i j k l m n o p q r s))
+    (root a b c d e f g h i j k l m n o p q r s))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t]
-    ((val) a b c d e f g h i j k l m n o p q r s t))
+    (root a b c d e f g h i j k l m n o p q r s t))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
-    (apply (val) a b c d e f g h i j k l m n o p q r s t rest)))
+    (apply root a b c d e f g h i j k l m n o p q r s t rest)))
 
 (defn var? [x]
   (instance? sci.impl.vars.SciVar x))

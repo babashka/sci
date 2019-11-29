@@ -76,8 +76,9 @@
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
-        varify? (:sci/var (meta var-name))
-        init (if varify? (sci.impl.vars.SciVar. (fn [] init) var-name (meta var-name))
+        m (meta var-name)
+        varify? (or (:dynamic m) (:redef m)) ;; see https://clojure.org/reference/compilation#directlinking
+        init (if varify? (sci.impl.vars.SciVar. init var-name (meta var-name))
                  init)]
     (swap! (:env ctx) (fn [env]
                         (let [current-ns (:current-ns env)]
