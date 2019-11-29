@@ -8,7 +8,7 @@
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.max-or-throw :refer [max-or-throw]]
-   [sci.impl.namespaces :as namespaces]
+   [sci.impl.namespaces :as namespaces :refer [var?*]]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
@@ -363,6 +363,7 @@
           (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (:sci.impl/static-access m) (interop/get-static-field ctx expr)
+          (var?* expr) (deref expr)
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
                               (map #(interpret ctx %) (vals expr)))
