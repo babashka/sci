@@ -12,6 +12,7 @@
 
      (defn get-thread-binding-frame ^Frame []
        (.get dvals))
+
      (defn reset-thread-binding-frame [frame]
        (.set dvals frame))
 
@@ -21,27 +22,37 @@
        (let [f (get-thread-binding-frame)
              bmap (.-bindings f)]
          (doseq [bs bindings
-                 :let [[var* val*] (first bs)
+                 :let [[var* val*] bs
                        bmap (assoc bmap var* (TBox. (Thread/currentThread) val*))]]
            (reset-thread-binding-frame (Frame. bmap f)))))
 
      (defn pop-thread-bindings* []
-       (let [f (.-prev (get-thread-binding-frame))]
-         ;; TODO: handle nil
+       (if-let [f (.-prev (get-thread-binding-frame))]
          (if (identical? top-frame f)
-           (.remove dvals)
-           (reset-thread-binding-frame f))))
+           (throw (Exception. "nothing to pop!")) ;;(.remove dvals)
+           (reset-thread-binding-frame f))
+         (throw (Exception. "nothing to pop!"))))
 
      (defn get-thread-bindings* []
        (let [f (get-thread-binding-frame)]
          (loop [ret {}
-                kvs (seq f)]
+                kvs (seq (.-bindings f))]
            (if kvs
              (let [[var* ^TBox tbox] (first kvs)
                    tbox-val (.-val tbox)]
                (recur (assoc ret var* tbox-val)
                       (next kvs)))
-             ret))))))
+             ret))))
+
+     (comment
+
+       (get-thread-bindings*))
+
+     (defn get-thread-binding [sci-var]
+       (when-let [^Frame f (.get dvals)]
+         (when-let [bindings (.-bindings f)]
+           (when-let [tbox (get bindings sci-var)]
+             (.-val ^TBox tbox)))))))
 
 (defprotocol ISettable
   (setVal [_ _]))
@@ -62,7 +73,9 @@
   (toString [_]
     (str "#'" sym))
   #?(:clj clojure.lang.IDeref :cljs IDeref)
-  #?(:clj (deref [_] (val)) :cljs (-deref [_] (val)))
+  #?(:clj (deref [this] (or (get-thread-binding this)
+                            (val)))
+     :cljs (-deref [_] (val)))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (meta [_] _meta) :cljs (-meta [_] _meta))
   #?(:clj clojure.lang.IObj :cljs IWithMeta)
@@ -128,3 +141,18 @@
     ((val) a b c d e f g h i j k l m n o p q r s t))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
     (apply (val) a b c d e f g h i j k l m n o p q r s t rest)))
+
+(comment
+  (def v1 (SciVar. (fn [] 0) 'foo nil))
+  @v1 ;; 0
+  (push-thread-bindings* {v1 2})
+  (get-thread-binding v1) ;; 2
+  (push-thread-bindings* {v1 3})
+  (get-thread-binding v1) ;; 3
+  (pop-thread-bindings*)
+  (get-thread-binding v1) ;; 2
+  (pop-thread-bindings*)
+  (get-thread-binding v1) ;; nil
+  @v1 ;; 0
+  (pop-thread-bindings*) ;; exception
+  )
