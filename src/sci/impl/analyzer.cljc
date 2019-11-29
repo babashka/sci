@@ -7,8 +7,7 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
-   [sci.impl.namespaces :refer [var?*]]
-   [sci.impl.vars]
+   [sci.impl.vars :as vars]
    [sci.impl.utils :as utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
@@ -490,7 +489,7 @@
 
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol ctx var-name)]
-    (when (var?* v)
+    (when (vars/var? v)
       v
       ;; TODO: exception?
       )))
@@ -575,7 +574,7 @@
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (constant? v) v
                                          (fn? v) (merge-meta v {:sci.impl/eval false})
-                                         (var?* v) (with-meta v (assoc (meta v) :sci.impl/eval true))
+                                         (vars/var? v) (with-meta v (assoc (meta v) :sci.impl/eval true))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta

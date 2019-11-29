@@ -1,5 +1,6 @@
 (ns sci.impl.vars
-  {:no-doc true})
+  {:no-doc true}
+  (:refer-clojure :exclude [var?]))
 
 #?(:clj
    (do
@@ -141,6 +142,9 @@
     ((val) a b c d e f g h i j k l m n o p q r s t))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
     (apply (val) a b c d e f g h i j k l m n o p q r s t rest)))
+
+(defn var? [x]
+  (instance? sci.impl.vars.SciVar x))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))

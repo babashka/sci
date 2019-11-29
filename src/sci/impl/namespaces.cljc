@@ -123,9 +123,6 @@
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
-(defn var?* [x]
-  (or (var? x) (instance? sci.impl.vars.SciVar x)))
-
 (defn with-redefs*
   [_ _ bindings & body]
   (let [names (take-nth 2 bindings)
@@ -448,7 +445,7 @@
    'unchecked-short unchecked-short
    'val val
    'vals vals
-   'var? var?*
+   'var? sci.impl.vars/var?
    'vary-meta vary-meta
    'vec vec
    'vector vector
