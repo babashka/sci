@@ -12,7 +12,8 @@
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
-                                     strip-core-ns]]))
+                                     strip-core-ns]]
+   [sci.impl.var]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -75,8 +76,9 @@
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
-        m (if docstring {:sci/doc docstring} {})
-        var-name (with-meta var-name m)]
+        varify? (:sci/var (meta var-name))
+        init (if varify? (sci.impl.var.SciVar. (fn [] init) var-name (meta var-name))
+                 init)]
     (swap! (:env ctx) (fn [env]
                         (let [current-ns (:current-ns env)]
                           (update-in env [:namespaces current-ns] assoc var-name init))))

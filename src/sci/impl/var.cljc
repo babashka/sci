@@ -1,6 +1,7 @@
 (ns sci.impl.var
   {:no-doc true})
 
+;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [val sym _meta]
   Object
   #?(:cljs
@@ -12,9 +13,13 @@
   #?(:clj (deref [_] (val)) :cljs (-deref [_] (val)))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (meta [_] _meta) :cljs (-meta [_] _meta))
-  ;; IWithMeta
-  ;; (-with-meta [_ new-meta]
-  ;;   (Var. val sym new-meta))
+  #?(:clj clojure.lang.IObj :cljs IWithMeta)
+  #?(:clj
+     (withMeta [_ new-meta]
+               (SciVar. val sym new-meta))
+     :cljs
+     (-with-meta [_ new-meta]
+                 (SciVar. val sym new-meta)))
   ;; #?(:clj Comparable :cljs IEquiv)
   ;; (-equiv [this other]
   ;;   (if (instance? Var other)

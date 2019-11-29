@@ -260,7 +260,8 @@
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (analyze ctx init)
-        m (if docstring {:sci/doc docstring} {})
+        m (meta var-name)
+        m (if docstring (assoc m :sci/doc docstring) m)
         var-name (with-meta var-name m)]
     (expand-declare ctx [nil var-name])
     (mark-eval-call (list 'def var-name init))))

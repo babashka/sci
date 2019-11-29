@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [ex-message])
   (:require
    [clojure.string :as str]
-   [clojure.set :as set]))
+   [clojure.set :as set]
+   [sci.impl.var]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -120,6 +121,9 @@
   ([_&form _ x message]
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
+
+(defn var?* [x]
+  (or (var? x) (instance? sci.impl.var.SciVar x)))
 
 (def clojure-core
   {'= =
@@ -426,6 +430,7 @@
    'unchecked-short unchecked-short
    'val val
    'vals vals
+   'var? var?*
    'vary-meta vary-meta
    'vec vec
    'vector vector
