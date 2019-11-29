@@ -1,6 +1,48 @@
 (ns sci.impl.vars
   {:no-doc true})
 
+#?(:clj
+   (do
+     (set! *warn-on-reflection* true)
+     (deftype Frame [bindings prev])
+     (def top-frame (Frame. {} nil))
+
+     (def ^ThreadLocal dvals (doto (ThreadLocal.)
+                               (.set top-frame)))
+
+     (defn get-thread-binding-frame ^Frame []
+       (.get dvals))
+     (defn reset-thread-binding-frame [frame]
+       (.set dvals frame))
+
+     (deftype TBox [thread val])
+
+     (defn push-thread-bindings* [bindings]
+       (let [f (get-thread-binding-frame)
+             bmap (.-bindings f)]
+         (doseq [bs bindings
+                 :let [[var* val*] (first bs)
+                       bmap (assoc bmap var* (TBox. (Thread/currentThread) val*))]]
+           (reset-thread-binding-frame (Frame. bmap f)))))
+
+     (defn pop-thread-bindings* []
+       (let [f (.-prev (get-thread-binding-frame))]
+         ;; TODO: handle nil
+         (if (identical? top-frame f)
+           (.remove dvals)
+           (reset-thread-binding-frame f))))
+
+     (defn get-thread-bindings* []
+       (let [f (get-thread-binding-frame)]
+         (loop [ret {}
+                kvs (seq f)]
+           (if kvs
+             (let [[var* ^TBox tbox] (first kvs)
+                   tbox-val (.-val tbox)]
+               (recur (assoc ret var* tbox-val)
+                      (next kvs)))
+             ret))))))
+
 (defprotocol ISettable
   (setVal [_ _]))
 
