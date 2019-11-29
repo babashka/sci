@@ -370,7 +370,7 @@
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (:sci.impl/static-access m) (interop/get-static-field ctx expr)
           (vars/var? expr) (do
-                         ;; (prn "deref" expr)
+                             ;; (prn "deref" expr)
                          (deref expr))
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))

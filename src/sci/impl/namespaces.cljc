@@ -5,7 +5,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
-   [sci.impl.vars]))
+   [sci.impl.vars :as vars]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -162,6 +162,7 @@
    'assoc-in assoc-in
    'associative? associative?
    'atom atom
+   'binding (with-meta vars/binding {:sci/macro true})
    'bit-and-not bit-and-not
    'bit-set bit-set
    'bit-shift-left bit-shift-left
@@ -329,6 +330,7 @@
    'object-array object-array
    'peek peek
    'pop pop
+   'pop-thread-bindings vars/pop-thread-bindings
    'pos? pos?
    'pos-int? pos-int?
    'partial partial
@@ -338,6 +340,7 @@
    'pr-str pr-str
    'prn-str prn-str
    'print-str print-str
+   'push-thread-bindings vars/push-thread-bindings
    'qualified-ident? qualified-ident?
    'qualified-symbol? qualified-symbol?
    'qualified-keyword? qualified-keyword?

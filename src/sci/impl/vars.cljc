@@ -1,6 +1,9 @@
 (ns sci.impl.vars
   {:no-doc true}
-  (:refer-clojure :exclude [var?]))
+  (:refer-clojure :exclude [var? binding
+                            push-thread-bindings
+                            get-thread-bindings
+                            pop-thread-bindings]))
 
 #?(:clj
    (do
@@ -19,7 +22,8 @@
 
      (deftype TBox [thread val])
 
-     (defn push-thread-bindings* [bindings]
+     (defn push-thread-bindings [bindings]
+       (prn "B" bindings)
        (let [f (get-thread-binding-frame)
              bmap (.-bindings f)]
          (doseq [bs bindings
@@ -27,14 +31,14 @@
                        bmap (assoc bmap var* (TBox. (Thread/currentThread) val*))]]
            (reset-thread-binding-frame (Frame. bmap f)))))
 
-     (defn pop-thread-bindings* []
+     (defn pop-thread-bindings []
        (if-let [f (.-prev (get-thread-binding-frame))]
          (if (identical? top-frame f)
            (throw (Exception. "nothing to pop!")) ;;(.remove dvals)
            (reset-thread-binding-frame f))
          (throw (Exception. "nothing to pop!"))))
 
-     (defn get-thread-bindings* []
+     (defn get-thread-bindings []
        (let [f (get-thread-binding-frame)]
          (loop [ret {}
                 kvs (seq (.-bindings f))]
@@ -47,7 +51,7 @@
 
      (comment
 
-       (get-thread-bindings*))
+       (get-thread-bindings))
 
      (defn get-thread-binding [sci-var]
        (when-let [^Frame f (.get dvals)]
@@ -146,17 +150,38 @@
 (defn var? [x]
   (instance? sci.impl.vars.SciVar x))
 
+#?(:clj ;; TODO: cljs
+   (defn binding
+     [_ _ bindings & body]
+     (prn "Bs" bindings)
+     #_(assert-args
+        (vector? bindings) "a vector for its binding"
+        (even? (count bindings)) "an even number of forms in binding vector")
+     (let [var-ize (fn [var-vals]
+                     (loop [ret [] vvs (seq var-vals)]
+                       (if vvs
+                         (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
+                                 (next (next vvs)))
+                         (seq ret))))]
+       (prn "B>" (var-ize bindings))
+       `(let []
+          (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
+          (try
+            ~@body
+            (finally
+              (clojure.core/pop-thread-bindings)))))))
+
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
   @v1 ;; 0
-  (push-thread-bindings* {v1 2})
+  (push-thread-bindings {v1 2})
   (get-thread-binding v1) ;; 2
-  (push-thread-bindings* {v1 3})
+  (push-thread-bindings {v1 3})
   (get-thread-binding v1) ;; 3
-  (pop-thread-bindings*)
+  (pop-thread-bindings)
   (get-thread-binding v1) ;; 2
-  (pop-thread-bindings*)
+  (pop-thread-bindings)
   (get-thread-binding v1) ;; nil
   @v1 ;; 0
-  (pop-thread-bindings*) ;; exception
+  (pop-thread-bindings) ;; exception
   )
