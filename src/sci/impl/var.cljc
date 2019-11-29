@@ -6,9 +6,13 @@
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [#?(:clj ^:volatile-mutable val
-                    :cljs ^:mutable val) sym _meta]
+                    :cljs ^:mutable val)
+                 sym
+                 #?(:clj ^:volatile-mutable _meta
+                    :cljs ^:mutable _meta)]
   ISettable
-  (setVal [_ v] (set! val (fn [] v)))
+  (setVal [_ v]
+    (set! val (fn [] v)))
   Object
   #?(:cljs
      (isMacro [_]
@@ -21,11 +25,13 @@
   #?(:clj (meta [_] _meta) :cljs (-meta [_] _meta))
   #?(:clj clojure.lang.IObj :cljs IWithMeta)
   #?(:clj
-     (withMeta [_ new-meta]
-               (SciVar. val sym new-meta))
+     (withMeta [this new-meta]
+               (set! _meta new-meta)
+               this)
      :cljs
-     (-with-meta [_ new-meta]
-                 (SciVar. val sym new-meta)))
+     (-with-meta [this new-meta]
+                 (set! _meta new-meta)
+                 this))
   ;; #?(:clj Comparable :cljs IEquiv)
   ;; (-equiv [this other]
   ;;   (if (instance? Var other)

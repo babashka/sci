@@ -125,6 +125,23 @@
 (defn var?* [x]
   (or (var? x) (instance? sci.impl.var.SciVar x)))
 
+(defn with-redefs*
+  [_ _ bindings & body]
+  (let [names (take-nth 2 bindings)
+        vals (take-nth 2 (drop 1 bindings))
+        orig-val-syms (map (comp gensym #(str % "-orig-val__") name) names)
+        temp-val-syms (map (comp gensym #(str % "-temp-val__") name) names)
+        binds (map vector names temp-val-syms)
+        resets (reverse (map vector names orig-val-syms))
+        bind-value (fn [[k v]] (list 'set! k v))]
+    `(let [~@(interleave orig-val-syms names)
+           ~@(interleave temp-val-syms vals)]
+       ~@(map bind-value binds)
+       (try
+         ~@body
+         (finally
+           ~@(map bind-value resets))))))
+
 (def clojure-core
   {'= =
    '< <
@@ -439,6 +456,7 @@
    'when-let (macrofy when-let*)
    'when-not (macrofy when-not*)
    'with-meta with-meta
+   'with-redefs (macrofy with-redefs*)
    'zipmap zipmap
    'zero? zero?
    #?@(:clj ['+' +'

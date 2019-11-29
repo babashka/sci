@@ -369,7 +369,9 @@
           (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (:sci.impl/static-access m) (interop/get-static-field ctx expr)
-          (var?* expr) (deref expr)
+          (var?* expr) (do
+                         ;; (prn "deref" expr)
+                         (deref expr))
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
                               (map #(interpret ctx %) (vals expr)))
