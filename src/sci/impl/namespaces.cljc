@@ -2,9 +2,10 @@
   {:no-doc true}
   (:refer-clojure :exclude [ex-message])
   (:require
-   [clojure.string :as str]
    [clojure.set :as set]
-   [sci.impl.var]))
+   [clojure.string :as str]
+   [clojure.walk :as walk]
+   [sci.impl.vars]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -123,7 +124,7 @@
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
 (defn var?* [x]
-  (or (var? x) (instance? sci.impl.var.SciVar x)))
+  (or (var? x) (instance? sci.impl.vars.SciVar x)))
 
 (defn with-redefs*
   [_ _ bindings & body]
@@ -528,9 +529,9 @@
    'clojure.walk {'walk clojure.walk/walk
                   'postwalk clojure.walk/postwalk
                   'prewalk clojure.walk/prewalk
-                  'postwalk-demo clojure.walk/postwalk-demo
-                  'prewalk-demo clojure.walk/prewalk-demo
-                  'kewordize-keys clojure.walk/keywordize-keys
+                  #?@(:clj ['postwalk-demo clojure.walk/postwalk-demo
+                            'prewalk-demo clojure.walk/prewalk-demo])
+                  'keywordize-keys clojure.walk/keywordize-keys
                   'stringify-keys clojure.walk/stringify-keys
                   'prewalk-replace clojure.walk/prewalk-replace
                   'postwalk-replace clojure.walk/postwalk-replace}})

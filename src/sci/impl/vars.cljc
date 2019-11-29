@@ -1,4 +1,4 @@
-(ns sci.impl.var
+(ns sci.impl.vars
   {:no-doc true})
 
 (defprotocol ISettable

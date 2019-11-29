@@ -13,7 +13,7 @@
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      strip-core-ns]]
-   [sci.impl.var]))
+   [sci.impl.vars]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -77,7 +77,7 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         varify? (:sci/var (meta var-name))
-        init (if varify? (sci.impl.var.SciVar. (fn [] init) var-name (meta var-name))
+        init (if varify? (sci.impl.vars.SciVar. (fn [] init) var-name (meta var-name))
                  init)]
     (swap! (:env ctx) (fn [env]
                         (let [current-ns (:current-ns env)]
@@ -292,7 +292,7 @@
 (defn eval-set! [ctx [_ obj v]]
   (let [v (interpret ctx v)]
     (if (var?* obj)
-      (sci.impl.var/setVal obj v))))
+      (sci.impl.vars/setVal obj v))))
 
 (declare eval-string)
 

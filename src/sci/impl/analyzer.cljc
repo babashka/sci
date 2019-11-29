@@ -8,7 +8,7 @@
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
    [sci.impl.namespaces :refer [var?*]]
-   [sci.impl.var]
+   [sci.impl.vars]
    [sci.impl.utils :as utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
