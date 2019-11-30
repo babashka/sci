@@ -441,7 +441,7 @@
    'when-not (macrofy when-not*)
    'with-meta with-meta
    'with-redefs (macrofy vars/with-redefs)
-   #?@(:clj ['with-redefs-fn vars/with-redefs-fn])
+   'with-redefs-fn vars/with-redefs-fn
    'zipmap zipmap
    'zero? zero?
    #?@(:clj ['+' +'

@@ -205,9 +205,9 @@
   [binding-map func]
   (let [root-bind (fn [m]
                     (doseq [[a-var a-val] m]
-                      (.bindRoot ^sci.impl.vars.SciVar a-var a-val)))
+                      (sci.impl.vars/bindRoot a-var a-val)))
         old-vals (zipmap (keys binding-map)
-                         (map #(.getRawRoot ^sci.impl.vars.SciVar %) (keys binding-map)))]
+                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
     (try
       (root-bind binding-map)
       (func)
@@ -216,23 +216,9 @@
 
 (defn with-redefs
   [_ _ bindings & body]
-  #?(:clj `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
-                                                 (take-nth 2 (next bindings)))
-             (fn [] ~@body))
-     :cljs (let [names (take-nth 2 bindings)
-                 vals (take-nth 2 (drop 1 bindings))
-                 orig-val-syms (map (comp gensym #(str % "-orig-val__") name) names)
-                 temp-val-syms (map (comp gensym #(str % "-temp-val__") name) names)
-                 binds (map vector names temp-val-syms)
-                 resets (reverse (map vector names orig-val-syms))
-                 bind-value (fn [[k v]] (list 'set! k v))]
-             `(let [~@(interleave orig-val-syms names)
-                    ~@(interleave temp-val-syms vals)]
-                ~@(map bind-value binds)
-                (try
-                  ~@body
-                  (finally
-                    ~@(map bind-value resets)))))))
+  `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
+                                         (take-nth 2 (next bindings)))
+     (fn [] ~@body)))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
