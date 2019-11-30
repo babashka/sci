@@ -5,6 +5,8 @@
   (:require [sci.impl.vars :as vars]
             #?(:clj [sci.impl.io :as sio])))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (def in (vars/dynamic-var '*in* #?(:clj *in*)))
 
 (def out (vars/dynamic-var '*out* *out*))
@@ -30,7 +32,7 @@
            (pr-on x @out))
           ([x & more]
            (pr x)
-           (. @out (append \space))
+           (. ^java.io.Writer @out (append \space))
            (if-let [nmore (next more)]
              (recur (first more) nmore)
              (apply pr more)))))
@@ -40,7 +42,7 @@
           {:added "1.0"
            :static true}
           []
-          (. @out (append @#'clojure.core/system-newline))
+          (. ^java.io.Writer @out (append ^String @#'clojure.core/system-newline))
           nil))
 #?(:clj
    (defn flush
@@ -49,7 +51,7 @@
      {:added "1.0"
       :static true}
      []
-     (. @out (flush))
+     (. ^java.io.Writer @out (flush))
      nil))
 
 #?(:clj
