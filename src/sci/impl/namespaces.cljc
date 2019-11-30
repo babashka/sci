@@ -128,6 +128,7 @@
   {;; io
    '*in* io/in
    '*out* io/out
+   '*err* io/err
    'pr #?(:clj io/pr :cljs nil)
    'prn #?(:clj io/prn :cljs nil)
    'print #?(:clj io/print :cljs nil)

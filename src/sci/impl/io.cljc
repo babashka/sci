@@ -7,6 +7,8 @@
 
 (def out (vars/dynamic-var '*in* *out*))
 
+(def err (vars/dynamic-var '*err* #?(:clj *err*)))
+
 #?(:clj (defn pr-on
           {:private true
            :static true}

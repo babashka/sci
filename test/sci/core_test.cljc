@@ -3,10 +3,7 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]
-   [sci.core :refer [eval-string]]
-   [sci.impl.vars :as vars]
-   [sci.impl.io :as sio]
-))
+   [sci.core :as sci :refer [eval-string]]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -524,14 +521,9 @@
   (is (= 1 (eval* "(defmacro nested [x] `(let [x# 1337] ~`(let [x# ~x] x#))) (nested 1)")))
   (when-not tu/native?
     (is (= ":dude\n:dude\n"
-           (let [out (let [#?@(:clj [sw (java.io.StringWriter.)])
-                           #?@(:clj [_ (vars/push-thread-bindings {sio/out sw})])
-                           out (#?(:cljs with-out-str :clj do)
-                                 (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"
-                                              #?(:clj nil :cljs {:bindings {'prn prn}}))
-                                 #?(:clj (str sw)))
-                           #?@(:clj [_ (vars/pop-thread-bindings)])]
-                       out)]
+           (let [out (#?(:cljs with-out-str :clj tu/with-out-str)
+                      (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"
+                                   #?(:clj nil :cljs {:bindings {'prn prn}})))]
              out)))))
 
 (deftest declare-test
