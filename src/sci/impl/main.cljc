@@ -15,8 +15,7 @@
   (prn (eval-string
         form
         (update (edn/read-string ctx)
-                :bindings merge {'prn prn 'println println
-                                 #?@(:clj ['future (with-meta future*
+                :bindings merge {#?@(:clj ['future (with-meta future*
                                                      {:sci/macro true})
                                            'future-call future-call])})))
   #?(:clj (shutdown-agents)))

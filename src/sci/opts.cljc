@@ -1,5 +1,5 @@
 (ns sci.opts
-  (:require [sci.impl.vars]
+  (:require [sci.impl.vars :refer [dynamic-var]]
             [sci.impl.opts :refer [init-env!
                                    presets
                                    default-imports
@@ -7,15 +7,6 @@
                                    normalize-classes
                                    default-classes]])
   #?(:cljs (:require-macros [sci.opts :refer [with-dynamic-var]])))
-
-(defn dynamic-var
-  ([name]
-   (dynamic-var name nil nil))
-  ([name init-val]
-   (dynamic-var name init-val nil))
-  ([name init-val meta]
-   (let [meta (assoc meta :dynamic true)]
-     (sci.impl.vars.SciVar. init-val name meta))))
 
 (defmacro with-dynamic-var
   ([m name] `(with-dynamic-var ~m ~name nil nil))

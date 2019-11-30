@@ -5,7 +5,8 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [sci.impl.io :as io]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -124,7 +125,17 @@
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
 (def clojure-core
-  {'= =
+  {;; io
+   '*in* io/in
+   '*out* io/out
+   'pr #?(:clj io/pr :cljs nil)
+   'prn #?(:clj io/prn :cljs nil)
+   'print #?(:clj io/print :cljs nil)
+   'println #?(:clj io/println :cljs nil)
+   'newline #?(:clj io/newline :cljs nil)
+   'flush #?(:clj io/flush :cljs nil)
+   ;; end io
+   '= =
    '< <
    '<= <=
    '> >
@@ -292,7 +303,7 @@
    'make-array make-array
    'name name
    'namespace namespace
-   'newline newline
+   ;; 'newline newline
    'nfirst nfirst
    'not not
    'not= not=

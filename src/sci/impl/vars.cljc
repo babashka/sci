@@ -180,6 +180,15 @@
   ;; (prn "X" x (instance? sci.impl.vars.SciVar x))
   (instance? sci.impl.vars.SciVar x))
 
+(defn dynamic-var
+  ([name]
+   (dynamic-var name nil nil))
+  ([name init-val]
+   (dynamic-var name init-val nil))
+  ([name init-val meta]
+   (let [meta (assoc meta :dynamic true)]
+     (sci.impl.vars.SciVar. init-val name meta))))
+
 (defn binding
   [_ _ bindings & body]
   #_(assert-args
