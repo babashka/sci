@@ -110,7 +110,9 @@
        (.readLine ^java.io.BufferedReader @in))))
 
 #?(:clj
-   (defmacro with-sci-out-str [& body]
+   (defmacro with-sci-out-str
+     "For external use. Useful for testing sci programs."
+     [& body]
      `(let [sw# (java.io.StringWriter.)
             _# (try (vars/push-thread-bindings {sio/out sw#})
                     (do ~@body)
@@ -119,7 +121,9 @@
         out#)))
 
 #?(:clj
-   (defmacro with-sci-in-str [s & body]
+   (defmacro with-sci-in-str
+     "For external use. Useful for testing sci programs."
+     [s & body]
      `(with-open [s# (-> (java.io.StringReader. ~s) clojure.lang.LineNumberingPushbackReader.)]
         (try (vars/push-thread-bindings {sio/in s#})
              (do ~@body)
