@@ -129,12 +129,17 @@
    '*in* io/in
    '*out* io/out
    '*err* io/err
-   'pr #?(:clj io/pr :cljs nil)
-   'prn #?(:clj io/prn :cljs nil)
-   'print #?(:clj io/print :cljs nil)
-   'println #?(:clj io/println :cljs nil)
-   'newline #?(:clj io/newline :cljs nil)
-   'flush #?(:clj io/flush :cljs nil)
+   #?@(:clj ['pr io/pr
+             'prn io/prn
+             'print io/print
+             'println io/println
+             'newline io/newline
+             'flush io/flush
+             'with-out-str (with-meta io/with-out-str
+                             {:sci/macro true})
+             'with-in-str (with-meta io/with-in-str
+                            {:sci/macro true})
+             'read-line io/read-line])
    ;; end io
    '= =
    '< <

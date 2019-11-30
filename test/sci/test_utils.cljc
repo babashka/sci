@@ -2,10 +2,7 @@
   (:require [sci.core :refer [eval-string]]
             #?(:clj [me.raynes.conch :refer [let-programs] :as sh])
             #?(:clj [clojure.edn :as edn])
-            #?(:clj [sci.impl.vars :as vars])
-            #?(:clj [sci.impl.io :as sio])
-            [clojure.test :refer [is]])
-  (:refer-clojure :exclude [with-out-str with-in-str]))
+            [clojure.test :refer [is]]))
 
 (def native? #?(:clj (= "native" (System/getenv "SCI_TEST_ENV"))
                 :cljs false))
@@ -55,22 +52,6 @@
       (every? identity
               (for [[m# r#] (map vector maps# res#)]
                 (assert-submap m# r#))))))
-
-#?(:clj
-   (defmacro with-out-str [& body]
-     `(let [sw# (java.io.StringWriter.)
-            _# (try (vars/push-thread-bindings {sio/out sw#})
-                    (do ~@body)
-                    (finally (vars/pop-thread-bindings)))
-            out# (str sw#)]
-        out#)))
-
-#?(:clj
-   (defmacro with-in-str [s & body]
-     `(with-open [s# (-> (java.io.StringReader. ~s) clojure.lang.LineNumberingPushbackReader.)]
-        (try (vars/push-thread-bindings {sio/in s#})
-             (do ~@body)
-             (finally (vars/pop-thread-bindings))))))
 
 ;;;; Scratch
 
