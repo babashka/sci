@@ -53,7 +53,7 @@
          (if (identical? top-frame f)
            (.remove dvals)
            (reset-thread-binding-frame f))
-         (throw (Exception. "nothing to pop!"))))
+         (throw (Exception. "No frame to pop."))))
 
      (defn get-thread-bindings []
        (let [f (get-thread-binding-frame)]

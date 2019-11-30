@@ -494,8 +494,9 @@
 
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol ctx var-name)]
-    (when (vars/var? v)
-      (wrapped-var v))))
+    (if (vars/var? v)
+      (wrapped-var v)
+      v)))
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)

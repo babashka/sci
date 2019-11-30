@@ -14,7 +14,8 @@
   ([name init-val]
    (dynamic-var name init-val nil))
   ([name init-val meta]
-   (sci.impl.vars.SciVar. init-val name meta)))
+   (let [meta (assoc meta :dynamic true)]
+     (sci.impl.vars.SciVar. init-val name meta))))
 
 (defmacro with-dynamic-var
   ([m name] `(with-dynamic-var ~m ~name nil nil))
