@@ -487,19 +487,20 @@
 
 ;;;; Vars
 
+(defn wrapped-var [v]
+  (with-meta [v]
+    {:sci.impl/eval true
+     :sci.impl/var-value true}))
+
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol ctx var-name)]
     (when (vars/var? v)
-      (with-meta [v]
-        {:sci.impl/eval true
-         :sci.impl/var-value true}))))
+      (wrapped-var v))))
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)
         v (analyze ctx v)
-        obj (with-meta [obj]
-              {:sci.impl/eval true
-               :sci.impl/var-value true})]
+        obj (wrapped-var obj)]
     (mark-eval-call (list 'set! obj v))))
 
 ;;;;

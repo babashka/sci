@@ -20,3 +20,11 @@
                        (add! x))
                        (add! x)
                      @a"))))
+
+(deftest with-redefs-test
+  (is (= [10 11 10]
+         (eval* "(def a (atom []))
+                 (defn add! [v] (swap! a conj v))
+                 (def ^:dynamic x 10)
+                 (add! x)
+                 (with-redefs [x 11] (add! x)) (add! x)"))))

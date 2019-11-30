@@ -295,7 +295,7 @@
         v (interpret ctx v)]
     (if (vars/var? obj)
       (vars/setVal obj v)
-      (throw (ex-info "duuuude" {:obj obj :v v})))))
+      (throw (ex-info (str "Cannot set " obj " to " v) {:obj obj :v v})))))
 
 (declare eval-string)
 

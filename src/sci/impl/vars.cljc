@@ -4,7 +4,8 @@
                             push-thread-bindings
                             get-thread-bindings
                             pop-thread-bindings
-                            with-redefs]))
+                            with-redefs
+                            with-redefs-fn]))
 
 (defprotocol IBox
   (setVal [_this _v])
@@ -70,7 +71,9 @@
          (when-let [bindings (.-bindings f)]
            (get bindings sci-var))))))
 
-
+(defprotocol IVar
+  (bindRoot [this v])
+  (getRawRoot [this]))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [#?(:clj ^:volatile-mutable root
@@ -78,6 +81,11 @@
                  sym
                  #?(:clj ^:volatile-mutable _meta
                     :cljs ^:mutable _meta)]
+  IVar
+  (bindRoot [this v]
+    (set! (.-root this) v))
+  (getRawRoot [this]
+    root)
   IBox
   (setVal [this v]
     #?(:cljs (set! (.-root this) v)
@@ -193,22 +201,38 @@
               ;; TODO: confirm bindings
               `(clojure.core/with-redefs ~bindings ~@body))))
 
+(defn with-redefs-fn
+  [binding-map func]
+  (let [root-bind (fn [m]
+                    (doseq [[a-var a-val] m]
+                      (.bindRoot ^sci.impl.vars.SciVar a-var a-val)))
+        old-vals (zipmap (keys binding-map)
+                         (map #(.getRawRoot ^sci.impl.vars.SciVar %) (keys binding-map)))]
+    (try
+      (root-bind binding-map)
+      (func)
+      (finally
+        (root-bind old-vals)))))
+
 (defn with-redefs
   [_ _ bindings & body]
-  (let [names (take-nth 2 bindings)
-        vals (take-nth 2 (drop 1 bindings))
-        orig-val-syms (map (comp gensym #(str % "-orig-val__") name) names)
-        temp-val-syms (map (comp gensym #(str % "-temp-val__") name) names)
-        binds (map vector names temp-val-syms)
-        resets (reverse (map vector names orig-val-syms))
-        bind-value (fn [[k v]] (list 'set! k v))]
-    `(let [~@(interleave orig-val-syms names)
-           ~@(interleave temp-val-syms vals)]
-       ~@(map bind-value binds)
-       (try
-         ~@body
-         (finally
-           ~@(map bind-value resets))))))
+  #?(:clj `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
+                                                 (take-nth 2 (next bindings)))
+             (fn [] ~@body))
+     :cljs (let [names (take-nth 2 bindings)
+                 vals (take-nth 2 (drop 1 bindings))
+                 orig-val-syms (map (comp gensym #(str % "-orig-val__") name) names)
+                 temp-val-syms (map (comp gensym #(str % "-temp-val__") name) names)
+                 binds (map vector names temp-val-syms)
+                 resets (reverse (map vector names orig-val-syms))
+                 bind-value (fn [[k v]] (list 'set! k v))]
+             `(let [~@(interleave orig-val-syms names)
+                    ~@(interleave temp-val-syms vals)]
+                ~@(map bind-value binds)
+                (try
+                  ~@body
+                  (finally
+                    ~@(map bind-value resets)))))))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
