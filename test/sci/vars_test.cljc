@@ -1,8 +1,7 @@
 (ns sci.vars-test
   (:require
    [clojure.test :as test :refer [deftest is]]
-   [sci.test-utils :as tu]
-   [sci.opts :as opts]))
+   [sci.test-utils :as tu]))
 
 (defn eval*
   ([form] (eval* nil form))

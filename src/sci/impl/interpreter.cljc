@@ -12,7 +12,7 @@
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node]]
    [sci.impl.vars :as vars]
-   [sci.opts :as opts]))
+   [sci.impl.opts :as opts]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -428,7 +428,7 @@
 (defn eval-string
   ([s] (eval-string s nil))
   ([s opts]
-   (let [init-ctx (opts/initialize opts)
+   (let [init-ctx (opts/init opts)
          ret (eval-string* init-ctx s)]
      ret)))
 

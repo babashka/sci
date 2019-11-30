@@ -55,3 +55,28 @@
                (rest kvs)))
       {:sym->class (persistent! sym->class)
        :class->opts (persistent! class->opts)})))
+
+(defn init
+  "Initializes options"
+  [{:keys [:bindings :env
+           :allow :deny
+           :realize-max
+           :preset ;; used by malli
+           :aliases
+           :namespaces
+           :classes
+           :imports
+           :features]}]
+  (let [preset (get presets preset)
+        env (or env (atom {}))
+        imports (merge default-imports imports)
+        bindings bindings
+        _ (init-env! env bindings aliases namespaces imports)
+        ctx (merge {:env env
+                    :bindings {}
+                    :allow (process-permissions (:allow preset) allow)
+                    :deny (process-permissions (:deny preset) deny)
+                    :realize-max (or realize-max (:realize-max preset))
+                    :features features}
+                   (normalize-classes (merge default-classes classes)))]
+    ctx))
