@@ -107,7 +107,12 @@
       :static true}
      [& more]
      (binding [*print-readably* nil]
-       (apply pr more))))
+       (apply pr more)))
+   :cljs
+   (defn print
+     "print to a string, returning it"
+     [& objs]
+     (.append @out (apply print-str objs))))
 
 #?(:clj
    (defn println

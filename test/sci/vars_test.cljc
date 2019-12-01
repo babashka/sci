@@ -45,4 +45,5 @@
 
 (deftest println-test
   (when-not tu/native?
-    (is (= "hello\n" (sci/with-out-str (eval* "(println \"hello\")"))))))
+    (is (= "hello\n" (sci/with-out-str (eval* "(println \"hello\")"))))
+    (is (= "hello" (sci/with-out-str (eval* "(print \"hello\")"))))))

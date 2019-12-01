@@ -145,10 +145,10 @@
    '*in* io/in
    '*out* io/out
    '*err* io/err
+   'print io/print
    'println io/println
    #?@(:clj ['pr io/pr
              'prn io/prn
-             'print io/print
              'newline io/newline
              'flush io/flush
              'with-out-str (with-meta io/with-out-str
