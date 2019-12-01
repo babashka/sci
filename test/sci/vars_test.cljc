@@ -11,9 +11,8 @@
 
 (deftest dynamic-var-test
   (testing "set var root binding"
-    #?(:clj (is (thrown-with-msg? Exception #"root binding"
-                                  (eval* "(def ^:dynamic x 1) (set! x 2) x")))
-       :cljs (= 2 (eval* "(def ^:dynamic x 1) (set! x 2) x"))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"root binding"
+                          (eval* "(def ^:dynamic x 1) (set! x 2) x"))))
   (testing "set var thread-local binding"
     (is (= [0 1 2 0] (eval*
                       "(def a (atom []))

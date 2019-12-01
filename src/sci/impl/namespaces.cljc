@@ -346,7 +346,7 @@
    'object-array object-array
    'peek peek
    'pop pop
-   #?@(:clj ['pop-thread-bindings vars/pop-thread-bindings])
+   'pop-thread-bindings vars/pop-thread-bindings
    'pos? pos?
    'pos-int? pos-int?
    'partial partial
@@ -356,7 +356,7 @@
    'pr-str pr-str
    'prn-str prn-str
    'print-str print-str
-   #?@(:clj ['push-thread-bindings vars/push-thread-bindings])
+   'push-thread-bindings vars/push-thread-bindings
    'qualified-ident? qualified-ident?
    'qualified-symbol? qualified-symbol?
    'qualified-keyword? qualified-keyword?

@@ -7,69 +7,78 @@
                             with-redefs
                             with-redefs-fn]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (defprotocol IBox
   (setVal [_this _v])
   (getVal [_this]))
 
-;; adapted from https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Var.java
+(deftype Frame [bindings prev])
+
+(def top-frame (Frame. {} nil))
+
 #?(:clj
-   (do
-     (set! *warn-on-reflection* true)
-     (deftype Frame [bindings prev])
-     (def top-frame (Frame. {} nil))
+   (def ^ThreadLocal dvals (proxy [ThreadLocal] []
+                             (initialValue [] top-frame)))
+   :cljs
+   (def dvals (atom top-frame)))
 
-     (def ^ThreadLocal dvals (proxy [ThreadLocal] []
-                               (initialValue [] top-frame)))
+(defn get-thread-binding-frame ^Frame []
+  #?(:clj (.get dvals)
+     :cljs @dvals))
 
-     (defn get-thread-binding-frame ^Frame []
-       (.get dvals))
+(defn reset-thread-binding-frame [frame]
+  #?(:clj (.set dvals frame)
+     :cljs (reset! dvals frame)))
 
-     (defn reset-thread-binding-frame [frame]
-       (.set dvals frame))
+(deftype TBox #?(:clj [thread ^:volatile-mutable val]
+                 :cljs [thread ^:mutable val])
+  IBox
+  (setVal [_ v]
+    (set! val v))
+  (getVal [_] val))
 
-     (deftype TBox [thread ^:volatile-mutable val]
-       IBox
-       (setVal [_ v]
-         (set! val v))
-       (getVal [_] val))
+(defn dynamic-var? [v]
+  (:dynamic (meta v)))
 
-     (defn dynamic-var? [v]
-       (:dynamic (meta v)))
+(defn push-thread-bindings [bindings]
+  (let [frame (get-thread-binding-frame)
+        bmap (.-bindings frame)
+        bmap (reduce (fn [acc [var* val*]]
+                       (when-not (dynamic-var? var*)
+                         (throw (new #?(:clj IllegalStateException
+                                        :cljs js/Error)
+                                     (str "Can't dynamically bind non-dynamic var " var*))))
+                       (assoc acc var* (TBox. #?(:clj (Thread/currentThread)
+                                                 :cljs nil) val*)))
+                     bmap
+                     bindings)]
+    (reset-thread-binding-frame (Frame. bmap frame))))
 
-     (defn push-thread-bindings [bindings]
-       (let [frame (get-thread-binding-frame)
-             bmap (.-bindings frame)
-             bmap (reduce (fn [acc [var* val*]]
-                            (when-not (dynamic-var? var*)
-                              (throw (new IllegalStateException
-                                          (str "Can't dynamically bind non-dynamic var " var*))))
-                            (assoc acc var* (TBox. (Thread/currentThread) val*)))
-                          bmap
-                          bindings)]
-         (reset-thread-binding-frame (Frame. bmap frame))))
+(defn pop-thread-bindings []
+  (if-let [f (.-prev (get-thread-binding-frame))]
+    (if (identical? top-frame f)
+      #?(:clj (.remove dvals)
+         :cljs (reset! dvals top-frame))
+      (reset-thread-binding-frame f))
+    (throw (new #?(:clj Exception :cljs js/Error) "No frame to pop."))))
 
-     (defn pop-thread-bindings []
-       (if-let [f (.-prev (get-thread-binding-frame))]
-         (if (identical? top-frame f)
-           (.remove dvals)
-           (reset-thread-binding-frame f))
-         (throw (Exception. "No frame to pop."))))
+(defn get-thread-bindings []
+  (let [f (get-thread-binding-frame)]
+    (loop [ret {}
+           kvs (seq (.-bindings f))]
+      (if kvs
+        (let [[var* ^TBox tbox] (first kvs)
+              tbox-val (getVal tbox)]
+          (recur (assoc ret var* tbox-val)
+                 (next kvs)))
+        ret))))
 
-     (defn get-thread-bindings []
-       (let [f (get-thread-binding-frame)]
-         (loop [ret {}
-                kvs (seq (.-bindings f))]
-           (if kvs
-             (let [[var* ^TBox tbox] (first kvs)
-                   tbox-val (getVal tbox)]
-               (recur (assoc ret var* tbox-val)
-                      (next kvs)))
-             ret))))
-
-     (defn get-thread-binding ^TBox [sci-var]
-       (when-let [^Frame f (.get dvals)]
-         (when-let [bindings (.-bindings f)]
-           (get bindings sci-var))))))
+(defn get-thread-binding ^TBox [sci-var]
+  (when-let [^Frame f #?(:clj (.get dvals)
+                         :cljs @dvals)]
+    (when-let [bindings (.-bindings f)]
+      (get bindings sci-var))))
 
 (defprotocol IVar
   (bindRoot [this v])
@@ -90,23 +99,24 @@
   (toSymbol [this] sym)
   IBox
   (setVal [this v]
-    #?(:cljs (set! (.-root this) v)
-       :clj
-       (let [b (get-thread-binding this)]
-         (if (some? b)
+    (let [b (get-thread-binding this)]
+      (if (some? b)
+        #?(:clj
            (let [t (.-thread b)]
              (if (not (identical? t (Thread/currentThread)))
                (throw (new IllegalStateException
                            (str "Can't change/establish root binding of " this " with set")))
                (setVal b v)))
-           (throw (new IllegalStateException
-                       (str "Can't change/establish root binding of " this " with set")))))))
+           :cljs (setVal b v))
+        (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                    (str "Can't change/establish root binding of " this " with set"))))))
   (getVal [this] root)
   #?(:clj clojure.lang.IDeref :cljs IDeref)
-  #?(:clj (deref [this] (or (when-let [tbox (get-thread-binding this)]
-                              (getVal tbox))
-                            root))
-     :cljs (-deref [_] root))
+  (#?(:clj deref
+      :cljs -deref) [this]
+    (or (when-let [tbox (get-thread-binding this)]
+          (getVal tbox))
+        root))
   ;; #?(:cljs
   ;;    (isMacro [_]
   ;;             (. (val) -cljs$lang$macro)))
@@ -224,21 +234,22 @@
   #_(assert-args
      (vector? bindings) "a vector for its binding"
      (even? (count bindings)) "an even number of forms in binding vector")
-  #?(:clj (let [var-ize (fn [var-vals]
-                          (loop [ret [] vvs (seq var-vals)]
-                            (if vvs
-                              (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
-                                      (next (next vvs)))
-                              (seq ret))))]
-            `(let []
-               (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
-               (try
-                 ~@body
-                 (finally
-                   (clojure.core/pop-thread-bindings)))))
-     :cljs  (let [names (take-nth 2 bindings)]
-              ;; TODO: confirm bindings
-              `(clojure.core/with-redefs ~bindings ~@body))))
+  (let [var-ize (fn [var-vals]
+                  (loop [ret [] vvs (seq var-vals)]
+                    (if vvs
+                      (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
+                              (next (next vvs)))
+                      (seq ret))))]
+    `(let []
+       (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
+       (try
+         ~@body
+         (finally
+           (clojure.core/pop-thread-bindings)))))
+  ;; :cljs  (let [names (take-nth 2 bindings)]
+  ;;          ;; TODO: confirm bindings
+  ;;          `(clojure.core/with-redefs ~bindings ~@body))
+  )
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))

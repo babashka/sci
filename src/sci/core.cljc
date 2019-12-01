@@ -26,10 +26,9 @@
     "Macro for binding sci vars. Must be called with map of sci dynamic
   vars to values. Used in babashka."
     [bindings & body]
-    (macros/? :clj `(try (vars/push-thread-bindings ~bindings)
-                         (do ~@body)
-                         (finally (vars/pop-thread-bindings)))
-              :cljs `(vars/with-redefs-fn ~bindings (fn [] ~@body)))))
+    `(try (vars/push-thread-bindings ~bindings)
+          (do ~@body)
+          (finally (vars/pop-thread-bindings)))))
 
 ;; `*in*`, `*out*`, `*err*` are set to :dynamic to suppress a compiler warning
 ;; they are really not dynamic to sci library users, but represent dynamic vars

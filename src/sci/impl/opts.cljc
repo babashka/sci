@@ -6,8 +6,9 @@
             [sci.impl.vars :as vars]))
 
 (defn init-env! [env bindings aliases namespaces imports in out err]
-  (when in (vars/bindRoot io/in in))
-  (when out (vars/bindRoot io/out out))
+  (vars/bindRoot io/in (if in in (io/init-in)))
+  (vars/bindRoot io/out (if out out (io/init-out)))
+  (vars/bindRoot io/err (if err err (io/init-err)))
   (swap! env (fn [env]
                (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
                      aliases (merge namespaces/aliases (:aliases env) aliases)

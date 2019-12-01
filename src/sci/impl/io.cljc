@@ -9,14 +9,20 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def in (vars/dynamic-var '*in* #?(:clj (-> (java.io.StringReader. "")
-                                            clojure.lang.LineNumberingPushbackReader.)
-                                   )))
+(def init-in (fn []
+               #?(:clj (-> (java.io.StringReader. "")
+                           clojure.lang.LineNumberingPushbackReader.))))
 
-(def out (vars/dynamic-var '*out* #?(:clj (java.io.StringWriter.)
-                                     :cljs (goog.string/StringBuffer.))))
+(def init-out (fn [] (new #?(:clj java.io.StringWriter
+                             :cljs goog.string/StringBuffer))))
 
-(def err (vars/dynamic-var '*err* #?(:clj (java.io.StringWriter.))))
+(def init-err (fn [] #?(:clj (java.io.StringWriter.))))
+
+(def in (vars/dynamic-var '*in* (init-in)))
+
+(def out (vars/dynamic-var '*out* (init-out)))
+
+(def err (vars/dynamic-var '*err* (init-err)))
 
 #?(:cljs
    (defn string-print [x]
