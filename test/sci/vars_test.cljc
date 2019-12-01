@@ -44,4 +44,5 @@
                  (with-redefs [x 11] (add! x)) (add! x)"))))
 
 (deftest println-test
-  (is (= "hello\n" (sci/with-out-str (eval* "(println \"hello\")")))))
+  (when-not tu/native?
+    (is (= "hello\n" (sci/with-out-str (eval* "(println \"hello\")"))))))
