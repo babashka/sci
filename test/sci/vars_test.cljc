@@ -1,6 +1,6 @@
 (ns sci.vars-test
   (:require
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -8,12 +8,14 @@
   ([binding form]
    (tu/eval* form {:bindings {'*in* binding}})))
 
-#_(deftest foo
-  (println (opts/with-dynamic-var {} foo 10)))
-
 (deftest dynamic-var-test
-  (is (= [0 1 2 0] (eval*
-                    "(def a (atom []))
+  (testing "set var root binding"
+    #?(:clj (is (thrown-with-msg? Exception #"root binding"
+                                  (eval* "(def ^:dynamic x 1) (set! x 2) x")))
+       :cljs (= 2 (eval* "(def ^:dynamic x 1) (set! x 2) x"))))
+  (testing "set var thread-local binding"
+    (is (= [0 1 2 0] (eval*
+                      "(def a (atom []))
                      (defn add! [v] (swap! a conj v))
                      (def ^:dynamic x 0)
                      (add! x)
@@ -22,8 +24,15 @@
                        (set! x (inc x))
                        (add! x))
                        (add! x)
-                     @a")))
-  (is (= "[1 #'x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])"))))
+                     @a"))))
+  (testing "usage of var name evals to var value, but using it as var prints var name"
+    (is (= "[1 #'x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])"))))
+  (testing "with-redefs"
+    (is (= [10 0] (eval* "(def ^:redef x 0)
+                          (def a (atom []))
+                          (defn add! [v] (swap! a conj v))
+                          (with-redefs [x 10] (add! x)) (add! x)
+                          @a")))))
 
 (deftest with-redefs-test
   (is (= [10 11 10]

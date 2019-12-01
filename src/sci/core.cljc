@@ -1,6 +1,49 @@
 (ns sci.core
+  (:refer-clojure :exclude [*in* *out* *err* with-bindings with-in-str with-out-str])
   (:require
-   [sci.impl.interpreter :as i]))
+   [sci.impl.interpreter :as i]
+   [sci.impl.vars :as vars]
+   [sci.impl.io :as sio])
+  ;; #?(:cljs (:require-macros [sci.core :refer [with-bindings with-in-str with-out-str]]))
+  )
+
+#?(:clj (set! *warn-on-reflection* true))
+
+(defn new-var
+  "Returns a new sci var."
+  ([name] (new-var name nil nil))
+  ([name val] (new-var name val (meta name)))
+  ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta)))
+
+(defn new-dynamic-var
+  "Same as new-var but adds :dynamic true to meta."
+  ([name] (new-dynamic-var name nil nil))
+  ([name init-val] (new-dynamic-var name init-val nil ))
+  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
+
+(defmacro with-bindings
+  "Macro for binding sci vars. Must be called with map of sci dynamic
+  vars to values. Used in babashka."
+  [bindings & body]
+  `(try (vars/push-thread-bindings ~bindings)
+        (do ~@body)
+        (finally (vars/pop-thread-bindings))))
+
+;; `*in*`, `*out*`, `*err*` are set to :dynamic to suppress a compiler warning
+;; they are really not dynamic to sci library users, but represent dynamic vars
+;; *inside* sci
+(def ^:dynamic *in* "Sci var that represents sci's clojure.core/*in*" sio/in)
+(alter-meta! #'*in* assoc :dynamic false)
+
+(def ^:dynamic *out* "Sci var that represents sci's clojure.core/*out*" sio/out)
+(alter-meta! #'*out* assoc :dynamic false)
+
+(def ^:dynamic *err* "Sci var that represents sci's clojure.core/*err*" sio/err)
+(alter-meta! #'*err* assoc :dynamic false)
+
+#_(defmacro with-in-str
+  [s & body]
+  (with-bindings ))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.
@@ -14,6 +57,9 @@
   - `:namespaces`: a map of symbols to namespaces, where a namespace
   is a map with symbols to values, e.g.: `{'foo.bar {'x 1}}`. These
   namespaces can be used with `require`.
+
+  - `:in`, `:out` and `:err`: the root bindings of sci's
+  `clojure.core/*in*`, `clojure.core/*out*` and `clojure.core/*err*`.
 
   - `:allow`: a seqable of allowed symbols. All symbols, even those
   brought in via `:bindings` or `:namespaces` have to be explicitly

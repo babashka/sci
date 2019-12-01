@@ -240,16 +240,6 @@
                                          (take-nth 2 (next bindings)))
      (fn [] ~@body)))
 
-#?(:clj
-   (defmacro with-sci-bindings
-     "Macro for binding sci vars. For external use. Useful for testing sci
-  programs. Must be called with map of sci dynamic vars to values.
-  values. Used in babashka."
-     [bindings & body]
-     `(try (push-thread-bindings ~bindings)
-           (do ~@body)
-           (finally (pop-thread-bindings)))))
-
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
   @v1 ;; 0
