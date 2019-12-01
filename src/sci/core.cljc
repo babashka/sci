@@ -3,9 +3,9 @@
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.vars :as vars]
-   [sci.impl.io :as sio])
-  ;; #?(:cljs (:require-macros [sci.core :refer [with-bindings with-in-str with-out-str]]))
-  )
+   [sci.impl.io :as sio]
+   [sci.impl.macros :as macros])
+  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -21,13 +21,15 @@
   ([name init-val] (new-dynamic-var name init-val nil ))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
 
-(defmacro with-bindings
-  "Macro for binding sci vars. Must be called with map of sci dynamic
+(macros/deftime
+  (defmacro with-bindings
+    "Macro for binding sci vars. Must be called with map of sci dynamic
   vars to values. Used in babashka."
-  [bindings & body]
-  `(try (vars/push-thread-bindings ~bindings)
-        (do ~@body)
-        (finally (vars/pop-thread-bindings))))
+    [bindings & body]
+    (macros/? :clj `(try (vars/push-thread-bindings ~bindings)
+                         (do ~@body)
+                         (finally (vars/pop-thread-bindings)))
+              :cljs `(vars/with-redefs-fn ~bindings (fn [] ~@body)))))
 
 ;; `*in*`, `*out*`, `*err*` are set to :dynamic to suppress a compiler warning
 ;; they are really not dynamic to sci library users, but represent dynamic vars
@@ -41,9 +43,21 @@
 (def ^:dynamic *err* "Sci var that represents sci's clojure.core/*err*" sio/err)
 (alter-meta! #'*err* assoc :dynamic false)
 
-#_(defmacro with-in-str
-  [s & body]
-  (with-bindings ))
+(macros/deftime
+  (defmacro with-in-str
+    [s & body]
+    `(let [in# (java.io.StringReader. ~s)]
+       (with-bindings {*in* in#}
+         (do ~@body)))))
+
+(macros/deftime
+  (defmacro with-out-str
+    [& body]
+    `(let [out# (macros/? :clj (java.io.StringWriter.)
+                          :cljs (goog.string/StringBuffer.))]
+       (with-bindings {*out* out#}
+         (do ~@body)
+         (str out#)))))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.

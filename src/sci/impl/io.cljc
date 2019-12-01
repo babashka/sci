@@ -1,18 +1,29 @@
 (ns sci.impl.io
   {:no-doc true}
   (:refer-clojure :exclude [pr prn print println newline flush
-                            with-out-str with-in-str read-line])
+                            with-out-str with-in-str read-line
+                            #?@(:cljs [string-print])])
   (:require [sci.impl.vars :as vars]
-            #?(:clj [sci.impl.io :as sio])))
+            #?(:clj [sci.impl.io :as sio])
+            #?(:cljs [goog.string])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 (def in (vars/dynamic-var '*in* #?(:clj (-> (java.io.StringReader. "")
-                                            clojure.lang.LineNumberingPushbackReader.))))
+                                            clojure.lang.LineNumberingPushbackReader.)
+                                   )))
 
-(def out (vars/dynamic-var '*out* #?(:clj (java.io.StringWriter.))))
+(def out (vars/dynamic-var '*out* #?(:clj (java.io.StringWriter.)
+                                     :cljs (goog.string/StringBuffer.))))
 
 (def err (vars/dynamic-var '*err* #?(:clj (java.io.StringWriter.))))
+
+#?(:cljs
+   (defn string-print [x]
+     (when (nil? *print-fn*)
+       (throw (js/Error. "No *print-fn* fn set for evaluation environment")))
+     (*print-fn* x)
+     nil))
 
 #?(:clj (defn pr-on
           {:private true
@@ -21,7 +32,12 @@
           (if *print-dup*
             (print-dup x w)
             (print-method x w))
-          nil))
+          nil)
+   :cljs (defn- pr-with-opts
+           "Prints a sequence of objects using string-print, observing all
+  the options given in opts"
+           [objs opts]
+           (string-print (pr-str-with-opts objs opts))))
 
 #?(:clj (defn pr
           "Prints the object(s) to the output stream that is the current value
@@ -36,15 +52,15 @@
            (. ^java.io.Writer @out (append \space))
            (if-let [nmore (next more)]
              (recur (first more) nmore)
-             (apply pr more)))))
+             (apply pr more))))
+   :cljs (defn pr
+           "Prints the object(s) using string-print.  Prints the
+  object(s), separated by spaces if there is more than one.
+  By default, pr and prn print in a way that objects can be
+  read by the reader"
+           [& objs]
+           (pr-with-opts objs (pr-opts))))
 
-#?(:clj (defn newline
-          "Writes a platform-specific newline to *out*"
-          {:added "1.0"
-           :static true}
-          []
-          (. ^java.io.Writer @out (append ^String @#'clojure.core/system-newline))
-          nil))
 #?(:clj
    (defn flush
      "Flushes the output stream that is the current value of
@@ -53,7 +69,24 @@
       :static true}
      []
      (. ^java.io.Writer @out (flush))
-     nil))
+     nil)
+   :cljs (defn flush [] ;stub
+           nil))
+
+#?(:clj (defn newline
+          "Writes a platform-specific newline to *out*"
+          {:added "1.0"
+           :static true}
+          []
+          (. ^java.io.Writer @out (append ^String @#'clojure.core/system-newline))
+          nil)
+   :cljs (defn newline
+           "Prints a newline using *print-fn*"
+           ([] (newline nil))
+           ([opts]
+            (string-print "\n")
+            (when (get opts :flush-on-newline)
+              (flush)))))
 
 #?(:clj
    (defn prn
@@ -83,7 +116,12 @@
       :static true}
      [& more]
      (binding [*print-readably* nil]
-       (apply prn more))))
+       (apply prn more)))
+   :cljs
+   (defn println
+     "Same as print followed by (newline)"
+     [& objs]
+     (.append @out (apply println-str objs))))
 
 #?(:clj
    (defn with-out-str

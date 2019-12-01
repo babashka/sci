@@ -1,6 +1,7 @@
 (ns sci.vars-test
   (:require
    [clojure.test :as test :refer [deftest is testing]]
+   [sci.core :as sci]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -41,3 +42,6 @@
                  (def ^:dynamic x 10)
                  (add! x)
                  (with-redefs [x 11] (add! x)) (add! x)"))))
+
+(deftest println-test
+  (is (= "hello\n" (sci/with-out-str (eval* "(println \"hello\")")))))

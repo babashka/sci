@@ -200,6 +200,25 @@
    (let [meta (assoc meta :dynamic true)]
      (sci.impl.vars.SciVar. init-val name meta))))
 
+(defn with-redefs-fn
+  [binding-map func]
+  (let [root-bind (fn [m]
+                    (doseq [[a-var a-val] m]
+                      (sci.impl.vars/bindRoot a-var a-val)))
+        old-vals (zipmap (keys binding-map)
+                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
+    (try
+      (root-bind binding-map)
+      (func)
+      (finally
+        (root-bind old-vals)))))
+
+(defn with-redefs
+  [_ _ bindings & body]
+  `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
+                                         (take-nth 2 (next bindings)))
+     (fn [] ~@body)))
+
 (defn binding
   [_ _ bindings & body]
   #_(assert-args
@@ -220,25 +239,6 @@
      :cljs  (let [names (take-nth 2 bindings)]
               ;; TODO: confirm bindings
               `(clojure.core/with-redefs ~bindings ~@body))))
-
-(defn with-redefs-fn
-  [binding-map func]
-  (let [root-bind (fn [m]
-                    (doseq [[a-var a-val] m]
-                      (sci.impl.vars/bindRoot a-var a-val)))
-        old-vals (zipmap (keys binding-map)
-                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
-    (try
-      (root-bind binding-map)
-      (func)
-      (finally
-        (root-bind old-vals)))))
-
-(defn with-redefs
-  [_ _ bindings & body]
-  `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
-                                         (take-nth 2 (next bindings)))
-     (fn [] ~@body)))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
