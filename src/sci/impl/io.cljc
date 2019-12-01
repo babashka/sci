@@ -7,11 +7,12 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def in (vars/dynamic-var '*in* #?(:clj *in*)))
+(def in (vars/dynamic-var '*in* #?(:clj (-> (java.io.StringReader. "")
+                                            clojure.lang.LineNumberingPushbackReader.))))
 
-(def out (vars/dynamic-var '*out* *out*))
+(def out (vars/dynamic-var '*out* #?(:clj (java.io.StringWriter.))))
 
-(def err (vars/dynamic-var '*err* #?(:clj *err*)))
+(def err (vars/dynamic-var '*err* #?(:clj (java.io.StringWriter.))))
 
 #?(:clj (defn pr-on
           {:private true

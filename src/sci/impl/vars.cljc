@@ -73,7 +73,8 @@
 
 (defprotocol IVar
   (bindRoot [this v])
-  (getRawRoot [this]))
+  (getRawRoot [this])
+  (toSymbol [this]))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [#?(:clj ^:volatile-mutable root
@@ -86,6 +87,7 @@
     (set! (.-root this) v))
   (getRawRoot [this]
     root)
+  (toSymbol [this] sym)
   IBox
   (setVal [this v]
     #?(:cljs (set! (.-root this) v)
@@ -100,17 +102,21 @@
            (throw (new IllegalStateException
                        (str "Can't change/establish root binding of " this " with set")))))))
   (getVal [this] root)
-  Object
-  ;; #?(:cljs
-  ;;    (isMacro [_]
-  ;;             (. (val) -cljs$lang$macro)))
-  (toString [_]
-    (str "#'" sym))
   #?(:clj clojure.lang.IDeref :cljs IDeref)
   #?(:clj (deref [this] (or (when-let [tbox (get-thread-binding this)]
                               (getVal tbox))
                             root))
      :cljs (-deref [_] root))
+  ;; #?(:cljs
+  ;;    (isMacro [_]
+  ;;             (. (val) -cljs$lang$macro)))
+  Object
+  (toString [_]
+    (str "#'" sym))
+  #?(:cljs IPrintWithWriter)
+  #?(:cljs (-pr-writer [a writer opts]
+                       (-write writer "#'")
+                       (pr-writer sym writer opts)))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (meta [_] _meta) :cljs (-meta [_] _meta))
   #?(:clj clojure.lang.IObj :cljs IWithMeta)
@@ -175,6 +181,11 @@
     (root a b c d e f g h i j k l m n o p q r s t))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
     (apply root a b c d e f g h i j k l m n o p q r s t rest)))
+
+#?(:clj
+   (do (defmethod print-method sci.impl.vars.IVar [o ^java.io.Writer w]
+         (.write w (str "#'" (toSymbol o))))
+       (prefer-method print-method sci.impl.vars.IVar clojure.lang.IDeref)))
 
 (defn var? [x]
   ;; (prn "X" x (instance? sci.impl.vars.SciVar x))

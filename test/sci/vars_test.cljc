@@ -22,7 +22,8 @@
                        (set! x (inc x))
                        (add! x))
                        (add! x)
-                     @a"))))
+                     @a")))
+  (is (= "[1 #'x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])"))))
 
 (deftest with-redefs-test
   (is (= [10 11 10]

@@ -1,9 +1,13 @@
 (ns sci.impl.opts
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
-            [sci.impl.utils :as utils :refer [strip-core-ns]]))
+            [sci.impl.utils :as utils :refer [strip-core-ns]]
+            [sci.impl.io :as io]
+            [sci.impl.vars :as vars]))
 
-(defn init-env! [env bindings aliases namespaces imports]
+(defn init-env! [env bindings aliases namespaces imports in out err]
+  (when in (vars/bindRoot io/in in))
+  (when out (vars/bindRoot io/out out))
   (swap! env (fn [env]
                (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
                      aliases (merge namespaces/aliases (:aliases env) aliases)
@@ -25,7 +29,9 @@
   #?(:clj {'java.lang.AssertionError AssertionError
            'java.lang.Exception {:class Exception}
            'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
+           'clojure.lang.LineNumberingPushbackReader clojure.lang.LineNumberingPushbackReader
            'java.lang.String {:class String}
+           'java.io.StringReader java.io.StringReader
            'java.lang.Integer Integer
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException}
@@ -66,12 +72,15 @@
            :namespaces
            :classes
            :imports
-           :features]}]
+           :features
+           :in
+           :out
+           :err]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
-        _ (init-env! env bindings aliases namespaces imports)
+        _ (init-env! env bindings aliases namespaces imports in out err)
         ctx (merge {:env env
                     :bindings {}
                     :allow (process-permissions (:allow preset) allow)

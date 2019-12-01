@@ -25,7 +25,19 @@
     "allPublicConstructors": true
   },
   {
+    "name":"clojure.lang.LineNumberingPushbackReader",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
+  },
+  {
     "name":"java.lang.String",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
+  },
+  {
+    "name":"java.io.StringReader",
     "allPublicMethods":true,
     "allPublicFields": true,
     "allPublicConstructors": true

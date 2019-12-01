@@ -124,6 +124,22 @@
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
+#_(defn __close!__ [^java.io.Closeable x]
+  (.close x))
+
+(defn with-open*
+  [_ _ bindings & body]
+  (cond
+    (= (count bindings) 0) `(do ~@body)
+    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+                              (try
+                                (with-open ~(subvec bindings 2) ~@body)
+                                (finally
+                                  (.close ~(bindings 0)))))
+    :else #?(:clj (throw (IllegalArgumentException.
+                          "with-open only allows Symbols in bindings"))
+             :cljs ::TODO)))
+
 (def clojure-core
   {;; io
    '*in* io/in
@@ -457,6 +473,7 @@
    'when-let (macrofy when-let*)
    'when-not (macrofy when-not*)
    'with-meta with-meta
+   'with-open (macrofy with-open*)
    'with-redefs (macrofy vars/with-redefs)
    'with-redefs-fn vars/with-redefs-fn
    'zipmap zipmap
