@@ -18,7 +18,7 @@
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
   ([name] (new-dynamic-var name nil nil))
-  ([name init-val] (new-dynamic-var name init-val nil ))
+  ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
 
 (macros/deftime
