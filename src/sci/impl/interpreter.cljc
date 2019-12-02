@@ -75,13 +75,23 @@
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
-        m (meta var-name)
-        varify? (or (:dynamic m) (:redef m)) ;; see https://clojure.org/reference/compilation#directlinking
-        init (if varify? (sci.impl.vars.SciVar. init var-name m)
-                 init)]
-    (swap! (:env ctx) (fn [env]
-                        (let [current-ns (:current-ns env)]
-                          (update-in env [:namespaces current-ns] assoc var-name init))))
+        m (meta var-name)]
+    (swap! (:env ctx)
+           (fn [env]
+             (let [current-ns (:current-ns env)
+                   the-current-ns (get-in env [:namespaces current-ns])
+                   prev (get the-current-ns var-name)
+                   init (cond
+                          (and prev (vars/var? prev))
+                          (do (vars/bindRoot prev init)
+                              prev)
+                          ;; see
+                          ;; https://clojure.org/reference/compilation#directlinking
+                          (or (:dynamic m) (:redef m))
+                          (sci.impl.vars.SciVar. init var-name m)
+                          :else init)
+                   the-current-ns (assoc the-current-ns var-name init)]
+               (assoc-in env [:namespaces current-ns] the-current-ns))))
     init))
 
 (defn lookup [{:keys [:bindings :env] :as ctx} sym]

@@ -40,3 +40,10 @@
                  (def ^:dynamic x 10)
                  (add! x)
                  (with-redefs [x 11] (add! x)) (add! x)"))))
+
+(deftest redefine-var-test
+  (is (= 11 (eval* "
+(def ^:redef x 10)
+(defn foo [] x)
+(def x 11)
+(foo)"))))
