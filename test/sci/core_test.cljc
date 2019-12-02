@@ -522,9 +522,8 @@
   (is (= 1 (eval* "(defmacro nested [x] `(let [x# 1337] ~`(let [x# ~x] x#))) (nested 1)")))
   (when-not tu/native?
     (is (= ":dude\n:dude\n"
-           (let [out (#?(:cljs with-out-str :clj sio/with-sci-out-str)
-                      (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"
-                                   #?(:clj nil :cljs {:bindings {'prn prn}})))]
+           (let [out (sci/with-out-str
+                      (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"))]
              out)))))
 
 (deftest declare-test

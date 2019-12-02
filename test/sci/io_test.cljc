@@ -19,3 +19,12 @@
 
 (deftest with-out-str-test
   (is (= "hello\n" (eval* "(with-out-str (println \"hello\"))"))))
+
+#?(:clj
+   (deftest with-in-str-test
+     (is (= "hello" (eval* "(with-in-str \"hello\" (read-line))")))))
+
+(deftest with-sci-out-str-test
+  (is (= "hello\n" (sci/with-out-str (eval* "(println \"hello\")")))))
+;; TODO: test for with-sci-out-str
+;; TODO: test for CLJ with-sci-in-str + eval-string + read-line

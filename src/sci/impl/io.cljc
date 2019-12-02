@@ -119,16 +119,16 @@
        (.readLine ^clojure.lang.LineNumberingPushbackReader @in)
        (.readLine ^java.io.BufferedReader @in))))
 
-#?(:clj
-   (defmacro with-sci-out-str
-     "For external use. Useful for testing sci programs."
-     [& body]
-     `(let [sw# (java.io.StringWriter.)
-            _# (try (vars/push-thread-bindings {sio/out sw#})
-                    (do ~@body)
-                    (finally (vars/pop-thread-bindings)))
-            out# (str sw#)]
-        out#)))
+;; #?(:clj
+;;    (defmacro with-sci-out-str
+;;      "For external use. Useful for testing sci programs."
+;;      [& body]
+;;      `(let [sw# (java.io.StringWriter.)
+;;             _# (try (vars/push-thread-bindings {sio/out sw#})
+;;                     (do ~@body)
+;;                     (finally (vars/pop-thread-bindings)))
+;;             out# (str sw#)]
+;;         out#)))
 
 #?(:clj
    (defmacro with-sci-in-str

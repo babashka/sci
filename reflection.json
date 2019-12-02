@@ -43,6 +43,12 @@
     "allPublicConstructors": true
   },
   {
+    "name":"java.io.StringWriter",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
+  },
+  {
     "name":"java.lang.Double",
     "allPublicMethods":true,
     "allPublicFields": true,
