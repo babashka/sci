@@ -34,18 +34,22 @@
 ;; they are really not dynamic to sci library users, but represent dynamic vars
 ;; *inside* sci
 (def ^:dynamic *in* "Sci var that represents sci's clojure.core/*in*" sio/in)
+#?(:clj (.setDynamic #'*in* false))
 (alter-meta! #'*in* assoc :dynamic false)
 
 (def ^:dynamic *out* "Sci var that represents sci's clojure.core/*out*" sio/out)
+#?(:clj (.setDynamic #'*out* false))
 (alter-meta! #'*out* assoc :dynamic false)
 
 (def ^:dynamic *err* "Sci var that represents sci's clojure.core/*err*" sio/err)
+#?(:clj (.setDynamic #'*err* false))
 (alter-meta! #'*err* assoc :dynamic false)
 
 (macros/deftime
   (defmacro with-in-str
     [s & body]
-    `(let [in# (java.io.StringReader. ~s)]
+    `(let [in# (-> (java.io.StringReader. ~s)
+                   (clojure.lang.LineNumberingPushbackReader.))]
        (with-bindings {*in* in#}
          (do ~@body)))))
 
