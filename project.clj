@@ -1,6 +1,7 @@
 (defproject borkdude/sci
   #=(clojure.string/trim
      #=(slurp "resources/SCI_VERSION"))
+  ;; :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
   :description "Small Clojure Interpreter"
   :url "https://github.com/borkdude/sci"
   :scm {:name "git"
