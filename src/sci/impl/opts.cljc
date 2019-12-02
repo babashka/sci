@@ -3,7 +3,8 @@
   (:require [sci.impl.namespaces :as namespaces]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
             [sci.impl.io :as io]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            #?(:cljs [goog.string])))
 
 (defn init-env! [env bindings aliases namespaces imports in out err]
   (vars/bindRoot io/in (if in in (io/init-in)))
@@ -32,11 +33,13 @@
            'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
            'clojure.lang.LineNumberingPushbackReader clojure.lang.LineNumberingPushbackReader
            'java.lang.String {:class String}
+           'java.io.StringWriter java.io.StringWriter
            'java.io.StringReader java.io.StringReader
            'java.lang.Integer Integer
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException}
-     :cljs {'Error js/Error}))
+     :cljs {'Error js/Error
+            'goog.string.StringBuffer goog.string/StringBuffer}))
 
 (def default-imports
   #?(:clj '{AssertionError java.lang.AssertionError

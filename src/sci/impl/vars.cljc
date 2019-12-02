@@ -34,9 +34,9 @@
 (deftype TBox #?(:clj [thread ^:volatile-mutable val]
                  :cljs [thread ^:mutable val])
   IBox
-  (setVal [_ v]
-    (set! val v))
-  (getVal [_] val))
+  (setVal [this v]
+    (set! val  v))
+  (getVal [this] val))
 
 (defn dynamic-var? [v]
   (:dynamic (meta v)))
@@ -203,9 +203,9 @@
 
 (defn dynamic-var
   ([name]
-   (dynamic-var name nil nil))
+   (dynamic-var name nil (meta name)))
   ([name init-val]
-   (dynamic-var name init-val nil))
+   (dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true)]
      (sci.impl.vars.SciVar. init-val name meta))))
@@ -245,11 +245,7 @@
        (try
          ~@body
          (finally
-           (clojure.core/pop-thread-bindings)))))
-  ;; :cljs  (let [names (take-nth 2 bindings)]
-  ;;          ;; TODO: confirm bindings
-  ;;          `(clojure.core/with-redefs ~bindings ~@body))
-  )
+           (clojure.core/pop-thread-bindings))))))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))

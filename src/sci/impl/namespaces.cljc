@@ -145,14 +145,15 @@
    '*in* io/in
    '*out* io/out
    '*err* io/err
+   'newline io/newline
+   'flush io/flush
+   'pr io/pr
+   'prn io/prn
    'print io/print
    'println io/println
-   #?@(:clj ['pr io/pr
-             'prn io/prn
-             'newline io/newline
-             'flush io/flush
-             'with-out-str (with-meta io/with-out-str
-                             {:sci/macro true})
+   'with-out-str (with-meta io/with-out-str
+                   {:sci/macro true})
+   #?@(:clj [
              'with-in-str (with-meta io/with-in-str
                             {:sci/macro true})
              'read-line io/read-line])
