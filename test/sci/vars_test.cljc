@@ -25,7 +25,7 @@
                        (add! x)
                      @a"))))
   (testing "usage of var name evals to var value, but using it as var prints var name"
-    (is (= "[1 #'x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])"))))
+    (is (= "[1 #'user/x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])"))))
   (testing "with-redefs"
     (is (= [10 0] (eval* "(def ^:redef x 0)
                           (def a (atom []))

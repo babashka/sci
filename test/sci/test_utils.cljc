@@ -2,7 +2,8 @@
   (:require [sci.core :refer [eval-string]]
             #?(:clj [me.raynes.conch :refer [let-programs] :as sh])
             #?(:clj [clojure.edn :as edn])
-            [clojure.test :refer [is]]))
+            [clojure.test :refer [is]]
+            [edamame.core :as edamame]))
 
 (def native? #?(:clj (= "native" (System/getenv "SCI_TEST_ENV"))
                 :cljs false))
@@ -14,11 +15,12 @@
          :cljs true)
     (eval-string (str form) ctx)
     #?(:clj
-       (let-programs [sci "./sci"]
-         (try (edn/read-string (sci (str form) (str ctx)))
-              (catch #?(:clj Exception :cljs :default) e
-                (throw (ex-info (:stderr (ex-data e))
-                                (ex-data e))))))
+       (let [v (let-programs [sci "./sci"]
+                 (try (sci (str form) (str ctx))
+                      (catch #?(:clj Exception :cljs :default) e
+                        (throw (ex-info (:stderr (ex-data e))
+                                        (or (ex-data e) {}))))))]
+         (edamame/parse-string v {:all true}))
        :cljs nil)))
 
 (defn submap?

@@ -89,7 +89,9 @@
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [#?(:clj ^:volatile-mutable root
                     :cljs ^:mutable root)
-                 ;; TODO: namespace
+                 ;; TODO: namespace field
+                 ;; TODO: dynamic field
+                 ;; TODO: macro field
                  sym
                  #?(:clj ^:volatile-mutable _meta
                     :cljs ^:mutable _meta)]
