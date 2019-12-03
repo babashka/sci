@@ -251,15 +251,15 @@
                         (tu/eval* "(clojure.core/loop [] (recur))" {:preset :termination-safe})))
 
   (testing "for/doseq use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
-    ;;(is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
-    ;;(is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
+    (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
+    (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
     (testing "users should not be able to hack around this by messing with metadata"
       (is (int? (:row (eval* "(def x (with-meta (symbol \"y\") {:row :allow})) (meta x)"))))
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
                             (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:row :allow}))
                                        (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop recur]}))))
-    #_(testing "but it should be forbidden in macros that are defined by a user"
+    (testing "but it should be forbidden in macros that are defined by a user"
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
                             (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]}))))))
