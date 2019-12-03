@@ -98,6 +98,8 @@
   (getRawRoot [this]
     root)
   (toSymbol [this] sym)
+  (isMacro [_]
+    (:sci/macro (meta root)))
   IBox
   (setVal [this v]
     (let [b (get-thread-binding this)]
@@ -118,8 +120,6 @@
     (or (when-let [tbox (get-thread-binding this)]
           (getVal tbox))
         root))
-  (isMacro [_]
-    (:sci/macro (meta root)))
   Object
   (toString [_]
     (str "#'" sym))
