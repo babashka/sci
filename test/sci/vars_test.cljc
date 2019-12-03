@@ -47,3 +47,7 @@
 (defn foo [] x)
 (def x 11)
 (foo)"))))
+
+;; TODO: test for ^:const
+;; TODO: test for redefining macros
+;; TODO: test for taking the value of a macro: exception
