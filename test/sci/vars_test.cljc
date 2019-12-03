@@ -79,4 +79,10 @@
   (is (= 11 (eval* "(defn foo [x] (inc x)) (#'foo 10)")))
   (is (= 10 (eval* "(defn foo [& xs] (apply + xs)) (apply #'foo 1 2 3 [4])"))))
 
+(deftest macro-val-test
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"value of a macro"
+                        (eval* "(defmacro foo []) foo")))
+  (is (some? (eval* "(defmacro foo []) #'foo"))))
+
 ;; TODO: test for taking the value of a macro: exception
