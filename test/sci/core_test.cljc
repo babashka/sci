@@ -254,6 +254,7 @@
     ;;(is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
     ;;(is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
     (testing "users should not be able to hack around this by messing with metadata"
+      (is (int? (:row (eval* "(def x (with-meta (symbol \"y\") {:row :allow})) (meta x)"))))
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
                             (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:row :allow}))

@@ -89,7 +89,8 @@
                            ;; TODO: we'll build macro support inside vars later
                            (:sci/macro (meta init)))
                        init
-                       :else (sci.impl.vars.SciVar. init var-name m))
+                       :else (let [init (utils/merge-meta init m)] ;; override row and col
+                               (sci.impl.vars.SciVar. init var-name m)))
                    the-current-ns (assoc the-current-ns var-name v)]
                (assoc-in env [:namespaces current-ns] the-current-ns))))
     init))

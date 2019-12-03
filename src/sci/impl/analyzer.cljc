@@ -24,7 +24,6 @@
                in-ns ns var set!})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
-  (prn "sym" sym (meta sym))
   (when-not (kw-identical? :allow (-> sym meta :row))
     (let [check-sym (strip-core-ns check-sym)]
       (when-not (if allow (contains? allow check-sym)
