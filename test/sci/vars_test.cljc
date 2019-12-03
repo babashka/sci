@@ -42,12 +42,37 @@
                  (with-redefs [x 11] (add! x)) (add! x)"))))
 
 (deftest redefine-var-test
-  (is (= 11 (eval* "
+  #_(is (= 11 (eval* "
 (def x 10)
+(defn foo [] x)
+(def x 11)
+(foo)")))
+  (is (= 10 (eval* "
+(defmacro foo [] `(+ 1 2 3 4))
+(defn bar [] (foo))
+(defmacro foo [] `(+ 1 2 3))
+(bar)
+")))
+  #_(is (= 6 (eval* "
+(defmacro foo [] `(+ 1 2 3 4))
+(defn bar [] (foo))
+(defmacro foo [] `(+ 1 2 3))
+(defn bar [] (foo))
+(bar)
+")))
+  #_(is (= 2 (eval* "
+(defn foo [] 1)
+(defn bar [] (foo))
+(defn foo [] 2)
+(bar)
+"))))
+
+(deftest const-test
+  (is (= 10 (eval* "
+(def ^:const x 10)
 (defn foo [] x)
 (def x 11)
 (foo)"))))
 
-;; TODO: test for ^:const
 ;; TODO: test for redefining macros
 ;; TODO: test for taking the value of a macro: exception

@@ -148,6 +148,7 @@
   ;;   (hash-symbol sym))
   #?@(:clj [clojure.lang.IFn] :cljs [IFn])
   (#?(:clj invoke :cljs -invoke) [_]
+    (println "invoke")
     (root))
   (#?(:clj invoke :cljs -invoke) [_ a]
     (root a))
