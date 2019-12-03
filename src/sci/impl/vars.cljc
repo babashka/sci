@@ -83,7 +83,8 @@
 (defprotocol IVar
   (bindRoot [this v])
   (getRawRoot [this])
-  (toSymbol [this]))
+  (toSymbol [this])
+  (isMacro [this]))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [#?(:clj ^:volatile-mutable root
@@ -117,9 +118,8 @@
     (or (when-let [tbox (get-thread-binding this)]
           (getVal tbox))
         root))
-  ;; #?(:cljs
-  ;;    (isMacro [_]
-  ;;             (. (val) -cljs$lang$macro)))
+  (isMacro [_]
+    (:sci/macro (meta root)))
   Object
   (toString [_]
     (str "#'" sym))

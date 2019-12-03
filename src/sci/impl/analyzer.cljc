@@ -520,13 +520,8 @@
             f (or special-sym
                   (resolve-symbol ctx f true))
             f (if (and (vars/var? f)
-                       #_(do
-                         #_(println ">" f (meta f))
-                         #_(macro? f)))
-                ;; vars are invocable but macros need special handling
-                (do
-                  #_(println "deref" f @f)
-                  @f) f)]
+                       (vars/isMacro f))
+                @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or
                   special-sym
