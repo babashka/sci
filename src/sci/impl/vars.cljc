@@ -148,7 +148,6 @@
   ;;   (hash-symbol sym))
   #?@(:clj [clojure.lang.IFn] :cljs [IFn])
   (#?(:clj invoke :cljs -invoke) [_]
-    (println "invoke")
     (root))
   (#?(:clj invoke :cljs -invoke) [_ a]
     (root a))
@@ -191,7 +190,10 @@
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t]
     (root a b c d e f g h i j k l m n o p q r s t))
   (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
-    (apply root a b c d e f g h i j k l m n o p q r s t rest)))
+    (apply root a b c d e f g h i j k l m n o p q r s t rest))
+  #?(:clj
+     (applyTo [_ args]
+              (apply root args))))
 
 #?(:clj
    (do (defmethod print-method sci.impl.vars.IVar [o ^java.io.Writer w]

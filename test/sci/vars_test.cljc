@@ -74,4 +74,9 @@
 (def x 11)
 (foo)"))))
 
+(deftest var-call-test
+  (is (= 1 (eval* "(defn foo [] 1) (#'foo)")))
+  (is (= 11 (eval* "(defn foo [x] (inc x)) (#'foo 10)")))
+  (is (= 10 (eval* "(defn foo [& xs] (apply + xs)) (apply #'foo 1 2 3 [4])"))))
+
 ;; TODO: test for taking the value of a macro: exception
