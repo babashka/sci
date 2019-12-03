@@ -81,16 +81,16 @@
              (let [current-ns (:current-ns env)
                    the-current-ns (get-in env [:namespaces current-ns])
                    prev (get the-current-ns var-name)
-                   init (cond
-                          (and prev (vars/var? prev))
-                          (do (vars/bindRoot prev init)
-                              prev)
-                          ;; see
-                          ;; https://clojure.org/reference/compilation#directlinking
-                          (or (:dynamic m) (:redef m))
-                          (sci.impl.vars.SciVar. init var-name m)
-                          :else init)
-                   the-current-ns (assoc the-current-ns var-name init)]
+                   v (cond
+                       (and prev (vars/var? prev))
+                       (do (vars/bindRoot prev init)
+                           prev)
+                       (or (:const m)
+                           ;; TODO: we'll build macro support inside vars later
+                           (:sci/macro (meta init)))
+                       init
+                       :else (sci.impl.vars.SciVar. init var-name m))
+                   the-current-ns (assoc the-current-ns var-name v)]
                (assoc-in env [:namespaces current-ns] the-current-ns))))
     init))
 
@@ -111,14 +111,15 @@
        [sym sym]))))
 
 (defn resolve-symbol [ctx expr]
-  (second
-   (or
-    (lookup ctx expr)
-    ;; TODO: check if symbol is in macros and then emit an error: cannot take
-    ;; the value of a macro
-    (throw-error-with-location
-     (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
-     expr))))
+  (let [v (second
+           (or
+            (lookup ctx expr)
+            ;; TODO: check if symbol is in macros and then emit an error: cannot take
+            ;; the value of a macro
+            (throw-error-with-location
+             (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
+             expr)))]
+    (if (vars/var? v) @v v)))
 
 (defn parse-libspec-opts [opts]
   (loop [opts-map {}

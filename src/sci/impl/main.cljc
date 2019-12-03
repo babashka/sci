@@ -12,10 +12,14 @@
 
 ;; for testing only
 (defn -main [& [form ctx]]
-  (prn (eval-string
-        form
-        (update (edn/read-string ctx)
-                :bindings merge {#?@(:clj ['future (with-meta future*
-                                                     {:sci/macro true})
-                                           'future-call future-call])})))
+  (let [v (eval-string
+           form
+           (-> (edn/read-string ctx)
+               (update :bindings merge
+                       {#?@(:clj ['future (with-meta future*
+                                            {:sci/macro true})
+                                  'future-call future-call])})
+               (assoc #?@(:clj [:in *in*])
+                      :out *out*)))]
+    (when (some? v) (prn v )))
   #?(:clj (shutdown-agents)))

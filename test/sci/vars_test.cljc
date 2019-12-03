@@ -43,7 +43,7 @@
 
 (deftest redefine-var-test
   (is (= 11 (eval* "
-(def ^:redef x 10)
+(def x 10)
 (defn foo [] x)
 (def x 11)
 (foo)"))))
