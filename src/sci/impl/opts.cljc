@@ -2,14 +2,11 @@
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
-            [sci.impl.io :as io]
+            [sci.impl.io :as sio]
             [sci.impl.vars :as vars]
             #?(:cljs [goog.string])))
 
 (defn init-env! [env bindings aliases namespaces imports in out err]
-  (vars/bindRoot io/in (if in in (io/init-in)))
-  (vars/bindRoot io/out (if out out (io/init-out)))
-  (vars/bindRoot io/err (if err err (io/init-err)))
   (swap! env (fn [env]
                (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
                      aliases (merge namespaces/aliases (:aliases env) aliases)
@@ -90,6 +87,9 @@
                     :allow (process-permissions (:allow preset) allow)
                     :deny (process-permissions (:deny preset) deny)
                     :realize-max (or realize-max (:realize-max preset))
-                    :features features}
+                    :features features
+                    :in (or in (when-not (vars/isBound sio/in) (sio/init-in)))
+                    :out (or out (when-not (vars/isBound sio/out) (sio/init-out)))
+                    :err (or err (when-not (vars/isBound sio/err) (sio/init-err)))}
                    (normalize-classes (merge default-classes classes)))]
     ctx))

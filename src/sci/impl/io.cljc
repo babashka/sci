@@ -18,11 +18,11 @@
 
 (def init-err (fn [] #?(:clj (java.io.StringWriter.))))
 
-(def in (vars/dynamic-var '*in* (init-in)))
+(def in (vars/dynamic-var '*in* nil #_(init-in)))
 
-(def out (vars/dynamic-var '*out* (init-out)))
+(def out (vars/dynamic-var '*out* nil #_(init-out)))
 
-(def err (vars/dynamic-var '*err* (init-err)))
+(def err (vars/dynamic-var '*err* nil #_(init-err)))
 
 #?(:clj (defn pr-on
           {:private true

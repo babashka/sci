@@ -5,7 +5,10 @@
                             get-thread-bindings
                             pop-thread-bindings
                             with-redefs
-                            with-redefs-fn]))
+                            with-redefs-fn
+                            with-bindings])
+  (:require [sci.impl.macros :as macros])
+  #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -84,7 +87,8 @@
   (bindRoot [this v])
   (getRawRoot [this])
   (toSymbol [this])
-  (isMacro [this]))
+  (isMacro [this])
+  (isBound [this]))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [#?(:clj ^:volatile-mutable root
@@ -103,6 +107,9 @@
   (toSymbol [this] sym)
   (isMacro [_]
     (:sci/macro (meta root)))
+  (isBound [this]
+    (or (some? root) ;; TODO: what if the var is actually nil?
+        (some? (get-thread-binding this))))
   IBox
   (setVal [this v]
     (let [b (get-thread-binding this)]
@@ -277,6 +284,15 @@
   ;; (-hash [_]
   ;;   (hash name))
   )
+
+(macros/deftime
+  (defmacro with-bindings
+    "Macro for binding sci vars. Must be called with map of sci dynamic
+  vars to values. Used in babashka."
+    [bindings & body]
+    `(try (vars/push-thread-bindings ~bindings)
+          (do ~@body)
+          (finally (vars/pop-thread-bindings)))))
 
 (def current-ns (dynamic-var '*ns* (SciNamespace. 'user)))
 

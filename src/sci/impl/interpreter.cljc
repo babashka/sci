@@ -7,13 +7,14 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
+   [sci.impl.io :as sio]
    [sci.impl.max-or-throw :refer [max-or-throw]]
+   [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!]]
-   [sci.impl.vars :as vars]
-   [sci.impl.opts :as opts]))
+   [sci.impl.vars :as vars]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -447,7 +448,14 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts/init opts)
-         ret (eval-string* init-ctx s)]
+         {:keys [:in :out :err]} init-ctx
+         bindings (cond-> {}
+                    in (assoc sio/in in)
+                    out (assoc sio/out out)
+                    err (assoc sio/err err))
+         ret (vars/with-bindings
+               bindings
+               (eval-string* init-ctx s))]
      ret)))
 
 ;;;; Scratch

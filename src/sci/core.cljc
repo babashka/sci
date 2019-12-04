@@ -10,13 +10,13 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (defn new-var
-  "Returns a new sci var."
+  "Alpha! Returns a new sci var. API may change."
   ([name] (new-var name nil nil))
   ([name val] (new-var name val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta)))
 
 (defn new-dynamic-var
-  "Same as new-var but adds :dynamic true to meta."
+  "Alpha! Same as new-var but adds :dynamic true to meta. API may change."
   ([name] (new-dynamic-var name nil nil))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
@@ -33,15 +33,15 @@
 ;; `*in*`, `*out*`, `*err*` are set to :dynamic to suppress a compiler warning
 ;; they are really not dynamic to sci library users, but represent dynamic vars
 ;; *inside* sci
-(def ^:dynamic *in* "Sci var that represents sci's clojure.core/*in*" sio/in)
+(def ^:dynamic *in* "Sci var that represents sci's `clojure.core/*in*`" sio/in)
 #?(:clj (.setDynamic #'*in* false))
 (alter-meta! #'*in* assoc :dynamic false)
 
-(def ^:dynamic *out* "Sci var that represents sci's clojure.core/*out*" sio/out)
+(def ^:dynamic *out* "Sci var that represents sci's `clojure.core/*out*`" sio/out)
 #?(:clj (.setDynamic #'*out* false))
 (alter-meta! #'*out* assoc :dynamic false)
 
-(def ^:dynamic *err* "Sci var that represents sci's clojure.core/*err*" sio/err)
+(def ^:dynamic *err* "Sci var that represents sci's `clojure.core/*err*`" sio/err)
 #?(:clj (.setDynamic #'*err* false))
 (alter-meta! #'*err* assoc :dynamic false)
 
@@ -79,8 +79,10 @@
   is a map with symbols to values, e.g.: `{'foo.bar {'x 1}}`. These
   namespaces can be used with `require`.
 
-  - `:in`, `:out` and `:err`: the root bindings of sci's
-  `clojure.core/*in*`, `clojure.core/*out*` and `clojure.core/*err*`.
+  - `:in`, `:out` and `:err`: thread-local bindings of sci's
+  `clojure.core/*in*`, `clojure.core/*out*` and `clojure.core/*err*`
+  Instead of these options, `with-bindings` may be used to achieve the
+  same effect..
 
   - `:allow`: a seqable of allowed symbols. All symbols, even those
   brought in via `:bindings` or `:namespaces` have to be explicitly
