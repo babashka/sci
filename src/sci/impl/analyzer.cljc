@@ -446,7 +446,7 @@
 
 (defn expand-constructor [ctx [constructor-sym & args]]
   (let [;; TODO:
-        ;; here is strips the namespace, which is correct in the case of
+        ;; here it strips the namespace, which is correct in the case of
         ;; js/Error. but not in clj
         constructor-name (name constructor-sym)
         class-sym (with-meta (symbol (subs constructor-name 0
