@@ -158,7 +158,10 @@
 
 (deftest def-test
   (is (= "nice val" (eval* '(do (def foo "nice val") foo))))
-  (is (nil? (eval* '(do (def foo) foo))))
+  (is (-> (eval* '(do (def foo) foo))
+          str
+          (str/lower-case)
+          (str/includes? "unbound")))
   (is (= 2 (eval* '(do (def foo) (def foo "docstring" 2) foo))))
   (is (= 1 (eval* "(try (def x 1) x)")))
   (is (= 1 (eval* "(try (defn x [] 1) (x))")))

@@ -85,4 +85,7 @@
                         (eval* "(defmacro foo []) foo")))
   (is (some? (eval* "(defmacro foo []) #'foo"))))
 
-;; TODO: test for taking the value of a macro: exception
+(deftest unbound-call-test
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"unbound fn: #'user/x"
+                        (eval* "(def x) (x 1)"))))

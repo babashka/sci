@@ -259,7 +259,9 @@
     (throw-error-with-location "Var name should be simple symbol." expr))
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
-        init (analyze ctx init)
+        init (if (= (count expr) 2)
+               :sci.impl/var.unbound
+               (analyze ctx init))
         m (meta var-name)
         m (if docstring (assoc m :sci/doc docstring) m)
         var-name (with-meta var-name m)]

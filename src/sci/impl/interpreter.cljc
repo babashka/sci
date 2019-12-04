@@ -7,13 +7,13 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
-   [sci.impl.io :as sio]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
-                                     set-namespace!]]
+                                     set-namespace!
+                                     kw-identical?]]
    [sci.impl.vars :as vars]))
 
 (declare interpret)
@@ -87,14 +87,14 @@
                        (and prev (vars/var? prev))
                        (do (vars/bindRoot prev init)
                            prev)
-                       (or (:const m)
-                           ;; TODO: we'll build macro support inside vars later
-                           #_(:sci/macro (meta init)))
+                       (:const m)
                        init
-                       :else (let [init (utils/merge-meta init m)] ;; override row and col
-                               ;; TODO: unbound state
-                               (sci.impl.vars.SciVar. init (symbol (str current-ns)
-                                                                   (str var-name)) m)))
+                       :else (let [init (utils/merge-meta init m)
+                                   v (sci.impl.vars.SciVar. init (symbol (str current-ns)
+                                                                         (str var-name)) m)] ;; override row and col
+                               (if (kw-identical? :sci.impl/var.unbound init)
+                                 (doto v (vars/unbind))
+                                 v)))
                    the-current-ns (assoc the-current-ns var-name v)]
                (assoc-in env [:namespaces current-ns] the-current-ns))))
     init))

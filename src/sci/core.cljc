@@ -11,19 +11,22 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (defn new-var
-  "Alpha! Returns a new sci var. API may change."
-  ([name] (new-var name nil nil))
+  "Alpha! Returns a new sci var. API subject to change."
+  ([name] (doto (new-var name nil nil)
+            (vars/unbind)))
   ([name val] (new-var name val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta)))
 
 (defn new-dynamic-var
-  "Alpha! Same as new-var but adds :dynamic true to meta. API may change."
-  ([name] (new-dynamic-var name nil nil))
+  "Alpha! Same as new-var but adds :dynamic true to meta. API subject to
+  change."
+  ([name] (doto (new-dynamic-var name nil nil)
+            (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
 
 (defn set-var-root!
-  "Alpha! Sets root of sci var."
+  "Alpha! Sets root of sci var. API subject to change."
   [sci-var root-val]
   (vars/bindRoot sci-var root-val))
 
@@ -37,12 +40,12 @@
           (finally (vars/pop-thread-bindings))))
 
   (defmacro with-redefs
-    "Temporarily redefines sci vars during a call to body. Must be called
-  with map of sci dynamic vars to values. Each val of binding-map will
-  replace the root value of its key which must be a sci var.  After
-  body, the root values of all the sci vars will be set back to their
-  old values.  These temporary changes will be visible in all
-  threads."
+    "Like with-bindings, but temporarily redefines sci vars during a call
+  to body. Must be called with map of sci dynamic vars to values. Each
+  val of binding-map will replace the root value of its key which must
+  be a sci var.  After body, the root values of all the sci vars will
+  be set back to their old values. These temporary changes will be
+  visible in all threads."
     [binding-map & body]
     `(let [root-bind# (fn [m#]
                        (doseq [[a-var# a-val#] m#]
@@ -72,12 +75,10 @@
 #?(:clj (.setDynamic #'*err* false))
 (alter-meta! #'*err* assoc :dynamic false)
 
-;; (def ^:dynamic *ns* "Sci var that represents sci's clojure.core/*ns*" vars/current-ns)
-;; #?(:clj (.setDynamic #'*ns* false))
-;; (alter-meta! #'*ns* assoc :dynamic false)
-
 (macros/deftime
   (defmacro with-in-str
+    "Evaluates body in a context in which sci's *in* is bound to a fresh
+  StringReader initialized with the string s."
     [s & body]
     `(let [in# (-> (java.io.StringReader. ~s)
                    (clojure.lang.LineNumberingPushbackReader.))]
@@ -86,6 +87,9 @@
 
 (macros/deftime
   (defmacro with-out-str
+    "Evaluates exprs in a context in which sci's *out* is bound to a fresh
+  StringWriter.  Returns the string created by any nested printing
+  calls."
     [& body]
     `(let [out# (macros/? :clj (java.io.StringWriter.)
                           :cljs (goog.string/StringBuffer.))]
