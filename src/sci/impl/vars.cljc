@@ -6,7 +6,8 @@
                             pop-thread-bindings
                             with-redefs
                             with-redefs-fn
-                            with-bindings])
+                            with-bindings
+                            thread-bound?])
   (:require [sci.impl.macros :as macros])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings]])))
 
@@ -83,12 +84,76 @@
     (when-let [bindings (.-bindings f)]
       (get bindings sci-var))))
 
+(defn thread-bound? [sci-var]
+  (when-let [^Frame f #?(:clj (.get dvals)
+                         :cljs @dvals)]
+    (when-let [bindings (.-bindings f)]
+      (contains? bindings sci-var))))
+
 (defprotocol IVar
   (bindRoot [this v])
   (getRawRoot [this])
   (toSymbol [this])
   (isMacro [this])
-  (isBound [this]))
+  (isBound [this])
+  (unbind [this]))
+
+(defn throw-unbound-call-exception [the-var]
+  (throw (new #?(:clj IllegalStateException
+                 :cljs js/Error) (str "Attempting to call unbound fn: " the-var))))
+
+(deftype SciUnbound [the-var]
+  Object
+  (toString [_]
+    (str "Unbound: " the-var))
+  #?@(:clj [clojure.lang.IFn] :cljs [IFn])
+  (#?(:clj invoke :cljs -invoke) [_]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t]
+    (throw-unbound-call-exception the-var))
+  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
+    (throw-unbound-call-exception the-var))
+  #?(:clj
+     (applyTo [_ args]
+              (throw-unbound-call-exception the-var))))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 (deftype SciVar [#?(:clj ^:volatile-mutable root
@@ -108,8 +173,10 @@
   (isMacro [_]
     (:sci/macro (meta root)))
   (isBound [this]
-    (or (some? root) ;; TODO: what if the var is actually nil?
-        (some? (get-thread-binding this))))
+    (or (not (instance? SciUnbound root))
+        (thread-bound? this)))
+  (unbind [this]
+    (set! (.-root this) (SciUnbound. this)))
   IBox
   (setVal [this v]
     (let [b (get-thread-binding this)]
@@ -221,7 +288,7 @@
    (dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true)]
-     (sci.impl.vars.SciVar. init-val name meta))))
+     (SciVar. init-val name meta))))
 
 (defn with-redefs-fn
   [binding-map func]
@@ -269,11 +336,11 @@
     (str name))
   INamespace
   #_(findInternedVar [this sym]
-    (let [k (munge (str sym))]
-      (when ^boolean #?(:cljs (gobject/containsKey obj k))
-        (let [var-sym (symbol (str name) (str sym))
-              var-meta {:ns this}]
-          (Var. (ns-lookup obj k) var-sym var-meta)))))
+      (let [k (munge (str sym))]
+        (when ^boolean #?(:cljs (gobject/containsKey obj k))
+          (let [var-sym (symbol (str name) (str sym))
+                var-meta {:ns this}]
+            (Var. (ns-lookup obj k) var-sym var-meta)))))
   (getName [_] name)
   ;; IEquiv
   ;; (-equiv [_ other]

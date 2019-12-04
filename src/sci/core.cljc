@@ -21,6 +21,11 @@
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
 
+(defn set-var-root!
+  "Alpha! Sets root of sci var."
+  [sci-var root-val]
+  (vars/bindRoot sci-var root-val))
+
 (macros/deftime
   (defmacro with-bindings
     "Macro for binding sci vars. Must be called with map of sci dynamic
