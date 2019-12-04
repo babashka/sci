@@ -1,6 +1,6 @@
 (ns sci.io-test
   (:require
-   [clojure.test :as test :refer [deftest is testing]]
+   [clojure.test :as test :refer [deftest is]]
    [sci.core :as sci]
    [sci.test-utils :as tu]))
 
@@ -32,10 +32,3 @@
     (is (= "\"hello\"\n" (sci/with-out-str (eval* "(prn \"hello\")"))))
     (is (= "\"hello\"" (sci/with-out-str (eval* "(pr \"hello\")"))))
     (is (= "\n" (sci/with-out-str (eval* "(newline)"))))))
-
-(deftest init-test
-  (testing "string buffer is reinitialized every time eval-string is invoked"
-    (is (= 6 (sci/eval-string "(println \"hello\") (count (str *out*))")))
-    (is (= 6 (do
-               (sci/eval-string "(println \"blablablabla\") (count (str *out*))")
-               (sci/eval-string "(println \"hello\") (count (str *out*))"))))))

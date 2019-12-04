@@ -92,6 +92,7 @@
                            #_(:sci/macro (meta init)))
                        init
                        :else (let [init (utils/merge-meta init m)] ;; override row and col
+                               ;; TODO: unbound state
                                (sci.impl.vars.SciVar. init (symbol (str current-ns)
                                                                    (str var-name)) m)))
                    the-current-ns (assoc the-current-ns var-name v)]
@@ -448,14 +449,7 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts/init opts)
-         {:keys [:in :out :err]} init-ctx
-         bindings (cond-> {}
-                    in (assoc sio/in in)
-                    out (assoc sio/out out)
-                    err (assoc sio/err err))
-         ret (vars/with-bindings
-               bindings
-               (eval-string* init-ctx s))]
+         ret (eval-string* init-ctx s)]
      ret)))
 
 ;;;; Scratch

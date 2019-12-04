@@ -106,11 +106,6 @@
   is a map with symbols to values, e.g.: `{'foo.bar {'x 1}}`. These
   namespaces can be used with `require`.
 
-  - `:in`, `:out` and `:err`: thread-local bindings of sci's
-  `clojure.core/*in*`, `clojure.core/*out*` and `clojure.core/*err*`
-  Instead of these options, `with-bindings` may be used to achieve the
-  same effect..
-
   - `:allow`: a seqable of allowed symbols. All symbols, even those
   brought in via `:bindings` or `:namespaces` have to be explicitly
   enumerated.
