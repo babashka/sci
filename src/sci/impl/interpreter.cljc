@@ -10,7 +10,8 @@
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
-                                     rethrow-with-location-of-node]]
+                                     rethrow-with-location-of-node
+                                     set-namespace!]]
    [sci.impl.vars :as vars]
    [sci.impl.opts :as opts]))
 
@@ -297,11 +298,7 @@
 
 (defn eval-in-ns [ctx [_in-ns ns-expr]]
   (let [ns-sym (interpret ctx ns-expr)]
-    (swap! (:env ctx)
-           (fn [env]
-             (let [ns-var (get-in env [:namespaces 'clojure.core '*ns*])]
-               (vars/bindRoot ns-var (sci.impl.vars.SciNamespace. ns-sym))
-               (assoc env :current-ns ns-sym))))
+    (set-namespace! ctx ns-sym)
     nil))
 
 ;;;; End namespaces

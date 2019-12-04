@@ -1,6 +1,7 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [sci.impl.vars :as vars]))
 
 (derive :sci.error/realized-beyond-max :sci/error)
 
@@ -112,3 +113,10 @@
   "Prewalk with metadata preservation"
   [f form]
   (walk* (partial prewalk f) (f form)))
+
+(defn set-namespace! [ctx ns-sym]
+  (let [env (:env ctx)]
+    (swap! env (fn [env]
+                 (let [ns-var (get-in env [:namespaces 'clojure.core '*ns*])]
+                   (vars/bindRoot ns-var (sci.impl.vars.SciNamespace. ns-sym))
+                   (assoc env :current-ns ns-sym))))))

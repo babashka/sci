@@ -11,7 +11,7 @@
    [sci.impl.utils :as utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
-     merge-meta kw-identical? strip-core-ns]]))
+     merge-meta kw-identical? strip-core-ns set-namespace!]]))
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
@@ -468,13 +468,11 @@
         exprs (if (map? (first exprs))
                 (rest exprs)
                 exprs)]
-    (let [env (:env ctx)]
-      (swap! env (fn [env]
-                   (let [ns-var (get-in env [:namespaces 'clojure.core '*ns*])]
-                     (vars/bindRoot ns-var (sci.impl.vars.SciNamespace. ns-name))
-                     (assoc env :current-ns ns-name)))))
+    (set-namespace! ctx ns-name)
     (loop [exprs exprs
-           ret [(mark-eval-call (list 'in-ns ns-name))]]
+           ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
+                                                         ;; this twice I guess?
+                ]]
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
