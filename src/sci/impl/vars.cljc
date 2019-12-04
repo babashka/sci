@@ -253,6 +253,32 @@
          (finally
            (clojure.core/pop-thread-bindings))))))
 
+(defprotocol INamespace
+  (getName [_]))
+
+(deftype SciNamespace [name]
+  INamespace
+  #_(findInternedVar [this sym]
+    (let [k (munge (str sym))]
+      (when ^boolean #?(:cljs (gobject/containsKey obj k))
+        (let [var-sym (symbol (str name) (str sym))
+              var-meta {:ns this}]
+          (Var. (ns-lookup obj k) var-sym var-meta)))))
+  (getName [_] name)
+  (toString [_]
+    (str name))
+  ;; IEquiv
+  ;; (-equiv [_ other]
+  ;;   (if (instance? SciNamespace other)
+  ;;     (= name (.-name other))
+  ;;     false))
+  ;; IHash
+  ;; (-hash [_]
+  ;;   (hash name))
+  )
+
+(def current-ns (dynamic-var '*ns* (SciNamespace. 'user)))
+
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
   @v1 ;; 0

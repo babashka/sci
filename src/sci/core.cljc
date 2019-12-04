@@ -1,5 +1,5 @@
 (ns sci.core
-  (:refer-clojure :exclude [*in* *out* *err* with-bindings with-in-str with-out-str])
+  (:refer-clojure :exclude [*in* *out* *err* *ns* with-bindings with-in-str with-out-str])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.vars :as vars]
@@ -44,6 +44,10 @@
 (def ^:dynamic *err* "Sci var that represents sci's clojure.core/*err*" sio/err)
 #?(:clj (.setDynamic #'*err* false))
 (alter-meta! #'*err* assoc :dynamic false)
+
+;; (def ^:dynamic *ns* "Sci var that represents sci's clojure.core/*ns*" vars/current-ns)
+;; #?(:clj (.setDynamic #'*ns* false))
+;; (alter-meta! #'*ns* assoc :dynamic false)
 
 (macros/deftime
   (defmacro with-in-str

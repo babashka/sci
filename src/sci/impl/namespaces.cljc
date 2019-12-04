@@ -141,7 +141,8 @@
              :cljs ::TODO)))
 
 (def clojure-core
-  {;; io
+  {'*ns* vars/current-ns
+   ;; io
    '*in* io/in
    '*out* io/out
    '*err* io/err

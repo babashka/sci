@@ -468,7 +468,11 @@
         exprs (if (map? (first exprs))
                 (rest exprs)
                 exprs)]
-    (swap! (:env ctx) assoc :current-ns ns-name)
+    (let [env (:env ctx)]
+      (swap! env (fn [env]
+                   (let [ns-var (get-in env [:namespaces 'clojure.core '*ns*])]
+                     (vars/bindRoot ns-var (sci.impl.vars.SciNamespace. ns-name))
+                     (assoc env :current-ns ns-name)))))
     (loop [exprs exprs
            ret [(mark-eval-call (list 'in-ns ns-name))]]
       (if exprs
