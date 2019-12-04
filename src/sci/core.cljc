@@ -1,11 +1,12 @@
 (ns sci.core
-  (:refer-clojure :exclude [*in* *out* *err* *ns* with-bindings with-in-str with-out-str])
+  (:refer-clojure :exclude [*in* *out* *err* *ns* with-bindings with-in-str with-out-str
+                            with-redefs])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.vars :as vars]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros])
-  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str]])))
+  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str with-redefs]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -33,7 +34,28 @@
     [bindings & body]
     `(try (vars/push-thread-bindings ~bindings)
           (do ~@body)
-          (finally (vars/pop-thread-bindings)))))
+          (finally (vars/pop-thread-bindings))))
+
+  (defmacro with-redefs
+    "Temporarily redefines sci vars during a call to body. Must be called
+  with map of sci dynamic vars to values. Each val of binding-map will
+  replace the root value of its key which must be a sci var.  After
+  body, the root values of all the sci vars will be set back to their
+  old values.  These temporary changes will be visible in all
+  threads."
+    [binding-map & body]
+    `(let [root-bind# (fn [m#]
+                       (doseq [[a-var# a-val#] m#]
+                         (vars/bindRoot a-var# a-val#)))
+           bm# ~binding-map
+           ks# (keys bm#)
+           old-vals# (zipmap ks#
+                             (map #(vars/getRawRoot %) ks#))]
+       (try
+         (root-bind# bm#)
+         (do ~@body)
+         (finally
+           (root-bind# old-vals#))))))
 
 ;; `*in*`, `*out*`, `*err*` are set to :dynamic to suppress a compiler warning
 ;; they are really not dynamic to sci library users, but represent dynamic vars
