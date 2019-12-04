@@ -257,6 +257,9 @@
   (getName [_]))
 
 (deftype SciNamespace [name]
+  Object
+  (toString [_]
+    (str name))
   INamespace
   #_(findInternedVar [this sym]
     (let [k (munge (str sym))]
@@ -265,8 +268,6 @@
               var-meta {:ns this}]
           (Var. (ns-lookup obj k) var-sym var-meta)))))
   (getName [_] name)
-  (toString [_]
-    (str name))
   ;; IEquiv
   ;; (-equiv [_ other]
   ;;   (if (instance? SciNamespace other)

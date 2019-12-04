@@ -140,6 +140,9 @@
                           "with-open only allows Symbols in bindings"))
              :cljs ::TODO)))
 
+(defn ns-name* [^sci.impl.vars.SciNamespace ns]
+  (vars/getName ns))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -344,6 +347,7 @@
    'not-any? not-any?
    'next next
    'nnext nnext
+   'ns-name ns-name*
    'odd? odd?
    'object-array object-array
    'peek peek
