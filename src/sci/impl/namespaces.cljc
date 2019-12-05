@@ -184,6 +184,7 @@
    'associative? associative?
    'atom atom
    'binding (with-meta vars/binding {:sci/macro true})
+   'binding-conveyor-fn vars/binding-conveyor-fn
    'bit-and-not bit-and-not
    'bit-set bit-set
    'bit-shift-left bit-shift-left

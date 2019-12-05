@@ -31,6 +31,11 @@
   #?(:clj (.get dvals)
      :cljs @dvals))
 
+(defn clone-thread-binding-frame ^Frame []
+  (let [^Frame f #?(:clj (.get dvals)
+                    :cljs @dvals)]
+    (Frame. (.-bindings f) nil)))
+
 (defn reset-thread-binding-frame [frame]
   #?(:clj (.set dvals frame)
      :cljs (reset! dvals frame)))
@@ -89,6 +94,26 @@
                          :cljs @dvals)]
     (when-let [bindings (.-bindings f)]
       (contains? bindings sci-var))))
+
+(defn binding-conveyor-fn
+  [f]
+  (let [frame (clone-thread-binding-frame)]
+    (fn
+      ([]
+       (reset-thread-binding-frame frame)
+       (f))
+      ([x]
+       (reset-thread-binding-frame frame)
+       (f x))
+      ([x y]
+       (reset-thread-binding-frame frame)
+       (f x y))
+      ([x y z]
+       (reset-thread-binding-frame frame)
+       (f x y z))
+      ([x y z & args]
+       (reset-thread-binding-frame frame)
+       (apply f x y z args)))))
 
 (defprotocol IVar
   (bindRoot [this v])
