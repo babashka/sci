@@ -1,6 +1,6 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
-                            with-redefs])
+                            with-redefs binding])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.vars :as vars]
@@ -34,32 +34,45 @@
   (defmacro with-bindings
     "Macro for binding sci vars. Must be called with map of sci dynamic
   vars to values. Used in babashka."
-    [bindings & body]
-    `(do (vars/push-thread-bindings ~bindings) ;; important: outside try
+    [bindings-map & body]
+    (assert (map? bindings-map))
+    `(do (vars/push-thread-bindings ~bindings-map) ;; important: outside try
          (try
            (do ~@body)
            (finally (vars/pop-thread-bindings)))))
 
+  (defmacro binding
+    "Macro for binding sci vars. Must be called with a vector of sci
+  dynamic vars to values."
+    [bindings & body]
+    (assert (vector? bindings))
+    `(with-bindings ~(apply hash-map bindings)
+       (do ~@body)))
+
   (defmacro with-redefs
-    "Like with-bindings, but temporarily redefines sci vars during a call
-  to body. Must be called with map of sci dynamic vars to values. Each
-  val of binding-map will replace the root value of its key which must
-  be a sci var.  After body, the root values of all the sci vars will
-  be set back to their old values. These temporary changes will be
-  visible in all threads."
-    [binding-map & body]
-    `(let [root-bind# (fn [m#]
-                        (doseq [[a-var# a-val#] m#]
-                          (vars/bindRoot a-var# a-val#)))
-           bm# ~binding-map
-           ks# (keys bm#)
-           old-vals# (zipmap ks#
-                             (map #(vars/getRawRoot %) ks#))]
-       (try
-         (root-bind# bm#)
-         (do ~@body)
-         (finally
-           (root-bind# old-vals#))))))
+    "Temporarily redefines sci vars while executing the body. The
+  temp-value-exprs will be evaluated and each resulting value will
+  replace in parallel the root value of its Var. After the body is
+  executed, the root values of all the sci vars will be set back to
+  their old values.  These temporary changes will be visible in all
+  threads.  Useful for mocking out functions during testing."
+    [bindings & body]
+    (assert (vector? bindings))
+    (let [binding-map (apply hash-map bindings)]
+      `(let [root-bind# (fn [m#]
+                          (doseq [[a-var# a-val#] m#]
+                            (vars/bindRoot a-var# a-val#)))
+             bm# ~binding-map
+             ks# (keys bm#)
+             _# (doseq [k# ks#]
+                  (assert (sci.impl.vars/var? k#) (str k# " is not a var.")))
+             old-vals# (zipmap ks#
+                               (map #(vars/getRawRoot %) ks#))]
+         (try
+           (root-bind# bm#)
+           (do ~@body)
+           (finally
+             (root-bind# old-vals#)))))))
 
 (def in "Sci var that represents sci's `clojure.core/*in*`" sio/in)
 (def out "Sci var that represents sci's `clojure.core/*out*`" sio/out)
