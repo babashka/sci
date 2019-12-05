@@ -1,7 +1,8 @@
 (ns sci.vars-test
   (:require
    [clojure.test :as test :refer [deftest is testing]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [sci.core :as sci]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -102,3 +103,12 @@
        (is (= 1 (tu/eval* "(def ^:dynamic x 0) (binding [x 1] @(future x))"
                           {:bindings {'future (with-meta future* {:sci/macro true})
                                       'future-call future-call}}))))))
+
+(deftest with-bindings-test
+  (when-not tu/native?
+    (let [x (sci/new-dynamic-var 'x)]
+      (is (= 1 (sci/with-bindings {x 1}
+                 (sci/eval-string "*x*" {:bindings {'*x* x}})))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"bind non-dynamic"
+                          (sci/with-bindings {1 1}
+                            (sci/eval-string "*x*" {:bindings {'*x* 1}}))))))

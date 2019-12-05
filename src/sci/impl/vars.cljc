@@ -47,8 +47,11 @@
     (set! val  v))
   (getVal [this] val))
 
+(declare var?)
+
 (defn dynamic-var? [v]
-  (:dynamic (meta v)))
+  (and (var? v)
+       (:dynamic (meta v))))
 
 (defn push-thread-bindings [bindings]
   (let [frame (get-thread-binding-frame)
@@ -303,7 +306,6 @@
        (prefer-method print-method sci.impl.vars.IVar clojure.lang.IDeref)))
 
 (defn var? [x]
-  ;; (prn "X" x (instance? sci.impl.vars.SciVar x))
   (instance? sci.impl.vars.SciVar x))
 
 (defn dynamic-var
