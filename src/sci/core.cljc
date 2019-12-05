@@ -35,11 +35,12 @@
     "Macro for binding sci vars. Must be called with map of sci dynamic
   vars to values. Used in babashka."
     [bindings-map & body]
-    (assert (map? bindings-map))
-    `(do (vars/push-thread-bindings ~bindings-map) ;; important: outside try
-         (try
-           (do ~@body)
-           (finally (vars/pop-thread-bindings)))))
+    `(let [bm# ~bindings-map]
+       (assert (map? bm#))
+       (vars/push-thread-bindings bm#) ;; important: outside try
+       (try
+         (do ~@body)
+         (finally (vars/pop-thread-bindings)))))
 
   (defmacro binding
     "Macro for binding sci vars. Must be called with a vector of sci
