@@ -346,6 +346,7 @@
                               (next (next vvs)))
                       (seq ret))))]
     `(let []
+       ;; important: outside try
        (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
        (try
          ~@body
@@ -382,9 +383,11 @@
     "Macro for binding sci vars. Must be called with map of sci dynamic
   vars to values. Used in babashka."
     [bindings & body]
-    `(try (vars/push-thread-bindings ~bindings)
-          (do ~@body)
-          (finally (vars/pop-thread-bindings)))))
+    ;; important: outside try
+    `(do (vars/push-thread-bindings ~bindings)
+         (try
+           (do ~@body)
+           (finally (vars/pop-thread-bindings))))))
 
 (def current-ns (dynamic-var '*ns* (SciNamespace. 'user)))
 

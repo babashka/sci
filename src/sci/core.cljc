@@ -35,9 +35,10 @@
     "Macro for binding sci vars. Must be called with map of sci dynamic
   vars to values. Used in babashka."
     [bindings & body]
-    `(try (vars/push-thread-bindings ~bindings)
-          (do ~@body)
-          (finally (vars/pop-thread-bindings))))
+    `(do (vars/push-thread-bindings ~bindings) ;; important: outside try
+         (try
+           (do ~@body)
+           (finally (vars/pop-thread-bindings)))))
 
   (defmacro with-redefs
     "Like with-bindings, but temporarily redefines sci vars during a call
@@ -48,8 +49,8 @@
   visible in all threads."
     [binding-map & body]
     `(let [root-bind# (fn [m#]
-                       (doseq [[a-var# a-val#] m#]
-                         (vars/bindRoot a-var# a-val#)))
+                        (doseq [[a-var# a-val#] m#]
+                          (vars/bindRoot a-var# a-val#)))
            bm# ~binding-map
            ks# (keys bm#)
            old-vals# (zipmap ks#
