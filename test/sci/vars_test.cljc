@@ -89,3 +89,16 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"unbound fn: #'user/x"
                         (eval* "(def x) (x 1)"))))
+
+#?(:clj
+   (defn future*
+     [_ _ & body]
+     `(let [f# (~'binding-conveyor-fn (fn [] ~@body))]
+        (~'future-call f#))))
+
+#?(:clj
+   (when-not tu/native?
+     (deftest binding-conveyor-test
+       (is (= 1 (tu/eval* "(def ^:dynamic x 0) (binding [x 1] @(future x))"
+                          {:bindings {'future (with-meta future* {:sci/macro true})
+                                      'future-call future-call}}))))))
