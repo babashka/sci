@@ -13,7 +13,7 @@
 
 ;; for testing only
 (defn -main [& [form ctx]]
-  (let [v (sci/with-bindings {sci/*out* *out*}
+  (let [v (sci/with-bindings {sci/out *out*}
             (eval-string
              form
              (-> (edn/read-string ctx)
