@@ -13,6 +13,6 @@
             (eval-string
              form
              (-> (edn/read-string ctx)
-                 (merge #?(:clj addons/future)))))]
+                 #?(:clj (addons/future)))))]
     (when (some? v) (prn v )))
   #?(:clj (shutdown-agents)))

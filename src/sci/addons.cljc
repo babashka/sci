@@ -1,4 +1,5 @@
 (ns sci.addons
+  {:no-doc true}
   (:refer-clojure :exclude [future]))
 
 #?(:clj
@@ -8,8 +9,12 @@
           (~'future-call f#)))))
 
 #?(:clj
-   (def future
-     {:namespaces
-      {'clojure.core
-       {'future future*
-        'future-call future-call}}}))
+   (defn future [opts]
+     (update-in opts [:namespaces 'clojure.core]
+                assoc
+                'future future*
+                'future-call future-call
+                'future-cancel future-cancel
+                'future-cancelled? future-cancelled?
+                'future-done? future-done?
+                'future? future?)))
