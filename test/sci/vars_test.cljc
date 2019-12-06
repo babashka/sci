@@ -120,11 +120,20 @@
       (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error) #"1 is not a var"
                             (sci/with-redefs [1 1])))))
 
+
+#?(:clj
+   (deftest pmap-test
+     (when-not tu/native?
+       (is (= '(11 11 11)
+              (tu/eval* "(def ^:dynamic x 10) (binding [x 11] (pmap #(+ x %) [0 0 0]))"
+                        (addons/future {})))))))
+
 (def ^:dynamic *x* 10)
 
-(deftest pmap-api-test
-  (when-not tu/native?
-    (let [x (sci/new-dynamic-var 'x 10)]
-      (testing "sci future sees clojure bindings, futures in pmap see sci bindings"
-        (is (= '(11 11 11)
-               @(binding [*x* 11] (sci/future (sci/binding [x *x*] (sci/pmap identity [@x @x @x]))))))))))
+#?(:clj
+   (deftest pmap-api-test
+     (when-not tu/native?
+       (let [x (sci/new-dynamic-var 'x 10)]
+         (testing "sci future sees clojure bindings, futures in pmap see sci bindings"
+           (is (= '(11 11 11)
+                  @(binding [*x* 11] (sci/future (sci/binding [x *x*] (sci/pmap identity [@x @x @x])))))))))))
