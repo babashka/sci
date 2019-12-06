@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
 lein codox
+rm -rf doc/codox
 mv target/doc/ doc/codox
