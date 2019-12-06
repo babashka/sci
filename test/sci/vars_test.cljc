@@ -90,11 +90,11 @@
    (when-not tu/native?
      (deftest binding-conveyor-test
        (is (= 1 (tu/eval* "(def ^:dynamic x 0) (binding [x 1] @(future x))"
-                          addons/future)))
+                          (addons/future {}))))
        (is (= 13 (tu/eval* "(def ^:dynamic x 10)
                               (binding [x (inc x)]
                                 @(future (binding [x (inc x)] @(future (binding [x (inc x)] x)))))"
-                           addons/future))))))
+                           (addons/future {})))))))
 
 (deftest with-bindings-api-test
   (when-not tu/native?
