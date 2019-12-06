@@ -155,14 +155,15 @@ Dynamic vars with thread-local bindings are also supported:
 x ;;=> 1
 ```
 
-Sci app creators can bring in pre-created vars that sci app users can use:
+Pre-creating vars that can be used in a sci program can be done using
+`sci/new-var`:
 
 ``` clojure
 (def x (sci/new-var 'x 10))
 (sci/eval-string "(inc x)" {:bindings {'x x}}) ;;=> 11
 ```
 
-To create a dynamic sci var you can set metadata or use the API function:
+To create a dynamic sci var you can set metadata or use `sci/new-dynamic-var`:
 
 ``` clojure
 (require '[sci.core] :as sci)
