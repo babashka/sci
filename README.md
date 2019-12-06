@@ -135,8 +135,8 @@ nil
 
 ## Vars
 
-Sci has a var type, distinguished from Clojure vars. These vars are created with
-`def` and `defn` just like in normal Clojure:
+Sci has a var type, distinguished from Clojure vars. In a sci program these vars
+are created with `def` and `defn` just like in normal Clojure:
 
 ``` clojure
 (def x 1)
