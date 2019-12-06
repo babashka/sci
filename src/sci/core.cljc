@@ -6,7 +6,7 @@
    [sci.impl.vars :as vars]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros])
-  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str with-redefs]])))
+  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str #_with-redefs]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
