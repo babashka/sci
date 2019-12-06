@@ -1,12 +1,12 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
-                            with-redefs binding])
+                            with-redefs binding future pmap])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.vars :as vars]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros])
-  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str #_with-redefs]])))
+  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -100,6 +100,30 @@
        (with-bindings {out out#}
          (do ~@body)
          (str out#)))))
+
+(macros/deftime
+  (defmacro future [& body]
+    `(let [f# (-> (fn [] ~@body)
+                  (vars/binding-conveyor-fn))]
+       (future-call f#))))
+
+#?(:clj (defn pmap
+          ([f coll]
+           (let [n (+ 2 (.. Runtime getRuntime availableProcessors))
+                 rets (map #(future (f %)) coll)
+                 step (fn step [[x & xs :as vs] fs]
+                        (lazy-seq
+                         (if-let [s (seq fs)]
+                           (cons (deref x) (step xs (rest s)))
+                           (map deref vs))))]
+             (step rets (drop n rets))))
+          ([f coll & colls]
+           (let [step (fn step [cs]
+                        (lazy-seq
+                         (let [ss (map seq cs)]
+                           (when (every? identity ss)
+                             (cons (map first ss) (step (map rest ss)))))))]
+             (pmap #(apply f %) (step (cons coll colls)))))))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.

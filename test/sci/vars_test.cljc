@@ -119,3 +119,12 @@
         (is (str/includes? (str/lower-case (str @x)) "unbound")))
       (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error) #"1 is not a var"
                             (sci/with-redefs [1 1])))))
+
+(def ^:dynamic *x* 10)
+
+(deftest pmap-api-test
+  (when-not tu/native?
+    (let [x (sci/new-dynamic-var 'x 10)]
+      (testing "sci future sees clojure bindings, futures in pmap see sci bindings"
+        (is (= '(11 11 11)
+               @(binding [*x* 11] (sci/future (sci/binding [x *x*] (sci/pmap identity [@x @x @x]))))))))))
