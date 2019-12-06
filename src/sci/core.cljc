@@ -102,12 +102,15 @@
          (str out#)))))
 
 (macros/deftime
-  (defmacro future [& body]
+  (defmacro future
+    "Like clojure.core/future but also conveys sci bindings to the thread."
+    [& body]
     `(let [f# (-> (fn [] ~@body)
                   (vars/binding-conveyor-fn))]
        (future-call f#))))
 
 #?(:clj (defn pmap
+          "Like clojure.core/pmap but also conveys sci bindings to the threads."
           ([f coll]
            (let [n (+ 2 (.. Runtime getRuntime availableProcessors))
                  rets (map #(future (f %)) coll)
