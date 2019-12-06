@@ -1,2 +1,3 @@
 {:cljdoc.doc/tree
- [["Readme" {:file "README.md"}]]}
+ [["Readme" {:file "README.md"}]
+  ["API docs" {:file "doc/codox/index.html"}]]}
