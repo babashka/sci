@@ -48,4 +48,5 @@
                 'future-cancelled? future-cancelled?
                 'future-done? future-done?
                 'future? future?
-                'pmap pmap)))
+                'pmap pmap
+                'shutdown-agents shutdown-agents)))
