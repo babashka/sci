@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+lein codox
+mv target/doc/ doc/codox
