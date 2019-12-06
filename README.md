@@ -179,6 +179,22 @@ Pre-created sci vars can also be externally rebound:
 (sci/binding [x 11] (sci/eval-string "(inc *x*)" {:bindings {'*x* x2}})) ;;=> 11
 ```
 
+The dynamic vars `*in*`, `*out*`, `*err*` in a sci program correspond to the
+dynamic sci vars `sci/in`, `sci/out` and `sci/err` in API. These vars
+can be rebound as well:
+
+``` clojure
+(def sw (java.io.StringWriter.))
+(sci/binding [sci/out sw] (sci/eval-string "(println \"hello\")")) ;;=> nil
+(str sw) ;;=> "hello\n"
+```
+
+A shorthand for rebinding `sci/out` is `sci/with-out-str`:
+
+``` clojure
+(sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
+```
+
 ## Feature parity
 
 Currently the following special forms/macros are supported: `def`, `fn`,
