@@ -50,7 +50,7 @@
     `(with-bindings ~(apply hash-map bindings)
        (do ~@body)))
 
-  (defmacro with-redefs
+  #_(defmacro with-redefs
     "Temporarily redefines sci vars while executing the body. The
   temp-value-exprs will be evaluated and each resulting value will
   replace in parallel the root value of its Var. After the body is

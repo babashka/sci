@@ -481,8 +481,8 @@
    'when-not (macrofy when-not*)
    'with-meta with-meta
    'with-open (macrofy with-open*)
-   'with-redefs (macrofy vars/with-redefs)
-   'with-redefs-fn vars/with-redefs-fn
+   ;; 'with-redefs (macrofy vars/with-redefs)
+   ;; 'with-redefs-fn vars/with-redefs-fn
    'zipmap zipmap
    'zero? zero?
    #?@(:clj ['+' +'

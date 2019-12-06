@@ -2,8 +2,7 @@
   (:require
    [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]
-   [sci.core :as sci]
-   [clojure.string :as str]))
+   [sci.core :as sci]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -27,15 +26,9 @@
                        (add! x)
                      @a"))))
   (testing "usage of var name evals to var value, but using it as var prints var name"
-    (is (= "[1 #'user/x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])"))))
-  (testing "with-redefs"
-    (is (= [10 0] (eval* "(def ^:redef x 0)
-                          (def a (atom []))
-                          (defn add! [v] (swap! a conj v))
-                          (with-redefs [x 10] (add! x)) (add! x)
-                          @a")))))
+    (is (= "[1 #'user/x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])")))))
 
-(deftest with-redefs-test
+#_(deftest with-redefs-test
   (is (= [10 11 10]
          (eval* "(def a (atom []))
                  (defn add! [v] (swap! a conj v))
@@ -120,7 +113,7 @@
       (is (= 1 (sci/binding [x 1]
                  (sci/eval-string "*x*" {:bindings {'*x* x}})))))))
 
-(deftest with-redefs-api-test
+#_(deftest with-redefs-api-test
   (when-not tu/native?
     (let [x (sci/new-dynamic-var 'x)]
       (is (= 1 (sci/with-redefs [x 1]

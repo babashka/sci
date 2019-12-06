@@ -317,7 +317,7 @@
    (let [meta (assoc meta :dynamic true)]
      (SciVar. init-val name meta))))
 
-(defn with-redefs-fn
+#_(defn with-redefs-fn
   [binding-map func]
   (let [root-bind (fn [m]
                     (doseq [[a-var a-val] m]
@@ -330,7 +330,7 @@
       (finally
         (root-bind old-vals)))))
 
-(defn with-redefs
+#_(defn with-redefs
   [_ _ bindings & body]
   `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
                                          (take-nth 2 (next bindings)))

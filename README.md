@@ -56,6 +56,12 @@ Use as a dependency:
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
 [![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 
+## API docs
+
+For Clojure, see the generated [codox](https://borkdude.github.io/sci/doc/codox)
+documentation. For Java, see the generated [Java
+documentation](https://borkdude.github.io/sci/doc/javadoc/index.html)
+
 ## Usage
 
 Currently the only API function is `sci.core/eval-string` which takes a string
@@ -127,11 +133,51 @@ hello
 nil
 ```
 
-## API docs
+## Vars
 
-For Clojure, see the generated [codox](https://borkdude.github.io/sci/doc/codox)
-documentation. For Java, see the generated [Java
-documentation](https://borkdude.github.io/sci/doc/javadoc/index.html)
+Sci has a var type, distinguished from Clojure vars. These vars are created with
+`def` and `defn` just like in normal Clojure:
+
+``` clojure
+(def x 1)
+(defn foo [] x)
+(foo) ;;=> 1
+(def x 2)
+(foo) ;;=> 2
+```
+
+Dynamic vars with thread-local bindings are also supported:
+
+``` clojure
+(def ^:dynamic *x* 1)
+(binding [*x* 10] x) ;;=> 10
+(binding [*x* 10] (set! x 12) x) ;;=> 12
+x ;;=> 1
+```
+
+Sci app creators can bring in pre-created vars that sci app users can use:
+
+``` clojure
+(def x (sci/new-var 'x 10))
+(sci/eval-string "(inc x)" {:bindings {'x x}}) ;;=> 11
+```
+
+To create a dynamic sci var you can set metadata or use the API function:
+
+``` clojure
+(require '[sci.core] :as sci)
+(def x1 (sci/new-var 'x 10 {:dynamic true}))
+(sci/eval-string "(binding [*x* 12] (inc *x*))" {:bindings {'*x* x1}}) ;;=> 13
+(def x2 (sci/new-dynamic-var 'x 10))
+(sci/eval-string "(binding [*x* 12] (inc *x*))" {:bindings {'*x* x2}}) ;;=> 13
+```
+
+Pre-created sci vars can also be externally rebound:
+
+``` clojure
+(def x (sci/new-dynamic-var 'x 10))
+(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:bindings {'*x* x2}})) ;;=> 11
+```
 
 ## Feature parity
 
