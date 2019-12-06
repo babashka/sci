@@ -2,7 +2,8 @@
   (:require
    [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]
-   [sci.core :as sci]))
+   [sci.core :as sci]
+   [sci.addons :as addons]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -29,8 +30,8 @@
     (is (= "[1 #'user/x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])")))))
 
 #_(deftest with-redefs-test
-  (is (= [10 11 10]
-         (eval* "(def a (atom []))
+    (is (= [10 11 10]
+           (eval* "(def a (atom []))
                  (defn add! [v] (swap! a conj v))
                  (def ^:dynamic x 10)
                  (add! x)
@@ -86,17 +87,14 @@
                         (eval* "(def x) (x 1)"))))
 
 #?(:clj
-   (defn future*
-     [_ _ & body]
-     `(let [f# (~'binding-conveyor-fn (fn [] ~@body))]
-        (~'future-call f#))))
-
-#?(:clj
    (when-not tu/native?
      (deftest binding-conveyor-test
        (is (= 1 (tu/eval* "(def ^:dynamic x 0) (binding [x 1] @(future x))"
-                          {:bindings {'future (with-meta future* {:sci/macro true})
-                                      'future-call future-call}}))))))
+                          addons/future)))
+       (is (= 13 (tu/eval* "(def ^:dynamic x 10)
+                              (binding [x (inc x)]
+                                @(future (binding [x (inc x)] @(future (binding [x (inc x)] x)))))"
+                           addons/future))))))
 
 (deftest with-bindings-api-test
   (when-not tu/native?
@@ -114,10 +112,10 @@
                  (sci/eval-string "*x*" {:bindings {'*x* x}})))))))
 
 #_(deftest with-redefs-api-test
-  (when-not tu/native?
-    (let [x (sci/new-dynamic-var 'x)]
-      (is (= 1 (sci/with-redefs [x 1]
-                 (sci/eval-string "x" {:bindings {'x x}}))))
-      (is (str/includes? (str/lower-case (str @x)) "unbound")))
-    (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error) #"1 is not a var"
-                          (sci/with-redefs [1 1])))))
+    (when-not tu/native?
+      (let [x (sci/new-dynamic-var 'x)]
+        (is (= 1 (sci/with-redefs [x 1]
+                   (sci/eval-string "x" {:bindings {'x x}}))))
+        (is (str/includes? (str/lower-case (str @x)) "unbound")))
+      (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error) #"1 is not a var"
+                            (sci/with-redefs [1 1])))))
