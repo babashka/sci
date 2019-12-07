@@ -2,8 +2,11 @@
   {:no-doc true}
   (:refer-clojure :exclude [ex-message])
   (:require
+   [clojure.set :as set]
    [clojure.string :as str]
-   [clojure.set :as set]))
+   [clojure.walk :as walk]
+   [sci.impl.vars :as vars]
+   [sci.impl.io :as io]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -121,8 +124,46 @@
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
+#_(defn __close!__ [^java.io.Closeable x]
+  (.close x))
+
+(defn with-open*
+  [_ _ bindings & body]
+  (cond
+    (= (count bindings) 0) `(do ~@body)
+    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+                              (try
+                                (with-open ~(subvec bindings 2) ~@body)
+                                (finally
+                                  (.close ~(bindings 0)))))
+    :else #?(:clj (throw (IllegalArgumentException.
+                          "with-open only allows Symbols in bindings"))
+             :cljs ::TODO)))
+
+(defn ns-name* [^sci.impl.vars.SciNamespace ns]
+  (vars/getName ns))
+
 (def clojure-core
-  {'= =
+  {'*ns* vars/current-ns
+   ;; io
+   '*in* io/in
+   '*out* io/out
+   '*err* io/err
+   'newline io/newline
+   'flush io/flush
+   'pr io/pr
+   'prn io/prn
+   'print io/print
+   'println io/println
+   #?@(:clj ['printf io/printf])
+   'with-out-str (with-meta io/with-out-str
+                   {:sci/macro true})
+   #?@(:clj [
+             'with-in-str (with-meta io/with-in-str
+                            {:sci/macro true})
+             'read-line io/read-line])
+   ;; end io
+   '= =
    '< <
    '<= <=
    '> >
@@ -143,6 +184,8 @@
    'assoc-in assoc-in
    'associative? associative?
    'atom atom
+   'binding (with-meta vars/binding {:sci/macro true})
+   'binding-conveyor-fn vars/binding-conveyor-fn
    'bit-and-not bit-and-not
    'bit-set bit-set
    'bit-shift-left bit-shift-left
@@ -289,7 +332,7 @@
    'make-array make-array
    'name name
    'namespace namespace
-   'newline newline
+   ;; 'newline newline
    'nfirst nfirst
    'not not
    'not= not=
@@ -306,10 +349,12 @@
    'not-any? not-any?
    'next next
    'nnext nnext
+   'ns-name ns-name*
    'odd? odd?
    'object-array object-array
    'peek peek
    'pop pop
+   'pop-thread-bindings vars/pop-thread-bindings
    'pos? pos?
    'pos-int? pos-int?
    'partial partial
@@ -319,6 +364,7 @@
    'pr-str pr-str
    'prn-str prn-str
    'print-str print-str
+   'push-thread-bindings vars/push-thread-bindings
    'qualified-ident? qualified-ident?
    'qualified-symbol? qualified-symbol?
    'qualified-keyword? qualified-keyword?
@@ -426,6 +472,7 @@
    'unchecked-short unchecked-short
    'val val
    'vals vals
+   'var? sci.impl.vars/var?
    'vary-meta vary-meta
    'vec vec
    'vector vector
@@ -434,6 +481,9 @@
    'when-let (macrofy when-let*)
    'when-not (macrofy when-not*)
    'with-meta with-meta
+   'with-open (macrofy with-open*)
+   ;; 'with-redefs (macrofy vars/with-redefs)
+   ;; 'with-redefs-fn vars/with-redefs-fn
    'zipmap zipmap
    'zero? zero?
    #?@(:clj ['+' +'
@@ -505,9 +555,9 @@
    'clojure.walk {'walk clojure.walk/walk
                   'postwalk clojure.walk/postwalk
                   'prewalk clojure.walk/prewalk
-                  'postwalk-demo clojure.walk/postwalk-demo
-                  'prewalk-demo clojure.walk/prewalk-demo
-                  'kewordize-keys clojure.walk/keywordize-keys
+                  #?@(:clj ['postwalk-demo clojure.walk/postwalk-demo
+                            'prewalk-demo clojure.walk/prewalk-demo])
+                  'keywordize-keys clojure.walk/keywordize-keys
                   'stringify-keys clojure.walk/stringify-keys
                   'prewalk-replace clojure.walk/prewalk-replace
                   'postwalk-replace clojure.walk/postwalk-replace}})

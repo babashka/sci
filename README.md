@@ -56,6 +56,12 @@ Use as a dependency:
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
 [![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 
+## API docs
+
+For Clojure, see the generated [codox](https://borkdude.github.io/sci/doc/codox)
+documentation. For Java, see the generated [Java
+documentation](https://borkdude.github.io/sci/doc/javadoc/index.html)
+
 ## Usage
 
 Currently the only API function is `sci.core/eval-string` which takes a string
@@ -127,14 +133,134 @@ hello
 nil
 ```
 
+## Vars
+
+Sci has a var type, distinguished from Clojure vars. In a sci program these vars
+are created with `def` and `defn` just like in normal Clojure:
+
+``` clojure
+(def x 1)
+(defn foo [] x)
+(foo) ;;=> 1
+(def x 2)
+(foo) ;;=> 2
+```
+
+Dynamic vars with thread-local bindings are also supported:
+
+``` clojure
+(def ^:dynamic *x* 1)
+(binding [*x* 10] x) ;;=> 10
+(binding [*x* 10] (set! x 12) x) ;;=> 12
+x ;;=> 1
+```
+
+Pre-creating vars that can be used in a sci program can be done using
+`sci/new-var`:
+
+``` clojure
+(def x (sci/new-var 'x 10))
+(sci/eval-string "(inc x)" {:bindings {'x x}}) ;;=> 11
+```
+
+To create a dynamic sci var you can set metadata or use `sci/new-dynamic-var`:
+
+``` clojure
+(require '[sci.core] :as sci)
+(def x1 (sci/new-var 'x 10 {:dynamic true}))
+(sci/eval-string "(binding [*x* 12] (inc *x*))" {:bindings {'*x* x1}}) ;;=> 13
+(def x2 (sci/new-dynamic-var 'x 10))
+(sci/eval-string "(binding [*x* 12] (inc *x*))" {:bindings {'*x* x2}}) ;;=> 13
+```
+
+Pre-created sci vars can also be externally rebound:
+
+``` clojure
+(def x (sci/new-dynamic-var 'x 10))
+(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:bindings {'*x* x2}})) ;;=> 11
+```
+
+The dynamic vars `*in*`, `*out*`, `*err*` in a sci program correspond to the
+dynamic sci vars `sci.core/in`, `sci.core/out` and `sci.core/err` in API. These
+vars can be rebound as well:
+
+``` clojure
+(def sw (java.io.StringWriter.))
+(sci/binding [sci/out sw] (sci/eval-string "(println \"hello\")")) ;;=> nil
+(str sw) ;;=> "hello\n"
+```
+
+A shorthand for rebinding `sci/out` is `sci/with-out-str`:
+
+``` clojure
+(sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
+```
+
+## Stdoud and stdin
+
+To enable printing to `stdoud` and reading from `stdin` you can bind
+`sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
+
+
+``` clojure
+(sci/binding [sci/out *out*
+              sci/in *in*]
+  (sci/eval-string "(print \"Type your name!\n> \")")
+  (sci/eval-string "(flush)")
+  (let [name (sci/eval-string "(read-line)")]
+    (sci/eval-string "(printf \"Hello %s!\" name)
+                      (flush)"
+                     {:bindings {'name name}})))
+Type your name!
+> Michiel
+Hello Michiel!
+```
+
+## Futures
+
+Creating threads with `future` and `pmap` is disabled by default, but can be
+enabled by requiring `sci.addons` and applying the `sci.addons/future` function
+to the sci options:
+
+``` clojure
+(ns my.sci.app
+  (:require
+   [sci.core :as sci]
+   [sci.addons :as addons]))
+
+(sci/eval-string "@(future (inc x))"
+                 (-> {:bindings {'x 1}}
+                     (addons/future)))
+;;=> 2
+```
+
+For conveying thread-local sci bindings to an external `future` use
+`sci.core/future`:
+
+``` clojure
+(ns my.sci.app
+  (:require
+   [sci.core :as sci]
+   [sci.addons :as addons]))
+
+(def x (sci/new-dynamic-var 'x 10))
+
+@(sci/binding [x 11]
+   (sci/future
+     (sci/eval-string "@(future (inc x))"
+                      (-> {:bindings {'x @x}}
+                          (addons/future)))))
+;;=> 12
+```
+
 ## Feature parity
 
 Currently the following special forms/macros are supported: `def`, `fn`,
 function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
 `when`, `when-let`, `when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`,
 `comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`,
-`declare`, `cond->`, `cond->>`, `require`, `import`, `in-ns`, `ns`. Sci also
-supports user defined macros.
+`declare`, `cond->`, `cond->>`, `require`, `import`, `in-ns`, `ns`,
+`binding`, `with-out-str`, `with-in-str`. Sci also supports user defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).
@@ -177,7 +303,7 @@ Sci.evalString("foo.bar/x", opts); // returns 1
 
 Note for Java users: the Java API for is conceptually similar to the Clojure
 one, but made more idiomatic for Java users. Check the generated [Java
-documentation](https://borkdude.github.io/sci/javadoc/index.html).
+documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
 
 ## Test
 

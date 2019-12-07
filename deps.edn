@@ -4,7 +4,7 @@
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {org.clojure/clojure {:mvn/version "1.9.0"}
-                      org.clojure/clojurescript {:mvn/version "1.10.520"}
+                      org.clojure/clojurescript {:mvn/version "1.10.597"}
                       clj-commons/conch {:mvn/version "0.9.2"}}}
   :clj-test-runner
   {:extra-deps {com.cognitect/test-runner

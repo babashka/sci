@@ -29,3 +29,6 @@
      (is (= :foo/foo
             (eval* "(ns foo (:import [clojure.lang ExceptionInfo]))
                     (try ::foo (catch ExceptionInfo e nil))")))))
+
+(deftest ns-name-test
+  (is (= 'foo (eval* "(ns foo) (ns-name *ns*)"))))

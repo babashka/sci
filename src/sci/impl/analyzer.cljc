@@ -7,20 +7,21 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
+   [sci.impl.vars :as vars]
    [sci.impl.utils :as utils :refer
     [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
-     merge-meta kw-identical? strip-core-ns]]))
+     merge-meta kw-identical? strip-core-ns set-namespace!]]))
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def .})
+(def special-syms '#{try finally do if new recur quote catch throw def . var set!})
 
 ;; Built-in macros.
 (def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import
-               in-ns ns})
+               in-ns ns var set!})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -109,7 +110,7 @@
                    :else (throw-error-with-location
                           (str "Could not resolve symbol: " (str sym))
                           sym)))))]
-     ;; (prn 'resolve sym '-> res)
+     ;; (prn 'resolve sym '-> res (meta res))
      res)))
 
 (declare analyze)
@@ -258,8 +259,11 @@
     (throw-error-with-location "Var name should be simple symbol." expr))
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
-        init (analyze ctx init)
-        m (if docstring {:sci/doc docstring} {})
+        init (if (= (count expr) 2)
+               :sci.impl/var.unbound
+               (analyze ctx init))
+        m (meta var-name)
+        m (if docstring (assoc m :sci/doc docstring) m)
         var-name (with-meta var-name m)]
     (expand-declare ctx [nil var-name])
     (mark-eval-call (list 'def var-name init))))
@@ -444,7 +448,7 @@
 
 (defn expand-constructor [ctx [constructor-sym & args]]
   (let [;; TODO:
-        ;; here is strips the namespace, which is correct in the case of
+        ;; here it strips the namespace, which is correct in the case of
         ;; js/Error. but not in clj
         constructor-name (name constructor-sym)
         class-sym (with-meta (symbol (subs constructor-name 0
@@ -466,9 +470,11 @@
         exprs (if (map? (first exprs))
                 (rest exprs)
                 exprs)]
-    (swap! (:env ctx) assoc :current-ns ns-name)
+    (set-namespace! ctx ns-name)
     (loop [exprs exprs
-           ret [(mark-eval-call (list 'in-ns ns-name))]]
+           ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
+                                                         ;; this twice I guess?
+                ]]
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
@@ -482,6 +488,28 @@
 
 ;;;; End namespaces
 
+
+;;;; Vars
+
+(defn wrapped-var [v]
+  (with-meta [v]
+    {:sci.impl/eval true
+     :sci.impl/var-value true}))
+
+(defn analyze-var [ctx [_ var-name]]
+  (let [v (resolve-symbol ctx var-name)]
+    (if (vars/var? v)
+      (wrapped-var v)
+      v)))
+
+(defn analyze-set! [ctx [_ obj v]]
+  (let [obj (analyze ctx obj)
+        v (analyze ctx v)
+        obj (wrapped-var obj)]
+    (mark-eval-call (list 'set! obj v))))
+
+;;;;
+
 (defn macro? [f]
   (when-let [m (meta f)]
     (:sci/macro m)))
@@ -494,7 +522,10 @@
             special-sym (get special-syms f)
             _ (when special-sym (check-permission! ctx special-sym f))
             f (or special-sym
-                  (resolve-symbol ctx f true))]
+                  (resolve-symbol ctx f true))
+            f (if (and (vars/var? f)
+                       (vars/isMacro f))
+                @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or
                   special-sym
@@ -533,6 +564,8 @@
             new (expand-new ctx expr)
             import (do-import ctx expr)
             ns (analyze-ns-form ctx expr)
+            var (analyze-var ctx expr)
+            set! (analyze-set! ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
@@ -553,6 +586,7 @@
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (constant? v) v
                                          (fn? v) (merge-meta v {:sci.impl/eval false})
+                                         (vars/var? v) (with-meta v (assoc (meta v) :sci.impl/eval true))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta
@@ -571,6 +605,7 @@
                      :else expr)
                    (select-keys (meta expr)
                                 [:row :col])))]
+    ;; (prn "ana" expr '-> ret)
     ret))
 
 ;;;; Scratch

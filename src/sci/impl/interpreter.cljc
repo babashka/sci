@@ -8,18 +8,20 @@
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.max-or-throw :refer [max-or-throw]]
-   [sci.impl.namespaces :as namespaces]
+   [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
-                                     strip-core-ns]]))
+                                     set-namespace!
+                                     kw-identical?]]
+   [sci.impl.vars :as vars]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
 
 (def macros
   '#{do if when and or -> ->> as-> quote let fn def defn
-     lazy-seq require try syntax-quote case . in-ns})
+     lazy-seq require try syntax-quote case . in-ns set!})
 
 ;;;; Evaluation
 
@@ -75,11 +77,26 @@
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
-        m (if docstring {:sci/doc docstring} {})
-        var-name (with-meta var-name m)]
-    (swap! (:env ctx) (fn [env]
-                        (let [current-ns (:current-ns env)]
-                          (update-in env [:namespaces current-ns] assoc var-name init))))
+        m (meta var-name)]
+    (swap! (:env ctx)
+           (fn [env]
+             (let [current-ns (:current-ns env)
+                   the-current-ns (get-in env [:namespaces current-ns])
+                   prev (get the-current-ns var-name)
+                   v (cond
+                       (and prev (vars/var? prev))
+                       (do (vars/bindRoot prev init)
+                           prev)
+                       (:const m)
+                       init
+                       :else (let [init (utils/merge-meta init m)
+                                   v (sci.impl.vars.SciVar. init (symbol (str current-ns)
+                                                                         (str var-name)) m)] ;; override row and col
+                               (if (kw-identical? :sci.impl/var.unbound init)
+                                 (doto v (vars/unbind))
+                                 v)))
+                   the-current-ns (assoc the-current-ns var-name v)]
+               (assoc-in env [:namespaces current-ns] the-current-ns))))
     init))
 
 (defn lookup [{:keys [:bindings :env] :as ctx} sym]
@@ -99,14 +116,15 @@
        [sym sym]))))
 
 (defn resolve-symbol [ctx expr]
-  (second
-   (or
-    (lookup ctx expr)
-    ;; TODO: check if symbol is in macros and then emit an error: cannot take
-    ;; the value of a macro
-    (throw-error-with-location
-     (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
-     expr))))
+  (let [v (second
+           (or
+            (lookup ctx expr)
+            ;; TODO: check if symbol is in macros and then emit an error: cannot take
+            ;; the value of a macro
+            (throw-error-with-location
+             (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
+             expr)))]
+    (if (vars/var? v) @v v)))
 
 (defn parse-libspec-opts [opts]
   (loop [opts-map {}
@@ -282,10 +300,17 @@
 
 (defn eval-in-ns [ctx [_in-ns ns-expr]]
   (let [ns-sym (interpret ctx ns-expr)]
-    (swap! (:env ctx) assoc :current-ns ns-sym)
+    (set-namespace! ctx ns-sym)
     nil))
 
 ;;;; End namespaces
+
+(defn eval-set! [ctx [_ obj v]]
+  (let [obj (interpret ctx obj)
+        v (interpret ctx v)]
+    (if (vars/var? obj)
+      (vars/setVal obj v)
+      (throw (ex-info (str "Cannot set " obj " to " v) {:obj obj :v v})))))
 
 (declare eval-string)
 
@@ -310,9 +335,10 @@
                (eval-static-method-invocation ctx expr)
                (or eval? (not (symbol? f)))
                (let [f (interpret ctx f)]
-                 (if (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-                     (throw (new #?(:clj Exception :cljs js/Error)
-                                 (str "Cannot call " (pr-str f) " as a function.")))))
+                 (if (ifn? f)
+                   (apply f (map #(interpret ctx %) (rest expr)))
+                   (throw (new #?(:clj Exception :cljs js/Error)
+                               (str "Cannot call " (pr-str f) " as a function.")))))
                :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
                (case f
                  do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
@@ -339,7 +365,8 @@
                  new (eval-constructor-invocation ctx expr)
                  . (eval-instance-method-invocation ctx expr)
                  throw (eval-throw ctx expr)
-                 in-ns (eval-in-ns ctx expr))))
+                 in-ns (eval-in-ns ctx expr)
+                 set! (eval-set! ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -361,6 +388,11 @@
           (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (:sci.impl/static-access m) (interop/get-static-field ctx expr)
+          (:sci.impl/var-value m) (nth expr 0)
+          (vars/var? expr) (if-not (vars/isMacro expr)
+                             (deref expr)
+                             (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                         (str "Can't take value of a macro: " expr ""))))
           (symbol? expr) (resolve-symbol ctx expr)
           (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
                               (map #(interpret ctx %) (vals expr)))
@@ -375,85 +407,6 @@
                                :expression expr)
                     n)
       ret)))
-
-
-;;;; Initialization
-
-(defn init-env! [env bindings aliases namespaces imports]
-  (swap! env (fn [env]
-               (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
-                     aliases (merge namespaces/aliases (:aliases env) aliases)
-                     namespaces (update namespaces 'user assoc :aliases aliases)]
-                 (assoc env
-                        :namespaces namespaces
-                        :imports imports
-                        :current-ns 'user)))))
-
-(def presets
-  {:termination-safe
-   {:deny '[loop recur trampoline]
-    :realize-max 100}})
-
-(defn process-permissions [& permissions]
-  (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
-
-(def default-classes
-  #?(:clj {'java.lang.AssertionError AssertionError
-           'java.lang.Exception {:class Exception}
-           'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
-           'java.lang.String {:class String}
-           'java.lang.Integer Integer
-           'java.lang.Double Double
-           'java.lang.ArithmeticException ArithmeticException}
-     :cljs {'Error js/Error}))
-
-(def default-imports
-  #?(:clj '{AssertionError java.lang.AssertionError
-            Exception java.lang.Exception
-            String java.lang.String
-            ArithmeticException java.lang.ArithmeticException
-            Integer java.lang.Integer
-            Double java.lang.Double}
-     :cljs {}))
-
-(defn normalize-classes [classes]
-  (loop [sym->class (transient {})
-         class->opts (transient {})
-         kvs classes]
-    (if-let [[sym class-opts] (first kvs)]
-      (let [[class class-opts] (if (map? class-opts)
-                                 [(:class class-opts) class-opts]
-                                 [class-opts {}])]
-        (recur (assoc! sym->class sym class)
-               ;; storing the physical class as key didn't work well with
-               ;; GraalVM
-               (assoc! class->opts sym class-opts)
-               (rest kvs)))
-      {:sym->class (persistent! sym->class)
-       :class->opts (persistent! class->opts)})))
-
-(defn opts->ctx [{:keys [:bindings :env
-                         :allow :deny
-                         :realize-max
-                         :preset ;; used by malli
-                         :aliases
-                         :namespaces
-                         :classes
-                         :imports
-                         :features]}]
-  (let [preset (get presets preset)
-        env (or env (atom {}))
-        imports (merge default-imports imports)
-        bindings bindings
-        _ (init-env! env bindings aliases namespaces imports)
-        ctx (merge {:env env
-                    :bindings {}
-                    :allow (process-permissions (:allow preset) allow)
-                    :deny (process-permissions (:deny preset) deny)
-                    :realize-max (or realize-max (:realize-max preset))
-                    :features features}
-                   (normalize-classes (merge default-classes classes)))]
-    ctx))
 
 (defn do? [expr]
   (and (list? expr)
@@ -495,7 +448,7 @@
 (defn eval-string
   ([s] (eval-string s nil))
   ([s opts]
-   (let [init-ctx (opts->ctx opts)
+   (let [init-ctx (opts/init opts)
          ret (eval-string* init-ctx s)]
      ret)))
 

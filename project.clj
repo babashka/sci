@@ -1,6 +1,7 @@
 (defproject borkdude/sci
   #=(clojure.string/trim
      #=(slurp "resources/SCI_VERSION"))
+  ;; :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
   :description "Small Clojure Interpreter"
   :url "https://github.com/borkdude/sci"
   :scm {:name "git"
@@ -11,6 +12,7 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/edamame "0.0.9-alpha.2"]
                  [org.clojure/tools.reader "1.3.2"]]
+  :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :clojure-1.10.1 {:dependencies [[org.clojure/clojure "1.10.1"]]}
              :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
