@@ -196,6 +196,43 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
 ```
 
+## Futures
+
+Creating threads with `future` and `pmap` is disabled by default, but can be
+enabled by requiring `sci.addons` and applying the `sci.addons/future` function
+to the sci options:
+
+``` clojure
+(ns my.sci.app
+  (:require
+   [sci.core :as sci]
+   [sci.addons :as addons]))
+
+(sci/eval-string "@(future (inc x))"
+                 (-> {:bindings {'x 1}}
+                     (addons/future)))
+;;=> 2
+```
+
+For conveying thread-local sci bindings to an external `future` use
+`sci.core/future`:
+
+``` clojure
+(ns my.sci.app
+  (:require
+   [sci.core :as sci]
+   [sci.addons :as addons]))
+
+(def x (sci/new-dynamic-var 'x 10))
+
+@(sci/binding [x 11]
+   (sci/future
+     (sci/eval-string "@(future (inc x))"
+                      (-> {:bindings {'x @x}}
+                          (addons/future)))))
+;;=> 12
+```
+
 ## Feature parity
 
 Currently the following special forms/macros are supported: `def`, `fn`,
@@ -203,7 +240,7 @@ function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
 `when`, `when-let`, `when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`,
 `comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`,
 `declare`, `cond->`, `cond->>`, `require`, `import`, `in-ns`, `ns`,
-`binding`. Sci also supports user defined macros.
+`binding`, `with-out-str`, `with-in-str`. Sci also supports user defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).
