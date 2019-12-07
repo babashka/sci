@@ -253,14 +253,30 @@ For conveying thread-local sci bindings to an external `future` use
 ;;=> 12
 ```
 
+## Classes
+
+Adding support for classes is done via the `:classes` option:
+
+``` clojure
+(sci/eval-string "(java.util.UUID/randomUUID)"
+  {:classes {'java.util.UUID java.util.UUID}})
+#uuid "312ba519-37e2-4109-b164-97fb140b57b0"
+```
+
+To make this work with `GraalVM` you will also need to add an entry to your
+[reflection
+config](https://github.com/oracle/graal/blob/master/substratevm/REFLECTION.md)
+for this class. Also see [`reflection.json`](reflection.json).
+
 ## Feature parity
 
 Currently the following special forms/macros are supported: `def`, `fn`,
 function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
 `when`, `when-let`, `when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`,
 `comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`,
-`declare`, `cond->`, `cond->>`, `require`, `import`, `in-ns`, `ns`,
-`binding`, `with-out-str`, `with-in-str`. Sci also supports user defined macros.
+`declare`, `cond->`, `cond->>`, `some->`, `require`, `import`, `in-ns`, `ns`,
+`binding`, `with-out-str`, `with-in-str`, `future`. Sci also supports user
+defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).
