@@ -137,3 +137,7 @@
          (testing "sci future sees clojure bindings, futures in pmap see sci bindings"
            (is (= '(11 11 11)
                   @(binding [*x* 11] (sci/future (sci/binding [x *x*] (sci/pmap identity [@x @x @x])))))))))))
+
+(deftest def-returns-var-test
+  (is (= "#'user/x" (eval* "(str (def x 1))")))
+  (is (= "#'user/foo" (eval* "(str (defmacro foo []))"))))

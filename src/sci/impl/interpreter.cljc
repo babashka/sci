@@ -77,27 +77,29 @@
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
-        m (meta var-name)]
-    (swap! (:env ctx)
-           (fn [env]
-             (let [current-ns (:current-ns env)
-                   the-current-ns (get-in env [:namespaces current-ns])
-                   prev (get the-current-ns var-name)
-                   v (cond
-                       (and prev (vars/var? prev))
-                       (do (vars/bindRoot prev init)
-                           prev)
-                       (:const m)
-                       init
-                       :else (let [init (utils/merge-meta init m)
-                                   v (sci.impl.vars.SciVar. init (symbol (str current-ns)
-                                                                         (str var-name)) m)] ;; override row and col
-                               (if (kw-identical? :sci.impl/var.unbound init)
-                                 (doto v (vars/unbind))
-                                 v)))
-                   the-current-ns (assoc the-current-ns var-name v)]
-               (assoc-in env [:namespaces current-ns] the-current-ns))))
-    init))
+        m (meta var-name)
+        assoc-in-env
+        (fn [env]
+          (let [current-ns (:current-ns env)
+                the-current-ns (get-in env [:namespaces current-ns])
+                prev (get the-current-ns var-name)
+                v (cond
+                    (and prev (vars/var? prev))
+                    (do (vars/bindRoot prev init)
+                        prev)
+                    (:const m)
+                    init
+                    :else (let [init (utils/merge-meta init m)
+                                v (sci.impl.vars.SciVar. init (symbol (str current-ns)
+                                                                      (str var-name)) m)] ;; override row and col
+                            (if (kw-identical? :sci.impl/var.unbound init)
+                              (doto v (vars/unbind))
+                              v)))
+                the-current-ns (assoc the-current-ns var-name v)]
+            (assoc-in env [:namespaces current-ns] the-current-ns)))
+        env (swap! (:env ctx) assoc-in-env)]
+    ;; return var instead of init-val
+    (get-in env [:namespaces (:current-ns env) var-name])))
 
 (defn lookup [{:keys [:bindings :env] :as ctx} sym]
   (let [env @env]
