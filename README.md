@@ -260,7 +260,7 @@ Adding support for classes is done via the `:classes` option:
 ``` clojure
 (sci/eval-string "(java.util.UUID/randomUUID)"
   {:classes {'java.util.UUID java.util.UUID}})
-#uuid "312ba519-37e2-4109-b164-97fb140b57b0"
+;;=> #uuid "312ba519-37e2-4109-b164-97fb140b57b0"
 ```
 
 To make this work with `GraalVM` you will also need to add an entry to your
