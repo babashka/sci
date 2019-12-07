@@ -181,8 +181,8 @@ Pre-created sci vars can also be externally rebound:
 ```
 
 The dynamic vars `*in*`, `*out*`, `*err*` in a sci program correspond to the
-dynamic sci vars `sci/in`, `sci/out` and `sci/err` in API. These vars
-can be rebound as well:
+dynamic sci vars `sci.core/in`, `sci.core/out` and `sci.core/err` in API. These
+vars can be rebound as well:
 
 ``` clojure
 (def sw (java.io.StringWriter.))
@@ -194,6 +194,26 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 
 ``` clojure
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
+```
+
+## Stdoud and stdin
+
+To enable printing to `stdoud` and reading from `stdin` you can bind
+`sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
+
+
+``` clojure
+(sci/binding [sci/out *out*
+              sci/in *in*]
+  (sci/eval-string "(print \"Type your name!\n> \")")
+  (sci/eval-string "(flush)")
+  (let [name (sci/eval-string "(read-line)")]
+    (sci/eval-string "(printf \"Hello %s!\" name)
+                      (flush)"
+                     {:bindings {'name name}})))
+Type your name!
+> Michiel
+Hello Michiel!
 ```
 
 ## Futures

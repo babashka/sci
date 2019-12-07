@@ -155,6 +155,7 @@
    'prn io/prn
    'print io/print
    'println io/println
+   #?@(:clj ['printf io/printf])
    'with-out-str (with-meta io/with-out-str
                    {:sci/macro true})
    #?@(:clj [

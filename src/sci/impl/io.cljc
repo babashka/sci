@@ -1,7 +1,7 @@
 (ns sci.impl.io
   {:no-doc true}
-  (:refer-clojure :exclude [pr prn print println newline flush
-                            with-out-str with-in-str read-line
+  (:refer-clojure :exclude [pr prn print println newline flush with-out-str
+                            with-in-str read-line printf
                             #?@(:cljs [string-print])])
   (:require [sci.impl.vars :as vars]
             #?(:clj [sci.impl.io :as sio])
@@ -99,6 +99,11 @@
    (defn println
      [& objs]
      (.append @out (apply println-str objs))))
+
+#?(:clj
+   (defn printf
+     [fmt & args]
+     (print (apply format fmt args))))
 
 (defn with-out-str
   [_ _ & body]
