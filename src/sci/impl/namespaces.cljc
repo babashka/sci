@@ -386,6 +386,7 @@
    'reduced reduced
    'reduced? reduced?
    'reset! reset!
+   'reset-vals! reset-vals!
    'reversible? reversible?
    'rsubseq rsubseq
    'reductions reductions
