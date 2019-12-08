@@ -14,7 +14,8 @@
                                      rethrow-with-location-of-node
                                      set-namespace!
                                      kw-identical?]]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   #?(:clj [sci.impl.classpath :as cp])))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -139,36 +140,50 @@
               :refer (recur (assoc opts-map :refer fst-opt)
                             rst-opts)))))
 
+(declare eval-string*)
+
+(defn handle-require-libspec-env
+  [env current-ns ns-data lib-name {:keys [:as :refer] :as _parsed-libspec}]
+  (let [the-current-ns (get-in env [:namespaces current-ns])
+        the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
+                           the-current-ns)
+        the-current-ns
+        (if refer
+          (do
+            (when-not (sequential? refer)
+              (throw (new #?(:clj Exception :cljs js/Error)
+                          (str ":refer value must be a sequential collection of symbols"))))
+            (reduce (fn [ns sym]
+                      (assoc ns sym
+                             (if-let [[_k v] (find ns-data sym)]
+                               v
+                               (throw (new #?(:clj Exception :cljs js/Error)
+                                           (str sym " does not exist"))))))
+                    the-current-ns
+                    refer))
+          the-current-ns)
+        env (assoc-in env [:namespaces current-ns] the-current-ns)]
+    env))
+
 (defn handle-require-libspec
   [ctx [lib-name & opts]]
-  (let [{:keys [:as :refer]} (parse-libspec-opts opts)]
+  (let [parsed-libspec (parse-libspec-opts opts)]
     (swap! (:env ctx)
            (fn [env]
-             (let [namespaces (get env :namespaces)]
+             (let [current-ns (:current-ns env)
+                   namespaces (get env :namespaces)]
                (if-let [ns-data (get namespaces lib-name)]
-                 (let [current-ns (:current-ns env)
-                       the-current-ns (get-in env [:namespaces current-ns])
-                       the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
-                                          the-current-ns)
-                       the-current-ns
-                       (if refer
-                         (do
-                           (when-not (sequential? refer)
-                             (throw (new #?(:clj Exception :cljs js/Error)
-                                         (str ":refer value must be a sequential collection of symbols"))))
-                           (reduce (fn [ns sym]
-                                     (assoc ns sym
-                                            (if-let [[_k v] (find ns-data sym)]
-                                              v
-                                              (throw (new #?(:clj Exception :cljs js/Error)
-                                                          (str sym " does not exist"))))))
-                                   the-current-ns
-                                   refer))
-                         the-current-ns)
-                       env (assoc-in env [:namespaces current-ns] the-current-ns)]
-                   env)
-                 (throw (new #?(:clj Exception :cljs js/Error)
-                             (str "Could not require " lib-name ".")))))))))
+                 (handle-require-libspec-env env current-ns ns-data lib-name parsed-libspec)
+                 #?(:cljs (throw (new #?(:clj Exception :cljs js/Error)
+                                      (str "Could not require " lib-name ".")))
+                    :clj (if-let [source (cp/source-for-namespace (:classloader ctx) lib-name)]
+                           (do (eval-string* ctx source)
+                               (set-namespace! ctx current-ns)
+                               (handle-require-libspec-env env current-ns
+                                                           (get namespaces lib-name)
+                                                           lib-name parsed-libspec))
+                           (throw (new #?(:clj Exception :cljs js/Error)
+                                       (str "Could not require " lib-name ".")))))))))))
 
 (defn eval-require
   [ctx expr]
