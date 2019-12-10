@@ -171,7 +171,17 @@
                  [body])
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
                 ctx)
-        arities (mapv #(expand-fn-args+body ctx fn-name % macro?) bodies)]
+        arities (:bodies (reduce (fn [acc body]
+                                   (let [body (expand-fn-args+body ctx fn-name body macro?)
+                                         var-arg-name (:sci.impl/var-arg-name body)]
+                                     (when var-arg-name
+                                       (when (:varargs acc)
+                                         (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr)))
+                                     (-> acc
+                                         (assoc :varargs var-arg-name)
+                                         (update :bodies conj body))))
+                                 {:bodies []
+                                  :varargs nil} bodies))]
     (mark-eval #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
                           :fn true})))
