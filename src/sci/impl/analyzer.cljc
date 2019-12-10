@@ -176,6 +176,7 @@
                                          var-arg-name (:sci.impl/var-arg-name body)]
                                      (when var-arg-name
                                        (when (:varargs acc)
+                                         ;; TODO: Can't have fixed arity function with more params than variadic function
                                          (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr)))
                                      (-> acc
                                          (assoc :varargs var-arg-name)
