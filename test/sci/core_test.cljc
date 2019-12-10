@@ -2,9 +2,8 @@
   (:require
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
-   [sci.test-utils :as tu]
-   [sci.impl.io :as sio]
-   [sci.core :as sci :refer [eval-string]]))
+   [sci.core :as sci :refer [eval-string]]
+   [sci.test-utils :as tu]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -154,7 +153,13 @@
   (is (= 2 (eval* '((fn foo [x & [y]] y) 1 2 3))))
   (is (= 1 (eval* '((fn ([x] x) ([x y] y)) 1))))
   (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2))))
-  (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4])))))
+  (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4]))))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"Can't have fixed arity function with more params than variadic function \[at line 1, column 4\]"
+                        (eval* "   (fn ([& args]) ([v ]))")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"Can't have more than 1 variadic overload \[at line 1, column 4\]"
+                        (eval* "   (fn ([& args]) ([v & args]))"))))
 
 (deftest def-test
   (is (= "nice val" (eval* '(do (def foo "nice val") foo))))

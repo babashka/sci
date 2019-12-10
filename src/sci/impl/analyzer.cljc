@@ -171,7 +171,26 @@
                  [body])
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
                 ctx)
-        arities (mapv #(expand-fn-args+body ctx fn-name % macro?) bodies)]
+        arities (:bodies
+                 (reduce
+                  (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
+                    (let [body (expand-fn-args+body ctx fn-name body macro?)
+                          var-arg-name (:sci.impl/var-arg-name body)
+                          fixed-arity (:sci.impl/fixed-arity body)
+                          new-min-varargs (when var-arg-name fixed-arity)]
+                      (when (and var-arg-name min-varargs)
+                        (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr))
+                      (when (and (not var-arg-name) min-varargs (> fixed-arity min-varargs))
+                        (throw-error-with-location
+                         "Can't have fixed arity function with more params than variadic function" fn-expr))
+                      (-> acc
+                          (assoc :min-varargs new-min-varargs
+                                 :max-fixed (max (:sci.impl/fixed-arity body)
+                                                 max-fixed))
+                          (update :bodies conj body))))
+                  {:bodies []
+                   :min-var-args nil
+                   :max-fixed -1} bodies))]
     (mark-eval #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
                           :fn true})))
@@ -473,7 +492,7 @@
     (set-namespace! ctx ns-name)
     (loop [exprs exprs
            ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
-                                                         ;; this twice I guess?
+                ;; this twice I guess?
                 ]]
       (if exprs
         (let [[k & args] (first exprs)]
