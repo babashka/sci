@@ -141,3 +141,7 @@
 (deftest def-returns-var-test
   (is (= "#'user/x" (eval* "(str (def x 1))")))
   (is (= "#'user/foo" (eval* "(str (defmacro foo []))"))))
+
+(deftest def-within-binding-test
+  (testing "emulation of clojure def within binding behavior"
+    (is (= "#'bar/x" (eval* "(str (ns foo) (ns bar) (binding [*ns* 'foo] (def x 1)))")))))

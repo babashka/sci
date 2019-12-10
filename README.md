@@ -41,6 +41,7 @@ It is used in:
 
 - [Babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
+- [Daddy](https://github.com/liquidz/daddy). A configuration management tool.
 - [Closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
