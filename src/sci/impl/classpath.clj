@@ -16,13 +16,24 @@
       (when (.exists f)
         (slurp f)))))
 
+(defn path-from-jar
+  [^java.io.File jar-file path]
+  (with-open [jar (JarFile. jar-file)]
+    (let [entries (enumeration-seq (.entries jar))
+          entry (some (fn [^JarFile$JarFileEntry x]
+                        (let [nm (.getName x)]
+                          (when (and (not (.isDirectory x)) (= path nm))
+                            (slurp (.getInputStream jar x))))) entries)]
+      entry)))
+
 (deftype JarFileResolver [path]
   IResourceResolver
-  (getResource [this path]))
+  (getResource [this resource-path]
+    (path-from-jar path resource-path)))
 
 (defn part->entry [part]
   (if (str/ends-with? part ".jar")
-    (JarFileResolver. (JarFile. (io/file part)))
+    (JarFileResolver. (io/file part))
     (DirectoryResolver. (io/file part))))
 
 (deftype Loader [entries]
@@ -30,21 +41,21 @@
   (getResource [this resource-path]
     (some #(getResource % resource-path) entries)))
 
-(defn classpath->entries [^String classpath]
+(defn loader [^String classpath]
   (let [parts (.split classpath (System/getProperty "path.separator"))
         entries (map part->entry parts)]
     (Loader. entries)))
 
 (defn source-for-namespace [loader namespace]
   (let [ns-str (name namespace)
-        path (.replace ns-str "." "/")
+        path (.replace ns-str "." "/") ;; TODO: Windows
         paths (map #(str path %) [".clj" ".cljc"])]
     (some #(getResource loader %) paths)))
 
 ;;;; Scratch
 
 (comment
-  (def loader (classpath->entries ".:file:///Users/borkdude/.m2/repository/cheshire/cheshire/5.9.0/cheshire-5.9.0.jar"))
-  (source-for-namespace loader 'src.sci.core)
-  (source-for-namespace loader 'cheshire.core)
+  (def l (loader ".:file:///Users/borkdude/.m2/repository/cheshire/cheshire/5.9.0/cheshire-5.9.0.jar"))
+  (source-for-namespace l 'src.sci.core)
+  (source-for-namespace l 'cheshire.core)
   )
