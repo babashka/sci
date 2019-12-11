@@ -144,7 +144,7 @@
 
 (defn handle-require-libspec-env
   [env current-ns ns-data lib-name {:keys [:as :refer] :as _parsed-libspec}]
-  (let [the-current-ns (get-in env [:namespaces current-ns])
+  (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                            the-current-ns)
         the-current-ns
@@ -167,25 +167,26 @@
 
 (defn handle-require-libspec
   [ctx [lib-name & opts]]
-  (let [parsed-libspec (parse-libspec-opts opts)]
-    (swap! (:env ctx)
-           (fn [env]
-             (let [current-ns (:current-ns env)
-                   namespaces (get env :namespaces)]
-               (if-let [ns-data (get namespaces lib-name)]
-                 (handle-require-libspec-env env current-ns ns-data lib-name parsed-libspec)
-                 #?(:cljs (throw (new #?(:clj Exception :cljs js/Error)
-                                      (str "Could not require " lib-name ".")))
-                    :clj
-                    (if-let [source (when-let [cl (:classloader ctx)]
-                                      (cp/source-for-namespace cl lib-name))]
-                      (do (eval-string* ctx source)
-                          (set-namespace! ctx current-ns)
-                          (handle-require-libspec-env env current-ns
+  (let [parsed-libspec (parse-libspec-opts opts)
+        env* (:env ctx)
+        env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
+        current-ns (:current-ns env)
+        namespaces (get env :namespaces)]
+    (if-let [ns-data (get namespaces lib-name)]
+      (reset! env* (handle-require-libspec-env env current-ns ns-data lib-name parsed-libspec))
+      #?(:cljs (throw (new #?(:clj Exception :cljs js/Error)
+                           (str "Could not require " lib-name ".")))
+         :clj
+         (if-let [source (when-let [cl (:loader ctx)]
+                           (cp/source-for-namespace cl lib-name))]
+           (do
+             (eval-string* ctx source)
+             (set-namespace! ctx current-ns)
+             (reset! env* (handle-require-libspec-env env current-ns
                                                       (get namespaces lib-name)
-                                                      lib-name parsed-libspec))
-                      (throw (new #?(:clj Exception :cljs js/Error)
-                                  (str "Could not require " lib-name ".")))))))))))
+                                                      lib-name parsed-libspec)))
+           (throw (new #?(:clj Exception :cljs js/Error)
+                       (str "Could not require " lib-name "."))))))))
 
 (defn eval-require
   [ctx expr]

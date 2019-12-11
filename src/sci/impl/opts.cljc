@@ -86,8 +86,9 @@
                           :realize-max (or realize-max (:realize-max preset))
                           :features features}
                        opts
-                     #?(:clj (if classpath (assoc opts :loader (cp/loader classpath))
-                                 opts)
+                     #?(:clj (if classpath
+                               (assoc opts :loader (cp/loader classpath))
+                               opts)
                         :cljs opts))
                    (normalize-classes (merge default-classes classes)))]
     ctx))
