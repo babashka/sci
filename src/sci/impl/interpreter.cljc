@@ -176,14 +176,16 @@
                  (handle-require-libspec-env env current-ns ns-data lib-name parsed-libspec)
                  #?(:cljs (throw (new #?(:clj Exception :cljs js/Error)
                                       (str "Could not require " lib-name ".")))
-                    :clj (if-let [source (cp/source-for-namespace (:classloader ctx) lib-name)]
-                           (do (eval-string* ctx source)
-                               (set-namespace! ctx current-ns)
-                               (handle-require-libspec-env env current-ns
-                                                           (get namespaces lib-name)
-                                                           lib-name parsed-libspec))
-                           (throw (new #?(:clj Exception :cljs js/Error)
-                                       (str "Could not require " lib-name ".")))))))))))
+                    :clj
+                    (if-let [source (when-let [cl (:classloader ctx)]
+                                      (cp/source-for-namespace cl lib-name))]
+                      (do (eval-string* ctx source)
+                          (set-namespace! ctx current-ns)
+                          (handle-require-libspec-env env current-ns
+                                                      (get namespaces lib-name)
+                                                      lib-name parsed-libspec))
+                      (throw (new #?(:clj Exception :cljs js/Error)
+                                  (str "Could not require " lib-name ".")))))))))))
 
 (defn eval-require
   [ctx expr]

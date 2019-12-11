@@ -79,12 +79,15 @@
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports)
-        ctx (merge {:env env
-                    :bindings {}
-                    :allow (process-permissions (:allow preset) allow)
-                    :deny (process-permissions (:deny preset) deny)
-                    :realize-max (or realize-max (:realize-max preset))
-                    :features features
-                    #?@(:clj [:classloader (cp/classpath->classloader classpath)])}
+        ctx (merge (as-> {:env env
+                          :bindings {}
+                          :allow (process-permissions (:allow preset) allow)
+                          :deny (process-permissions (:deny preset) deny)
+                          :realize-max (or realize-max (:realize-max preset))
+                          :features features}
+                       opts
+                     #?(:clj (if classpath (assoc opts :loader (cp/loader classpath))
+                                 opts)
+                        :cljs opts))
                    (normalize-classes (merge default-classes classes)))]
     ctx))
