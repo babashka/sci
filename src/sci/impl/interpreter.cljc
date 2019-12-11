@@ -14,8 +14,7 @@
                                      rethrow-with-location-of-node
                                      set-namespace!
                                      kw-identical?]]
-   [sci.impl.vars :as vars]
-   #?(:clj [sci.impl.classpath :as cp])))
+   [sci.impl.vars :as vars]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -174,21 +173,20 @@
         namespaces (get env :namespaces)]
     (if-let [ns-data (get namespaces lib-name)]
       (reset! env* (handle-require-libspec-env env current-ns ns-data lib-name parsed-libspec))
-      #?(:cljs (throw (new #?(:clj Exception :cljs js/Error)
-                           (str "Could not require " lib-name ".")))
-         :clj
-         (if-let [source (when-let [cl (:loader ctx)]
-                           (cp/source-for-namespace cl lib-name))]
-           (do
-             (eval-string* ctx source)
-             (set-namespace! ctx current-ns)
-             (swap! env* (fn [env]
-                           (let [namespaces (get env :namespaces)]
-                             (handle-require-libspec-env env current-ns
-                                                         (get namespaces lib-name)
-                                                         lib-name parsed-libspec)))))
-           (throw (new #?(:clj Exception :cljs js/Error)
-                       (str "Could not require " lib-name "."))))))))
+      (if-let [load-fn (:load-fn ctx)]
+        (if-let [source (load-fn {:namespace lib-name})]
+          (do
+            (eval-string* ctx source)
+            (set-namespace! ctx current-ns)
+            (swap! env* (fn [env]
+                          (let [namespaces (get env :namespaces)]
+                            (handle-require-libspec-env env current-ns
+                                                        (get namespaces lib-name)
+                                                        lib-name parsed-libspec)))))
+          (throw (new #?(:clj Exception :cljs js/Error)
+                      (str "Could not require " lib-name "."))))
+        (throw (new #?(:clj Exception :cljs js/Error)
+                    (str "Could not require " lib-name ".")))))))
 
 (defn eval-require
   [ctx expr]

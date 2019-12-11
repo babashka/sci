@@ -2,8 +2,7 @@
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
-            #?(:cljs [goog.string])
-            #?(:clj [sci.impl.classpath :as cp])))
+            #?(:cljs [goog.string])))
 
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
@@ -73,22 +72,18 @@
            :classes
            :imports
            :features
-           #?(:clj :classpath)]}]
+           :load-fn]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports)
-        ctx (merge (as-> {:env env
-                          :bindings {}
-                          :allow (process-permissions (:allow preset) allow)
-                          :deny (process-permissions (:deny preset) deny)
-                          :realize-max (or realize-max (:realize-max preset))
-                          :features features}
-                       opts
-                     #?(:clj (if classpath
-                               (assoc opts :loader (cp/loader classpath))
-                               opts)
-                        :cljs opts))
+        ctx (merge {:env env
+                    :bindings {}
+                    :allow (process-permissions (:allow preset) allow)
+                    :deny (process-permissions (:deny preset) deny)
+                    :realize-max (or realize-max (:realize-max preset))
+                    :features features
+                    :load-fn load-fn}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
