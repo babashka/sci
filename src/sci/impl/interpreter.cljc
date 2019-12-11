@@ -182,9 +182,11 @@
            (do
              (eval-string* ctx source)
              (set-namespace! ctx current-ns)
-             (reset! env* (handle-require-libspec-env env current-ns
-                                                      (get namespaces lib-name)
-                                                      lib-name parsed-libspec)))
+             (swap! env* (fn [env]
+                           (let [namespaces (get env :namespaces)]
+                             (handle-require-libspec-env env current-ns
+                                                         (get namespaces lib-name)
+                                                         lib-name parsed-libspec)))))
            (throw (new #?(:clj Exception :cljs js/Error)
                        (str "Could not require " lib-name "."))))))))
 
