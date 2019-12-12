@@ -71,7 +71,8 @@
            :namespaces
            :classes
            :imports
-           :features]}]
+           :features
+           :load-fn]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -82,6 +83,7 @@
                     :allow (process-permissions (:allow preset) allow)
                     :deny (process-permissions (:deny preset) deny)
                     :realize-max (or realize-max (:realize-max preset))
-                    :features features}
+                    :features features
+                    :load-fn load-fn}
                    (normalize-classes (merge default-classes classes)))]
     ctx))

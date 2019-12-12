@@ -139,36 +139,55 @@
               :refer (recur (assoc opts-map :refer fst-opt)
                             rst-opts)))))
 
+(declare eval-string*)
+
+(defn handle-require-libspec-env
+  [env current-ns the-loaded-ns lib-name {:keys [:as :refer] :as _parsed-libspec}]
+  (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
+        the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
+                           the-current-ns)
+        the-current-ns
+        (if refer
+          (do
+            (when-not (sequential? refer)
+              (throw (new #?(:clj Exception :cljs js/Error)
+                          (str ":refer value must be a sequential collection of symbols"))))
+            (reduce (fn [ns sym]
+                      (assoc ns sym
+                             (if-let [[_k v] (find the-loaded-ns sym)]
+                               v
+                               (throw (new #?(:clj Exception :cljs js/Error)
+                                           (str sym " does not exist"))))))
+                    the-current-ns
+                    refer))
+          the-current-ns)
+        env (assoc-in env [:namespaces current-ns] the-current-ns)]
+    env))
+
 (defn handle-require-libspec
   [ctx [lib-name & opts]]
-  (let [{:keys [:as :refer]} (parse-libspec-opts opts)]
-    (swap! (:env ctx)
-           (fn [env]
-             (let [namespaces (get env :namespaces)]
-               (if-let [ns-data (get namespaces lib-name)]
-                 (let [current-ns (:current-ns env)
-                       the-current-ns (get-in env [:namespaces current-ns])
-                       the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
-                                          the-current-ns)
-                       the-current-ns
-                       (if refer
-                         (do
-                           (when-not (sequential? refer)
-                             (throw (new #?(:clj Exception :cljs js/Error)
-                                         (str ":refer value must be a sequential collection of symbols"))))
-                           (reduce (fn [ns sym]
-                                     (assoc ns sym
-                                            (if-let [[_k v] (find ns-data sym)]
-                                              v
-                                              (throw (new #?(:clj Exception :cljs js/Error)
-                                                          (str sym " does not exist"))))))
-                                   the-current-ns
-                                   refer))
-                         the-current-ns)
-                       env (assoc-in env [:namespaces current-ns] the-current-ns)]
-                   env)
-                 (throw (new #?(:clj Exception :cljs js/Error)
-                             (str "Could not require " lib-name ".")))))))))
+  (let [parsed-libspec (parse-libspec-opts opts)
+        env* (:env ctx)
+        env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
+        current-ns (:current-ns env)
+        namespaces (get env :namespaces)]
+    (if-let [the-loaded-ns (get namespaces lib-name)]
+      (reset! env* (handle-require-libspec-env env current-ns the-loaded-ns lib-name parsed-libspec))
+      (if-let [load-fn (:load-fn ctx)]
+        (if-let [source (load-fn {:namespace lib-name})]
+          (do
+            (eval-string* ctx source)
+            (set-namespace! ctx current-ns)
+            (swap! env* (fn [env]
+                          (let [namespaces (get env :namespaces)
+                                the-loaded-ns (get namespaces lib-name)]
+                            (handle-require-libspec-env env current-ns
+                                                        the-loaded-ns
+                                                        lib-name parsed-libspec)))))
+          (throw (new #?(:clj Exception :cljs js/Error)
+                      (str "Could not require " lib-name "."))))
+        (throw (new #?(:clj Exception :cljs js/Error)
+                    (str "Could not require " lib-name ".")))))))
 
 (defn eval-require
   [ctx expr]
