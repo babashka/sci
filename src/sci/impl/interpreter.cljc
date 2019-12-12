@@ -142,7 +142,7 @@
 (declare eval-string*)
 
 (defn handle-require-libspec-env
-  [env current-ns ns-data lib-name {:keys [:as :refer] :as _parsed-libspec}]
+  [env current-ns the-loaded-ns lib-name {:keys [:as :refer] :as _parsed-libspec}]
   (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                            the-current-ns)
@@ -154,7 +154,7 @@
                           (str ":refer value must be a sequential collection of symbols"))))
             (reduce (fn [ns sym]
                       (assoc ns sym
-                             (if-let [[_k v] (find ns-data sym)]
+                             (if-let [[_k v] (find the-loaded-ns sym)]
                                v
                                (throw (new #?(:clj Exception :cljs js/Error)
                                            (str sym " does not exist"))))))
@@ -171,17 +171,18 @@
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         current-ns (:current-ns env)
         namespaces (get env :namespaces)]
-    (if-let [ns-data (get namespaces lib-name)]
-      (reset! env* (handle-require-libspec-env env current-ns ns-data lib-name parsed-libspec))
+    (if-let [the-loaded-ns (get namespaces lib-name)]
+      (reset! env* (handle-require-libspec-env env current-ns the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn ctx)]
         (if-let [source (load-fn {:namespace lib-name})]
           (do
             (eval-string* ctx source)
             (set-namespace! ctx current-ns)
             (swap! env* (fn [env]
-                          (let [namespaces (get env :namespaces)]
+                          (let [namespaces (get env :namespaces)
+                                the-loaded-ns (get namespaces lib-name)]
                             (handle-require-libspec-env env current-ns
-                                                        (get namespaces lib-name)
+                                                        the-loaded-ns
                                                         lib-name parsed-libspec)))))
           (throw (new #?(:clj Exception :cljs js/Error)
                       (str "Could not require " lib-name "."))))
