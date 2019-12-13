@@ -521,7 +521,9 @@
 (defmacro foo [] `x)
 (foo)
 (ns bar)
-(user/foo)"))))
+(user/foo)")))
+  (is (= 'user/x (eval* "`x")))
+  (is (= '(try user/x (finally user/x)) (eval* "`(try x (finally x))"))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
