@@ -361,7 +361,7 @@
                    (throw (new #?(:clj Exception :cljs js/Error)
                                (str "Cannot call " (pr-str f) " as a function.")))))
                :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
-               (case f
+               (case (utils/strip-core-ns f)
                  do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
                  if (eval-if ctx expr)
                  when (eval-when ctx expr)

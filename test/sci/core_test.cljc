@@ -507,14 +507,21 @@
     (is (= 'hello (eval* "(try 'hello)")))))
 
 (deftest syntax-quote-test
-  (is (= '(list 10 10)
+  (is (= '(clojure.core/list 10 10)
          (eval* "(let [x 10] `(list ~x ~x))")))
   (let [generated (str (eval* "(let [x 1] `(let [x# ~x] x#))"))]
     (is (not (str/includes? generated "x#")))
     (is (= 2 (count (re-seq #"__auto__" generated)))))
   (is (= 1 (eval* "`~(let [x 1] x)")))
   (is (= [1 2 3]
-         (eval* "`[~@(for [x [1 2 3]] x)]"))))
+         (eval* "`[~@(for [x [1 2 3]] x)]")))
+  (is (= 1
+         (eval* "
+(def x 1)
+(defmacro foo [] `x)
+(foo)
+(ns bar)
+(user/foo)"))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
