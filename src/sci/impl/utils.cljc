@@ -111,7 +111,7 @@
     :else form))
 
 (defn prewalk
-  "Prewalk with metadata preservation"
+  "Prewalk with metadata preservation. Does not prewalk :sci.impl/eval nodes."
   [f form]
   (walk* (partial prewalk f) (f form)))
 
