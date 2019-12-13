@@ -398,6 +398,25 @@
        :catches catches
        :finally finally}})))
 
+(defn fully-qualify [ctx sym]
+  (let [sym-ns (when-let [n (namespace sym)]
+                 (symbol n))
+        sym-name-str (name sym)
+        env @(:env ctx)
+        current-ns (:current-ns env)
+        current-ns-str (str current-ns)
+        the-current-ns (get-in env [:namespaces current-ns])
+        aliases (:aliases the-current-ns)]
+    (if-not sym-ns
+      (if (get the-current-ns sym)
+        (symbol current-ns-str sym-name-str)
+        (symbol "clojure.core" sym-name-str))
+      (if (get-in env [:namespaces sym-ns])
+        sym
+        (if-let [ns (get aliases sym-ns)]
+          (symbol (str ns) sym-name-str)
+          sym)))))
+
 (defn expand-syntax-quote [ctx expr]
   (let [ret (utils/prewalk
              (fn [x]
@@ -409,7 +428,10 @@
                                      (fn [m]
                                        (assoc m :sci.impl/unquote-splicing true)))
                    x)
-                 x))
+                 (cond (:sci.impl/eval (meta x)) x
+                       (symbol? x) (if (str/ends-with? (name x) "#")
+                                     x (fully-qualify ctx x))
+                       :else x)))
              (second expr))]
     (mark-eval-call (list 'syntax-quote ret))))
 

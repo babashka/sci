@@ -96,6 +96,7 @@
 (defn walk*
   [inner form]
   (cond
+    (:sci.impl/eval (meta form)) form
     (list? form) (with-meta (apply list (map inner form))
                    (meta form))
     #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
@@ -110,7 +111,7 @@
     :else form))
 
 (defn prewalk
-  "Prewalk with metadata preservation"
+  "Prewalk with metadata preservation. Does not prewalk :sci.impl/eval nodes."
   [f form]
   (walk* (partial prewalk f) (f form)))
 
