@@ -96,6 +96,7 @@
 (defn walk*
   [inner form]
   (cond
+    (:sci.impl/eval (meta form)) form
     (list? form) (with-meta (apply list (map inner form))
                    (meta form))
     #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
