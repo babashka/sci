@@ -399,23 +399,27 @@
        :finally finally}})))
 
 (defn fully-qualify [ctx sym]
-  (let [sym-ns (when-let [n (namespace sym)]
-                 (symbol n))
-        sym-name-str (name sym)
-        env @(:env ctx)
-        current-ns (:current-ns env)
-        current-ns-str (str current-ns)
-        the-current-ns (get-in env [:namespaces current-ns])
-        aliases (:aliases the-current-ns)]
-    (if-not sym-ns
-      (if (get the-current-ns sym)
-        (symbol current-ns-str sym-name-str)
-        (symbol "clojure.core" sym-name-str))
-      (if (get-in env [:namespaces sym-ns])
-        sym
-        (if-let [ns (get aliases sym-ns)]
-          (symbol (str ns) sym-name-str)
-          sym)))))
+  (if (contains? special-syms sym) sym
+      (let [sym-ns (when-let [n (namespace sym)]
+                     (symbol n))
+            sym-name-str (name sym)
+            env @(:env ctx)
+            current-ns (:current-ns env)
+            current-ns-str (str current-ns)
+            namespaces (get env :namespaces)
+            the-current-ns (get namespaces current-ns)
+            aliases (:aliases the-current-ns)]
+        (if-not sym-ns
+          (let [clojure-core (get namespaces 'clojure.core)]
+            (if (or (get clojure-core sym)
+                    (contains? macros sym))
+              (symbol "clojure.core" sym-name-str)
+              (symbol current-ns-str sym-name-str)))
+          (if (get-in env [:namespaces sym-ns])
+            sym
+            (if-let [ns (get aliases sym-ns)]
+              (symbol (str ns) sym-name-str)
+              sym))))))
 
 (defn expand-syntax-quote [ctx expr]
   (let [ret (utils/prewalk
