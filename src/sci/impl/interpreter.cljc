@@ -461,7 +461,9 @@
             expr (or (first queue)
                      (p/parse-next reader features
                                    (assoc aliases
-                                          :current current-ns)))]
+                                          :current current-ns)
+                                   #(ana/fully-qualify ctx %)))]
+        ;; (prn "EXPR" expr)
         (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
             (let [ret (eval-form ctx expr)]
               (if (seq queue) (recur (rest queue) ret)

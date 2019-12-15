@@ -1,29 +1,29 @@
 (ns sci.impl.parser
-  "This code is largely inspired by rewrite-clj(sc), so thanks to all
-  who contribured to those projects."
   {:no-doc true}
   (:refer-clojure :exclude [read-string])
   (:require
    [sci.impl.readers :as readers]
-   [edamame.core :as edamame]))
+   [edamame.core :as edamame]
+   [edamame.impl.parser :as parser]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 (def opts
-  (edamame.impl.parser/normalize-opts
+  (parser/normalize-opts
    {:all true
     :read-eval false
     :fn readers/read-fn}))
 
 (defn parse-next
   ([r]
-   (edamame.impl.parser/parse-next opts r))
-  ([r features auto-resolve]
-   (edamame.impl.parser/parse-next (assoc opts
-                                          :read-cond :allow
-                                          :features features
-                                          :auto-resolve auto-resolve)
-                                   r)))
+   (parser/parse-next opts r))
+  ([r features auto-resolve qualify-fn]
+   (parser/parse-next (assoc opts
+                             :read-cond :allow
+                             :features features
+                             :auto-resolve auto-resolve
+                             :qualify-fn qualify-fn)
+                      r)))
 
 (defn parse-string
   ([s]
