@@ -539,11 +539,11 @@
 (hash-test)
 ")))
   (is (= 2 (count (re-seq #"__auto__" (tu/eval* "(str `(let [x# 1] `~x#))" nil)))))
-  #?(:clj
-     (is (= "foo" (tu/eval* "
+  (when-not tu/native?
+    (is (= "foo" (tu/eval* "
 (defmacro pat [s] `(java.util.regex.Pattern/compile ~s))
 (def p (pat \"foo\")) (re-find p \"foo\")"
-                            {:classes {'java.util.regex.Pattern java.util.regex.Pattern}})))))
+                           {:classes {'java.util.regex.Pattern java.util.regex.Pattern}})))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
