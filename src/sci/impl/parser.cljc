@@ -52,7 +52,7 @@
                            :read-cond :allow
                            :features features
                            :auto-resolve auto-resolve
-                           :syntax-quote {:qualify-fn #(fully-qualify env-val %)})
+                           :syntax-quote {:resolve-symbol #(fully-qualify env-val %)})
          ret (parser/parse-next parse-opts
                                 r)]
      ;; (prn "ret" ret)
