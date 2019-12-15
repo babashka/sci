@@ -14,6 +14,27 @@
     :read-eval false
     :fn readers/read-fn}))
 
+(defn fully-qualify [env sym]
+  (let [sym-ns (when-let [n (namespace sym)]
+                 (symbol n))
+        sym-name-str (name sym)
+        current-ns (:current-ns env)
+        current-ns-str (str current-ns)
+        namespaces (get env :namespaces)
+        the-current-ns (get namespaces current-ns)
+        aliases (:aliases the-current-ns)]
+    (if-not sym-ns
+      (let [clojure-core (get namespaces 'clojure.core)]
+        (if (or (get clojure-core sym)
+                (contains? ana/macros sym))
+          (symbol "clojure.core" sym-name-str)
+          (symbol current-ns-str sym-name-str)))
+      (if (get-in env [:namespaces sym-ns])
+        sym
+        (if-let [ns (get aliases sym-ns)]
+          (symbol (str ns) sym-name-str)
+          sym)))))
+
 (defn parse-next
   ([r]
    (parser/parse-next opts r))
@@ -30,7 +51,7 @@
                                :read-cond :allow
                                :features features
                                :auto-resolve auto-resolve
-                               :qualify-fn #(ana/fully-qualify ctx %))
+                               :qualify-fn #(fully-qualify env-val %))
                         r))))
 
 ;;;; Scratch
