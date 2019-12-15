@@ -233,12 +233,12 @@
 
 ;;;; syntax-quote
 
-(declare eval-syntax-quote walk-syntax-quote)
+#_(declare eval-syntax-quote walk-syntax-quote)
 
-(defn unquote-splicing? [x]
+#_(defn unquote-splicing? [x]
   (and (seq? x) (= 'unquote-splicing (first x))))
 
-(defn process-seq [ctx form]
+#_(defn process-seq [ctx form]
   (let [ret (loop [ret []
                    xs form]
               (if (seq xs)
@@ -252,7 +252,7 @@
                 (seq ret)))]
     ret))
 
-(defn process-symbol [{:keys [:gensyms] :as ctx} sym]
+#_(defn process-symbol [{:keys [:gensyms] :as ctx} sym]
   (let [m (meta sym)]
     (if (:sci.impl/eval m)
       (interpret ctx sym)
@@ -269,7 +269,7 @@
                 generated))
             sym))))))
 
-(defn walk-syntax-quote
+#_(defn walk-syntax-quote
   [ctx form]
   (cond
     (:sci.impl/eval (meta form)) (interpret ctx form)
@@ -285,7 +285,7 @@
     (symbol? form) (process-symbol ctx form)
     :else (interpret ctx form)))
 
-(defn eval-syntax-quote
+#_(defn eval-syntax-quote
   [ctx expr]
   (let [gensyms (atom {})
         ctx (assoc ctx :gensyms gensyms)]
@@ -384,7 +384,7 @@
                  require (eval-require ctx expr)
                  case (eval-case ctx expr)
                  try (eval-try ctx expr)
-                 syntax-quote (eval-syntax-quote ctx expr)
+                 ;; syntax-quote (eval-syntax-quote ctx expr)
                  ;; interop
                  new (eval-constructor-invocation ctx expr)
                  . (eval-instance-method-invocation ctx expr)
@@ -449,20 +449,11 @@
         ret)))
 
 (defn eval-string* [ctx s]
-  (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
-        features (:features ctx)
-        env (:env ctx)]
+  (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
     (loop [queue []
            ret nil]
-      (let [env-val @env
-            current-ns (:current-ns env-val)
-            the-current-ns (get-in env-val [:namespaces current-ns])
-            aliases (:aliases the-current-ns)
-            expr (or (first queue)
-                     (p/parse-next reader features
-                                   (assoc aliases
-                                          :current current-ns)
-                                   #(ana/fully-qualify ctx %)))]
+      (let [expr (or (first queue)
+                     (p/parse-next ctx reader))]
         ;; (prn "EXPR" expr)
         (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
             (let [ret (eval-form ctx expr)]

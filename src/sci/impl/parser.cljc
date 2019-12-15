@@ -4,7 +4,8 @@
   (:require
    [sci.impl.readers :as readers]
    [edamame.core :as edamame]
-   [edamame.impl.parser :as parser]))
+   [edamame.impl.parser :as parser]
+   [sci.impl.analyzer :as ana]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -17,13 +18,21 @@
 (defn parse-next
   ([r]
    (parser/parse-next opts r))
-  ([r features auto-resolve qualify-fn]
-   (parser/parse-next (assoc opts
-                             :read-cond :allow
-                             :features features
-                             :auto-resolve auto-resolve
-                             :qualify-fn qualify-fn)
-                      r)))
+  ([ctx r]
+   (let [features (:features ctx)
+         env (:env ctx)
+         env-val @env
+         current-ns (:current-ns env-val)
+         the-current-ns (get-in env-val [:namespaces current-ns])
+         aliases (:aliases the-current-ns)
+         auto-resolve (assoc aliases
+                             :current current-ns)]
+     (parser/parse-next (assoc opts
+                               :read-cond :allow
+                               :features features
+                               :auto-resolve auto-resolve
+                               :qualify-fn #(ana/fully-qualify ctx %))
+                        r))))
 
 (defn parse-string
   ([s]

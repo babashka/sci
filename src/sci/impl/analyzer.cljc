@@ -18,7 +18,7 @@
 (def special-syms '#{try finally do if new recur quote catch throw def . var set!})
 
 ;; Built-in macros.
-(def macros '#{do if when and or -> ->> as-> quote quote* syntax-quote let fn
+(def macros '#{do if when and or -> ->> as-> quote quote* #_syntax-quote let fn
                fn* def defn comment loop lazy-seq for doseq require cond case
                try defmacro declare expand-dot* expand-constructor new . import
                in-ns ns var set!})
@@ -421,7 +421,7 @@
               (symbol (str ns) sym-name-str)
               sym))))))
 
-(defn expand-syntax-quote [ctx expr]
+#_(defn expand-syntax-quote [ctx expr]
   (let [ret (utils/prewalk
              (fn [x]
                (if (seq? x)
@@ -591,7 +591,7 @@
             ->> (expand->> ctx (rest expr))
             as-> (expand-as-> ctx expr)
             quote (do nil (second expr))
-            syntax-quote (expand-syntax-quote ctx expr)
+            ;; syntax-quote (expand-syntax-quote ctx expr)
             comment (expand-comment ctx expr)
             loop (expand-loop ctx expr)
             lazy-seq (expand-lazy-seq ctx expr)
