@@ -537,7 +537,8 @@
      (caller {:a-fn a-fn#})))
 
 (hash-test)
-"))))
+")))
+  (is (= 2 (count (re-seq #"__auto__" (tu/eval* "(str `(let [x# 1] `~x#))" nil))))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
