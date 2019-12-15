@@ -523,7 +523,8 @@
 (ns bar)
 (user/foo)")))
   (is (= 'user/x (eval* "`x")))
-  (is (= '(try user/x (finally user/x)) (eval* "`(try x (finally x))"))))
+  (is (= '(try user/x (finally user/x)) (eval* "`(try x (finally x))")))
+  (is (= {:a 1} (eval* "`{:a 1}"))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]

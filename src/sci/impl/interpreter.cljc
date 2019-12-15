@@ -278,7 +278,10 @@
                      (eval-syntax-quote ctx form)
                      (apply list (process-seq ctx form))))
     (seq? form) (process-seq ctx form)
-    (coll? form) (into (empty form) (process-seq ctx form))
+    #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
+    form
+    (coll? form) (into (empty form)
+                       (process-seq ctx form))
     (symbol? form) (process-symbol ctx form)
     :else (interpret ctx form)))
 
