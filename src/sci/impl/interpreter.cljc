@@ -231,68 +231,6 @@
   (let [ex (interpret ctx ex)]
     (throw ex)))
 
-;;;; syntax-quote
-
-#_(declare eval-syntax-quote walk-syntax-quote)
-
-#_(defn unquote-splicing? [x]
-  (and (seq? x) (= 'unquote-splicing (first x))))
-
-#_(defn process-seq [ctx form]
-  (let [ret (loop [ret []
-                   xs form]
-              (if (seq xs)
-                (let [x (first xs)
-                      uq? (some-> x meta :sci.impl/unquote-splicing)
-                      x' (walk-syntax-quote ctx x)
-                      ret (if uq?
-                            (into ret x')
-                            (conj ret x'))]
-                  (recur ret (rest xs)))
-                (seq ret)))]
-    ret))
-
-#_(defn process-symbol [{:keys [:gensyms] :as ctx} sym]
-  (let [m (meta sym)]
-    (if (:sci.impl/eval m)
-      (interpret ctx sym)
-      (if (namespace sym)
-        sym
-        (let [n (name sym)]
-          (if (str/ends-with? n "#")
-            (if-let [generated (get @gensyms sym)]
-              (interpret ctx generated)
-              (let [n (subs n 0 (dec (count n)))
-                    generated (gensym (str n "__"))
-                    generated (symbol (str (name generated) "__auto__"))]
-                (swap! gensyms assoc sym generated)
-                generated))
-            sym))))))
-
-#_(defn walk-syntax-quote
-  [ctx form]
-  (cond
-    (:sci.impl/eval (meta form)) (interpret ctx form)
-    (list? form) (let [f (first form)]
-                   (if (= 'syntax-quote f)
-                     (eval-syntax-quote ctx form)
-                     (apply list (process-seq ctx form))))
-    (seq? form) (process-seq ctx form)
-    #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
-    form
-    (coll? form) (into (empty form)
-                       (process-seq ctx form))
-    (symbol? form) (process-symbol ctx form)
-    :else (interpret ctx form)))
-
-#_(defn eval-syntax-quote
-  [ctx expr]
-  (let [gensyms (atom {})
-        ctx (assoc ctx :gensyms gensyms)]
-    (walk-syntax-quote ctx (second expr))))
-
-;;;; End syntax-quote
-
 ;;;; Interop
 
 (defn eval-static-method-invocation [ctx expr]
