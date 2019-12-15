@@ -524,7 +524,26 @@
 (user/foo)")))
   (is (= 'user/x (eval* "`x")))
   (is (= '(try user/x (finally user/x)) (eval* "`(try x (finally x))")))
-  (is (= {:a 1} (eval* "`{:a 1}"))))
+  (is (= {:a 1} (eval* "`{:a 1}")))
+  (is (= '(quote user/x) (eval* "``x")))
+  (is (= :smile (eval* "
+(defn caller
+  [a-map]
+  ((get a-map :a-fn)))
+
+(defmacro hash-test
+  []
+  `(let [a-fn# (fn [] :smile)]
+     (caller {:a-fn a-fn#})))
+
+(hash-test)
+")))
+  (is (= 2 (count (re-seq #"__auto__" (tu/eval* "(str `(let [x# 1] `~x#))" nil)))))
+  #?(:clj (when-not tu/native?
+            (is (= "foo" (tu/eval* "
+(defmacro pat [s] `(java.util.regex.Pattern/compile ~s))
+(def p (pat \"foo\")) (re-find p \"foo\")"
+                                  {:classes {'java.util.regex.Pattern java.util.regex.Pattern}}))))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
