@@ -14,5 +14,5 @@
              form
              (-> (edn/read-string ctx)
                  #?(:clj (addons/future)))))]
-    (when (some? v) (prn v )))
+    (when (some? v) (prn v)))
   #?(:clj (shutdown-agents)))

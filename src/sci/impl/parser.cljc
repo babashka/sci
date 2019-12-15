@@ -22,18 +22,19 @@
         current-ns-str (str current-ns)
         namespaces (get env :namespaces)
         the-current-ns (get namespaces current-ns)
-        aliases (:aliases the-current-ns)]
-    (if-not sym-ns
-      (let [clojure-core (get namespaces 'clojure.core)]
-        (if (or (get clojure-core sym)
-                (contains? ana/macros sym))
-          (symbol "clojure.core" sym-name-str)
-          (symbol current-ns-str sym-name-str)))
-      (if (get-in env [:namespaces sym-ns])
-        sym
-        (if-let [ns (get aliases sym-ns)]
-          (symbol (str ns) sym-name-str)
-          sym)))))
+        aliases (:aliases the-current-ns)
+        ret (if-not sym-ns
+              (let [clojure-core (get namespaces 'clojure.core)]
+                (if (or (get clojure-core sym)
+                        (contains? ana/macros sym))
+                  (symbol "clojure.core" sym-name-str)
+                  (symbol current-ns-str sym-name-str)))
+              (if (get-in env [:namespaces sym-ns])
+                sym
+                (if-let [ns (get aliases sym-ns)]
+                  (symbol (str ns) sym-name-str)
+                  sym)))]
+    ret))
 
 (defn parse-next
   ([r]
@@ -46,13 +47,16 @@
          the-current-ns (get-in env-val [:namespaces current-ns])
          aliases (:aliases the-current-ns)
          auto-resolve (assoc aliases
-                             :current current-ns)]
-     (parser/parse-next (assoc opts
-                               :read-cond :allow
-                               :features features
-                               :auto-resolve auto-resolve
-                               :qualify-fn #(fully-qualify env-val %))
-                        r))))
+                             :current current-ns)
+         parse-opts (assoc opts
+                           :read-cond :allow
+                           :features features
+                           :auto-resolve auto-resolve
+                           :syntax-quote {:qualify-fn #(fully-qualify env-val %)})
+         ret (parser/parse-next parse-opts
+                                r)]
+     ;; (prn "ret" ret)
+     ret)))
 
 ;;;; Scratch
 

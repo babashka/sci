@@ -454,7 +454,6 @@
            ret nil]
       (let [expr (or (first queue)
                      (p/parse-next ctx reader))]
-        ;; (prn "EXPR" expr)
         (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
             (let [ret (eval-form ctx expr)]
               (if (seq queue) (recur (rest queue) ret)
