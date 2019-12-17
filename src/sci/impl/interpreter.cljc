@@ -243,12 +243,17 @@
   (let [args (map #(interpret ctx %) args)] ;; eval args!
     (interop/invoke-constructor ctx class args)))
 
+#?(:clj
+   (defn super-symbols [clazz]
+     ;; (prn clazz '-> (map #(symbol (.getName ^Class %)) (supers clazz)))
+     (map #(symbol (.getName ^Class %)) (supers clazz))))
+
 (defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
   (let [instance-expr* (interpret ctx instance-expr)
         clazz (#?(:clj class :cljs type) instance-expr*)
         class-name (#?(:clj .getName :cljs str) clazz)
         class-symbol (symbol class-name)
-        opts (get class->opts class-symbol)]
+        opts (some #(get class->opts %) (cons class-symbol (lazy-seq (super-symbols clazz))))]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
     (when-not opts
