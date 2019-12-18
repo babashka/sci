@@ -274,11 +274,11 @@ for this class. Also see [`reflection.json`](reflection.json).
 
 Currently the following special forms/macros are supported: `def`, `fn`,
 function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
-`when`, `when-let`, `when-not`, `cond`, `let`, `and`, `or`, `->`, `->>`, `as->`,
-`comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`,
-`declare`, `cond->`, `cond->>`, `some->`, `require`, `import`, `in-ns`, `ns`,
-`binding`, `with-out-str`, `with-in-str`, `future`. Sci also supports user
-defined macros.
+`when`, `when-let`, `when-not`, `cond`, `let`, `letfn`, `and`, `or`, `->`,
+`->>`, `as->`, `comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`,
+`try/catch/finally`, `declare`, `cond->`, `cond->>`, `some->`, `require`,
+`import`, `in-ns`, `ns`, `binding`, `with-out-str`, `with-in-str`, `future`. Sci
+also supports user defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).

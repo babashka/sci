@@ -253,7 +253,7 @@
         clazz (#?(:clj class :cljs type) instance-expr*)
         class-name (#?(:clj .getName :cljs str) clazz)
         class-symbol (symbol class-name)
-        opts (some #(get class->opts %) (cons class-symbol (lazy-seq (super-symbols clazz))))]
+        opts (some #(get class->opts %) (cons class-symbol (lazy-seq #?(:clj (super-symbols clazz)))))]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
     (when-not opts

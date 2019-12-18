@@ -624,6 +624,11 @@
 (deftest clojure-walk-test
   (is (= {"a" {"b" 1}} (eval* "(clojure.walk/stringify-keys {:a {:b 1}})"))))
 
+(deftest letfn-test
+  (is (= 2 (eval* "(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1))")))
+  (is (= 3 (eval* "(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1 2))")))
+  (is (= 11 (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))] (f 10))"))))
+
 ;;;; Scratch
 
 (comment
