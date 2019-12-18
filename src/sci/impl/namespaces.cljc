@@ -124,9 +124,6 @@
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
-#_(defn __close!__ [^java.io.Closeable x]
-  (.close x))
-
 (defn with-open*
   [_ _ bindings & body]
   (cond
@@ -142,6 +139,25 @@
 
 (defn ns-name* [^sci.impl.vars.SciNamespace ns]
   (vars/getName ns))
+
+(defn letfn* [_ _ fnspecs & body]
+  (let [syms (map first fnspecs)
+        state-sym (gensym "state")
+        fns (map (fn [sym]
+                   `(fn [& args#]
+                      (apply (get (deref ~state-sym) '~sym) args#))) syms)]
+    `(let [~state-sym (volatile! {})
+           ~@(interleave syms fns)
+           ~@(mapcat (fn [sym fnspec]
+                       [sym `(fn ~sym ~@(rest fnspec))]) syms fnspecs)]
+       (do ~@(map (fn [sym]
+                    `(vswap! ~state-sym assoc '~sym ~sym)) syms)
+           ~@body))))
+
+
+(defn vswap!*
+  [vol f & args]
+  (vreset! vol (apply f @vol args)))
 
 (def clojure-core
   {'*ns* vars/current-ns
@@ -308,6 +324,7 @@
    'keyword keyword
    'keyword? keyword?
    'last last
+   'letfn (macrofy letfn*)
    'long long
    'list list
    'list? list?
@@ -438,7 +455,6 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
-   ;; 'throw throw*
    'trampoline trampoline
    'transduce transduce
    'tree-seq tree-seq
@@ -478,6 +494,9 @@
    'vec vec
    'vector vector
    'vector? vector?
+   'volatile! volatile!
+   'vreset! vreset!
+   'vswap! vswap!*
    'when-first (macrofy when-first*)
    'when-let (macrofy when-let*)
    'when-not (macrofy when-not*)
