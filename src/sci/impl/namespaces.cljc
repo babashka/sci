@@ -152,6 +152,7 @@
                        [sym `(fn ~sym ~@(rest fnspec))]) syms fnspecs)]
        (do ~@(map (fn [sym]
                     `(vswap! ~state-sym assoc '~sym ~sym)) syms)
+           nil ;; if body is empty, we return nil and not the result of vswaps.
            ~@body))))
 
 

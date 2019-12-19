@@ -627,7 +627,8 @@
 (deftest letfn-test
   (is (= 2 (eval* "(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1))")))
   (is (= 3 (eval* "(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1 2))")))
-  (is (= 11 (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))] (f 10))"))))
+  (is (= 11 (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))] (f 10))")))
+  (is (nil? (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))])"))))
 
 ;;;; Scratch
 
