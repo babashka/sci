@@ -78,11 +78,12 @@
            (check-permission! ctx k sym)
            kv))]
     ;; (prn 'lookup sym '-> res)
-    (if-let [m (meta k)]
+    (if-let [m (and (not (:sci.impl/prevent-deref ctx)) (meta k))]
       (if (:sci/deref! m)
         ;; the evaluation of this expression has been delayed by
         ;; the caller and now is the time to deref it
-        [k @v] kv)
+        (let [v (if (vars/var? v) @v v)]
+          [k @v]) kv)
       kv)))
 
 (defn resolve-symbol
@@ -501,7 +502,7 @@
      :sci.impl/var-value true}))
 
 (defn analyze-var [ctx [_ var-name]]
-  (let [v (resolve-symbol ctx var-name)]
+  (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
     (if (vars/var? v)
       (wrapped-var v)
       v)))
