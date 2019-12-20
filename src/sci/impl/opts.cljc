@@ -25,6 +25,7 @@
 (def default-classes
   #?(:clj {'java.lang.AssertionError AssertionError
            'java.lang.Exception {:class Exception}
+           'clojure.lang.Delay clojure.lang.Delay
            'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
            'clojure.lang.LineNumberingPushbackReader clojure.lang.LineNumberingPushbackReader
            'java.lang.String {:class String}
@@ -34,6 +35,7 @@
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException}
      :cljs {'Error js/Error
+            ;; TODO: delay
             'goog.string.StringBuffer goog.string/StringBuffer}))
 
 (def default-imports

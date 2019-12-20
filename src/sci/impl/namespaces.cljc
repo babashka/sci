@@ -160,6 +160,11 @@
   [vol f & args]
   (vreset! vol (apply f @vol args)))
 
+(defn delay*
+  [_ _ & body]
+  #?(:clj `(new clojure.lang.Delay (fn [] ~@body))
+     :cljs `(new cljs.core/Delay (fn [] ~@body) nil)))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -251,6 +256,7 @@
    'chunked-seq? chunked-seq?
    'dec dec
    'dedupe dedupe
+   'delay (macrofy delay*)
    'deref deref
    'dissoc dissoc
    'distinct distinct
