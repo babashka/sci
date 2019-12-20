@@ -356,6 +356,9 @@
           (:sci.impl/eval-call m) (eval-call ctx expr)
           (:sci.impl/static-access m) (interop/get-static-field ctx expr)
           (:sci.impl/var-value m) (nth expr 0)
+          (:sci.impl/deref! m) (let [v (first expr)
+                                     v (if (vars/var? v) @v v)]
+                                 (force v))
           (vars/var? expr) (if-not (vars/isMacro expr)
                              (deref expr)
                              (throw (new #?(:clj IllegalStateException :cljs js/Error)

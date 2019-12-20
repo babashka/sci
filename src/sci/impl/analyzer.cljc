@@ -78,12 +78,15 @@
            (check-permission! ctx k sym)
            kv))]
     ;; (prn 'lookup sym '-> res)
-    (if-let [m (and (not (:sci.impl/prevent-deref ctx)) (meta k))]
-      (if (:sci/deref! m)
+    (if-let [m (and (not (:sci.impl/prevent-deref ctx))
+                    (meta k))]
+      (if (:sci.impl/deref! m)
         ;; the evaluation of this expression has been delayed by
         ;; the caller and now is the time to deref it
-        (let [v (if (vars/var? v) @v v)]
-          [k @v]) kv)
+        [k (with-meta [v]
+             {:sci.impl/deref! true
+              :sci.impl/eval true})]
+        kv)
       kv)))
 
 (defn resolve-symbol
@@ -577,7 +580,7 @@
               (let [v (apply f expr
                              (:bindings ctx) (rest expr))
                     expanded (analyze ctx v)]
-                expanded)
+                expanded )
               (mark-eval-call (analyze-children ctx expr)))
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
