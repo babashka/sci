@@ -560,7 +560,7 @@
                     'triml str/triml
                     'trimr str/trimr
                     'upper-case str/upper-case
-                    #?@(:clj ['str/re-quote-replacement str/re-quote-replacement])}
+                    #?@(:clj ['re-quote-replacement str/re-quote-replacement])}
    'clojure.set {'difference set/difference
                  'index set/index
                  'intersection set/intersection
