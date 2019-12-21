@@ -2,7 +2,6 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand])
   (:require
-   [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
@@ -174,9 +173,10 @@
     (if-let [the-loaded-ns (get namespaces lib-name)]
       (reset! env* (handle-require-libspec-env env current-ns the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn ctx)]
-        (if-let [source (load-fn {:namespace lib-name})]
+        (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
-            (eval-string* ctx source)
+            (vars/with-bindings {vars/file-var file}
+              (eval-string* ctx source))
             (set-namespace! ctx current-ns)
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)

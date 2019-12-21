@@ -166,6 +166,7 @@
    '*in* io/in
    '*out* io/out
    '*err* io/err
+   '*file* vars/file-var
    'newline io/newline
    'flush io/flush
    'pr io/pr
