@@ -25,22 +25,19 @@
      :cljs (throw (js/Error. "Not implemented yet."))))
 
 (defn invoke-constructor #?(:clj [_ctx ^Class class args]
-                            :cljs [_ctx class args])
+                            :cljs [_ctx constructor args])
   #?(:clj (Reflector/invokeConstructor class (object-array args))
-     :cljs (let [args (into-array args)
-                 obj (js/Object.create (.-prototype class))
-                 ;; this is a little bit hacky and I don't know if this works in general, but in the case of
-                 ;; goog.string/StringBuffer we needed to skip the .apply part
-                 obj (if (empty? args)
-                       obj
-                       (.apply class obj args))]
-             obj)))
+     :cljs (apply constructor args)))
 
-(defn resolve-class [{:keys [:env :sym->class]} sym]
-  (or #?(:clj (get sym->class sym)
-         :cljs (if-let [ns* (namespace sym)]
-                 (when (identical? "js" ns*)
-                   (get sym->class (symbol (name sym))))
-                 (get sym->class sym)))
-      (when-let [v (get (:imports @env) sym)]
-        (get sym->class v))))
+(defn resolve-class-opts [{:keys [:env :class->opts]} sym]
+  (let [class-opts (or #?(:clj (get class->opts sym)
+                     :cljs (if-let [ns* (namespace sym)]
+                             (when (identical? "js" ns*)
+                               (get class->opts (symbol (name sym))))
+                             (get class->opts sym)))
+                  (when-let [v (get (:imports @env) sym)]
+                    (get class->opts v)))]
+    class-opts))
+
+(defn resolve-class [ctx sym]
+  (:class (resolve-class-opts ctx sym)))

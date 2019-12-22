@@ -19,6 +19,12 @@
     "allPublicConstructors": true
   },
   {
+    "name": "clojure.lang.Delay",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
+  },
+  {
     "name": "clojure.lang.ExceptionInfo",
     "allPublicMethods":true,
     "allPublicFields": true,

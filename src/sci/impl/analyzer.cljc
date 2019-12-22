@@ -449,9 +449,10 @@
 
 
 (defn expand-new [ctx [_new class-sym & args]]
-  (if-let [clazz (interop/resolve-class ctx class-sym)]
+  (if-let [#?(:clj {:keys [:class] :as _opts}
+              :cljs {:keys [:constructor] :as _opts}) (interop/resolve-class-opts ctx class-sym)]
     (let [args (analyze-children ctx args)] ;; analyze args!
-      (mark-eval-call (list 'new clazz args)))
+      (mark-eval-call (list 'new #?(:clj class :cljs constructor) args)))
     (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
