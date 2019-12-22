@@ -41,10 +41,12 @@
         the-current-ns (-> env :namespaces current-ns)]
     (or (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
         (cond
-          (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))) ;; or cljs.core?
-          (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
-              (when-let [v (get macros sym-name)]
-                [sym v]))
+          (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core)))
+          (when-not (contains?
+                     (get-in the-current-ns [:refer 'clojure.core :exclude]) sym-name)
+            (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
+                (when-let [v (get macros sym-name)]
+                  [sym v])))
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [aliased (-> the-current-ns :aliases sym-ns)]
@@ -54,12 +56,14 @@
                 [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
           :else
           ;; no sym-ns, this could be a symbol from clojure.core
-          (or
-           (some-> env :namespaces (get 'clojure.core) (find sym-name))
-           (when (get macros sym)
-             [sym sym])
-           (when-let [c (interop/resolve-class ctx sym)]
-             [sym c]))))))
+          (when-not (contains?
+                     (get-in the-current-ns [:refer 'clojure.core :exclude]) sym-name)
+            (or
+             (some-> env :namespaces (get 'clojure.core) (find sym-name))
+             (when (get macros sym)
+               [sym sym])
+             (when-let [c (interop/resolve-class ctx sym)]
+               [sym c])))))))
 
 (defn lookup [{:keys [:bindings] :as ctx} sym]
   (let [[k v :as kv]
@@ -447,7 +451,6 @@
 (defn expand-dot* [ctx [method-name obj & args]]
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
-
 (defn expand-new [ctx [_new class-sym & args]]
   (if-let [#?(:clj {:keys [:class] :as _opts}
               :cljs {:keys [:constructor] :as _opts}) (interop/resolve-class-opts ctx class-sym)]
@@ -492,7 +495,10 @@
             :import (do
                       ;; imports are processed analysis time
                       (do-import ctx `(~'import ~@args))
-                      (recur (next exprs) ret))))
+                      (recur (next exprs) ret))
+            :refer-clojure (recur (next exprs)
+                                  (conj ret
+                                        (mark-eval-call `(~'refer ~'clojure.core ~@args))))))
         (mark-eval-call (list* 'do ret))))))
 
 ;;;; End namespaces
