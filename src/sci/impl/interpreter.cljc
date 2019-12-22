@@ -239,9 +239,9 @@
                                       ;; eval args!
                                       (map #(interpret ctx %) (rest expr)))))
 
-(defn eval-constructor-invocation [ctx [_new class args]]
+(defn eval-constructor-invocation [ctx [_new #?(:clj class :cljs constructor) args]]
   (let [args (map #(interpret ctx %) args)] ;; eval args!
-    (interop/invoke-constructor ctx class args)))
+    (interop/invoke-constructor ctx #?(:clj class :cljs constructor) args)))
 
 #?(:clj
    (defn super-symbols [clazz]

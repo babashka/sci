@@ -34,9 +34,14 @@
            'java.lang.Integer Integer
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException}
-     :cljs {'Error js/Error
-            ;; TODO: delay
-            'goog.string.StringBuffer goog.string/StringBuffer}))
+     :cljs {'Error {:class js/Error :constructor (fn
+                                                   ([msg] (js/Error. msg))
+                                                   ([msg filename] (js/Error. msg filename))
+                                                   ([msg filename line] (js/Error. msg filename line)))}
+            'cljs.core.Delay {:class cljs.core/Delay
+                              :constructor #(cljs.core/Delay. % nil)}
+            'goog.string.StringBuffer {:class goog.string/StringBuffer
+                                       :constructor #(goog.string/StringBuffer. %)}}))
 
 (def default-imports
   #?(:clj '{AssertionError java.lang.AssertionError
@@ -48,20 +53,16 @@
      :cljs {}))
 
 (defn normalize-classes [classes]
-  (loop [sym->class (transient {})
-         class->opts (transient {})
+  (loop [class->opts (transient {})
          kvs classes]
     (if-let [[sym class-opts] (first kvs)]
-      (let [[class class-opts] (if (map? class-opts)
-                                 [(:class class-opts) class-opts]
-                                 [class-opts {}])]
-        (recur (assoc! sym->class sym class)
-               ;; storing the physical class as key didn't work well with
-               ;; GraalVM
-               (assoc! class->opts sym class-opts)
-               (rest kvs)))
-      {:sym->class (persistent! sym->class)
-       :class->opts (persistent! class->opts)})))
+      (recur ;; storing the physical class as key didn't work well with
+             ;; GraalVM
+             (assoc! class->opts sym (if (map? class-opts)
+                                       class-opts
+                                       {:class class-opts}))
+             (rest kvs))
+      {:class->opts (persistent! class->opts)})))
 
 (defn init
   "Initializes options"

@@ -163,7 +163,7 @@
 (defn delay*
   [_ _ & body]
   #?(:clj `(new clojure.lang.Delay (fn [] ~@body))
-     :cljs `(new cljs.core/Delay (fn [] ~@body) nil)))
+     :cljs `(new cljs.core.Delay (fn [] ~@body))))
 
 (def clojure-core
   {'*ns* vars/current-ns

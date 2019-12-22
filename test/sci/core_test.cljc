@@ -630,6 +630,9 @@
   (is (= 11 (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))] (f 10))")))
   (is (nil? (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))])"))))
 
+(deftest core-delay-test
+  (is (= 1 (eval* "@(delay 1)"))))
+
 ;;;; Scratch
 
 (comment
