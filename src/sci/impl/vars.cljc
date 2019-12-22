@@ -391,6 +391,8 @@
            (do ~@body)
            (finally (vars/pop-thread-bindings))))))
 
+(def file-var (dynamic-var '*file* nil))
+
 (def current-ns (dynamic-var '*ns* (SciNamespace. 'user)))
 
 (comment
