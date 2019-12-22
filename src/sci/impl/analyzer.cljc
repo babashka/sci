@@ -473,11 +473,11 @@
 (defn analyze-ns-form [ctx [_ns ns-name & exprs]]
   (let [;; skip docstring
         exprs (if (string? (first exprs))
-                (rest exprs)
+                (next exprs)
                 exprs)
         ;; skip attr-map
         exprs (if (map? (first exprs))
-                (rest exprs)
+                (next exprs)
                 exprs)]
     (set-namespace! ctx ns-name)
     (loop [exprs exprs

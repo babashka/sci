@@ -32,3 +32,6 @@
 
 (deftest ns-name-test
   (is (= 'foo (eval* "(ns foo) (ns-name *ns*)"))))
+
+(deftest no-crash-test
+  (is (= :foo/foo (eval* "(ns foo \"docstring\") ::foo"))))
