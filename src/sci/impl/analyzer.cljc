@@ -42,11 +42,9 @@
     (or (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
         (cond
           (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core)))
-          (when-not (contains?
-                     (get-in the-current-ns [:refer 'clojure.core :exclude]) sym-name)
-            (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
-                (when-let [v (get macros sym-name)]
-                  [sym v])))
+          (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
+              (when-let [v (get macros sym-name)]
+                [sym v]))
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [aliased (-> the-current-ns :aliases sym-ns)]
