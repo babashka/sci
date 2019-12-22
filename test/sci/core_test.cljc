@@ -453,6 +453,14 @@
                         (eval* "(let [x 2]
                                   (cond (string? x) 1 :else))"))))
 
+(deftest condp-test
+  (is (= "one" (eval* "(condp = 1 1 \"one\")")))
+  (is (= 3 (eval* "
+(condp some [1 2 3 4]
+  #{0 6 7} :>> inc
+  #{4 5 9} :>> dec
+  #{1 2 3} :>> #(+ % 3))"))))
+
 (deftest regex-test
   (is (= "1" (eval* "(re-find #\"\\d\" \"aaa1aaa\")"))))
 

@@ -25,6 +25,7 @@
 (def default-classes
   #?(:clj {'java.lang.AssertionError AssertionError
            'java.lang.Exception {:class Exception}
+           'java.lang.IllegalArgumentException java.lang.IllegalArgumentException
            'clojure.lang.Delay clojure.lang.Delay
            'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
            'clojure.lang.LineNumberingPushbackReader clojure.lang.LineNumberingPushbackReader
