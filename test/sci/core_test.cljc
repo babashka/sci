@@ -641,6 +641,11 @@
   (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) get")))
   (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) clojure.core/get"))))
 
+(deftest core-resolve-test
+  (eval* (= 1 "((resolve 'clojure.core/inc) 0)"))
+  (eval* (= 1 "((resolve 'inc) 0)"))
+  (eval* (= true "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))")))
+
 ;;;; Scratch
 
 (comment
