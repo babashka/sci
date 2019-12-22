@@ -633,6 +633,10 @@
 (deftest core-delay-test
   (is (= 1 (eval* "@(delay 1)"))))
 
+(deftest defn--test
+  (is (= 1 (eval* "(defn- foo [] 1) (foo)")))
+  (is (:private (eval* "(defn- foo [] 1) (meta #'foo)"))))
+
 ;;;; Scratch
 
 (comment

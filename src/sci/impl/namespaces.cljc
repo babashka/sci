@@ -165,6 +165,10 @@
   #?(:clj `(new clojure.lang.Delay (fn [] ~@body))
      :cljs `(new cljs.core.Delay (fn [] ~@body))))
 
+(defn defn-*
+  [_ _ name & decls]
+  (list* `defn (with-meta name (assoc (meta name) :private true)) decls))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -257,6 +261,7 @@
    'chunked-seq? chunked-seq?
    'dec dec
    'dedupe dedupe
+   'defn- (macrofy defn-*)
    'delay (macrofy delay*)
    'deref deref
    'dissoc dissoc
