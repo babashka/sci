@@ -21,7 +21,7 @@
 (def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq require cond case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
-               set!})
+               set! resolve})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))

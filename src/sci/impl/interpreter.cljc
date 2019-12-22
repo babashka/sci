@@ -287,6 +287,12 @@
                                   (fnil into #{}) v)))))
           (recur (nnext exprs)))))))
 
+(declare eval-form)
+
+(defn eval-resolve [ctx [_ sym]]
+  (let [sym (interpret ctx sym)]
+    (second (ana/lookup ctx sym))))
+
 ;;;; End namespaces
 
 (defn eval-set! [ctx [_ obj v]]
@@ -351,7 +357,8 @@
                  throw (eval-throw ctx expr)
                  in-ns (eval-in-ns ctx expr)
                  set! (eval-set! ctx expr)
-                 refer (eval-refer ctx expr))))
+                 refer (eval-refer ctx expr)
+                 resolve (eval-resolve ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
