@@ -270,6 +270,20 @@
     (set-namespace! ctx ns-sym)
     nil))
 
+(defn eval-refer [ctx [_ ns-sym & exprs]]
+  (let [ns-sym (interpret ctx ns-sym)]
+    (loop [exprs exprs]
+      (when exprs
+        (let [[k v] exprs]
+          (case k
+            :exclude
+            (swap! (:env ctx)
+                   (fn [env]
+                     (let [current-ns (:current-ns env)]
+                       (update-in env [:namespaces current-ns :refer ns-sym :exclude]
+                                  (fnil into #{}) v)))))
+          (recur (nnext exprs)))))))
+
 ;;;; End namespaces
 
 (defn eval-set! [ctx [_ obj v]]
@@ -333,7 +347,8 @@
                  . (eval-instance-method-invocation ctx expr)
                  throw (eval-throw ctx expr)
                  in-ns (eval-in-ns ctx expr)
-                 set! (eval-set! ctx expr))))
+                 set! (eval-set! ctx expr)
+                 refer (eval-refer ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
