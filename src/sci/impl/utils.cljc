@@ -51,7 +51,11 @@
   ([msg iobj data]
    (let [{:keys [:row :col]} (meta iobj)
          msg (str msg
-                  " [at line " row ", column " col "]") ]
+                  " [at "
+                  (when-let [v @vars/file-var]
+                    (str v ", "))
+                  "line "
+                  row ", column " col "]") ]
      (throw (ex-info msg (merge {:type :sci/error
                                  :row row
                                  :col col} data))))))
@@ -60,12 +64,17 @@
   (if-not (:sci.impl/in-try ctx)
     (if-let [m #?(:clj (.getMessage e)
                   :cljs (.-message e))]
-      (if (str/includes? m "[at line")
+      (if (str/includes? m "[at")
         (throw e)
         (let [{:keys [:row :col] :or {row (:row ctx)
                                       col (:col ctx)}} (meta node)]
           (if (and row col)
-            (let [m (str m " [at line " row ", column " col "]")
+            (let [m (str m
+                         " [at "
+                         (when-let [v @vars/file-var]
+                           (str v ", "))
+                         "line "
+                         row ", column " col "]")
                   new-exception (let [d (ex-data e)]
                                   (ex-info m (merge {:type :sci/error
                                                      :row row
