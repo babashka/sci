@@ -127,16 +127,19 @@
              expr)))]
     (if (vars/var? v) @v v)))
 
-(defn parse-libspec-opts [opts]
-  (loop [opts-map {}
-         [opt-name fst-opt & rst-opts] opts]
-    (if-not opt-name opts-map
-            (case opt-name
-              :as (recur (assoc opts-map :as fst-opt)
-                         rst-opts)
-              (:reload :reload-all :verbose) (recur opts-map (cons fst-opt rst-opts))
-              :refer (recur (assoc opts-map :refer fst-opt)
-                            rst-opts)))))
+(defn parse-libspec [libspec]
+  (if (symbol? libspec)
+    {:lib-name libspec}
+    (let [[lib-name & opts] libspec]
+      (loop [ret {:lib-name lib-name}
+             [opt-name fst-opt & rst-opts] opts]
+        (if-not opt-name ret
+                (case opt-name
+                  :as (recur (assoc ret :as fst-opt)
+                             rst-opts)
+                  (:reload :reload-all :verbose) (recur ret (cons fst-opt rst-opts))
+                  :refer (recur (assoc ret :refer fst-opt)
+                                rst-opts)))))))
 
 (declare eval-string*)
 
@@ -164,8 +167,8 @@
     env))
 
 (defn handle-require-libspec
-  [ctx [lib-name & opts]]
-  (let [parsed-libspec (parse-libspec-opts opts)
+  [ctx libspec]
+  (let [{:keys [:lib-name] :as parsed-libspec} (parse-libspec libspec)
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         current-ns (:current-ns env)

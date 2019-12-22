@@ -129,4 +129,8 @@
     (swap! env (fn [env]
                  (let [ns-var (get-in env [:namespaces 'clojure.core '*ns*])]
                    (vars/bindRoot ns-var (sci.impl.vars.SciNamespace. ns-sym))
-                   (assoc env :current-ns ns-sym))))))
+                   (-> env
+                       (assoc :current-ns ns-sym)
+                       (update-in [:namespaces ns-sym] (fn [the-ns]
+                                                       (if (nil? the-ns) {}
+                                                        the-ns)))))))))

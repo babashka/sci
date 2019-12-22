@@ -440,7 +440,8 @@
                         (eval* "(require '[clojure.foo :as s])")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"quux does not exist"
-                        (eval* "(require '[clojure.set :refer [quux]])"))))
+                        (eval* "(require '[clojure.set :refer [quux]])")))
+  (is (= [1 2 3] (eval* "(ns foo) (def x 1) (ns bar) (def x 2) (in-ns 'baz) (def x 3) (require 'foo 'bar) [foo/x bar/x x]"))))
 
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
