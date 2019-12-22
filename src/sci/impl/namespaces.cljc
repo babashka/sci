@@ -311,6 +311,7 @@
    'if-let (macrofy if-let*)
    'if-not (macrofy if-not*)
    'inc inc
+   'instance? instance?
    'int-array int-array
    'interleave interleave
    'into into
