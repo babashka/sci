@@ -647,8 +647,8 @@
   (is (:private (eval* "(defn- foo [] 1) (meta #'foo)"))))
 
 (deftest refer-clojure-exclude
-  (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) get")))
-  (is (some? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) get"))))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
 
 (deftest core-resolve-test
   (eval* (= 1 "((resolve 'clojure.core/inc) 0)"))
