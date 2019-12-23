@@ -6,8 +6,13 @@
 
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
-               (let [namespaces (merge-with merge {'user bindings} namespaces/namespaces (:namespaces env) namespaces)
-                     aliases (merge namespaces/aliases (:aliases env) aliases)
+               (let [namespaces (merge-with merge
+                                            namespaces/namespaces
+                                            {'user bindings}
+                                            namespaces
+                                            (:namespaces env))
+                     aliases (merge namespaces/aliases aliases
+                                    (get-in env [:namespaces 'user :aliases]))
                      namespaces (update namespaces 'user assoc :aliases aliases)]
                  (assoc env
                         :namespaces namespaces
