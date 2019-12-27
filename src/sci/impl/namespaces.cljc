@@ -55,7 +55,7 @@
           (if (next clauses)
             (second clauses)
             (throw (new #?(:clj IllegalArgumentException
-                           :cljs js/error)
+                           :cljs js/Error)
                         "cond requires an even number of forms")))
           (cons 'clojure.core/cond (next (next clauses))))))
 
@@ -219,8 +219,7 @@
    #?@(:clj ['printf io/printf])
    'with-out-str (with-meta io/with-out-str
                    {:sci/macro true})
-   #?@(:clj [
-             'with-in-str (with-meta io/with-in-str
+   #?@(:clj ['with-in-str (with-meta io/with-in-str
                             {:sci/macro true})
              'read-line io/read-line])
    ;; end io
