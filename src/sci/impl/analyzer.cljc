@@ -519,8 +519,11 @@
     (if (seq? expr)
       (let [op (first expr)]
         (if (symbol? op)
-          (if (get special-syms op) expr
-              (let [f (resolve-symbol ctx op)
+          (cond (get special-syms op) expr
+                (contains? macros op) (analyze (assoc ctx :sci.impl/macroexpanding true)
+                                               expr)
+                :else
+                (let [f (resolve-symbol ctx op)
                     f (if (and (vars/var? f)
                                (vars/isMacro f))
                         @f f)]
@@ -558,16 +561,28 @@
             let (expand-let ctx expr)
             (fn fn*) (expand-fn ctx expr false)
             def (expand-def ctx expr)
+            ;; NOTE: defn / defmacro aren't implemented as normal macros yet
             (defn defmacro) (let [ret (expand-defn ctx expr)]
                               ret)
+            ;; TODO: move to namespaces
             -> (expand-> ctx (rest expr))
+            ;; TODO: move to namespaces
             ->> (expand->> ctx (rest expr))
+            ;; TODO: move to namespaces
             as-> (expand-as-> ctx expr)
             quote (do nil (second expr))
+            ;; TODO: move to namespaces
             comment (expand-comment ctx expr)
             loop (expand-loop ctx expr)
             lazy-seq (expand-lazy-seq ctx expr)
-            for (analyze ctx (expand-for ctx expr))
+            for (let [res (expand-for ctx expr)]
+                  (if (:sci.impl/macroexpanding ctx)
+                    res
+                    (analyze ctx res))) #_(do
+                  ;; TODO: can't we just implement macroexpand-1 here by setting
+                  ;; some flag in ctx?
+                  ;; (prn (expand-for ctx expr))
+                  )
             doseq (analyze ctx (expand-doseq ctx expr))
             require (mark-eval-call
                      (cons 'require (analyze-children ctx (rest expr))))
