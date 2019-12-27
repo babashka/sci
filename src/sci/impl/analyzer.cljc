@@ -280,6 +280,7 @@
 
 (defn expand-def
   [ctx [_def var-name ?docstring ?init :as expr]]
+  (expand-declare ctx [nil var-name])
   (when-not (simple-symbol? var-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
   (let [docstring (when ?init ?docstring)
@@ -297,7 +298,7 @@
   (when-not (simple-symbol? fn-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
   (expand-declare ctx [nil fn-name])
-  (let [macro? (= 'defmacro op)
+  (let [macro? (= "defmacro" (name op))
         docstring (when (string? docstring?) docstring?)
         body (if docstring body
                  (if docstring?

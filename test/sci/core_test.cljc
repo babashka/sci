@@ -659,6 +659,9 @@
   (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 '(foo 1))")))
   (is (= '(if 1 1 (clojure.core/cond)) (eval* "(macroexpand-1 '(cond 1 1))"))))
 
+(deftest compatibility-test
+  (is (true? (eval* "(def foo foo) (var? #'foo)"))))
+
 ;;;; Scratch
 
 (comment
