@@ -48,6 +48,17 @@
               forms)
        ~gx)))
 
+(defn cond*
+  [_ _ & clauses]
+  (when clauses
+    (list 'if (first clauses)
+          (if (next clauses)
+            (second clauses)
+            (throw (new #?(:clj IllegalArgumentException
+                           :cljs js/error)
+                        "cond requires an even number of forms")))
+          (cons 'clojure.core/cond (next (next clauses))))))
+
 (defn cond->*
   [_&form _&env expr & clauses]
   (assert (even? (count clauses)))
@@ -257,6 +268,7 @@
    'char char
    'char? char?
    #?@(:cljs ['clj->js clj->js])
+   'cond (macrofy cond*)
    'cond-> (macrofy cond->*)
    'cond->> (macrofy cond->>*)
    'condp (macrofy condp*)

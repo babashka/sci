@@ -651,9 +651,13 @@
   (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
 
 (deftest core-resolve-test
-  (eval* (= 1 "((resolve 'clojure.core/inc) 0)"))
-  (eval* (= 1 "((resolve 'inc) 0)"))
-  (eval* (= true "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))")))
+  (is (= 1 (eval* "((resolve 'clojure.core/inc) 0)")))
+  (is (= 1 (eval* "((resolve 'inc) 0)")))
+  (is (= true (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
+
+(deftest macroexpand-1-test
+  (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 '(foo 1))")))
+  (is (= '(if 1 1 (clojure.core/cond)) (eval* "(macroexpand-1 '(cond 1 1))"))))
 
 ;;;; Scratch
 
