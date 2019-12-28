@@ -496,7 +496,9 @@
                       (recur (next exprs) ret))
             :refer-clojure (recur (next exprs)
                                   (conj ret
-                                        (mark-eval-call `(~'refer ~'clojure.core ~@args))))))
+                                        (mark-eval-call `(~'refer ~'clojure.core ~@args))))
+            :gen-class ;; ignore
+            (recur (next exprs) ret)))
         (mark-eval-call (list* 'do ret))))))
 
 ;;;; End namespaces
