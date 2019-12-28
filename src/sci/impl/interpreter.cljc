@@ -328,10 +328,11 @@
                (eval-static-method-invocation ctx expr)
                (or eval? (not (symbol? f)))
                (let [f (interpret ctx f)]
-                 (if (ifn? f)
-                   (apply f (map #(interpret ctx %) (rest expr)))
-                   (throw (new #?(:clj Exception :cljs js/Error)
-                               (str "Cannot call " (pr-str f) " as a function.")))))
+                 (cond (:dry-run ctx) nil
+                       (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                       :else
+                       (throw (new #?(:clj Exception :cljs js/Error)
+                                   (str "Cannot call " (pr-str f) " as a function.")))))
                :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
                (case (utils/strip-core-ns f)
                  do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)

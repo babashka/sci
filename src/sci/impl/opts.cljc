@@ -81,7 +81,8 @@
            :classes
            :imports
            :features
-           :load-fn]}]
+           :load-fn
+           :dry-run]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -93,6 +94,7 @@
                     :deny (process-permissions (:deny preset) deny)
                     :realize-max (or realize-max (:realize-max preset))
                     :features features
-                    :load-fn load-fn}
+                    :load-fn load-fn
+                    :dry-run dry-run}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
