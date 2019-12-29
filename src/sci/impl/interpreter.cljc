@@ -197,7 +197,7 @@
 
 (defn eval-require
   [ctx expr]
-  (let [args (rest expr)]
+  (let [args (map #(interpret ctx %) (rest expr))]
     (run! #(handle-require-libspec ctx %) args)))
 
 (defn eval-case
