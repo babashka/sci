@@ -4,7 +4,8 @@
   (:require
    [edamame.impl.parser :as parser]
    [sci.impl.analyzer :as ana]
-   [sci.impl.readers :as readers]))
+   [sci.impl.readers :as readers]
+   [sci.impl.interop :as interop]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -14,8 +15,9 @@
     :read-eval false
     :fn readers/read-fn}))
 
-(defn fully-qualify [env sym]
-  (let [sym-ns (when-let [n (namespace sym)]
+(defn fully-qualify [ctx sym]
+  (let [env @(:env ctx)
+        sym-ns (when-let [n (namespace sym)]
                  (symbol n))
         sym-name-str (name sym)
         current-ns (:current-ns env)
@@ -24,11 +26,11 @@
         the-current-ns (get namespaces current-ns)
         aliases (:aliases the-current-ns)
         ret (if-not sym-ns
-              (let [clojure-core (get namespaces 'clojure.core)]
-                (if (or (get clojure-core sym)
-                        (contains? ana/macros sym))
-                  (symbol "clojure.core" sym-name-str)
-                  (symbol current-ns-str sym-name-str)))
+              (or (when (or (get (get namespaces 'clojure.core) sym)
+                            (contains? ana/macros sym))
+                    (symbol "clojure.core" sym-name-str))
+                  (interop/fully-qualify-class ctx sym)
+                  (symbol current-ns-str sym-name-str))
               (if (get-in env [:namespaces sym-ns])
                 sym
                 (if-let [ns (get aliases sym-ns)]
@@ -52,7 +54,7 @@
                            :read-cond :allow
                            :features features
                            :auto-resolve auto-resolve
-                           :syntax-quote {:resolve-symbol #(fully-qualify env-val %)})
+                           :syntax-quote {:resolve-symbol #(fully-qualify ctx %)})
          ret (parser/parse-next parse-opts
                                 r)]
      ;; (prn "ret" ret)

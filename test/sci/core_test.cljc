@@ -552,7 +552,8 @@
             (is (= "foo" (tu/eval* "
 (defmacro pat [s] `(java.util.regex.Pattern/compile ~s))
 (def p (pat \"foo\")) (re-find p \"foo\")"
-                                  {:classes {'java.util.regex.Pattern java.util.regex.Pattern}}))))))
+                                   {:classes {'java.util.regex.Pattern java.util.regex.Pattern}})))))
+  #?(:clj (is (= 'java.lang.Exception (eval* "`Exception")))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]

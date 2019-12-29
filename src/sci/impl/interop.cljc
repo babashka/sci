@@ -29,6 +29,16 @@
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (apply constructor args)))
 
+(defn fully-qualify-class [{:keys [:env :class->opts]} sym]
+  (or #?(:clj (when (contains? class->opts sym) sym)
+         :cljs (if-let [ns* (namespace sym)]
+                 (when (identical? "js" ns*)
+                   (when (contains? class->opts (symbol (name sym)))
+                     sym))
+                 (when (contains? class->opts sym)
+                   sym)))
+      (get (:imports @env) sym)))
+
 (defn resolve-class-opts [{:keys [:env :class->opts]} sym]
   (let [class-opts (or #?(:clj (get class->opts sym)
                      :cljs (if-let [ns* (namespace sym)]
