@@ -439,8 +439,10 @@
 
 ;;;; Interop
 
-(defn expand-dot [ctx [_dot instance-expr [method-expr & args]]]
-  (let [instance-expr (analyze ctx instance-expr)
+(defn expand-dot [ctx [_dot instance-expr method-expr]]
+  (let [[method-expr & args] (if (seq? method-expr) method-expr
+                                 [method-expr])
+        instance-expr (analyze ctx instance-expr)
         method-expr (str method-expr)
         args (analyze-children ctx args)
         res `(~'. ~instance-expr ~method-expr ~args)]
