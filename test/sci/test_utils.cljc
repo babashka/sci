@@ -38,22 +38,6 @@
 (defmacro assert-submap [m r]
   `(is (submap? ~m ~r)))
 
-(defmacro assert-some-submap [m r]
-  `(is (some #(submap? ~m %) ~r)))
-
-(defmacro assert-submaps
-  "Asserts that maps are submaps of result in corresponding order and
-  that the number of maps corresponds to the number of
-  results. Returns true if all assertions passed (useful for REPL)."
-  [maps result]
-  `(let [maps# ~maps
-         res# ~result]
-     (and
-      (is (= (count maps#) (count res#)))
-      (every? identity
-              (for [[m# r#] (map vector maps# res#)]
-                (assert-submap m# r#))))))
-
 ;;;; Scratch
 
 (comment

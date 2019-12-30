@@ -5,9 +5,6 @@
 
 (derive :sci.error/realized-beyond-max :sci/error)
 
-(defn sci-error? [e]
-  (isa? (:type e) :sci/error))
-
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x)))
 
