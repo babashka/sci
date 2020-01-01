@@ -672,6 +672,10 @@
 (deftest defonce-test
   (is (= 1 (eval* "(defonce x 1) (defonce x 2) x"))))
 
+(deftest metadata-on-var-test
+  (is (= 'x (eval* "(def x) (:name (meta #'x))")))
+  (is (= 'foo (eval* "(ns foo) (declare x) (def x 2) (ns-name (:ns (meta #'x)))"))))
+
 ;;;; Scratch
 
 (comment
