@@ -407,16 +407,19 @@
 (defn expand-declare [ctx [_declare & names :as _expr]]
   (swap! (:env ctx)
          (fn [env]
-           (let [current-ns (:current-ns env)]
-             (update-in env [:namespaces current-ns]
+           (let [current-ns-sym (:current-ns env)]
+             (update-in env [:namespaces current-ns-sym]
                         (fn [current-ns]
                           (reduce (fn [acc name]
                                     (if (contains? acc name)
                                       ;; declare does not override an existing
                                       ;; var
                                       acc
-                                      (assoc acc name (vary-meta (mark-eval name)
-                                                                 #(assoc % :sci.impl/var.declared true)))))
+                                      (assoc acc name
+                                             (doto (vars/->SciVar nil (symbol (str current-ns-sym)
+                                                                              (str name))
+                                                                  (meta name))
+                                               (vars/unbind)))))
                                   current-ns
                                   names))))))
   nil)
@@ -602,7 +605,9 @@
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (constant? v) v
                                          (fn? v) (merge-meta v {:sci.impl/eval false})
-                                         (vars/var? v) (with-meta v (assoc (meta v) :sci.impl/eval true))
+                                         (vars/var? v) (if (:const (meta v))
+                                                         @v
+                                                         (with-meta v (assoc (meta v) :sci.impl/eval true)))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta

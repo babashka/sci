@@ -589,7 +589,7 @@
 (deftest declare-test
   (is (= [1 2] (eval* "(declare foo bar) (defn f [] [foo bar]) (def foo 1) (def bar 2) (f)")))
   (is (= 1 (eval* "(def x 1) (declare x) x")))
-  (is (nil? (eval* "(declare x) x"))))
+  (is (str/includes? (str/lower-case (eval* "(declare x) (str x)")) "unbound")))
 
 (deftest reader-conditionals
   (is (= 6 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:bb}})))

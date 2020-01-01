@@ -77,44 +77,29 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
+        ;; _ (prn "init" init)
         assoc-in-env
         (fn [env]
           (let [current-ns (:current-ns env)
                 the-current-ns (get-in env [:namespaces current-ns])
                 prev (get the-current-ns var-name)
-                v (cond
-                    (and prev (vars/var? prev))
+                init (utils/merge-meta init m)
+                v (if (kw-identical? :sci.impl/var.unbound init)
+                    prev
                     (do (vars/bindRoot prev init)
-                        prev)
-                    (:const m)
-                    init
-                    :else (let [init (utils/merge-meta init m)
-                                v (sci.impl.vars.SciVar. init (symbol (str current-ns)
-                                                                      (str var-name)) m)] ;; override row and col
-                            (if (kw-identical? :sci.impl/var.unbound init)
-                              (doto v (vars/unbind))
-                              v)))
+                        prev))
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces current-ns] the-current-ns)))
         env (swap! (:env ctx) assoc-in-env)]
     ;; return var instead of init-val
     (get-in env [:namespaces (:current-ns env) var-name])))
 
-(defn lookup [{:keys [:bindings :env] :as ctx} sym]
-  (let [env @env]
-    (or
-     (find bindings sym)
-     (when (some-> sym meta :sci.impl/var.declared)
-       (let [current-ns (:current-ns env)
-             current-ns-map (-> env :namespaces current-ns)]
-         (when-let [[k v] (find current-ns-map sym)]
-           (if (some-> v meta :sci.impl/var.declared)
-             [k nil]
-             [k v]))))
-     (when-let [c (interop/resolve-class ctx sym)]
-       [sym c]) ;; TODO, don't we resolve classes in the analyzer??
-     (when (get macros sym)
-       [sym sym]))))
+(defn lookup [{:keys [:bindings] :as ctx} sym]
+  (or (find bindings sym)
+      (when-let [c (interop/resolve-class ctx sym)]
+        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
+      (when (get macros sym)
+        [sym sym])))
 
 (defn resolve-symbol [ctx expr]
   (let [v (second
