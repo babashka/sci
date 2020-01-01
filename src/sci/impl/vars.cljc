@@ -123,6 +123,7 @@
   (getRawRoot [this])
   (toSymbol [this])
   (isMacro [this])
+  (hasRoot [this])
   (isBound [this])
   (unbind [this]))
 
@@ -205,6 +206,8 @@
         (thread-bound? this)))
   (unbind [this]
     (set! (.-root this) (SciUnbound. this)))
+  (hasRoot [this]
+    (not (instance? SciUnbound root)))
   IBox
   (setVal [this v]
     (let [b (get-thread-binding this)]

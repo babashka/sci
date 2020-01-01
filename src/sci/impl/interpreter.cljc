@@ -102,15 +102,14 @@
         [sym sym])))
 
 (defn resolve-symbol [ctx expr]
-  (let [v (second
-           (or
-            (lookup ctx expr)
-            ;; TODO: check if symbol is in macros and then emit an error: cannot take
-            ;; the value of a macro
-            (throw-error-with-location
-             (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
-             expr)))]
-    (if (vars/var? v) @v v)))
+  (second
+   (or
+    (lookup ctx expr)
+    ;; TODO: check if symbol is in macros and then emit an error: cannot take
+    ;; the value of a macro
+    (throw-error-with-location
+     (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
+     expr))))
 
 (defn parse-libspec [libspec]
   (if (symbol? libspec)
@@ -327,6 +326,7 @@
                  or (eval-or ctx (rest expr))
                  let (apply eval-let ctx (rest expr))
                  def (eval-def ctx expr)
+                 ;; defonce (eval-defonce ctx expr)
                  lazy-seq (new #?(:clj clojure.lang.LazySeq
                                   :cljs cljs.core/LazySeq)
                                #?@(:clj []

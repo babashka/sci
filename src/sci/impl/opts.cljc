@@ -1,6 +1,7 @@
 (ns sci.impl.opts
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
+            [sci.impl.vars]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
             #?(:cljs [goog.string])))
 

@@ -192,6 +192,15 @@
            ~gexpr ~expr]
        ~(emit gpred gexpr clauses))))
 
+(defn defonce*
+  [_ _ name expr]
+  `(let [v# (def ~name)]
+     (when-not (~'has-root-impl v#)
+       (def ~name ~expr))))
+
+(defn has-root-impl [sci-var]
+  (vars/hasRoot sci-var))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -286,6 +295,7 @@
    'dec dec
    'dedupe dedupe
    'defn- (macrofy defn-*)
+   'defonce (macrofy defonce*)
    'delay (macrofy delay*)
    'deref deref
    'dissoc dissoc
@@ -330,6 +340,7 @@
    'get-in get-in
    'group-by group-by
    'gensym gensym
+   'has-root-impl (with-meta has-root-impl {:private true})
    'hash hash
    'hash-map hash-map
    'hash-set hash-set

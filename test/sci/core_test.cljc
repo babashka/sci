@@ -665,9 +665,12 @@
   (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
 
 (deftest core-resolve-test
-  (eval* (= 1 "((resolve 'clojure.core/inc) 0)"))
-  (eval* (= 1 "((resolve 'inc) 0)"))
-  (eval* (= true "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))")))
+  (is (= 1 (eval*  "((resolve 'clojure.core/inc) 0)")))
+  (is (= 1 (eval* "((resolve 'inc) 0)")))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
+
+(deftest defonce-test
+  (is (= 1 (eval* "(defonce x 1) (defonce x 2) x"))))
 
 ;;;; Scratch
 
