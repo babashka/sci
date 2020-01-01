@@ -339,6 +339,7 @@
    'identity identity
    'if-let (macrofy if-let*)
    'if-not (macrofy if-not*)
+   'ifn? ifn?
    'inc inc
    'instance? instance?
    'int-array int-array
