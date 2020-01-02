@@ -1,6 +1,6 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message])
+  (:refer-clojure :exclude [ex-message ex-cause])
   (:require
    [clojure.set :as set]
    [clojure.string :as str]
@@ -115,6 +115,14 @@
       (when (instance? #?(:clj Throwable :cljs js/Error) ex)
         #?(:clj (.getMessage ^Throwable ex)
            :cljs (.-message ex))))))
+
+(def ex-cause
+  (if-let [v (resolve 'clojure.core/ex-cause)]
+    @v
+    (fn ex-message [ex]
+      (when (instance? #?(:clj Throwable :cljs ExceptionInfo) ex)
+        #?(:clj (.getCause ^Throwable ex)
+           :cljs (.-cause ex))))))
 
 (defn assert*
   ([_&form _ x]
@@ -240,6 +248,7 @@
    'array-map array-map
    'assert (with-meta assert* {:sci/macro true})
    'assoc assoc
+   'assoc! assoc!
    'assoc-in assoc-in
    'associative? associative?
    'atom atom
@@ -322,6 +331,7 @@
    'ex-data ex-data
    'ex-info ex-info
    'ex-message ex-message
+   'ex-cause ex-cause
    'first first
    'float? float?
    'floats floats
@@ -428,6 +438,7 @@
    'partition partition
    'partition-all partition-all
    'partition-by partition-by
+   'persistent! persistent!
    'pr-str pr-str
    'prn-str prn-str
    'print-str print-str
@@ -448,6 +459,7 @@
    'rand-int rand-int
    'rand-nth rand-nth
    'range range
+   'record? record?
    'reduce reduce
    'reduce-kv reduce-kv
    'reduced reduced
@@ -507,6 +519,7 @@
    'take-while take-while
    'trampoline trampoline
    'transduce transduce
+   'transient transient
    'tree-seq tree-seq
    'type type
    'true? true?
