@@ -293,17 +293,22 @@
     (expand-declare ctx [nil var-name])
     (mark-eval-call (list 'def var-name init))))
 
-(defn expand-defn [ctx [op fn-name docstring? & body :as expr]]
+(defn expand-defn [ctx [op fn-name & body :as expr]]
   (when-not (simple-symbol? fn-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
   (expand-declare ctx [nil fn-name])
   (let [macro? (= 'defmacro op)
-        docstring (when (string? docstring?) docstring?)
-        body (if docstring body
-                 (if docstring?
-                   (cons docstring? body)
-                   (throw-error-with-location "Parameter declaration missing." expr)))
-        fn-body (with-meta (list* 'fn body)
+        [pre-body body] (split-with (comp not sequential?) body)
+        _ (when (empty? body)
+            (throw-error-with-location "Parameter declaration missing." expr))
+        docstring (when-let [ds (first pre-body)]
+                    (when (string? ds) ds))
+        meta-map (when-let [m (last pre-body)]
+                   (when (map? m) m))
+        fn-name (with-meta fn-name
+                  (cond-> (analyze ctx (merge (meta expr) meta-map))
+                      docstring (assoc :doc docstring)))
+        fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
         f (assoc f :sci/macro macro?

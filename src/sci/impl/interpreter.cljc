@@ -77,7 +77,8 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
-        ;; _ (prn "init" init)
+        m (when m
+            (interpret ctx m))
         assoc-in-env
         (fn [env]
           (let [current-ns (:current-ns env)
@@ -87,6 +88,7 @@
                 v (if (kw-identical? :sci.impl/var.unbound init)
                     prev
                     (do (vars/bindRoot prev init)
+                        (vary-meta prev merge m)
                         prev))
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces current-ns] the-current-ns)))

@@ -178,7 +178,13 @@
                        (foo 1 2)))))
   (is (= 0 (eval* '(do (defn foo [x] (inc x))
                        (defn foo "decrement c" [x] (dec x))
-                       (foo 1))))))
+                       (foo 1)))))
+  (is (= 1337 (eval* '(do (defn foo "decrement c" {:cool-meta (inc 1336)}
+                            [x] (dec x))
+                          (:cool-meta (meta #'foo))))))
+  (is (= 1337 (eval* '(do (defn foo {:cool-meta (inc 1336)}
+                            [x] (dec x))
+                          (:cool-meta (meta #'foo)))))))
 
 (deftest resolve-test
   (is (thrown-with-msg?
@@ -624,11 +630,7 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
                         (eval* "(defn foo)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
-                        (eval* "(defn foo ())")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
-                        (eval* "(defn foo {})")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
-                        (eval* "(fn foo {})"))))
+                        (eval* "(defn foo ())"))))
 
 (deftest ex-message-test
   (is (= "foo" #?(:clj (eval* "(ex-message (Exception. \"foo\"))")
