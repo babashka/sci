@@ -145,3 +145,9 @@
 (deftest def-within-binding-test
   (testing "emulation of clojure def within binding behavior"
     (is (= "#'bar/x" (eval* "(str (ns foo) (ns bar) (binding [*ns* 'foo] (def x 1)))")))))
+
+(deftest alter-var-root-test
+  (is (= 2 (eval* "(def x 1) (alter-var-root #'x (fn foo [v] (inc x))) x")))
+  #?(:clj (testing "it is atomic"
+            (is (= 1000 (sci/eval-string "(def x 0) (do (doall (pmap #(alter-var-root #'x (fn foo [v] (+ v %))) (take 1000 (repeat 1)))) x)"
+                                        {:namespaces {'clojure.core {'pmap clojure.core/pmap}}}))))))

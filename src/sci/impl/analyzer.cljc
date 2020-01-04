@@ -18,7 +18,8 @@
 (def special-syms '#{try finally do if new recur quote catch throw def . var set!})
 
 ;; Built-in macros.
-(def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn
+
+(def macros '#{do if and or -> ->> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq require case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1})
@@ -201,22 +202,6 @@
                           :fn-name fn-name
                           :fn true})))
 
-(defn expand-fn-literal-body [ctx expr]
-  (let [fn-body (get-in expr [:sci.impl/fn-bodies 0])
-        fixed-names (:sci.impl/fixed-names fn-body)
-        var-arg-name (:sci.impl/var-arg-name fn-body)
-        bindings (if var-arg-name
-                   (conj fixed-names var-arg-name)
-                   fixed-names)
-        bindings (zipmap bindings (repeat nil))
-        ctx (update ctx :bindings merge bindings)]
-    ;; expr
-    (-> (update-in expr [:sci.impl/fn-bodies 0 :sci.impl/body 0]
-                   (fn [expr]
-                     (analyze ctx expr)))
-        (assoc :sci.impl/fn true)
-        mark-eval)))
-
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
   (let [[ctx new-let-bindings]
@@ -294,17 +279,22 @@
     (expand-declare ctx [nil var-name])
     (mark-eval-call (list 'def var-name init))))
 
-(defn expand-defn [ctx [op fn-name docstring? & body :as expr]]
+(defn expand-defn [ctx [op fn-name & body :as expr]]
   (when-not (simple-symbol? fn-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
   (expand-declare ctx [nil fn-name])
   (let [macro? (= "defmacro" (name op))
-        docstring (when (string? docstring?) docstring?)
-        body (if docstring body
-                 (if docstring?
-                   (cons docstring? body)
-                   (throw-error-with-location "Parameter declaration missing." expr)))
-        fn-body (with-meta (list* 'fn body)
+        [pre-body body] (split-with (comp not sequential?) body)
+        _ (when (empty? body)
+            (throw-error-with-location "Parameter declaration missing." expr))
+        docstring (when-let [ds (first pre-body)]
+                    (when (string? ds) ds))
+        meta-map (when-let [m (last pre-body)]
+                   (when (map? m) m))
+        fn-name (with-meta fn-name
+                  (cond-> (analyze ctx (merge (meta expr) meta-map))
+                      docstring (assoc :doc docstring)))
+        fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
         f (assoc f :sci/macro macro?
@@ -391,16 +381,21 @@
 (defn expand-declare [ctx [_declare & names :as _expr]]
   (swap! (:env ctx)
          (fn [env]
-           (let [current-ns (:current-ns env)]
-             (update-in env [:namespaces current-ns]
+           (let [current-ns-sym (:current-ns env)]
+             (update-in env [:namespaces current-ns-sym]
                         (fn [current-ns]
                           (reduce (fn [acc name]
                                     (if (contains? acc name)
                                       ;; declare does not override an existing
                                       ;; var
                                       acc
-                                      (assoc acc name (vary-meta (mark-eval name)
-                                                                 #(assoc % :sci.impl/var.declared true)))))
+                                      (assoc acc name
+                                             (doto (vars/->SciVar nil (symbol (str current-ns-sym)
+                                                                              (str name))
+                                                                  (assoc (meta name)
+                                                                         :name name
+                                                                         :ns @vars/current-ns))
+                                               (vars/unbind)))))
                                   current-ns
                                   names))))))
   nil)
@@ -423,8 +418,10 @@
 
 ;;;; Interop
 
-(defn expand-dot [ctx [_dot instance-expr [method-expr & args]]]
-  (let [instance-expr (analyze ctx instance-expr)
+(defn expand-dot [ctx [_dot instance-expr method-expr & args]]
+  (let [[method-expr & args] (if (seq? method-expr) method-expr
+                                 (cons method-expr args))
+        instance-expr (analyze ctx instance-expr)
         method-expr (str method-expr)
         args (analyze-children ctx args)
         res `(~'. ~instance-expr ~method-expr ~args)]
@@ -480,7 +477,9 @@
                       (recur (next exprs) ret))
             :refer-clojure (recur (next exprs)
                                   (conj ret
-                                        (mark-eval-call `(~'refer ~'clojure.core ~@args))))))
+                                        (mark-eval-call `(~'refer ~'clojure.core ~@args))))
+            :gen-class ;; ignore
+            (recur (next exprs) ret)))
         (mark-eval-call (list* 'do ret))))))
 
 ;;;; End namespaces
@@ -620,13 +619,13 @@
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (constant? v) v
                                          (fn? v) (merge-meta v {:sci.impl/eval false})
-                                         (vars/var? v) (with-meta v (assoc (meta v) :sci.impl/eval true))
+                                         (vars/var? v) (if (:const (meta v))
+                                                         @v
+                                                         (with-meta v (assoc (meta v) :sci.impl/eval true)))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta
                    (cond
-                     ;; reader result still needs analysis
-                     (:sci.impl/fn-literal expr) (expand-fn-literal-body ctx expr)
                      (map? expr)
                      (-> (zipmap (analyze-children ctx (keys expr))
                                  (analyze-children ctx (vals expr)))

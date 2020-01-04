@@ -19,7 +19,7 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def macros
-  '#{do if when and or -> ->> as-> quote let fn def defn
+  '#{do if and or quote let fn def defn
      lazy-seq require try syntax-quote case . in-ns set!})
 
 ;;;; Evaluation
@@ -65,67 +65,47 @@
       (interpret ctx then)
       (interpret ctx else))))
 
-(defn eval-when
-  [ctx expr]
-  (let [[_when cond & body] expr]
-    (when (interpret ctx cond)
-      (last (map #(interpret ctx %) body)))))
-
 (defn eval-def
   [ctx [_def var-name ?docstring ?init]]
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
+        m (when m
+            (interpret ctx m))
         assoc-in-env
         (fn [env]
           (let [current-ns (:current-ns env)
                 the-current-ns (get-in env [:namespaces current-ns])
                 prev (get the-current-ns var-name)
-                v (cond
-                    (and prev (vars/var? prev))
+                init (utils/merge-meta init m)
+                v (if (kw-identical? :sci.impl/var.unbound init)
+                    prev
                     (do (vars/bindRoot prev init)
-                        prev)
-                    (:const m)
-                    init
-                    :else (let [init (utils/merge-meta init m)
-                                v (sci.impl.vars.SciVar. init (symbol (str current-ns)
-                                                                      (str var-name)) m)] ;; override row and col
-                            (if (kw-identical? :sci.impl/var.unbound init)
-                              (doto v (vars/unbind))
-                              v)))
+                        (vary-meta prev merge m)
+                        prev))
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces current-ns] the-current-ns)))
         env (swap! (:env ctx) assoc-in-env)]
     ;; return var instead of init-val
     (get-in env [:namespaces (:current-ns env) var-name])))
 
-(defn lookup [{:keys [:bindings :env] :as ctx} sym]
-  (let [env @env]
-    (or
-     (find bindings sym)
-     (when (some-> sym meta :sci.impl/var.declared)
-       (let [current-ns (:current-ns env)
-             current-ns-map (-> env :namespaces current-ns)]
-         (when-let [[k v] (find current-ns-map sym)]
-           (if (some-> v meta :sci.impl/var.declared)
-             [k nil]
-             [k v]))))
-     (when-let [c (interop/resolve-class ctx sym)]
-       [sym c]) ;; TODO, don't we resolve classes in the analyzer??
-     (when (get macros sym)
-       [sym sym]))))
+(defn lookup [{:keys [:bindings] :as ctx} sym]
+  (or (find bindings sym)
+      (when-let [c (interop/resolve-class ctx sym)]
+        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
+      (when (get macros sym)
+        [sym sym])))
 
 (defn resolve-symbol [ctx expr]
-  (let [v (second
-           (or
-            (lookup ctx expr)
-            ;; TODO: check if symbol is in macros and then emit an error: cannot take
-            ;; the value of a macro
-            (throw-error-with-location
-             (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
-             expr)))]
-    (if (vars/var? v) @v v)))
+  (second
+   (or
+    (lookup ctx expr)
+    ;; TODO: check if symbol is in macros and then emit an error: cannot take
+    ;; the value of a macro
+    (throw-error-with-location
+     (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
+     expr))))
 
 (defn parse-libspec [libspec]
   (if (symbol? libspec)
@@ -197,7 +177,7 @@
 
 (defn eval-require
   [ctx expr]
-  (let [args (rest expr)]
+  (let [args (map #(interpret ctx %) (rest expr))]
     (run! #(handle-require-libspec ctx %) args)))
 
 (defn eval-case
@@ -328,19 +308,20 @@
                (eval-static-method-invocation ctx expr)
                (or eval? (not (symbol? f)))
                (let [f (interpret ctx f)]
-                 (if (ifn? f)
-                   (apply f (map #(interpret ctx %) (rest expr)))
-                   (throw (new #?(:clj Exception :cljs js/Error)
-                               (str "Cannot call " (pr-str f) " as a function.")))))
+                 (cond (:dry-run ctx) nil
+                       (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                       :else
+                       (throw (new #?(:clj Exception :cljs js/Error)
+                                   (str "Cannot call " (pr-str f) " as a function.")))))
                :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
                (case (utils/strip-core-ns f)
                  do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
                  if (eval-if ctx expr)
-                 when (eval-when ctx expr)
                  and (eval-and ctx (rest expr))
                  or (eval-or ctx (rest expr))
                  let (apply eval-let ctx (rest expr))
                  def (eval-def ctx expr)
+                 ;; defonce (eval-defonce ctx expr)
                  lazy-seq (new #?(:clj clojure.lang.LazySeq
                                   :cljs cljs.core/LazySeq)
                                #?@(:clj []
@@ -397,7 +378,8 @@
           (or (vector? expr) (set? expr)) (into (empty expr)
                                                 (map #(interpret ctx %)
                                                      expr))
-          :else (throw (new #?(:clj Exception :cljs js/Error) (str "unexpected: " expr))))]
+          :else (throw (new #?(:clj Exception :cljs js/Error)
+                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
     (if-let [n (:realize-max ctx)]

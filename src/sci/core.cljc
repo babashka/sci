@@ -1,6 +1,6 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
-                            with-redefs binding future pmap])
+                            with-redefs binding future pmap alter-var-root])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.vars :as vars]
@@ -127,6 +127,12 @@
                            (when (every? identity ss)
                              (cons (map first ss) (step (map rest ss)))))))]
              (pmap #(apply f %) (step (cons coll colls)))))))
+
+(defn alter-var-root
+  "Atomically alters the root binding of sci var v by applying f to its
+  current value plus any args."
+  [v f & args]
+  (apply vars/alter-var-root v f args))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.

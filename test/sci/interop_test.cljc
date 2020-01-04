@@ -12,7 +12,9 @@
      (testing "calling instance methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"getName.*Class.*allowed"
                              (eval* "(-> \"foo\" .getClass .getName)"))))
-     (is (= "hii" (eval* "(def x \"foo\") (-> x (.replace \\o \\i) (.replace \"f\" \"h\"))")))))
+     (is (= "hii" (eval* "(def x \"foo\") (-> x (.replace \\o \\i) (.replace \"f\" \"h\"))")))
+     (is (false? (eval* "(. \"foo\" isEmpty)")))
+     (is (= "fbb" (eval* "(. \"foo\" replace \"o\" \"b\")")))))
 
 #?(:clj
    (deftest static-methods

@@ -178,7 +178,13 @@
                        (foo 1 2)))))
   (is (= 0 (eval* '(do (defn foo [x] (inc x))
                        (defn foo "decrement c" [x] (dec x))
-                       (foo 1))))))
+                       (foo 1)))))
+  (is (= 1337 (eval* '(do (defn foo "decrement c" {:cool-meta (inc 1336)}
+                            [x] (dec x))
+                          (:cool-meta (meta #'foo))))))
+  (is (= 1337 (eval* '(do (defn foo {:cool-meta (inc 1336)}
+                            [x] (dec x))
+                          (:cool-meta (meta #'foo)))))))
 
 (deftest resolve-test
   (is (thrown-with-msg?
@@ -228,14 +234,14 @@
                         #"allowed"
                         (tu/eval* "(defn foo [])" {:allow '[fn]})))
   (if tu/native?
-    (do (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[pos-int?]}))
-        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[pos-int?]}))
-        (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[clojure.core/pos-int?]}))
-        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[clojure.core/pos-int?]})))
-    (do (is ((tu/eval* "#(pos-int? %)" {:allow '[pos-int?]}) 10))
-        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[pos-int?]}) 10))
-        (is ((tu/eval* "#(pos-int? %)" {:allow '[clojure.core/pos-int?]}) 10))
-        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[clojure.core/pos-int?]}) 10))))
+    (do (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[fn pos-int?]}))
+        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[fn pos-int?]}))
+        (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[fn clojure.core/pos-int?]}))
+        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[fn clojure.core/pos-int?]})))
+    (do (is ((tu/eval* "#(pos-int? %)" {:allow '[fn pos-int?]}) 10))
+        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[fn pos-int?]}) 10))
+        (is ((tu/eval* "#(pos-int? %)" {:allow '[fn clojure.core/pos-int?]}) 10))
+        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[fn clojure.core/pos-int?]}) 10))))
   (if tu/native?
     (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
     (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
@@ -441,7 +447,20 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"quux does not exist"
                         (eval* "(require '[clojure.set :refer [quux]])")))
-  (is (= [1 2 3] (eval* "(ns foo) (def x 1) (ns bar) (def x 2) (in-ns 'baz) (def x 3) (require 'foo 'bar) [foo/x bar/x x]"))))
+  (is (= [1 2 3] (eval* "(ns foo) (def x 1) (ns bar) (def x 2) (in-ns 'baz) (def x 3) (require 'foo 'bar) [foo/x bar/x x]")))
+  (testing
+      "Require evaluates arguments"
+      (is (= [1 2 3] (eval* "
+(ns foo)
+(def x 1)
+
+(ns bar)
+(def x 2)
+
+(in-ns 'baz)
+(def x 3)
+(require (symbol \"foo\") (symbol \"bar\"))
+[foo/x bar/x x]")))))
 
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
@@ -552,7 +571,8 @@
             (is (= "foo" (tu/eval* "
 (defmacro pat [s] `(java.util.regex.Pattern/compile ~s))
 (def p (pat \"foo\")) (re-find p \"foo\")"
-                                  {:classes {'java.util.regex.Pattern java.util.regex.Pattern}}))))))
+                                   {:classes {'java.util.regex.Pattern java.util.regex.Pattern}})))))
+  #?(:clj (is (= 'java.lang.Exception (eval* "`Exception")))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
@@ -575,7 +595,7 @@
 (deftest declare-test
   (is (= [1 2] (eval* "(declare foo bar) (defn f [] [foo bar]) (def foo 1) (def bar 2) (f)")))
   (is (= 1 (eval* "(def x 1) (declare x) x")))
-  (is (nil? (eval* "(declare x) x"))))
+  (is (str/includes? (str/lower-case (eval* "(declare x) (str x)")) "unbound")))
 
 (deftest reader-conditionals
   (is (= 6 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:bb}})))
@@ -610,11 +630,7 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
                         (eval* "(defn foo)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
-                        (eval* "(defn foo ())")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
-                        (eval* "(defn foo {})")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector.*at.*1"
-                        (eval* "(fn foo {})"))))
+                        (eval* "(defn foo ())"))))
 
 (deftest ex-message-test
   (is (= "foo" #?(:clj (eval* "(ex-message (Exception. \"foo\"))")
@@ -644,7 +660,7 @@
 
 (deftest defn--test
   (is (= 1 (eval* "(defn- foo [] 1) (foo)")))
-  (is (:private (eval* "(defn- foo [] 1) (meta #'foo)"))))
+  (is (true? (eval* "(defn- foo [] 1) (:private (meta #'foo))"))))
 
 (deftest refer-clojure-exclude
   (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
@@ -655,13 +671,23 @@
   (is (= 1 (eval* "((resolve 'inc) 0)")))
   (is (= true (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
 
-(deftest macroexpand-1-test
-  (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 '(foo 1))")))
-  (is (= '(if 1 1 (clojure.core/cond)) (eval* "(macroexpand-1 '(cond 1 1))")))
-  (is (symbol? (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))")))))
-
 (deftest compatibility-test
   (is (true? (eval* "(def foo foo) (var? #'foo)"))))
+  (is (= 1 (eval*  "((resolve 'clojure.core/inc) 0)")))
+  (is (= 1 (eval* "((resolve 'inc) 0)")))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))")))
+
+(deftest defonce-test
+  (is (= 1 (eval* "(defonce x 1) (defonce x 2) x"))))
+
+(deftest metadata-on-var-test
+  (is (= 'x (eval* "(def x) (:name (meta #'x))")))
+  (is (= 'foo (eval* "(ns foo) (declare x) (def x 2) (ns-name (:ns (meta #'x)))"))))
+
+(deftest macroexpand-1-test
+(is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 '(foo 1))")))
+(is (= '(if 1 1 (clojure.core/cond)) (eval* "(macroexpand-1 '(cond 1 1))")))
+(is (symbol? (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))")))))
 
 ;;;; Scratch
 

@@ -1,12 +1,13 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message])
+  (:refer-clojure :exclude [ex-message ex-cause])
   (:require
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.impl.vars :as vars]
-   [sci.impl.io :as io]))
+   [sci.impl.io :as io]
+   #?(:clj [borkdude.graal.locking :as locking])))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -94,6 +95,10 @@
             ~then)
           ~else)))))
 
+(defn when*
+  [_ _ test & body]
+  (list 'if test (cons 'do body)))
+
 (defn when-let*
   [_&form _&env bindings & body]
   (let [form (bindings 0) tst (bindings 1)]
@@ -126,6 +131,14 @@
       (when (instance? #?(:clj Throwable :cljs js/Error) ex)
         #?(:clj (.getMessage ^Throwable ex)
            :cljs (.-message ex))))))
+
+(def ex-cause
+  (if-let [v (resolve 'clojure.core/ex-cause)]
+    @v
+    (fn ex-message [ex]
+      (when (instance? #?(:clj Throwable :cljs ExceptionInfo) ex)
+        #?(:clj (.getCause ^Throwable ex)
+           :cljs (.-cause ex))))))
 
 (defn assert*
   ([_&form _ x]
@@ -203,6 +216,15 @@
            ~gexpr ~expr]
        ~(emit gpred gexpr clauses))))
 
+(defn defonce*
+  [_ _ name expr]
+  `(let [v# (def ~name)]
+     (when-not (~'has-root-impl v#)
+       (def ~name ~expr))))
+
+(defn has-root-impl [sci-var]
+  (vars/hasRoot sci-var))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -235,12 +257,14 @@
    '== ==
    'add-watch add-watch
    'aget aget
+   'alter-var-root vars/alter-var-root
    'aset aset
    'alength alength
    'apply apply
    'array-map array-map
    'assert (with-meta assert* {:sci/macro true})
    'assoc assoc
+   'assoc! assoc!
    'assoc-in assoc-in
    'associative? associative?
    'atom atom
@@ -297,6 +321,7 @@
    'dec dec
    'dedupe dedupe
    'defn- (macrofy defn-*)
+   'defonce (macrofy defonce*)
    'delay (macrofy delay*)
    'deref deref
    'dissoc dissoc
@@ -323,6 +348,7 @@
    'ex-data ex-data
    'ex-info ex-info
    'ex-message ex-message
+   'ex-cause ex-cause
    'first first
    'float? float?
    'floats floats
@@ -341,6 +367,7 @@
    'get-in get-in
    'group-by group-by
    'gensym gensym
+   'has-root-impl (with-meta has-root-impl {:private true})
    'hash hash
    'hash-map hash-map
    'hash-set hash-set
@@ -350,6 +377,7 @@
    'identity identity
    'if-let (macrofy if-let*)
    'if-not (macrofy if-not*)
+   'ifn? ifn?
    'inc inc
    'instance? instance?
    'int-array int-array
@@ -427,6 +455,7 @@
    'partition partition
    'partition-all partition-all
    'partition-by partition-by
+   'persistent! persistent!
    'pr-str pr-str
    'prn-str prn-str
    'print-str print-str
@@ -447,6 +476,7 @@
    'rand-int rand-int
    'rand-nth rand-nth
    'range range
+   'record? record?
    'reduce reduce
    'reduce-kv reduce-kv
    'reduced reduced
@@ -506,6 +536,7 @@
    'take-while take-while
    'trampoline trampoline
    'transduce transduce
+   'transient transient
    'tree-seq tree-seq
    'type type
    'true? true?
@@ -548,6 +579,7 @@
    'vswap! vswap!*
    'when-first (macrofy when-first*)
    'when-let (macrofy when-let*)
+   'when (macrofy when*)
    'when-not (macrofy when-not*)
    'with-meta with-meta
    'with-open (macrofy with-open*)
