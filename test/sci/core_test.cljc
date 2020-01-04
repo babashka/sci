@@ -678,6 +678,10 @@
   (is (= 'x (eval* "(def x) (:name (meta #'x))")))
   (is (= 'foo (eval* "(ns foo) (declare x) (def x 2) (ns-name (:ns (meta #'x)))"))))
 
+(deftest eval-colls-once
+  ;; #222: note: this only failed with clojure 1.10.1!
+  (is (= [{}] (eval* "(defn foo [x] (for [x (sort-by identity x)] x)) (foo [{}])"))))
+
 ;;;; Scratch
 
 (comment

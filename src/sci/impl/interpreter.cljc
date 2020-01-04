@@ -373,11 +373,15 @@
                              (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                          (str "Can't take value of a macro: " expr ""))))
           (symbol? expr) (resolve-symbol ctx expr)
-          (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
-                              (map #(interpret ctx %) (vals expr)))
-          (or (vector? expr) (set? expr)) (into (empty expr)
-                                                (map #(interpret ctx %)
-                                                     expr))
+          (map? expr) (vary-meta
+                       (zipmap (map #(interpret ctx %) (keys expr))
+                               (map #(interpret ctx %) (vals expr)))
+                       dissoc :sci.impl/eval)
+          (or (vector? expr) (set? expr)) (vary-meta
+                                           (into (empty expr)
+                                                 (map #(interpret ctx %)
+                                                      expr))
+                                           dissoc :sci.impl/eval)
           :else (throw (new #?(:clj Exception :cljs js/Error)
                             (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))]
     ;; for debugging:

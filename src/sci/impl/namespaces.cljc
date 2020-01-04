@@ -30,6 +30,10 @@
   ([_&form _&env test then else]
    `(if (not ~test) ~then ~else)))
 
+(defn when*
+  [_ _ test & body]
+  (list 'if test (cons 'do body)))
+
 (defn when-not*
   "when-not from clojure.core"
   [_&form _&env test & body]
@@ -83,10 +87,6 @@
           (let [~form temp#]
             ~then)
           ~else)))))
-
-(defn when*
-  [_ _ test & body]
-  (list 'if test (cons 'do body)))
 
 (defn when-let*
   [_&form _&env bindings & body]
