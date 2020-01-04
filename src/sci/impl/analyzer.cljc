@@ -19,7 +19,7 @@
 
 ;; Built-in macros.
 
-(def macros '#{do if and or -> ->> as-> quote quote* let fn fn* def defn
+(def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq require case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1})
@@ -230,22 +230,6 @@
                   threaded (if (seq? form)
                              (with-meta (concat (list (first form) x)
                                                 (next form))
-                               (meta form))
-                             (list form x))]
-              (recur threaded (next forms))) x))]
-    (analyze ctx expanded)))
-
-(defn expand->>
-  "The ->> macro from clojure.core."
-  [ctx [x & forms]]
-  (let [expanded
-        (loop [x x, forms forms]
-          (if forms
-            (let [form (first forms)
-                  threaded (if (seq? form)
-                             (with-meta
-                               (concat (cons (first form) (next form))
-                                       (list x))
                                (meta form))
                              (list form x))]
               (recur threaded (next forms))) x))]
@@ -566,7 +550,6 @@
             ;; TODO: move to namespaces
             -> (expand-> ctx (rest expr))
             ;; TODO: move to namespaces
-            ->> (expand->> ctx (rest expr))
             ;; TODO: move to namespaces
             as-> (expand-as-> ctx expr)
             quote (do nil (second expr))

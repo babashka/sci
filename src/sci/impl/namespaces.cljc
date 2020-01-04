@@ -6,11 +6,21 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.impl.vars :as vars]
-   [sci.impl.io :as io]
-   #?(:clj [borkdude.graal.locking :as locking])))
+   [sci.impl.io :as io]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
+
+(defn ->>*
+  [_ _ x & forms]
+  (loop [x x, forms forms]
+    (if forms
+      (let [form (first forms)
+            threaded (if (seq? form)
+                       (with-meta `(~(first form) ~@(next form)  ~x) (meta form))
+                       (list form x))]
+        (recur threaded (next forms)))
+      x)))
 
 (defn dotimes*
   [_ _ bindings & body]
@@ -255,6 +265,7 @@
    '* *
    '/ /
    '== ==
+   '->> (macrofy ->>*)
    'add-watch add-watch
    'aget aget
    'alter-var-root vars/alter-var-root
