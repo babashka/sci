@@ -4,7 +4,6 @@
   (:require
    [edamame.impl.parser :as parser]
    [sci.impl.analyzer :as ana]
-   [sci.impl.readers :as readers]
    [sci.impl.interop :as interop]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -12,8 +11,7 @@
 (def opts
   (parser/normalize-opts
    {:all true
-    :read-eval false
-    :fn readers/read-fn}))
+    :read-eval false}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
@@ -51,6 +49,7 @@
          auto-resolve (assoc aliases
                              :current current-ns)
          parse-opts (assoc opts
+                           :fn true
                            :read-cond :allow
                            :features features
                            :auto-resolve auto-resolve

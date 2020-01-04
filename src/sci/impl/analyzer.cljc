@@ -201,22 +201,6 @@
                           :fn-name fn-name
                           :fn true})))
 
-(defn expand-fn-literal-body [ctx expr]
-  (let [fn-body (get-in expr [:sci.impl/fn-bodies 0])
-        fixed-names (:sci.impl/fixed-names fn-body)
-        var-arg-name (:sci.impl/var-arg-name fn-body)
-        bindings (if var-arg-name
-                   (conj fixed-names var-arg-name)
-                   fixed-names)
-        bindings (zipmap bindings (repeat nil))
-        ctx (update ctx :bindings merge bindings)]
-    ;; expr
-    (-> (update-in expr [:sci.impl/fn-bodies 0 :sci.impl/body 0]
-                   (fn [expr]
-                     (analyze ctx expr)))
-        (assoc :sci.impl/fn true)
-        mark-eval)))
-
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
   (let [[ctx new-let-bindings]
@@ -619,8 +603,6 @@
                   :else
                   (merge-meta
                    (cond
-                     ;; reader result still needs analysis
-                     (:sci.impl/fn-literal expr) (expand-fn-literal-body ctx expr)
                      (map? expr)
                      (-> (zipmap (analyze-children ctx (keys expr))
                                  (analyze-children ctx (vals expr)))
