@@ -209,6 +209,9 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
+(defn alter-var-root* [v f & args]
+  (vars/bindRoot v (apply f args)))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -242,6 +245,7 @@
    '== ==
    'add-watch add-watch
    'aget aget
+   'alter-var-root alter-var-root*
    'aset aset
    'alength alength
    'apply apply
