@@ -7,8 +7,10 @@
                             with-redefs
                             with-redefs-fn
                             with-bindings
-                            thread-bound?])
-  (:require [sci.impl.macros :as macros])
+                            thread-bound?
+                            alter-var-root])
+  (:require [sci.impl.macros :as macros]
+            #?(:clj [borkdude.graal.locking :as locking]))
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -397,6 +399,11 @@
 (def file-var (dynamic-var '*file* nil))
 
 (def current-ns (dynamic-var '*ns* (SciNamespace. 'user)))
+
+(defn alter-var-root [v f & args]
+  #?(:clj
+     (locking/locking v (bindRoot v (apply f @v args)))
+     :cljs (bindRoot v (apply f @v args))))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))

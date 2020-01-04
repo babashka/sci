@@ -6,7 +6,8 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.impl.vars :as vars]
-   [sci.impl.io :as io]))
+   [sci.impl.io :as io]
+   #?(:clj [borkdude.graal.locking :as locking])))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -209,9 +210,6 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
-(defn alter-var-root* [v f & args]
-  (vars/bindRoot v (apply f args)))
-
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -245,7 +243,7 @@
    '== ==
    'add-watch add-watch
    'aget aget
-   'alter-var-root alter-var-root*
+   'alter-var-root vars/alter-var-root
    'aset aset
    'alength alength
    'apply apply
