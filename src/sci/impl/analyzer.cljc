@@ -18,7 +18,7 @@
 (def special-syms '#{try finally do if new recur quote catch throw def . var set!})
 
 ;; Built-in macros.
-(def macros '#{do if when and or -> ->> as-> quote quote* let fn fn* def defn
+(def macros '#{do if and or -> ->> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq require cond case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve})

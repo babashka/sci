@@ -19,7 +19,7 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def macros
-  '#{do if when and or -> ->> as-> quote let fn def defn
+  '#{do if and or quote let fn def defn
      lazy-seq require try syntax-quote case . in-ns set!})
 
 ;;;; Evaluation
@@ -64,12 +64,6 @@
     (if (interpret ctx cond)
       (interpret ctx then)
       (interpret ctx else))))
-
-(defn eval-when
-  [ctx expr]
-  (let [[_when cond & body] expr]
-    (when (interpret ctx cond)
-      (last (map #(interpret ctx %) body)))))
 
 (defn eval-def
   [ctx [_def var-name ?docstring ?init]]
@@ -323,7 +317,6 @@
                (case (utils/strip-core-ns f)
                  do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
                  if (eval-if ctx expr)
-                 when (eval-when ctx expr)
                  and (eval-and ctx (rest expr))
                  or (eval-or ctx (rest expr))
                  let (apply eval-let ctx (rest expr))
@@ -385,7 +378,8 @@
           (or (vector? expr) (set? expr)) (into (empty expr)
                                                 (map #(interpret ctx %)
                                                      expr))
-          :else (throw (new #?(:clj Exception :cljs js/Error) (str "unexpected: " expr))))]
+          :else (throw (new #?(:clj Exception :cljs js/Error)
+                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
     (if-let [n (:realize-max ctx)]

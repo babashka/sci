@@ -84,6 +84,10 @@
             ~then)
           ~else)))))
 
+(defn when*
+  [_ _ test & body]
+  (list 'if test (cons 'do body)))
+
 (defn when-let*
   [_&form _&env bindings & body]
   (let [form (bindings 0) tst (bindings 1)]
@@ -564,6 +568,7 @@
    'vswap! vswap!*
    'when-first (macrofy when-first*)
    'when-let (macrofy when-let*)
+   'when (macrofy when*)
    'when-not (macrofy when-not*)
    'with-meta with-meta
    'with-open (macrofy with-open*)
