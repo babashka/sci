@@ -40,7 +40,8 @@
            'java.io.StringReader java.io.StringReader
            'java.lang.Integer Integer
            'java.lang.Double Double
-           'java.lang.ArithmeticException ArithmeticException}
+           'java.lang.ArithmeticException ArithmeticException
+           'java.lang.Object Object}
      :cljs {'Error {:class js/Error :constructor (fn
                                                    ([msg] (js/Error. msg))
                                                    ([msg filename] (js/Error. msg filename))
@@ -56,7 +57,8 @@
             String java.lang.String
             ArithmeticException java.lang.ArithmeticException
             Integer java.lang.Integer
-            Double java.lang.Double}
+            Double java.lang.Double
+            Object java.lang.Object}
      :cljs {}))
 
 (defn normalize-classes [classes]
