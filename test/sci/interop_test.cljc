@@ -14,7 +14,14 @@
                              (eval* "(-> \"foo\" .getClass .getName)"))))
      (is (= "hii" (eval* "(def x \"foo\") (-> x (.replace \\o \\i) (.replace \"f\" \"h\"))")))
      (is (false? (eval* "(. \"foo\" isEmpty)")))
-     (is (= "fbb" (eval* "(. \"foo\" replace \"o\" \"b\")")))))
+     (is (= "fbb" (eval* "(. \"foo\" replace \"o\" \"b\")")))
+     (testing "error on type hint with unknown class"
+       (is (thrown-with-msg? Exception #"Foo"
+                             (eval* "(let [^Foo x ^Foo {}] (.foo x))"))))
+     (testing "can get the name of arbitrary class by type hinting it as Object"
+       (when-not tu/native?
+         (is (= "clojure.core$int_QMARK_" (tu/eval* "(defn foo [^Object x] (.getClass x)) (.getName (foo int?))"
+                                                    {:classes {'java.lang.Class Class}})))))))
 
 #?(:clj
    (deftest static-methods

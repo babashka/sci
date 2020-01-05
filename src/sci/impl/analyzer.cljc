@@ -63,14 +63,24 @@
              (when-let [c (interop/resolve-class ctx sym)]
                [sym c])))))))
 
+(defn tag [_ctx expr]
+  (when-let [m (meta expr)]
+    (:tag m)))
+
 (defn lookup [{:keys [:bindings] :as ctx} sym]
   (let [[k v :as kv]
         (or
          ;; bindings are not checked for permissions
-         (when-let [[k _v]
+         (when-let [[k v]
                     (find bindings sym)]
            ;; never inline a binding at macro time!
-           [k (mark-resolve-sym k)])
+           (let [t (tag ctx v)
+                 v (mark-resolve-sym k)
+                 ;; pass along tag of expression!
+                 v (if t (vary-meta v
+                                    assoc :tag t)
+                       v)]
+             [k v]))
          (when-let
              [[k _ :as kv]
               (or
@@ -614,7 +624,7 @@
                      (analyze-call ctx expr)
                      :else expr)
                    (select-keys (meta expr)
-                                [:row :col])))]
+                                [:row :col :tag])))]
     ;; (prn "ana" expr '-> ret)
     ret))
 

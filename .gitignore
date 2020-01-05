@@ -19,3 +19,4 @@ pom.xml.asc
 /out
 /.shadow-cljs
 /report.html
+target
