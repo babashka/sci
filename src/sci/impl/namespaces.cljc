@@ -249,6 +249,7 @@
    'alter-var-root vars/alter-var-root
    'aset aset
    'alength alength
+   'any? any?
    'apply apply
    'array-map array-map
    'assert (with-meta assert* {:sci/macro true})
@@ -367,6 +368,7 @@
    'if-not (macrofy if-not*)
    'ifn? ifn?
    'inc inc
+   'inst? inst?
    'instance? instance?
    'int-array int-array
    'interleave interleave
