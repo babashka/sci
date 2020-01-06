@@ -357,6 +357,13 @@
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
+(defn remove-eval-mark [v]
+  ;; TODO: find out why the special case for vars is needed. When I remove it,
+  ;; spartan.spec does not work.
+  (if (and (meta v) (not (vars/var? v)))
+    (vary-meta v dissoc :sci.impl/eval)
+    v))
+
 (defn interpret
   [ctx expr]
   (let [m (meta expr)
@@ -384,17 +391,14 @@
                              (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                          (str "Can't take value of a macro: " expr ""))))
           (symbol? expr) (resolve-symbol ctx expr)
-          (map? expr) (vary-meta
-                       (zipmap (map #(interpret ctx %) (keys expr))
-                               (map #(interpret ctx %) (vals expr)))
-                       dissoc :sci.impl/eval)
-          (or (vector? expr) (set? expr)) (vary-meta
-                                           (into (empty expr)
-                                                 (map #(interpret ctx %)
-                                                      expr))
-                                           dissoc :sci.impl/eval)
+          (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                              (map #(interpret ctx %) (vals expr)))
+          (or (vector? expr) (set? expr)) (into (empty expr)
+                                                (map #(interpret ctx %)
+                                                     expr))
           :else (throw (new #?(:clj Exception :cljs js/Error)
-                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))]
+                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+        ret (remove-eval-mark ret)]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
     (if-let [n (:realize-max ctx)]
