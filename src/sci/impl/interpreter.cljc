@@ -358,7 +358,7 @@
          (rethrow-with-location-of-node ctx e expr))))
 
 (defn remove-eval-mark [v]
-  (if (meta v)
+  (if (and (meta v) (not (vars/var? v)))
     (vary-meta v dissoc :sci.impl/eval)
     v))
 
@@ -375,7 +375,7 @@
         eval? (:sci.impl/eval m)
         ret
         (cond
-          (and (not eval?) (not (vars/var? expr))) (do nil expr)
+          (not eval?) (do nil expr)
           (:sci.impl/try expr) (eval-try ctx expr)
           (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
           (:sci.impl/eval-call m) (eval-call ctx expr)
