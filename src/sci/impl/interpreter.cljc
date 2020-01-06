@@ -358,6 +358,8 @@
          (rethrow-with-location-of-node ctx e expr))))
 
 (defn remove-eval-mark [v]
+  ;; TODO: find out why the special case for vars is needed. When I remove it,
+  ;; spartan.spec does not work.
   (if (and (meta v) (not (vars/var? v)))
     (vary-meta v dissoc :sci.impl/eval)
     v))
