@@ -667,9 +667,15 @@
   (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
 
 (deftest core-resolve-test
+  (is (= 1 (eval* "((resolve 'clojure.core/inc) 0)")))
+  (is (= 1 (eval* "((resolve 'inc) 0)")))
+  (is (= true (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
+
+(deftest compatibility-test
+  (is (true? (eval* "(def foo foo) (var? #'foo)"))))
   (is (= 1 (eval*  "((resolve 'clojure.core/inc) 0)")))
   (is (= 1 (eval* "((resolve 'inc) 0)")))
-  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))")))
 
 (deftest defonce-test
   (is (= 1 (eval* "(defonce x 1) (defonce x 2) x"))))
@@ -681,6 +687,17 @@
 (deftest eval-colls-once
   ;; #222: note: this only failed with clojure 1.10.1!
   (is (= [{}] (eval* "(defn foo [x] (for [x (sort-by identity x)] x)) (foo [{}])"))))
+
+(deftest macroexpand-1-test
+  (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 '(foo 1))")))
+  (is (= '(if 1 1 (clojure.core/cond)) (eval* "(macroexpand-1 '(cond 1 1))")))
+  (is (= #?(:clj 'clojure.core/let
+            :cljs 'cljs.core/let)
+         (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
+  (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))"))))
+
+(deftest macroexpand-call-test
+  (is (= 1 (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand '(foo 1))"))))
 
 ;;;; Scratch
 

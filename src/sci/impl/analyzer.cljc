@@ -18,10 +18,11 @@
 (def special-syms '#{try finally do if new recur quote catch throw def . var set!})
 
 ;; Built-in macros.
-(def macros '#{do if and or -> ->> as-> quote quote* let fn fn* def defn
-               comment loop lazy-seq for doseq require cond case try defmacro
+
+(def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
+               comment loop lazy-seq for doseq require case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
-               set! resolve})
+               set! resolve macroexpand-1 macroexpand})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -244,22 +245,6 @@
               (recur threaded (next forms))) x))]
     (analyze ctx expanded)))
 
-(defn expand->>
-  "The ->> macro from clojure.core."
-  [ctx [x & forms]]
-  (let [expanded
-        (loop [x x, forms forms]
-          (if forms
-            (let [form (first forms)
-                  threaded (if (seq? form)
-                             (with-meta
-                               (concat (cons (first form) (next form))
-                                       (list x))
-                               (meta form))
-                             (list form x))]
-              (recur threaded (next forms))) x))]
-    (analyze ctx expanded)))
-
 (defn expand-as->
   "The ->> macro from clojure.core."
   [ctx [_as expr name & forms]]
@@ -274,6 +259,7 @@
 
 (defn expand-def
   [ctx [_def var-name ?docstring ?init :as expr]]
+  (expand-declare ctx [nil var-name])
   (when-not (simple-symbol? var-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
   (let [docstring (when ?init ?docstring)
@@ -291,7 +277,7 @@
   (when-not (simple-symbol? fn-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
   (expand-declare ctx [nil fn-name])
-  (let [macro? (= 'defmacro op)
+  (let [macro? (= "defmacro" (name op))
         [pre-body body] (split-with (comp not sequential?) body)
         _ (when (empty? body)
             (throw-error-with-location "Parameter declaration missing." expr))
@@ -332,23 +318,6 @@
            (analyze ctx
                     ;; expand-fn will take care of the analysis of the body
                     (list 'fn [] (cons 'do body)))))))
-
-(defn expand-cond*
-  "The cond macro from clojure.core"
-  [& clauses]
-  (when clauses
-    (list 'if (first clauses)
-          (if (next clauses)
-            (second clauses)
-            (throw (new #?(:clj IllegalArgumentException
-                           :cljs js/Error)
-                        "cond requires an even number of forms")))
-          (apply expand-cond* (next (next clauses))))))
-
-(defn expand-cond
-  [ctx expr]
-  (let [clauses (rest expr)]
-    (analyze ctx (apply expand-cond* clauses))))
 
 (defn expand-case
   [ctx expr]
@@ -529,11 +498,42 @@
         obj (wrapped-var obj)]
     (mark-eval-call (list 'set! obj v))))
 
-;;;;
+;;;; End vars
+
+;;;; Macros
 
 (defn macro? [f]
   (when-let [m (meta f)]
     (:sci/macro m)))
+
+(defn macroexpand-1 [ctx [_ expr]]
+  (let [original-expr expr
+        expr (analyze ctx expr)]
+    (if (seq? expr)
+      (let [op (first expr)]
+        (if (symbol? op)
+          (cond (get special-syms op) expr
+                (contains? #{'for} op) (analyze (assoc ctx :sci.impl/macroexpanding true)
+                                                expr)
+                :else
+                (let [f (resolve-symbol ctx op)
+                    f (if (and (vars/var? f)
+                               (vars/isMacro f))
+                        @f f)]
+                (if (macro? f)
+                  (apply f original-expr (:bindings ctx) (rest expr))
+                  expr)))
+          expr))
+      expr)))
+
+(defn macroexpand
+  [ctx [_ form]]
+  (let [ex (macroexpand-1 ctx [nil form])]
+    (if (identical? ex form)
+      form
+      (macroexpand ctx ex))))
+
+;;;; End macros
 
 (defn analyze-call [ctx expr]
   (let [f (first expr)]
@@ -561,20 +561,25 @@
             let (expand-let ctx expr)
             (fn fn*) (expand-fn ctx expr false)
             def (expand-def ctx expr)
+            ;; NOTE: defn / defmacro aren't implemented as normal macros yet
             (defn defmacro) (let [ret (expand-defn ctx expr)]
                               ret)
+            ;; TODO: implement as normal macro in namespaces.cljc
             -> (expand-> ctx (rest expr))
-            ->> (expand->> ctx (rest expr))
+            ;; TODO: implement as normal macro in namespaces.cljc
             as-> (expand-as-> ctx expr)
             quote (do nil (second expr))
+            ;; TODO: implement as normal macro in namespaces.cljc
             comment (expand-comment ctx expr)
             loop (expand-loop ctx expr)
             lazy-seq (expand-lazy-seq ctx expr)
-            for (analyze ctx (expand-for ctx expr))
+            for (let [res (expand-for ctx expr)]
+                  (if (:sci.impl/macroexpanding ctx)
+                    res
+                    (analyze ctx res)))
             doseq (analyze ctx (expand-doseq ctx expr))
             require (mark-eval-call
                      (cons 'require (analyze-children ctx (rest expr))))
-            cond (expand-cond ctx expr)
             case (expand-case ctx expr)
             try (expand-try ctx expr)
             declare (expand-declare ctx expr)
@@ -586,14 +591,18 @@
             ns (analyze-ns-form ctx expr)
             var (analyze-var ctx expr)
             set! (analyze-set! ctx expr)
+            macroexpand-1 (macroexpand-1 ctx expr)
+            macroexpand (macroexpand ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
             (if (macro? f)
               (let [v (apply f expr
                              (:bindings ctx) (rest expr))
-                    expanded (analyze ctx v)]
-                expanded )
+                    expanded (if (:sci.impl/macroexpanding ctx)
+                               v
+                               (analyze ctx v))]
+                expanded)
               (mark-eval-call (analyze-children ctx expr)))
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
