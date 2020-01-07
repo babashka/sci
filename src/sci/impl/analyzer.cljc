@@ -506,35 +506,6 @@
   (when-let [m (meta f)]
     (:sci/macro m)))
 
-(defn macroexpand-1 [ctx [_ expr]]
-  (let [original-expr expr
-        expr (analyze ctx expr)]
-    (if (seq? expr)
-      (let [op (first expr)]
-        (if (symbol? op)
-          (cond (get special-syms op) expr
-                (contains? #{'for} op) (analyze (assoc ctx :sci.impl/macroexpanding true)
-                                                expr)
-                :else
-                (let [f (resolve-symbol ctx op)
-                    f (if (and (vars/var? f)
-                               (vars/isMacro f))
-                        @f f)]
-                (if (macro? f)
-                  (apply f original-expr (:bindings ctx) (rest expr))
-                  expr)))
-          expr))
-      expr)))
-
-(defn macroexpand
-  [ctx [_ form]]
-  (let [ex (macroexpand-1 ctx [nil form])]
-    ;; (prn form '-> ex)
-    ;; we can't use identical here
-    (if (= ex form)
-      form
-      (macroexpand ctx [_ ex]))))
-
 ;;;; End macros
 
 (defn analyze-call [ctx expr]
@@ -593,8 +564,8 @@
             ns (analyze-ns-form ctx expr)
             var (analyze-var ctx expr)
             set! (analyze-set! ctx expr)
-            macroexpand-1 (macroexpand-1 ctx expr)
-            macroexpand (macroexpand ctx expr)
+            ;; macroexpand-1 (macroexpand-1 ctx expr)
+            ;; macroexpand (macroexpand ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try

@@ -232,6 +232,10 @@
      (when-not (~'has-root-impl v#)
        (def ~name ~expr))))
 
+(defn double-dot
+  ([_ _ x form] `(. ~x ~form))
+  ([_ _ x form & more] `(.. (. ~x ~form) ~@more)))
+
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
@@ -255,6 +259,7 @@
                             {:sci/macro true})
              'read-line io/read-line])
    ;; end io
+   '.. (macrofy double-dot)
    '= =
    '< <
    '<= <=

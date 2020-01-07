@@ -1,6 +1,6 @@
 (ns sci.impl.interpreter
   {:no-doc true}
-  (:refer-clojure :exclude [destructure macroexpand])
+  (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
@@ -20,7 +20,8 @@
 
 (def macros
   '#{do if and or quote let fn def defn
-     lazy-seq require try syntax-quote case . in-ns set!})
+     lazy-seq require try syntax-quote case . in-ns set!
+     macroexpand-1 macroexpand})
 
 ;;;; Evaluation
 
@@ -289,6 +290,36 @@
 
 ;;;; End namespaces
 
+;;;; Macros
+
+(defn macroexpand-1 [ctx expr]
+  (let [original-expr expr]
+    (if (seq? expr)
+      (let [op (first expr)]
+        (if (symbol? op)
+          (cond (get ana/special-syms op) expr
+                (contains? #{'for} op) (ana/analyze (assoc ctx :sci.impl/macroexpanding true)
+                                                    expr)
+                :else
+                (let [f (ana/resolve-symbol ctx op)
+                      f (if (and (vars/var? f)
+                                 (vars/isMacro f))
+                          @f f)]
+                  (if (ana/macro? f)
+                    (apply f original-expr (:bindings ctx) (rest expr))
+                    expr)))
+          expr))
+      expr)))
+
+(defn macroexpand
+  [ctx form]
+  (let [ex (macroexpand-1 ctx form)]
+    (if (identical? ex form)
+      form
+      (macroexpand ctx ex))))
+
+;;;; End macros
+
 (defn eval-set! [ctx [_ obj v]]
   (let [obj (interpret ctx obj)
         v (interpret ctx v)]
@@ -353,7 +384,9 @@
                  in-ns (eval-in-ns ctx expr)
                  set! (eval-set! ctx expr)
                  refer (eval-refer ctx expr)
-                 resolve (eval-resolve ctx expr))))
+                 resolve (eval-resolve ctx expr)
+                 macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
+                 macroexpand (macroexpand ctx (interpret ctx (second expr))))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
