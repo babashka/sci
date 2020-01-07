@@ -10,8 +10,9 @@
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [borkdude/edamame "0.0.10-alpha.2"]
+                 [borkdude/edamame "0.0.10-alpha.4"]
                  [borkdude/graal.locking "0.0.2"]
+                 [borkdude/sci.impl.reflector "0.0.1"]
                  [org.clojure/tools.reader "1.3.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}

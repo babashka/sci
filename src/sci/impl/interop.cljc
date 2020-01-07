@@ -1,17 +1,23 @@
 (ns sci.impl.interop
   {:no-doc true}
-  #?(:clj (:import [clojure.lang Reflector])))
+  #?(:clj (:import [sci.impl Reflector])))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn invoke-instance-method #?(:clj [_ctx obj method args]
-                                :cljs [_ctx _obj _method _args])
-  #?(:clj
-     (Reflector/invokeInstanceMethod obj method (object-array args))
-     :cljs (throw (js/Error. "Not implemented yet."))))
+(defn invoke-instance-method
+  #?@(:cljs [[& _args]
+             (throw (js/Error. "Not implemented yet."))]
+      :clj
+      [([ctx obj method args]
+        (invoke-instance-method ctx obj nil method args))
+       ([_ctx obj target-class method args]
+        (if-not target-class
+          (Reflector/invokeInstanceMethod obj method (object-array args))
+          (let [methods (Reflector/getMethods target-class (count args) method false)]
+            (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
 (defn invoke-static-method #?(:clj [_ctx [[^Class class method-name] & args]]
                               :cljs [_ctx & _args])

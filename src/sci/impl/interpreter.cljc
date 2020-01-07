@@ -50,7 +50,13 @@
   [ctx let-bindings & exprs]
   (let [ctx (loop [ctx ctx
                    [let-name let-val & rest-let-bindings] let-bindings]
-              (let [v (interpret ctx let-val)
+              (let [val-tag (when-let [m (meta let-val)]
+                              (:tag m))
+                    let-name (if val-tag
+                               (vary-meta let-name update :tag (fn [t]
+                                                                 (if t t val-tag)))
+                               let-name)
+                    v (interpret ctx let-val)
                     ctx (assoc-in ctx [:bindings let-name] v)]
                 (if (empty? rest-let-bindings)
                   ctx
@@ -235,17 +241,22 @@
      (map #(symbol (.getName ^Class %)) (supers clazz))))
 
 (defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
-  (let [instance-expr* (interpret ctx instance-expr)
-        clazz (#?(:clj class :cljs type) instance-expr*)
+  (let [instance-meta (meta instance-expr)
+        t (:tag instance-meta)
+        instance-expr* (interpret ctx instance-expr)
+        t-class (when t
+                  (or (interop/resolve-class ctx t)
+                      (throw-error-with-location (str "Unable to resolve classname: " t) instance-expr)))
+        ^Class clazz (or t-class (#?(:clj class :cljs type) instance-expr*))
         class-name (#?(:clj .getName :cljs str) clazz)
         class-symbol (symbol class-name)
-        opts (some #(get class->opts %) (cons class-symbol (lazy-seq #?(:clj (super-symbols clazz)))))]
+        opts (get class->opts class-symbol)]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
     (when-not opts
       (throw-error-with-location (str "Method " method-str " on " clazz " not allowed!") instance-expr))
     (let [args (map #(interpret ctx %) args)] ;; eval args!
-      (interop/invoke-instance-method ctx instance-expr* method-str args))))
+      (interop/invoke-instance-method ctx instance-expr* clazz method-str args))))
 
 ;;;; End interop
 
@@ -346,6 +357,13 @@
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
+(defn remove-eval-mark [v]
+  ;; TODO: find out why the special case for vars is needed. When I remove it,
+  ;; spartan.spec does not work.
+  (if (and (meta v) (not (vars/var? v)))
+    (vary-meta v dissoc :sci.impl/eval)
+    v))
+
 (defn interpret
   [ctx expr]
   (let [m (meta expr)
@@ -373,17 +391,14 @@
                              (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                          (str "Can't take value of a macro: " expr ""))))
           (symbol? expr) (resolve-symbol ctx expr)
-          (map? expr) (vary-meta
-                       (zipmap (map #(interpret ctx %) (keys expr))
-                               (map #(interpret ctx %) (vals expr)))
-                       dissoc :sci.impl/eval)
-          (or (vector? expr) (set? expr)) (vary-meta
-                                           (into (empty expr)
-                                                 (map #(interpret ctx %)
-                                                      expr))
-                                           dissoc :sci.impl/eval)
+          (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                              (map #(interpret ctx %) (vals expr)))
+          (or (vector? expr) (set? expr)) (into (empty expr)
+                                                (map #(interpret ctx %)
+                                                     expr))
           :else (throw (new #?(:clj Exception :cljs js/Error)
-                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))]
+                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+        ret (remove-eval-mark ret)]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
     (if-let [n (:realize-max ctx)]
