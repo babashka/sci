@@ -15,8 +15,13 @@
         (invoke-instance-method ctx obj nil method args))
        ([_ctx obj target-class method args]
         (if-not target-class
-          (Reflector/invokeInstanceMethod obj method (object-array args))
+          ;; (Reflector/invokeInstanceMethod obj method (object-array args))
           (let [methods (Reflector/getMethods target-class (count args) method false)]
+            (prn "M>" methods)
+            (Reflector/invokeMatchingMethod method methods obj (object-array args)))
+          (let [methods (Reflector/getMethods target-class (count args) method false)]
+            (prn "M>>" target-class methods)
+            (prn "RT" (.getReturnType ^java.lang.reflect.Method (first methods)))
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
 (defn invoke-static-method #?(:clj [_ctx [[^Class class method-name] & args]]
