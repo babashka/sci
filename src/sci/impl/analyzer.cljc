@@ -529,9 +529,11 @@
 (defn macroexpand
   [ctx [_ form]]
   (let [ex (macroexpand-1 ctx [nil form])]
-    (if (identical? ex form)
+    ;; (prn form '-> ex)
+    ;; we can't use identical here
+    (if (= ex form)
       form
-      (macroexpand ctx ex))))
+      (macroexpand ctx [_ ex]))))
 
 ;;;; End macros
 

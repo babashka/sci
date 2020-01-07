@@ -697,7 +697,7 @@
   (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))"))))
 
 (deftest macroexpand-call-test
-  (is (= 1 (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand '(foo 1))"))))
+  (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))"))))
 
 ;;;; Scratch
 
