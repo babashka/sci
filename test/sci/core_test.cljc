@@ -697,7 +697,10 @@
   (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))"))))
 
 (deftest macroexpand-call-test
-  (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))"))))
+  (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))
+  (is (= '(. (. System (getProperties)) (get  "os.name"))
+         (eval* "(macroexpand '(.. System (getProperties) (get \"os.name\")))")))
+  (is (= '[1 2 user/x] (eval* "(defmacro foo [x] `[1 2 x]) (macroexpand '(foo 1))"))))
 
 ;;;; Scratch
 
