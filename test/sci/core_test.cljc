@@ -691,7 +691,9 @@
 (deftest macroexpand-1-test
   (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 '(foo 1))")))
   (is (= '(if 1 1 (clojure.core/cond)) (eval* "(macroexpand-1 '(cond 1 1))")))
-  (is (= 'clojure.core/let (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
+  (is (= #?(:clj 'clojure.core/let
+            :cljs 'cljs.core/let)
+         (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
   (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))"))))
 
 (deftest macroexpand-call-test
