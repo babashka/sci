@@ -22,7 +22,7 @@
 (def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq require case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
-               set! resolve macroexpand-1})
+               set! resolve macroexpand-1 macroexpand})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -506,13 +506,15 @@
   (when-let [m (meta f)]
     (:sci/macro m)))
 
-(defn analyze-macroexpand-1 [ctx [_ expr]]
+(defn macroexpand-1 [ctx [_ expr]]
   (let [original-expr expr
         expr (analyze ctx expr)]
     (if (seq? expr)
       (let [op (first expr)]
         (if (symbol? op)
           (cond (get special-syms op) expr
+                (contains? #{'for} op) (analyze (assoc ctx :sci.impl/macroexpanding true)
+                                                expr)
                 :else
                 (let [f (resolve-symbol ctx op)
                     f (if (and (vars/var? f)
@@ -523,6 +525,13 @@
                   expr)))
           expr))
       expr)))
+
+(defn macroexpand
+  [ctx [_ form]]
+  (let [ex (macroexpand-1 ctx [nil form])]
+    (if (identical? ex form)
+      form
+      (macroexpand ctx ex))))
 
 ;;;; End macros
 
@@ -552,16 +561,22 @@
             let (expand-let ctx expr)
             (fn fn*) (expand-fn ctx expr false)
             def (expand-def ctx expr)
+            ;; NOTE: defn / defmacro aren't implemented as normal macros yet
             (defn defmacro) (let [ret (expand-defn ctx expr)]
                               ret)
+            ;; TODO: implement as normal macro in namespaces.cljc
             -> (expand-> ctx (rest expr))
+            ;; TODO: implement as normal macro in namespaces.cljc
             as-> (expand-as-> ctx expr)
             quote (do nil (second expr))
+            ;; TODO: implement as normal macro in namespaces.cljc
             comment (expand-comment ctx expr)
             loop (expand-loop ctx expr)
             lazy-seq (expand-lazy-seq ctx expr)
             for (let [res (expand-for ctx expr)]
-                  (analyze ctx res))
+                  (if (:sci.impl/macroexpanding ctx)
+                    res
+                    (analyze ctx res)))
             doseq (analyze ctx (expand-doseq ctx expr))
             require (mark-eval-call
                      (cons 'require (analyze-children ctx (rest expr))))
@@ -576,14 +591,17 @@
             ns (analyze-ns-form ctx expr)
             var (analyze-var ctx expr)
             set! (analyze-set! ctx expr)
-            macroexpand-1 (analyze-macroexpand-1 ctx expr)
+            macroexpand-1 (macroexpand-1 ctx expr)
+            macroexpand (macroexpand ctx expr)
             ;; else:
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
             (if (macro? f)
               (let [v (apply f expr
                              (:bindings ctx) (rest expr))
-                    expanded (analyze ctx v)]
+                    expanded (if (:sci.impl/macroexpanding ctx)
+                               v
+                               (analyze ctx v))]
                 expanded)
               (mark-eval-call (analyze-children ctx expr)))
             (catch #?(:clj Exception :cljs js/Error) e
