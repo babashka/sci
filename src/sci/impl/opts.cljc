@@ -71,7 +71,8 @@
                                        class-opts
                                        {:class class-opts}))
              (rest kvs))
-      {:class->opts (persistent! class->opts)})))
+      {:public-class (:public-class classes)
+       :class->opts (persistent! class->opts)})))
 
 (defn init
   "Initializes options"
