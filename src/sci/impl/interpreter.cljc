@@ -248,7 +248,10 @@
         t-class (when t
                   (or (interop/resolve-class ctx t)
                       (throw-error-with-location (str "Unable to resolve classname: " t) instance-expr)))
-        ^Class clazz (or t-class (#?(:clj class :cljs type) instance-expr*))
+        ^Class clazz (or t-class
+                         (when-let [f (:public-class ctx)]
+                           (f instance-expr*))
+                         (#?(:clj class :cljs type) instance-expr*))
         class-name (#?(:clj .getName :cljs str) clazz)
         class-symbol (symbol class-name)
         opts (get class->opts class-symbol)]
