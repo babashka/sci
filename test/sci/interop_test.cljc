@@ -27,6 +27,7 @@
    (deftest static-methods
      (is (= 123 (eval* "(Integer/parseInt \"123\")")))
      (is (= 123 (eval* "(. Integer (parseInt \"123\"))")))
+     (is (= 123 (eval* "(. Integer parseInt \"123\")")))
      (is (= 123 (eval* "(Integer/parseInt (str \"12\" \"3\") (inc 9))")))
      (testing "calling static methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
