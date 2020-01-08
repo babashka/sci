@@ -418,7 +418,10 @@
         instance-expr (analyze ctx instance-expr)
         method-expr (str method-expr)
         args (analyze-children ctx args)
-        res `(~'. ~instance-expr ~method-expr ~args)]
+        res #?(:clj (if (class? instance-expr)
+                      `(~(mark-eval ^:sci.impl/static-access [instance-expr method-expr]) ~@args)
+                      `(~'. ~instance-expr ~method-expr ~args))
+               :cljs `(~'. ~instance-expr ~method-expr ~args))]
     (mark-eval-call res)))
 
 (defn expand-dot* [ctx [method-name obj & args]]
