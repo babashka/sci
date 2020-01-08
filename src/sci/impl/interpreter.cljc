@@ -248,19 +248,21 @@
         t-class (when t
                   (or (interop/resolve-class ctx t)
                       (throw-error-with-location (str "Unable to resolve classname: " t) instance-expr)))
-        ^Class clazz (or t-class
-                         (when-let [f (:public-class ctx)]
-                           (f instance-expr*))
-                         (#?(:clj class :cljs type) instance-expr*))
-        class-name (#?(:clj .getName :cljs str) clazz)
+        ^Class target-class (or t-class
+                                (when-let [f (:public-class ctx)]
+                                  (f instance-expr*)))
+        resolved-class (or target-class (#?(:clj class :cljs type) instance-expr*))
+        class-name (#?(:clj .getName :cljs str) resolved-class)
         class-symbol (symbol class-name)
         opts (get class->opts class-symbol)]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
     (when-not opts
-      (throw-error-with-location (str "Method " method-str " on " clazz " not allowed!") instance-expr))
+      (throw-error-with-location (str "Method " method-str " on " resolved-class " not allowed!") instance-expr))
     (let [args (map #(interpret ctx %) args)] ;; eval args!
-      (interop/invoke-instance-method ctx instance-expr* clazz method-str args))))
+      (if target-class
+        (interop/invoke-instance-method ctx instance-expr* target-class method-str args)
+        (interop/invoke-instance-method ctx instance-expr* method-str args)))))
 
 ;;;; End interop
 
