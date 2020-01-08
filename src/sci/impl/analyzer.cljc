@@ -287,7 +287,7 @@
                    (when (map? m) m))
         fn-name (with-meta fn-name
                   (cond-> (analyze ctx (merge (meta expr) meta-map))
-                      docstring (assoc :doc docstring)))
+                    docstring (assoc :doc docstring)))
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
@@ -327,7 +327,27 @@
         result-clauses (analyze-children ctx (take-nth 2 (rest clauses)))
         default (when (odd? (count clauses))
                   [:val (analyze ctx (last clauses))])
-        case-map (zipmap match-clauses result-clauses)
+        cases (interleave match-clauses result-clauses)
+        assoc-new (fn [m k v]
+                    (if-not (contains? m k)
+                      (assoc m k v)
+                      (throw-error-with-location (str "Duplicate case test constant " k)
+                                                 expr)))
+        case-map (loop [cases (seq cases)
+                        ret-map {}]
+                   (if cases
+                     (let [[k v & cases] cases]
+                       (if (list? k)
+                         (recur
+                          cases
+                          (reduce (fn [acc k]
+                                    (assoc-new acc k v))
+                                  ret-map
+                                  k))
+                         (recur
+                          cases
+                          (assoc-new ret-map k v))))
+                     ret-map))
         ret (mark-eval-call (list 'case
                                   {:case-map case-map
                                    :case-val v

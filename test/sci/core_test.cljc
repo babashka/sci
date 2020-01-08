@@ -488,6 +488,11 @@
   (is (= true (eval* "(case (inc 0), 1 true, 2 (+ 1 2 3), 6)")))
   (is (= 6 (eval* "(case (inc 1), 1 true, 2 (+ 1 2 3), 6)")))
   (is (= 7 (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3), 7)")))
+  (is (= 6 (eval* "(case (inc 2), 1 true, (2 3) (+ 1 2 3), 7)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"(?i)duplicate case test constant"
+       (eval* "(case (inc 2), 1 true, 1 false)")))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"matching clause"
