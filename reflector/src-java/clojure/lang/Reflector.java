@@ -1,5 +1,3 @@
-/** clojure.lang.Reflector adapted for sci **/
-
 /**
  *   Copyright (c) Rich Hickey. All rights reserved.
  *   The use and distribution terms for this software are covered by the
@@ -12,7 +10,7 @@
 
 /* rich Apr 19, 2006 */
 
-package sci.impl;
+package clojure.lang;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -23,11 +21,26 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.stream.Collectors;
-import clojure.lang.Util;
-import clojure.lang.RT;
-import clojure.lang.Compiler;
 
 public class Reflector{
+
+    // private static final MethodHandle CAN_ACCESS_PRED;
+
+    // // Java 8 is oldest JDK supported
+    // private static boolean isJava8() {
+    //  return System.getProperty("java.vm.specification.version").equals("1.8");
+    // }
+
+    // static {
+    //  MethodHandle pred = null;
+    //  try {
+    //          if (! isJava8())
+    //                  pred = MethodHandles.lookup().findVirtual(Method.class, "canAccess", MethodType.methodType(boolean.class, Object.class));
+    //  } catch (Throwable t) {
+    //          Util.sneakyThrow(t);
+    //  }
+    //  CAN_ACCESS_PRED = pred;
+    // }
 
     private static boolean canAccess(Method m, Object target) {
         // JDK9+ use j.l.r.AccessibleObject::canAccess, which respects module rules
@@ -101,7 +114,7 @@ public class Reflector{
         return "No matching method " + methodName + " found taking " + args.length + " args"
             + (target==null?"":" for " + target.getClass());
     }
-    public static Object invokeMatchingMethod(String methodName, List methods, Object target, Object[] args)
+    static Object invokeMatchingMethod(String methodName, List methods, Object target, Object[] args)
     {
         Method m = null;
         Object[] boxedArgs = null;

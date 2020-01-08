@@ -17,7 +17,7 @@ fi
 
 SCI_VERSION=$(cat resources/SCI_VERSION)
 
-lein with-profiles +clojure-1.10.1 do clean, uberjar
+lein with-profiles +clojure-1.10.1,+compile-java do clean, uberjar
 
 $NATIVE_IMAGE \
   -jar target/sci-$SCI_VERSION-standalone.jar \
