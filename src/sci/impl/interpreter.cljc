@@ -21,7 +21,7 @@
 (def macros
   '#{do if and or quote let fn def defn
      lazy-seq require try syntax-quote case . in-ns set!
-     macroexpand-1 macroexpand})
+     macroexpand-1 macroexpand alias})
 
 ;;;; Evaluation
 
@@ -332,6 +332,14 @@
       (vars/setVal obj v)
       (throw (ex-info (str "Cannot set " obj " to " v) {:obj obj :v v})))))
 
+(defn eval-alias [ctx [_alias alias-sym ns-sym]]
+  (let [alias-sym (interpret ctx alias-sym)
+        ns-sym (interpret ctx ns-sym)]
+    (swap! (:env ctx)
+           (fn [{:keys [:current-ns] :as env}]
+             (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym)))
+    nil))
+
 (declare eval-string)
 
 (defn eval-do
@@ -391,7 +399,8 @@
                  refer (eval-refer ctx expr)
                  resolve (eval-resolve ctx expr)
                  macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
-                 macroexpand (macroexpand ctx (interpret ctx (second expr))))))
+                 macroexpand (macroexpand ctx (interpret ctx (second expr)))
+                 alias (eval-alias ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
