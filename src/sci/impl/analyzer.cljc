@@ -22,7 +22,7 @@
 (def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq require case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
-               set! resolve macroexpand-1 macroexpand})
+               set! resolve macroexpand-1 macroexpand alias})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))
@@ -39,7 +39,10 @@
         sym-name (symbol (name sym))
         env @env
         current-ns (:current-ns env)
-        the-current-ns (-> env :namespaces current-ns)]
+        the-current-ns (-> env :namespaces current-ns)
+        ;; resolve alias
+        sym-ns (when sym-ns (or (get-in the-current-ns [:aliases sym-ns])
+                                sym-ns))]
     (or (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
         (cond
           (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core)))
@@ -48,9 +51,6 @@
                 [sym v]))
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
-              (when-let [aliased (-> the-current-ns :aliases sym-ns)]
-                (when-let [v (some-> env :namespaces aliased (get sym-name))]
-                  [(symbol (str aliased) (str sym-name)) v]))
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
                 [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
           :else

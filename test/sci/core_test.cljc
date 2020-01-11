@@ -471,6 +471,9 @@
 (require (symbol \"foo\") (symbol \"bar\"))
 [foo/x bar/x x]")))))
 
+(deftest alias-test
+  (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)"))))
+
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
                      (cond (string? x) 1 (int? x) 2))")))
