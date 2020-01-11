@@ -474,6 +474,9 @@
 (deftest alias-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)"))))
 
+(deftest find-ns-test
+  (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))"))))
+
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
                      (cond (string? x) 1 (int? x) 2))")))

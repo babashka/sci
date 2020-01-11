@@ -21,7 +21,7 @@
 (def macros
   '#{do if and or quote let fn def defn
      lazy-seq require try syntax-quote case . in-ns set!
-     macroexpand-1 macroexpand alias})
+     macroexpand-1 macroexpand alias find-ns})
 
 ;;;; Evaluation
 
@@ -340,6 +340,11 @@
              (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym)))
     nil))
 
+(defn eval-find-ns [ctx [_ ns-sym]]
+  (let [ns-sym (interpret ctx ns-sym)]
+    (when (get-in @(:env ctx) [:namespaces ns-sym])
+      (vars/->SciNamespace ns-sym))))
+
 (declare eval-string)
 
 (defn eval-do
@@ -400,7 +405,8 @@
                  resolve (eval-resolve ctx expr)
                  macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
                  macroexpand (macroexpand ctx (interpret ctx (second expr)))
-                 alias (eval-alias ctx expr))))
+                 alias (eval-alias ctx expr)
+                 find-ns (eval-find-ns ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
