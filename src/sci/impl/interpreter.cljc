@@ -343,7 +343,7 @@
 (defn eval-find-ns [ctx [_ ns-sym]]
   (let [ns-sym (interpret ctx ns-sym)]
     (when (get-in @(:env ctx) [:namespaces ns-sym])
-      (vars/->SciNamespace ns-sym))))
+      (vars/create-sci-ns ctx ns-sym))))
 
 (defn eval-the-ns [ctx [_ x :as expr]]
   (let [x (interpret ctx x)]
@@ -499,7 +499,8 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts/init opts)
-         ret (eval-string* init-ctx s)]
+         ret (vars/with-bindings {vars/current-ns (vars/create-sci-ns init-ctx 'user)}
+               (eval-string* init-ctx s))]
      ret)))
 
 ;;;; Scratch

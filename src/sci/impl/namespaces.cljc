@@ -250,6 +250,9 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
+(defn sci-ns-aliases [sci-ns]
+  (vars/getAliases sci-ns))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -472,6 +475,7 @@
    'not-any? not-any?
    'next next
    'nnext nnext
+   'ns-aliases sci-ns-aliases
    'ns-name ns-name*
    'odd? odd?
    'object-array object-array

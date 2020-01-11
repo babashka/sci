@@ -124,10 +124,9 @@
 (defn set-namespace! [ctx ns-sym]
   (let [env (:env ctx)]
     (swap! env (fn [env]
-                 (let [ns-var (get-in env [:namespaces 'clojure.core '*ns*])]
-                   (vars/bindRoot ns-var (sci.impl.vars.SciNamespace. ns-sym))
-                   (-> env
-                       (assoc :current-ns ns-sym)
-                       (update-in [:namespaces ns-sym] (fn [the-ns]
+                 (vars/setVal vars/current-ns (vars/create-sci-ns ctx ns-sym))
+                 (-> env
+                     (assoc :current-ns ns-sym)
+                     (update-in [:namespaces ns-sym] (fn [the-ns]
                                                        (if (nil? the-ns) {}
-                                                        the-ns)))))))))
+                                                           the-ns))))))))
