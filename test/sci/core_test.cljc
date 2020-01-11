@@ -474,7 +474,8 @@
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
   (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))")))
-  (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))"))))
+  (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
+  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))"))))
 
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
