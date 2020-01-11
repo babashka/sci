@@ -471,11 +471,10 @@
 (require (symbol \"foo\") (symbol \"bar\"))
 [foo/x bar/x x]")))))
 
-(deftest alias-test
-  (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)"))))
-
-(deftest find-ns-test
-  (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))"))))
+(deftest misc-namespace-test
+  (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
+  (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))")))
+  (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))"))))
 
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]

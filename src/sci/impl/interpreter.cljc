@@ -345,6 +345,11 @@
     (when (get-in @(:env ctx) [:namespaces ns-sym])
       (vars/->SciNamespace ns-sym))))
 
+(defn eval-the-ns [ctx [_ x :as expr]]
+  (let [x (interpret ctx x)]
+    (if (instance? sci.impl.vars.SciNamespace x) x
+        (eval-find-ns ctx expr))))
+
 (declare eval-string)
 
 (defn eval-do
@@ -406,7 +411,8 @@
                  macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
                  macroexpand (macroexpand ctx (interpret ctx (second expr)))
                  alias (eval-alias ctx expr)
-                 find-ns (eval-find-ns ctx expr))))
+                 find-ns (eval-find-ns ctx expr)
+                 the-ns (eval-the-ns ctx expr))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
