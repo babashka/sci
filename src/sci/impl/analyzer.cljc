@@ -146,6 +146,8 @@
         var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
         fixed-names (vec (repeatedly fixed-arity gensym*))
+        ;; TODO: skip destructuring when all args are symbols
+        ;; (every? symbol? params)
         destructure-vec (vec (interleave binding-vector fixed-names))
         var-arg-name (when var-arg (gensym*))
         destructure-vec (if var-arg
@@ -157,6 +159,25 @@
         ;; body
         ctx (update ctx :bindings merge (zipmap (take-nth 2 destructured-vec)
                                                 (repeat nil)))
+        next-body (next body-exprs)
+        conds (when next-body
+                (let [e (first body-exprs)]
+                  (when (map? e) e)))
+        body-exprs (if conds next-body body-exprs)
+        conds (or conds (meta binding-vector))
+        pre (:pre conds)
+        post (:post conds)
+        body-exprs (if post
+                     `((let [~'% ~(if (< 1 (count body-exprs))
+                                    `(do ~@body-exprs)
+                                    (first body-exprs))]
+                         ~@(map (fn* [c] `(assert ~c)) post)
+                         ~'%))
+               body-exprs)
+        body-exprs (if pre
+                     (concat (map (fn* [c] `(assert ~c)) pre)
+                             body-exprs)
+               body-exprs)
         body-form (mark-eval-call
                    `(~'let ~destructured-vec
                      ;; we analyze the body expressions only once with the

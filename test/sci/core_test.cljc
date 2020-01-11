@@ -161,6 +161,15 @@
                         #"Can't have more than 1 variadic overload \[at line 1, column 4\]"
                         (eval* "   (fn ([& args]) ([v & args]))"))))
 
+(deftest pre-post-conditions-test
+  (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error)
+                        #"Assert failed: \(pos\? x\)"
+                        (eval* "(def f (fn ([x] {:pre [(pos? x)]} x) ([x y] (+ x y)))) (f -1)")))
+  (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error)
+                        #"Assert failed: \(< % 10\)"
+                        (eval* "(def f (fn ([x] {:pre [(pos? x)]} x)
+                                           ([x y] {:post [(< % 10)]} (+ x y)))) (f 5 10)"))))
+
 (deftest def-test
   (is (= "nice val" (eval* '(do (def foo "nice val") foo))))
   (is (-> (eval* "(str (do (def foo) foo))")
