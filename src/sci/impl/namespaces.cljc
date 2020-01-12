@@ -253,6 +253,21 @@
 (defn sci-ns-aliases [sci-ns]
   (vars/getAliases sci-ns))
 
+(defn sci-find-ns [ctx ns-sym]
+  (when (get-in @(:env ctx) [:namespaces ns-sym])
+    (vars/create-sci-ns ctx ns-sym)))
+
+(defn sci-the-ns [ctx x]
+  (if (instance? sci.impl.vars.SciNamespace x) x
+      (sci-find-ns ctx x)))
+
+(defn sci-ns-publics [sci-ns]
+  (let [m (vars/getMap sci-ns)]
+    (into {} (keep (fn [[k v]]
+                     (when-not (:private (meta v))
+                       [k v]))
+                   m))))
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
@@ -476,6 +491,7 @@
    'next next
    'nnext nnext
    'ns-aliases sci-ns-aliases
+   'ns-publics sci-ns-publics
    'ns-name ns-name*
    'odd? odd?
    'object-array object-array
@@ -568,6 +584,7 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
+   'the-ns (with-meta sci-the-ns {:sci.impl/needs-ctx true})
    'trampoline trampoline
    'transduce transduce
    'transient transient

@@ -284,7 +284,9 @@
     (testing "but it should be forbidden in macros that are defined by a user"
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
-                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]}))))))
+                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]})))))
+  (testing "users cannot hack around sci.impl/needs-ctx"
+    (is (= [1 2] (eval* "(def f (with-meta (fn [ctx x] [ctx x]) {:sci.impl/needs-ctx true})) (f 1 2)")))))
 
 (deftest realize-max-test
   (when-not tu/native?

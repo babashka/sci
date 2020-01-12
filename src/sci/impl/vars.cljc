@@ -362,9 +362,10 @@
 
 (defprotocol INamespace
   (getName [_])
-  (getAliases [_]))
+  (getAliases [_])
+  (getMap [_]))
 
-(deftype SciNamespace [name aliases-fn]
+(deftype SciNamespace [name map-fn aliases-fn]
   Object
   (toString [_]
     (str name))
@@ -377,6 +378,7 @@
             (Var. (ns-lookup obj k) var-sym var-meta)))))
   (getName [_] name)
   (getAliases [_] (aliases-fn))
+  (getMap [_] (map-fn))
   ;; IEquiv
   ;; (-equiv [_ other]
   ;;   (if (instance? SciNamespace other)
@@ -388,11 +390,16 @@
   )
 
 (defn create-sci-ns [ctx name]
-  (->SciNamespace name
-                  #(let [aliases (get-in @(:env ctx) [:namespaces name :aliases])]
-                     (zipmap (keys aliases) (map (fn [sym]
-                                                   (create-sci-ns ctx sym))
-                                                 (vals aliases))))))
+  (let [env (fn [] @(:env ctx))
+        the-ns #(get-in (env) [:namespaces name])
+        aliases #(get (the-ns) :aliases)]
+    (->SciNamespace name
+                    #(dissoc (the-ns) :aliases)
+                    #(let [aliases (aliases)]
+                       (zipmap (keys aliases)
+                               (map (fn [sym]
+                                      (create-sci-ns ctx sym))
+                                    (vals aliases)))))))
 
 (macros/deftime
   (defmacro with-bindings
