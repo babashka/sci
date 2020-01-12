@@ -471,19 +471,16 @@
        (= 'do (first expr))))
 
 (defn eval-form [ctx form]
-  (vars/with-bindings {vars/current-ns (vars/create-sci-ns
-                                        ctx
-                                        (get @(:env ctx) :current-ns))}
-    (if (do? form) (loop [exprs (rest form)
-                          ret nil]
-                     (if (seq exprs)
-                       (recur
-                        (rest exprs)
-                        (eval-form ctx (first exprs)))
-                       ret))
-        (let [analyzed (ana/analyze ctx form)
-              ret (interpret ctx analyzed)]
-          ret))))
+  (if (do? form) (loop [exprs (rest form)
+                        ret nil]
+                   (if (seq exprs)
+                     (recur
+                      (rest exprs)
+                      (eval-form ctx (first exprs)))
+                     ret))
+      (let [analyzed (ana/analyze ctx form)
+            ret (interpret ctx analyzed)]
+        ret)))
 
 (defn eval-string* [ctx s]
   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
@@ -502,7 +499,12 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts/init opts)
-         ret (eval-string* init-ctx s)]
+         ret (vars/with-bindings
+               (when-not @vars/current-ns
+                 {vars/current-ns (vars/create-sci-ns
+                                   init-ctx
+                                   (get @(:env init-ctx) :current-ns))})
+               (eval-string* init-ctx s))]
      ret)))
 
 ;;;; Scratch
