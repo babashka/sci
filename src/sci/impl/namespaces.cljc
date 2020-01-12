@@ -259,6 +259,7 @@
   nil)
 
 (defn sci-find-ns [ctx ns-sym]
+  (assert (symbol? ns-sym))
   (when (get-in @(:env ctx) [:namespaces ns-sym])
     (vars/->SciNamespace ns-sym)))
 
