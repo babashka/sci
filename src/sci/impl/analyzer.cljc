@@ -23,7 +23,7 @@
                comment loop lazy-seq for doseq require case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1 macroexpand
-               alias find-ns the-ns})
+               find-ns the-ns})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :row))

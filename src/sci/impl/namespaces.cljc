@@ -250,6 +250,12 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
+(defn sci-alias [ctx alias-sym ns-sym]
+  (swap! (:env ctx)
+         (fn [{:keys [:current-ns] :as env}]
+           (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym)))
+  nil)
+
 (defn sci-ns-aliases [sci-ns]
   (vars/getAliases sci-ns))
 
@@ -302,6 +308,7 @@
    '->> (macrofy ->>*)
    'add-watch add-watch
    'aget aget
+   'alias (with-meta sci-alias {:sci.impl/needs-ctx true})
    'alter-var-root vars/alter-var-root
    'aset aset
    'alength alength
