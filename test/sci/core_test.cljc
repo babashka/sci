@@ -479,7 +479,9 @@
 (set1/union #{1 2 3} #{4 5 6}) #{4 5 6})")))
   (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))")))
   (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
-  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))"))))
+  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))")))
+  (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
+                     "foo #'user/foo")))
 
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
