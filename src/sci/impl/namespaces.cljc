@@ -690,6 +690,22 @@
              'seque seque
              'xml-seq xml-seq])})
 
+(defn dir-fn
+  [ctx ns]
+  (let [current-ns (get @(:env ctx) :current-ns)
+        the-ns (sci-the-ns ctx
+                           (get (sci-ns-aliases ctx current-ns) ns ns))]
+    (sort (map first (sci-ns-publics ctx the-ns)))))
+
+(defn dir
+  [_ _ nsname]
+  `(doseq [v# (clojure.repl/dir-fn '~nsname)]
+     (println v#)))
+
+(def clojure-repl
+  {'dir-fn (with-meta dir-fn {:sci.impl/needs-ctx true})
+   'dir (macrofy dir)})
+
 (def namespaces
   {'clojure.core clojure-core
    'clojure.string {'blank? str/blank?
@@ -733,7 +749,8 @@
                   'keywordize-keys clojure.walk/keywordize-keys
                   'stringify-keys clojure.walk/stringify-keys
                   'prewalk-replace clojure.walk/prewalk-replace
-                  'postwalk-replace clojure.walk/postwalk-replace}})
+                  'postwalk-replace clojure.walk/postwalk-replace}
+   'clojure.repl clojure-repl})
 
 (def aliases
   '{str clojure.string
