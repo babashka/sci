@@ -21,7 +21,7 @@
 (def macros
   '#{do if and or quote let fn def defn
      lazy-seq require try syntax-quote case . in-ns set!
-     macroexpand-1 macroexpand alias find-ns})
+     macroexpand-1 macroexpand})
 
 ;;;; Evaluation
 
@@ -332,24 +332,6 @@
       (vars/setVal obj v)
       (throw (ex-info (str "Cannot set " obj " to " v) {:obj obj :v v})))))
 
-(defn eval-alias [ctx [_alias alias-sym ns-sym]]
-  (let [alias-sym (interpret ctx alias-sym)
-        ns-sym (interpret ctx ns-sym)]
-    (swap! (:env ctx)
-           (fn [{:keys [:current-ns] :as env}]
-             (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym)))
-    nil))
-
-(defn eval-find-ns [ctx [_ ns-sym]]
-  (let [ns-sym (interpret ctx ns-sym)]
-    (when (get-in @(:env ctx) [:namespaces ns-sym])
-      (vars/create-sci-ns ctx ns-sym))))
-
-(defn eval-the-ns [ctx [_ x :as expr]]
-  (let [x (interpret ctx x)]
-    (if (instance? sci.impl.vars.SciNamespace x) x
-        (eval-find-ns ctx expr))))
-
 (declare eval-string)
 
 (defn eval-do
@@ -409,10 +391,7 @@
                  refer (eval-refer ctx expr)
                  resolve (eval-resolve ctx expr)
                  macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
-                 macroexpand (macroexpand ctx (interpret ctx (second expr)))
-                 alias (eval-alias ctx expr)
-                 find-ns (eval-find-ns ctx expr)
-                 the-ns (eval-the-ns ctx expr))))
+                 macroexpand (macroexpand ctx (interpret ctx (second expr))))))
        (catch #?(:clj Exception :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -433,16 +412,21 @@
                   (assoc ctx :row row :col col)
                   ctx))
               ctx)
-        eval? (:sci.impl/eval m)
+        eval? (and m (:sci.impl/eval m))
         ret
         (cond
-          (not eval?) (do nil expr)
-          (:sci.impl/try expr) (eval-try ctx expr)
-          (:sci.impl/fn expr) (fns/eval-fn ctx interpret expr)
-          (:sci.impl/eval-call m) (eval-call ctx expr)
-          (:sci.impl/static-access m) (interop/get-static-field ctx expr)
-          (:sci.impl/var-value m) (nth expr 0)
-          (:sci.impl/deref! m) (let [v (first expr)
+          (not eval?) (if (ifn? expr)
+                        (let [f (if (and m (:sci.impl/needs-ctx m))
+                                  (partial expr ctx)
+                                  expr)]
+                          f)
+                        expr)
+          (and m (:sci.impl/try expr)) (eval-try ctx expr)
+          (and m (:sci.impl/fn expr)) (fns/eval-fn ctx interpret expr)
+          (and m (:sci.impl/eval-call m)) (eval-call ctx expr)
+          (and m (:sci.impl/static-access m)) (interop/get-static-field ctx expr)
+          (and m (:sci.impl/var-value m)) (nth expr 0)
+          (and m (:sci.impl/deref! m)) (let [v (first expr)
                                      v (if (vars/var? v) @v v)]
                                  (force v))
           (vars/var? expr) (if-not (vars/isMacro expr)
@@ -501,9 +485,7 @@
    (let [init-ctx (opts/init opts)
          ret (vars/with-bindings
                (when-not @vars/current-ns
-                 {vars/current-ns (vars/create-sci-ns
-                                   init-ctx
-                                   (get @(:env init-ctx) :current-ns))})
+                 {vars/current-ns (vars/->SciNamespace (get @(:env init-ctx) :current-ns))})
                (eval-string* init-ctx s))]
      ret)))
 

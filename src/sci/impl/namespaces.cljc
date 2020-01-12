@@ -182,9 +182,6 @@
                           "with-open only allows Symbols in bindings"))
              :cljs ::TODO)))
 
-(defn ns-name* [^sci.impl.vars.SciNamespace ns]
-  (vars/getName ns))
-
 (defn letfn* [_ _ fnspecs & body]
   (let [syms (map first fnspecs)
         state-sym (gensym "state")
@@ -250,8 +247,45 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
-(defn sci-ns-aliases [sci-ns]
-  (vars/getAliases sci-ns))
+;;;; Namespaces
+
+(defn sci-ns-name [^sci.impl.vars.SciNamespace ns]
+  (vars/getName ns))
+
+(defn sci-alias [ctx alias-sym ns-sym]
+  (swap! (:env ctx)
+         (fn [{:keys [:current-ns] :as env}]
+           (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym)))
+  nil)
+
+(defn sci-find-ns [ctx ns-sym]
+  (when (get-in @(:env ctx) [:namespaces ns-sym])
+    (vars/->SciNamespace ns-sym)))
+
+(defn sci-the-ns [ctx x]
+  (if (instance? sci.impl.vars.SciNamespace x) x
+      (sci-find-ns ctx x)))
+
+(defn sci-ns-aliases [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        aliases (get-in @(:env ctx) [:namespaces name :aliases])]
+    (zipmap (keys aliases)
+            (map (fn [sym]
+                   (vars/->SciNamespace sym))
+                 (vals aliases)))))
+
+(defn sci-ns-publics [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        m (get-in @(:env ctx) [:namespaces name])
+        m (dissoc m :aliases)]
+    (into {} (keep (fn [[k v]]
+                     (when-not (:private (meta v))
+                       [k v]))
+                   m))))
+
+;;;; End namespaces
 
 (def clojure-core
   {'*ns* vars/current-ns
@@ -287,6 +321,7 @@
    '->> (macrofy ->>*)
    'add-watch add-watch
    'aget aget
+   'alias (with-meta sci-alias {:sci.impl/needs-ctx true})
    'alter-var-root vars/alter-var-root
    'aset aset
    'alength alength
@@ -380,6 +415,7 @@
    'ex-info ex-info
    'ex-message ex-message
    'ex-cause ex-cause
+   'find-ns (with-meta sci-find-ns {:sci.impl/needs-ctx true})
    'first first
    'float? float?
    'floats floats
@@ -475,8 +511,9 @@
    'not-any? not-any?
    'next next
    'nnext nnext
-   'ns-aliases sci-ns-aliases
-   'ns-name ns-name*
+   'ns-aliases (with-meta sci-ns-aliases {:sci.impl/needs-ctx true})
+   'ns-publics (with-meta sci-ns-publics {:sci.impl/needs-ctx true})
+   'ns-name sci-ns-name
    'odd? odd?
    'object-array object-array
    'peek peek
@@ -568,6 +605,7 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
+   'the-ns (with-meta sci-the-ns {:sci.impl/needs-ctx true})
    'trampoline trampoline
    'transduce transduce
    'transient transient

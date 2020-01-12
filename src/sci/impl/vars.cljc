@@ -361,10 +361,9 @@
            (clojure.core/pop-thread-bindings))))))
 
 (defprotocol INamespace
-  (getName [_])
-  (getAliases [_]))
+  (getName [_]))
 
-(deftype SciNamespace [name aliases-fn]
+(deftype SciNamespace [name]
   Object
   (toString [_]
     (str name))
@@ -376,7 +375,6 @@
                 var-meta {:ns this}]
             (Var. (ns-lookup obj k) var-sym var-meta)))))
   (getName [_] name)
-  (getAliases [_] (aliases-fn))
   ;; IEquiv
   ;; (-equiv [_ other]
   ;;   (if (instance? SciNamespace other)
@@ -386,13 +384,6 @@
   ;; (-hash [_]
   ;;   (hash name))
   )
-
-(defn create-sci-ns [ctx name]
-  (->SciNamespace name
-                  #(let [aliases (get-in @(:env ctx) [:namespaces name :aliases])]
-                     (zipmap (keys aliases) (map (fn [sym]
-                                                   (create-sci-ns ctx sym))
-                                                 (vals aliases))))))
 
 (macros/deftime
   (defmacro with-bindings

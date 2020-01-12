@@ -284,7 +284,9 @@
     (testing "but it should be forbidden in macros that are defined by a user"
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
-                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]}))))))
+                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]})))))
+  (testing "users cannot hack around sci.impl/needs-ctx"
+    (is (= [1 2] (eval* "(def f (with-meta (fn [ctx x] [ctx x]) {:sci.impl/needs-ctx true})) (f 1 2)")))))
 
 (deftest realize-max-test
   (when-not tu/native?
@@ -473,9 +475,13 @@
 
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
+  (is (= #{1 3 2} (eval* "(mapv alias ['set1 'set2] ['clojure.set 'clojure.set]) (set2/difference
+(set1/union #{1 2 3} #{4 5 6}) #{4 5 6})")))
   (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))")))
   (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
-  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))"))))
+  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))")))
+  (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
+                     "foo #'user/foo")))
 
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
