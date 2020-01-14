@@ -68,7 +68,7 @@
 
 (defn eval-if
   [ctx expr]
-  (let [[_if cond then else] expr]
+  (let [[cond then else] expr]
     (if (interpret ctx cond)
       (interpret ctx then)
       (interpret ctx else))))
@@ -355,8 +355,8 @@
              ctx (assoc ctx :top-level? false)
              f (first expr)
              m (meta f)
-             eval? (:sci.impl/eval m)]
-         (cond (:sci.impl/static-access m)
+             eval? (and m (:sci.impl/eval m))]
+         (cond (and m (:sci.impl/static-access m))
                (eval-static-method-invocation ctx expr)
                (or eval? (not (symbol? f)))
                (let [f (interpret ctx f)]
@@ -368,7 +368,7 @@
                :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
                (case (utils/strip-core-ns f)
                  do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
-                 if (eval-if ctx expr)
+                 if (eval-if ctx (rest expr))
                  and (eval-and ctx (rest expr))
                  or (eval-or ctx (rest expr))
                  let (apply eval-let ctx (rest expr))

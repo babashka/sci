@@ -2,6 +2,7 @@
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
             [sci.impl.vars]
+            [sci.impl.types :as t]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
             #?(:cljs [goog.string])))
 
@@ -66,11 +67,11 @@
          kvs classes]
     (if-let [[sym class-opts] (first kvs)]
       (recur ;; storing the physical class as key didn't work well with
-             ;; GraalVM
-             (assoc! class->opts sym (if (map? class-opts)
-                                       class-opts
-                                       {:class class-opts}))
-             (rest kvs))
+       ;; GraalVM
+       (assoc! class->opts sym (if (map? class-opts)
+                                 class-opts
+                                 {:class class-opts}))
+       (rest kvs))
       {:public-class (:public-class classes)
        :class->opts (persistent! class->opts)})))
 

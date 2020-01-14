@@ -41,7 +41,7 @@
                     (when args
                       (throw-arity fn-name macro? args))
                     ret)))
-              ctx (update ctx :bindings merge runtime-bindings)
+              ctx (update ctx :bindings into runtime-bindings)
               ret (if (= 1 (count body))
                     (interpret ctx (first body))
                     (eval-do* ctx body))
