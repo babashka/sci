@@ -335,16 +335,20 @@
 
 (declare eval-string)
 
+(defn eval-do*
+  [ctx exprs]
+  (loop [[expr & exprs] exprs]
+    (let [ret (try (interpret ctx expr)
+                   (catch #?(:clj Throwable :cljs js/Error) e
+                     (rethrow-with-location-of-node ctx e expr)))]
+      (if-let [exprs (seq exprs)]
+        (recur exprs)
+        ret))))
+
 (defn eval-do
   [ctx expr]
   (when-let [exprs (next expr)]
-    (loop [[expr & exprs] exprs]
-      (let [ret (try (interpret ctx expr)
-                     (catch #?(:clj Throwable :cljs js/Error) e
-                       (rethrow-with-location-of-node ctx e expr)))]
-        (if-let [exprs (seq exprs)]
-          (recur exprs)
-          ret)))))
+    (eval-do* ctx exprs)))
 
 (defn eval-call [ctx expr]
   (try (let [ctx* ctx
@@ -377,8 +381,7 @@
                                (interpret ctx (second expr))
                                #?@(:clj []
                                    :cljs [nil nil]))
-                 recur (do (t/setVal fns/recur-val (map #(interpret ctx %) (rest expr)))
-                           fns/recur-val)
+                 recur (fns/->Recur (map #(interpret ctx %) (rest expr)))
                  require (eval-require ctx expr)
                  case (eval-case ctx expr)
                  try (eval-try ctx expr)
@@ -423,7 +426,7 @@
                           f)
                         expr)
           (and m (:sci.impl/try expr)) (eval-try ctx expr)
-          (and m (:sci.impl/fn expr)) (fns/eval-fn ctx interpret expr)
+          (and m (:sci.impl/fn expr)) (fns/eval-fn ctx interpret eval-do* expr)
           (and m (:sci.impl/eval-call m)) (eval-call ctx expr)
           (and m (:sci.impl/static-access m)) (interop/get-static-field ctx expr)
           (and m (:sci.impl/var-value m)) (nth expr 0)

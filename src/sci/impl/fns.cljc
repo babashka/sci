@@ -17,10 +17,8 @@
     (set! val v))
   (getVal [this] val))
 
-(def recur-val (Recur. nil))
-
 (defn parse-fn-args+body
-  [interpret ctx
+  [ctx interpret eval-do*
    {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
@@ -49,7 +47,7 @@
               ctx (update ctx :bindings merge runtime-bindings)
               ret (if (= 1 (count body))
                     (interpret ctx (first body))
-                    (interpret ctx (mark-eval-call `(do ~@body))))
+                    (eval-do* ctx body))
               ;; m (meta ret)
               recur? (instance? Recur ret)]
           (if recur? (recur (t/getVal ret)) ret)))
@@ -63,7 +61,7 @@
                            (>= arity min-var-args-arity)))
               f))) arities))
 
-(defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name] :as f}]
+(defn eval-fn [ctx interpret eval-do* {:sci.impl/keys [fn-bodies fn-name] :as f}]
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
         call-self (fn [& args]
@@ -71,7 +69,7 @@
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] call-self)
                 ctx)
         single-arity? (= 1 (count fn-bodies))
-        arities (map #(parse-fn-args+body interpret ctx % fn-name macro?) fn-bodies)
+        arities (map #(parse-fn-args+body ctx interpret eval-do* % fn-name macro?) fn-bodies)
         f (vary-meta
            (if single-arity?
              (first arities)
