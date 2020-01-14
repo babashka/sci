@@ -13,7 +13,8 @@
                                      rethrow-with-location-of-node
                                      set-namespace!
                                      kw-identical?]]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [sci.impl.types :as t]))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -329,7 +330,7 @@
   (let [obj (interpret ctx obj)
         v (interpret ctx v)]
     (if (vars/var? obj)
-      (vars/setVal obj v)
+      (t/setVal obj v)
       (throw (ex-info (str "Cannot set " obj " to " v) {:obj obj :v v})))))
 
 (declare eval-string)
@@ -376,8 +377,8 @@
                                (interpret ctx (second expr))
                                #?@(:clj []
                                    :cljs [nil nil]))
-                 recur (with-meta (map #(interpret ctx %) (rest expr))
-                         {:sci.impl/recur true})
+                 recur (do (t/setVal fns/recur-val (map #(interpret ctx %) (rest expr)))
+                           fns/recur-val)
                  require (eval-require ctx expr)
                  case (eval-case ctx expr)
                  try (eval-try ctx expr)

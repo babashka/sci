@@ -1,10 +1,27 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.utils :refer [mark-eval-call]]))
+  (:require [sci.impl.utils :refer [mark-eval-call]]
+            [sci.impl.types :as t]))
+
+(defn throw-arity [fn-name macro? args]
+  (throw (new #?(:clj Exception
+                 :cljs js/Error)
+              (let [actual-count (if macro? (- (count args) 2)
+                                     (count args))]
+                (str "Cannot call " fn-name " with " actual-count " arguments")))))
+
+(deftype Recur #?(:clj [^:volatile-mutable val]
+                 :cljs [^:mutable val])
+  t/IBox
+  (setVal [this v]
+    (set! val v))
+  (getVal [this] val))
+
+(def recur-val (Recur. nil))
 
 (defn parse-fn-args+body
   [interpret ctx
-   {:sci.impl/keys [fixed-arity var-arg-name _arg-list params body] :as _m}
+   {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
@@ -12,19 +29,14 @@
             {:sci.impl/fixed-arity fixed-arity})]
     (with-meta
       (fn [& args]
-        (let [arg-count (count args)
-              runtime-bindings
+        (let [runtime-bindings
               (loop [args (seq args)
                      params (seq params)
                      ret {}]
                 (if params
                   (do
                     (when-not args
-                      (throw (new #?(:clj Exception
-                                     :cljs js/Error)
-                                  (let [actual-count (if macro? (- arg-count 2)
-                                                         arg-count)]
-                                    (str "Cannot call " fn-name " with " actual-count " arguments")))))
+                      (throw-arity fn-name macro? args))
                     (let [fp (first params)]
                       (if (= '& fp)
                         (assoc ret (second params) args)
@@ -32,19 +44,15 @@
                                (assoc ret fp (first args))))))
                   (do
                     (when args
-                      (throw (new #?(:clj Exception
-                                     :cljs js/Error)
-                                  (let [actual-count (if macro? (- arg-count 2)
-                                                         arg-count)]
-                                    (str "Cannot call " fn-name " with " actual-count " arguments")))))
+                      (throw-arity fn-name macro? args))
                     ret)))
               ctx (update ctx :bindings merge runtime-bindings)
               ret (if (= 1 (count body))
                     (interpret ctx (first body))
                     (interpret ctx (mark-eval-call `(do ~@body))))
-              m (meta ret)
-              recur? (:sci.impl/recur m)]
-          (if recur? (recur ret) ret)))
+              ;; m (meta ret)
+              recur? (instance? Recur ret)]
+          (if recur? (recur (t/getVal ret)) ret)))
       m)))
 
 (defn lookup-by-arity [arities arity]

@@ -10,14 +10,11 @@
                             thread-bound?
                             alter-var-root])
   (:require [sci.impl.macros :as macros]
-            #?(:clj [borkdude.graal.locking :as locking]))
+            #?(:clj [borkdude.graal.locking :as locking])
+            [sci.impl.types :as t])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings]])))
 
 #?(:clj (set! *warn-on-reflection* true))
-
-(defprotocol IBox
-  (setVal [_this _v])
-  (getVal [_this]))
 
 (deftype Frame [bindings prev])
 
@@ -44,7 +41,7 @@
 
 (deftype TBox #?(:clj [thread ^:volatile-mutable val]
                  :cljs [thread ^:mutable val])
-  IBox
+  t/IBox
   (setVal [this v]
     (set! val  v))
   (getVal [this] val))
@@ -83,7 +80,7 @@
            kvs (seq (.-bindings f))]
       (if kvs
         (let [[var* ^TBox tbox] (first kvs)
-              tbox-val (getVal tbox)]
+              tbox-val (t/getVal tbox)]
           (recur (assoc ret var* tbox-val)
                  (next kvs)))
         ret))))
@@ -210,7 +207,7 @@
     (set! (.-root this) (SciUnbound. this)))
   (hasRoot [this]
     (not (instance? SciUnbound root)))
-  IBox
+  t/IBox
   (setVal [this v]
     (let [b (get-thread-binding this)]
       (if (some? b)
@@ -219,8 +216,8 @@
              (if (not (identical? t (Thread/currentThread)))
                (throw (new IllegalStateException
                            (str "Can't change/establish root binding of " this " with set")))
-               (setVal b v)))
-           :cljs (setVal b v))
+               (t/setVal b v)))
+           :cljs (t/setVal b v))
         (throw (new #?(:clj IllegalStateException :cljs js/Error)
                     (str "Can't change/establish root binding of " this " with set"))))))
   (getVal [this] root)
@@ -228,7 +225,7 @@
   (#?(:clj deref
       :cljs -deref) [this]
     (or (when-let [tbox (get-thread-binding this)]
-          (getVal tbox))
+          (t/getVal tbox))
         root))
   Object
   (toString [_]
