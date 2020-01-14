@@ -4,7 +4,7 @@
 
 (defn parse-fn-args+body
   [interpret ctx
-   {:sci.impl/keys [fixed-arity fixed-names var-arg-name destructure-vec _arg-list body] :as _m}
+   {:sci.impl/keys [fixed-arity var-arg-name _arg-list params body] :as _m}
    fn-name macro? single-arity?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
@@ -23,14 +23,20 @@
                           (let [actual-count (if macro? (- arity 2)
                                                  arity)]
                             (str "Cannot call " fn-name " with " actual-count " arguments")))))))
-        (let [runtime-bindings (vec (interleave fixed-names (take fixed-arity args)))
-              runtime-bindings (if var-arg-name
-                                 (conj runtime-bindings var-arg-name
-                                       (drop fixed-arity args))
-                                 runtime-bindings)
-              let-bindings (into runtime-bindings destructure-vec)
-              form (list* 'let let-bindings body)
-              ret (interpret ctx (mark-eval-call form))
+        (let [runtime-bindings (loop [args args
+                                      params (seq params)
+                                      ret {}]
+                                 (if params
+                                   (let [fp (first params)]
+                                     (if (= '& fp)
+                                       (assoc ret (second params) args)
+                                       (recur (next args) (next params)
+                                              (assoc ret fp (first args)))))
+                                   ret))
+              ctx (update ctx :bindings merge runtime-bindings)
+              ret (if (= 1 (count body))
+                    (interpret ctx (first body))
+                    (interpret ctx (mark-eval-call `(do ~@body))))
               m (meta ret)
               recur? (:sci.impl/recur m)]
           (if recur? (recur ret) ret)))

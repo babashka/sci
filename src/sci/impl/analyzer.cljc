@@ -135,6 +135,24 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
+(defn maybe-destructured
+  [params body]
+  (if (every? symbol? params)
+    {:params params
+     :body body}
+    (loop [params params
+           new-params (with-meta [] (meta params))
+           lets []]
+      (if params
+        (if (symbol? (first params))
+          (recur (next params) (conj new-params (first params)) lets)
+          (let [gparam (gensym "p__")]
+            (recur (next params) (conj new-params gparam)
+                   (-> lets (conj (first params)) (conj gparam)))))
+        {:params new-params
+         :body [`(let ~lets
+                   ~@body)]}))))
+
 (defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
@@ -143,22 +161,8 @@
   (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
                            binding-vector)
         fixed-args (take-while #(not= '& %) binding-vector)
-        var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
-        fixed-names (vec (repeatedly fixed-arity gensym*))
-        ;; TODO: skip destructuring when all args are symbols
-        ;; (every? symbol? params)
-        destructure-vec (vec (interleave binding-vector fixed-names))
-        var-arg-name (when var-arg (gensym*))
-        destructure-vec (if var-arg
-                          (conj destructure-vec var-arg var-arg-name)
-                          destructure-vec)
-        destructured-vec (destructure destructure-vec)
-        ;; all user-provided bindings are extracted by the destructure macro and
-        ;; now we add them to bindings and continue the macroexpansion of the
-        ;; body
-        ctx (update ctx :bindings merge (zipmap (take-nth 2 destructured-vec)
-                                                (repeat nil)))
+        var-arg-name (second (drop-while #(not= '& %) binding-vector))
         next-body (next body-exprs)
         conds (when next-body
                 (let [e (first body-exprs)]
@@ -177,23 +181,22 @@
         body-exprs (if pre
                      (concat (map (fn* [c] `(assert ~c)) pre)
                              body-exprs)
-               body-exprs)
-        body-form (mark-eval-call
-                   `(~'let ~destructured-vec
-                     ;; we analyze the body expressions only once with the
-                     ;; bindings in scope
-                     ~@(analyze-children ctx body-exprs)))
-        arg-list (if var-arg
-                   (conj fixed-names '& var-arg-name)
-                   fixed-names)]
-    #:sci.impl{:arg-list arg-list
-               :body [body-form]
+                     body-exprs)
+        {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
+        ctx (update ctx :bindings merge (zipmap params
+                                                (repeat nil)))
+        body (analyze-children ctx body)]
+    #:sci.impl{;; :arg-list arg-list
+               :body body
+               :params params
                :fixed-arity fixed-arity
-               :destructure-vec destructure-vec
-               :fixed-names fixed-names
-               :fixed-args fixed-args
+               ;; :destructure-vec destructure-vec
+               ;; :fixed-names fixed-names
+               ;; :fixed-args fixed-args
                :var-arg-name var-arg-name
                :fn-name fn-name}))
+
+#_(clojure.core/let [{:keys [:x]} p__1664] x)
 
 (defn expand-fn [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
