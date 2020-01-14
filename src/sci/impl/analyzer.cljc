@@ -323,9 +323,7 @@
         arg-names (take-nth 2 bv)
         init-vals (take-nth 2 (rest bv))
         body (nnext expr)]
-    (analyze ctx (apply list (list 'fn (vec arg-names)
-                                   ;; expand-fn will take care of the analysis of the body
-                                   (cons 'do body))
+    (analyze ctx (apply list `(fn ~(vec arg-names) ~@body)
                         init-vals))))
 
 (defn expand-lazy-seq
