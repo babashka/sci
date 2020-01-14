@@ -10,7 +10,7 @@
                 (str "Cannot call " fn-name " with " actual-count " arguments")))))
 
 (deftype Recur #?(:clj [val]
-                 :cljs [val])
+                  :cljs [val])
   t/IBox
   (getVal [this] val))
 
@@ -29,12 +29,12 @@
                      params (seq params)
                      ret {}]
                 (if params
-                  (do
-                    (when-not args
-                      (throw-arity fn-name macro? args))
-                    (let [fp (first params)]
-                      (if (= '& fp)
-                        (assoc ret (second params) args)
+                  (let [fp (first params)]
+                    (if (= '& fp)
+                      (assoc ret (second params) args)
+                      (do
+                        (when-not args
+                          (throw-arity fn-name macro? args))
                         (recur (next args) (next params)
                                (assoc ret fp (first args))))))
                   (do

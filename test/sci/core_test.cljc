@@ -688,7 +688,8 @@
 
 (deftest defn--test
   (is (= 1 (eval* "(defn- foo [] 1) (foo)")))
-  (is (true? (eval* "(defn- foo [] 1) (:private (meta #'foo))"))))
+  (is (true? (eval* "(defn- foo [] 1) (:private (meta #'foo))")))
+  (is (= 1 (eval* "(defn get [url & [req]] url) (get 1)"))))
 
 (deftest refer-clojure-exclude
   (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
