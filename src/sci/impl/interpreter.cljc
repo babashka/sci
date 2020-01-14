@@ -425,9 +425,12 @@
                                   expr)]
                           f)
                         expr)
+          ;; TODO: moving this up increased performance for #246. We can
+          ;; probably optimize it further by not using separate keywords for
+          ;; one :sci.impl/op keyword on which we can use a case expression
+          (and m (:sci.impl/eval-call m)) (eval-call ctx expr)
           (and m (:sci.impl/try expr)) (eval-try ctx expr)
           (and m (:sci.impl/fn expr)) (fns/eval-fn ctx interpret eval-do* expr)
-          (and m (:sci.impl/eval-call m)) (eval-call ctx expr)
           (and m (:sci.impl/static-access m)) (interop/get-static-field ctx expr)
           (and m (:sci.impl/var-value m)) (nth expr 0)
           (and m (:sci.impl/deref! m)) (let [v (first expr)
