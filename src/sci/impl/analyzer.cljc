@@ -186,13 +186,9 @@
         ctx (update ctx :bindings merge (zipmap params
                                                 (repeat nil)))
         body (analyze-children ctx body)]
-    #:sci.impl{;; :arg-list arg-list
-               :body body
+    #:sci.impl{:body body
                :params params
                :fixed-arity fixed-arity
-               ;; :destructure-vec destructure-vec
-               ;; :fixed-names fixed-names
-               ;; :fixed-args fixed-args
                :var-arg-name var-arg-name
                :fn-name fn-name}))
 

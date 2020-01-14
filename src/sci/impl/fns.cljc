@@ -5,34 +5,39 @@
 (defn parse-fn-args+body
   [interpret ctx
    {:sci.impl/keys [fixed-arity var-arg-name _arg-list params body] :as _m}
-   fn-name macro? single-arity?]
+   fn-name macro?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
         m (if min-var-args-arity
             {:sci.impl/min-var-args-arity min-var-args-arity}
             {:sci.impl/fixed-arity fixed-arity})]
     (with-meta
       (fn [& args]
-        (when single-arity?
-          ;; no argument arity check has happened yet so we do it now
-          (let [arity (count args)]
-            (when-not (or (= arity fixed-arity)
-                          (and min-var-args-arity
-                               (>= arity min-var-args-arity)))
-              (throw (new #?(:clj Exception
-                             :cljs js/Error)
-                          (let [actual-count (if macro? (- arity 2)
-                                                 arity)]
-                            (str "Cannot call " fn-name " with " actual-count " arguments")))))))
-        (let [runtime-bindings (loop [args args
-                                      params (seq params)
-                                      ret {}]
-                                 (if params
-                                   (let [fp (first params)]
-                                     (if (= '& fp)
-                                       (assoc ret (second params) args)
-                                       (recur (next args) (next params)
-                                              (assoc ret fp (first args)))))
-                                   ret))
+        (let [arg-count (count args)
+              runtime-bindings
+              (loop [args (seq args)
+                     params (seq params)
+                     ret {}]
+                (if params
+                  (do
+                    (when-not args
+                      (throw (new #?(:clj Exception
+                                     :cljs js/Error)
+                                  (let [actual-count (if macro? (- arg-count 2)
+                                                         arg-count)]
+                                    (str "Cannot call " fn-name " with " actual-count " arguments")))))
+                    (let [fp (first params)]
+                      (if (= '& fp)
+                        (assoc ret (second params) args)
+                        (recur (next args) (next params)
+                               (assoc ret fp (first args))))))
+                  (do
+                    (when args
+                      (throw (new #?(:clj Exception
+                                     :cljs js/Error)
+                                  (let [actual-count (if macro? (- arg-count 2)
+                                                         arg-count)]
+                                    (str "Cannot call " fn-name " with " actual-count " arguments")))))
+                    ret)))
               ctx (update ctx :bindings merge runtime-bindings)
               ret (if (= 1 (count body))
                     (interpret ctx (first body))
@@ -58,7 +63,7 @@
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] call-self)
                 ctx)
         single-arity? (= 1 (count fn-bodies))
-        arities (map #(parse-fn-args+body interpret ctx % fn-name macro? single-arity?) fn-bodies)
+        arities (map #(parse-fn-args+body interpret ctx % fn-name macro?) fn-bodies)
         f (vary-meta
            (if single-arity?
              (first arities)
