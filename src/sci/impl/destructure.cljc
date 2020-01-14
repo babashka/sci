@@ -91,8 +91,9 @@
                                               :cljs (implements? INamed bb))
                                          (with-meta (symbol nil (name bb)) (meta bb))
                                          bb)
-                                 bv (if (contains? defaults local)
-                                      (mark-eval-call (list get gmap bk (defaults local)))
+                                 bk (if (symbol? bk) (list 'quote bk) bk)
+                                 bv (if-let [default (get defaults local)]
+                                      (mark-eval-call (list get gmap bk default))
                                       (mark-eval-call (list get gmap bk)))]
                              (recur
                               (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
@@ -119,5 +120,4 @@
         (reduce process-entry [] bents)))))
 
 (defn destructure [b]
-  ;; (prn (destructure* b))
   (destructure* b))

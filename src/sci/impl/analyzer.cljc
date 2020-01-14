@@ -196,8 +196,6 @@
                :var-arg-name var-arg-name
                :fn-name fn-name}))
 
-#_(clojure.core/let [{:keys [:x]} p__1664] x)
-
 (defn expand-fn [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
@@ -631,6 +629,7 @@
 
 (defn analyze
   [ctx expr]
+  ;; (prn "ana" expr)
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (constant? v) v
