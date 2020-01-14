@@ -24,10 +24,12 @@
             {:sci.impl/fixed-arity fixed-arity})]
     (with-meta
       (fn run-fn [& args]
-        (let [runtime-bindings
+        (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
+              bindings (:bindings ctx)
+              bindings
               (loop [args (seq args)
                      params (seq params)
-                     ret {}]
+                     ret bindings]
                 (if params
                   (let [fp (first params)]
                     (if (= '& fp)
@@ -41,7 +43,7 @@
                     (when args
                       (throw-arity fn-name macro? args))
                     ret)))
-              ctx (update ctx :bindings into runtime-bindings)
+              ctx (assoc ctx :bindings bindings)
               ret (if (= 1 (count body))
                     (interpret ctx (first body))
                     (eval-do* ctx body))
