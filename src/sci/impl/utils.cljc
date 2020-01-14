@@ -1,7 +1,8 @@
 (ns sci.impl.utils
   {:no-doc true}
   (:require [clojure.string :as str]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.impl.types :as t]))
 
 (derive :sci.error/realized-beyond-max :sci/error)
 
@@ -124,7 +125,7 @@
 (defn set-namespace! [ctx ns-sym]
   (let [env (:env ctx)]
     (swap! env (fn [env]
-                 (vars/setVal vars/current-ns (vars/->SciNamespace ns-sym))
+                 (t/setVal vars/current-ns (vars/->SciNamespace ns-sym))
                  (-> env
                      (assoc :current-ns ns-sym)
                      (update-in [:namespaces ns-sym] (fn [the-ns]
