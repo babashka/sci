@@ -26,7 +26,7 @@
             {:sci.impl/min-var-args-arity min-var-args-arity}
             {:sci.impl/fixed-arity fixed-arity})]
     (with-meta
-      (fn [& args]
+      (fn run-fn [& args]
         (let [runtime-bindings
               (loop [args (seq args)
                      params (seq params)
