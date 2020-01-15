@@ -14,7 +14,7 @@
   (vary-meta
    sym
    (fn [m]
-     (assoc m :sci.impl/op :resolve))))
+     (assoc m :sci.impl/op :resolve-sym))))
 
 (defn eval? [x]
   (some-> x meta :sci.impl/op))

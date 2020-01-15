@@ -397,7 +397,7 @@
                  resolve (eval-resolve ctx expr)
                  macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
                  macroexpand (macroexpand ctx (interpret ctx (second expr))))))
-       (catch #?(:clj Exception :cljs js/Error) e
+       (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
 (defn remove-eval-mark [v]
@@ -410,14 +410,16 @@
 (defn interpret
   [ctx expr]
   (let [m (meta expr)
-        ctx (assoc ctx :top-level? false)
-        ctx (if m
-              (let [{:keys [:row :col]} m]
+        ctx (if (and m (:top-level? ctx))
+              (assoc ctx :top-level? false)
+              ctx)
+        #_#_ctx (if m
+              (let [row (:row m)
+                    col (:col m)]
                 (if (and row col)
                   (assoc ctx :row row :col col)
                   ctx))
               ctx)
-        ;; eval? (and m (:sci.impl/eval m))
         op (and m (:sci.impl/op m))
         ;; _ (prn "op" op)
         ret
@@ -440,11 +442,11 @@
             :deref! (let [v (first expr)
                           v (if (vars/var? v) @v v)]
                       (force v))
+            :resolve-sym (resolve-symbol ctx expr)
             (cond (vars/var? expr) (if-not (vars/isMacro expr)
                                      (deref expr)
                                      (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                                  (str "Can't take value of a macro: " expr ""))))
-                  (symbol? expr) (resolve-symbol ctx expr)
                   (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
                                       (map #(interpret ctx %) (vals expr)))
                   (or (vector? expr) (set? expr)) (into (empty expr)
