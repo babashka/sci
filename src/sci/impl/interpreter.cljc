@@ -352,19 +352,18 @@
 
 (defn eval-call [ctx expr]
   (try (let [ctx* ctx
-             ctx (assoc ctx :top-level? false)
              f (first expr)
              m (meta f)
              op (and m (:sci.impl/op m))]
-         ;; (prn "op" op)
          (cond (kw-identical? op :static-access)
                (eval-static-method-invocation ctx expr)
                (or op (not (symbol? f)))
                (let [f (interpret ctx f)]
-                 (cond (:dry-run ctx) nil
-                       (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-                       :else
-                       (throw (new #?(:clj Exception :cljs js/Error)
+                 (cond
+                   (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+                   (:dry-run ctx) nil
+                   :else
+                   (throw (new #?(:clj Exception :cljs js/Error)
                                    (str "Cannot call " (pr-str f) " as a function.")))))
                :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
                (case (utils/strip-core-ns f)
@@ -404,7 +403,7 @@
   ;; TODO: find out why the special case for vars is needed. When I remove it,
   ;; spartan.spec does not work.
   (if (and (meta v) (not (vars/var? v)))
-    (vary-meta v dissoc :sci.impl/eval)
+    (vary-meta v dissoc :sci.impl/op)
     v))
 
 (defn interpret
@@ -413,15 +412,7 @@
         ctx (if (and m (:top-level? ctx))
               (assoc ctx :top-level? false)
               ctx)
-        #_#_ctx (if m
-              (let [row (:row m)
-                    col (:col m)]
-                (if (and row col)
-                  (assoc ctx :row row :col col)
-                  ctx))
-              ctx)
         op (and m (:sci.impl/op m))
-        ;; _ (prn "op" op)
         ret
         (if
           (not op) (if (ifn? expr)
