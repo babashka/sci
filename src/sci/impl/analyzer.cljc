@@ -52,7 +52,7 @@
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
-                [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
+                [sym ^{:sci.impl/op :static-access} [clazz sym-name]]))
           :else
           ;; no sym-ns, this could be a symbol from clojure.core
           (when-not (contains?
@@ -97,8 +97,7 @@
         ;; the evaluation of this expression has been delayed by
         ;; the caller and now is the time to deref it
         [k (with-meta [v]
-             {:sci.impl/deref! true
-              :sci.impl/eval true})]
+             {:sci.impl/op :deref!})]
         kv)
       kv)))
 
@@ -226,9 +225,10 @@
                   {:bodies []
                    :min-var-args nil
                    :max-fixed -1} bodies))]
-    (mark-eval #:sci.impl{:fn-bodies arities
+    (with-meta #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
-                          :fn true})))
+                          :fn true}
+      {:sci.impl/op :fn})))
 
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
@@ -402,11 +402,12 @@
                       catches)
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
-    (mark-eval
-     {:sci.impl/try
-      {:body body
-       :catches catches
-       :finally finally}})))
+    (with-meta
+      {:sci.impl/try
+       {:body body
+        :catches catches
+        :finally finally}}
+      {:sci.impl/op :try})))
 
 (defn expand-declare [ctx [_declare & names :as _expr]]
   (swap! (:env ctx)
@@ -455,7 +456,8 @@
         method-expr (str method-expr)
         args (analyze-children ctx args)
         res #?(:clj (if (class? instance-expr)
-                      `(~(mark-eval ^:sci.impl/static-access [instance-expr method-expr]) ~@args)
+                      `(~(with-meta [instance-expr method-expr]
+                           {:sci.impl/op :static-access}) ~@args)
                       `(~'. ~instance-expr ~method-expr ~args))
                :cljs `(~'. ~instance-expr ~method-expr ~args))]
     (mark-eval-call res)))
@@ -522,8 +524,7 @@
 
 (defn wrapped-var [v]
   (with-meta [v]
-    {:sci.impl/eval true
-     :sci.impl/var-value true}))
+    {:sci.impl/op :var-value}))
 
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
@@ -627,10 +628,10 @@
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (constant? v) v
-                                         (fn? v) (merge-meta v {:sci.impl/eval false})
+                                         (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
                                          (vars/var? v) (if (:const (meta v))
                                                          @v
-                                                         (with-meta v (assoc (meta v) :sci.impl/eval true)))
+                                                         (with-meta v (assoc (meta v) :sci.impl/op :eval)))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta
