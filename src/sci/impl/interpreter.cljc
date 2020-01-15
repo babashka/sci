@@ -414,12 +414,7 @@
 (defn interpret
   [ctx expr]
   (let [m (meta expr)
-        ;; _ (prn "m" (type expr) m)
-        ctx (if (and m (:top-level? ctx))
-              (assoc ctx :top-level? false)
-              ctx)
         op (and m (:sci.impl/op m))
-        ;; _ (prn expr "op>" op)
         ret
         (if
             (not op) expr
