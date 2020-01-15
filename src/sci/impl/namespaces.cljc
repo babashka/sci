@@ -322,7 +322,7 @@
    '->> (macrofy ->>*)
    'add-watch add-watch
    'aget aget
-   'alias (with-meta sci-alias {:sci.impl/needs-ctx true})
+   'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
    'alter-var-root vars/alter-var-root
    'aset aset
    'alength alength
@@ -416,7 +416,7 @@
    'ex-info ex-info
    'ex-message ex-message
    'ex-cause ex-cause
-   'find-ns (with-meta sci-find-ns {:sci.impl/needs-ctx true})
+   'find-ns (with-meta sci-find-ns {:sci.impl/op :needs-ctx})
    'first first
    'float? float?
    'floats floats
@@ -512,8 +512,8 @@
    'not-any? not-any?
    'next next
    'nnext nnext
-   'ns-aliases (with-meta sci-ns-aliases {:sci.impl/needs-ctx true})
-   'ns-publics (with-meta sci-ns-publics {:sci.impl/needs-ctx true})
+   'ns-aliases (with-meta sci-ns-aliases {:sci.impl/op :needs-ctx})
+   'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name
    'odd? odd?
    'object-array object-array
@@ -606,7 +606,7 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
-   'the-ns (with-meta sci-the-ns {:sci.impl/needs-ctx true})
+   'the-ns (with-meta sci-the-ns {:sci.impl/op :needs-ctx})
    'trampoline trampoline
    'transduce transduce
    'transient transient
@@ -704,7 +704,7 @@
      (println v#)))
 
 (def clojure-repl
-  {'dir-fn (with-meta dir-fn {:sci.impl/needs-ctx true})
+  {'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
    'dir (macrofy dir)})
 
 (def namespaces

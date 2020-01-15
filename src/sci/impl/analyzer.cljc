@@ -628,7 +628,7 @@
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr)]
                                    (cond (constant? v) v
-                                         (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
+                                         ;; (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
                                          (vars/var? v) (if (:const (meta v))
                                                          @v
                                                          (with-meta v (assoc (meta v) :sci.impl/op :eval)))
@@ -648,7 +648,7 @@
                      :else expr)
                    (select-keys (meta expr)
                                 [:row :col :tag])))]
-    ;; (prn "ana" expr '-> ret)
+    ;; (prn "ana" expr '-> ret 'm-> (meta ret))
     ret))
 
 ;;;; Scratch
