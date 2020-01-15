@@ -355,10 +355,11 @@
              ctx (assoc ctx :top-level? false)
              f (first expr)
              m (meta f)
-             eval? (and m (:sci.impl/eval m))]
-         (cond (and m (:sci.impl/static-access m))
+             op (and m (:sci.impl/op m))]
+         ;; (prn "op" op)
+         (cond (kw-identical? op :static-access)
                (eval-static-method-invocation ctx expr)
-               (or eval? (not (symbol? f)))
+               (or op (not (symbol? f)))
                (let [f (interpret ctx f)]
                  (cond (:dry-run ctx) nil
                        (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
@@ -416,10 +417,12 @@
                   (assoc ctx :row row :col col)
                   ctx))
               ctx)
-        eval? (and m (:sci.impl/eval m))
+        ;; eval? (and m (:sci.impl/eval m))
+        op (and m (:sci.impl/op m))
+        ;; _ (prn "op" op)
         ret
-        (cond
-          (not eval?) (if (ifn? expr)
+        (if
+          (not op) (if (ifn? expr)
                         (let [f (if (and m (:sci.impl/needs-ctx m))
                                   (partial expr ctx)
                                   expr)]
@@ -428,26 +431,27 @@
           ;; TODO: moving this up increased performance for #246. We can
           ;; probably optimize it further by not using separate keywords for
           ;; one :sci.impl/op keyword on which we can use a case expression
-          (and m (:sci.impl/eval-call m)) (eval-call ctx expr)
-          (and m (:sci.impl/try expr)) (eval-try ctx expr)
-          (and m (:sci.impl/fn expr)) (fns/eval-fn ctx interpret eval-do* expr)
-          (and m (:sci.impl/static-access m)) (interop/get-static-field ctx expr)
-          (and m (:sci.impl/var-value m)) (nth expr 0)
-          (and m (:sci.impl/deref! m)) (let [v (first expr)
-                                     v (if (vars/var? v) @v v)]
-                                 (force v))
-          (vars/var? expr) (if-not (vars/isMacro expr)
-                             (deref expr)
-                             (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                         (str "Can't take value of a macro: " expr ""))))
-          (symbol? expr) (resolve-symbol ctx expr)
-          (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
-                              (map #(interpret ctx %) (vals expr)))
-          (or (vector? expr) (set? expr)) (into (empty expr)
-                                                (map #(interpret ctx %)
-                                                     expr))
-          :else (throw (new #?(:clj Exception :cljs js/Error)
-                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+          (case op
+            :call (eval-call ctx expr)
+            :try (eval-try ctx expr)
+            :fn (fns/eval-fn ctx interpret eval-do* expr)
+            :static-access (interop/get-static-field ctx expr)
+            :var-value (nth expr 0)
+            :deref! (let [v (first expr)
+                          v (if (vars/var? v) @v v)]
+                      (force v))
+            (cond (vars/var? expr) (if-not (vars/isMacro expr)
+                                     (deref expr)
+                                     (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                                 (str "Can't take value of a macro: " expr ""))))
+                  (symbol? expr) (resolve-symbol ctx expr)
+                  (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                                      (map #(interpret ctx %) (vals expr)))
+                  (or (vector? expr) (set? expr)) (into (empty expr)
+                                                        (map #(interpret ctx %)
+                                                             expr))
+                  :else (throw (new #?(:clj Exception :cljs js/Error)
+                                    (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
         ret (remove-eval-mark ret)]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)

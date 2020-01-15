@@ -14,11 +14,10 @@
   (vary-meta
    sym
    (fn [m]
-     (assoc m
-            :sci.impl/eval true))))
+     (assoc m :sci.impl/op :resolve))))
 
 (defn eval? [x]
-  (some-> x meta :sci.impl/eval))
+  (some-> x meta :sci.impl/op))
 
 (defn kw-identical? [k v]
   (#?(:clj identical? :cljs keyword-identical?)
@@ -33,16 +32,14 @@
   (vary-meta
    expr
    (fn [m]
-     (assoc m
-            :sci.impl/eval-call true
-            :sci.impl/eval true))))
+     (assoc m :sci.impl/op :call))))
 
 (defn mark-eval
   [expr]
   (vary-meta
    expr
    (fn [m]
-     (assoc m :sci.impl/eval true))))
+     (assoc m :sci.impl/op :eval))))
 
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
@@ -83,6 +80,15 @@
       (throw e))
     (throw e)))
 
+(defn vary-meta*
+  "Only adds metadata to obj if d is not nil and if obj already has meta"
+  [obj f & args]
+  (if (not (var? obj)) ;; vars can have metadata but don't support with-meta
+    (if (meta obj)
+      (apply vary-meta obj f args)
+      obj)
+    obj))
+
 (defn merge-meta
   "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
   [obj d]
@@ -103,7 +109,7 @@
 (defn walk*
   [inner form]
   (cond
-    (:sci.impl/eval (meta form)) form
+    (:sci.impl/op (meta form)) form
     (list? form) (with-meta (apply list (map inner form))
                    (meta form))
     #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
@@ -118,7 +124,7 @@
     :else form))
 
 (defn prewalk
-  "Prewalk with metadata preservation. Does not prewalk :sci.impl/eval nodes."
+  "Prewalk with metadata preservation. Does not prewalk :sci.impl/op nodes."
   [f form]
   (walk* (partial prewalk f) (f form)))
 
