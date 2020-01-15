@@ -350,52 +350,57 @@
   (when-let [exprs (next expr)]
     (eval-do* ctx exprs)))
 
+(defn eval-special-call [ctx f-sym expr]
+  (case (utils/strip-core-ns f-sym)
+    do (eval-do ctx expr)
+    if (eval-if ctx (rest expr))
+    and (eval-and ctx (rest expr))
+    or (eval-or ctx (rest expr))
+    let (apply eval-let ctx (rest expr))
+    def (eval-def ctx expr)
+    ;; defonce (eval-defonce ctx expr)
+    lazy-seq (new #?(:clj clojure.lang.LazySeq
+                     :cljs cljs.core/LazySeq)
+                  #?@(:clj []
+                      :cljs [nil])
+                  (interpret ctx (second expr))
+                  #?@(:clj []
+                      :cljs [nil nil]))
+    recur (fns/->Recur (map #(interpret ctx %) (rest expr)))
+    require (eval-require ctx expr)
+    case (eval-case ctx expr)
+    try (eval-try ctx expr)
+    ;; syntax-quote (eval-syntax-quote ctx expr)
+    ;; interop
+    new (eval-constructor-invocation ctx expr)
+    . (eval-instance-method-invocation ctx expr)
+    throw (eval-throw ctx expr)
+    in-ns (eval-in-ns ctx expr)
+    set! (eval-set! ctx expr)
+    refer (eval-refer ctx expr)
+    resolve (eval-resolve ctx expr)
+    macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
+    macroexpand (macroexpand ctx (interpret ctx (second expr)))))
+
 (defn eval-call [ctx expr]
-  (try (let [ctx* ctx
-             f (first expr)
+  (try (let [f (first expr)
              m (meta f)
-             op (and m (:sci.impl/op m))]
-         (cond (kw-identical? op :static-access)
-               (eval-static-method-invocation ctx expr)
-               (or op (not (symbol? f)))
-               (let [f (interpret ctx f)]
-                 (cond
-                   (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
-                   (:dry-run ctx) nil
-                   :else
-                   (throw (new #?(:clj Exception :cljs js/Error)
-                                   (str "Cannot call " (pr-str f) " as a function.")))))
-               :else ;; if f is a symbol that we should not interpret anymore, it must be one of these:
-               (case (utils/strip-core-ns f)
-                 do (eval-do (assoc ctx :top-level? (:top-level? ctx*)) expr)
-                 if (eval-if ctx (rest expr))
-                 and (eval-and ctx (rest expr))
-                 or (eval-or ctx (rest expr))
-                 let (apply eval-let ctx (rest expr))
-                 def (eval-def ctx expr)
-                 ;; defonce (eval-defonce ctx expr)
-                 lazy-seq (new #?(:clj clojure.lang.LazySeq
-                                  :cljs cljs.core/LazySeq)
-                               #?@(:clj []
-                                   :cljs [nil])
-                               (interpret ctx (second expr))
-                               #?@(:clj []
-                                   :cljs [nil nil]))
-                 recur (fns/->Recur (map #(interpret ctx %) (rest expr)))
-                 require (eval-require ctx expr)
-                 case (eval-case ctx expr)
-                 try (eval-try ctx expr)
-                 ;; syntax-quote (eval-syntax-quote ctx expr)
-                 ;; interop
-                 new (eval-constructor-invocation ctx expr)
-                 . (eval-instance-method-invocation ctx expr)
-                 throw (eval-throw ctx expr)
-                 in-ns (eval-in-ns ctx expr)
-                 set! (eval-set! ctx expr)
-                 refer (eval-refer ctx expr)
-                 resolve (eval-resolve ctx expr)
-                 macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
-                 macroexpand (macroexpand ctx (interpret ctx (second expr))))))
+             op (when m (:sci.impl/op m))]
+         ;; (prn "call first op" (type f) op)
+         (cond
+           (and (symbol? f) (not op))
+           (eval-special-call ctx f expr)
+           (kw-identical? op :static-access)
+           (eval-static-method-invocation ctx expr)
+           :else
+           (let [f (if op (interpret ctx f)
+                       f)] ;; why interpret if this needs op?
+             (cond
+               (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+               (:dry-run ctx) nil
+               :else
+               (throw (new #?(:clj Exception :cljs js/Error)
+                           (str "Cannot call " (pr-str f) " as a function.")))))))
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -409,42 +414,40 @@
 (defn interpret
   [ctx expr]
   (let [m (meta expr)
+        ;; _ (prn "m" (type expr) m)
         ctx (if (and m (:top-level? ctx))
               (assoc ctx :top-level? false)
               ctx)
         op (and m (:sci.impl/op m))
+        ;; _ (prn expr "op>" op)
         ret
         (if
-          (not op) (if (ifn? expr)
-                        (let [f (if (and m (:sci.impl/needs-ctx m))
-                                  (partial expr ctx)
-                                  expr)]
-                          f)
-                        expr)
-          ;; TODO: moving this up increased performance for #246. We can
-          ;; probably optimize it further by not using separate keywords for
-          ;; one :sci.impl/op keyword on which we can use a case expression
-          (case op
-            :call (eval-call ctx expr)
-            :try (eval-try ctx expr)
-            :fn (fns/eval-fn ctx interpret eval-do* expr)
-            :static-access (interop/get-static-field ctx expr)
-            :var-value (nth expr 0)
-            :deref! (let [v (first expr)
-                          v (if (vars/var? v) @v v)]
-                      (force v))
-            :resolve-sym (resolve-symbol ctx expr)
-            (cond (vars/var? expr) (if-not (vars/isMacro expr)
-                                     (deref expr)
-                                     (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                                 (str "Can't take value of a macro: " expr ""))))
-                  (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
-                                      (map #(interpret ctx %) (vals expr)))
-                  (or (vector? expr) (set? expr)) (into (empty expr)
-                                                        (map #(interpret ctx %)
-                                                             expr))
-                  :else (throw (new #?(:clj Exception :cljs js/Error)
-                                    (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
+            (not op) expr
+            ;; TODO: moving this up increased performance for #246. We can
+            ;; probably optimize it further by not using separate keywords for
+            ;; one :sci.impl/op keyword on which we can use a case expression
+            (case op
+              :call (eval-call ctx expr)
+              :try (eval-try ctx expr)
+              :fn (fns/eval-fn ctx interpret eval-do* expr)
+              :static-access (interop/get-static-field ctx expr)
+              :var-value (nth expr 0)
+              :deref! (let [v (first expr)
+                            v (if (vars/var? v) @v v)]
+                        (force v))
+              :resolve-sym (resolve-symbol ctx expr)
+              :needs-ctx (partial expr ctx)
+              (cond (vars/var? expr) (if-not (vars/isMacro expr)
+                                       (deref expr)
+                                       (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                                   (str "Can't take value of a macro: " expr ""))))
+                    (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                                        (map #(interpret ctx %) (vals expr)))
+                    (or (vector? expr) (set? expr)) (into (empty expr)
+                                                          (map #(interpret ctx %)
+                                                               expr))
+                    :else (throw (new #?(:clj Exception :cljs js/Error)
+                                      (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
         ret (remove-eval-mark ret)]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
