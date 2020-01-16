@@ -14,7 +14,9 @@
                                      set-namespace!
                                      kw-identical?]]
    [sci.impl.vars :as vars]
-   [sci.impl.types :as t]))
+   [sci.impl.types :as t]
+   [sci.impl.macros :as macros])
+  #?(:cljs (:require-macros [sci.impl.interpreter :refer [def-fn-call]])))
 
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
@@ -364,7 +366,7 @@
   (when-let [exprs (next expr)]
     (eval-do* ctx exprs)))
 
-(defn fn-call [ctx f args]
+#_(defn fn-call [ctx f args]
   (case (count args)
     0 (f)
     1 (let [arg (interpret ctx (first args))]
@@ -399,6 +401,26 @@
         (f arg1 arg2 arg3 arg4 arg5))
     (let [args (mapv #(interpret ctx %) args)]
       (apply f args))))
+
+(macros/deftime
+  (defmacro def-fn-call []
+    (let [cases
+          (mapcat (fn [i]
+                    [i (let [arg-syms (map (fn [_] (gensym "arg")) (range i))
+                             args-sym 'args ;; (gensym "args")
+                             let-syms (interleave arg-syms (repeat args-sym))
+                             let-vals (interleave (repeat `(interpret ~'ctx (first ~args-sym)))
+                                                  (repeat `(rest ~args-sym)))
+                             let-bindings (vec (interleave let-syms let-vals))]
+                         `(let ~let-bindings
+                            (~'f ~@arg-syms)))]) (range 20))
+          cases (concat cases ['(let [args (mapv #(interpret ctx %) args)]
+                                  (apply f args))])]
+      `(defn ~'fn-call ~'[ctx f args]
+         (case ~'(count args)
+           ~@cases)))))
+
+(def-fn-call)
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
