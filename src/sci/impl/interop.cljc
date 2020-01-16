@@ -11,27 +11,27 @@
   #?@(:cljs [[& _args]
              (throw (js/Error. "Not implemented yet."))]
       :clj
-      [([ctx obj method args]
-        (invoke-instance-method ctx obj nil method args))
-       ([_ctx obj target-class method args]
+      [#_([obj method args]
+        (invoke-instance-method obj nil method args))
+       ([obj target-class method args]
         (if-not target-class
           (Reflector/invokeInstanceMethod obj method (object-array args))
           (let [methods (Reflector/getMethods target-class (count args) method false)]
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
-(defn invoke-static-method #?(:clj [_ctx [[^Class class method-name] & args]]
+(defn invoke-static-method #?(:clj [[^Class class method-name] args]
                               :cljs [_ctx & _args])
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (throw (js/Error. "Not implemented yet."))))
 
-(defn get-static-field #?(:clj [_ctx [^Class class field-name-sym]]
-                          :cljs [_ctx _])
+(defn get-static-field #?(:clj [[^Class class field-name-sym]]
+                          :cljs [_])
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
      :cljs (throw (js/Error. "Not implemented yet."))))
 
-(defn invoke-constructor #?(:clj [_ctx ^Class class args]
-                            :cljs [_ctx constructor args])
+(defn invoke-constructor #?(:clj [^Class class args]
+                            :cljs [constructor args])
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (apply constructor args)))
 

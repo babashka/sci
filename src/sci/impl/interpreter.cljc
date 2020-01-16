@@ -18,7 +18,8 @@
    [sci.impl.macros :as macros])
   #?(:cljs (:require-macros [sci.impl.interpreter :refer [def-fn-call]])))
 
-(declare interpret)
+(declare interpret fn-call)
+
 #?(:clj (set! *warn-on-reflection* true))
 
 (def ^:const macros
@@ -201,8 +202,8 @@
 
 (defn eval-require
   [ctx expr]
-  (let [args (map #(interpret ctx %) (rest expr))]
-    (run! #(handle-require-libspec ctx %) args)))
+  (let [args (rest expr)]
+    (run! #(handle-require-libspec ctx (interpret ctx %)) args)))
 
 (defn eval-case
   [ctx [_case {:keys [:case-map :case-val :case-default]}]]
@@ -244,14 +245,13 @@
 ;;;; Interop
 
 (defn eval-static-method-invocation [ctx expr]
-  (interop/invoke-static-method ctx
-                                (cons (first expr)
-                                      ;; eval args!
-                                      (map #(interpret ctx %) (rest expr)))))
+  (interop/invoke-static-method (first expr)
+                                ;; eval args!
+                                (map #(interpret ctx %) (rest expr))))
 
 (defn eval-constructor-invocation [ctx [_new #?(:clj class :cljs constructor) args]]
   (let [args (map #(interpret ctx %) args)] ;; eval args!
-    (interop/invoke-constructor ctx #?(:clj class :cljs constructor) args)))
+    (interop/invoke-constructor #?(:clj class :cljs constructor) args)))
 
 #?(:clj
    (defn super-symbols [clazz]
@@ -277,9 +277,7 @@
     (when-not opts
       (throw-error-with-location (str "Method " method-str " on " resolved-class " not allowed!") instance-expr))
     (let [args (map #(interpret ctx %) args)] ;; eval args!
-      (if target-class
-        (interop/invoke-instance-method ctx instance-expr* target-class method-str args)
-        (interop/invoke-instance-method ctx instance-expr* method-str args)))))
+      (interop/invoke-instance-method instance-expr* target-class method-str args))))
 
 ;;;; End interop
 
@@ -407,7 +405,6 @@
     or (eval-or ctx (rest expr))
     let (apply eval-let ctx (rest expr))
     def (eval-def ctx expr)
-    ;; defonce (eval-defonce ctx expr)
     lazy-seq (new #?(:clj clojure.lang.LazySeq
                      :cljs cljs.core/LazySeq)
                   #?@(:clj []
@@ -415,11 +412,10 @@
                   (interpret ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    recur (fn-call ctx (comp fns/->Recur vector) (rest expr)) #_( (mapv #(interpret ctx %) (rest expr)))
+    recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
     require (eval-require ctx expr)
     case (eval-case ctx expr)
     try (eval-try ctx expr)
-    ;; syntax-quote (eval-syntax-quote ctx expr)
     ;; interop
     new (eval-constructor-invocation ctx expr)
     . (eval-instance-method-invocation ctx expr)
@@ -445,7 +441,7 @@
            (let [f (if op (interpret ctx f)
                        f)]
              (cond
-               (ifn? f) (fn-call ctx f (rest expr)) #_(apply f (mapv #(interpret ctx %) (rest expr)))
+               (ifn? f) (fn-call ctx f (rest expr))
                (:dry-run ctx) nil
                :else
                (throw (new #?(:clj Exception :cljs js/Error)
@@ -474,7 +470,7 @@
               :call (eval-call ctx expr)
               :try (eval-try ctx expr)
               :fn (fns/eval-fn ctx interpret eval-do* expr)
-              :static-access (interop/get-static-field ctx expr)
+              :static-access (interop/get-static-field expr)
               :var-value (nth expr 0)
               :deref! (let [v (first expr)
                             v (if (vars/var? v) @v v)]
