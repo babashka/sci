@@ -385,7 +385,7 @@
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
              m (meta f)
-             op (when m (:sci.impl/op m))]
+             op (when m (.get ^java.util.Map m :sci.impl/op))]
          ;; (prn "call first op" (type f) op)
          (cond
            (and (symbol? f) (not op))
@@ -394,7 +394,7 @@
            (eval-static-method-invocation ctx expr)
            :else
            (let [f (if op (interpret ctx f)
-                       f)] ;; why interpret if this needs op?
+                       f)]
              (cond
                (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
                (:dry-run ctx) nil
@@ -414,7 +414,7 @@
 (defn interpret
   [ctx expr]
   (let [m (meta expr)
-        op (and m (:sci.impl/op m))
+        op (when m (.get ^java.util.Map m :sci.impl/op))
         ret
         (if
             (not op) expr
