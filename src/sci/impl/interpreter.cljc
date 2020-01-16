@@ -443,10 +443,11 @@
                                                                expr))
                     :else (throw (new #?(:clj Exception :cljs js/Error)
                                       (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
-        ret (remove-eval-mark ret)]
+        ret (if m (remove-eval-mark ret)
+                ret)]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
-    (if-let [n (:realize-max ctx)]
+    (if-let [n (.get ^java.util.Map ctx :realize-max)]
       (max-or-throw ret (assoc ctx
                                :expression expr)
                     n)

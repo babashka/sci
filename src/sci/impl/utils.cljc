@@ -19,9 +19,7 @@
 (defn eval? [x]
   (some-> x meta :sci.impl/op))
 
-(defn kw-identical? [k v]
-  (#?(:clj identical? :cljs keyword-identical?)
-   k v))
+(def kw-identical? #?(:clj identical? :cljs keyword-identical?))
 
 (defn gensym*
   ([] (mark-resolve-sym (gensym)))
