@@ -364,6 +364,42 @@
   (when-let [exprs (next expr)]
     (eval-do* ctx exprs)))
 
+(defn fn-call [ctx f args]
+  (case (count args)
+    0 (f)
+    1 (let [arg (interpret ctx (first args))]
+        (f arg))
+    2 (let [arg1 (interpret ctx (first args))
+            args (rest args)
+            arg2 (interpret ctx (first args))]
+        (f arg1 arg2))
+    3 (let [arg1 (interpret ctx (first args))
+            args (rest args)
+            arg2 (interpret ctx (first args))
+            args (rest args)
+            arg3 (interpret ctx (first args))]
+        (f arg1 arg2 arg3))
+    4 (let [arg1 (interpret ctx (first args))
+            args (rest args)
+            arg2 (interpret ctx (first args))
+            args (rest args)
+            arg3 (interpret ctx (first args))
+            args (rest args)
+            arg4 (interpret ctx (first args))]
+        (f arg1 arg2 arg3 arg4))
+    5 (let [arg1 (interpret ctx (first args))
+            args (rest args)
+            arg2 (interpret ctx (first args))
+            args (rest args)
+            arg3 (interpret ctx (first args))
+            args (rest args)
+            arg4 (interpret ctx (first args))
+            args (rest args)
+            arg5 (interpret ctx (first args))]
+        (f arg1 arg2 arg3 arg4 arg5))
+    (let [args (mapv #(interpret ctx %) args)]
+      (apply f args))))
+
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
     do (eval-do ctx expr)
@@ -380,7 +416,7 @@
                   (interpret ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    recur (fns/->Recur (map #(interpret ctx %) (rest expr)))
+    recur (fn-call ctx (comp fns/->Recur vector) (rest expr)) #_( (mapv #(interpret ctx %) (rest expr)))
     require (eval-require ctx expr)
     case (eval-case ctx expr)
     try (eval-try ctx expr)
@@ -410,7 +446,7 @@
            (let [f (if op (interpret ctx f)
                        f)]
              (cond
-               (ifn? f) (apply f (map #(interpret ctx %) (rest expr)))
+               (ifn? f) (fn-call ctx f (rest expr)) #_(apply f (mapv #(interpret ctx %) (rest expr)))
                (:dry-run ctx) nil
                :else
                (throw (new #?(:clj Exception :cljs js/Error)
