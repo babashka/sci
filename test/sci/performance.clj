@@ -9,6 +9,7 @@
 ;; 6a63e4212567ad0304a88094eeb2970317d0bfd8 Execution time mean : 94.107237 µs
 ;; c2ffce590f8185b9fd5fdbb7e3746ba37f2ae02f Execution time mean : 82.026964 µs
 ;; 33bc0b0a14d3f9d95ad9ecf9f1b29e95527153a3 Execution time mean : 48.430510 µs
+;; d556416a1e932e334ffc77ac3c8158cb88d6165b Execution time mean : 38.172856 µs
 
 (when (and (= "true" (System/getenv "SCI_TEST_PERFORMANCE")) (not native?))
   (deftest reusable-fn-test
