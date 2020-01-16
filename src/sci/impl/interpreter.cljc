@@ -19,7 +19,7 @@
 (declare interpret)
 #?(:clj (set! *warn-on-reflection* true))
 
-(def macros
+(def ^:const macros
   '#{do if and or quote let fn def defn
      lazy-seq require try syntax-quote case . in-ns set!
      macroexpand-1 macroexpand})
@@ -98,22 +98,15 @@
     ;; return var instead of init-val
     (get-in env [:namespaces (:current-ns env) var-name])))
 
-(defn lookup [{:keys [:bindings] :as ctx} sym]
-  (or (find bindings sym)
-      (when-let [c (interop/resolve-class ctx sym)]
-        [sym c]) ;; TODO, don't we resolve classes in the analyzer??
-      (when (get macros sym)
-        [sym sym])))
-
-(defn resolve-symbol [ctx expr]
-  (second
-   (or
-    (lookup ctx expr)
-    ;; TODO: check if symbol is in macros and then emit an error: cannot take
-    ;; the value of a macro
-    (throw-error-with-location
-     (str "Could not resolve symbol: " (str expr) "\nks:" (keys (:bindings ctx)))
-     expr))))
+(defn resolve-symbol [ctx sym]
+  (let [^java.util.Map bindings (.get ^java.util.Map ctx :bindings)]
+    (#?@(:clj [if (.containsKey bindings sym) (.get bindings sym)]
+         :cljs [if-let [v (find bindings sym)] (second v)])
+     ;; TODO: check if symbol is in macros and then emit an error: cannot take
+      ;; the value of a macro
+     (throw-error-with-location
+      (str "Could not resolve symbol: " sym "\nks:" (keys (:bindings ctx)))
+      sym))))
 
 (defn parse-libspec [libspec]
   (if (symbol? libspec)
