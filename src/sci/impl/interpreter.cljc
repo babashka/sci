@@ -366,43 +366,20 @@
   (when-let [exprs (next expr)]
     (eval-do* ctx exprs)))
 
-#_(defn fn-call [ctx f args]
-  (case (count args)
-    0 (f)
-    1 (let [arg (interpret ctx (first args))]
-        (f arg))
-    2 (let [arg1 (interpret ctx (first args))
-            args (rest args)
-            arg2 (interpret ctx (first args))]
-        (f arg1 arg2))
-    3 (let [arg1 (interpret ctx (first args))
-            args (rest args)
-            arg2 (interpret ctx (first args))
-            args (rest args)
-            arg3 (interpret ctx (first args))]
-        (f arg1 arg2 arg3))
-    4 (let [arg1 (interpret ctx (first args))
-            args (rest args)
-            arg2 (interpret ctx (first args))
-            args (rest args)
-            arg3 (interpret ctx (first args))
-            args (rest args)
-            arg4 (interpret ctx (first args))]
-        (f arg1 arg2 arg3 arg4))
-    5 (let [arg1 (interpret ctx (first args))
-            args (rest args)
-            arg2 (interpret ctx (first args))
-            args (rest args)
-            arg3 (interpret ctx (first args))
-            args (rest args)
-            arg4 (interpret ctx (first args))
-            args (rest args)
-            arg5 (interpret ctx (first args))]
-        (f arg1 arg2 arg3 arg4 arg5))
-    (let [args (mapv #(interpret ctx %) args)]
-      (apply f args))))
-
 (macros/deftime
+  ;; This macro generates a function of the following form for 20 arities:
+  #_(defn fn-call [ctx f args]
+      (case (count args)
+        0 (f)
+        1 (let [arg (interpret ctx (first args))]
+            (f arg))
+        2 (let [arg1 (interpret ctx (first args))
+                args (rest args)
+                arg2 (interpret ctx (first args))]
+            (f arg1 arg2))
+        ,,,
+        (let [args (mapv #(interpret ctx %) args)]
+          (apply f args))))
   (defmacro def-fn-call []
     (let [cases
           (mapcat (fn [i]
