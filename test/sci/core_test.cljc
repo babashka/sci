@@ -647,8 +647,8 @@
 
 (deftest recursion-test
   (testing "stack usage didn't get worse"
-    (is (= 37
-           (eval* "((fn foo [x] (if (= 37 x) x (foo (inc x)))) 0)")))))
+    (is (= 72
+           (eval* "((fn foo [x] (if (= 72 x) x (foo (inc x)))) 0)")))))
 
 (deftest syntax-errors
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"

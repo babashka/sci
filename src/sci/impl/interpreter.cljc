@@ -29,30 +29,40 @@
 (defn eval-and
   "The and macro from clojure.core."
   [ctx args]
-  (if (empty? args) true
-      (let [[x & xs] args
-            v (interpret ctx x)]
-        (if v
-          (if (empty? xs) v
-              (eval-and ctx xs))
-          v))))
+  (let [args (seq args)]
+    (loop [args args]
+      (if args
+        (let [x (first args)
+              xs (next args)
+              v (interpret ctx x)]
+          (if v
+            (if xs
+              (recur xs) v) v))
+        true))))
 
 (defn eval-or
   "The or macro from clojure.core."
   [ctx args]
-  (if (empty? args) nil
-      (let [[x & xs] args
-            v (interpret ctx x)]
-        (if v v
-            (if (empty? xs) v
-                (eval-or ctx xs))))))
+  (let [args (seq args)]
+    (loop [args args]
+      (when args
+        (let [x (first args)
+              xs (next args)
+              v (interpret ctx x)]
+          (if v v
+              (if xs (recur xs)
+                  v)))))))
 
 (defn eval-let
   "The let macro from clojure.core"
   [ctx let-bindings & exprs]
   (let [ctx (loop [ctx ctx
-                   [let-name let-val & rest-let-bindings] let-bindings]
-              (let [val-tag (when-let [m (meta let-val)]
+                   let-bindings let-bindings]
+              (let [let-name (first let-bindings)
+                    let-bindings (rest let-bindings)
+                    let-val (first let-bindings)
+                    rest-let-bindings (next let-bindings)
+                    val-tag (when-let [m (meta let-val)]
                               (:tag m))
                     let-name (if val-tag
                                (vary-meta let-name update :tag (fn [t]
@@ -60,15 +70,26 @@
                                let-name)
                     v (interpret ctx let-val)
                     ctx (assoc-in ctx [:bindings let-name] v)]
-                (if (empty? rest-let-bindings)
+                (if-not rest-let-bindings
                   ctx
                   (recur ctx
                          rest-let-bindings))))]
-    (last (map #(interpret ctx %) exprs))))
+    (when exprs
+      (loop [exprs exprs]
+        (let [e (first exprs)
+              ret (interpret ctx e)
+              nexprs (next exprs)]
+          (if nexprs (recur nexprs)
+              ret))))))
 
 (defn eval-if
   [ctx expr]
-  (let [[cond then else] expr]
+  ;; NOTE: not using destructuring for small perf gain
+  (let [cond (first expr)
+        expr (rest expr)
+        then (first expr)
+        expr (rest expr)
+        else (first expr)]
     (if (interpret ctx cond)
       (interpret ctx then)
       (interpret ctx else))))
@@ -103,7 +124,7 @@
     (#?@(:clj [if (.containsKey bindings sym) (.get bindings sym)]
          :cljs [if-let [v (find bindings sym)] (second v)])
      ;; TODO: check if symbol is in macros and then emit an error: cannot take
-      ;; the value of a macro
+     ;; the value of a macro
      (throw-error-with-location
       (str "Could not resolve symbol: " sym "\nks:" (keys (:bindings ctx)))
       sym))))
