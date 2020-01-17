@@ -731,6 +731,15 @@
          (eval* "(macroexpand '(.. System (getProperties) (get \"os.name\")))")))
   (is (= '[1 2 user/x] (eval* "(defmacro foo [x] `[1 2 x]) (macroexpand '(foo 1))"))))
 
+(deftest load-fn-test
+  (when-not tu/native?
+    (= 1 (tu/eval* "
+(let [ns 'foo]
+  (require ns))
+(foo/foo-fn)" {:load-fn (constantly
+                         {:file "foo.clj"
+                          :source "(ns foo) (defn foo-fn [] 1)"})}))))
+
 ;;;; Scratch
 
 (comment

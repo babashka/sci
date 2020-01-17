@@ -184,7 +184,7 @@
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
             (try (vars/with-bindings {vars/file-var file}
-                   (eval-string* ctx source))
+                   (eval-string* (assoc ctx :bindings {}) source))
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
                    (throw e)))
