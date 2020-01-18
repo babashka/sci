@@ -323,6 +323,7 @@
    'add-watch add-watch
    'aget aget
    'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
+   'alter-meta! alter-meta!
    'alter-var-root vars/alter-var-root
    'aset aset
    'alength alength
@@ -541,6 +542,7 @@
    're-matches re-matches
    'rem rem
    'remove remove
+   'reset-meta! reset-meta!
    'rest rest
    'repeatedly repeatedly
    'reverse reverse

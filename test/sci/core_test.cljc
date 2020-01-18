@@ -740,6 +740,10 @@
                          {:file "foo.clj"
                           :source "(ns foo) (defn foo-fn [] 1)"})}))))
 
+(deftest alter-meta!-test
+  (is (true? (eval* "(doto (def x) (alter-meta! assoc :private true)) (:private (meta #'x))")))
+  (is (true? (eval* "(doto (def x) (reset-meta! {:private true})) (:private (meta #'x))"))))
+
 ;;;; Scratch
 
 (comment
