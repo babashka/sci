@@ -294,7 +294,7 @@
    '*in* io/in
    '*out* io/out
    '*err* io/err
-   '*file* vars/file-var
+   '*file* vars/current-file
    'newline io/newline
    'flush io/flush
    'pr io/pr

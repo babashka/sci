@@ -425,7 +425,8 @@
                                                                               (str name))
                                                                   (assoc (meta name)
                                                                          :name name
-                                                                         :ns @vars/current-ns))
+                                                                         :ns @vars/current-ns
+                                                                         :file @vars/current-file))
                                                (vars/unbind)))))
                                   current-ns
                                   names))))))

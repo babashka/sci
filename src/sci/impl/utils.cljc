@@ -45,7 +45,7 @@
    (let [{:keys [:row :col]} (meta iobj)
          msg (str msg
                   " [at "
-                  (when-let [v @vars/file-var]
+                  (when-let [v @vars/current-file]
                     (str v ", "))
                   "line "
                   row ", column " col "]") ]
@@ -64,7 +64,7 @@
           (if (and row col)
             (let [m (str m
                          " [at "
-                         (when-let [v @vars/file-var]
+                         (when-let [v @vars/current-file]
                            (str v ", "))
                          "line "
                          row ", column " col "]")
