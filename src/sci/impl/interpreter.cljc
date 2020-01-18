@@ -142,7 +142,9 @@
                 (case opt-name
                   :as (recur (assoc ret :as fst-opt)
                              rst-opts)
-                  (:reload :reload-all :verbose) (recur ret (cons fst-opt rst-opts))
+                  (:reload :reload-all :verbose) (recur
+                                                  (assoc ret :reload true)
+                                                  (cons fst-opt rst-opts))
                   :refer (recur (assoc ret :refer fst-opt)
                                 rst-opts)))))))
 
@@ -173,12 +175,12 @@
 
 (defn handle-require-libspec
   [ctx libspec]
-  (let [{:keys [:lib-name] :as parsed-libspec} (parse-libspec libspec)
+  (let [{:keys [:lib-name :reload] :as parsed-libspec} (parse-libspec libspec)
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         current-ns (:current-ns env)
         namespaces (get env :namespaces)]
-    (if-let [the-loaded-ns (get namespaces lib-name)]
+    (if-let [the-loaded-ns (when-not reload (get namespaces lib-name))]
       (reset! env* (handle-require-libspec-env env current-ns the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn ctx)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
@@ -195,15 +197,40 @@
                             (handle-require-libspec-env env current-ns
                                                         the-loaded-ns
                                                         lib-name parsed-libspec)))))
-          (throw (new #?(:clj Exception :cljs js/Error)
-                      (str "Could not require " lib-name "."))))
+          (or (when reload
+                (when-let [the-loaded-ns (get namespaces lib-name)]
+                  (reset! env* (handle-require-libspec-env env current-ns the-loaded-ns lib-name parsed-libspec))))
+              (throw (new #?(:clj Exception :cljs js/Error)
+                          (str "Could not require " lib-name ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
                     (str "Could not require " lib-name ".")))))))
 
 (defn eval-require
   [ctx expr]
-  (let [args (rest expr)]
-    (run! #(handle-require-libspec ctx (interpret ctx %)) args)))
+  (let [args (next expr)]
+    (loop [libspecs []
+           current-libspec nil
+           args args]
+      (if args
+        (let [ret (interpret ctx (first args))]
+          (cond
+            (symbol? ret)
+            (recur (cond-> libspecs
+                     current-libspec (conj current-libspec))
+                   [ret]
+                   (next args))
+            (keyword? ret)
+            (recur (conj libspecs (conj current-libspec ret))
+                   nil
+                   (next args))
+            :else
+            (recur (cond-> libspecs
+                     current-libspec (conj current-libspec ))
+                   ret
+                   (next args))))
+        (let [libspecs (cond-> libspecs
+                         current-libspec (conj current-libspec ))]
+          (run! #(handle-require-libspec ctx %) libspecs))))))
 
 (defn eval-case
   [ctx [_case {:keys [:case-map :case-val :case-default]}]]

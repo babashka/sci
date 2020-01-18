@@ -461,7 +461,7 @@
   (is (= [1 2 3] (eval* "(ns foo) (def x 1) (ns bar) (def x 2) (in-ns 'baz) (def x 3) (require 'foo 'bar) [foo/x bar/x x]")))
   (testing
       "Require evaluates arguments"
-      (is (= [1 2 3] (eval* "
+    (is (= [1 2 3] (eval* "
 (ns foo)
 (def x 1)
 
@@ -701,10 +701,10 @@
   (is (= true (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
 
 (deftest compatibility-test
-  (is (true? (eval* "(def foo foo) (var? #'foo)"))))
+  (is (true? (eval* "(def foo foo) (var? #'foo)")))
   (is (= 1 (eval*  "((resolve 'clojure.core/inc) 0)")))
   (is (= 1 (eval* "((resolve 'inc) 0)")))
-  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))")))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
 
 (deftest defonce-test
   (is (= 1 (eval* "(defonce x 1) (defonce x 2) x"))))
@@ -733,16 +733,32 @@
 
 (deftest load-fn-test
   (when-not tu/native?
-    (= 1 (tu/eval* "
+    (is (= 1 (tu/eval* "
 (let [ns 'foo]
   (require ns))
 (foo/foo-fn)" {:load-fn (constantly
                          {:file "foo.clj"
-                          :source "(ns foo) (defn foo-fn [] 1)"})}))))
+                          :source "(ns foo) (defn foo-fn [] 1)"})})))))
+
+(deftest reload-test
+  (when-not tu/native?
+    (is (= "hello\nhello\nhello\n"
+           (sci/with-out-str
+             (tu/eval* "
+(require '[foo])
+(require '[foo] :reload)
+(require 'foo :reload)
+1"
+                       {:load-fn (fn [{:keys [:namespace]}]
+                                   (case namespace
+                                     'foo {:file "foo.clj"
+                                           :source "(ns foo) (println \"hello\")"}))}))))))
 
 (deftest alter-meta!-test
   (is (true? (eval* "(doto (def x) (alter-meta! assoc :private true)) (:private (meta #'x))")))
   (is (true? (eval* "(doto (def x) (reset-meta! {:private true})) (:private (meta #'x))"))))
+
+
 
 ;;;; Scratch
 
