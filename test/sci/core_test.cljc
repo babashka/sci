@@ -752,6 +752,17 @@
                        {:load-fn (fn [{:keys [:namespace]}]
                                    (case namespace
                                      'foo {:file "foo.clj"
+                                           :source "(ns foo) (println \"hello\")"}))}))))
+    (is (= "hello\nhello\n"
+           (sci/with-out-str
+             (tu/eval* "
+(require '[foo])
+(require '[foo] :reload)
+(require 'foo)
+1"
+                       {:load-fn (fn [{:keys [:namespace]}]
+                                   (case namespace
+                                     'foo {:file "foo.clj"
                                            :source "(ns foo) (println \"hello\")"}))}))))))
 
 (deftest alter-meta!-test
