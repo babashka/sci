@@ -255,9 +255,9 @@
   ;;   (hash-symbol sym))
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
-                     (set! meta (apply f meta args))))
+                     (locking/locking (set! meta (apply f meta args)))))
   #?(:clj (resetMeta [this m]
-                     (set! meta m)))
+                     (locking/locking (set! meta m))))
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [_]
     (root))
