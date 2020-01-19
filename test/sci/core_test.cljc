@@ -769,7 +769,9 @@
   (is (true? (eval* "(doto (def x) (alter-meta! assoc :private true)) (:private (meta #'x))")))
   (is (true? (eval* "(doto (def x) (reset-meta! {:private true})) (:private (meta #'x))"))))
 
-
+(deftest could-not-resolve-symbol
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"resolve.*def"
+                        (eval* "def"))))
 
 
 ;;;; Scratch

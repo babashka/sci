@@ -9,7 +9,7 @@
    [sci.impl.interop :as interop]
    [sci.impl.vars :as vars]
    [sci.impl.utils :as utils :refer
-    [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
+    [eval? mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns set-namespace!]]))
 
@@ -34,7 +34,7 @@
                 false)
         (throw-error-with-location (str sym " is not allowed!") sym)))))
 
-(defn lookup* [{:keys [:env] :as ctx} sym]
+(defn lookup* [{:keys [:env] :as ctx} sym call?]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         env @env
@@ -47,7 +47,7 @@
         (cond
           (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core)))
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
-              (when-let [v (get macros sym-name)]
+              (when-let [v (when call? (get macros sym-name))]
                 [sym v]))
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
@@ -59,7 +59,7 @@
                      (get-in the-current-ns [:refer 'clojure.core :exclude]) sym-name)
             (or
              (some-> env :namespaces (get 'clojure.core) (find sym-name))
-             (when (get macros sym)
+             (when (when call? (get macros sym))
                [sym sym])
              (when-let [c (interop/resolve-class ctx sym)]
                [sym c])))))))
@@ -68,7 +68,7 @@
   (when-let [m (meta expr)]
     (:tag m)))
 
-(defn lookup [{:keys [:bindings] :as ctx} sym]
+(defn lookup [{:keys [:bindings] :as ctx} sym call?]
   (let [[k v :as kv]
         (or
          ;; bindings are not checked for permissions
@@ -85,7 +85,7 @@
          (when-let
              [[k _ :as kv]
               (or
-               (lookup* ctx sym)
+               (lookup* ctx sym call?)
                #_(when (= 'recur sym)
                    [sym sym]))]
            (check-permission! ctx k sym)
@@ -107,7 +107,7 @@
    (let [sym sym ;; (strip-core-ns sym)
          res (second
               (or
-               (lookup ctx sym)
+               (lookup ctx sym call?)
                ;; TODO: check if symbol is in macros and then emit an error: cannot take
                ;; the value of a macro
                (let [n (name sym)]
@@ -627,7 +627,7 @@
   [ctx expr]
   ;; (prn "ana" expr)
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
-                  (symbol? expr) (let [v (resolve-symbol ctx expr)]
+                  (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                    (cond (constant? v) v
                                          ;; (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
                                          (vars/var? v) (if (:const (meta v))

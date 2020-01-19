@@ -333,7 +333,7 @@
 
 (defn eval-resolve [ctx [_ sym]]
   (let [sym (interpret ctx sym)]
-    (second (ana/lookup ctx sym))))
+    (second (ana/lookup ctx sym false))))
 
 ;;;; End namespaces
 
@@ -348,7 +348,7 @@
                 (contains? #{'for} op) (ana/analyze (assoc ctx :sci.impl/macroexpanding true)
                                                     expr)
                 :else
-                (let [f (ana/resolve-symbol ctx op)
+                (let [f (ana/resolve-symbol ctx op true)
                       f (if (and (vars/var? f)
                                  (vars/isMacro f))
                           @f f)]
