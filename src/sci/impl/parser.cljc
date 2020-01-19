@@ -54,8 +54,12 @@
                            :features features
                            :auto-resolve auto-resolve
                            :syntax-quote {:resolve-symbol #(fully-qualify ctx %)})
-         ret (parser/parse-next parse-opts
-                                r)]
+         ret (binding [parser/*row-key* :line
+                       parser/*col-key* :column
+                       parser/*end-row-key* :line-end
+                       parser/*end-col-key* :column-end]
+               (parser/parse-next parse-opts
+                                  r))]
      ;; (prn "ret" ret)
      ret)))
 

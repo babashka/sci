@@ -42,16 +42,16 @@
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
-   (let [{:keys [:row :col]} (meta iobj)
+   (let [{:keys [:line :column]} (meta iobj)
          msg (str msg
                   " [at "
                   (when-let [v @vars/current-file]
                     (str v ", "))
                   "line "
-                  row ", column " col "]") ]
+                  line ", column " column"]") ]
      (throw (ex-info msg (merge {:type :sci/error
-                                 :row row
-                                 :col col} data))))))
+                                 :line line
+                                 :column column} data))))))
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (if-not (:sci.impl/in-try ctx)
@@ -59,19 +59,19 @@
                   :cljs (.-message e))]
       (if (str/includes? m "[at")
         (throw e)
-        (let [{:keys [:row :col] :or {row (:row ctx)
-                                      col (:col ctx)}} (meta node)]
-          (if (and row col)
+        (let [{:keys [:line :column] :or {line (:line ctx)
+                                          column (:column ctx)}} (meta node)]
+          (if (and line column)
             (let [m (str m
                          " [at "
                          (when-let [v @vars/current-file]
                            (str v ", "))
                          "line "
-                         row ", column " col "]")
+                         line ", column " column"]")
                   new-exception (let [d (ex-data e)]
                                   (ex-info m (merge {:type :sci/error
-                                                     :row row
-                                                     :col col
+                                                     :line line
+                                                     :column column
                                                      :message m} d) e))]
               (throw new-exception))
             (throw e))))
@@ -101,8 +101,8 @@
     ("clojure.core" "cljs.core") (symbol (name sym))
     sym))
 
-(def allowed-loop (with-meta (symbol "loop") {:row :allow}))
-(def allowed-recur (with-meta (symbol "recur") {:row :allow}))
+(def allowed-loop (with-meta (symbol "loop") {:line :allow}))
+(def allowed-recur (with-meta (symbol "recur") {:line :allow}))
 
 (defn walk*
   [inner form]

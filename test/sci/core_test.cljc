@@ -276,10 +276,10 @@
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
     (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
     (testing "users should not be able to hack around this by messing with metadata"
-      (is (int? (:row (eval* "(def x (with-meta (symbol \"y\") {:row :allow})) (meta x)"))))
+      (is (int? (:line (eval* "(def x (with-meta (symbol \"y\") {:line :allow})) (meta x)"))))
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
-                            (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:row :allow}))
+                            (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:line :allow}))
                                        (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop recur]}))))
     (testing "but it should be forbidden in macros that are defined by a user"
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
@@ -326,26 +326,26 @@
                         (eval* "(+ 1 2 3 4 5) (do x)")))
   (when-not tu/native?
     (testing "ex-data"
-      (tu/assert-submap {:type :sci/error, :row 1, :col 15,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 15,
                          :message #"Cannot call foo with 1 arguments \[at line 1, column 15\]"}
                         (try (eval* "(defn foo []) (foo 1)")
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
                                  d))))
-      (tu/assert-submap {:type :sci/error, :row 1, :col 21,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 21,
                          :message #"Cannot call foo with 0 arguments"}
                         (try (eval* "(defn foo [x & xs]) (foo)")
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
                                  d))))
-      (tu/assert-submap {:type :sci/error, :row 1, :col 93,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 93,
                          :message #"Cannot call bindings"}
                         (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
                                          "(let [x 1] (bindings))"))
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
                                  d))))
-      (tu/assert-submap {:type :sci/error, :row 1, :col 25,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 25,
                          :message #"Cannot call foo"}
                         (try (eval* (str "(defmacro foo [x & xs]) "
                                          "(foo)"))
@@ -547,13 +547,13 @@
   #?@(:clj
       [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
        (when-not tu/native?
-         (tu/assert-submap {:type :sci/error, :row 1, :col 4}
+         (tu/assert-submap {:type :sci/error, :line 1, :column 4}
                            (try (eval* "   (/ 1 0)")
                                 (catch Exception e (ex-data e)))))]
       :cljs
       [(is (= :foo (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e :foo))")))
        (when-not tu/native?
-         (tu/assert-submap {:type :sci/error, :row 1, :col 6, :a 1}
+         (tu/assert-submap {:type :sci/error, :line 1, :column 6, :a 1}
                            (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))])
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Foo"
                         (eval* "(try 1 (catch Foo e e))")))

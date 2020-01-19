@@ -25,7 +25,7 @@
                set! resolve macroexpand-1 macroexpand the-ns})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
-  (when-not (kw-identical? :allow (-> sym meta :row))
+  (when-not (kw-identical? :allow (-> sym meta :line))
     (let [check-sym (strip-core-ns check-sym)]
       (when-not (if allow (contains? allow check-sym)
                     true)
@@ -648,7 +648,7 @@
                      (analyze-call ctx expr)
                      :else expr)
                    (select-keys (meta expr)
-                                [:row :col :tag])))]
+                                [:line :column :tag])))]
     ;; (prn "ana" expr '-> ret 'm-> (meta ret))
     ret))
 
