@@ -11,7 +11,11 @@
 (def opts
   (parser/normalize-opts
    {:all true
-    :read-eval false}))
+    :read-eval false
+    :row-key :line
+    :col-key :column
+    :end-row-key :end-line
+    :end-col-key :end-column}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
@@ -49,17 +53,12 @@
          auto-resolve (assoc aliases
                              :current current-ns)
          parse-opts (assoc opts
-                           :fn true
                            :read-cond :allow
                            :features features
                            :auto-resolve auto-resolve
                            :syntax-quote {:resolve-symbol #(fully-qualify ctx %)})
-         ret (binding [parser/*row-key* :line
-                       parser/*col-key* :column
-                       parser/*end-row-key* :line-end
-                       parser/*end-col-key* :column-end]
-               (parser/parse-next parse-opts
-                                  r))]
+         ret (parser/parse-next parse-opts
+                                r)]
      ;; (prn "ret" ret)
      ret)))
 
