@@ -280,7 +280,12 @@
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
                             (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:line :allow}))
-                                       (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop recur]}))))
+                                       (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop recur]})))
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                            #"allowed"
+                            (tu/eval* "(let [allowed-loop (with-meta (symbol \"loop\") {:line :allow})]
+                                         (defmacro foo [] `(~allowed-loop [])))
+                                       (foo)" {:deny '[loop recur]}))))
     (testing "but it should be forbidden in macros that are defined by a user"
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"

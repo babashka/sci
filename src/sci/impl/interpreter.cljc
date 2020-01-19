@@ -111,7 +111,6 @@
         (fn [env]
           (let [the-current-ns (get-in env [:namespaces cnn])
                 prev (get the-current-ns var-name)
-                init (utils/merge-meta init m)
                 v (if (kw-identical? :sci.impl/var.unbound init)
                     prev
                     (do (vars/bindRoot prev init)
@@ -477,11 +476,14 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
-(defn remove-eval-mark [v]
+(defn fix-meta [v old-meta]
   ;; TODO: find out why the special case for vars is needed. When I remove it,
   ;; spartan.spec does not work.
   (if (and (meta v) (not (vars/var? v)))
-    (vary-meta v dissoc :sci.impl/op)
+    (vary-meta v (fn [m]
+                   (-> m
+                       (dissoc :sci.impl/op)
+                       (assoc :line (:line old-meta)))))
     v))
 
 (defn interpret
@@ -516,7 +518,7 @@
                                                                expr))
                     :else (throw (new #?(:clj Exception :cljs js/Error)
                                       (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
-        ret (if m (remove-eval-mark ret)
+        ret (if m (fix-meta ret m)
                 ret)]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
