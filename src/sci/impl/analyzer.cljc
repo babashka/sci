@@ -454,7 +454,7 @@
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
-        method-expr (str method-expr)
+        method-expr (name method-expr)
         args (analyze-children ctx args)
         res #?(:clj (if (class? instance-expr)
                       `(~(with-meta [instance-expr method-expr]
