@@ -38,8 +38,8 @@
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         env @env
-        current-ns (:current-ns env)
-        the-current-ns (-> env :namespaces current-ns)
+        cnn (vars/current-ns-name)
+        the-current-ns (-> env :namespaces cnn)
         ;; resolve alias
         sym-ns (when sym-ns (or (get-in the-current-ns [:aliases sym-ns])
                                 sym-ns))]
@@ -286,6 +286,7 @@
                :sci.impl/var.unbound
                (analyze ctx init))
         m (meta var-name)
+        m (assoc m :ns @vars/current-ns)
         m (if docstring (assoc m :sci/doc docstring) m)
         var-name (with-meta var-name m)]
     (expand-declare ctx [nil var-name])
@@ -303,8 +304,10 @@
                     (when (string? ds) ds))
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
+        meta-map (analyze ctx (merge (meta expr) meta-map))
+        meta-map (assoc meta-map :ns @vars/current-ns)
         fn-name (with-meta fn-name
-                  (cond-> (analyze ctx (merge (meta expr) meta-map))
+                  (cond-> meta-map
                     docstring (assoc :doc docstring)))
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
@@ -412,8 +415,8 @@
 (defn expand-declare [ctx [_declare & names :as _expr]]
   (swap! (:env ctx)
          (fn [env]
-           (let [current-ns-sym (:current-ns env)]
-             (update-in env [:namespaces current-ns-sym]
+           (let [cnn (vars/current-ns-name)]
+             (update-in env [:namespaces cnn]
                         (fn [current-ns]
                           (reduce (fn [acc name]
                                     (if (contains? acc name)
@@ -421,7 +424,7 @@
                                       ;; var
                                       acc
                                       (assoc acc name
-                                             (doto (vars/->SciVar nil (symbol (str current-ns-sym)
+                                             (doto (vars/->SciVar nil (symbol (str cnn)
                                                                               (str name))
                                                                   (assoc (meta name)
                                                                          :name name

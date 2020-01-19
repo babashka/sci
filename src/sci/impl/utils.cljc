@@ -131,7 +131,7 @@
     (swap! env (fn [env]
                  (t/setVal vars/current-ns (vars/->SciNamespace ns-sym))
                  (-> env
-                     (assoc :current-ns ns-sym)
+                     ;; (assoc :current-ns ns-sym)
                      (update-in [:namespaces ns-sym] (fn [the-ns]
                                                        (if (nil? the-ns) {}
                                                            the-ns))))))))

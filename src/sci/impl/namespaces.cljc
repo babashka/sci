@@ -254,8 +254,9 @@
 
 (defn sci-alias [ctx alias-sym ns-sym]
   (swap! (:env ctx)
-         (fn [{:keys [:current-ns] :as env}]
-           (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym)))
+         (fn [env]
+           (let [current-ns (vars/current-ns-name)]
+             (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
   nil)
 
 (defn sci-find-ns [ctx ns-sym]
@@ -695,7 +696,7 @@
 
 (defn dir-fn
   [ctx ns]
-  (let [current-ns (get @(:env ctx) :current-ns)
+  (let [current-ns (vars/current-ns-name)
         the-ns (sci-the-ns ctx
                            (get (sci-ns-aliases ctx current-ns) ns ns))]
     (sort (map first (sci-ns-publics ctx the-ns)))))

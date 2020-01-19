@@ -402,6 +402,9 @@
 
 (def current-ns (dynamic-var '*ns* nil))
 
+(defn current-ns-name []
+  (getName @current-ns))
+
 (defn alter-var-root [v f & args]
   #?(:clj
      (locking/locking v (bindRoot v (apply f @v args)))

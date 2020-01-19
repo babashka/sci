@@ -4,7 +4,8 @@
   (:require
    [edamame.impl.parser :as parser]
    [sci.impl.analyzer :as ana]
-   [sci.impl.interop :as interop]))
+   [sci.impl.interop :as interop]
+   [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -22,7 +23,7 @@
         sym-ns (when-let [n (namespace sym)]
                  (symbol n))
         sym-name-str (name sym)
-        current-ns (:current-ns env)
+        current-ns (vars/current-ns-name)
         current-ns-str (str current-ns)
         namespaces (get env :namespaces)
         the-current-ns (get namespaces current-ns)
@@ -47,7 +48,7 @@
    (let [features (:features ctx)
          env (:env ctx)
          env-val @env
-         current-ns (:current-ns env-val)
+         current-ns (vars/current-ns-name)
          the-current-ns (get-in env-val [:namespaces current-ns])
          aliases (:aliases the-current-ns)
          auto-resolve (assoc aliases
