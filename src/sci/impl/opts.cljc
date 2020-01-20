@@ -18,8 +18,7 @@
                      namespaces (update namespaces 'user assoc :aliases aliases)]
                  (assoc env
                         :namespaces namespaces
-                        :imports imports
-                        :current-ns 'user)))))
+                        :imports imports)))))
 
 (def presets
   {:termination-safe

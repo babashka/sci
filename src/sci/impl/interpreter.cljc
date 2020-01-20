@@ -103,24 +103,24 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
-        m (when m
-            (interpret ctx m))
+        m (when m (interpret ctx m))
+        cnn (vars/getName (:ns m)) #_(if-let [mns (:ns m)]
+              (vars/getName mns)
+              (vars/current-ns-name))
         assoc-in-env
         (fn [env]
-          (let [current-ns (:current-ns env)
-                the-current-ns (get-in env [:namespaces current-ns])
+          (let [the-current-ns (get-in env [:namespaces cnn])
                 prev (get the-current-ns var-name)
-                init (utils/merge-meta init m)
                 v (if (kw-identical? :sci.impl/var.unbound init)
                     prev
                     (do (vars/bindRoot prev init)
                         (vary-meta prev merge m)
                         prev))
                 the-current-ns (assoc the-current-ns var-name v)]
-            (assoc-in env [:namespaces current-ns] the-current-ns)))
+            (assoc-in env [:namespaces cnn] the-current-ns)))
         env (swap! (:env ctx) assoc-in-env)]
     ;; return var instead of init-val
-    (get-in env [:namespaces (:current-ns env) var-name])))
+    (get-in env [:namespaces cnn var-name])))
 
 (defn resolve-symbol [ctx sym]
   (let [^java.util.Map bindings (.get ^java.util.Map ctx :bindings)]
@@ -178,10 +178,10 @@
   (let [{:keys [:lib-name :reload] :as parsed-libspec} (parse-libspec libspec)
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
-        current-ns (:current-ns env)
+        cnn (vars/current-ns-name)
         namespaces (get env :namespaces)]
     (if-let [the-loaded-ns (when-not reload (get namespaces lib-name))]
-      (reset! env* (handle-require-libspec-env env current-ns the-loaded-ns lib-name parsed-libspec))
+      (reset! env* (handle-require-libspec-env env cnn the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn ctx)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
@@ -190,16 +190,16 @@
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
                    (throw e)))
-            (set-namespace! ctx current-ns)
+            (set-namespace! ctx cnn)
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
-                            (handle-require-libspec-env env current-ns
+                            (handle-require-libspec-env env cnn
                                                         the-loaded-ns
                                                         lib-name parsed-libspec)))))
           (or (when reload
                 (when-let [the-loaded-ns (get namespaces lib-name)]
-                  (reset! env* (handle-require-libspec-env env current-ns the-loaded-ns lib-name parsed-libspec))))
+                  (reset! env* (handle-require-libspec-env env cnn the-loaded-ns lib-name parsed-libspec))))
               (throw (new #?(:clj Exception :cljs js/Error)
                           (str "Could not require " lib-name ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
@@ -324,8 +324,8 @@
             :exclude
             (swap! (:env ctx)
                    (fn [env]
-                     (let [current-ns (:current-ns env)]
-                       (update-in env [:namespaces current-ns :refer ns-sym :exclude]
+                     (let [cnn (vars/current-ns-name)]
+                       (update-in env [:namespaces cnn :refer ns-sym :exclude]
                                   (fnil into #{}) v)))))
           (recur (nnext exprs)))))))
 
@@ -476,11 +476,14 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
-(defn remove-eval-mark [v]
+(defn fix-meta [v old-meta]
   ;; TODO: find out why the special case for vars is needed. When I remove it,
   ;; spartan.spec does not work.
   (if (and (meta v) (not (vars/var? v)))
-    (vary-meta v dissoc :sci.impl/op)
+    (vary-meta v (fn [m]
+                   (-> m
+                       (dissoc :sci.impl/op)
+                       (assoc :line (:line old-meta)))))
     v))
 
 (defn interpret
@@ -515,7 +518,7 @@
                                                                expr))
                     :else (throw (new #?(:clj Exception :cljs js/Error)
                                       (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
-        ret (if m (remove-eval-mark ret)
+        ret (if m (fix-meta ret m)
                 ret)]
     ;; for debugging:
     ;; (prn expr (meta expr) '-> ret)
@@ -560,7 +563,7 @@
    (let [init-ctx (opts/init opts)
          ret (vars/with-bindings
                (when-not @vars/current-ns
-                 {vars/current-ns (vars/->SciNamespace (get @(:env init-ctx) :current-ns))})
+                 {vars/current-ns (vars/->SciNamespace 'user)})
                (eval-string* init-ctx s))]
      ret)))
 
