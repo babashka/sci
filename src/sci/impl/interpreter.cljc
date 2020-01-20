@@ -563,7 +563,7 @@
    (let [init-ctx (opts/init opts)
          ret (vars/with-bindings
                (when-not @vars/current-ns
-                 {vars/current-ns (vars/->SciNamespace (get @(:env init-ctx) :current-ns))})
+                 {vars/current-ns (vars/->SciNamespace 'user)})
                (eval-string* init-ctx s))]
      ret)))
 
