@@ -365,6 +365,7 @@
    'cond->> (macrofy cond->>*)
    'condp (macrofy condp*)
    'conj conj
+   'conj! conj!
    'cons cons
    'contains? contains?
    'count count
