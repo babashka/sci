@@ -189,8 +189,8 @@
                    (eval-string* (assoc ctx :bindings {}) source))
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
-                   (throw e)))
-            (set-namespace! ctx cnn)
+                   (throw e))
+                 (finally (set-namespace! ctx cnn)))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
