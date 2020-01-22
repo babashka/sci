@@ -1,6 +1,7 @@
 (ns sci.impl.interop
   {:no-doc true}
-  #?(:clj (:import [sci.impl Reflector])))
+  #?(:clj (:import [sci.impl Reflector]))
+  #?(:cljs (:require [goog.object :as gobj])))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -20,10 +21,12 @@
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
 (defn invoke-static-method #?(:clj [[^Class class method-name] args]
-                              :cljs [_ctx & _args])
+                              :cljs [[class method-name] args])
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
-     :cljs (throw (js/Error. "Not implemented yet."))))
+     :cljs (if-let [method (gobj/get class method-name)]
+             (apply method args)
+             (throw (js/Error. "Could not find method" method-name)))))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [_])
