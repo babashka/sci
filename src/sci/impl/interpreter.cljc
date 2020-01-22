@@ -299,10 +299,12 @@
         class-name (#?(:clj .getName :cljs .-name) resolved-class)
         class-symbol (symbol class-name)
         ;; _ #?(:cljs (.log js/console (clj->js class->opts)) :clj nil)
-        opts (get class->opts class-symbol)]
+        allowed? (or
+                  (get class->opts :allow)
+                  (get class->opts class-symbol))]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
-    (when-not opts
+    (when-not allowed?
       (throw-error-with-location (str "Method " method-str " on " resolved-class " not allowed!") instance-expr))
     (let [args (map #(interpret ctx %) args)] ;; eval args!
       (interop/invoke-instance-method instance-expr* target-class method-str args))))

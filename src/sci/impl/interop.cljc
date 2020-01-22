@@ -11,9 +11,11 @@
 (defn invoke-instance-method
   #?@(:cljs [[obj _target-class method-name args]
              ;; gobj/get didn't work here
-             (if-let [method (aget obj method-name)]
-               (apply method obj args)
-               (throw (js/Error. "Could not find method" method-name)))]
+             (if (identical? \- (.charAt method-name 0))
+               (aget obj (subs method-name 1))
+               (if-let [method (aget obj method-name)]
+                 (apply method obj args)
+                 (throw (js/Error. (str "Could not find method: " method-name)))))]
       :clj
       [#_([obj method args]
         (invoke-instance-method obj nil method args))

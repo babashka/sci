@@ -27,6 +27,10 @@
    (deftest instance-methods
      (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))))
 
+#?(:cljs
+   (deftest instance-fields
+     (is (= 1 (tu/eval* "(.-x (js-obj \"x\" 1))" {:classes {:allow :all}})))))
+
 #?(:clj
    (deftest static-methods
      (is (= 123 (eval* "(Integer/parseInt \"123\")")))

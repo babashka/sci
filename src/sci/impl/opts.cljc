@@ -2,7 +2,6 @@
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
             [sci.impl.vars]
-            [sci.impl.types :as t]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
             #?(:cljs [goog.string])))
 
@@ -62,7 +61,7 @@
      :cljs {}))
 
 (defn normalize-classes [classes]
-  (loop [class->opts (transient {})
+  (loop [class->opts (transient (select-keys classes [:allow]))
          kvs classes]
     (if-let [[sym class-opts] (first kvs)]
       (recur ;; storing the physical class as key didn't work well with
