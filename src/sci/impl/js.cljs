@@ -27,7 +27,9 @@
         preset (when-let [v (get cljs "preset")]
                  (keyword v))
         classes (get cljs "classes")
+        allow-all-classes (get classes "allow")
         classes (symbolize-keys classes)
+        classes (if allow-all-classes (assoc classes :allow allow-all-classes) classes)
         env (get cljs "env")]
     {:bindings bindings
      :namespaces namespaces
