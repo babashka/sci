@@ -296,8 +296,9 @@
                                 (when-let [f (:public-class ctx)]
                                   (f instance-expr*)))
         resolved-class (or target-class (#?(:clj class :cljs type) instance-expr*))
-        class-name (#?(:clj .getName :cljs str) resolved-class)
+        class-name (#?(:clj .getName :cljs .-name) resolved-class)
         class-symbol (symbol class-name)
+        ;; _ #?(:cljs (.log js/console (clj->js class->opts)) :clj nil)
         opts (get class->opts class-symbol)]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
