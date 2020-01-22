@@ -27,14 +27,16 @@
         preset (when-let [v (get cljs "preset")]
                  (keyword v))
         classes (get cljs "classes")
-        classes (symbolize-keys classes)]
+        classes (symbolize-keys classes)
+        env (get cljs "env")]
     {:bindings bindings
      :namespaces namespaces
      :allow allow
      :deny deny
      :preset preset
      :realize-max realize-max
-     :classes classes}))
+     :classes classes
+     :env env}))
 
 (defn ^:export toJS [v]
   (if (instance? MetaFn v)
