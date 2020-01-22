@@ -197,9 +197,9 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
 ```
 
-## Stdoud and stdin
+## Stdout and stdin
 
-To enable printing to `stdoud` and reading from `stdin` you can bind
+To enable printing to `stdout` and reading from `stdin` you can bind
 `sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
 
 
