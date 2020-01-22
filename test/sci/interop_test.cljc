@@ -1,7 +1,8 @@
 (ns sci.interop-test
   (:require
-   #?(:clj [clojure.test :as test :refer [deftest is testing]])
-   [sci.test-utils :as tu]))
+   [clojure.test :as test :refer [deftest is testing]]
+   [sci.test-utils :as tu]
+   [clojure.string :as str]))
 
 (defn eval* [expr]
   (tu/eval* expr {}))
@@ -22,6 +23,9 @@
        (when-not tu/native?
          (is (= "clojure.core$int_QMARK_" (tu/eval* "(defn foo [^Object x] (.getClass x)) (.getName (foo int?))"
                                                     {:classes {'java.lang.Class Class}})))))))
+#?(:cljs
+   (deftest instance-methods
+     (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))))
 
 #?(:clj
    (deftest static-methods
@@ -34,6 +38,18 @@
      (testing "calling static methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
                              (eval* "(System/exit 0)"))))))
+
+#?(:cljs
+   (deftest static-methods
+     (is (= \C (tu/eval* "(String/fromCharCode 67)" {:classes {'String js/String}})))))
+
+#?(:cljs
+   (do (def fs (let [m (js->clj (js/require "fs"))]
+                 (zipmap (map symbol (keys m)) (vals m))))
+       (deftest add-object-as-namespace
+         (is (str/includes?
+              (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
+              "EPL")))))
 
 #?(:clj
    (deftest static-fields
