@@ -247,6 +247,58 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
+;;;; Hierarchies
+
+(defn derive*
+  ([ctx tag parent]
+   (swap! (:env ctx)
+          (fn [env]
+            (let [h (or (:global-hierarchy env) (make-hierarchy))
+                  h (derive h tag parent)]
+              (assoc env :global-hierarchy h))))
+   nil)
+  ([_ctx h tag parent]
+   (derive h tag parent)))
+
+(defn underive*
+  ([ctx tag parent]
+   (swap! (:env ctx)
+          (fn [env]
+            (let [h (or (:global-hierarchy env) (make-hierarchy))
+                  h (underive h tag parent)]
+              (assoc env :global-hierarchy h))))
+   nil)
+  ([_ctx h tag parent]
+   (underive h tag parent)))
+
+(defn isa?*
+  ([ctx child parent]
+   (let [h (:global-hierarchy @(:env ctx))]
+     (isa? h child parent)))
+  ([_ctx h child parent]
+   (isa? h child parent)))
+
+(defn ancestors*
+  ([ctx tag]
+   (let [h (:global-hierarchy @(:env ctx))]
+     (ancestors h tag)))
+  ([_ctx h tag]
+   (ancestors h tag)))
+
+(defn descendants*
+  ([ctx tag]
+   (let [h (:global-hierarchy @(:env ctx))]
+     (descendants h tag)))
+  ([_ctx h tag]
+   (descendants h tag)))
+
+(defn parents*
+  ([ctx tag]
+   (let [h (:global-hierarchy @(:env ctx))]
+     (parents h tag)))
+  ([_ctx h tag]
+   (parents h tag)))
+
 ;;;; Namespaces
 
 (defn sci-ns-name [^sci.impl.vars.SciNamespace ns]
@@ -326,6 +378,7 @@
    'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
    'alter-meta! alter-meta!
    'alter-var-root vars/alter-var-root
+   'ancestors (with-meta ancestors* {:sci.impl/op :needs-ctx})
    'aset aset
    'alength alength
    'any? any?
@@ -394,6 +447,8 @@
    'defonce (macrofy defonce*)
    'delay (macrofy delay*)
    'deref deref
+   'derive (with-meta derive* {:sci.impl/op :needs-ctx})
+   'descendants (with-meta descendants* {:sci.impl/op :needs-ctx})
    'dissoc dissoc
    'distinct distinct
    'distinct? distinct?
@@ -463,6 +518,7 @@
    'integer? integer?
    'ints ints
    'into-array into-array
+   'isa? (with-meta isa?* {:sci.impl/op :needs-ctx})
    #?@(:cljs ['js->clj js->clj])
    #?@(:cljs ['js-obj js-obj])
    'juxt juxt
@@ -480,6 +536,7 @@
    'longs longs
    'list* list*
    'long-array long-array
+   'make-hierarchy make-hierarchy
    'map map
    'map? map?
    'map-indexed map-indexed
@@ -520,6 +577,7 @@
    'ns-name sci-ns-name
    'odd? odd?
    'object-array object-array
+   'parents (with-meta parents* {:sci.impl/op :needs-ctx})
    'peek peek
    'pop pop
    'pop-thread-bindings vars/pop-thread-bindings
@@ -586,6 +644,7 @@
    'sort sort
    'sort-by sort-by
    'subs subs
+   #?@(:clj ['supers supers])
    'symbol symbol
    'symbol? symbol?
    'special-symbol? special-symbol?
@@ -644,6 +703,7 @@
    'unchecked-char unchecked-char
    'unchecked-byte unchecked-byte
    'unchecked-short unchecked-short
+   'underive (with-meta underive* {:sci.impl/op :needs-ctx})
    'val val
    'vals vals
    'var? sci.impl.vars/var?

@@ -778,7 +778,6 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"resolve.*def"
                         (eval* "def"))))
 
-
 ;;;; Scratch
 
 (comment
