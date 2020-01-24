@@ -22,7 +22,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def ^:const macros
+(def #?(:clj ^:const macros :cljs macros)
   '#{do if and or quote let fn def defn
      lazy-seq require try syntax-quote case . in-ns set!
      macroexpand-1 macroexpand})
