@@ -446,6 +446,7 @@
    'dedupe dedupe
    'defn- (macrofy defn-*)
    'defmulti (macrofy mm/defmulti)
+   'defmethod (macrofy mm/defmethod)
    'defonce (macrofy defonce*)
    'delay (macrofy delay*)
    'deref deref
@@ -495,7 +496,7 @@
    'get-in get-in
    'group-by group-by
    'gensym gensym
-   'has-root-impl (with-meta has-root-impl {:private true})
+   'has-root-impl has-root-impl
    'hash hash
    'hash-map hash-map
    'hash-set hash-set
@@ -538,6 +539,7 @@
    'longs longs
    'list* list*
    'long-array long-array
+   'make-array make-array
    'make-hierarchy make-hierarchy
    'map map
    'map? map?
@@ -552,9 +554,11 @@
    'merge-with merge-with
    'min min
    'min-key min-key
+   'multi-fn-add-method-impl mm/multi-fn-add-method-impl
+   'multi-fn?-impl mm/multi-fn?-impl
+   'multi-fn-impl mm/multi-fn-impl
    'munge munge
    'mod mod
-   'make-array make-array
    'name name
    'namespace namespace
    ;; 'newline newline

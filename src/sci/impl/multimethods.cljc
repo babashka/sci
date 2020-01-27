@@ -1,9 +1,9 @@
 (ns sci.impl.multimethods
   {:no-doc true}
-  (:refer-clojure :exclude [defmulti])
+  (:refer-clojure :exclude [defmulti defmethod])
   (:require [sci.impl.vars :as vars]))
 
-(def global-hierarchy (vars/->SciVar nil 'global-hierarchy nil))
+(def global-hierarchy (vars/->SciVar (make-hierarchy) 'global-hierarchy nil))
 
 (defn ^:private check-valid-options
   "Throws an exception if the given option map contains keys not listed
@@ -11,10 +11,10 @@
   [options & valid-keys]
   (when (seq (apply disj (apply hash-set (keys options)) valid-keys))
     (throw
-     (IllegalArgumentException.
-      (apply str "Only these options are valid: "
-             (first valid-keys)
-             (map #(str ", " %) (rest valid-keys)))))))
+     (new #?(:clj IllegalArgumentException :cljs js/Error)
+          (apply str "Only these options are valid: "
+                 (first valid-keys)
+                 (map #(str ", " %) (rest valid-keys)))))))
 
 (defn defmulti
   "Creates a new multimethod with the associated dispatch function.
@@ -63,13 +63,42 @@
                       m)
         mm-name (with-meta mm-name m)]
     (when (= (count options) 1)
-      (throw (Exception. "The syntax for defmulti has changed. Example: (defmulti name dispatch-fn :default dispatch-value)")))
+      (throw (new #?(:clj Exception :cljs js/Error)
+                  "The syntax for defmulti has changed. Example: (defmulti name dispatch-fn :default dispatch-value)")))
     (let [options   (apply hash-map options)
           default   (get options :default :default)
-          hierarchy (get options :hierarchy #'global-hierarchy)]
+          hierarchy (get options :hierarchy global-hierarchy)]
       (check-valid-options options :default :hierarchy)
-      `(let [v# (def ~mm-name)]
-         ;; TODO
-         #_(when-not (and (.hasRoot v#) (instance? clojure.lang.MultiFn (deref v#)))
-           (def ~mm-name
-                (new clojure.lang.MultiFn ~(name mm-name) ~dispatch-fn ~default ~hierarchy)))))))
+      #?(:clj `(let [v# (def ~mm-name)]
+                 ;; TODO
+                 (when-not (and (clojure.core/has-root-impl v#) (clojure.core/multi-fn?-impl (deref v#)))
+                   (def ~mm-name
+                     (clojure.core/multi-fn-impl ~(name mm-name) ~dispatch-fn ~default ~hierarchy))))
+         :cljs `(defonce ~(with-meta mm-name m)
+                  (let [method-table# (atom {})
+                        prefer-table# (atom {})
+                        method-cache# (atom {})
+                        cached-hierarchy# (atom {})]
+                    (clojure.core/multi-fn-impl ~(symbol (name mm-name)) ~dispatch-fn ~default ~hierarchy
+                                                method-table# prefer-table# method-cache# cached-hierarchy#)))))))
+
+(defn multi-fn?-impl [x]
+  (instance? #?(:clj clojure.lang.MultiFn
+                :cljs cljs.core/MultiFn) x))
+
+(defn multi-fn-impl #?(:clj [name dispatch-fn default hierarchy]
+                       :cljs [name dispatch-fn default hierarchy
+                              method-table prefer-table method-cache cached-hierarchy])
+  (new #?(:clj clojure.lang.MultiFn
+          :cljs cljs.core/MultiFn) name dispatch-fn default hierarchy
+       #?@(:cljs [method-table prefer-table method-cache cached-hierarchy])))
+
+(defn multi-fn-add-method-impl
+  [multifn dispatch-val f]
+  (#?(:clj .addMethod
+      :cljs -add-method) ^clojure.lang.MultiFn multifn dispatch-val f))
+
+(defn defmethod
+  "Creates and installs a new method of multimethod associated with dispatch-value. "
+  [_ _ multifn dispatch-val & fn-tail]
+  `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))

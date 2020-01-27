@@ -1,6 +1,6 @@
 (ns sci.hierarchies-test
   (:require
-   [clojure.test :as test :refer [deftest is testing]]
+   [clojure.test :as test :refer [deftest is]]
    [sci.test-utils :as tu]))
 
 (defn eval* [expr]
