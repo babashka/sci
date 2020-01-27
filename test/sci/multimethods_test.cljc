@@ -9,3 +9,7 @@
 (deftest default-test
   (is (= :default (eval* "(defmulti foo type) (defmethod foo :default [c] :default) (foo :foo)"))))
 
+(deftest defmethod-test
+  (is (= "Hello" (eval* "
+(defmulti greeting (fn [x] (x \"language\")))
+(defmethod greeting \"English\" [params] \"Hello\") (greeting {\"id\" \"1\", \"language\" \"English\"})"))))
