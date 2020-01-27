@@ -6,7 +6,8 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.impl.vars :as vars]
-   [sci.impl.io :as io]))
+   [sci.impl.io :as io]
+   [sci.impl.multimethods :as mm]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -444,6 +445,7 @@
    'dec dec
    'dedupe dedupe
    'defn- (macrofy defn-*)
+   'defmulti (macrofy mm/defmulti)
    'defonce (macrofy defonce*)
    'delay (macrofy delay*)
    'deref deref
