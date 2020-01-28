@@ -779,8 +779,8 @@
                         (eval* "def"))))
 
 (deftest function-results-dont-have-metadata
-  (is (nil? (meta (eval* "(fn [])"))))
-  (is (nil? (meta (eval* "(fn ([]) ([_]))")))))
+  (is (nil? (eval* "(meta (fn []))")))
+  (is (nil? (eval* "(meta (fn ([]) ([_])))"))))
 
 ;;;; Scratch
 
