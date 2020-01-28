@@ -13,3 +13,13 @@
   (is (= "Hello" (eval* "
 (defmulti greeting (fn [x] (x \"language\")))
 (defmethod greeting \"English\" [params] \"Hello\") (greeting {\"id\" \"1\", \"language\" \"English\"})"))))
+
+(deftest prefer-method-test
+  (is (= :rect-shape
+         (eval* "
+(derive ::rect ::shape)
+(defmulti bar (fn [x y] [x y]))
+(defmethod bar [::rect ::shape] [x y] :rect-shape)
+(defmethod bar [::shape ::rect] [x y] :shape-rect)
+(prefer-method bar [::rect ::shape] [::shape ::rect])
+(bar ::rect ::rect)"))))

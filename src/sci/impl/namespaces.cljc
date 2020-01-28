@@ -546,6 +546,7 @@
    'partition-by partition-by
    'persistent! persistent!
    'pr-str pr-str
+   'prefer-method prefer-method
    'prn-str prn-str
    'print-str print-str
    'push-thread-bindings vars/push-thread-bindings
