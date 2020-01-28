@@ -778,6 +778,10 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"resolve.*def"
                         (eval* "def"))))
 
+(deftest function-results-dont-have-metadata
+  (is (nil? (meta (eval* "(fn [])"))))
+  (is (nil? (meta (eval* "(fn ([]) ([_]))")))))
+
 ;;;; Scratch
 
 (comment
