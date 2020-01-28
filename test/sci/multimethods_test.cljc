@@ -14,6 +14,14 @@
 (defmulti greeting (fn [x] (x \"language\")))
 (defmethod greeting \"English\" [params] \"Hello\") (greeting {\"id\" \"1\", \"language\" \"English\"})"))))
 
+(deftest remove-method-test
+  (is (= "Default" (eval* "
+(defmulti greeting (fn [x] (x \"language\")))
+(defmethod greeting \"English\" [params] \"Hello\")
+(defmethod greeting :default [params] \"Default\")
+(remove-method greeting \"English\")
+(greeting {\"id\" \"1\", \"language\" \"English\"})"))))
+
 (deftest prefer-method-test
   (is (= :rect-shape
          (eval* "

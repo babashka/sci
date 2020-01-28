@@ -560,6 +560,7 @@
    're-matches re-matches
    'rem rem
    'remove remove
+   'remove-method remove-method
    'reset-meta! reset-meta!
    'rest rest
    'repeatedly repeatedly
