@@ -258,6 +258,7 @@
                      (locking/locking (set! meta (apply f meta args)))))
   #?(:clj (resetMeta [this m]
                      (locking/locking (set! meta m))))
+  #?(:clj clojure.lang.IRef) ;; added for multi-methods
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [_]
     (root))
