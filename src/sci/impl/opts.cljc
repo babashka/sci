@@ -1,7 +1,7 @@
 (ns sci.impl.opts
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
-            [sci.impl.vars]
+            [sci.impl.vars :as vars]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
             #?(:cljs [goog.string])))
 
@@ -14,7 +14,10 @@
                                             (:namespaces env))
                      aliases (merge namespaces/aliases aliases
                                     (get-in env [:namespaces 'user :aliases]))
-                     namespaces (update namespaces 'user assoc :aliases aliases)]
+                     namespaces (-> namespaces
+                                    (update 'user assoc :aliases aliases)
+                                    (update 'clojure.core assoc 'global-hierarchy
+                                            (vars/->SciVar (make-hierarchy) 'global-hierarchy nil)))]
                  (assoc env
                         :namespaces namespaces
                         :imports imports)))))

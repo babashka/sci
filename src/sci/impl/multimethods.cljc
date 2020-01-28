@@ -1,9 +1,7 @@
 (ns sci.impl.multimethods
   {:no-doc true}
   (:refer-clojure :exclude [defmulti defmethod])
-  (:require [sci.impl.vars :as vars]))
-
-(def global-hierarchy (vars/->SciVar (make-hierarchy) 'global-hierarchy nil))
+  (:require [sci.impl.hierarchies :refer [global-hierarchy]]))
 
 (defn ^:private check-valid-options
   "Throws an exception if the given option map contains keys not listed
@@ -40,7 +38,7 @@
   a reference type e.g. a var (i.e. via the Var-quote dispatch macro #'
   or the var special form)."
   {:arglists '([name docstring? attr-map? dispatch-fn & options])}
-  [_ _ mm-name & options]
+  [ctx _ _ mm-name & options]
   (let [docstring   (if (string? (first options))
                       (first options)
                       nil)
@@ -65,12 +63,12 @@
     (when (= (count options) 1)
       (throw (new #?(:clj Exception :cljs js/Error)
                   "The syntax for defmulti has changed. Example: (defmulti name dispatch-fn :default dispatch-value)")))
+
     (let [options   (apply hash-map options)
           default   (get options :default :default)
-          hierarchy (get options :hierarchy global-hierarchy)]
+          hierarchy (get options :hierarchy (global-hierarchy ctx))]
       (check-valid-options options :default :hierarchy)
       #?(:clj `(let [v# (def ~mm-name)]
-                 ;; TODO
                  (when-not (and (clojure.core/has-root-impl v#) (clojure.core/multi-fn?-impl (deref v#)))
                    (def ~mm-name
                      (clojure.core/multi-fn-impl ~(name mm-name) ~dispatch-fn ~default ~hierarchy))))
