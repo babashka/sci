@@ -444,6 +444,7 @@
    'float float
    'fn? fn?
    'get get
+   'get-method get-method
    'get-in get-in
    'group-by group-by
    'gensym gensym
@@ -501,6 +502,7 @@
    'max max
    'max-key max-key
    'meta meta
+   'methods methods
    'merge merge
    'merge-with merge-with
    'min min
@@ -561,6 +563,7 @@
    'rem rem
    'remove remove
    'remove-method remove-method
+   'remove-all-methods remove-all-methods
    'reset-meta! reset-meta!
    'rest rest
    'repeatedly repeatedly
