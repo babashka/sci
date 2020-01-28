@@ -1,13 +1,15 @@
 (ns sci.hierarchies-test
   (:require
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
 (defn eval* [expr]
   (tu/eval* expr {}))
 
 (deftest derive-test
-  (is (true? (eval* "(derive ::foo ::bar) (isa? ::foo ::bar)"))))
+  (is (true? (eval* "(derive ::foo ::bar) (isa? ::foo ::bar)")))
+  (testing "hierarchies are derived per sci session"
+    (is (false? (eval* "(isa? ::foo ::bar)")))))
 
 (deftest descendants-test
   (is (= #{:user/foo :user/baz}
