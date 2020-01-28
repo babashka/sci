@@ -69,19 +69,22 @@
                 ctx)
         single-arity? (= 1 (count fn-bodies))
         arities (map #(parse-fn-args+body ctx interpret eval-do* % fn-name macro?) fn-bodies)
-        f (vary-meta
-           (if single-arity?
-             (first arities)
-             (fn [& args]
-               (let [arg-count (count args)]
-                 (if-let [f (lookup-by-arity arities arg-count)]
-                   (apply f args)
-                   (throw (new #?(:clj Exception
-                                  :cljs js/Error)
-                               (let [actual-count (if macro? (- arg-count 2)
-                                                      arg-count)]
-                                 (str "Cannot call " fn-name " with " actual-count " arguments"))))))))
-           #(assoc % :sci/macro macro?))]
+        f (if single-arity?
+            (first arities)
+            (fn [& args]
+              (let [arg-count (count args)]
+                (if-let [f (lookup-by-arity arities arg-count)]
+                  (apply f args)
+                  (throw (new #?(:clj Exception
+                                 :cljs js/Error)
+                              (let [actual-count (if macro? (- arg-count 2)
+                                                     arg-count)]
+                                (str "Cannot call " fn-name " with " actual-count " arguments"))))))))
+        f (if macro?
+            (vary-meta
+             f
+             #(assoc % :sci/macro macro?))
+            f)]
     (reset! self-ref f)
     f))
 
