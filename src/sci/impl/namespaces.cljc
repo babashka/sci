@@ -296,6 +296,9 @@
                        [k v]))
                    m))))
 
+(defn sci-all-ns [ctx]
+  (map #(vars/->SciNamespace %) (keys (get @(:env ctx) :namespaces))))
+
 ;;;; End namespaces
 
 (def clojure-core
@@ -333,6 +336,7 @@
    'add-watch add-watch
    'aget aget
    'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
+   'all-ns (with-meta sci-all-ns {:sci.impl/op :needs-ctx})
    'alter-meta! alter-meta!
    'alter-var-root vars/alter-var-root
    'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op :needs-ctx})
