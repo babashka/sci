@@ -615,14 +615,15 @@
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
             (if (macro? f)
-              (let [needs-ctx? (:sci.impl/op (meta f))
+              (let [needs-ctx? (kw-identical? :needs-ctx
+                                              (:sci.impl/op (meta f)))
                     v (if needs-ctx?
                         (apply f expr
                                (:bindings ctx)
                                ctx
                                (rest expr))
                         (apply f expr
-                                 (:bindings ctx) (rest expr)))
+                               (:bindings ctx) (rest expr)))
                     expanded (if (:sci.impl/macroexpanding ctx)
                                v
                                (analyze ctx v))]
