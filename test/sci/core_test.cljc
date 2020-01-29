@@ -782,6 +782,9 @@
   (is (nil? (eval* "(meta (fn []))")))
   (is (nil? (eval* "(meta (fn ([]) ([_])))"))))
 
+(deftest fn-on-meta-test
+  (is (= "foo" (eval* "(def ^{:test (fn [] \"foo\")} x) ((:test (meta #'x)))"))))
+
 ;;;; Scratch
 
 (comment

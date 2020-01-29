@@ -286,6 +286,7 @@
                :sci.impl/var.unbound
                (analyze ctx init))
         m (meta var-name)
+        m (analyze ctx m)
         m (assoc m :ns @vars/current-ns)
         m (if docstring (assoc m :sci/doc docstring) m)
         var-name (with-meta var-name m)]

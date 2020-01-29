@@ -104,17 +104,16 @@
         init (interpret ctx init)
         m (meta var-name)
         m (when m (interpret ctx m))
-        cnn (vars/getName (:ns m)) #_(if-let [mns (:ns m)]
-              (vars/getName mns)
-              (vars/current-ns-name))
+        cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
           (let [the-current-ns (get-in env [:namespaces cnn])
                 prev (get the-current-ns var-name)
                 v (if (kw-identical? :sci.impl/var.unbound init)
-                    prev
+                    (doto prev
+                      (alter-meta! merge m))
                     (do (vars/bindRoot prev init)
-                        (vary-meta prev merge m)
+                        (alter-meta! prev merge m)
                         prev))
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces cnn] the-current-ns)))
