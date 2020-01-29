@@ -5,6 +5,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
+   [clojure.template :as templ]
    [sci.impl.vars :as vars]
    [sci.impl.io :as io]
    [sci.impl.hierarchies :as hierarchies]
@@ -789,6 +790,7 @@
                   'stringify-keys clojure.walk/stringify-keys
                   'prewalk-replace clojure.walk/prewalk-replace
                   'postwalk-replace clojure.walk/postwalk-replace}
+   'clojure.template {'do-template (macrofy @#'templ/do-template)}
    'clojure.repl clojure-repl})
 
 (def aliases
