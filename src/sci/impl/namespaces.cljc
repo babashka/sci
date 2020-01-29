@@ -5,7 +5,6 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
-   [clojure.template :as templ]
    [sci.impl.vars :as vars]
    [sci.impl.io :as io]
    [sci.impl.hierarchies :as hierarchies]
@@ -746,6 +745,22 @@
   {'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
    'dir (macrofy dir)})
 
+(defn apply-template
+  [argv expr values]
+  (assert (vector? argv))
+  (assert (every? symbol? argv))
+  (walk/postwalk-replace (zipmap argv values) expr))
+
+(defn do-template
+  [_ _ argv expr & values]
+  (let [c (count argv)]
+    `(do ~@(map (fn [a] (apply-template argv expr a))
+                (partition c values)))))
+
+(def clojure-template
+  {'apply-template apply-template
+   'do-template (macrofy do-template)})
+
 (def namespaces
   {'clojure.core clojure-core
    'clojure.string {'blank? str/blank?
@@ -790,7 +805,7 @@
                   'stringify-keys clojure.walk/stringify-keys
                   'prewalk-replace clojure.walk/prewalk-replace
                   'postwalk-replace clojure.walk/postwalk-replace}
-   'clojure.template {'do-template (macrofy @#'templ/do-template)}
+   'clojure.template clojure-template
    'clojure.repl clojure-repl})
 
 (def aliases
