@@ -279,6 +279,13 @@
                    (vars/->SciNamespace sym))
                  (vals aliases)))))
 
+(defn sci-ns-interns [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        m (get-in @(:env ctx) [:namespaces name])
+        m (dissoc m :aliases)]
+    m))
+
 (defn sci-ns-publics [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
@@ -532,6 +539,7 @@
    'next next
    'nnext nnext
    'ns-aliases (with-meta sci-ns-aliases {:sci.impl/op :needs-ctx})
+   'ns-interns (with-meta sci-ns-interns {:sci.impl/op :needs-ctx})
    'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name
    'odd? odd?
