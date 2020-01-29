@@ -616,9 +616,13 @@
           (try
             (if (macro? f)
               (let [needs-ctx? (:sci.impl/op (meta f))
-                    f (if needs-ctx? (partial f ctx) f)
-                    v (apply f expr
-                             (:bindings ctx) (rest expr))
+                    v (if needs-ctx?
+                        (apply f expr
+                               (:bindings ctx)
+                               ctx
+                               (rest expr))
+                        (apply f expr
+                                 (:bindings ctx) (rest expr)))
                     expanded (if (:sci.impl/macroexpanding ctx)
                                v
                                (analyze ctx v))]
