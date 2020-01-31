@@ -446,8 +446,10 @@
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
-    new (eval-constructor-invocation ctx expr)
-    . (eval-instance-method-invocation ctx expr)
+    new (when-not (.get ^java.util.Map ctx :dry-run)
+          (eval-constructor-invocation ctx expr))
+    . (when-not (.get ^java.util.Map ctx :dry-run)
+        (eval-instance-method-invocation ctx expr))
     throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
