@@ -465,14 +465,14 @@
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
            (kw-identical? op :static-access)
-           (eval-static-method-invocation ctx expr)
+           (when-not (.get ^java.util.Map ctx :dry-run)
+             (eval-static-method-invocation ctx expr))
            :else
            (let [f (if op (interpret ctx f)
                        f)]
-             (cond
-               (ifn? f) (fn-call ctx f (rest expr))
-               (:dry-run ctx) nil
-               :else
+             (if (ifn? f)
+               (when-not (.get ^java.util.Map ctx :dry-run)
+                 (fn-call ctx f (rest expr)))
                (throw (new #?(:clj Exception :cljs js/Error)
                            (str "Cannot call " (pr-str f) " as a function.")))))))
        (catch #?(:clj Throwable :cljs js/Error) e
