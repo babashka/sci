@@ -310,10 +310,9 @@ expressions and `toJS` to convert Clojure data structures back to JavaScript.
 { a: 1, b: 2 }
 ```
 
-The function `evalString` takes as optional second argument which is similar to
-the Clojure counterpart. Instead of symbols and keywords it expects
-strings. Instead of kebab-case, use camelCase. Read [here](#Usage) how to use
-sci from Clojure.
+The function `evalString` takes an optional second argument to pass
+options. Read [here](#Usage) how to use those options. Instead of symbols and
+keywords it expects strings. Instead of kebab-case, use camelCase.
 
 ## Use from Java
 
