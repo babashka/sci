@@ -294,17 +294,26 @@ To make the `rand-*` functions behave well when compiling to a GraalVM native bi
 
 ## Use from JavaScript
 
-``` javascript
-> const { evalString } = require('@borkdude/sci');
-> const opts = {bindings: {f: function() { console.log('hello'); }}};
-> evalString("(dotimes [i 2] (f))", opts);
-hello
-hello
+Sci is available on NPM:
+
+``` shell
+$ npm install @borkdude/sci
 ```
 
-Note for JavaScript users: the JS API is similar to the Clojure one. Instead of
-symbols and keywords it expects strings. Instead of kebab-case, use
-camelCase. Read [here](#Usage) how to use sci from Clojure.
+The JavaScript API consists of two functions, `evalString` to evaluate Clojure
+expressions and `toJS` to convert Clojure data structures back to JavaScript.
+
+``` javascript
+> const { evalString, toJS } = require('@borkdude/sci');
+> x = evalString("(assoc {:a 1} :b 2)")
+> toJS(x)
+{ a: 1, b: 2 }
+```
+
+The function `evalString` takes as optional second argument which is similar to
+the Clojure counterpart. Instead of symbols and keywords it expects
+strings. Instead of kebab-case, use camelCase. Read [here](#Usage) how to use
+sci from Clojure.
 
 ## Use from Java
 
