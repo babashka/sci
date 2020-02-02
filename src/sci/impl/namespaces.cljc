@@ -2,13 +2,14 @@
   {:no-doc true}
   (:refer-clojure :exclude [ex-message ex-cause])
   (:require
+   [clojure.edn :as edn]
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
-   [sci.impl.vars :as vars]
-   [sci.impl.io :as io]
    [sci.impl.hierarchies :as hierarchies]
-   [sci.impl.multimethods :as mm]))
+   [sci.impl.io :as io]
+   [sci.impl.multimethods :as mm]
+   [sci.impl.vars :as vars]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -806,7 +807,9 @@
                   'prewalk-replace clojure.walk/prewalk-replace
                   'postwalk-replace clojure.walk/postwalk-replace}
    'clojure.template clojure-template
-   'clojure.repl clojure-repl})
+   'clojure.repl clojure-repl
+   'clojure.edn {'read edn/read
+                 'read-string edn/read-string}})
 
 (def aliases
   '{str clojure.string
