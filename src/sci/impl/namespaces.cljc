@@ -600,6 +600,7 @@
    'random-sample random-sample
    'repeat repeat
    'run! run!
+   'satisfies? satisfies?
    'set? set?
    'sequential? sequential?
    'select-keys select-keys
