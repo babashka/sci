@@ -457,6 +457,7 @@
    'fn? fn?
    'get get
    'get-method get-method
+   'get-thread-binding-frame-impl vars/get-thread-binding-frame
    'get-in get-in
    'group-by group-by
    'gensym gensym
@@ -591,6 +592,7 @@
    'reduced? reduced?
    'reset! reset!
    'reset-vals! reset-vals!
+   'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
    'reversible? reversible?
    'rsubseq rsubseq
    'reductions reductions
