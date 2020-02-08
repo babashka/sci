@@ -412,6 +412,7 @@
    'defmethod (macrofy mm/defmethod)
    'defonce (macrofy defonce*)
    'delay (macrofy delay*)
+   #?@(:clj ['deliver deliver])
    'deref deref
    'derive (with-meta hierarchies/derive* {:sci.impl/op :needs-ctx})
    'descendants (with-meta hierarchies/descendants* {:sci.impl/op :needs-ctx})
@@ -563,6 +564,7 @@
    'persistent! persistent!
    'pr-str pr-str
    'prefer-method prefer-method
+   #?@(:clj ['promise promise])
    'prn-str prn-str
    'print-str print-str
    'push-thread-bindings vars/push-thread-bindings

@@ -48,6 +48,4 @@
                 'future-cancelled? future-cancelled?
                 'future-done? future-done?
                 'future? future?
-                'pmap pmap
-                'promise promise
-                'deliver deliver)))
+                'pmap pmap)))
