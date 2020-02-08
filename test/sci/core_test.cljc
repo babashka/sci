@@ -161,6 +161,15 @@
                         #"Can't have more than 1 variadic overload \[at line 1, column 4\]"
                         (eval* "   (fn ([& args]) ([v & args]))"))))
 
+(deftest pre-post-conditions-test
+  (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error)
+                        #"Assert failed: \(pos\? x\)"
+                        (eval* "(def f (fn ([x] {:pre [(pos? x)]} x) ([x y] (+ x y)))) (f -1)")))
+  (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error)
+                        #"Assert failed: \(< % 10\)"
+                        (eval* "(def f (fn ([x] {:pre [(pos? x)]} x)
+                                           ([x y] {:post [(< % 10)]} (+ x y)))) (f 5 10)"))))
+
 (deftest def-test
   (is (= "nice val" (eval* '(do (def foo "nice val") foo))))
   (is (-> (eval* "(str (do (def foo) foo))")
@@ -232,16 +241,16 @@
   (is (= 3 (tu/eval* "(do (defn foo []) 3)" {:allow nil :deny []})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
-                        (tu/eval* "(defn foo [])" {:allow '[fn]})))
+                        (tu/eval* "(defn foo [])" {:allow '[fn*]})))
   (if tu/native?
-    (do (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[fn pos-int?]}))
-        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[fn pos-int?]}))
-        (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[fn clojure.core/pos-int?]}))
-        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[fn clojure.core/pos-int?]})))
-    (do (is ((tu/eval* "#(pos-int? %)" {:allow '[fn pos-int?]}) 10))
-        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[fn pos-int?]}) 10))
-        (is ((tu/eval* "#(pos-int? %)" {:allow '[fn clojure.core/pos-int?]}) 10))
-        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[fn clojure.core/pos-int?]}) 10))))
+    (do (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[fn* pos-int?]}))
+        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[fn* pos-int?]}))
+        (is (tu/eval* "(#(pos-int? %) 10)" {:allow '[fn* clojure.core/pos-int?]}))
+        (is (tu/eval* "(#(clojure.core/pos-int? %) 10)" {:allow '[fn* clojure.core/pos-int?]})))
+    (do (is ((tu/eval* "#(pos-int? %)" {:allow '[fn* pos-int?]}) 10))
+        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[fn* pos-int?]}) 10))
+        (is ((tu/eval* "#(pos-int? %)" {:allow '[fn* clojure.core/pos-int?]}) 10))
+        (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[fn* clojure.core/pos-int?]}) 10))))
   (if tu/native?
     (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
     (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
@@ -267,15 +276,22 @@
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
     (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
     (testing "users should not be able to hack around this by messing with metadata"
-      (is (int? (:row (eval* "(def x (with-meta (symbol \"y\") {:row :allow})) (meta x)"))))
+      (is (int? (:line (eval* "(def x (with-meta (symbol \"y\") {:line :allow})) (meta x)"))))
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
-                            (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:row :allow}))
-                                       (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop recur]}))))
+                            (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:line :allow}))
+                                       (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop recur]})))
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                            #"allowed"
+                            (tu/eval* "(let [allowed-loop (with-meta (symbol \"loop\") {:line :allow})]
+                                         (defmacro foo [] `(~allowed-loop [])))
+                                       (foo)" {:deny '[loop recur]}))))
     (testing "but it should be forbidden in macros that are defined by a user"
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
-                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]}))))))
+                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]})))))
+  (testing "users cannot hack around sci.impl/needs-ctx"
+    (is (= [1 2] (eval* "(def f (with-meta (fn [ctx x] [ctx x]) {:sci.impl/needs-ctx true})) (f 1 2)")))))
 
 (deftest realize-max-test
   (when-not tu/native?
@@ -315,26 +331,26 @@
                         (eval* "(+ 1 2 3 4 5) (do x)")))
   (when-not tu/native?
     (testing "ex-data"
-      (tu/assert-submap {:type :sci/error, :row 1, :col 15,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 15,
                          :message #"Cannot call foo with 1 arguments \[at line 1, column 15\]"}
                         (try (eval* "(defn foo []) (foo 1)")
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
                                  d))))
-      (tu/assert-submap {:type :sci/error, :row 1, :col 21,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 21,
                          :message #"Cannot call foo with 0 arguments"}
                         (try (eval* "(defn foo [x & xs]) (foo)")
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
                                  d))))
-      (tu/assert-submap {:type :sci/error, :row 1, :col 93,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 93,
                          :message #"Cannot call bindings"}
                         (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
                                          "(let [x 1] (bindings))"))
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
                                  d))))
-      (tu/assert-submap {:type :sci/error, :row 1, :col 25,
+      (tu/assert-submap {:type :sci/error, :line 1, :column 25,
                          :message #"Cannot call foo"}
                         (try (eval* (str "(defmacro foo [x & xs]) "
                                          "(foo)"))
@@ -450,7 +466,7 @@
   (is (= [1 2 3] (eval* "(ns foo) (def x 1) (ns bar) (def x 2) (in-ns 'baz) (def x 3) (require 'foo 'bar) [foo/x bar/x x]")))
   (testing
       "Require evaluates arguments"
-      (is (= [1 2 3] (eval* "
+    (is (= [1 2 3] (eval* "
 (ns foo)
 (def x 1)
 
@@ -461,6 +477,18 @@
 (def x 3)
 (require (symbol \"foo\") (symbol \"bar\"))
 [foo/x bar/x x]")))))
+
+(deftest misc-namespace-test
+  (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
+  (is (= #{1 3 2} (eval* "(mapv alias ['set1 'set2] ['clojure.set 'clojure.set]) (set2/difference
+(set1/union #{1 2 3} #{4 5 6}) #{4 5 6})")))
+  (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))")))
+  (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
+  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))")))
+  (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
+                     "foo #'user/foo"))
+  (is (contains? (set (eval* "(clojure.repl/dir-fn 'clojure.string)"))
+                 'last-index-of)))
 
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
@@ -488,6 +516,11 @@
   (is (= true (eval* "(case (inc 0), 1 true, 2 (+ 1 2 3), 6)")))
   (is (= 6 (eval* "(case (inc 1), 1 true, 2 (+ 1 2 3), 6)")))
   (is (= 7 (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3), 7)")))
+  (is (= 6 (eval* "(case (inc 2), 1 true, (2 3) (+ 1 2 3), 7)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"(?i)duplicate case test constant"
+       (eval* "(case (inc 2), 1 true, 1 false)")))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"matching clause"
@@ -519,13 +552,13 @@
   #?@(:clj
       [(is (nil? (eval* "(try (mapv 1 [1 2 3]) (catch Exception e nil))")))
        (when-not tu/native?
-         (tu/assert-submap {:type :sci/error, :row 1, :col 4}
+         (tu/assert-submap {:type :sci/error, :line 1, :column 4}
                            (try (eval* "   (/ 1 0)")
                                 (catch Exception e (ex-data e)))))]
       :cljs
       [(is (= :foo (eval* "(try (mapv 1 [1 2 3]) (catch js/Error e :foo))")))
        (when-not tu/native?
-         (tu/assert-submap {:type :sci/error, :row 1, :col 6, :a 1}
+         (tu/assert-submap {:type :sci/error, :line 1, :column 6, :a 1}
                            (eval* "(try (throw (ex-info \"\" {:a 1})) (catch js/Error e (ex-data e)))")))])
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Foo"
                         (eval* "(try 1 (catch Foo e e))")))
@@ -619,8 +652,8 @@
 
 (deftest recursion-test
   (testing "stack usage didn't get worse"
-    (is (= 37
-           (eval* "((fn foo [x] (if (= 37 x) x (foo (inc x)))) 0)")))))
+    (is (= 72
+           (eval* "((fn foo [x] (if (= 72 x) x (foo (inc x)))) 0)")))))
 
 (deftest syntax-errors
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
@@ -660,7 +693,8 @@
 
 (deftest defn--test
   (is (= 1 (eval* "(defn- foo [] 1) (foo)")))
-  (is (true? (eval* "(defn- foo [] 1) (:private (meta #'foo))"))))
+  (is (true? (eval* "(defn- foo [] 1) (:private (meta #'foo))")))
+  (is (= 1 (eval* "(defn get [url & [req]] url) (get 1)"))))
 
 (deftest refer-clojure-exclude
   (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
@@ -672,10 +706,10 @@
   (is (= true (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
 
 (deftest compatibility-test
-  (is (true? (eval* "(def foo foo) (var? #'foo)"))))
+  (is (true? (eval* "(def foo foo) (var? #'foo)")))
   (is (= 1 (eval*  "((resolve 'clojure.core/inc) 0)")))
   (is (= 1 (eval* "((resolve 'inc) 0)")))
-  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))")))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
 
 (deftest defonce-test
   (is (= 1 (eval* "(defonce x 1) (defonce x 2) x"))))
@@ -701,6 +735,55 @@
   (is (= '(. (. System (getProperties)) (get  "os.name"))
          (eval* "(macroexpand '(.. System (getProperties) (get \"os.name\")))")))
   (is (= '[1 2 user/x] (eval* "(defmacro foo [x] `[1 2 x]) (macroexpand '(foo 1))"))))
+
+(deftest load-fn-test
+  (when-not tu/native?
+    (is (= 1 (tu/eval* "
+(let [ns 'foo]
+  (require ns))
+(foo/foo-fn)" {:load-fn (constantly
+                         {:file "foo.clj"
+                          :source "(ns foo) (defn foo-fn [] 1)"})})))))
+
+(deftest reload-test
+  (when-not tu/native?
+    (is (= "hello\nhello\nhello\n"
+           (sci/with-out-str
+             (tu/eval* "
+(require '[foo])
+(require '[foo] :reload)
+(require 'foo :reload)
+1"
+                       {:load-fn (fn [{:keys [:namespace]}]
+                                   (case namespace
+                                     'foo {:file "foo.clj"
+                                           :source "(ns foo) (println \"hello\")"}))}))))
+    (is (= "hello\nhello\n"
+           (sci/with-out-str
+             (tu/eval* "
+(require '[foo])
+(require '[foo] :reload)
+(require 'foo)
+1"
+                       {:load-fn (fn [{:keys [:namespace]}]
+                                   (case namespace
+                                     'foo {:file "foo.clj"
+                                           :source "(ns foo) (println \"hello\")"}))}))))))
+
+(deftest alter-meta!-test
+  (is (true? (eval* "(doto (def x) (alter-meta! assoc :private true)) (:private (meta #'x))")))
+  (is (true? (eval* "(doto (def x) (reset-meta! {:private true})) (:private (meta #'x))"))))
+
+(deftest could-not-resolve-symbol
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"resolve.*def"
+                        (eval* "def"))))
+
+(deftest function-results-dont-have-metadata
+  (is (nil? (eval* "(meta (fn []))")))
+  (is (nil? (eval* "(meta (fn ([]) ([_])))"))))
+
+(deftest fn-on-meta-test
+  (is (= "foo" (eval* "(def ^{:test (fn [] \"foo\")} x) ((:test (meta #'x)))"))))
 
 ;;;; Scratch
 

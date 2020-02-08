@@ -4,21 +4,26 @@
   (:require
    [edamame.impl.parser :as parser]
    [sci.impl.analyzer :as ana]
-   [sci.impl.interop :as interop]))
+   [sci.impl.interop :as interop]
+   [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 (def opts
   (parser/normalize-opts
    {:all true
-    :read-eval false}))
+    :read-eval false
+    :row-key :line
+    :col-key :column
+    :end-row-key :end-line
+    :end-col-key :end-column}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
         sym-ns (when-let [n (namespace sym)]
                  (symbol n))
         sym-name-str (name sym)
-        current-ns (:current-ns env)
+        current-ns (vars/current-ns-name)
         current-ns-str (str current-ns)
         namespaces (get env :namespaces)
         the-current-ns (get namespaces current-ns)
@@ -43,13 +48,12 @@
    (let [features (:features ctx)
          env (:env ctx)
          env-val @env
-         current-ns (:current-ns env-val)
+         current-ns (vars/current-ns-name)
          the-current-ns (get-in env-val [:namespaces current-ns])
          aliases (:aliases the-current-ns)
          auto-resolve (assoc aliases
                              :current current-ns)
          parse-opts (assoc opts
-                           :fn true
                            :read-cond :allow
                            :features features
                            :auto-resolve auto-resolve

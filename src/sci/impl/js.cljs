@@ -25,13 +25,20 @@
         deny (mapv symbol deny)
         realize-max (get cljs "realizeMax")
         preset (when-let [v (get cljs "preset")]
-                 (keyword v))]
+                 (keyword v))
+        classes (get cljs "classes")
+        allow-all-classes (get classes "allow")
+        classes (symbolize-keys classes)
+        classes (if allow-all-classes (assoc classes :allow allow-all-classes) classes)
+        env (get cljs "env")]
     {:bindings bindings
      :namespaces namespaces
      :allow allow
      :deny deny
      :preset preset
-     :realize-max realize-max}))
+     :realize-max realize-max
+     :classes classes
+     :env env}))
 
 (defn ^:export toJS [v]
   (if (instance? MetaFn v)

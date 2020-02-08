@@ -10,14 +10,11 @@
                             thread-bound?
                             alter-var-root])
   (:require [sci.impl.macros :as macros]
-            #?(:clj [borkdude.graal.locking :as locking]))
+            #?(:clj [borkdude.graal.locking :as locking])
+            [sci.impl.types :as t])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings]])))
 
 #?(:clj (set! *warn-on-reflection* true))
-
-(defprotocol IBox
-  (setVal [_this _v])
-  (getVal [_this]))
 
 (deftype Frame [bindings prev])
 
@@ -44,7 +41,7 @@
 
 (deftype TBox #?(:clj [thread ^:volatile-mutable val]
                  :cljs [thread ^:mutable val])
-  IBox
+  t/IBox
   (setVal [this v]
     (set! val  v))
   (getVal [this] val))
@@ -83,7 +80,7 @@
            kvs (seq (.-bindings f))]
       (if kvs
         (let [[var* ^TBox tbox] (first kvs)
-              tbox-val (getVal tbox)]
+              tbox-val (t/getVal tbox)]
           (recur (assoc ret var* tbox-val)
                  (next kvs)))
         ret))))
@@ -193,8 +190,8 @@
                  ;; TODO: dynamic field
                  ;; TODO: macro field
                  sym
-                 #?(:clj ^:volatile-mutable _meta
-                    :cljs ^:mutable _meta)]
+                 #?(:clj ^:volatile-mutable meta
+                    :cljs ^:mutable meta)]
   IVar
   (bindRoot [this v]
     (set! (.-root this) v))
@@ -202,7 +199,7 @@
     root)
   (toSymbol [this] sym)
   (isMacro [_]
-    (:sci/macro (meta root)))
+    (:sci/macro (clojure.core/meta root)))
   (isBound [this]
     (or (not (instance? SciUnbound root))
         (thread-bound? this)))
@@ -210,7 +207,7 @@
     (set! (.-root this) (SciUnbound. this)))
   (hasRoot [this]
     (not (instance? SciUnbound root)))
-  IBox
+  t/IBox
   (setVal [this v]
     (let [b (get-thread-binding this)]
       (if (some? b)
@@ -219,8 +216,8 @@
              (if (not (identical? t (Thread/currentThread)))
                (throw (new IllegalStateException
                            (str "Can't change/establish root binding of " this " with set")))
-               (setVal b v)))
-           :cljs (setVal b v))
+               (t/setVal b v)))
+           :cljs (t/setVal b v))
         (throw (new #?(:clj IllegalStateException :cljs js/Error)
                     (str "Can't change/establish root binding of " this " with set"))))))
   (getVal [this] root)
@@ -228,7 +225,7 @@
   (#?(:clj deref
       :cljs -deref) [this]
     (or (when-let [tbox (get-thread-binding this)]
-          (getVal tbox))
+          (t/getVal tbox))
         root))
   Object
   (toString [_]
@@ -238,15 +235,15 @@
                        (-write writer "#'")
                        (pr-writer sym writer opts)))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
-  #?(:clj (meta [_] _meta) :cljs (-meta [_] _meta))
+  #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
   #?(:clj clojure.lang.IObj :cljs IWithMeta)
   #?(:clj
      (withMeta [this new-meta]
-               (set! _meta new-meta)
+               (set! meta new-meta)
                this)
      :cljs
      (-with-meta [this new-meta]
-                 (set! _meta new-meta)
+                 (set! meta new-meta)
                  this))
   ;; #?(:clj Comparable :cljs IEquiv)
   ;; (-equiv [this other]
@@ -256,7 +253,13 @@
   ;; #?(:clj clojure.lang.IHashEq :cljs IHash)
   ;; (-hash [_]
   ;;   (hash-symbol sym))
-  #?@(:clj [clojure.lang.IFn] :cljs [IFn])
+  #?(:clj clojure.lang.IReference)
+  #?(:clj (alterMeta [this f args]
+                     (locking/locking (set! meta (apply f meta args)))))
+  #?(:clj (resetMeta [this m]
+                     (locking/locking (set! meta m))))
+  #?(:clj clojure.lang.IRef) ;; added for multi-methods
+  #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [_]
     (root))
   (#?(:clj invoke :cljs -invoke) [_ a]
@@ -396,9 +399,12 @@
            (do ~@body)
            (finally (vars/pop-thread-bindings))))))
 
-(def file-var (dynamic-var '*file* nil))
+(def current-file (dynamic-var '*file* nil))
 
-(def current-ns (dynamic-var '*ns* (SciNamespace. 'user)))
+(def current-ns (dynamic-var '*ns* nil))
+
+(defn current-ns-name []
+  (getName @current-ns))
 
 (defn alter-var-root [v f & args]
   #?(:clj

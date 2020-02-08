@@ -3,7 +3,6 @@
 [![CircleCI](https://circleci.com/gh/borkdude/sci/tree/master.svg?style=shield)](https://circleci.com/gh/borkdude/sci/tree/master)
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
 [![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
-[![cljdoc badge](https://cljdoc.org/badge/borkdude/sci)](https://cljdoc.org/d/borkdude/sci/CURRENT)
 [![project chat](https://img.shields.io/badge/slack-join_chat-brightgreen.svg)](https://app.slack.com/client/T03RZGPFR/CLX41ASCS)
 
 **Small Clojure Interpreter**
@@ -198,9 +197,9 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
 ```
 
-## Stdoud and stdin
+## Stdout and stdin
 
-To enable printing to `stdoud` and reading from `stdin` you can bind
+To enable printing to `stdout` and reading from `stdin` you can bind
 `sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
 
 
@@ -295,17 +294,25 @@ To make the `rand-*` functions behave well when compiling to a GraalVM native bi
 
 ## Use from JavaScript
 
-``` javascript
-> const { evalString } = require('@borkdude/sci');
-> const opts = {bindings: {f: function() { console.log('hello'); }}};
-> evalString("(dotimes [i 2] (f))", opts);
-hello
-hello
+Sci is available on NPM:
+
+``` shell
+$ npm install @borkdude/sci
 ```
 
-Note for JavaScript users: the JS API is similar to the Clojure one. Instead of
-symbols and keywords it expects strings. Instead of kebab-case, use
-camelCase. Read [here](#Usage) how to use sci from Clojure.
+The JavaScript API consists of two functions, `evalString` to evaluate Clojure
+expressions and `toJS` to convert Clojure data structures back to JavaScript.
+
+``` javascript
+> const { evalString, toJS } = require('@borkdude/sci');
+> x = evalString("(assoc {:a 1} :b 2)")
+> toJS(x)
+{ a: 1, b: 2 }
+```
+
+The function `evalString` takes an optional second argument to pass
+options. Read [here](#Usage) how to use those options. Instead of symbols and
+keywords it expects strings. Instead of kebab-case, use camelCase.
 
 ## Use from Java
 

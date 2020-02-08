@@ -144,7 +144,7 @@
 
 (deftest def-within-binding-test
   (testing "emulation of clojure def within binding behavior"
-    (is (= "#'bar/x" (eval* "(str (ns foo) (ns bar) (binding [*ns* 'foo] (def x 1)))")))))
+    (is (= "#'bar/x" (eval* "(str (ns foo) (ns bar) (binding [*ns* (the-ns 'foo)] (def x 1)))")))))
 
 (deftest alter-var-root-test
   (is (= 2 (eval* "(def x 1) (alter-var-root #'x (fn foo [v] (inc x))) x")))

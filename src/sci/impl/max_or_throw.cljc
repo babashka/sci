@@ -18,7 +18,7 @@
 
 (defn take-or-throw [coll ctx n]
   (take* n coll
-         (bottom n (merge {:coll (delay coll)
+         (bottom n (merge {:column (delay coll)
                            :type :sci.error/realized-beyond-max
                            :realize-max n
                            :expression (:expression ctx)}))))

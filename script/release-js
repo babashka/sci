@@ -2,6 +2,7 @@
 
 set -Eeo pipefail
 
+script/compile-js
 rm -rf /tmp/release-js
 mkdir -p /tmp/release-js
 cp out/min/sci.min.js /tmp/release-js/sci.js

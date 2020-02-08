@@ -1,7 +1,7 @@
 (ns sci.impl.opts
   {:no-doc true}
   (:require [sci.impl.namespaces :as namespaces]
-            [sci.impl.vars]
+            [sci.impl.vars :as vars]
             [sci.impl.utils :as utils :refer [strip-core-ns]]
             #?(:cljs [goog.string])))
 
@@ -14,11 +14,13 @@
                                             (:namespaces env))
                      aliases (merge namespaces/aliases aliases
                                     (get-in env [:namespaces 'user :aliases]))
-                     namespaces (update namespaces 'user assoc :aliases aliases)]
+                     namespaces (-> namespaces
+                                    (update 'user assoc :aliases aliases)
+                                    (update 'clojure.core assoc 'global-hierarchy
+                                            (vars/->SciVar (make-hierarchy) 'global-hierarchy nil)))]
                  (assoc env
                         :namespaces namespaces
-                        :imports imports
-                        :current-ns 'user)))))
+                        :imports imports)))))
 
 (def presets
   {:termination-safe
@@ -62,15 +64,15 @@
      :cljs {}))
 
 (defn normalize-classes [classes]
-  (loop [class->opts (transient {})
+  (loop [class->opts (transient (select-keys classes [:allow]))
          kvs classes]
     (if-let [[sym class-opts] (first kvs)]
       (recur ;; storing the physical class as key didn't work well with
-             ;; GraalVM
-             (assoc! class->opts sym (if (map? class-opts)
-                                       class-opts
-                                       {:class class-opts}))
-             (rest kvs))
+       ;; GraalVM
+       (assoc! class->opts sym (if (map? class-opts)
+                                 class-opts
+                                 {:class class-opts}))
+       (rest kvs))
       {:public-class (:public-class classes)
        :class->opts (persistent! class->opts)})))
 

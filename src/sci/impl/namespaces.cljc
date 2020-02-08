@@ -2,11 +2,14 @@
   {:no-doc true}
   (:refer-clojure :exclude [ex-message ex-cause])
   (:require
+   [clojure.edn :as edn]
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
-   [sci.impl.vars :as vars]
-   [sci.impl.io :as io]))
+   [sci.impl.hierarchies :as hierarchies]
+   [sci.impl.io :as io]
+   [sci.impl.multimethods :as mm]
+   [sci.impl.vars :as vars]))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -134,6 +137,17 @@
           g
           (last steps)))))
 
+(defn some->>*
+  [_ _ expr & forms]
+  (let [g (gensym)
+        steps (map (fn [step] `(if (nil? ~g) nil (->> ~g ~step)))
+                   forms)]
+    `(let [~g ~expr
+           ~@(interleave (repeat g) (butlast steps))]
+       ~(if (empty? steps)
+          g
+          (last steps)))))
+
 (def ex-message
   (if-let [v (resolve 'clojure.core/ex-message)]
     @v
@@ -170,9 +184,6 @@
     :else #?(:clj (throw (IllegalArgumentException.
                           "with-open only allows Symbols in bindings"))
              :cljs ::TODO)))
-
-(defn ns-name* [^sci.impl.vars.SciNamespace ns]
-  (vars/getName ns))
 
 (defn letfn* [_ _ fnspecs & body]
   (let [syms (map first fnspecs)
@@ -239,13 +250,65 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
+;;;; Namespaces
+
+(defn sci-ns-name [^sci.impl.vars.SciNamespace ns]
+  (vars/getName ns))
+
+(defn sci-alias [ctx alias-sym ns-sym]
+  (swap! (:env ctx)
+         (fn [env]
+           (let [current-ns (vars/current-ns-name)]
+             (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
+  nil)
+
+(defn sci-find-ns [ctx ns-sym]
+  (assert (symbol? ns-sym))
+  (when (get-in @(:env ctx) [:namespaces ns-sym])
+    (vars/->SciNamespace ns-sym)))
+
+(defn sci-the-ns [ctx x]
+  (if (instance? sci.impl.vars.SciNamespace x) x
+      (sci-find-ns ctx x)))
+
+(defn sci-ns-aliases [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        aliases (get-in @(:env ctx) [:namespaces name :aliases])]
+    (zipmap (keys aliases)
+            (map (fn [sym]
+                   (vars/->SciNamespace sym))
+                 (vals aliases)))))
+
+(defn sci-ns-interns [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        m (get-in @(:env ctx) [:namespaces name])
+        m (dissoc m :aliases)]
+    m))
+
+(defn sci-ns-publics [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        m (get-in @(:env ctx) [:namespaces name])
+        m (dissoc m :aliases)]
+    (into {} (keep (fn [[k v]]
+                     (when-not (:private (meta v))
+                       [k v]))
+                   m))))
+
+(defn sci-all-ns [ctx]
+  (map #(vars/->SciNamespace %) (keys (get @(:env ctx) :namespaces))))
+
+;;;; End namespaces
+
 (def clojure-core
   {'*ns* vars/current-ns
    ;; io
    '*in* io/in
    '*out* io/out
    '*err* io/err
-   '*file* vars/file-var
+   '*file* vars/current-file
    'newline io/newline
    'flush io/flush
    'pr io/pr
@@ -273,7 +336,11 @@
    '->> (macrofy ->>*)
    'add-watch add-watch
    'aget aget
+   'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
+   'all-ns (with-meta sci-all-ns {:sci.impl/op :needs-ctx})
+   'alter-meta! alter-meta!
    'alter-var-root vars/alter-var-root
+   'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op :needs-ctx})
    'aset aset
    'alength alength
    'any? any?
@@ -313,6 +380,7 @@
    'cond->> (macrofy cond->>*)
    'condp (macrofy condp*)
    'conj conj
+   'conj! conj!
    'cons cons
    'contains? contains?
    'count count
@@ -338,9 +406,15 @@
    'dec dec
    'dedupe dedupe
    'defn- (macrofy defn-*)
+   'defmulti (with-meta mm/defmulti
+               {:sci/macro true
+                :sci.impl/op :needs-ctx})
+   'defmethod (macrofy mm/defmethod)
    'defonce (macrofy defonce*)
    'delay (macrofy delay*)
    'deref deref
+   'derive (with-meta hierarchies/derive* {:sci.impl/op :needs-ctx})
+   'descendants (with-meta hierarchies/descendants* {:sci.impl/op :needs-ctx})
    'dissoc dissoc
    'distinct distinct
    'distinct? distinct?
@@ -366,6 +440,7 @@
    'ex-info ex-info
    'ex-message ex-message
    'ex-cause ex-cause
+   'find-ns (with-meta sci-find-ns {:sci.impl/op :needs-ctx})
    'first first
    'float? float?
    'floats floats
@@ -381,10 +456,12 @@
    'float float
    'fn? fn?
    'get get
+   'get-method get-method
+   'get-thread-binding-frame-impl vars/get-thread-binding-frame
    'get-in get-in
    'group-by group-by
    'gensym gensym
-   'has-root-impl (with-meta has-root-impl {:private true})
+   'has-root-impl has-root-impl
    'hash hash
    'hash-map hash-map
    'hash-set hash-set
@@ -409,6 +486,7 @@
    'integer? integer?
    'ints ints
    'into-array into-array
+   'isa? (with-meta hierarchies/isa?* {:sci.impl/op :needs-ctx})
    #?@(:cljs ['js->clj js->clj])
    #?@(:cljs ['js-obj js-obj])
    'juxt juxt
@@ -426,6 +504,8 @@
    'longs longs
    'list* list*
    'long-array long-array
+   'make-array make-array
+   'make-hierarchy make-hierarchy
    'map map
    'map? map?
    'map-indexed map-indexed
@@ -435,13 +515,16 @@
    'max max
    'max-key max-key
    'meta meta
+   'methods methods
    'merge merge
    'merge-with merge-with
    'min min
    'min-key min-key
+   'multi-fn-add-method-impl mm/multi-fn-add-method-impl
+   'multi-fn?-impl mm/multi-fn?-impl
+   'multi-fn-impl mm/multi-fn-impl
    'munge munge
    'mod mod
-   'make-array make-array
    'name name
    'namespace namespace
    ;; 'newline newline
@@ -461,9 +544,13 @@
    'not-any? not-any?
    'next next
    'nnext nnext
-   'ns-name ns-name*
+   'ns-aliases (with-meta sci-ns-aliases {:sci.impl/op :needs-ctx})
+   'ns-interns (with-meta sci-ns-interns {:sci.impl/op :needs-ctx})
+   'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
+   'ns-name sci-ns-name
    'odd? odd?
    'object-array object-array
+   'parents (with-meta hierarchies/parents* {:sci.impl/op :needs-ctx})
    'peek peek
    'pop pop
    'pop-thread-bindings vars/pop-thread-bindings
@@ -475,6 +562,7 @@
    'partition-by partition-by
    'persistent! persistent!
    'pr-str pr-str
+   'prefer-method prefer-method
    'prn-str prn-str
    'print-str print-str
    'push-thread-bindings vars/push-thread-bindings
@@ -488,6 +576,9 @@
    're-matches re-matches
    'rem rem
    'remove remove
+   'remove-method remove-method
+   'remove-all-methods remove-all-methods
+   'reset-meta! reset-meta!
    'rest rest
    'repeatedly repeatedly
    'reverse reverse
@@ -501,6 +592,7 @@
    'reduced? reduced?
    'reset! reset!
    'reset-vals! reset-vals!
+   'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
    'reversible? reversible?
    'rsubseq rsubseq
    'reductions reductions
@@ -510,6 +602,7 @@
    'random-sample random-sample
    'repeat repeat
    'run! run!
+   'satisfies? satisfies?
    'set? set?
    'sequential? sequential?
    'select-keys select-keys
@@ -517,6 +610,7 @@
    'simple-symbol? simple-symbol?
    'some? some?
    'some-> (macrofy some->*)
+   'some->> (macrofy some->>*)
    'string? string?
    'str str
    'second second
@@ -528,6 +622,7 @@
    'sort sort
    'sort-by sort-by
    'subs subs
+   #?@(:clj ['supers supers])
    'symbol symbol
    'symbol? symbol?
    'special-symbol? special-symbol?
@@ -552,6 +647,7 @@
    'take-last take-last
    'take-nth take-nth
    'take-while take-while
+   'the-ns (with-meta sci-the-ns {:sci.impl/op :needs-ctx})
    'trampoline trampoline
    'transduce transduce
    'transient transient
@@ -585,6 +681,7 @@
    'unchecked-char unchecked-char
    'unchecked-byte unchecked-byte
    'unchecked-short unchecked-short
+   'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
    'val val
    'vals vals
    'var? sci.impl.vars/var?
@@ -636,6 +733,38 @@
              'seque seque
              'xml-seq xml-seq])})
 
+(defn dir-fn
+  [ctx ns]
+  (let [current-ns (vars/current-ns-name)
+        the-ns (sci-the-ns ctx
+                           (get (sci-ns-aliases ctx current-ns) ns ns))]
+    (sort (map first (sci-ns-publics ctx the-ns)))))
+
+(defn dir
+  [_ _ nsname]
+  `(doseq [v# (clojure.repl/dir-fn '~nsname)]
+     (println v#)))
+
+(def clojure-repl
+  {'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
+   'dir (macrofy dir)})
+
+(defn apply-template
+  [argv expr values]
+  (assert (vector? argv))
+  (assert (every? symbol? argv))
+  (walk/postwalk-replace (zipmap argv values) expr))
+
+(defn do-template
+  [_ _ argv expr & values]
+  (let [c (count argv)]
+    `(do ~@(map (fn [a] (apply-template argv expr a))
+                (partition c values)))))
+
+(def clojure-template
+  {'apply-template apply-template
+   'do-template (macrofy do-template)})
+
 (def namespaces
   {'clojure.core clojure-core
    'clojure.string {'blank? str/blank?
@@ -679,7 +808,11 @@
                   'keywordize-keys clojure.walk/keywordize-keys
                   'stringify-keys clojure.walk/stringify-keys
                   'prewalk-replace clojure.walk/prewalk-replace
-                  'postwalk-replace clojure.walk/postwalk-replace}})
+                  'postwalk-replace clojure.walk/postwalk-replace}
+   'clojure.template clojure-template
+   'clojure.repl clojure-repl
+   'clojure.edn {'read edn/read
+                 'read-string edn/read-string}})
 
 (def aliases
   '{str clojure.string

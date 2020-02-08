@@ -1,7 +1,8 @@
 (ns sci.impl.utils
   {:no-doc true}
   (:require [clojure.string :as str]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.impl.types :as t]))
 
 (derive :sci.error/realized-beyond-max :sci/error)
 
@@ -13,15 +14,12 @@
   (vary-meta
    sym
    (fn [m]
-     (assoc m
-            :sci.impl/eval true))))
+     (assoc m :sci.impl/op :resolve-sym))))
 
 (defn eval? [x]
-  (some-> x meta :sci.impl/eval))
+  (some-> x meta :sci.impl/op))
 
-(defn kw-identical? [k v]
-  (#?(:clj identical? :cljs keyword-identical?)
-   k v))
+(def kw-identical? #?(:clj identical? :cljs keyword-identical?))
 
 (defn gensym*
   ([] (mark-resolve-sym (gensym)))
@@ -32,30 +30,28 @@
   (vary-meta
    expr
    (fn [m]
-     (assoc m
-            :sci.impl/eval-call true
-            :sci.impl/eval true))))
+     (assoc m :sci.impl/op :call))))
 
 (defn mark-eval
   [expr]
   (vary-meta
    expr
    (fn [m]
-     (assoc m :sci.impl/eval true))))
+     (assoc m :sci.impl/op :eval))))
 
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
-   (let [{:keys [:row :col]} (meta iobj)
+   (let [{:keys [:line :column]} (meta iobj)
          msg (str msg
                   " [at "
-                  (when-let [v @vars/file-var]
+                  (when-let [v @vars/current-file]
                     (str v ", "))
                   "line "
-                  row ", column " col "]") ]
+                  line ", column " column"]") ]
      (throw (ex-info msg (merge {:type :sci/error
-                                 :row row
-                                 :col col} data))))))
+                                 :line line
+                                 :column column} data))))))
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (if-not (:sci.impl/in-try ctx)
@@ -63,24 +59,33 @@
                   :cljs (.-message e))]
       (if (str/includes? m "[at")
         (throw e)
-        (let [{:keys [:row :col] :or {row (:row ctx)
-                                      col (:col ctx)}} (meta node)]
-          (if (and row col)
+        (let [{:keys [:line :column] :or {line (:line ctx)
+                                          column (:column ctx)}} (meta node)]
+          (if (and line column)
             (let [m (str m
                          " [at "
-                         (when-let [v @vars/file-var]
+                         (when-let [v @vars/current-file]
                            (str v ", "))
                          "line "
-                         row ", column " col "]")
+                         line ", column " column"]")
                   new-exception (let [d (ex-data e)]
                                   (ex-info m (merge {:type :sci/error
-                                                     :row row
-                                                     :col col
+                                                     :line line
+                                                     :column column
                                                      :message m} d) e))]
               (throw new-exception))
             (throw e))))
       (throw e))
     (throw e)))
+
+(defn vary-meta*
+  "Only adds metadata to obj if d is not nil and if obj already has meta"
+  [obj f & args]
+  (if (not (var? obj)) ;; vars can have metadata but don't support with-meta
+    (if (meta obj)
+      (apply vary-meta obj f args)
+      obj)
+    obj))
 
 (defn merge-meta
   "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
@@ -96,13 +101,13 @@
     ("clojure.core" "cljs.core") (symbol (name sym))
     sym))
 
-(def allowed-loop (with-meta (symbol "loop") {:row :allow}))
-(def allowed-recur (with-meta (symbol "recur") {:row :allow}))
+(def allowed-loop (with-meta (symbol "loop") {:line :allow}))
+(def allowed-recur (with-meta (symbol "recur") {:line :allow}))
 
 (defn walk*
   [inner form]
   (cond
-    (:sci.impl/eval (meta form)) form
+    (:sci.impl/op (meta form)) form
     (list? form) (with-meta (apply list (map inner form))
                    (meta form))
     #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
@@ -117,17 +122,15 @@
     :else form))
 
 (defn prewalk
-  "Prewalk with metadata preservation. Does not prewalk :sci.impl/eval nodes."
+  "Prewalk with metadata preservation. Does not prewalk :sci.impl/op nodes."
   [f form]
   (walk* (partial prewalk f) (f form)))
 
 (defn set-namespace! [ctx ns-sym]
   (let [env (:env ctx)]
     (swap! env (fn [env]
-                 (let [ns-var (get-in env [:namespaces 'clojure.core '*ns*])]
-                   (vars/bindRoot ns-var (sci.impl.vars.SciNamespace. ns-sym))
-                   (-> env
-                       (assoc :current-ns ns-sym)
-                       (update-in [:namespaces ns-sym] (fn [the-ns]
+                 (t/setVal vars/current-ns (vars/->SciNamespace ns-sym))
+                 (-> env
+                     (update-in [:namespaces ns-sym] (fn [the-ns]
                                                        (if (nil? the-ns) {}
-                                                        the-ns)))))))))
+                                                           the-ns))))))))

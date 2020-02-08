@@ -1,6 +1,7 @@
 (ns sci.impl.interop
   {:no-doc true}
-  #?(:clj (:import [sci.impl Reflector])))
+  #?(:clj (:import [sci.impl Reflector]))
+  #?(:cljs (:require [goog.object :as gobj])))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -8,30 +9,37 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (defn invoke-instance-method
-  #?@(:cljs [[& _args]
-             (throw (js/Error. "Not implemented yet."))]
+  #?@(:cljs [[obj _target-class method-name args]
+             ;; gobj/get didn't work here
+             (if (identical? \- (.charAt method-name 0))
+               (aget obj (subs method-name 1))
+               (if-let [method (aget obj method-name)]
+                 (apply method obj args)
+                 (throw (js/Error. (str "Could not find method: " method-name)))))]
       :clj
-      [([ctx obj method args]
-        (invoke-instance-method ctx obj nil method args))
-       ([_ctx obj target-class method args]
+      [#_([obj method args]
+        (invoke-instance-method obj nil method args))
+       ([obj target-class method args]
         (if-not target-class
           (Reflector/invokeInstanceMethod obj method (object-array args))
           (let [methods (Reflector/getMethods target-class (count args) method false)]
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
-(defn invoke-static-method #?(:clj [_ctx [[^Class class method-name] & args]]
-                              :cljs [_ctx & _args])
+(defn invoke-static-method #?(:clj [[^Class class method-name] args]
+                              :cljs [[class method-name] args])
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
-     :cljs (throw (js/Error. "Not implemented yet."))))
+     :cljs (if-let [method (gobj/get class method-name)]
+             (apply method args)
+             (throw (js/Error. "Could not find method" method-name)))))
 
-(defn get-static-field #?(:clj [_ctx [^Class class field-name-sym]]
-                          :cljs [_ctx _])
+(defn get-static-field #?(:clj [[^Class class field-name-sym]]
+                          :cljs [_])
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
      :cljs (throw (js/Error. "Not implemented yet."))))
 
-(defn invoke-constructor #?(:clj [_ctx ^Class class args]
-                            :cljs [_ctx constructor args])
+(defn invoke-constructor #?(:clj [^Class class args]
+                            :cljs [constructor args])
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (apply constructor args)))
 

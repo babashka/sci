@@ -9,7 +9,7 @@
    [sci.impl.interop :as interop]
    [sci.impl.vars :as vars]
    [sci.impl.utils :as utils :refer
-    [eval? gensym* mark-resolve-sym mark-eval mark-eval-call constant?
+    [eval? mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns set-namespace!]]))
 
@@ -22,10 +22,10 @@
 (def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq require case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
-               set! resolve macroexpand-1 macroexpand})
+               set! resolve macroexpand-1 macroexpand the-ns})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
-  (when-not (kw-identical? :allow (-> sym meta :row))
+  (when-not (kw-identical? :allow (-> sym meta :line))
     (let [check-sym (strip-core-ns check-sym)]
       (when-not (if allow (contains? allow check-sym)
                     true)
@@ -34,32 +34,32 @@
                 false)
         (throw-error-with-location (str sym " is not allowed!") sym)))))
 
-(defn lookup* [{:keys [:env] :as ctx} sym]
+(defn lookup* [{:keys [:env] :as ctx} sym call?]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
         env @env
-        current-ns (:current-ns env)
-        the-current-ns (-> env :namespaces current-ns)]
+        cnn (vars/current-ns-name)
+        the-current-ns (-> env :namespaces cnn)
+        ;; resolve alias
+        sym-ns (when sym-ns (or (get-in the-current-ns [:aliases sym-ns])
+                                sym-ns))]
     (or (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
         (cond
           (and sym-ns (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core)))
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
-              (when-let [v (get macros sym-name)]
+              (when-let [v (when call? (get macros sym-name))]
                 [sym v]))
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
-              (when-let [aliased (-> the-current-ns :aliases sym-ns)]
-                (when-let [v (some-> env :namespaces aliased (get sym-name))]
-                  [(symbol (str aliased) (str sym-name)) v]))
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
-                [sym (mark-eval ^:sci.impl/static-access [clazz sym-name])]))
+                [sym ^{:sci.impl/op :static-access} [clazz sym-name]]))
           :else
           ;; no sym-ns, this could be a symbol from clojure.core
           (when-not (contains?
                      (get-in the-current-ns [:refer 'clojure.core :exclude]) sym-name)
             (or
              (some-> env :namespaces (get 'clojure.core) (find sym-name))
-             (when (get macros sym)
+             (when (when call? (get macros sym))
                [sym sym])
              (when-let [c (interop/resolve-class ctx sym)]
                [sym c])))))))
@@ -68,7 +68,7 @@
   (when-let [m (meta expr)]
     (:tag m)))
 
-(defn lookup [{:keys [:bindings] :as ctx} sym]
+(defn lookup [{:keys [:bindings] :as ctx} sym call?]
   (let [[k v :as kv]
         (or
          ;; bindings are not checked for permissions
@@ -85,7 +85,7 @@
          (when-let
              [[k _ :as kv]
               (or
-               (lookup* ctx sym)
+               (lookup* ctx sym call?)
                #_(when (= 'recur sym)
                    [sym sym]))]
            (check-permission! ctx k sym)
@@ -97,8 +97,7 @@
         ;; the evaluation of this expression has been delayed by
         ;; the caller and now is the time to deref it
         [k (with-meta [v]
-             {:sci.impl/deref! true
-              :sci.impl/eval true})]
+             {:sci.impl/op :deref!})]
         kv)
       kv)))
 
@@ -108,7 +107,7 @@
    (let [sym sym ;; (strip-core-ns sym)
          res (second
               (or
-               (lookup ctx sym)
+               (lookup ctx sym call?)
                ;; TODO: check if symbol is in macros and then emit an error: cannot take
                ;; the value of a macro
                (let [n (name sym)]
@@ -135,6 +134,24 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
+(defn maybe-destructured
+  [params body]
+  (if (every? symbol? params)
+    {:params params
+     :body body}
+    (loop [params params
+           new-params (with-meta [] (meta params))
+           lets []]
+      (if params
+        (if (symbol? (first params))
+          (recur (next params) (conj new-params (first params)) lets)
+          (let [gparam (gensym "p__")]
+            (recur (next params) (conj new-params gparam)
+                   (-> lets (conj (first params)) (conj gparam)))))
+        {:params new-params
+         :body [`(let ~lets
+                   ~@body)]}))))
+
 (defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
@@ -143,34 +160,34 @@
   (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
                            binding-vector)
         fixed-args (take-while #(not= '& %) binding-vector)
-        var-arg (second (drop-while #(not= '& %) binding-vector))
         fixed-arity (count fixed-args)
-        fixed-names (vec (repeatedly fixed-arity gensym*))
-        destructure-vec (vec (interleave binding-vector fixed-names))
-        var-arg-name (when var-arg (gensym*))
-        destructure-vec (if var-arg
-                          (conj destructure-vec var-arg var-arg-name)
-                          destructure-vec)
-        destructured-vec (destructure destructure-vec)
-        ;; all user-provided bindings are extracted by the destructure macro and
-        ;; now we add them to bindings and continue the macroexpansion of the
-        ;; body
-        ctx (update ctx :bindings merge (zipmap (take-nth 2 destructured-vec)
+        var-arg-name (second (drop-while #(not= '& %) binding-vector))
+        next-body (next body-exprs)
+        conds (when next-body
+                (let [e (first body-exprs)]
+                  (when (map? e) e)))
+        body-exprs (if conds next-body body-exprs)
+        conds (or conds (meta binding-vector))
+        pre (:pre conds)
+        post (:post conds)
+        body-exprs (if post
+                     `((let [~'% ~(if (< 1 (count body-exprs))
+                                    `(do ~@body-exprs)
+                                    (first body-exprs))]
+                         ~@(map (fn* [c] `(assert ~c)) post)
+                         ~'%))
+               body-exprs)
+        body-exprs (if pre
+                     (concat (map (fn* [c] `(assert ~c)) pre)
+                             body-exprs)
+                     body-exprs)
+        {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
+        ctx (update ctx :bindings merge (zipmap params
                                                 (repeat nil)))
-        body-form (mark-eval-call
-                   `(~'let ~destructured-vec
-                     ;; we analyze the body expressions only once with the
-                     ;; bindings in scope
-                     ~@(analyze-children ctx body-exprs)))
-        arg-list (if var-arg
-                   (conj fixed-names '& var-arg-name)
-                   fixed-names)]
-    #:sci.impl{:arg-list arg-list
-               :body [body-form]
+        body (analyze-children ctx body)]
+    #:sci.impl{:body body
+               :params params
                :fixed-arity fixed-arity
-               :destructure-vec destructure-vec
-               :fixed-names fixed-names
-               :fixed-args fixed-args
                :var-arg-name var-arg-name
                :fn-name fn-name}))
 
@@ -208,9 +225,10 @@
                   {:bodies []
                    :min-var-args nil
                    :max-fixed -1} bodies))]
-    (mark-eval #:sci.impl{:fn-bodies arities
+    (with-meta #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
-                          :fn true})))
+                          :fn true}
+      {:sci.impl/op :fn})))
 
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
@@ -268,6 +286,8 @@
                :sci.impl/var.unbound
                (analyze ctx init))
         m (meta var-name)
+        m (analyze ctx m)
+        m (assoc m :ns @vars/current-ns)
         m (if docstring (assoc m :sci/doc docstring) m)
         var-name (with-meta var-name m)]
     (expand-declare ctx [nil var-name])
@@ -285,9 +305,11 @@
                     (when (string? ds) ds))
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
+        meta-map (analyze ctx (merge (meta expr) meta-map))
+        meta-map (assoc meta-map :ns @vars/current-ns)
         fn-name (with-meta fn-name
-                  (cond-> (analyze ctx (merge (meta expr) meta-map))
-                      docstring (assoc :doc docstring)))
+                  (cond-> meta-map
+                    docstring (assoc :doc docstring)))
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
@@ -305,9 +327,7 @@
         arg-names (take-nth 2 bv)
         init-vals (take-nth 2 (rest bv))
         body (nnext expr)]
-    (analyze ctx (apply list (list 'fn (vec arg-names)
-                                   ;; expand-fn will take care of the analysis of the body
-                                   (cons 'do body))
+    (analyze ctx (apply list `(fn ~(vec arg-names) ~@body)
                         init-vals))))
 
 (defn expand-lazy-seq
@@ -327,7 +347,27 @@
         result-clauses (analyze-children ctx (take-nth 2 (rest clauses)))
         default (when (odd? (count clauses))
                   [:val (analyze ctx (last clauses))])
-        case-map (zipmap match-clauses result-clauses)
+        cases (interleave match-clauses result-clauses)
+        assoc-new (fn [m k v]
+                    (if-not (contains? m k)
+                      (assoc m k v)
+                      (throw-error-with-location (str "Duplicate case test constant " k)
+                                                 expr)))
+        case-map (loop [cases (seq cases)
+                        ret-map {}]
+                   (if cases
+                     (let [[k v & cases] cases]
+                       (if (list? k)
+                         (recur
+                          cases
+                          (reduce (fn [acc k]
+                                    (assoc-new acc k v))
+                                  ret-map
+                                  k))
+                         (recur
+                          cases
+                          (assoc-new ret-map k v))))
+                     ret-map))
         ret (mark-eval-call (list 'case
                                   {:case-map case-map
                                    :case-val v
@@ -366,17 +406,18 @@
                       catches)
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
-    (mark-eval
-     {:sci.impl/try
-      {:body body
-       :catches catches
-       :finally finally}})))
+    (with-meta
+      {:sci.impl/try
+       {:body body
+        :catches catches
+        :finally finally}}
+      {:sci.impl/op :try})))
 
 (defn expand-declare [ctx [_declare & names :as _expr]]
   (swap! (:env ctx)
          (fn [env]
-           (let [current-ns-sym (:current-ns env)]
-             (update-in env [:namespaces current-ns-sym]
+           (let [cnn (vars/current-ns-name)]
+             (update-in env [:namespaces cnn]
                         (fn [current-ns]
                           (reduce (fn [acc name]
                                     (if (contains? acc name)
@@ -384,11 +425,12 @@
                                       ;; var
                                       acc
                                       (assoc acc name
-                                             (doto (vars/->SciVar nil (symbol (str current-ns-sym)
+                                             (doto (vars/->SciVar nil (symbol (str cnn)
                                                                               (str name))
                                                                   (assoc (meta name)
                                                                          :name name
-                                                                         :ns @vars/current-ns))
+                                                                         :ns @vars/current-ns
+                                                                         :file @vars/current-file))
                                                (vars/unbind)))))
                                   current-ns
                                   names))))))
@@ -416,9 +458,13 @@
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
-        method-expr (str method-expr)
+        method-expr (name method-expr)
         args (analyze-children ctx args)
-        res `(~'. ~instance-expr ~method-expr ~args)]
+        res #?(:clj (if (class? instance-expr)
+                      `(~(with-meta [instance-expr method-expr]
+                           {:sci.impl/op :static-access}) ~@args)
+                      `(~'. ~instance-expr ~method-expr ~args))
+               :cljs `(~'. ~instance-expr ~method-expr ~args))]
     (mark-eval-call res)))
 
 (defn expand-dot* [ctx [method-name obj & args]]
@@ -483,8 +529,7 @@
 
 (defn wrapped-var [v]
   (with-meta [v]
-    {:sci.impl/eval true
-     :sci.impl/var-value true}))
+    {:sci.impl/op :var-value}))
 
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
@@ -570,8 +615,15 @@
             (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
           (try
             (if (macro? f)
-              (let [v (apply f expr
-                             (:bindings ctx) (rest expr))
+              (let [needs-ctx? (kw-identical? :needs-ctx
+                                              (:sci.impl/op (meta f)))
+                    v (if needs-ctx?
+                        (apply f expr
+                               (:bindings ctx)
+                               ctx
+                               (rest expr))
+                        (apply f expr
+                               (:bindings ctx) (rest expr)))
                     expanded (if (:sci.impl/macroexpanding ctx)
                                v
                                (analyze ctx v))]
@@ -584,13 +636,14 @@
 
 (defn analyze
   [ctx expr]
+  ;; (prn "ana" expr)
   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
-                  (symbol? expr) (let [v (resolve-symbol ctx expr)]
+                  (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                    (cond (constant? v) v
-                                         (fn? v) (merge-meta v {:sci.impl/eval false})
+                                         ;; (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
                                          (vars/var? v) (if (:const (meta v))
                                                          @v
-                                                         (with-meta v (assoc (meta v) :sci.impl/eval true)))
+                                                         (with-meta v (assoc (meta v) :sci.impl/op :eval)))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta
@@ -606,8 +659,8 @@
                      (analyze-call ctx expr)
                      :else expr)
                    (select-keys (meta expr)
-                                [:row :col :tag])))]
-    ;; (prn "ana" expr '-> ret)
+                                [:line :column :tag])))]
+    ;; (prn "ana" expr '-> ret 'm-> (meta ret))
     ret))
 
 ;;;; Scratch
