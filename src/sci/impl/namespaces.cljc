@@ -327,6 +327,8 @@
                {:sci/macro true
                 :sci.impl/op :needs-ctx})
    'defmethod (macrofy mm/defmethod)
+   'get-method get-method
+   'methods methods
    'multi-fn-add-method-impl mm/multi-fn-add-method-impl
    'multi-fn?-impl mm/multi-fn?-impl
    'multi-fn-impl mm/multi-fn-impl
@@ -466,7 +468,6 @@
    'float float
    'fn? fn?
    'get get
-   'get-method get-method
    'get-thread-binding-frame-impl vars/get-thread-binding-frame
    'get-in get-in
    'group-by group-by
@@ -525,7 +526,6 @@
    'max max
    'max-key max-key
    'meta meta
-   'methods methods
    'merge merge
    'merge-with merge-with
    'min min
