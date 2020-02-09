@@ -322,6 +322,19 @@
                             {:sci/macro true})
              'read-line io/read-line])
    ;; end io
+   ;; multimethods
+   'defmulti (with-meta mm/defmulti
+               {:sci/macro true
+                :sci.impl/op :needs-ctx})
+   'defmethod (macrofy mm/defmethod)
+   'multi-fn-add-method-impl mm/multi-fn-add-method-impl
+   'multi-fn?-impl mm/multi-fn?-impl
+   'multi-fn-impl mm/multi-fn-impl
+   'prefer-method prefer-method
+   'prefers prefers
+   'remove-method remove-method
+   'remove-all-methods remove-all-methods
+   ;; end multimethods
    '.. (macrofy double-dot)
    '= =
    '< <
@@ -406,10 +419,6 @@
    'dec dec
    'dedupe dedupe
    'defn- (macrofy defn-*)
-   'defmulti (with-meta mm/defmulti
-               {:sci/macro true
-                :sci.impl/op :needs-ctx})
-   'defmethod (macrofy mm/defmethod)
    'defonce (macrofy defonce*)
    'delay (macrofy delay*)
    #?@(:clj ['deliver deliver])
@@ -521,9 +530,6 @@
    'merge-with merge-with
    'min min
    'min-key min-key
-   'multi-fn-add-method-impl mm/multi-fn-add-method-impl
-   'multi-fn?-impl mm/multi-fn?-impl
-   'multi-fn-impl mm/multi-fn-impl
    'munge munge
    'mod mod
    'name name
@@ -563,7 +569,6 @@
    'partition-by partition-by
    'persistent! persistent!
    'pr-str pr-str
-   'prefer-method prefer-method
    #?@(:clj ['promise promise])
    'prn-str prn-str
    'print-str print-str
@@ -578,8 +583,6 @@
    're-matches re-matches
    'rem rem
    'remove remove
-   'remove-method remove-method
-   'remove-all-methods remove-all-methods
    'reset-meta! reset-meta!
    'rest rest
    'repeatedly repeatedly
