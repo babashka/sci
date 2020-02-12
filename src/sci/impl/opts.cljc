@@ -88,7 +88,8 @@
            :imports
            :features
            :load-fn
-           :dry-run]}]
+           :dry-run
+           :readers]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -101,6 +102,7 @@
                     :realize-max (or realize-max (:realize-max preset))
                     :features features
                     :load-fn load-fn
-                    :dry-run dry-run}
+                    :dry-run dry-run
+                    :readers readers}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
