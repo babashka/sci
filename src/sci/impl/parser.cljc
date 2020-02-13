@@ -46,6 +46,7 @@
    (parser/parse-next opts r))
   ([ctx r]
    (let [features (:features ctx)
+         readers (:readers ctx)
          env (:env ctx)
          env-val @env
          current-ns (vars/current-ns-name)
@@ -57,7 +58,8 @@
                            :read-cond :allow
                            :features features
                            :auto-resolve auto-resolve
-                           :syntax-quote {:resolve-symbol #(fully-qualify ctx %)})
+                           :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
+                           :tools.reader/opts {:readers readers})
          ret (parser/parse-next parse-opts
                                 r)]
      ;; (prn "ret" ret)
