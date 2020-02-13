@@ -92,7 +92,10 @@
         expr (rest expr)
         then (first expr)
         expr (rest expr)
-        else (first expr)]
+        else (first expr)
+        extra (next expr)]
+    (when extra
+      (throw (ex-info "Too many arguments to if" {:extra (rest expr)})))
     (if (interpret ctx cond)
       (interpret ctx then)
       (interpret ctx else))))
