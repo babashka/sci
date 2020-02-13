@@ -23,8 +23,14 @@
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+                          (eval* '(if))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+                          (eval* '(if 1))))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
                           (eval* '(if 1 2 3 4))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
+                          (eval* '(if 1 2 3 4 5))))
     (is (= 1 (eval* 0 '(when (zero? *in*) 1))))
     (is (nil? (eval* 1 '(when (zero? *in*) 1))))
     (testing "when can have multiple body expressions"

@@ -339,6 +339,13 @@
                     ;; expand-fn will take care of the analysis of the body
                     (list 'fn [] (cons 'do body)))))))
 
+(defn expand-if
+  [ctx [_if & exprs :as expr]]
+  (case (count exprs)
+    (0 1) (throw-error-with-location "Too few arguments to if" expr)
+    (2 3) (mark-eval-call `(~'if ~@(analyze-children ctx exprs)))
+    (throw-error-with-location "Too many arguments to if" expr)))
+
 (defn expand-case
   [ctx expr]
   (let [v (analyze ctx (second expr))
@@ -598,6 +605,7 @@
             doseq (analyze ctx (expand-doseq ctx expr))
             require (mark-eval-call
                      (cons 'require (analyze-children ctx (rest expr))))
+            if (expand-if ctx expr)
             case (expand-case ctx expr)
             try (expand-try ctx expr)
             declare (expand-declare ctx expr)
