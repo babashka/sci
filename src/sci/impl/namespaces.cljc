@@ -9,7 +9,13 @@
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.multimethods :as mm]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [sci.impl.macros :as macros])
+  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var]])))
+
+(macros/deftime
+  (defmacro copy-var [sym]
+    `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)})))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -374,7 +380,7 @@
    'bit-shift-left bit-shift-left
    'bit-shift-right bit-shift-right
    'bit-xor bit-xor
-   'boolean boolean
+   'boolean (copy-var boolean)
    'boolean? boolean?
    'booleans booleans
    'butlast butlast
@@ -483,7 +489,7 @@
    'if-let (macrofy if-let*)
    'if-not (macrofy if-not*)
    'ifn? ifn?
-   'inc inc
+   'inc (copy-var inc)
    'inst? inst?
    'instance? instance?
    'int-array int-array
@@ -607,7 +613,7 @@
    'random-sample random-sample
    'repeat repeat
    'run! run!
-   'satisfies? satisfies?
+   #?@(:clj ['satisfies? satisfies?])
    'set? set?
    'sequential? sequential?
    'select-keys select-keys
@@ -750,9 +756,14 @@
   `(doseq [v# (clojure.repl/dir-fn '~nsname)]
      (println v#)))
 
+(defn doc
+  [_ _ sym]
+  `(-> (resolve '~sym) meta :doc))
+
 (def clojure-repl
   {'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
-   'dir (macrofy dir)})
+   'dir (macrofy dir)
+   'doc (macrofy doc)})
 
 (defn apply-template
   [argv expr values]
