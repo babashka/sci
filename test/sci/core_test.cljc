@@ -786,9 +786,9 @@
   (is (= "foo" (eval* "(def ^{:test (fn [] \"foo\")} x) ((:test (meta #'x)))"))))
 
 (deftest readers-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"No reader function"
-                        (tu/eval* "#x/str 5" {})))
-  (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}}))))
+  (when-not tu/native?
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
+    (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))))
 
 ;;;; Scratch
 
