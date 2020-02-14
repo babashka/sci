@@ -713,9 +713,9 @@
    ;; 'with-redefs-fn vars/with-redefs-fn
    'zipmap (copy-var zipmap)
    'zero? (copy-var zero?)
-   #?@(:clj ['+' (copy-var +)'
-             '-' (copy-var -)'
-             '*' (copy-var *)'
+   #?@(:clj ['+' (copy-var +')
+             '-' (copy-var -')
+             '*' (copy-var *')
              'boolean-array (copy-var boolean-array)
              'bound? (copy-var bound?)
              'byte-array (copy-var byte-array)
@@ -727,12 +727,12 @@
              'char-escape-string (copy-var char-escape-string)
              'char-name-string (copy-var char-name-string)
              'class (copy-var class)
-             'dec' (copy-var dec)'
+             'dec' (copy-var dec')
              'decimal? (copy-var decimal?)
              'denominator (copy-var denominator)
              'format (copy-var format)
              'float-array (copy-var float-array)
-             'inc' (copy-var inc)'
+             'inc' (copy-var inc')
              'line-seq (copy-var line-seq)
              'num (copy-var num)
              'namespace-munge (copy-var namespace-munge)
