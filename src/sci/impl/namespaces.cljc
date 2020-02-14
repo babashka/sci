@@ -19,10 +19,12 @@
   (defmacro copy-var
     ([sym]
      `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
-                                 :ns clojure-core-ns}))
+                                 :ns clojure-core-ns
+                                 :direct-linking true}))
     ([sym ns]
      `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
-                                 :ns ~ns}))))
+                                 :ns ~ns
+                                 :direct-linking true}))))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))

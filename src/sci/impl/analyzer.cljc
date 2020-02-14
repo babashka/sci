@@ -570,7 +570,9 @@
             f (or special-sym
                   (resolve-symbol ctx f true))
             f (if (and (vars/var? f)
-                       (vars/isMacro f))
+                       (or
+                        (vars/isMacro f)
+                        (-> f meta :direct-linking)))
                 @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or
@@ -636,7 +638,7 @@
                                v
                                (analyze ctx v))]
                 expanded)
-              (mark-eval-call (analyze-children ctx expr)))
+              (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
       (let [ret (mark-eval-call (analyze-children ctx expr))]
