@@ -332,417 +332,417 @@
    'defmulti (with-meta mm/defmulti
                {:sci/macro true
                 :sci.impl/op :needs-ctx})
-   'defmethod (macrofy mm/defmethod)
-   'get-method get-method
-   'methods methods
+   'defmethod (macrofy (copy-var mm/defmethod))
+   'get-method (copy-var get-method)
+   'methods (copy-var methods)
    'multi-fn-add-method-impl mm/multi-fn-add-method-impl
    'multi-fn?-impl mm/multi-fn?-impl
    'multi-fn-impl mm/multi-fn-impl
-   'prefer-method prefer-method
-   'prefers prefers
-   'remove-method remove-method
-   'remove-all-methods remove-all-methods
+   'prefer-method (copy-var prefer-method)
+   'prefers (copy-var prefers)
+   'remove-method (copy-var remove-method)
+   'remove-all-methods (copy-var remove-all-methods)
    ;; end multimethods
    '.. (macrofy double-dot)
-   '= =
-   '< <
-   '<= <=
-   '> >
-   '>= >=
-   '+ +
-   '- -
-   '* *
-   '/ /
-   '== ==
+   '= (copy-var =)
+   '< (copy-var <)
+   '<= (copy-var <=)
+   '> (copy-var >)
+   '>= (copy-var >=)
+   '+ (copy-var +)
+   '- (copy-var -)
+   '* (copy-var *)
+   '/ (copy-var /)
+   '== (copy-var ==)
    '->> (macrofy ->>*)
-   'add-watch add-watch
-   'aget aget
+   'add-watch (copy-var add-watch)
+   'aget (copy-var aget)
    'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
    'all-ns (with-meta sci-all-ns {:sci.impl/op :needs-ctx})
-   'alter-meta! alter-meta!
+   'alter-meta! (copy-var alter-meta!)
    'alter-var-root vars/alter-var-root
    'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op :needs-ctx})
-   'aset aset
-   'alength alength
-   'any? any?
-   'apply apply
-   'array-map array-map
+   'aset (copy-var aset)
+   'alength (copy-var alength)
+   'any? (copy-var any?)
+   'apply (copy-var apply)
+   'array-map (copy-var array-map)
    'assert (with-meta assert* {:sci/macro true})
-   'assoc assoc
-   'assoc! assoc!
-   'assoc-in assoc-in
-   'associative? associative?
-   'atom atom
+   'assoc (copy-var assoc)
+   'assoc! (copy-var assoc!)
+   'assoc-in (copy-var assoc-in)
+   'associative? (copy-var associative?)
+   'atom (copy-var atom)
    'binding (with-meta vars/binding {:sci/macro true})
    'binding-conveyor-fn vars/binding-conveyor-fn
-   'bit-and-not bit-and-not
-   'bit-set bit-set
-   'bit-shift-left bit-shift-left
-   'bit-shift-right bit-shift-right
-   'bit-xor bit-xor
+   'bit-and-not (copy-var bit-and-not)
+   'bit-set (copy-var bit-set)
+   'bit-shift-left (copy-var bit-shift-left)
+   'bit-shift-right (copy-var bit-shift-right)
+   'bit-xor (copy-var bit-xor)
    'boolean (copy-var boolean)
-   'boolean? boolean?
-   'booleans booleans
-   'butlast butlast
-   'bytes bytes
-   'bit-test bit-test
-   'bit-and bit-and
-   'bounded-count bounded-count
-   'bit-or bit-or
-   'bit-flip bit-flip
-   'bit-not bit-not
-   'byte byte
-   'cat cat
-   'char char
-   'char? char?
-   #?@(:cljs ['clj->js clj->js])
+   'boolean? (copy-var boolean?)
+   'booleans (copy-var booleans)
+   'butlast (copy-var butlast)
+   'bytes (copy-var bytes)
+   'bit-test (copy-var bit-test)
+   'bit-and (copy-var bit-and)
+   'bounded-count (copy-var bounded-count)
+   'bit-or (copy-var bit-or)
+   'bit-flip (copy-var bit-flip)
+   'bit-not (copy-var bit-not)
+   'byte (copy-var byte)
+   'cat (copy-var cat)
+   'char (copy-var char)
+   'char? (copy-var char?)
+   #?@(:cljs ['clj->js (copy-var clj->js)])
    'cond (macrofy cond*)
    'cond-> (macrofy cond->*)
    'cond->> (macrofy cond->>*)
    'condp (macrofy condp*)
-   'conj conj
-   'conj! conj!
-   'cons cons
-   'contains? contains?
-   'count count
-   'cycle cycle
-   'comp comp
-   'concat concat
-   'comparator comparator
-   'coll? coll?
-   'compare compare
-   'complement complement
-   'constantly constantly
-   'chars chars
-   'completing completing
-   'counted? counted?
-   'chunk chunk
-   'chunk-append chunk-append
-   'chunk-buffer chunk-buffer
-   'chunk-cons chunk-cons
-   'chunk-first chunk-first
-   'chunk-rest chunk-rest
-   'chunk-next chunk-next
-   'chunked-seq? chunked-seq?
-   'dec dec
-   'dedupe dedupe
+   'conj (copy-var conj)
+   'conj! (copy-var conj!)
+   'cons (copy-var cons)
+   'contains? (copy-var contains?)
+   'count (copy-var count)
+   'cycle (copy-var cycle)
+   'comp (copy-var comp)
+   'concat (copy-var concat)
+   'comparator (copy-var comparator)
+   'coll? (copy-var coll?)
+   'compare (copy-var compare)
+   'complement (copy-var complement)
+   'constantly (copy-var constantly)
+   'chars (copy-var chars)
+   'completing (copy-var completing)
+   'counted? (copy-var counted?)
+   'chunk (copy-var chunk)
+   'chunk-append (copy-var chunk-append)
+   'chunk-buffer (copy-var chunk-buffer)
+   'chunk-cons (copy-var chunk-cons)
+   'chunk-first (copy-var chunk-first)
+   'chunk-rest (copy-var chunk-rest)
+   'chunk-next (copy-var chunk-next)
+   'chunked-seq? (copy-var chunked-seq?)
+   'dec (copy-var dec)
+   'dedupe (copy-var dedupe)
    'defn- (macrofy defn-*)
    'defonce (macrofy defonce*)
    'delay (macrofy delay*)
-   #?@(:clj ['deliver deliver])
-   'deref deref
+   #?@(:clj ['deliver (copy-var deliver)])
+   'deref (copy-var deref)
    'derive (with-meta hierarchies/derive* {:sci.impl/op :needs-ctx})
    'descendants (with-meta hierarchies/descendants* {:sci.impl/op :needs-ctx})
-   'dissoc dissoc
-   'distinct distinct
-   'distinct? distinct?
-   'disj disj
-   'doall doall
-   'dorun dorun
+   'dissoc (copy-var dissoc)
+   'distinct (copy-var distinct)
+   'distinct? (copy-var distinct?)
+   'disj (copy-var disj)
+   'doall (copy-var doall)
+   'dorun (copy-var dorun)
    'dotimes (macrofy dotimes*)
    'doto (macrofy doto*)
-   'double double
-   'double? double?
-   'drop drop
-   'drop-last drop-last
-   'drop-while drop-while
-   'doubles doubles
-   'eduction eduction
-   'empty empty
-   'empty? empty?
-   'even? even?
-   'every? every?
-   'every-pred every-pred
-   'ensure-reduced ensure-reduced
-   'ex-data ex-data
-   'ex-info ex-info
-   'ex-message ex-message
-   'ex-cause ex-cause
+   'double (copy-var double)
+   'double? (copy-var double?)
+   'drop (copy-var drop)
+   'drop-last (copy-var drop-last)
+   'drop-while (copy-var drop-while)
+   'doubles (copy-var doubles)
+   'eduction (copy-var eduction)
+   'empty (copy-var empty)
+   'empty? (copy-var empty?)
+   'even? (copy-var even?)
+   'every? (copy-var every?)
+   'every-pred (copy-var every-pred)
+   'ensure-reduced (copy-var ensure-reduced)
+   'ex-data (copy-var ex-data)
+   'ex-info (copy-var ex-info)
+   'ex-message (copy-var ex-message)
+   'ex-cause (copy-var ex-cause)
    'find-ns (with-meta sci-find-ns {:sci.impl/op :needs-ctx})
-   'first first
-   'float? float?
-   'floats floats
-   'fnil fnil
-   'fnext fnext
-   'ffirst ffirst
-   'flatten flatten
-   'false? false?
-   'filter filter
-   'filterv filterv
-   'find find
-   'frequencies frequencies
-   'float float
-   'fn? fn?
-   'get get
+   'first (copy-var first)
+   'float? (copy-var float?)
+   'floats (copy-var floats)
+   'fnil (copy-var fnil)
+   'fnext (copy-var fnext)
+   'ffirst (copy-var ffirst)
+   'flatten (copy-var flatten)
+   'false? (copy-var false?)
+   'filter (copy-var filter)
+   'filterv (copy-var filterv)
+   'find (copy-var find)
+   'frequencies (copy-var frequencies)
+   'float (copy-var float)
+   'fn? (copy-var fn?)
+   'get (copy-var get)
    'get-thread-binding-frame-impl vars/get-thread-binding-frame
-   'get-in get-in
-   'group-by group-by
-   'gensym gensym
-   'has-root-impl has-root-impl
-   'hash hash
-   'hash-map hash-map
-   'hash-set hash-set
-   'hash-unordered-coll hash-unordered-coll
-   'ident? ident?
-   'identical? identical?
-   'identity identity
+   'get-in (copy-var get-in)
+   'group-by (copy-var group-by)
+   'gensym (copy-var gensym)
+   'has-root-impl (copy-var has-root-impl)
+   'hash (copy-var hash)
+   'hash-map (copy-var hash-map)
+   'hash-set (copy-var hash-set)
+   'hash-unordered-coll (copy-var hash-unordered-coll)
+   'ident? (copy-var ident?)
+   'identical? (copy-var identical?)
+   'identity (copy-var identity)
    'if-let (macrofy if-let*)
    'if-not (macrofy if-not*)
-   'ifn? ifn?
+   'ifn? (copy-var ifn?)
    'inc (copy-var inc)
-   'inst? inst?
-   'instance? instance?
-   'int-array int-array
-   'interleave interleave
-   'into into
-   'iterate iterate
-   'int int
-   'int? int?
-   'interpose interpose
-   'indexed? indexed?
-   'integer? integer?
-   'ints ints
-   'into-array into-array
+   'inst? (copy-var inst?)
+   'instance? (copy-var instance?)
+   'int-array (copy-var int-array)
+   'interleave (copy-var interleave)
+   'into (copy-var into)
+   'iterate (copy-var iterate)
+   'int (copy-var int)
+   'int? (copy-var int?)
+   'interpose (copy-var interpose)
+   'indexed? (copy-var indexed?)
+   'integer? (copy-var integer?)
+   'ints (copy-var ints)
+   'into-array (copy-var into-array)
    'isa? (with-meta hierarchies/isa?* {:sci.impl/op :needs-ctx})
-   #?@(:cljs ['js->clj js->clj])
-   #?@(:cljs ['js-obj js-obj])
-   'juxt juxt
-   'keep keep
-   'keep-indexed keep-indexed
-   'key key
-   'keys keys
-   'keyword keyword
-   'keyword? keyword?
-   'last last
+   #?@(:cljs ['js->clj (copy-var js->clj)])
+   #?@(:cljs ['js-obj (copy-var js-obj)])
+   'juxt (copy-var juxt)
+   'keep (copy-var keep)
+   'keep-indexed (copy-var keep-indexed)
+   'key (copy-var key)
+   'keys (copy-var keys)
+   'keyword (copy-var keyword)
+   'keyword? (copy-var keyword?)
+   'last (copy-var last)
    'letfn (macrofy letfn*)
-   'long long
-   'list list
-   'list? list?
-   'longs longs
-   'list* list*
-   'long-array long-array
-   'make-array make-array
-   'make-hierarchy make-hierarchy
-   'map map
-   'map? map?
-   'map-indexed map-indexed
-   'map-entry? map-entry?
-   'mapv mapv
-   'mapcat mapcat
-   'max max
-   'max-key max-key
-   'meta meta
-   'merge merge
-   'merge-with merge-with
-   'min min
-   'min-key min-key
-   'munge munge
-   'mod mod
-   'name name
-   'namespace namespace
+   'long (copy-var long)
+   'list (copy-var list)
+   'list? (copy-var list?)
+   'longs (copy-var longs)
+   'list* (copy-var list*)
+   'long-array (copy-var long-array)
+   'make-array (copy-var make-array)
+   'make-hierarchy (copy-var make-hierarchy)
+   'map (copy-var map)
+   'map? (copy-var map?)
+   'map-indexed (copy-var map-indexed)
+   'map-entry? (copy-var map-entry?)
+   'mapv (copy-var mapv)
+   'mapcat (copy-var mapcat)
+   'max (copy-var max)
+   'max-key (copy-var max-key)
+   'meta (copy-var meta)
+   'merge (copy-var merge)
+   'merge-with (copy-var merge-with)
+   'min (copy-var min)
+   'min-key (copy-var min-key)
+   'munge (copy-var munge)
+   'mod (copy-var mod)
+   'name (copy-var name)
+   'namespace (copy-var namespace)
    ;; 'newline newline
-   'nfirst nfirst
-   'not not
-   'not= not=
-   'not-every? not-every?
-   'neg? neg?
-   'neg-int? neg-int?
-   'nth nth
-   'nthnext nthnext
-   'nthrest nthrest
-   'nil? nil?
-   'nat-int? nat-int?
-   'number? number?
-   'not-empty not-empty
-   'not-any? not-any?
-   'next next
-   'nnext nnext
+   'nfirst (copy-var nfirst)
+   'not (copy-var not)
+   'not= (copy-var not=)
+   'not-every? (copy-var not-every?)
+   'neg? (copy-var neg?)
+   'neg-int? (copy-var neg-int?)
+   'nth (copy-var nth)
+   'nthnext (copy-var nthnext)
+   'nthrest (copy-var nthrest)
+   'nil? (copy-var nil?)
+   'nat-int? (copy-var nat-int?)
+   'number? (copy-var number?)
+   'not-empty (copy-var not-empty)
+   'not-any? (copy-var not-any?)
+   'next (copy-var next)
+   'nnext (copy-var nnext)
    'ns-aliases (with-meta sci-ns-aliases {:sci.impl/op :needs-ctx})
    'ns-interns (with-meta sci-ns-interns {:sci.impl/op :needs-ctx})
    'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name
-   'odd? odd?
-   'object-array object-array
+   'odd? (copy-var odd?)
+   'object-array (copy-var object-array)
    'parents (with-meta hierarchies/parents* {:sci.impl/op :needs-ctx})
-   'peek peek
-   'pop pop
+   'peek (copy-var peek)
+   'pop (copy-var pop)
    'pop-thread-bindings vars/pop-thread-bindings
-   'pos? pos?
-   'pos-int? pos-int?
-   'partial partial
-   'partition partition
-   'partition-all partition-all
-   'partition-by partition-by
-   'persistent! persistent!
-   'pr-str pr-str
-   #?@(:clj ['promise promise])
-   'prn-str prn-str
-   'print-str print-str
+   'pos? (copy-var pos?)
+   'pos-int? (copy-var pos-int?)
+   'partial (copy-var partial)
+   'partition (copy-var partition)
+   'partition-all (copy-var partition-all)
+   'partition-by (copy-var partition-by)
+   'persistent! (copy-var persistent!)
+   'pr-str (copy-var pr-str)
+   #?@(:clj ['promise (copy-var promise)])
+   'prn-str (copy-var prn-str)
+   'print-str (copy-var print-str)
    'push-thread-bindings vars/push-thread-bindings
-   'qualified-ident? qualified-ident?
-   'qualified-symbol? qualified-symbol?
-   'qualified-keyword? qualified-keyword?
-   'quot quot
-   're-seq re-seq
-   're-find re-find
-   're-pattern re-pattern
-   're-matches re-matches
-   'rem rem
-   'remove remove
-   'reset-meta! reset-meta!
-   'rest rest
-   'repeatedly repeatedly
-   'reverse reverse
-   'rand-int rand-int
-   'rand-nth rand-nth
-   'range range
-   'record? record?
-   'reduce reduce
-   'reduce-kv reduce-kv
-   'reduced reduced
-   'reduced? reduced?
-   'reset! reset!
-   'reset-vals! reset-vals!
+   'qualified-ident? (copy-var qualified-ident?)
+   'qualified-symbol? (copy-var qualified-symbol?)
+   'qualified-keyword? (copy-var qualified-keyword?)
+   'quot (copy-var quot)
+   're-seq (copy-var re-seq)
+   're-find (copy-var re-find)
+   're-pattern (copy-var re-pattern)
+   're-matches (copy-var re-matches)
+   'rem (copy-var rem)
+   'remove (copy-var remove)
+   'reset-meta! (copy-var reset-meta!)
+   'rest (copy-var rest)
+   'repeatedly (copy-var repeatedly)
+   'reverse (copy-var reverse)
+   'rand-int (copy-var rand-int)
+   'rand-nth (copy-var rand-nth)
+   'range (copy-var range)
+   'record? (copy-var record?)
+   'reduce (copy-var reduce)
+   'reduce-kv (copy-var reduce-kv)
+   'reduced (copy-var reduced)
+   'reduced? (copy-var reduced?)
+   'reset! (copy-var reset!)
+   'reset-vals! (copy-var reset-vals!)
    'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
-   'reversible? reversible?
-   'rsubseq rsubseq
-   'reductions reductions
-   'rand rand
-   'replace replace
-   'rseq rseq
-   'random-sample random-sample
-   'repeat repeat
-   'run! run!
-   #?@(:clj ['satisfies? satisfies?])
-   'set? set?
-   'sequential? sequential?
-   'select-keys select-keys
-   'simple-keyword? simple-keyword?
-   'simple-symbol? simple-symbol?
-   'some? some?
+   'reversible? (copy-var reversible?)
+   'rsubseq (copy-var rsubseq)
+   'reductions (copy-var reductions)
+   'rand (copy-var rand)
+   'replace (copy-var replace)
+   'rseq (copy-var rseq)
+   'random-sample (copy-var random-sample)
+   'repeat (copy-var repeat)
+   'run! (copy-var run!)
+   #?@(:clj ['satisfies? (copy-var satisfies?)])
+   'set? (copy-var set?)
+   'sequential? (copy-var sequential?)
+   'select-keys (copy-var select-keys)
+   'simple-keyword? (copy-var simple-keyword?)
+   'simple-symbol? (copy-var simple-symbol?)
+   'some? (copy-var some?)
    'some-> (macrofy some->*)
    'some->> (macrofy some->>*)
-   'string? string?
-   'str str
-   'second second
-   'set set
-   'seq seq
-   'seq? seq?
-   'short short
-   'shuffle shuffle
-   'sort sort
-   'sort-by sort-by
-   'subs subs
-   #?@(:clj ['supers supers])
-   'symbol symbol
-   'symbol? symbol?
-   'special-symbol? special-symbol?
-   'subvec subvec
-   'some-fn some-fn
-   'some some
-   'split-at split-at
-   'split-with split-with
-   'sorted-set sorted-set
-   'subseq subseq
-   'sorted-set-by sorted-set-by
-   'sorted-map-by sorted-map-by
-   'sorted-map sorted-map
-   'sorted? sorted?
-   'simple-ident? simple-ident?
-   'sequence sequence
-   'seqable? seqable?
-   'shorts shorts
-   'swap! swap!
-   'swap-vals! swap-vals!
-   'take take
-   'take-last take-last
-   'take-nth take-nth
-   'take-while take-while
+   'string? (copy-var string?)
+   'str (copy-var str)
+   'second (copy-var second)
+   'set (copy-var set)
+   'seq (copy-var seq)
+   'seq? (copy-var seq?)
+   'short (copy-var short)
+   'shuffle (copy-var shuffle)
+   'sort (copy-var sort)
+   'sort-by (copy-var sort-by)
+   'subs (copy-var subs)
+   #?@(:clj ['supers (copy-var supers)])
+   'symbol (copy-var symbol)
+   'symbol? (copy-var symbol?)
+   'special-symbol? (copy-var special-symbol?)
+   'subvec (copy-var subvec)
+   'some-fn (copy-var some-fn)
+   'some (copy-var some)
+   'split-at (copy-var split-at)
+   'split-with (copy-var split-with)
+   'sorted-set (copy-var sorted-set)
+   'subseq (copy-var subseq)
+   'sorted-set-by (copy-var sorted-set-by)
+   'sorted-map-by (copy-var sorted-map-by)
+   'sorted-map (copy-var sorted-map)
+   'sorted? (copy-var sorted?)
+   'simple-ident? (copy-var simple-ident?)
+   'sequence (copy-var sequence)
+   'seqable? (copy-var seqable?)
+   'shorts (copy-var shorts)
+   'swap! (copy-var swap!)
+   'swap-vals! (copy-var swap-vals!)
+   'take (copy-var take)
+   'take-last (copy-var take-last)
+   'take-nth (copy-var take-nth)
+   'take-while (copy-var take-while)
    'the-ns (with-meta sci-the-ns {:sci.impl/op :needs-ctx})
-   'trampoline trampoline
-   'transduce transduce
-   'transient transient
-   'tree-seq tree-seq
-   'type type
-   'true? true?
-   'to-array to-array
-   'update update
-   'update-in update-in
-   'uri? uri?
-   'uuid? uuid?
-   'unchecked-inc-int unchecked-inc-int
-   'unchecked-long unchecked-long
-   'unchecked-negate unchecked-negate
-   'unchecked-remainder-int unchecked-remainder-int
-   'unchecked-subtract-int unchecked-subtract-int
-   'unsigned-bit-shift-right unsigned-bit-shift-right
-   'unchecked-float unchecked-float
-   'unchecked-add-int unchecked-add-int
-   'unchecked-double unchecked-double
-   'unchecked-multiply-int unchecked-multiply-int
-   'unchecked-int unchecked-int
-   'unchecked-multiply unchecked-multiply
-   'unchecked-dec-int unchecked-dec-int
-   'unchecked-add unchecked-add
-   'unreduced unreduced
-   'unchecked-divide-int unchecked-divide-int
-   'unchecked-subtract unchecked-subtract
-   'unchecked-negate-int unchecked-negate-int
-   'unchecked-inc unchecked-inc
-   'unchecked-char unchecked-char
-   'unchecked-byte unchecked-byte
-   'unchecked-short unchecked-short
+   'trampoline (copy-var trampoline)
+   'transduce (copy-var transduce)
+   'transient (copy-var transient)
+   'tree-seq (copy-var tree-seq)
+   'type (copy-var type)
+   'true? (copy-var true?)
+   'to-array (copy-var to-array)
+   'update (copy-var update)
+   'update-in (copy-var update-in)
+   'uri? (copy-var uri?)
+   'uuid? (copy-var uuid?)
+   'unchecked-inc-int (copy-var unchecked-inc-int)
+   'unchecked-long (copy-var unchecked-long)
+   'unchecked-negate (copy-var unchecked-negate)
+   'unchecked-remainder-int (copy-var unchecked-remainder-int)
+   'unchecked-subtract-int (copy-var unchecked-subtract-int)
+   'unsigned-bit-shift-right (copy-var unsigned-bit-shift-right)
+   'unchecked-float (copy-var unchecked-float)
+   'unchecked-add-int (copy-var unchecked-add-int)
+   'unchecked-double (copy-var unchecked-double)
+   'unchecked-multiply-int (copy-var unchecked-multiply-int)
+   'unchecked-int (copy-var unchecked-int)
+   'unchecked-multiply (copy-var unchecked-multiply)
+   'unchecked-dec-int (copy-var unchecked-dec-int)
+   'unchecked-add (copy-var unchecked-add)
+   'unreduced (copy-var unreduced)
+   'unchecked-divide-int (copy-var unchecked-divide-int)
+   'unchecked-subtract (copy-var unchecked-subtract)
+   'unchecked-negate-int (copy-var unchecked-negate-int)
+   'unchecked-inc (copy-var unchecked-inc)
+   'unchecked-char (copy-var unchecked-char)
+   'unchecked-byte (copy-var unchecked-byte)
+   'unchecked-short (copy-var unchecked-short)
    'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
-   'val val
-   'vals vals
+   'val (copy-var val)
+   'vals (copy-var vals)
    'var? sci.impl.vars/var?
-   'vary-meta vary-meta
-   'vec vec
-   'vector vector
-   'vector? vector?
-   'volatile! volatile!
-   'vreset! vreset!
-   'vswap! vswap!*
+   'vary-meta (copy-var vary-meta)
+   'vec (copy-var vec)
+   'vector (copy-var vector)
+   'vector? (copy-var vector?)
+   'volatile! (copy-var volatile!)
+   'vreset! (copy-var vreset!)
+   'vswap! (copy-var vswap!*)
    'when-first (macrofy when-first*)
    'when-let (macrofy when-let*)
    'when (macrofy when*)
    'when-not (macrofy when-not*)
-   'with-meta with-meta
+   'with-meta (copy-var with-meta)
    'with-open (macrofy with-open*)
    ;; 'with-redefs (macrofy vars/with-redefs)
    ;; 'with-redefs-fn vars/with-redefs-fn
-   'zipmap zipmap
-   'zero? zero?
-   #?@(:clj ['+' +'
-             '-' -'
-             '*' *'
-             'boolean-array boolean-array
-             'bound? bound?
-             'byte-array byte-array
-             'bigint bigint
-             'bytes? bytes?
-             'biginteger biginteger
-             'bigdec bigdec
-             'char-array char-array
-             'char-escape-string char-escape-string
-             'char-name-string char-name-string
-             'class class
-             'dec' dec'
-             'decimal? decimal?
-             'denominator denominator
-             'format format
-             'float-array float-array
-             'inc' inc'
-             'line-seq line-seq
-             'num num
-             'namespace-munge namespace-munge
-             'numerator numerator
-             'replicate replicate
-             'rational? rational?
-             'ratio? ratio?
-             'rationalize rationalize
-             'seque seque
-             'xml-seq xml-seq])})
+   'zipmap (copy-var zipmap)
+   'zero? (copy-var zero?)
+   #?@(:clj ['+' (copy-var +)'
+             '-' (copy-var -)'
+             '*' (copy-var *)'
+             'boolean-array (copy-var boolean-array)
+             'bound? (copy-var bound?)
+             'byte-array (copy-var byte-array)
+             'bigint (copy-var bigint)
+             'bytes? (copy-var bytes?)
+             'biginteger (copy-var biginteger)
+             'bigdec (copy-var bigdec)
+             'char-array (copy-var char-array)
+             'char-escape-string (copy-var char-escape-string)
+             'char-name-string (copy-var char-name-string)
+             'class (copy-var class)
+             'dec' (copy-var dec)'
+             'decimal? (copy-var decimal?)
+             'denominator (copy-var denominator)
+             'format (copy-var format)
+             'float-array (copy-var float-array)
+             'inc' (copy-var inc)'
+             'line-seq (copy-var line-seq)
+             'num (copy-var num)
+             'namespace-munge (copy-var namespace-munge)
+             'numerator (copy-var numerator)
+             'replicate (copy-var replicate)
+             'rational? (copy-var rational?)
+             'ratio? (copy-var ratio?)
+             'rationalize (copy-var rationalize)
+             'seque (copy-var seque)
+             'xml-seq (copy-var xml-seq)])})
 
 (defn dir-fn
   [ctx ns]
@@ -783,52 +783,52 @@
 
 (def namespaces
   {'clojure.core clojure-core
-   'clojure.string {'blank? str/blank?
-                    'capitalize str/capitalize
-                    'ends-with? str/ends-with?
-                    'escape str/escape
-                    'includes? str/includes?
-                    'index-of str/index-of
-                    'join str/join
-                    'last-index-of str/last-index-of
-                    'lower-case str/lower-case
-                    'replace str/replace
-                    'replace-first str/replace-first
-                    'reverse str/reverse
-                    'split str/split
-                    'split-lines str/split-lines
-                    'starts-with? str/starts-with?
-                    'trim str/trim
-                    'trim-newline str/trim-newline
-                    'triml str/triml
-                    'trimr str/trimr
-                    'upper-case str/upper-case
-                    #?@(:clj ['re-quote-replacement str/re-quote-replacement])}
-   'clojure.set {'difference set/difference
-                 'index set/index
-                 'intersection set/intersection
-                 'join set/join
-                 'map-invert set/map-invert
-                 'project set/project
-                 'rename set/rename
-                 'rename-keys set/rename-keys
-                 'select set/select
-                 'subset? set/subset?
-                 'superset? set/superset?
-                 'union set/union}
-   'clojure.walk {'walk clojure.walk/walk
-                  'postwalk clojure.walk/postwalk
-                  'prewalk clojure.walk/prewalk
-                  #?@(:clj ['postwalk-demo clojure.walk/postwalk-demo
-                            'prewalk-demo clojure.walk/prewalk-demo])
-                  'keywordize-keys clojure.walk/keywordize-keys
-                  'stringify-keys clojure.walk/stringify-keys
-                  'prewalk-replace clojure.walk/prewalk-replace
-                  'postwalk-replace clojure.walk/postwalk-replace}
+   'clojure.string {'blank? (copy-var str/blank?)
+                    'capitalize (copy-var str/capitalize)
+                    'ends-with? (copy-var str/ends-with?)
+                    'escape (copy-var str/escape)
+                    'includes? (copy-var str/includes?)
+                    'index-of (copy-var str/index-of)
+                    'join (copy-var str/join)
+                    'last-index-of (copy-var str/last-index-of)
+                    'lower-case (copy-var str/lower-case)
+                    'replace (copy-var str/replace)
+                    'replace-first (copy-var str/replace-first)
+                    'reverse (copy-var str/reverse)
+                    'split (copy-var str/split)
+                    'split-lines (copy-var str/split-lines)
+                    'starts-with? (copy-var str/starts-with?)
+                    'trim (copy-var str/trim)
+                    'trim-newline (copy-var str/trim-newline)
+                    'triml (copy-var str/triml)
+                    'trimr (copy-var str/trimr)
+                    'upper-case (copy-var str/upper-case)
+                    #?@(:clj ['re-quote-replacement (copy-var str/re-quote-replacement)])}
+   'clojure.set {'difference (copy-var set/difference)
+                 'index (copy-var set/index)
+                 'intersection (copy-var set/intersection)
+                 'join (copy-var set/join)
+                 'map-invert (copy-var set/map-invert)
+                 'project (copy-var set/project)
+                 'rename (copy-var set/rename)
+                 'rename-keys (copy-var set/rename-keys)
+                 'select (copy-var set/select)
+                 'subset? (copy-var set/subset?)
+                 'superset? (copy-var set/superset?)
+                 'union (copy-var set/union)}
+   'clojure.walk {'walk (copy-var clojure.walk/walk)
+                  'postwalk (copy-var clojure.walk/postwalk)
+                  'prewalk (copy-var clojure.walk/prewalk)
+                  #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo)
+                            'prewalk-demo (copy-var clojure.walk/prewalk-demo)])
+                  'keywordize-keys (copy-var clojure.walk/keywordize-keys)
+                  'stringify-keys (copy-var clojure.walk/stringify-keys)
+                  'prewalk-replace (copy-var clojure.walk/prewalk-replace)
+                  'postwalk-replace (copy-var clojure.walk/postwalk-replace)}
    'clojure.template clojure-template
    'clojure.repl clojure-repl
-   'clojure.edn {'read edn/read
-                 'read-string edn/read-string}})
+   'clojure.edn {'read (copy-var edn/read)
+                 'read-string (copy-var edn/read-string)}})
 
 (def aliases
   '{str clojure.string
