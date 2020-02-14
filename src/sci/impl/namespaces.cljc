@@ -765,7 +765,7 @@
 
 (defn doc
   [_ _ sym]
-  `(-> (resolve '~sym) meta :doc))
+  `(println (-> (resolve '~sym) meta :doc)))
 
 (def clojure-repl
   {'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
