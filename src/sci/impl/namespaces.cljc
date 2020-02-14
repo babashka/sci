@@ -339,7 +339,7 @@
    'defmulti (with-meta mm/defmulti
                {:sci/macro true
                 :sci.impl/op :needs-ctx})
-   'defmethod (macrofy (copy-var mm/defmethod))
+   'defmethod (macrofy mm/defmethod)
    'get-method (copy-var get-method)
    'methods (copy-var methods)
    'multi-fn-add-method-impl mm/multi-fn-add-method-impl
