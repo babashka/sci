@@ -13,9 +13,16 @@
    [sci.impl.macros :as macros])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var]])))
 
+(def clojure-core-ns (vars/->SciNamespace 'clojure.core))
+
 (macros/deftime
-  (defmacro copy-var [sym]
-    `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)})))
+  (defmacro copy-var
+    ([sym]
+     `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
+                                 :ns clojure-core-ns}))
+    ([sym ns]
+     `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
+                                 :ns ~ns}))))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -781,54 +788,59 @@
   {'apply-template apply-template
    'do-template (macrofy do-template)})
 
+(def clojure-string-namespace (vars/->SciNamespace 'clojure.string))
+(def clojure-set-namespace (vars/->SciNamespace 'clojure.set))
+(def clojure-walk-namespace (vars/->SciNamespace 'clojure.walk))
+(def clojure-edn-namespace (vars/->SciNamespace 'clojure.edn))
+
 (def namespaces
   {'clojure.core clojure-core
-   'clojure.string {'blank? (copy-var str/blank?)
-                    'capitalize (copy-var str/capitalize)
-                    'ends-with? (copy-var str/ends-with?)
-                    'escape (copy-var str/escape)
-                    'includes? (copy-var str/includes?)
-                    'index-of (copy-var str/index-of)
-                    'join (copy-var str/join)
-                    'last-index-of (copy-var str/last-index-of)
-                    'lower-case (copy-var str/lower-case)
-                    'replace (copy-var str/replace)
-                    'replace-first (copy-var str/replace-first)
-                    'reverse (copy-var str/reverse)
-                    'split (copy-var str/split)
-                    'split-lines (copy-var str/split-lines)
-                    'starts-with? (copy-var str/starts-with?)
-                    'trim (copy-var str/trim)
-                    'trim-newline (copy-var str/trim-newline)
-                    'triml (copy-var str/triml)
-                    'trimr (copy-var str/trimr)
-                    'upper-case (copy-var str/upper-case)
-                    #?@(:clj ['re-quote-replacement (copy-var str/re-quote-replacement)])}
-   'clojure.set {'difference (copy-var set/difference)
-                 'index (copy-var set/index)
-                 'intersection (copy-var set/intersection)
-                 'join (copy-var set/join)
-                 'map-invert (copy-var set/map-invert)
-                 'project (copy-var set/project)
-                 'rename (copy-var set/rename)
-                 'rename-keys (copy-var set/rename-keys)
-                 'select (copy-var set/select)
-                 'subset? (copy-var set/subset?)
-                 'superset? (copy-var set/superset?)
-                 'union (copy-var set/union)}
-   'clojure.walk {'walk (copy-var clojure.walk/walk)
-                  'postwalk (copy-var clojure.walk/postwalk)
-                  'prewalk (copy-var clojure.walk/prewalk)
-                  #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo)
-                            'prewalk-demo (copy-var clojure.walk/prewalk-demo)])
-                  'keywordize-keys (copy-var clojure.walk/keywordize-keys)
-                  'stringify-keys (copy-var clojure.walk/stringify-keys)
-                  'prewalk-replace (copy-var clojure.walk/prewalk-replace)
-                  'postwalk-replace (copy-var clojure.walk/postwalk-replace)}
+   'clojure.string {'blank? (copy-var str/blank? clojure-string-namespace)
+                    'capitalize (copy-var str/capitalize clojure-string-namespace)
+                    'ends-with? (copy-var str/ends-with? clojure-string-namespace)
+                    'escape (copy-var str/escape clojure-string-namespace)
+                    'includes? (copy-var str/includes? clojure-string-namespace)
+                    'index-of (copy-var str/index-of clojure-string-namespace)
+                    'join (copy-var str/join clojure-string-namespace)
+                    'last-index-of (copy-var str/last-index-of clojure-string-namespace)
+                    'lower-case (copy-var str/lower-case clojure-string-namespace)
+                    'replace (copy-var str/replace clojure-string-namespace)
+                    'replace-first (copy-var str/replace-first clojure-string-namespace)
+                    'reverse (copy-var str/reverse clojure-string-namespace)
+                    'split (copy-var str/split clojure-string-namespace)
+                    'split-lines (copy-var str/split-lines clojure-string-namespace)
+                    'starts-with? (copy-var str/starts-with? clojure-string-namespace)
+                    'trim (copy-var str/trim clojure-string-namespace)
+                    'trim-newline (copy-var str/trim-newline clojure-string-namespace)
+                    'triml (copy-var str/triml clojure-string-namespace)
+                    'trimr (copy-var str/trimr clojure-string-namespace)
+                    'upper-case (copy-var str/upper-case clojure-string-namespace)
+                    #?@(:clj ['re-quote-replacement (copy-var str/re-quote-replacement clojure-string-namespace)])}
+   'clojure.set {'difference (copy-var set/difference clojure-set-namespace)
+                 'index (copy-var set/index clojure-set-namespace)
+                 'intersection (copy-var set/intersection clojure-set-namespace)
+                 'join (copy-var set/join clojure-set-namespace)
+                 'map-invert (copy-var set/map-invert clojure-set-namespace)
+                 'project (copy-var set/project clojure-set-namespace)
+                 'rename (copy-var set/rename clojure-set-namespace)
+                 'rename-keys (copy-var set/rename-keys clojure-set-namespace)
+                 'select (copy-var set/select clojure-set-namespace)
+                 'subset? (copy-var set/subset? clojure-set-namespace)
+                 'superset? (copy-var set/superset? clojure-set-namespace)
+                 'union (copy-var set/union clojure-set-namespace)}
+   'clojure.walk {'walk (copy-var clojure.walk/walk clojure-walk-namespace)
+                  'postwalk (copy-var clojure.walk/postwalk clojure-walk-namespace)
+                  'prewalk (copy-var clojure.walk/prewalk clojure-walk-namespace)
+                  #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
+                            'prewalk-demo (copy-var clojure.walk/prewalk-demo clojure-walk-namespace)])
+                  'keywordize-keys (copy-var clojure.walk/keywordize-keys clojure-walk-namespace)
+                  'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
+                  'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
+                  'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)}
    'clojure.template clojure-template
    'clojure.repl clojure-repl
-   'clojure.edn {'read (copy-var edn/read)
-                 'read-string (copy-var edn/read-string)}})
+   'clojure.edn {'read (copy-var edn/read clojure-edn-namespace)
+                 'read-string (copy-var edn/read-string clojure-edn-namespace)}})
 
 (def aliases
   '{str clojure.string
