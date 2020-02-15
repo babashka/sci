@@ -11,11 +11,11 @@
                             alter-var-root])
   (:require [sci.impl.macros :as macros]
             #?(:clj [borkdude.graal.locking :as locking])
-            [sci.impl.types :as t])
+            [sci.impl.types :as t]
+            [sci.impl.unrestrict :refer [*unrestricted*]])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings with-non-built-in]])))
 
 #?(:clj (set! *warn-on-reflection* true))
-
 
 (defprotocol INamespace
   (getName [_]))
@@ -219,15 +219,15 @@
   (defmacro with-non-built-in
     [the-var var-meta & body]
     ;; important: outside try
-    `(if-not (:sci.impl/built-in ~var-meta)
-       (do ~@body)
-       (let [the-var# ~the-var
-             m# (meta the-var#)
-             ns# (:ns m#)
-             ns-name# (getName ns#)
-             name# (getVarName the-var#)]
-         (throw (ex-info (str "Built-in var #'" ns-name# "/" name# " is read-only.")
-                         {:var ~the-var}))))))
+    `(let [vm# ~var-meta]
+       (if (or *unrestricted* (not (:sci.impl/built-in vm#)))
+         (do ~@body)
+         (let [the-var# ~the-var
+               ns# (:ns vm#)
+               ns-name# (getName ns#)
+               name# (getVarName the-var#)]
+           (throw (ex-info (str "Built-in var #'" ns-name# "/" name# " is read-only.")
+                           {:var ~the-var})))))))
 
 (deftype SciVar [#?(:clj ^:volatile-mutable root
                     :cljs ^:mutable root)
@@ -282,15 +282,6 @@
                        (pr-writer sym writer opts)))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
-  ;;  #?(:clj clojure.lang.IObj :cljs IWithMeta)
-  ;; #?(:clj
-  ;;    (withMeta [this new-meta]
-  ;;              (set! meta new-meta)
-  ;;              this)
-  ;;    :cljs
-  ;;    (-with-meta [this new-meta]
-  ;;                (set! meta new-meta)
-  ;;                this))
   ;; #?(:clj Comparable :cljs IEquiv)
   ;; (-equiv [this other]
   ;;   (if (instance? Var other)
@@ -301,9 +292,11 @@
   ;;   (hash-symbol sym))
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
-                     (locking/locking (set! meta (apply f meta args)))))
+                     (with-non-built-in this meta
+                       (locking/locking (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
-                     (locking/locking (set! meta m))))
+                     (with-non-built-in this meta
+                       (locking/locking (set! meta m)))))
   #?(:clj clojure.lang.IRef) ;; added for multi-methods
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [_]

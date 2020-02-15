@@ -3,9 +3,10 @@
   (:refer-clojure :exclude [pr prn print println newline flush with-out-str
                             with-in-str read-line printf
                             #?@(:cljs [string-print])])
-  (:require [sci.impl.vars :as vars]
-            #?(:clj [sci.impl.io :as sio])
-            #?(:cljs [goog.string])))
+  (:require #?(:clj [sci.impl.io :as sio])
+            #?(:cljs [goog.string])
+            [sci.impl.unrestrict :refer [*unrestricted*]]
+            [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -18,14 +19,17 @@
 
 (def init-err (fn [] #?(:clj (java.io.StringWriter.))))
 
-(def in (doto (vars/dynamic-var '*in*)
-          (vars/unbind)))
+(def in (binding [*unrestricted* true]
+          (doto (vars/dynamic-var '*in*)
+                                        (vars/unbind))))
 
-(def out (doto (vars/dynamic-var '*out*)
-           (vars/unbind)))
+(def out (binding [*unrestricted* true]
+           (doto (vars/dynamic-var '*out*)
+             (vars/unbind))))
 
-(def err (doto (vars/dynamic-var '*err*)
-           (vars/unbind)))
+(def err (binding [*unrestricted* true]
+           (doto (vars/dynamic-var '*err*)
+             (vars/unbind))))
 
 #?(:clj (defn pr-on
           {:private true
