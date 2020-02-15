@@ -289,7 +289,7 @@
         m (meta var-name)
         m (analyze ctx m)
         m (assoc m :ns @vars/current-ns)
-        m (if docstring (assoc m :sci/doc docstring) m)
+        m (if docstring (assoc m :doc docstring) m)
         var-name (with-meta var-name m)]
     (expand-declare ctx [nil var-name])
     (mark-eval-call (list 'def var-name init))))

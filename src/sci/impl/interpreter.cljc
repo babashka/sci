@@ -103,7 +103,7 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
-        m (when m (interpret ctx m))
+        m (interpret ctx m)
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
