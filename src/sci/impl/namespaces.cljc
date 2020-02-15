@@ -20,11 +20,11 @@
     ([sym]
      `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
                                  :ns clojure-core-ns
-                                 :direct-linking true}))
+                                 :sci.impl/built-in true}))
     ([sym ns]
      `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
                                  :ns ~ns
-                                 :direct-linking true}))))
+                                 :sci.impl/built-in true}))))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))

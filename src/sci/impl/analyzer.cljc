@@ -572,7 +572,7 @@
             f (if (and (vars/var? f)
                        (or
                         (vars/isMacro f)
-                        (-> f meta :direct-linking)))
+                        (-> f meta :sci.impl/built-in)))
                 @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or
