@@ -369,7 +369,7 @@
    'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
    'all-ns (with-meta sci-all-ns {:sci.impl/op :needs-ctx})
    'alter-meta! (copy-var alter-meta!)
-   'alter-var-root vars/alter-var-root
+   'alter-var-root (copy-var vars/alter-var-root)
    'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op :needs-ctx})
    'aset (copy-var aset)
    'alength (copy-var alength)

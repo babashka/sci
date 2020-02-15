@@ -4,11 +4,6 @@
   (setVal [_this _v])
   (getVal [_this]))
 
-#_(defprotocol IEvalOp
-  (getType [_this]))
-
-#_(deftype EvalOp [type v]
-  IEvalOp
-  (getType [_] type)
+(deftype EvalVar [v]
   IBox
-  (getVal [_] v))
+  (getVal [this] v))

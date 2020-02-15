@@ -8,6 +8,7 @@
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
    [sci.impl.vars :as vars]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
     [eval? mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
@@ -541,13 +542,13 @@
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
     (if (vars/var? v)
-      (wrapped-var v)
+      v #_(wrapped-var v)
       v)))
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)
         v (analyze ctx v)
-        obj (wrapped-var obj)]
+        obj (types/getVal obj)]
     (mark-eval-call (list 'set! obj v))))
 
 ;;;; End vars
@@ -652,8 +653,7 @@
                                    (cond (constant? v) v
                                          ;; (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
                                          (vars/var? v) (if (:const (meta v))
-                                                         @v
-                                                         (with-meta v (assoc (meta v) :sci.impl/op :eval)))
+                                                         @v (types/->EvalVar v))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta

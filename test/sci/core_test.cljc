@@ -798,6 +798,11 @@
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
     (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))))
 
+(deftest built-in-vars-are-read-only-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"read-only"
+       (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {}))))
+
 ;;;; Scratch
 
 (comment
