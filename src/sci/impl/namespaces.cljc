@@ -18,13 +18,19 @@
 (macros/deftime
   (defmacro copy-var
     ([sym]
-     `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
-                                 :ns clojure-core-ns
-                                 :sci.impl/built-in true}))
+     `(let [m# (-> (var ~sym) meta)]
+        (vars/->SciVar ~sym '~sym {:doc (:doc m#)
+                                   :name (:name m#)
+                                   :arglists (:arglists m#)
+                                   :ns clojure-core-ns
+                                   :sci.impl/built-in true})))
     ([sym ns]
-     `(vars/->SciVar ~sym '~sym {:doc (-> (var ~sym) meta :doc)
-                                 :ns ~ns
-                                 :sci.impl/built-in true}))))
+     `(let [m# (-> (var ~sym) meta)]
+        (vars/->SciVar ~sym '~sym {:doc (:doc m#)
+                                   :name (:name m#)
+                                   :arglists (:arglists m#)
+                                   :ns ~ns
+                                   :sci.impl/built-in true})))))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -767,7 +773,16 @@
 
 (defn doc
   [_ _ sym]
-  `(println (-> (resolve '~sym) meta :doc)))
+  `(when-let [var# (resolve '~sym)]
+     (let [m# (meta var#)
+           arglists# (:arglists m#)
+           doc# (:doc m#)]
+       (println "-------------------------")
+       (println (str (when-let [ns* (:ns m#)]
+                       (str (ns-name ns*) "/"))
+                     (:name m#)))
+       (when arglists# (println arglists#))
+       (when doc# (println " " doc#)))))
 
 (def clojure-repl
   {'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
