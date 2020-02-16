@@ -771,17 +771,52 @@
   `(doseq [v# (clojure.repl/dir-fn '~nsname)]
      (println v#)))
 
+#_(defn- print-doc [{n :ns
+                   nm :name
+                   :keys [forms arglists special-form doc url macro spec]
+                   :as m}]
+  (println "-------------------------")
+  (println (or spec (str (when n (str (ns-name n) "/")) nm)))
+  (when forms
+    (doseq [f forms]
+      (print "  ")
+      (prn f)))
+  (when arglists
+    (prn arglists))
+  (cond
+    special-form
+    (do
+      (println "Special Form")
+      (println " " doc)
+      (if (contains? m :url)
+        (when url
+          (println (str "\n  Please see http://clojure.org/" url)))
+        (println (str "\n  Please see http://clojure.org/special_forms#" nm))))
+    macro
+    (println "Macro")
+    spec
+    (println "Spec"))
+  (when doc (println " " doc))
+  (when n
+    (when-let [fnspec (spec/get-spec (symbol (str (ns-name n)) (name nm)))]
+      (println "Spec")
+      (doseq [role [:args :ret :fn]]
+        (when-let [spec (get fnspec role)]
+          (println " " (str (name role) ":") (spec/describe spec)))))))
+
 (defn doc
   [_ _ sym]
   `(when-let [var# (resolve '~sym)]
      (let [m# (meta var#)
            arglists# (:arglists m#)
-           doc# (:doc m#)]
+           doc# (:doc m#)
+           macro?# (:macro m#)]
        (println "-------------------------")
        (println (str (when-let [ns* (:ns m#)]
                        (str (ns-name ns*) "/"))
                      (:name m#)))
        (when arglists# (println arglists#))
+       (when macro?# (println "Macro"))
        (when doc# (println " " doc#)))))
 
 (def clojure-repl

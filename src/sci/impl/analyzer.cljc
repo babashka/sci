@@ -322,7 +322,8 @@
                         :arglists arglists)
         fn-name (with-meta fn-name
                   (cond-> meta-map
-                    docstring (assoc :doc docstring)))
+                    docstring (assoc :doc docstring)
+                    macro? (assoc :macro true)))
         f (assoc f
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name)]

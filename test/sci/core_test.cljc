@@ -809,8 +809,9 @@
 -------------------------
 user/f
 ([x] [x y])
+Macro
   foodoc")
-           (str/trim (sci/with-out-str (eval* "(defn f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
+           (str/trim (sci/with-out-str (eval* "(defmacro f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
     (is (= (str/trim  #?(:clj "
 -------------------------
 clojure.core/inc
