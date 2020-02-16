@@ -825,6 +825,10 @@ clojure.core/inc
   Returns a number one greater than num."))
            (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))))
 
+(deftest tagged-literal-test
+  (testing "EDN with custom reader tags can be read without exception"
+    (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
+
 ;;;; Scratch
 
 (comment

@@ -669,6 +669,7 @@
    'shorts (copy-var shorts)
    'swap! (copy-var swap!)
    'swap-vals! (copy-var swap-vals!)
+   'tagged-literal (copy-var tagged-literal)
    'take (copy-var take)
    'take-last (copy-var take-last)
    'take-nth (copy-var take-nth)
