@@ -103,7 +103,7 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
-        m (when m (interpret ctx m))
+        m (interpret ctx m)
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -492,45 +492,47 @@
 
 (defn interpret
   [ctx expr]
-  (let [m (meta expr)
-        op (when m (.get ^java.util.Map m :sci.impl/op))
-        ret
-        (if
-            (not op) expr
-            ;; TODO: moving this up increased performance for #246. We can
-            ;; probably optimize it further by not using separate keywords for
-            ;; one :sci.impl/op keyword on which we can use a case expression
-            (case op
-              :call (eval-call ctx expr)
-              :try (eval-try ctx expr)
-              :fn (fns/eval-fn ctx interpret eval-do* expr)
-              :static-access (interop/get-static-field expr)
-              :var-value (nth expr 0)
-              :deref! (let [v (first expr)
-                            v (if (vars/var? v) @v v)]
-                        (force v))
-              :resolve-sym (resolve-symbol ctx expr)
-              :needs-ctx (partial expr ctx)
-              (cond (vars/var? expr) (if-not (vars/isMacro expr)
-                                       (deref expr)
-                                       (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                                   (str "Can't take value of a macro: " expr ""))))
-                    (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
-                                        (map #(interpret ctx %) (vals expr)))
-                    (or (vector? expr) (set? expr)) (into (empty expr)
-                                                          (map #(interpret ctx %)
-                                                               expr))
-                    :else (throw (new #?(:clj Exception :cljs js/Error)
-                                      (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
-        ret (if m (fix-meta ret m)
-                ret)]
-    ;; for debugging:
-    ;; (prn expr (meta expr) '-> ret)
-    (if-let [n (.get ^java.util.Map ctx :realize-max)]
-      (max-or-throw ret (assoc ctx
-                               :expression expr)
-                    n)
-      ret)))
+  (if (instance? sci.impl.types.EvalVar expr)
+    (let [v (t/getVal expr)]
+      (if-not (vars/isMacro v)
+        (deref v)
+        (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                    (str "Can't take value of a macro: " v "")))))
+    (let [m (meta expr)
+          op (when m (.get ^java.util.Map m :sci.impl/op))
+          ret
+          (if
+              (not op) expr
+              ;; TODO: moving this up increased performance for #246. We can
+              ;; probably optimize it further by not using separate keywords for
+              ;; one :sci.impl/op keyword on which we can use a case expression
+              (case op
+                :call (eval-call ctx expr)
+                :try (eval-try ctx expr)
+                :fn (fns/eval-fn ctx interpret eval-do* expr)
+                :static-access (interop/get-static-field expr)
+                :var-value (nth expr 0)
+                :deref! (let [v (first expr)
+                              v (if (vars/var? v) @v v)]
+                          (force v))
+                :resolve-sym (resolve-symbol ctx expr)
+                :needs-ctx (partial expr ctx)
+                (cond (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                                          (map #(interpret ctx %) (vals expr)))
+                      (or (vector? expr) (set? expr)) (into (empty expr)
+                                                            (map #(interpret ctx %)
+                                                                 expr))
+                      :else (throw (new #?(:clj Exception :cljs js/Error)
+                                        (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
+          ret (if m (fix-meta ret m)
+                  ret)]
+      ;; for debugging:
+      ;; (prn expr (meta expr) '-> ret)
+      (if-let [n (.get ^java.util.Map ctx :realize-max)]
+        (max-or-throw ret (assoc ctx
+                                 :expression expr)
+                      n)
+        ret))))
 
 (defn do? [expr]
   (and (list? expr)

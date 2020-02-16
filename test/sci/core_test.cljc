@@ -798,6 +798,33 @@
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
     (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))))
 
+(deftest built-in-vars-are-read-only-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"read-only"
+       (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {}))))
+
+(deftest repl-doc-test
+  (when-not tu/native?
+    (is (= (str/trim "
+-------------------------
+user/f
+([x] [x y])
+Macro
+  foodoc")
+           (str/trim (sci/with-out-str (eval* "(defmacro f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
+    (is (= (str/trim  #?(:clj "
+-------------------------
+clojure.core/inc
+([x])
+  Returns a number one greater than num. Does not auto-promote
+  longs, will throw on overflow. See also: inc'"
+                         :cljs "
+-------------------------
+clojure.core/inc
+([x])
+  Returns a number one greater than num."))
+           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))))
+
 ;;;; Scratch
 
 (comment

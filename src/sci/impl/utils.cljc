@@ -81,7 +81,7 @@
 (defn vary-meta*
   "Only adds metadata to obj if d is not nil and if obj already has meta"
   [obj f & args]
-  (if (not (var? obj)) ;; vars can have metadata but don't support with-meta
+  (if (not (vars/var? obj)) ;; vars can have metadata but don't support with-meta
     (if (meta obj)
       (apply vary-meta obj f args)
       obj)
@@ -90,7 +90,7 @@
 (defn merge-meta
   "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
   [obj d]
-  (if (and d (not (var? obj))) ;; vars can have metadata but don't support with-meta
+  (if (and d (not (vars/var? obj))) ;; vars can have metadata but don't support with-meta
     (if-let [m (meta obj)]
       (with-meta obj (merge m d))
       obj)
