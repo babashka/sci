@@ -129,7 +129,7 @@
 (defn set-namespace! [ctx ns-sym]
   (let [env (:env ctx)]
     (swap! env (fn [env]
-                 (t/setVal vars/current-ns (vars/->SciNamespace ns-sym))
+                 (t/setVal vars/current-ns (vars/->SciNamespace ns-sym nil))
                  (-> env
                      (update-in [:namespaces ns-sym] (fn [the-ns]
                                                        (if (nil? the-ns) {}
