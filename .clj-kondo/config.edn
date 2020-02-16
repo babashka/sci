@@ -1,1 +1,2 @@
-{:lint-as {me.raynes.conch/let-programs clojure.core/let}}
+{:lint-as {me.raynes.conch/let-programs clojure.core/let}
+ :linters {:unsorted-required-namespaces {:level :warning}}}

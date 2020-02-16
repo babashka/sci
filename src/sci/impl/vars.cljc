@@ -40,6 +40,8 @@
     (str name))
   HasName
   (getName [_] name)
+  #?(:clj clojure.lang.IMeta :cljs IMeta)
+  #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (with-writeable-namespace this meta
@@ -223,7 +225,6 @@
 (macros/deftime
   (defmacro with-writeable-var
     [the-var var-meta & body]
-    ;; important: outside try
     `(let [vm# ~var-meta]
        (if (or *unrestricted* (not (:sci.impl/built-in vm#)))
          (do ~@body)
