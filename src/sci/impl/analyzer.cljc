@@ -177,7 +177,7 @@
                                     (first body-exprs))]
                          ~@(map (fn* [c] `(assert ~c)) post)
                          ~'%))
-               body-exprs)
+                     body-exprs)
         body-exprs (if pre
                      (concat (map (fn* [c] `(assert ~c)) pre)
                              body-exprs)
@@ -206,28 +206,34 @@
                  [body])
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
                 ctx)
-        arities (:bodies
-                 (reduce
-                  (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
-                    (let [body (expand-fn-args+body ctx fn-name body macro?)
-                          var-arg-name (:sci.impl/var-arg-name body)
-                          fixed-arity (:sci.impl/fixed-arity body)
-                          new-min-varargs (when var-arg-name fixed-arity)]
-                      (when (and var-arg-name min-varargs)
-                        (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr))
-                      (when (and (not var-arg-name) min-varargs (> fixed-arity min-varargs))
-                        (throw-error-with-location
-                         "Can't have fixed arity function with more params than variadic function" fn-expr))
-                      (-> acc
-                          (assoc :min-varargs new-min-varargs
-                                 :max-fixed (max (:sci.impl/fixed-arity body)
-                                                 max-fixed))
-                          (update :bodies conj body))))
-                  {:bodies []
-                   :min-var-args nil
-                   :max-fixed -1} bodies))]
+        analyzed-bodies (reduce
+                         (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
+                           (let [arglist (first body)
+                                 body (expand-fn-args+body ctx fn-name body macro?)
+                                 body (assoc body :sci.impl/arglist arglist)
+                                 var-arg-name (:sci.impl/var-arg-name body)
+                                 fixed-arity (:sci.impl/fixed-arity body)
+                                 new-min-varargs (when var-arg-name fixed-arity)]
+                             (when (and var-arg-name min-varargs)
+                               (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr))
+                             (when (and (not var-arg-name) min-varargs (> fixed-arity min-varargs))
+                               (throw-error-with-location
+                                "Can't have fixed arity function with more params than variadic function" fn-expr))
+                             (-> acc
+                                 (assoc :min-varargs new-min-varargs
+                                        :max-fixed (max (:sci.impl/fixed-arity body)
+                                                        max-fixed))
+                                 (update :bodies conj body)
+                                 (update :arglists conj arglist))))
+                         {:bodies []
+                          :arglists []
+                          :min-var-args nil
+                          :max-fixed -1} bodies)
+        arities (:bodies analyzed-bodies)
+        arglists (:arglists analyzed-bodies)]
     (with-meta #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
+                          :arglists arglists
                           :fn true}
       {:sci.impl/op :fn})))
 
@@ -307,14 +313,18 @@
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
         meta-map (analyze ctx (merge (meta expr) meta-map))
-        meta-map (assoc meta-map :ns @vars/current-ns)
-        fn-name (with-meta fn-name
-                  (cond-> meta-map
-                    docstring (assoc :doc docstring)))
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
-        f (assoc f :sci/macro macro?
+        arglists (seq (:sci.impl/arglists f))
+        meta-map (assoc meta-map
+                        :ns @vars/current-ns
+                        :arglists arglists)
+        fn-name (with-meta fn-name
+                  (cond-> meta-map
+                    docstring (assoc :doc docstring)))
+        f (assoc f
+                 :sci/macro macro?
                  :sci.impl/fn-name fn-name)]
     (mark-eval-call (list 'def fn-name f))))
 

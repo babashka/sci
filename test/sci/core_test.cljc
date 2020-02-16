@@ -803,6 +803,27 @@
        #?(:clj Exception :cljs js/Error) #"read-only"
        (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {}))))
 
+(deftest repl-doc-test
+  (when-not tu/native?
+    (is (= (str/trim "
+-------------------------
+user/f
+([x] [x y])
+  foodoc")
+           (str/trim (sci/with-out-str (eval* "(defn f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
+    (is (= (str/trim  #?(:clj "
+-------------------------
+clojure.core/inc
+([x])
+  Returns a number one greater than num. Does not auto-promote
+  longs, will throw on overflow. See also: inc'"
+                         :cljs "
+-------------------------
+clojure.core/inc
+([x])
+  Returns a number one greater than num."))
+           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))))
+
 ;;;; Scratch
 
 (comment
