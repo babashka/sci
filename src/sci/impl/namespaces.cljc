@@ -9,9 +9,9 @@
    [clojure.walk :as walk]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
+   [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
-   [sci.impl.vars :as vars]
-   [sci.impl.macros :as macros])
+   [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
 (def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
