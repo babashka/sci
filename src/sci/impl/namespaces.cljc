@@ -289,8 +289,10 @@
 
 (defn sci-find-ns [ctx ns-sym]
   (assert (symbol? ns-sym))
-  (when (get-in @(:env ctx) [:namespaces ns-sym])
-    (vars/->SciNamespace ns-sym nil)))
+  (when-let [ns-map (get-in @(:env ctx) [:namespaces ns-sym])]
+    (or (:obj ns-map)
+        ;; TODO: fix the case where the ns-map has no :obj yet
+        (vars/->SciNamespace ns-sym nil))))
 
 (defn sci-the-ns [ctx x]
   (if (instance? sci.impl.vars.SciNamespace x) x
@@ -309,7 +311,7 @@
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
-        m (dissoc m :aliases)]
+        m (dissoc m :aliases :obj)]
     m))
 
 (defn sci-ns-publics [ctx sci-ns]

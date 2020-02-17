@@ -831,7 +831,9 @@ clojure.core/inc
 
 (deftest ns-metadata-test
   (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
-         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*)"))))
+         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*)")))
+  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
+         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*) (ns bar) (meta (the-ns 'foo))"))))
 
 ;;;; Scratch
 

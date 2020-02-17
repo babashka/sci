@@ -127,12 +127,16 @@
   [f form]
   (walk* (partial prewalk f) (f form)))
 
+(defn get-namespace
+  "Fetches namespaces from env if it exists. Else produces one and adds it to env before returning it."
+  [env ns-sym attr-map]
+  (or (get-in @env [:namespaces ns-sym :obj])
+      (let [ns-obj (vars/->SciNamespace ns-sym attr-map)]
+        (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
+        ns-obj)))
+
 (defn set-namespace! [ctx ns-sym attr-map]
   (let [env (:env ctx)
-        attr-map (merge (meta ns-sym) attr-map)]
-    (swap! env (fn [env]
-                 (t/setVal vars/current-ns (vars/->SciNamespace ns-sym attr-map))
-                 (-> env
-                     (update-in [:namespaces ns-sym] (fn [the-ns]
-                                                       (if (nil? the-ns) {}
-                                                           the-ns))))))))
+        attr-map (merge (meta ns-sym) attr-map)
+        ns-obj (get-namespace env ns-sym attr-map)]
+    (t/setVal vars/current-ns ns-obj)))
