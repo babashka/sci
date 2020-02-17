@@ -829,6 +829,10 @@ clojure.core/inc
   (testing "EDN with custom reader tags can be read without exception"
     (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
 
+(deftest ns-metadata-test
+  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
+         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*)"))))
+
 ;;;; Scratch
 
 (comment

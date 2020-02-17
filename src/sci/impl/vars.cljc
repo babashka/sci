@@ -50,6 +50,9 @@
                      (with-writeable-namespace this meta
                        (locking/locking (set! meta m))))))
 
+(defn namespace? [x]
+  (instance? sci.impl.vars.SciNamespace x))
+
 (deftype Frame [bindings prev])
 
 (def top-frame (Frame. {} nil))

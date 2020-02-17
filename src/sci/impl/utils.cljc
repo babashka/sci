@@ -90,7 +90,8 @@
 (defn merge-meta
   "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
   [obj d]
-  (if (and d (not (vars/var? obj))) ;; vars can have metadata but don't support with-meta
+  (if (and d (not (vars/var? obj))
+             (not (vars/namespace? obj))) ;; vars can have metadata but don't support with-meta
     (if-let [m (meta obj)]
       (with-meta obj (merge m d))
       obj)
@@ -126,10 +127,11 @@
   [f form]
   (walk* (partial prewalk f) (f form)))
 
-(defn set-namespace! [ctx ns-sym]
-  (let [env (:env ctx)]
+(defn set-namespace! [ctx ns-sym attr-map]
+  (let [env (:env ctx)
+        attr-map (merge (meta ns-sym) attr-map)]
     (swap! env (fn [env]
-                 (t/setVal vars/current-ns (vars/->SciNamespace ns-sym nil))
+                 (t/setVal vars/current-ns (vars/->SciNamespace ns-sym attr-map))
                  (-> env
                      (update-in [:namespaces ns-sym] (fn [the-ns]
                                                        (if (nil? the-ns) {}

@@ -517,10 +517,12 @@
                 (next exprs)
                 exprs)
         ;; skip attr-map
-        exprs (if (map? (first exprs))
-                (next exprs)
-                exprs)]
-    (set-namespace! ctx ns-name)
+        [attr-map exprs]
+        (let [m (first exprs)]
+          (if (map? m)
+            [m (next exprs)]
+            [nil exprs]))]
+    (set-namespace! ctx ns-name attr-map)
     (loop [exprs exprs
            ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
                 ;; this twice I guess?
