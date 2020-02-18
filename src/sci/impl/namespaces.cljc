@@ -11,6 +11,7 @@
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
+   [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
@@ -289,10 +290,7 @@
 
 (defn sci-find-ns [ctx ns-sym]
   (assert (symbol? ns-sym))
-  (when-let [ns-map (get-in @(:env ctx) [:namespaces ns-sym])]
-    (or (:obj ns-map)
-        ;; TODO: fix the case where the ns-map has no :obj yet
-        (vars/->SciNamespace ns-sym nil))))
+  (utils/get-namespace (:env ctx) ns-sym nil))
 
 (defn sci-the-ns [ctx x]
   (if (instance? sci.impl.vars.SciNamespace x) x
@@ -318,7 +316,7 @@
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
-        m (dissoc m :aliases)]
+        m (dissoc m :aliases :obj)]
     (into {} (keep (fn [[k v]]
                      (when-not (:private (meta v))
                        [k v]))
@@ -827,7 +825,8 @@
        (when doc# (println " " doc#)))))
 
 (def clojure-repl
-  {'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
+  {:obj (vars/->SciNamespace 'clojure.repl nil)
+   'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
    'dir (macrofy dir)
    'doc (macrofy doc)})
 
