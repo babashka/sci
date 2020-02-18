@@ -37,6 +37,15 @@
 (deftest no-crash-test
   (is (= :foo/foo (eval* "(ns foo \"docstring\") ::foo"))))
 
+(deftest ns-metadata-test
+  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
+         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*)")))
+  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
+         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*) (ns bar) (meta (the-ns 'foo))"))))
+
 (deftest recycle-namespace-objects
   (when-not tu/native?
     (is (empty? (set/difference (eval* "(set (all-ns))") (eval* "(set (all-ns))"))))))
+
+(deftest namespace-doc
+  (is (= "foobar" (:doc (eval* "(ns foo \"foobar\") (meta (find-ns 'foo))")))))

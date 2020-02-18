@@ -823,17 +823,14 @@ clojure.core/inc
 clojure.core/inc
 ([x])
   Returns a number one greater than num."))
-           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))))
+           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))
+    (is (= (str/trim
+            "-------------------------\nfoo\n  foodoc\n")
+           (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))))
 
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
     (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
-
-(deftest ns-metadata-test
-  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
-         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*)")))
-  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
-         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*) (ns bar) (meta (the-ns 'foo))"))))
 
 ;;;; Scratch
 

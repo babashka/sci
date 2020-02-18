@@ -813,7 +813,7 @@
 
 (defn doc
   [_ _ sym]
-  `(when-let [var# (resolve '~sym)]
+  `(if-let [var# (resolve '~sym)]
      (let [m# (meta var#)
            arglists# (:arglists m#)
            doc# (:doc m#)
@@ -824,7 +824,13 @@
                      (:name m#)))
        (when arglists# (println arglists#))
        (when macro?# (println "Macro"))
-       (when doc# (println " " doc#)))))
+       (when doc# (println " " doc#)))
+     (if-let [ns# (find-ns '~sym)]
+       (let [m# (meta ns#)
+             doc# (:doc m#)]
+         (println "-------------------------")
+         (println (str (ns-name ns#)))
+         (when doc# (println " " doc#))))))
 
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
