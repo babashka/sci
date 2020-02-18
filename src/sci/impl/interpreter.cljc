@@ -571,7 +571,7 @@
    (let [init-ctx (opts/init opts)
          ret (vars/with-bindings
                (when-not @vars/current-ns
-                 {vars/current-ns (vars/->SciNamespace 'user nil)})
+                 {vars/current-ns opts/user-ns})
                (eval-string* init-ctx s))]
      ret)))
 

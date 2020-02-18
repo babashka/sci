@@ -130,7 +130,10 @@
 (defn get-namespace
   "Fetches namespaces from env if it exists. Else produces one and adds it to env before returning it."
   [env ns-sym attr-map]
-  (or (get-in @env [:namespaces ns-sym :obj])
+  ;; (prn "env" (some? env))
+  (or (let [v (get-in @env [:namespaces ns-sym :obj])]
+        ;; (prn "v" v)
+        v)
       (let [ns-obj (vars/->SciNamespace ns-sym attr-map)]
         (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
         ns-obj)))

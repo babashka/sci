@@ -323,12 +323,14 @@
                    m))))
 
 (defn sci-all-ns [ctx]
-  (map #(vars/->SciNamespace % nil) (keys (get @(:env ctx) :namespaces))))
+  (let [env (:env ctx)]
+    (map #(utils/get-namespace env % nil) (keys (get @env :namespaces)))))
 
 ;;;; End namespaces
 
 (def clojure-core
-  {'*ns* vars/current-ns
+  {:obj clojure-core-ns
+   '*ns* vars/current-ns
    ;; io
    '*in* io/in
    '*out* io/out
@@ -843,7 +845,8 @@
                 (partition c values)))))
 
 (def clojure-template
-  {'apply-template apply-template
+  {:obj (vars/->SciNamespace 'clojure.template nil)
+   'apply-template apply-template
    'do-template (macrofy do-template)})
 
 (def clojure-string-namespace (vars/->SciNamespace 'clojure.string nil))
@@ -853,7 +856,8 @@
 
 (def namespaces
   {'clojure.core clojure-core
-   'clojure.string {'blank? (copy-var str/blank? clojure-string-namespace)
+   'clojure.string {:obj clojure-string-namespace
+                    'blank? (copy-var str/blank? clojure-string-namespace)
                     'capitalize (copy-var str/capitalize clojure-string-namespace)
                     'ends-with? (copy-var str/ends-with? clojure-string-namespace)
                     'escape (copy-var str/escape clojure-string-namespace)
@@ -874,7 +878,8 @@
                     'trimr (copy-var str/trimr clojure-string-namespace)
                     'upper-case (copy-var str/upper-case clojure-string-namespace)
                     #?@(:clj ['re-quote-replacement (copy-var str/re-quote-replacement clojure-string-namespace)])}
-   'clojure.set {'difference (copy-var set/difference clojure-set-namespace)
+   'clojure.set {:obj clojure-set-namespace
+                 'difference (copy-var set/difference clojure-set-namespace)
                  'index (copy-var set/index clojure-set-namespace)
                  'intersection (copy-var set/intersection clojure-set-namespace)
                  'join (copy-var set/join clojure-set-namespace)
@@ -886,7 +891,8 @@
                  'subset? (copy-var set/subset? clojure-set-namespace)
                  'superset? (copy-var set/superset? clojure-set-namespace)
                  'union (copy-var set/union clojure-set-namespace)}
-   'clojure.walk {'walk (copy-var clojure.walk/walk clojure-walk-namespace)
+   'clojure.walk {:obj clojure-walk-namespace
+                  'walk (copy-var clojure.walk/walk clojure-walk-namespace)
                   'postwalk (copy-var clojure.walk/postwalk clojure-walk-namespace)
                   'prewalk (copy-var clojure.walk/prewalk clojure-walk-namespace)
                   #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
@@ -897,7 +903,8 @@
                   'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)}
    'clojure.template clojure-template
    'clojure.repl clojure-repl
-   'clojure.edn {'read (copy-var edn/read clojure-edn-namespace)
+   'clojure.edn {:obj clojure-edn-namespace
+                 'read (copy-var edn/read clojure-edn-namespace)
                  'read-string (copy-var edn/read-string clojure-edn-namespace)}})
 
 (def aliases

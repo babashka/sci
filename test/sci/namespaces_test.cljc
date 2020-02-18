@@ -1,7 +1,8 @@
 (ns sci.namespaces-test
   (:require
    [clojure.test :as test :refer [deftest is]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [clojure.set :as set]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -35,3 +36,6 @@
 
 (deftest no-crash-test
   (is (= :foo/foo (eval* "(ns foo \"docstring\") ::foo"))))
+
+(deftest recycle-namespace-objects
+  (is (empty? (set/difference (eval* "(set (all-ns))") (eval* "(set (all-ns))")))))

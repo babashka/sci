@@ -5,11 +5,14 @@
             [sci.impl.utils :as utils :refer [strip-core-ns]]
             #?(:cljs [goog.string])))
 
+(def user-ns (vars/->SciNamespace 'user nil))
+
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
                (let [namespaces (merge-with merge
                                             namespaces/namespaces
-                                            {'user bindings}
+                                            {'user (assoc bindings
+                                                          :obj user-ns)}
                                             namespaces
                                             (:namespaces env))
                      aliases (merge namespaces/aliases aliases
