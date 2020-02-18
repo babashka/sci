@@ -512,15 +512,21 @@
 ;;;; Namespaces
 
 (defn analyze-ns-form [ctx [_ns ns-name & exprs]]
-  (let [;; skip docstring
-        exprs (if (string? (first exprs))
-                (next exprs)
-                exprs)
+  (let [[docstring exprs]
+        (let [fexpr (first exprs)]
+          (if (string? fexpr)
+            [fexpr (next exprs)]
+            [nil exprs]))
         ;; skip attr-map
-        exprs (if (map? (first exprs))
-                (next exprs)
-                exprs)]
-    (set-namespace! ctx ns-name)
+        [attr-map exprs]
+        (let [m (first exprs)]
+          (if (map? m)
+            [m (next exprs)]
+            [nil exprs]))
+        attr-map (if docstring
+                   (assoc attr-map :doc docstring)
+                   attr-map)]
+    (set-namespace! ctx ns-name attr-map)
     (loop [exprs exprs
            ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
                 ;; this twice I guess?

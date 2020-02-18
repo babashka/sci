@@ -6,16 +6,16 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
+   [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
+   [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
                                      kw-identical?]]
-   [sci.impl.vars :as vars]
-   [sci.impl.types :as t]
-   [sci.impl.macros :as macros])
+   [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.interpreter :refer [def-fn-call]])))
 
 (declare interpret fn-call)
@@ -189,7 +189,8 @@
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
                    (throw e))
-                 (finally (set-namespace! ctx cnn)))
+                 ;; TODO: fix ns metadata
+                 (finally (set-namespace! ctx cnn nil)))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
@@ -314,7 +315,7 @@
 
 (defn eval-in-ns [ctx [_in-ns ns-expr]]
   (let [ns-sym (interpret ctx ns-expr)]
-    (set-namespace! ctx ns-sym)
+    (set-namespace! ctx ns-sym nil)
     nil))
 
 (defn eval-refer [ctx [_ ns-sym & exprs]]
@@ -483,7 +484,8 @@
 (defn fix-meta [v old-meta]
   ;; TODO: find out why the special case for vars is needed. When I remove it,
   ;; spartan.spec does not work.
-  (if (and (meta v) (not (vars/var? v)))
+  (if (and (meta v) (and (not (vars/var? v))
+                         (not (vars/namespace? v))))
     (vary-meta v (fn [m]
                    (-> m
                        (dissoc :sci.impl/op)
@@ -569,7 +571,7 @@
    (let [init-ctx (opts/init opts)
          ret (vars/with-bindings
                (when-not @vars/current-ns
-                 {vars/current-ns (vars/->SciNamespace 'user)})
+                 {vars/current-ns opts/user-ns})
                (eval-string* init-ctx s))]
      ret)))
 

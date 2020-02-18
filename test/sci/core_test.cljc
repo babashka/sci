@@ -823,7 +823,10 @@ clojure.core/inc
 clojure.core/inc
 ([x])
   Returns a number one greater than num."))
-           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))))
+           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))
+    (is (= (str/trim
+            "-------------------------\nfoo\n  foodoc\n")
+           (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))))
 
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
