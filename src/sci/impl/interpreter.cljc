@@ -287,12 +287,9 @@
 
 (defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
   (let [instance-meta (meta instance-expr)
-        t (:tag instance-meta)
+        tag-class (:tag-class instance-meta)
         instance-expr* (interpret ctx instance-expr)
-        t-class (when t
-                  (or (interop/resolve-class ctx t)
-                      (throw-error-with-location (str "Unable to resolve classname: " t) instance-expr)))
-        ^Class target-class (or t-class
+        ^Class target-class (or tag-class
                                 (when-let [f (:public-class ctx)]
                                   (f instance-expr*)))
         resolved-class (or target-class (#?(:clj class :cljs type) instance-expr*))
