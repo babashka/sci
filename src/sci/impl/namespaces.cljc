@@ -343,6 +343,11 @@
         clojure-core (dissoc clojure-core :aliases :imports :obj)]
     (merge the-ns clojure-core)))
 
+(defn sci-ns-map [ctx sci-ns]
+  (merge (sci-ns-interns ctx sci-ns)
+         (sci-ns-refers ctx sci-ns)
+         (sci-ns-imports ctx sci-ns)))
+
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)]
     (map #(utils/get-namespace env % nil) (keys (get @env :namespaces)))))
@@ -604,6 +609,7 @@
    'ns-interns (with-meta sci-ns-interns {:sci.impl/op :needs-ctx})
    'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
    'ns-refers (with-meta sci-ns-refers {:sci.impl/op :needs-ctx})
+   'ns-map (with-meta sci-ns-map {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name
    'odd? (copy-core-var odd?)
    'object-array (copy-core-var object-array)

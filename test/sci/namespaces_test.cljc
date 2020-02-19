@@ -59,3 +59,8 @@
 (deftest ns-refers-test
   (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
   (is (eval* "(def x 1) (some? (get (ns-refers *ns*) 'x))")))
+
+(deftest ns-map-test
+  (is (eval* "(some? (get (ns-map *ns*) 'inc))"))
+  #?(:clj (is (eval* "(some? (get (ns-map *ns*) 'String))")))
+  (is (eval* "(defn- foo []) (some? (get (ns-map *ns*) 'foo))")))
