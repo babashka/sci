@@ -322,6 +322,16 @@
                        [k v]))
                    m))))
 
+(defn sci-ns-imports [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        m (get-in @(:env ctx) [:namespaces name])
+        m (dissoc m :aliases :obj)]
+    (into {} (keep (fn [[k v]]
+                     (when-not (:private (meta v))
+                       [k v]))
+                   m))))
+
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)]
     (map #(utils/get-namespace env % nil) (keys (get @env :namespaces)))))

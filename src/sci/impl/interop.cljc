@@ -1,7 +1,8 @@
 (ns sci.impl.interop
   {:no-doc true}
   #?(:clj (:import [sci.impl Reflector]))
-  #?(:cljs (:require [goog.object :as gobj])))
+  (:require #?(:cljs [goog.object :as gobj])
+            [sci.impl.vars :as vars]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -59,8 +60,13 @@
                              (when (identical? "js" ns*)
                                (get class->opts (symbol (name sym))))
                              (get class->opts sym)))
-                  (when-let [v (get (:imports @env) sym)]
-                    (get class->opts v)))]
+                       (let [env @env]
+                         (or
+                          (when-let [v (get-in env [:imports sym])]
+                            (get class->opts v))
+                          (let [cnn (vars/current-ns-name)]
+                            (when-let [v (get-in env [:namespaces cnn :imports sym])]
+                              (get class->opts v))))))]
     class-opts))
 
 (defn resolve-class [ctx sym]
