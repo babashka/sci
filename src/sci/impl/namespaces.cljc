@@ -325,12 +325,13 @@
 (defn sci-ns-imports [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
-        m (get-in @(:env ctx) [:namespaces name])
-        m (dissoc m :aliases :obj)]
-    (into {} (keep (fn [[k v]]
-                     (when-not (:private (meta v))
-                       [k v]))
-                   m))))
+        env @(:env ctx)
+        global-imports (:imports env)
+        namespace-imports (get-in env [:namespaces name :imports])
+        class-opts (:class->opts ctx)
+        all-aliased (concat (keys global-imports) (keys namespace-imports))
+        all-imports (concat (vals global-imports) (vals namespace-imports))]
+    (zipmap all-aliased (map (comp :class #(get class-opts %)) all-imports))))
 
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)]
@@ -589,6 +590,7 @@
    'next (copy-core-var next)
    'nnext (copy-core-var nnext)
    'ns-aliases (with-meta sci-ns-aliases {:sci.impl/op :needs-ctx})
+   'ns-imports (with-meta sci-ns-imports {:sci.impl/op :needs-ctx})
    'ns-interns (with-meta sci-ns-interns {:sci.impl/op :needs-ctx})
    'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name

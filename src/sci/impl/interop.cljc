@@ -52,7 +52,10 @@
                      sym))
                  (when (contains? class->opts sym)
                    sym)))
-      (get (:imports @env) sym)))
+      (let [env @env]
+        (or (get (:imports env) sym)
+            (let [cnn (vars/current-ns-name)]
+              (get-in env [:namespaces cnn :imports sym]))))))
 
 (defn resolve-class-opts [{:keys [:env :class->opts]} sym]
   (let [class-opts (or #?(:clj (get class->opts sym)

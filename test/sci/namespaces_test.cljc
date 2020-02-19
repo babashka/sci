@@ -49,3 +49,6 @@
 
 (deftest namespace-doc
   (is (= "foobar" (:doc (eval* "(ns foo \"foobar\") (meta (find-ns 'foo))")))))
+
+(deftest ns-imports-test
+  #?(:clj (is (eval* "(some? (get (ns-imports *ns*) 'String))"))))
