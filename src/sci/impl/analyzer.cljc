@@ -478,6 +478,15 @@
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
+        instance-expr (utils/vary-meta*
+                       instance-expr
+                       (fn [m]
+                         (if-let [t (:tag m)]
+                           (let [clazz (or (interop/resolve-class ctx t)
+                                           (throw-error-with-location
+                                            (str "Unable to resolve classname: " t) t))]
+                             (assoc m :tag-class clazz))
+                           m)))
         method-expr (name method-expr)
         args (analyze-children ctx args)
         res #?(:clj (if (class? instance-expr)

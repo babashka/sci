@@ -1,8 +1,8 @@
 (ns sci.interop-test
   (:require
-   [clojure.test :as test :refer [deftest is testing]]
+   [clojure.test :as test :refer [deftest is #?(:clj testing)]]
    [sci.test-utils :as tu]
-   [clojure.string :as str]))
+   #?(:cljs [clojure.string :as str])))
 
 (defn eval* [expr]
   (tu/eval* expr {}))
@@ -22,7 +22,13 @@
      (testing "can get the name of arbitrary class by type hinting it as Object"
        (when-not tu/native?
          (is (= "clojure.core$int_QMARK_" (tu/eval* "(defn foo [^Object x] (.getClass x)) (.getName (foo int?))"
-                                                    {:classes {'java.lang.Class Class}})))))))
+                                                    {:classes {'java.lang.Class Class}})))))
+     (testing "resolve target class at analysis time"
+       (is (= "message" (eval* "
+(ns foo (:import [clojure.lang ExceptionInfo]))
+(defn foo [e] (.getMessage ^ExceptionInfo e))
+(ns bar (:require [foo]))
+(foo/foo (ex-info \"message\" {}))"))))))
 #?(:cljs
    (deftest instance-methods
      (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))))
