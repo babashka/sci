@@ -309,14 +309,14 @@
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
-        m (dissoc m :aliases :obj)]
+        m (dissoc m :aliases :imports :obj)]
     m))
 
 (defn sci-ns-publics [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
-        m (dissoc m :aliases :obj)]
+        m (dissoc m :aliases :imports :obj)]
     (into {} (keep (fn [[k v]]
                      (when-not (:private (meta v))
                        [k v]))
@@ -332,6 +332,16 @@
         all-aliased (concat (keys global-imports) (keys namespace-imports))
         all-imports (concat (vals global-imports) (vals namespace-imports))]
     (zipmap all-aliased (map (comp :class #(get class-opts %)) all-imports))))
+
+(defn sci-ns-refers [ctx sci-ns]
+  (let [sci-ns (sci-the-ns ctx sci-ns)
+        name (sci-ns-name sci-ns)
+        env @(:env ctx)
+        the-ns (get-in env [:namespaces name])
+        the-ns (dissoc the-ns :aliases :imports :obj)
+        clojure-core (get-in env [:namespaces 'clojure.core])
+        clojure-core (dissoc clojure-core :aliases :imports :obj)]
+    (merge the-ns clojure-core)))
 
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)]
@@ -593,6 +603,7 @@
    'ns-imports (with-meta sci-ns-imports {:sci.impl/op :needs-ctx})
    'ns-interns (with-meta sci-ns-interns {:sci.impl/op :needs-ctx})
    'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
+   'ns-refers (with-meta sci-ns-refers {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name
    'odd? (copy-core-var odd?)
    'object-array (copy-core-var object-array)

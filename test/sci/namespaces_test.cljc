@@ -55,3 +55,7 @@
       [(is (eval* "(some? (get (ns-imports *ns*) 'String))"))
        (is (eval* "
 (import clojure.lang.ExceptionInfo) (some? (get (ns-imports *ns*) 'ExceptionInfo))"))]))
+
+(deftest ns-refers-test
+  (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
+  (is (eval* "(def x 1) (some? (get (ns-refers *ns*) 'x))")))
