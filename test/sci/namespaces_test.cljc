@@ -51,4 +51,7 @@
   (is (= "foobar" (:doc (eval* "(ns foo \"foobar\") (meta (find-ns 'foo))")))))
 
 (deftest ns-imports-test
-  #?(:clj (is (eval* "(some? (get (ns-imports *ns*) 'String))"))))
+  #?@(:clj
+      [(is (eval* "(some? (get (ns-imports *ns*) 'String))"))
+       (is (eval* "
+(import clojure.lang.ExceptionInfo) (some? (get (ns-imports *ns*) 'ExceptionInfo))"))]))
