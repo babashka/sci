@@ -1,9 +1,10 @@
 (ns sci.impl.opts
   {:no-doc true}
-  (:require [sci.impl.namespaces :as namespaces]
-            [sci.impl.vars :as vars]
-            [sci.impl.utils :as utils :refer [strip-core-ns]]
-            #?(:cljs [goog.string])))
+  (:require
+   #?(:cljs [goog.string])
+   [sci.impl.namespaces :as namespaces]
+   [sci.impl.utils :as utils :refer [strip-core-ns]]
+   [sci.impl.vars :as vars]))
 
 (def user-ns (vars/->SciNamespace 'user nil))
 

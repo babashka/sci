@@ -7,12 +7,12 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
-   [sci.impl.vars :as vars]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
     [eval? mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
-     merge-meta kw-identical? strip-core-ns set-namespace!]]))
+     merge-meta kw-identical? strip-core-ns set-namespace!]]
+   [sci.impl.vars :as vars]))
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
@@ -468,8 +468,9 @@
         (when-not (interop/resolve-class ctx fq-class-name)
           (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
         (let [last-dot (str/last-index-of spec ".")
-              class-name (subs spec (inc last-dot) (count spec))]
-          (swap! env assoc-in [:imports (symbol class-name)] fq-class-name))))))
+              class-name (subs spec (inc last-dot) (count spec))
+              cnn (vars/current-ns-name)]
+          (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))))))
 
 ;;;; Interop
 
