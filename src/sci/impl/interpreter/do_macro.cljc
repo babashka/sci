@@ -1,6 +1,6 @@
 (ns sci.impl.interpreter.do-macro
   {:no-doc true}
-  (:require [sci.impl.protocols :refer [IInterpret IOp -interpret]]
+  (:require [sci.impl.protocols :refer [IInterpret -interpret]]
             [sci.impl.utils :as utils :refer [rethrow-with-location-of-node]]))
 
 (defn eval-do*
