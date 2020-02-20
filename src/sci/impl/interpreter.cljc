@@ -11,7 +11,7 @@
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
-   [sci.impl.protocols :refer [IInterpret -interpret]]
+   [sci.impl.protocols :refer [IInterpret -interpret -op]]
    [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
@@ -446,8 +446,7 @@
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
-             m (meta f)
-             op (when m (.get ^java.util.Map m :sci.impl/op))]
+             [m op] (-op f)]
          ;; (prn "call first op" (type f) op)
          (cond
            (and (symbol? f) (not op))
@@ -505,8 +504,7 @@
                 :cljs object)
   IInterpret
   (-interpret [expr ctx]
-    (let [m (meta expr)
-          op (when m (.get ^java.util.Map m :sci.impl/op))
+    (let [[m op] (-op expr)
           ret
           (if
               (not op) expr
