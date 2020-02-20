@@ -563,9 +563,13 @@
 
 ;;;; Vars
 
+(defrecord OpVarValue [v]
+  IInterpret
+  (-interpret [expr ctx]
+    v))
+
 (defn wrapped-var [v]
-  (with-meta [v]
-    {:sci.impl/op :var-value}))
+  (OpVarValue. v))
 
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
