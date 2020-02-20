@@ -488,9 +488,6 @@
   (-interpret [expr ctx] expr)
 
   #?(:clj String :cljs string)
-  (-interpret [expr ctx] expr)
-
-  clojure.lang.Keyword
   (-interpret [expr ctx] expr))
 
 
