@@ -489,14 +489,27 @@
                        (assoc :line (:line old-meta)))))
     v))
 
-(defn interpret
-  [ctx expr]
-  (if (instance? sci.impl.types.EvalVar expr)
+
+(defprotocol IInterpret
+  (-interpret [expr ctx]))
+
+(extend-protocol IInterpret
+  nil
+  (-interpret [expr ctx]
+    nil))
+
+(extend-type sci.impl.types.EvalVar
+  IInterpret
+  (-interpret [expr ctx]
     (let [v (t/getVal expr)]
       (if-not (vars/isMacro v)
         (deref v)
         (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                    (str "Can't take value of a macro: " v "")))))
+                    (str "Can't take value of a macro: " v "")))))))
+
+(extend-type Object
+  IInterpret
+  (-interpret [expr ctx]
     (let [m (meta expr)
           op (when m (.get ^java.util.Map m :sci.impl/op))
           ret
@@ -532,6 +545,10 @@
                                  :expression expr)
                       n)
         ret))))
+
+(defn interpret [ctx expr]
+  (-interpret expr ctx))
+
 
 (defn do? [expr]
   (and (list? expr)
