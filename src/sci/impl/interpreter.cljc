@@ -493,10 +493,20 @@
 (defprotocol IInterpret
   (-interpret [expr ctx]))
 
+;; Identity implementations
 (extend-protocol IInterpret
   nil
-  (-interpret [expr ctx]
-    nil))
+  (-interpret [expr ctx] nil)
+
+  #?(:clj Number :cljs number)
+  (-interpret [expr ctx] expr)
+
+  #?(:clj Boolean :cljs boolean)
+  (-interpret [expr ctx] expr)
+
+  #?(:clj String :cljs string)
+  (-interpret [expr ctx] expr))
+
 
 (extend-type sci.impl.types.EvalVar
   IInterpret
