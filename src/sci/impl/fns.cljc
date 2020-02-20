@@ -1,6 +1,7 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.types :as t]))
+  (:require [sci.impl.types :as t]
+            [sci.impl.interpreter.do :refer [eval-do*]]))
 
 (defn throw-arity [fn-name macro? args]
   (throw (new #?(:clj Exception
@@ -15,7 +16,7 @@
   (getVal [this] val))
 
 (defn parse-fn-args+body
-  [ctx interpret eval-do*
+  [ctx interpret
    {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
@@ -62,7 +63,7 @@
                            (>= arity min-var-args-arity)))
               f))) arities))
 
-(defn eval-fn [ctx interpret eval-do* {:sci.impl/keys [fn-bodies fn-name] :as f}]
+(defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name] :as f}]
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
         call-self (fn [& args]
@@ -71,8 +72,8 @@
                 ctx)
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
-            (parse-fn-args+body ctx interpret eval-do* (first fn-bodies) fn-name macro? false)
-            (let [arities (map #(parse-fn-args+body ctx interpret eval-do* % fn-name macro? true) fn-bodies)]
+            (parse-fn-args+body ctx interpret (first fn-bodies) fn-name macro? false)
+            (let [arities (map #(parse-fn-args+body ctx interpret % fn-name macro? true) fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]

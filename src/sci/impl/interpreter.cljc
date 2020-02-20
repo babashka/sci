@@ -529,7 +529,7 @@
               (case op
                 :call (eval-call ctx expr)
                 :try (eval-try ctx expr)
-                :fn (fns/eval-fn ctx interpret eval-do* expr)
+                :fn (fns/eval-fn ctx interpret expr)
                 :static-access (interop/get-static-field expr)
                 :var-value (nth expr 0)
                 :deref! (let [v (first expr)
