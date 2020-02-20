@@ -6,6 +6,7 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
+   [sci.impl.interpreter.do-macro :refer [eval-do* eval-do]]
    [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
@@ -377,20 +378,6 @@
 
 (declare eval-string)
 
-(defn eval-do*
-  [ctx exprs]
-  (loop [[expr & exprs] exprs]
-    (let [ret (try (interpret ctx expr)
-                   (catch #?(:clj Throwable :cljs js/Error) e
-                     (rethrow-with-location-of-node ctx e expr)))]
-      (if-let [exprs (seq exprs)]
-        (recur exprs)
-        ret))))
-
-(defn eval-do
-  [ctx expr]
-  (when-let [exprs (next expr)]
-    (eval-do* ctx exprs)))
 
 (macros/deftime
   ;; This macro generates a function of the following form for 20 arities:

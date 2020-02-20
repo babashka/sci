@@ -1,7 +1,7 @@
 (ns sci.impl.fns
   {:no-doc true}
   (:require [sci.impl.types :as t]
-            [sci.impl.interpreter.do :refer [eval-do*]]))
+            [sci.impl.interpreter.do-macro :refer [eval-do*]]))
 
 (defn throw-arity [fn-name macro? args]
   (throw (new #?(:clj Exception
