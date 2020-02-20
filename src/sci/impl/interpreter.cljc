@@ -490,8 +490,7 @@
   #?(:clj String :cljs string)
   (-interpret [expr ctx] expr)
 
-  #?(:clj clojure.lang.Keyword
-     :cljs cljs.core.Keyword)
+  clojure.lang.Keyword
   (-interpret [expr ctx] expr))
 
 
@@ -525,10 +524,10 @@
                           (force v))
                 :resolve-sym (resolve-symbol ctx expr)
                 :needs-ctx (partial expr ctx)
-                (cond (map? expr) (zipmap (map #(-interpret % ctx) (keys expr))
-                                          (map #(-interpret % ctx) (vals expr)))
+                (cond (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                                          (map #(interpret ctx %) (vals expr)))
                       (or (vector? expr) (set? expr)) (into (empty expr)
-                                                            (map #(-interpret % ctx)
+                                                            (map #(interpret ctx %)
                                                                  expr))
                       :else (throw (new #?(:clj Exception :cljs js/Error)
                                         (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
@@ -559,7 +558,7 @@
                       (eval-form ctx (first exprs)))
                      ret))
       (let [analyzed (ana/analyze ctx form)
-            ret (-interpret analyzed ctx)]
+            ret (interpret ctx analyzed)]
         ret)))
 
 (defn eval-string* [ctx s]
