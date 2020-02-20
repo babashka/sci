@@ -507,7 +507,8 @@
         (throw (new #?(:clj IllegalStateException :cljs js/Error)
                     (str "Can't take value of a macro: " v "")))))))
 
-(extend-type Object
+(extend-type #?(:clj Object
+                :cljs object)
   IInterpret
   (-interpret [expr ctx]
     (let [m (meta expr)
