@@ -7,6 +7,7 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
+   [sci.impl.protocols :refer [IInterpret]]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
     [eval? mark-resolve-sym mark-eval mark-eval-call constant?

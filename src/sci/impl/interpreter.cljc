@@ -10,6 +10,7 @@
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
+   [sci.impl.protocols :refer [IInterpret -interpret]]
    [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
@@ -488,10 +489,6 @@
                        (dissoc :sci.impl/op)
                        (assoc :line (:line old-meta)))))
     v))
-
-
-(defprotocol IInterpret
-  (-interpret [expr ctx]))
 
 ;; Identity implementations
 (extend-protocol IInterpret
