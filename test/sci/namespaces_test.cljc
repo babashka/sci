@@ -20,18 +20,6 @@
 (deftest vars-partitioned-by-namespace-test
   (is (= 10 (eval* "(in-ns 'foo) (def x 10) (in-ns 'bar) (def x 11) (in-ns 'foo) x"))))
 
-(deftest ifs
-  (is (= 2 (eval* "(if-let [foo nil] 1 2)")))
-  (is (= 2 (eval* "(if-let [foo false] 1 2)")))
-  (is (= 2 (eval* "(if-some [foo nil] 1 2)")))
-  (is (= 1 (eval* "(if-some [foo false] 1 2)"))))
-
-(deftest whens
-  (is (= nil (eval* "(when-let [foo nil] 1)")))
-  (is (= nil (eval* "(when-let [foo false] 1)")))
-  (is (= nil (eval* "(when-some [foo nil] 1)")))
-  (is (= 1 (eval* "(when-some [foo false] 1)"))))
-
 (deftest ns-form-test
   (is (= #{1} (eval* "(ns foo (:require [clojure.set :as x])) (x/difference #{1 2 3} #{2 3 4})")))
   (is (= #{1} (eval* "(ns foo
