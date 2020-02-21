@@ -138,6 +138,17 @@
             ~then)
           ~else)))))
 
+(defn if-some*
+  ([&form &env bindings then]
+   (if-some* &form &env bindings then nil))
+  ([_&form _&env bindings then else & _oldform]
+   (let [form (bindings 0) tst (bindings 1)]
+     `(let [temp# ~tst]
+        (if (nil? temp#)
+          ~else
+          (let [~form temp#]
+            ~then))))))
+
 (defn when-let*
   [_&form _&env bindings & body]
   (let [form (bindings 0) tst (bindings 1)]
@@ -151,6 +162,14 @@
     `(when-let [xs# (seq ~xs)]
        (let [~x (first xs#)]
          ~@body))))
+
+(defn when-some* [_ _ bindings & body]
+  (let [form (bindings 0) tst (bindings 1)]
+    `(let [temp# ~tst]
+       (if (nil? temp#)
+         nil
+         (let [~form temp#]
+           ~@body)))))
 
 (defn some->*
   [_&form _&env expr & forms]
@@ -534,6 +553,7 @@
    'identical? (copy-core-var identical?)
    'identity (copy-core-var identity)
    'if-let (macrofy if-let*)
+   'if-some (macrofy if-some*)
    'if-not (macrofy if-not*)
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
@@ -756,6 +776,7 @@
    'vswap! (copy-core-var vswap!*)
    'when-first (macrofy when-first*)
    'when-let (macrofy when-let*)
+   'when-some (macrofy when-some*)
    'when (macrofy when*)
    'when-not (macrofy when-not*)
    'with-meta (copy-core-var with-meta)
