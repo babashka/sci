@@ -163,7 +163,12 @@
   `:termination-safe` is supported, which will set `:realize-max` to
   `100` and disallows the symbols `loop`, `recur` and `trampoline`.
 
-  - `:features`: when provided a non-empty set of keywords, sci will process reader conditionals using these features (e.g. #{:bb})."
+  - `:features`: when provided a non-empty set of keywords, sci will process reader conditionals using these features (e.g. #{:bb}).
+
+  - `:env`: an atom with a map in which state from the
+  evaluation (defined namespaced and vars) will be persisted for
+  re-use over multiple calls.
+  "
   ([s] (eval-string s nil))
   ([s opts]
    (i/eval-string s opts)))

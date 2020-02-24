@@ -269,15 +269,27 @@ To make this work with `GraalVM` you will also need to add an entry to your
 config](https://github.com/oracle/graal/blob/master/substratevm/REFLECTION.md)
 for this class. Also see [`reflection.json`](reflection.json).
 
+## State
+
+Sci uses an atom to keep track of state changes like newly defined namespaces
+and vars. You can carry this state over from one call to another by providing
+the atom yourself as the value for the `:env` key:
+
+``` clojure
+(def env (atom {})
+(sci/eval-string "(defn foo [] :foo)" {:env env})
+(sci/eval-string "(foo)" {:env env}) ;;=> :foo
+```
+
 ## Feature parity
 
 Currently the following special forms/macros are supported: `def`, `fn`,
 function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
-`when`, `when-let`, `when-not`, `cond`, `let`, `letfn`, `and`, `or`, `->`,
-`->>`, `as->`, `comment`, `loop`, `lazy-seq`, `for`, `doseq`, `case`,
-`try/catch/finally`, `declare`, `cond->`, `cond->>`, `some->`, `require`,
-`import`, `in-ns`, `ns`, `binding`, `with-out-str`, `with-in-str`, `future`. Sci
-also supports user defined macros.
+`if-some` `when`, `when-first`, `when-let`, `when-not`, `when-some`, `cond`,
+`let`, `letfn`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`,
+`lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`, `declare`, `cond->`,
+`cond->>`, `some->`, `require`, `import`, `in-ns`, `ns`, `binding`,
+`with-out-str`, `with-in-str`, `future`. Sci also supports user defined macros.
 
 More examples of what is currently possible can be found at
 [babashka](https://github.com/borkdude/babashka).

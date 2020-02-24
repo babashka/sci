@@ -11,10 +11,47 @@
                             alter-var-root])
   (:require [sci.impl.macros :as macros]
             #?(:clj [borkdude.graal.locking :as locking])
-            [sci.impl.types :as t])
-  #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings]])))
+            [sci.impl.types :as t]
+            [sci.impl.unrestrict :refer [*unrestricted*]])
+  #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
+                                                   with-writeable-namespace
+                                                   with-writeable-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
+
+(defprotocol HasName ;; INamed was already taken by CLJS
+  (getName [_]))
+
+(macros/deftime
+  (defmacro with-writeable-namespace
+    [the-ns-object ns-meta & body]
+    `(let [m# ~ns-meta]
+       (if (or *unrestricted* (not (:sci.impl/built-in m#)))
+         (do ~@body)
+         (let [ns-obj# ~the-ns-object
+               name# (getName ns-obj#)]
+           (throw (ex-info (str "Built-in namespace " name# " is read-only.")
+                           {:ns ns-obj#})))))))
+
+(deftype SciNamespace [name #?(:clj ^:volatile-mutable meta
+                               :cljs ^:mutable meta)]
+  Object
+  (toString [_]
+    (str name))
+  HasName
+  (getName [_] name)
+  #?(:clj clojure.lang.IMeta :cljs IMeta)
+  #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
+  #?(:clj clojure.lang.IReference)
+  #?(:clj (alterMeta [this f args]
+                     (with-writeable-namespace this meta
+                       (locking/locking (set! meta (apply f meta args))))))
+  #?(:clj (resetMeta [this m]
+                     (with-writeable-namespace this meta
+                       (locking/locking (set! meta m))))))
+
+(defn namespace? [x]
+  (instance? sci.impl.vars.SciNamespace x))
 
 (deftype Frame [bindings prev])
 
@@ -184,17 +221,35 @@
               (throw-unbound-call-exception the-var))))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
+
+(defn built-in-var? [var-meta]
+  (:sci.impl/built-in var-meta))
+
+(macros/deftime
+  (defmacro with-writeable-var
+    [the-var var-meta & body]
+    `(let [vm# ~var-meta]
+       (if (or *unrestricted* (not (:sci.impl/built-in vm#)))
+         (do ~@body)
+         (let [the-var# ~the-var
+               ns# (:ns vm#)
+               ns-name# (getName ns#)
+               name# (getName the-var#)]
+           (throw (ex-info (str "Built-in var #'" ns-name# "/" name# " is read-only.")
+                           {:var ~the-var})))))))
+
 (deftype SciVar [#?(:clj ^:volatile-mutable root
                     :cljs ^:mutable root)
-                 ;; TODO: namespace field
-                 ;; TODO: dynamic field
-                 ;; TODO: macro field
                  sym
                  #?(:clj ^:volatile-mutable meta
                     :cljs ^:mutable meta)]
+  HasName
+  (getName [this]
+    sym)
   IVar
   (bindRoot [this v]
-    (set! (.-root this) v))
+    (with-writeable-var this meta
+      (set! (.-root this) v)))
   (getRawRoot [this]
     root)
   (toSymbol [this] sym)
@@ -204,7 +259,8 @@
     (or (not (instance? SciUnbound root))
         (thread-bound? this)))
   (unbind [this]
-    (set! (.-root this) (SciUnbound. this)))
+    (with-writeable-var this meta
+      (set! (.-root this) (SciUnbound. this))))
   (hasRoot [this]
     (not (instance? SciUnbound root)))
   t/IBox
@@ -236,15 +292,6 @@
                        (pr-writer sym writer opts)))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
-  #?(:clj clojure.lang.IObj :cljs IWithMeta)
-  #?(:clj
-     (withMeta [this new-meta]
-               (set! meta new-meta)
-               this)
-     :cljs
-     (-with-meta [this new-meta]
-                 (set! meta new-meta)
-                 this))
   ;; #?(:clj Comparable :cljs IEquiv)
   ;; (-equiv [this other]
   ;;   (if (instance? Var other)
@@ -255,9 +302,11 @@
   ;;   (hash-symbol sym))
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
-                     (locking/locking (set! meta (apply f meta args)))))
+                     (with-writeable-var this meta
+                       (locking/locking (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
-                     (locking/locking (set! meta m))))
+                     (with-writeable-var this meta
+                       (locking/locking (set! meta m)))))
   #?(:clj clojure.lang.IRef) ;; added for multi-methods
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [_]
@@ -362,31 +411,6 @@
          ~@body
          (finally
            (clojure.core/pop-thread-bindings))))))
-
-(defprotocol INamespace
-  (getName [_]))
-
-(deftype SciNamespace [name]
-  Object
-  (toString [_]
-    (str name))
-  INamespace
-  #_(findInternedVar [this sym]
-      (let [k (munge (str sym))]
-        (when ^boolean #?(:cljs (gobject/containsKey obj k))
-          (let [var-sym (symbol (str name) (str sym))
-                var-meta {:ns this}]
-            (Var. (ns-lookup obj k) var-sym var-meta)))))
-  (getName [_] name)
-  ;; IEquiv
-  ;; (-equiv [_ other]
-  ;;   (if (instance? SciNamespace other)
-  ;;     (= name (.-name other))
-  ;;     false))
-  ;; IHash
-  ;; (-hash [_]
-  ;;   (hash name))
-  )
 
 (macros/deftime
   (defmacro with-bindings

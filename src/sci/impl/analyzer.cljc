@@ -7,11 +7,12 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
-   [sci.impl.vars :as vars]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
     [eval? mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
-     merge-meta kw-identical? strip-core-ns set-namespace!]]))
+     merge-meta kw-identical? strip-core-ns set-namespace!]]
+   [sci.impl.vars :as vars]))
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
@@ -176,7 +177,7 @@
                                     (first body-exprs))]
                          ~@(map (fn* [c] `(assert ~c)) post)
                          ~'%))
-               body-exprs)
+                     body-exprs)
         body-exprs (if pre
                      (concat (map (fn* [c] `(assert ~c)) pre)
                              body-exprs)
@@ -205,28 +206,34 @@
                  [body])
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
                 ctx)
-        arities (:bodies
-                 (reduce
-                  (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
-                    (let [body (expand-fn-args+body ctx fn-name body macro?)
-                          var-arg-name (:sci.impl/var-arg-name body)
-                          fixed-arity (:sci.impl/fixed-arity body)
-                          new-min-varargs (when var-arg-name fixed-arity)]
-                      (when (and var-arg-name min-varargs)
-                        (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr))
-                      (when (and (not var-arg-name) min-varargs (> fixed-arity min-varargs))
-                        (throw-error-with-location
-                         "Can't have fixed arity function with more params than variadic function" fn-expr))
-                      (-> acc
-                          (assoc :min-varargs new-min-varargs
-                                 :max-fixed (max (:sci.impl/fixed-arity body)
-                                                 max-fixed))
-                          (update :bodies conj body))))
-                  {:bodies []
-                   :min-var-args nil
-                   :max-fixed -1} bodies))]
+        analyzed-bodies (reduce
+                         (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
+                           (let [arglist (first body)
+                                 body (expand-fn-args+body ctx fn-name body macro?)
+                                 body (assoc body :sci.impl/arglist arglist)
+                                 var-arg-name (:sci.impl/var-arg-name body)
+                                 fixed-arity (:sci.impl/fixed-arity body)
+                                 new-min-varargs (when var-arg-name fixed-arity)]
+                             (when (and var-arg-name min-varargs)
+                               (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr))
+                             (when (and (not var-arg-name) min-varargs (> fixed-arity min-varargs))
+                               (throw-error-with-location
+                                "Can't have fixed arity function with more params than variadic function" fn-expr))
+                             (-> acc
+                                 (assoc :min-varargs new-min-varargs
+                                        :max-fixed (max (:sci.impl/fixed-arity body)
+                                                        max-fixed))
+                                 (update :bodies conj body)
+                                 (update :arglists conj arglist))))
+                         {:bodies []
+                          :arglists []
+                          :min-var-args nil
+                          :max-fixed -1} bodies)
+        arities (:bodies analyzed-bodies)
+        arglists (:arglists analyzed-bodies)]
     (with-meta #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
+                          :arglists arglists
                           :fn true}
       {:sci.impl/op :fn})))
 
@@ -288,7 +295,7 @@
         m (meta var-name)
         m (analyze ctx m)
         m (assoc m :ns @vars/current-ns)
-        m (if docstring (assoc m :sci/doc docstring) m)
+        m (if docstring (assoc m :doc docstring) m)
         var-name (with-meta var-name m)]
     (expand-declare ctx [nil var-name])
     (mark-eval-call (list 'def var-name init))))
@@ -306,14 +313,19 @@
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
         meta-map (analyze ctx (merge (meta expr) meta-map))
-        meta-map (assoc meta-map :ns @vars/current-ns)
-        fn-name (with-meta fn-name
-                  (cond-> meta-map
-                    docstring (assoc :doc docstring)))
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
-        f (assoc f :sci/macro macro?
+        arglists (seq (:sci.impl/arglists f))
+        meta-map (assoc meta-map
+                        :ns @vars/current-ns
+                        :arglists arglists)
+        fn-name (with-meta fn-name
+                  (cond-> meta-map
+                    docstring (assoc :doc docstring)
+                    macro? (assoc :macro true)))
+        f (assoc f
+                 :sci/macro macro?
                  :sci.impl/fn-name fn-name)]
     (mark-eval-call (list 'def fn-name f))))
 
@@ -338,6 +350,13 @@
            (analyze ctx
                     ;; expand-fn will take care of the analysis of the body
                     (list 'fn [] (cons 'do body)))))))
+
+(defn expand-if
+  [ctx [_if & exprs :as expr]]
+  (case (count exprs)
+    (0 1) (throw-error-with-location "Too few arguments to if" expr)
+    (2 3) (mark-eval-call `(~'if ~@(analyze-children ctx exprs)))
+    (throw-error-with-location "Too many arguments to if" expr)))
 
 (defn expand-case
   [ctx expr]
@@ -449,8 +468,9 @@
         (when-not (interop/resolve-class ctx fq-class-name)
           (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
         (let [last-dot (str/last-index-of spec ".")
-              class-name (subs spec (inc last-dot) (count spec))]
-          (swap! env assoc-in [:imports (symbol class-name)] fq-class-name))))))
+              class-name (subs spec (inc last-dot) (count spec))
+              cnn (vars/current-ns-name)]
+          (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))))))
 
 ;;;; Interop
 
@@ -458,6 +478,15 @@
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
+        instance-expr (utils/vary-meta*
+                       instance-expr
+                       (fn [m]
+                         (if-let [t (:tag m)]
+                           (let [clazz (or (interop/resolve-class ctx t)
+                                           (throw-error-with-location
+                                            (str "Unable to resolve classname: " t) t))]
+                             (assoc m :tag-class clazz))
+                           m)))
         method-expr (name method-expr)
         args (analyze-children ctx args)
         res #?(:clj (if (class? instance-expr)
@@ -493,15 +522,21 @@
 ;;;; Namespaces
 
 (defn analyze-ns-form [ctx [_ns ns-name & exprs]]
-  (let [;; skip docstring
-        exprs (if (string? (first exprs))
-                (next exprs)
-                exprs)
+  (let [[docstring exprs]
+        (let [fexpr (first exprs)]
+          (if (string? fexpr)
+            [fexpr (next exprs)]
+            [nil exprs]))
         ;; skip attr-map
-        exprs (if (map? (first exprs))
-                (next exprs)
-                exprs)]
-    (set-namespace! ctx ns-name)
+        [attr-map exprs]
+        (let [m (first exprs)]
+          (if (map? m)
+            [m (next exprs)]
+            [nil exprs]))
+        attr-map (if docstring
+                   (assoc attr-map :doc docstring)
+                   attr-map)]
+    (set-namespace! ctx ns-name attr-map)
     (loop [exprs exprs
            ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
                 ;; this twice I guess?
@@ -534,13 +569,13 @@
 (defn analyze-var [ctx [_ var-name]]
   (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
     (if (vars/var? v)
-      (wrapped-var v)
+      v #_(wrapped-var v)
       v)))
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)
         v (analyze ctx v)
-        obj (wrapped-var obj)]
+        obj (types/getVal obj)]
     (mark-eval-call (list 'set! obj v))))
 
 ;;;; End vars
@@ -563,7 +598,9 @@
             f (or special-sym
                   (resolve-symbol ctx f true))
             f (if (and (vars/var? f)
-                       (vars/isMacro f))
+                       (or
+                        (vars/isMacro f)
+                        (-> f meta :sci.impl/built-in)))
                 @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or
@@ -598,6 +635,7 @@
             doseq (analyze ctx (expand-doseq ctx expr))
             require (mark-eval-call
                      (cons 'require (analyze-children ctx (rest expr))))
+            if (expand-if ctx expr)
             case (expand-case ctx expr)
             try (expand-try ctx expr)
             declare (expand-declare ctx expr)
@@ -628,7 +666,7 @@
                                v
                                (analyze ctx v))]
                 expanded)
-              (mark-eval-call (analyze-children ctx expr)))
+              (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
             (catch #?(:clj Exception :cljs js/Error) e
               (rethrow-with-location-of-node ctx e expr)))))
       (let [ret (mark-eval-call (analyze-children ctx expr))]
@@ -642,8 +680,7 @@
                                    (cond (constant? v) v
                                          ;; (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
                                          (vars/var? v) (if (:const (meta v))
-                                                         @v
-                                                         (with-meta v (assoc (meta v) :sci.impl/op :eval)))
+                                                         @v (types/->EvalVar v))
                                          :else (merge-meta v (meta expr))))
                   :else
                   (merge-meta

@@ -6,16 +6,16 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
+   [sci.impl.macros :as macros]
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
+   [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
                                      kw-identical?]]
-   [sci.impl.vars :as vars]
-   [sci.impl.types :as t]
-   [sci.impl.macros :as macros])
+   [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.interpreter :refer [def-fn-call]])))
 
 (declare interpret fn-call)
@@ -103,7 +103,7 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
-        m (when m (interpret ctx m))
+        m (interpret ctx m)
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -189,7 +189,8 @@
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
                    (throw e))
-                 (finally (set-namespace! ctx cnn)))
+                 ;; TODO: fix ns metadata
+                 (finally (set-namespace! ctx cnn nil)))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
@@ -286,12 +287,9 @@
 
 (defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
   (let [instance-meta (meta instance-expr)
-        t (:tag instance-meta)
+        tag-class (:tag-class instance-meta)
         instance-expr* (interpret ctx instance-expr)
-        t-class (when t
-                  (or (interop/resolve-class ctx t)
-                      (throw-error-with-location (str "Unable to resolve classname: " t) instance-expr)))
-        ^Class target-class (or t-class
+        ^Class target-class (or tag-class
                                 (when-let [f (:public-class ctx)]
                                   (f instance-expr*)))
         resolved-class (or target-class (#?(:clj class :cljs type) instance-expr*))
@@ -314,7 +312,7 @@
 
 (defn eval-in-ns [ctx [_in-ns ns-expr]]
   (let [ns-sym (interpret ctx ns-expr)]
-    (set-namespace! ctx ns-sym)
+    (set-namespace! ctx ns-sym nil)
     nil))
 
 (defn eval-refer [ctx [_ ns-sym & exprs]]
@@ -483,7 +481,8 @@
 (defn fix-meta [v old-meta]
   ;; TODO: find out why the special case for vars is needed. When I remove it,
   ;; spartan.spec does not work.
-  (if (and (meta v) (not (vars/var? v)))
+  (if (and (meta v) (and (not (vars/var? v))
+                         (not (vars/namespace? v))))
     (vary-meta v (fn [m]
                    (-> m
                        (dissoc :sci.impl/op)
@@ -492,45 +491,47 @@
 
 (defn interpret
   [ctx expr]
-  (let [m (meta expr)
-        op (when m (.get ^java.util.Map m :sci.impl/op))
-        ret
-        (if
-            (not op) expr
-            ;; TODO: moving this up increased performance for #246. We can
-            ;; probably optimize it further by not using separate keywords for
-            ;; one :sci.impl/op keyword on which we can use a case expression
-            (case op
-              :call (eval-call ctx expr)
-              :try (eval-try ctx expr)
-              :fn (fns/eval-fn ctx interpret eval-do* expr)
-              :static-access (interop/get-static-field expr)
-              :var-value (nth expr 0)
-              :deref! (let [v (first expr)
-                            v (if (vars/var? v) @v v)]
-                        (force v))
-              :resolve-sym (resolve-symbol ctx expr)
-              :needs-ctx (partial expr ctx)
-              (cond (vars/var? expr) (if-not (vars/isMacro expr)
-                                       (deref expr)
-                                       (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                                   (str "Can't take value of a macro: " expr ""))))
-                    (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
-                                        (map #(interpret ctx %) (vals expr)))
-                    (or (vector? expr) (set? expr)) (into (empty expr)
-                                                          (map #(interpret ctx %)
-                                                               expr))
-                    :else (throw (new #?(:clj Exception :cljs js/Error)
-                                      (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
-        ret (if m (fix-meta ret m)
-                ret)]
-    ;; for debugging:
-    ;; (prn expr (meta expr) '-> ret)
-    (if-let [n (.get ^java.util.Map ctx :realize-max)]
-      (max-or-throw ret (assoc ctx
-                               :expression expr)
-                    n)
-      ret)))
+  (if (instance? sci.impl.types.EvalVar expr)
+    (let [v (t/getVal expr)]
+      (if-not (vars/isMacro v)
+        (deref v)
+        (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                    (str "Can't take value of a macro: " v "")))))
+    (let [m (meta expr)
+          op (when m (.get ^java.util.Map m :sci.impl/op))
+          ret
+          (if
+              (not op) expr
+              ;; TODO: moving this up increased performance for #246. We can
+              ;; probably optimize it further by not using separate keywords for
+              ;; one :sci.impl/op keyword on which we can use a case expression
+              (case op
+                :call (eval-call ctx expr)
+                :try (eval-try ctx expr)
+                :fn (fns/eval-fn ctx interpret eval-do* expr)
+                :static-access (interop/get-static-field expr)
+                :var-value (nth expr 0)
+                :deref! (let [v (first expr)
+                              v (if (vars/var? v) @v v)]
+                          (force v))
+                :resolve-sym (resolve-symbol ctx expr)
+                :needs-ctx (partial expr ctx)
+                (cond (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
+                                          (map #(interpret ctx %) (vals expr)))
+                      (or (vector? expr) (set? expr)) (into (empty expr)
+                                                            (map #(interpret ctx %)
+                                                                 expr))
+                      :else (throw (new #?(:clj Exception :cljs js/Error)
+                                        (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
+          ret (if m (fix-meta ret m)
+                  ret)]
+      ;; for debugging:
+      ;; (prn expr (meta expr) '-> ret)
+      (if-let [n (.get ^java.util.Map ctx :realize-max)]
+        (max-or-throw ret (assoc ctx
+                                 :expression expr)
+                      n)
+        ret))))
 
 (defn do? [expr]
   (and (list? expr)
@@ -567,7 +568,7 @@
    (let [init-ctx (opts/init opts)
          ret (vars/with-bindings
                (when-not @vars/current-ns
-                 {vars/current-ns (vars/->SciNamespace 'user)})
+                 {vars/current-ns opts/user-ns})
                (eval-string* init-ctx s))]
      ret)))
 

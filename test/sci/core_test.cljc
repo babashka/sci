@@ -23,6 +23,14 @@
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+                          (eval* '(if))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+                          (eval* '(if 1))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
+                          (eval* '(if 1 2 3 4))))
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
+                          (eval* '(if 1 2 3 4 5))))
     (is (= 1 (eval* 0 '(when (zero? *in*) 1))))
     (is (nil? (eval* 1 '(when (zero? *in*) 1))))
     (testing "when can have multiple body expressions"
@@ -784,6 +792,57 @@
 
 (deftest fn-on-meta-test
   (is (= "foo" (eval* "(def ^{:test (fn [] \"foo\")} x) ((:test (meta #'x)))"))))
+
+(deftest readers-test
+  (when-not tu/native?
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
+    (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))))
+
+(deftest built-in-vars-are-read-only-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"read-only"
+       (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {}))))
+
+(deftest repl-doc-test
+  (when-not tu/native?
+    (is (= (str/trim "
+-------------------------
+user/f
+([x] [x y])
+Macro
+  foodoc")
+           (str/trim (sci/with-out-str (eval* "(defmacro f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
+    (is (= (str/trim  #?(:clj "
+-------------------------
+clojure.core/inc
+([x])
+  Returns a number one greater than num. Does not auto-promote
+  longs, will throw on overflow. See also: inc'"
+                         :cljs "
+-------------------------
+clojure.core/inc
+([x])
+  Returns a number one greater than num."))
+           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))
+    (is (= (str/trim
+            "-------------------------\nfoo\n  foodoc\n")
+           (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))))
+
+(deftest tagged-literal-test
+  (testing "EDN with custom reader tags can be read without exception"
+    (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
+
+(deftest ifs
+  (is (= 2 (eval* "(if-let [foo nil] 1 2)")))
+  (is (= 2 (eval* "(if-let [foo false] 1 2)")))
+  (is (= 2 (eval* "(if-some [foo nil] 1 2)")))
+  (is (= 1 (eval* "(if-some [foo false] 1 2)"))))
+
+(deftest whens
+  (is (= nil (eval* "(when-let [foo nil] 1)")))
+  (is (= nil (eval* "(when-let [foo false] 1)")))
+  (is (= nil (eval* "(when-some [foo nil] 1)")))
+  (is (= 1 (eval* "(when-some [foo false] 1)"))))
 
 ;;;; Scratch
 

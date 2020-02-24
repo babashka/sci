@@ -1,9 +1,9 @@
 (ns sci.vars-test
   (:require
+   #?(:clj [sci.addons :as addons])
    [clojure.test :as test :refer [deftest is testing]]
-   [sci.test-utils :as tu]
    [sci.core :as sci]
-   [sci.addons :as addons]))
+   [sci.test-utils :as tu]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -137,6 +137,17 @@
          (testing "sci future sees clojure bindings, futures in pmap see sci bindings"
            (is (= '(11 11 11)
                   @(binding [*x* 11] (sci/future (sci/binding [x *x*] (sci/pmap identity [@x @x @x])))))))))))
+
+#?(:clj
+   (deftest promise-test
+     (when-not tu/native?
+       (is (= :delivered (tu/eval* "(let [x (promise)]
+                                      (future (deliver x :delivered))
+                                      (deref x 1 :failed))"
+                                   (addons/future {}))))
+       (is (= :failed (tu/eval* "(let [x (promise)]
+                                   (deref x 1 :failed))"
+                                (addons/future {})))))))
 
 (deftest def-returns-var-test
   (is (= "#'user/x" (eval* "(str (def x 1))")))

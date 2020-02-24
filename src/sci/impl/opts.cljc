@@ -1,15 +1,19 @@
 (ns sci.impl.opts
   {:no-doc true}
-  (:require [sci.impl.namespaces :as namespaces]
-            [sci.impl.vars :as vars]
-            [sci.impl.utils :as utils :refer [strip-core-ns]]
-            #?(:cljs [goog.string])))
+  (:require
+   #?(:cljs [goog.string])
+   [sci.impl.namespaces :as namespaces]
+   [sci.impl.utils :as utils :refer [strip-core-ns]]
+   [sci.impl.vars :as vars]))
+
+(def user-ns (vars/->SciNamespace 'user nil))
 
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
                (let [namespaces (merge-with merge
                                             namespaces/namespaces
-                                            {'user bindings}
+                                            {'user (assoc bindings
+                                                          :obj user-ns)}
                                             namespaces
                                             (:namespaces env))
                      aliases (merge namespaces/aliases aliases
@@ -88,7 +92,8 @@
            :imports
            :features
            :load-fn
-           :dry-run]}]
+           :dry-run
+           :readers]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -101,6 +106,7 @@
                     :realize-max (or realize-max (:realize-max preset))
                     :features features
                     :load-fn load-fn
-                    :dry-run dry-run}
+                    :dry-run dry-run
+                    :readers readers}
                    (normalize-classes (merge default-classes classes)))]
     ctx))

@@ -1,5 +1,6 @@
 (ns sci.namespaces-test
   (:require
+   [clojure.set :as set]
    [clojure.test :as test :refer [deftest is]]
    [sci.test-utils :as tu]))
 
@@ -35,3 +36,31 @@
 
 (deftest no-crash-test
   (is (= :foo/foo (eval* "(ns foo \"docstring\") ::foo"))))
+
+(deftest ns-metadata-test
+  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
+         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*)")))
+  (is (= {:line 1, :column 5, :end-line 1, :end-column 16, :a 1, :b 1}
+         (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*) (ns bar) (meta (the-ns 'foo))"))))
+
+(deftest recycle-namespace-objects
+  (when-not tu/native?
+    (is (empty? (set/difference (eval* "(set (all-ns))") (eval* "(set (all-ns))"))))))
+
+(deftest namespace-doc
+  (is (= "foobar" (:doc (eval* "(ns foo \"foobar\") (meta (find-ns 'foo))")))))
+
+(deftest ns-imports-test
+  #?@(:clj
+      [(is (eval* "(some? (get (ns-imports *ns*) 'String))"))
+       (is (eval* "
+(import clojure.lang.ExceptionInfo) (some? (get (ns-imports *ns*) 'ExceptionInfo))"))]))
+
+(deftest ns-refers-test
+  (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
+  (is (eval* "(def x 1) (some? (get (ns-refers *ns*) 'x))")))
+
+(deftest ns-map-test
+  (is (eval* "(some? (get (ns-map *ns*) 'inc))"))
+  #?(:clj (is (eval* "(some? (get (ns-map *ns*) 'String))")))
+  (is (eval* "(defn- foo []) (some? (get (ns-map *ns*) 'foo))")))
