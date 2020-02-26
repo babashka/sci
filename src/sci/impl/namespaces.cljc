@@ -655,6 +655,7 @@
    'quot (copy-core-var quot)
    're-seq (copy-core-var re-seq)
    're-find (copy-core-var re-find)
+   #?@(:clj ['re-groups (copy-core-var re-groups)])
    're-pattern (copy-core-var re-pattern)
    #?@(:clj ['re-matcher (copy-core-var re-matcher)])
    're-matches (copy-core-var re-matches)
