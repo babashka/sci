@@ -1,0 +1,23 @@
+(ns sci.impl.protocols
+  {:no-doc true}
+  (:refer-clojure :exclude [defprotocol]))
+
+;; user=> (defprotocol P (feed [_]))
+;; P
+;; user=> (meta #'P)
+;; {:line 1, :column 1, :file "NO_SOURCE_PATH", :name P, :ns #object[clojure.lang.Namespace 0xc6e0f32 "user"], :doc nil}
+;; user=> (meta #'feed)
+;; {:name feed, :arglists ([_]), :doc nil, :protocol #'user/P, :ns #object[clojure.lang.Namespace 0xc6e0f32 "user"]}
+
+;; (defn -reset-methods [protocol]
+;;   (doseq [[^clojure.lang.Var v build] (:method-builders protocol)]
+;;     (let [cache (clojure.lang.MethodImplCache. (symbol v) protocol (keyword (.sym v)))]
+;;       (.bindRoot v (build cache)))))
+
+;; user=> (:method-builders P)
+;; {#'user/feed #object[user$eval145$fn__146 0x6e57b5e9 "user$eval145$fn__146@6e57b5e9"]}
+
+(defn defprotocol [_ _ ctx protocol-name & signatures]
+  `(def)
+  (prn protocol-name signatures))
+

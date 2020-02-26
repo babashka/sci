@@ -12,7 +12,8 @@
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.impl.protocols :as protocols])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
 (def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
@@ -494,6 +495,9 @@
    'dedupe (copy-core-var dedupe)
    'defn- (macrofy defn-*)
    'defonce (macrofy defonce*)
+   'defprotocol (with-meta protocols/defprotocol
+                  {:sci/macro true
+                   :sci.impl/op :needs-ctx})
    'delay (macrofy delay*)
    #?@(:clj ['deliver (copy-core-var deliver)])
    'deref (copy-core-var deref)
