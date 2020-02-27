@@ -91,6 +91,8 @@ hello
 nil
 ```
 
+In fact `{:bindings {... ...}}` is just shorthand for `{:namespaces {'user {... ...}}`.
+
 You can provide a list of allowed symbols. Using other symbols causes an exception:
 
 ``` clojure
