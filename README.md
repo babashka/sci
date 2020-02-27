@@ -137,7 +137,7 @@ hello
 nil
 ```
 
-## Vars
+### Vars
 
 Sci has a var type, distinguished from Clojure vars. In a sci program these vars
 are created with `def` and `defn` just like in normal Clojure:
@@ -200,7 +200,7 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
 ```
 
-## Stdout and stdin
+### Stdout and stdin
 
 To enable printing to `stdout` and reading from `stdin` you can bind
 `sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
@@ -220,7 +220,7 @@ Type your name!
 Hello Michiel!
 ```
 
-## Futures
+### Futures
 
 Creating threads with `future` and `pmap` is disabled by default, but can be
 enabled by requiring `sci.addons` and applying the `sci.addons/future` function
@@ -257,7 +257,7 @@ For conveying thread-local sci bindings to an external `future` use
 ;;=> 12
 ```
 
-## Classes
+### Classes
 
 Adding support for classes is done via the `:classes` option:
 
@@ -272,7 +272,7 @@ To make this work with `GraalVM` you will also need to add an entry to your
 config](https://github.com/oracle/graal/blob/master/substratevm/REFLECTION.md)
 for this class. Also see [`reflection.json`](reflection.json).
 
-## State
+### State
 
 Sci uses an atom to keep track of state changes like newly defined namespaces
 and vars. You can carry this state over from one call to another by providing
@@ -360,7 +360,9 @@ For running individual tests, see the scripts in `script/test`.
 
 ## Thanks
 
-- [adgoji](https://www.adgoji.com/) for financial support
+- [adgoji](https://www.adgoji.com/) for financial support.
+- [Lee Read](https://github.com/lread/) for the logo.
+- [contributors](https://github.com/borkdude/sci/graphs/contributors) and other users posting issues with bug reports and ideas
 
 ## License
 
