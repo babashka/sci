@@ -573,7 +573,10 @@
   (testing "try block can have multiple expressions"
     (is (= 3 (eval* "(try 1 2 3)"))))
   (testing "babashka GH-117"
-    (is (= 'hello (eval* "(try 'hello)")))))
+    (is (= 'hello (eval* "(try 'hello)"))))
+  (testing "babashka GH-220, try should accept nil in body"
+    (is (nil? (eval* "(try 1 2 nil)")))
+    (is (= 1 (eval* "(try 1 2 nil 1)")))))
 
 (deftest syntax-quote-test
   (is (= '(clojure.core/list 10 10)
