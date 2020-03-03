@@ -26,10 +26,10 @@
 [More](#Usage) on how to use sci from Clojure.
 Use from [JavaScript](#use-from-javaScript). Use from [Java](#use-from-java).
 
-## Rationale
+## Why
 
-You want to evaluate code from user input, or use Clojure for a DSL inside
-configuration files, but `eval` isn't safe or simply doesn't work.
+You want to evaluate code from user input, or use Clojure for a DSL inside your
+project, but `eval` isn't safe or simply doesn't work.
 
 This library works with:
 
