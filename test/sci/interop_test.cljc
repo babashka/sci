@@ -51,7 +51,8 @@
 
 #?(:cljs
    (deftest static-methods
-     (is (= \C (tu/eval* "(String/fromCharCode 67)" {:classes {'String js/String}})))))
+     (is (= \C (tu/eval* "(String/fromCharCode 67)" {:classes {'String js/String}})))
+     (is (= 42 (tu/eval* "(js/parseInt \"42\")"     {:classes {'js js/global}})))))
 
 #?(:cljs
    (do (def fs (let [m (js->clj (js/require "fs"))]
