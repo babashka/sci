@@ -55,6 +55,11 @@
      (is (= 42 (tu/eval* "(js/parseInt \"42\")"     {:classes {'js js/global}})))))
 
 #?(:cljs
+   (deftest methods-on-static-fields
+     (is (= 42 (tu/eval* "(.log js/console \"42\")" {:classes {'js js/global}})))
+     (is (= 42 (tu/eval* "(js/console.log \"42\")"  {:classes {'js js/global}})))))
+
+#?(:cljs
    (do (def fs (let [m (js->clj (js/require "fs"))]
                  (zipmap (map symbol (keys m)) (vals m))))
        (deftest add-object-as-namespace
