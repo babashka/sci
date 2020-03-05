@@ -32,7 +32,7 @@
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobj/get class method-name)]
              (apply method args)
-             (throw (js/Error. "Could not find method" method-name)))))
+             (throw (js/Error. (str "Could not find method " method-name))))))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [_])
