@@ -2,7 +2,8 @@
   {:no-doc true}
   #?(:clj (:import [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobj])
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            #?(:cljs [clojure.string])))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -26,13 +27,18 @@
           (let [methods (Reflector/getMethods target-class (count args) method false)]
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
+(declare get-static-field)
+
 (defn invoke-static-method #?(:clj [[^Class class method-name] args]
                               :cljs [[class method-name] args])
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobj/get class method-name)]
              (apply method args)
-             (throw (js/Error. (str "Could not find static method " method-name))))))
+             (let [[field sub-method-name] (clojure.string/split (str method-name) #"\.")]
+               (if sub-method-name
+                 (invoke-instance-method (get-static-field [class field]) nil sub-method-name args)
+                 (throw (js/Error. (str "Could not find static method " method-name))))))))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [[class field-name-sym]])
