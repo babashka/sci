@@ -3,7 +3,8 @@
   #?(:clj (:import [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobj])
             [sci.impl.vars :as vars]
-            #?(:cljs [clojure.string])))
+            #?(:cljs [clojure.string])
+            #?(:cljs [applied-science.js-interop :as js-interop])))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -34,7 +35,10 @@
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobj/get class method-name)]
-             (apply method args)
+             ;; (js/alert "hi") doesn't work with apply
+             (if (= js/window class)
+               (js-interop/call class method-name args)
+               (apply method args))
              (let [method-name (str method-name)
                    [field sub-method-name] (clojure.string/split method-name #"\.")]
                (cond
