@@ -56,8 +56,10 @@
 
 #?(:cljs
    (deftest methods-on-static-fields
-     (is (= 42 (tu/eval* "(.log js/console \"42\")" {:classes {'js js/global}})))
-     (is (= 42 (tu/eval* "(js/console.log \"42\")"  {:classes {'js js/global}})))))
+     (is (= 42 (tu/eval* "(do (.log js/console \"42\") 42)" {:classes {:allow :all
+                                                                       'js js/global}})))
+     (is (= 42 (tu/eval* "(do (js/console.log \"42\") 42)" {:classes {:allow :all
+                                                                      'js js/global}})))))
 
 #?(:cljs
    (do (def fs (let [m (js->clj (js/require "fs"))]
