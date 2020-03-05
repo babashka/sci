@@ -35,9 +35,9 @@
              (throw (js/Error. (str "Could not find method " method-name))))))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
-                          :cljs [_])
+                          :cljs [[class field-name-sym]])
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
-     :cljs (throw (js/Error. "Not implemented yet."))))
+     :cljs (aget class (str field-name-sym))))
 
 (defn invoke-constructor #?(:clj [^Class class args]
                             :cljs [constructor args])
