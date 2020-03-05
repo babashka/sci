@@ -27,7 +27,7 @@
           (let [methods (Reflector/getMethods target-class (count args) method false)]
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
-(declare get-static-field)
+(declare get-static-field invoke-constructor)
 
 (defn invoke-static-method #?(:clj [[^Class class method-name] args]
                               :cljs [[class method-name] args])
@@ -35,9 +35,16 @@
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobj/get class method-name)]
              (apply method args)
-             (let [[field sub-method-name] (clojure.string/split (str method-name) #"\.")]
-               (if sub-method-name
+             (let [method-name (str method-name)
+                   [field sub-method-name] (clojure.string/split method-name #"\.")]
+               (cond
+                 sub-method-name
                  (invoke-instance-method (get-static-field [class field]) nil sub-method-name args)
+
+                 (clojure.string/ends-with? method-name ".")
+                 (invoke-constructor (get-static-field [class field]) args)
+
+                 :else
                  (throw (js/Error. (str "Could not find static method " method-name))))))))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]

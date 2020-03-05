@@ -62,6 +62,11 @@
                                                                       'js js/global}})))))
 
 #?(:cljs
+   (deftest static-field-constructors
+     (is (= 42 (tu/eval* "(js/parseInt (.-message (js/Error. \"42\")))" {:classes {:allow :all
+                                                                                   'js js/global}})))))
+
+#?(:cljs
    (do (def fs (let [m (js->clj (js/require "fs"))]
                  (zipmap (map symbol (keys m)) (vals m))))
        (deftest add-object-as-namespace
