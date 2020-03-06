@@ -10,13 +10,25 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
+
+#?(:cljs
+   (do
+     (defn toJS [v]
+       (if (instance? MetaFn v)
+         ;; when returning a function, make it callable from JS
+         (.-afn v)
+         (clj->js v)))
+
+     (defn js-object-array [args]
+       (to-array (map toJS args)))))
+
 (defn invoke-instance-method
   #?@(:cljs [[obj _target-class method-name args]
              ;; gobj/get didn't work here
              (if (identical? \- (.charAt method-name 0))
                (aget obj (subs method-name 1))
                (if-let [method (aget obj method-name)]
-                 (apply method obj args)
+                 (.apply method obj (js-object-array args))
                  (throw (js/Error. (str "Could not find instance method: " method-name)))))]
       :clj
       [#_([obj method args]
@@ -34,7 +46,8 @@
 
 #?(:cljs
    (defn invoke-js-constructor [constructor args]
-     (let [ctor (js/Function.prototype.bind.apply constructor)]
+     (let [ctor (js/Function.prototype.bind.apply constructor)
+           args (js-object-array args)]
        (case (count args)
          0 (new ctor)
          1 (new ctor (nth args 0))
@@ -57,7 +70,7 @@
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobj/get class method-name)]
-             (.apply method class (to-array args))
+             (.apply method class (js-object-array args))
              (let [method-name (str method-name)
                    [field sub-method-name] (clojure.string/split method-name #"\.")]
                (cond
