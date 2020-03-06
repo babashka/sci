@@ -143,3 +143,5 @@
         attr-map (merge (meta ns-sym) attr-map)
         ns-obj (get-namespace env ns-sym attr-map)]
     (t/setVal vars/current-ns ns-obj)))
+
+(def eval-form-state (volatile! nil))

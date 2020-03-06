@@ -549,6 +549,8 @@
             ret (interpret ctx analyzed)]
         ret)))
 
+(vreset! utils/eval-form-state eval-form)
+
 (defn eval-string* [ctx s]
   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
     (loop [queue []
