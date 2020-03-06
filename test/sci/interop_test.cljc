@@ -66,6 +66,11 @@
      (is (= 42 (tu/eval* "(js/parseInt (.-message (js/Error. \"42\")))" {:classes {:allow :all
                                                                                    'js js/global}})))))
 
+;; TODO add test for special Objects (need browser for this)
+#_(let [sse (js/EventSource. "/sse")]
+        (.addEventListener sse "message" (fn [e] (.log js/console "Data" e))))
+
+
 #?(:cljs
    (do (def fs (let [m (js->clj (js/require "fs"))]
                  (zipmap (map symbol (keys m)) (vals m))))
