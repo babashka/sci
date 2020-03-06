@@ -37,6 +37,20 @@
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (apply constructor args)))
 
+#?(:cljs
+   (defn js-constructor-fn [class]
+     (let [constructor (js/Function.prototype.bind.apply class)]
+       (fn
+         ([a] (new constructor a))
+         ([a b] (new constructor a b c))
+         ([a b c] (new constructor a b c d))
+         ([a b c d] (new constructor a b c d e))
+         ([a b c d e] (new constructor a b c d e))
+         ([a b c d e f] (new constructor a b c d e f))
+         ([a b c d e f g] (new constructor a b c d e f g))
+         ([a b c d e f g & more]
+          (throw (ex-info "Constructors with more than 7 arguments are not supported" {:class class})))))))
+
 (defn invoke-static-method #?(:clj [[^Class class method-name] args]
                               :cljs [[class method-name] args])
   #?(:clj
@@ -50,7 +64,7 @@
                  (invoke-instance-method (get-static-field [class field]) nil sub-method-name args)
 
                  (clojure.string/ends-with? method-name ".")
-                 (invoke-constructor (get-static-field [class field]) args)
+                 (apply (js-constructor-fn (get-static-field [class field])) args)
 
                  :else
                  (throw (js/Error. (str "Could not find static method " method-name))))))))
