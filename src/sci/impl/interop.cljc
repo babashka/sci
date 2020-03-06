@@ -34,10 +34,7 @@
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobj/get class method-name)]
-             ;; (js/alert "hi") doesn't work with apply
-             (if (= js/window class)
-               (.apply (gobj/get class method-name) class (to-array args))
-               (apply method args))
+             (.apply method class (to-array args))
              (let [method-name (str method-name)
                    [field sub-method-name] (clojure.string/split method-name #"\.")]
                (cond
