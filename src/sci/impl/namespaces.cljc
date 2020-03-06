@@ -1,16 +1,18 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message ex-cause])
+  (:refer-clojure :exclude [ex-message ex-cause eval read-string])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [clojure.set :as set]
    [clojure.string :as str]
+   [clojure.tools.reader.reader-types :as r]
    [clojure.walk :as walk]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
+   [sci.impl.parser :as parser]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
@@ -373,6 +375,19 @@
 
 ;;;; End namespaces
 
+;;;; Eval and read-string
+
+(defn read-string
+  ([sci-ctx s]
+   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+     (parser/parse-next sci-ctx reader)))
+  #_([opts s] (clojure.lang.RT/readString s opts)))
+
+(defn eval [sci-ctx form]
+  (@utils/eval-form-state sci-ctx form))
+
+;;;; End eval and read-string
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -516,6 +531,7 @@
    'eduction (copy-core-var eduction)
    'empty (copy-core-var empty)
    'empty? (copy-core-var empty?)
+   'eval (with-meta eval {:sci.impl/op :needs-ctx})
    'even? (copy-core-var even?)
    'every? (copy-core-var every?)
    'every-pred (copy-core-var every-pred)
@@ -680,6 +696,7 @@
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
    'rand (copy-core-var rand)
+   'read-string (with-meta read-string {:sci.impl/op :needs-ctx})
    'replace (copy-core-var replace)
    'rseq (copy-core-var rseq)
    'random-sample (copy-core-var random-sample)
