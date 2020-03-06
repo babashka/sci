@@ -45,7 +45,7 @@
          6 (new ctor (nth args 0) (nth args 1) (nth args 2) (nth args 3) (nth args 4) (nth args 5))
          7 (new ctor (nth args 0) (nth args 1) (nth args 2) (nth args 3) (nth args 4) (nth args 5) (nth args 6))
 
-         (throw (ex-info "Constructors with more than 7 arguments are not supported" {:class class}))))))
+         (throw (ex-info "Constructors with more than 7 arguments are not supported" {:constructor constructor}))))))
 
 (defn invoke-constructor #?(:clj [^Class class args]
                             :cljs [constructor args])
