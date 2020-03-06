@@ -10,7 +10,6 @@
                             thread-bound?
                             alter-var-root])
   (:require [sci.impl.macros :as macros]
-            #?(:clj [borkdude.graal.locking :as locking])
             [sci.impl.types :as t]
             [sci.impl.unrestrict :refer [*unrestricted*]])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
@@ -45,10 +44,10 @@
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (with-writeable-namespace this meta
-                       (locking/locking (set! meta (apply f meta args))))))
+                       (locking (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
                      (with-writeable-namespace this meta
-                       (locking/locking (set! meta m))))))
+                       (locking (set! meta m))))))
 
 (defn namespace? [x]
   (instance? sci.impl.vars.SciNamespace x))
@@ -303,10 +302,10 @@
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (with-writeable-var this meta
-                       (locking/locking (set! meta (apply f meta args))))))
+                       (locking (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
                      (with-writeable-var this meta
-                       (locking/locking (set! meta m)))))
+                       (locking (set! meta m)))))
   #?(:clj clojure.lang.IRef) ;; added for multi-methods
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [_]
@@ -432,7 +431,7 @@
 
 (defn alter-var-root [v f & args]
   #?(:clj
-     (locking/locking v (bindRoot v (apply f @v args)))
+     (locking v (bindRoot v (apply f @v args)))
      :cljs (bindRoot v (apply f @v args))))
 
 (comment
