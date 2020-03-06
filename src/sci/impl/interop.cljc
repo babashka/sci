@@ -27,7 +27,15 @@
           (let [methods (Reflector/getMethods target-class (count args) method false)]
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
-(declare get-static-field invoke-constructor)
+(defn get-static-field #?(:clj [[^Class class field-name-sym]]
+                          :cljs [[class field-name-sym]])
+  #?(:clj (Reflector/getStaticField class (str field-name-sym))
+     :cljs (gobj/get class field-name-sym)))
+
+(defn invoke-constructor #?(:clj [^Class class args]
+                            :cljs [constructor args])
+  #?(:clj (Reflector/invokeConstructor class (object-array args))
+     :cljs (apply constructor args)))
 
 (defn invoke-static-method #?(:clj [[^Class class method-name] args]
                               :cljs [[class method-name] args])
@@ -46,16 +54,6 @@
 
                  :else
                  (throw (js/Error. (str "Could not find static method " method-name))))))))
-
-(defn get-static-field #?(:clj [[^Class class field-name-sym]]
-                          :cljs [[class field-name-sym]])
-  #?(:clj (Reflector/getStaticField class (str field-name-sym))
-     :cljs (gobj/get class field-name-sym)))
-
-(defn invoke-constructor #?(:clj [^Class class args]
-                            :cljs [constructor args])
-  #?(:clj (Reflector/invokeConstructor class (object-array args))
-     :cljs (apply constructor args)))
 
 (defn fully-qualify-class [{:keys [:env :class->opts]} sym]
   (or #?(:clj (when (contains? class->opts sym) sym)
