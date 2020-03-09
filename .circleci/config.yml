@@ -35,7 +35,7 @@ jobs:
   node:
     docker:
       # specify the version you desire here
-      - image: circleci/clojure:lein-2.8.1-node
+      - image: circleci/clojure:openjdk-11-lein-2.8.1-node
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
@@ -62,7 +62,7 @@ jobs:
           key: v1-dependencies-{{ checksum "project.clj" }}
   linux:
     docker:
-      - image: circleci/clojure:lein-2.8.1
+      - image: circleci/clojure:openjdk-11-lein-2.8.1
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
@@ -139,6 +139,7 @@ jobs:
       - run:
           name: Run tests
           command: |
+            export PATH=$GRAALVM_HOME/bin:$PATH
             script/test/native
       - save_cache:
           paths:
