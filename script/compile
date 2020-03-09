@@ -24,7 +24,8 @@ rm -rf resources/*class
 $GRAALVM_HOME/bin/javac -cp $GRAALVM_HOME/lib/svm/builder/svm.jar resources/ReflectorSubstitutions.java
 
 ( cd reflector; lein install )
-lein with-profiles +clojure-1.10.1,+compile-java do clean, uberjar
+
+lein with-profiles +clojure-1.10.2-alpha1 do clean, uberjar
 
 $NATIVE_IMAGE \
   -jar target/sci-$SCI_VERSION-standalone.jar \

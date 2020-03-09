@@ -93,8 +93,8 @@
 
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]
-  (#?(:clj .addMethod
-      :cljs -add-method) ^clojure.lang.MultiFn multifn dispatch-val f))
+  #?(:clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
+     :cljs (-add-method multifn dispatch-val f)))
 
 (defn defmethod
   "Creates and installs a new method of multimethod associated with dispatch-value. "

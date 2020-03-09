@@ -279,6 +279,12 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/loop [] (recur))" {:preset :termination-safe})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(eval '(loop [] (recur)))" {:preset :termination-safe})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(resolve 'trampoline)" {:preset :termination-safe})))
 
   (testing "for/doseq use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
@@ -573,7 +579,10 @@
   (testing "try block can have multiple expressions"
     (is (= 3 (eval* "(try 1 2 3)"))))
   (testing "babashka GH-117"
-    (is (= 'hello (eval* "(try 'hello)")))))
+    (is (= 'hello (eval* "(try 'hello)"))))
+  (testing "babashka GH-220, try should accept nil in body"
+    (is (nil? (eval* "(try 1 2 nil)")))
+    (is (= 1 (eval* "(try 1 2 nil 1)")))))
 
 (deftest syntax-quote-test
   (is (= '(clojure.core/list 10 10)
@@ -832,17 +841,22 @@ clojure.core/inc
   (testing "EDN with custom reader tags can be read without exception"
     (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
 
-(deftest ifs
+(deftest ifs-test
   (is (= 2 (eval* "(if-let [foo nil] 1 2)")))
   (is (= 2 (eval* "(if-let [foo false] 1 2)")))
   (is (= 2 (eval* "(if-some [foo nil] 1 2)")))
   (is (= 1 (eval* "(if-some [foo false] 1 2)"))))
 
-(deftest whens
+(deftest whens-test
   (is (= nil (eval* "(when-let [foo nil] 1)")))
   (is (= nil (eval* "(when-let [foo false] 1)")))
   (is (= nil (eval* "(when-some [foo nil] 1)")))
   (is (= 1 (eval* "(when-some [foo false] 1)"))))
+
+(deftest read-string-eval-test
+  (is (= :foo (eval* "(def f (eval (read-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\"))) (f 1)")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
+                        (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]}))))
 
 ;;;; Scratch
 

@@ -399,19 +399,21 @@
   (let [[body-exprs
          catches
          finally]
-        (loop [[expr & exprs] body
+        (loop [exprs #_[expr & exprs :as all-exprs] (seq body)
                body-exprs []
                catch-exprs []
                finally-expr nil]
-          (if expr
-            (cond (and (seq? expr) (= 'catch (first expr)))
-                  (recur exprs body-exprs (conj catch-exprs expr) finally-expr)
-                  (and (empty? exprs) (and (seq? expr) (= 'finally (first expr))))
-                  [body-exprs catch-exprs expr]
-                  :else
-                  ;; TODO: cannot add body expression when catch is not empty
-                  ;; TODO: can't have finally as non-last expression
-                  (recur exprs (conj body-exprs expr) catch-exprs finally-expr))
+          (if exprs
+            (let [expr (first exprs)
+                  exprs (next exprs)]
+              (cond (and (seq? expr) (= 'catch (first expr)))
+                    (recur exprs body-exprs (conj catch-exprs expr) finally-expr)
+                    (and (not exprs) (and (seq? expr) (= 'finally (first expr))))
+                    [body-exprs catch-exprs expr]
+                    :else
+                    ;; TODO: cannot add body expression when catch is not empty
+                    ;; TODO: can't have finally as non-last expression
+                    (recur exprs (conj body-exprs expr) catch-exprs finally-expr)))
             [body-exprs catch-exprs finally-expr]))
         body (analyze ctx (cons 'do body-exprs))
         catches (mapv (fn [c]
