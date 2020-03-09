@@ -29,7 +29,7 @@
                                   "-Dclojure.spec.skip-macros=true"]
                        :aot :all}}
   ;; for testing only
-  :main sci.impl.main
+  :main ^:skip-aot sci.impl.main
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
                                     :username :env/clojars_user
                                     :password :env/clojars_pass
