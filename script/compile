@@ -18,6 +18,7 @@ fi
 SCI_VERSION=$(cat resources/SCI_VERSION)
 
 export JAVA_HOME=$GRAALVM_HOME
+export PATH=$GRAALVM_HOME/bin:$PATH
 
 rm -rf resources/*class
 $GRAALVM_HOME/bin/javac -cp $GRAALVM_HOME/lib/svm/builder/svm.jar resources/ReflectorSubstitutions.java
