@@ -1,18 +1,9 @@
-import org.graalvm.nativeimage.Platform;
-import org.graalvm.nativeimage.Platforms;
-import com.oracle.svm.core.annotate.*;
+import com.oracle.svm.core.annotate.Substitute;
+import com.oracle.svm.core.annotate.TargetElement;
+import com.oracle.svm.core.annotate.TargetClass;
 import com.oracle.svm.core.jdk.JDK11OrLater;
 
-
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.*;
-import java.util.stream.Collectors;
 
 public final class ReflectorSubstitutions {
 }
