@@ -19,6 +19,10 @@ SCI_VERSION=$(cat resources/SCI_VERSION)
 
 export JAVA_HOME=$GRAALVM_HOME
 
+rm -rf resources/*class
+$GRAALVM_HOME/bin/javac -cp $GRAALVM_HOME/lib/svm/builder/svm.jar resources/ReflectorSubstitutions.java
+
+( cd reflector; lein install )
 lein with-profiles +clojure-1.10.1,+compile-java do clean, uberjar
 
 $NATIVE_IMAGE \
