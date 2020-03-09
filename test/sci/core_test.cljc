@@ -279,6 +279,12 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/loop [] (recur))" {:preset :termination-safe})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(eval '(loop [] (recur)))" {:preset :termination-safe})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"allowed"
+                        (tu/eval* "(resolve 'trampoline)" {:preset :termination-safe})))
 
   (testing "for/doseq use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
