@@ -129,7 +129,7 @@ jobs:
             cd ~
             ls -la
             if ! [ -d graalvm-ce-java11-20.0.0 ]; then
-              curl -O -sL curl -O -sL https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-dawrin-amd64-20.0.0.tar.gz
+              curl -O -sL curl -O -sL https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-20.0.0/graalvm-ce-java11-darwin-amd64-20.0.0.tar.gz
               tar xzf graalvm-ce-java11-darwin-amd64-20.0.0.tar.gz
             fi
       - run:
