@@ -27,7 +27,8 @@
              :uberjar {:global-vars {*assert* false}
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]
-                       :aot :all}}
+                       :aot :all}
+             :native-image {:dependencies [[borkdude/clj-reflector-graal-java11-fix "0.0.1-graalvm-19.3.1-alpha.2"]]}}
   ;; for testing only
   :main sci.impl.main
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
