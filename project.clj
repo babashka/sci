@@ -27,7 +27,9 @@
              :uberjar {:global-vars {*assert* false}
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]
-                       :aot :all}}
+                       :aot :all}
+             :libsci {:dependencies [[cheshire "5.10.0"]]
+                      :source-paths ["src" "libsci/src"]}}
   ;; for testing only
   :main sci.impl.main
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
