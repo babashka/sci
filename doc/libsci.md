@@ -22,8 +22,9 @@ In `libsci/src` we have the following Clojure file:
 This file is compiled into a Java class with one static method,
 `evalString`. This will be our API for the native library. To make this library
 more interesting, we enable `println` by providing a value for `*out*` in the
-interpreter. Also we make the `[cheshire]` library available, just to show that
-you can bring in your own Clojure functions.
+interpreter. Also we make the [cheshire](https://github.com/dakrone/cheshire)
+library available, just to show that you can bring in your own Clojure
+functions.
 
 Using the script `libsci/compile` we compile an uberjar where this API will be
 available. We will use uberjar to compile to a shared library using GraalVM
