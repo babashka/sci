@@ -52,7 +52,8 @@ Here we wrap the static method `evalString` into a native library function that
 is given the name `eval_string`. We use GraalVM's API to convert between Java
 and C types.
 
-Next, we compile the library using `native-image`:
+The Clojure and Java code is compiled into .class files. Next, we compile those
+.class files into a shared library using `native-image`:
 
 ``` shell
 $ $GRAALVM_HOME/bin/native-image \
