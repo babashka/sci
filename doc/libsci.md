@@ -26,10 +26,7 @@ interpreter. Also we make the [cheshire](https://github.com/dakrone/cheshire)
 library available, just to show that you can bring in your own Clojure
 functions.
 
-Using the script `libsci/compile` we compile an uberjar where this API will be
-available. We will use uberjar to compile to a shared library using GraalVM
-`native-image`. But first, let's have a look at the bridging class between Java
-and C++:
+Now let's have a look at the bridging class between Java and C++:
 
 ``` java
 package sci.impl;
