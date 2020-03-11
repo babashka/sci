@@ -124,4 +124,5 @@ we printed the JSON string from the C++ program.
 
 - [Implementing native methods in Java with SVM](https://github.com/oracle/graal/blob/master/substratevm/ImplementingNativeMethodsInJavaWithSVM.md)
 - [Code in Java, execute as C++](https://towardsdatascience.com/code-in-java-execute-as-c-921f5db45f20)
+- [Top 10 Things To Do With GraalVM](https://chrisseaton.com/truffleruby/tenthings/)
 - [PolyglotNativeAPI](https://github.com/oracle/graal/blob/6639edf945f9775e7fb7de3b58d4d6b3c374a0b3/substratevm/src/org.graalvm.polyglot.nativeapi/src/org/graalvm/polyglot/nativeapi/PolyglotNativeAPI.java#L260)
