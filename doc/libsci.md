@@ -66,9 +66,7 @@ $ $GRAALVM_HOME/bin/native-image \
 This begets the files `graal_isolate_dynamic.h`, `graal_isolate.h`, `libsci.h`,
 `libsci.dylib` (on linux `libsci.so`) and `libsci_dynamic.h`. We move all these files to `libsci/target`.
 
-Let's use the library from a C++ program now.
-
-Here is the C++ code:
+Let's use the library from a C++ program now. Here's the code:
 
 ``` c++
 #include <iostream>
