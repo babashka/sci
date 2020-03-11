@@ -113,6 +113,7 @@ $ time libsci/target/from_cpp "
 (println :foo)
 (require '[cheshire.core :as cheshire])
 (cheshire/generate-string {:a 1})"
+
 :foo
 {"a":1}
 libsci/target/from_cpp   0.01s user 0.01s system 64% cpu 0.026 total
