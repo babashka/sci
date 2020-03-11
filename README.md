@@ -346,6 +346,10 @@ Note for Java users: the Java API for is conceptually similar to the Clojure
 one, but made more idiomatic for Java users. Check the generated [Java
 documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
 
+## Use as shared library
+
+To use sci as a shared library from e.g. C++, read this [tutorial](doc/libsci.md).
+
 ## Test
 
 Required: `lein`, the `clojure` CLI and GraalVM.
