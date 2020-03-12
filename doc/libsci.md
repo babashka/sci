@@ -7,7 +7,7 @@ To use sci as a shared library from e.g. C++, follow along with this tutorial. W
 If you want to run this script yourself, prepare as follows:
 
 - Download [GraalVM](https://github.com/graalvm/graalvm-ce-builds/releases) and
-  set `GRAALVM_HOME`.
+  set `GRAALVM_HOME`. We used GraalVM CE java8 19.3.1.
 - Install [lein](https://github.com/technomancy/leiningen). This is used for
   compiling Clojure code.
 - You should have `g++` available to compile C++ code.
