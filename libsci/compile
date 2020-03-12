@@ -8,6 +8,7 @@ if [ -z "$GRAALVM_HOME" ]; then
 fi
 
 "$GRAALVM_HOME/bin/gu" install native-image || true
+export PATH=$GRAALVM_HOME/bin:$PATH
 
 SCI_VERSION=$(cat resources/SCI_VERSION)
 

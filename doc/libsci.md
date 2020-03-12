@@ -2,6 +2,18 @@
 
 To use sci as a shared libary from e.g. C++, follow along with this tutorial. We illustrate what is happening when you run the script `libsci/compile`.
 
+## Prerequisites
+
+If you want to run this script yourself, prepare as follows:
+
+- Download [GraalVM](https://github.com/graalvm/graalvm-ce-builds/releases) and
+  set `GRAALVM_HOME`.
+- Install [lein](https://github.com/technomancy/leiningen). This is used for
+  compiling Clojure code.
+- You should have `g++` available to compile C++ code.
+
+## Walkthrough
+
 In `libsci/src` we have the following Clojure file:
 
 ``` clojure
