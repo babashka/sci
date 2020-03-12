@@ -131,7 +131,7 @@ Providing a macro as a binding can be done by providing a normal function that:
 - has two extra arguments at the start for `&form` and `&env`:
 
 ``` clojure
-user=> (def do-twice ^:sci/macro (fn [_&env _&form x] (list 'do x x)))
+user=> (def do-twice ^:sci/macro (fn [_&form _&env x] (list 'do x x)))
 user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice do-twice 'f #(println "hello")}})
 hello
 hello
