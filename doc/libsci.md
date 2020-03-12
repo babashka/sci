@@ -1,6 +1,6 @@
 # Libsci
 
-To use sci as a shared libary from e.g. C++, follow along with this tutorial. We illustrate what is happening when you run the script `libsci/compile`.
+To use sci as a shared library from e.g. C++, follow along with this tutorial. We illustrate what is happening when you run the script `libsci/compile`.
 
 ## Prerequisites
 
