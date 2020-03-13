@@ -17,7 +17,20 @@ fn my_string_safe(ptr: *mut i8) -> Result<String,Utf8Error> {
     }
 }
 
-fn eval(expr: String) -> *mut i8 {
+struct EvalResult {
+    ptr: *mut i8,
+}
+
+impl Drop for EvalResult {
+    fn drop(&mut self) {
+        unsafe {
+            libc::free(self.ptr as *mut libc::c_void);
+            // error for object 0x10a8d1158: pointer being freed was not allocated
+        }
+    }
+}
+
+fn eval(expr: String) -> EvalResult {
     unsafe {
         let mut isolate: *mut graal_isolate_t = ptr::null_mut();
         let mut thread: *mut graal_isolatethread_t = ptr::null_mut();
@@ -29,18 +42,18 @@ fn eval(expr: String) -> *mut i8 {
             CString::new(expr).expect("CString::new failed").as_ptr(),
         );
 
-        result
+        EvalResult { ptr: result }
     }
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let result = eval(args[1].to_owned());
-    {
-        let s = my_string_safe(result).unwrap();
-        println!("{}", s)
-    }
+    // {
+    //     let s = my_string_safe(result.ptr).unwrap();
+    //     println!("{}", s)
+    // }
 
-    let s = my_string_safe(result).unwrap();
+    let s = my_string_safe(result.ptr).unwrap();
     println!("{}", s) // works the second time... when will the data at the pointer be cleaned up?
 }
