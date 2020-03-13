@@ -20,3 +20,4 @@ pom.xml.asc
 /.shadow-cljs
 /report.html
 target
+libsci/sci-rs/target
