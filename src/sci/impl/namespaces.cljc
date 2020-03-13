@@ -369,6 +369,16 @@
          (sci-ns-refers ctx sci-ns)
          (sci-ns-imports ctx sci-ns)))
 
+(defn sci-ns-unmap [ctx sci-ns sym]
+  (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
+  (swap! (:env ctx)
+         (fn [env]
+           (let [sci-ns (sci-the-ns ctx sci-ns)
+                 name (sci-ns-name sci-ns)
+                 m (get-in env [:namespaces name])]
+             (assoc-in env [:namespaces name] (dissoc m sym)))))
+  nil)
+
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)]
     (map #(utils/get-namespace env % nil) (keys (get @env :namespaces)))))
@@ -646,6 +656,7 @@
    'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
    'ns-refers (with-meta sci-ns-refers {:sci.impl/op :needs-ctx})
    'ns-map (with-meta sci-ns-map {:sci.impl/op :needs-ctx})
+   'ns-unmap (with-meta sci-ns-unmap {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name
    'odd? (copy-core-var odd?)
    'object-array (copy-core-var object-array)

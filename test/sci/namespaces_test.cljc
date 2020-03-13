@@ -64,3 +64,8 @@
   (is (eval* "(some? (get (ns-map *ns*) 'inc))"))
   #?(:clj (is (eval* "(some? (get (ns-map *ns*) 'String))")))
   (is (eval* "(defn- foo []) (some? (get (ns-map *ns*) 'foo))")))
+
+(deftest ns-unmap-test
+  (is (eval* "(def foo 1) (ns-unmap *ns* 'foo) (nil? (resolve 'foo))"))
+  (is (eval* "(defn bar []) (ns-unmap *ns* 'bar) (nil? (resolve 'bar))"))
+  (is (eval* "(defn- baz []) (ns-unmap *ns* 'baz) (nil? (resolve 'baz))")))
