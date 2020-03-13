@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+./libsci/compile-common
+
+cd libsci/sci-rs
+
+LIBSCI_PATH=../target cargo build
+
+cd ../..

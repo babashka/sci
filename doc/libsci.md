@@ -132,7 +132,95 @@ It worked. First we printed a keyword from within the interpreter. Then we
 returned a Clojure hash-map that was converted into JSON by cheshire. And then
 we printed the JSON string from the C++ program.
 
-## References
+### Using with Rust
+
+To use the lib from a Rust program, we use the same shared lib generated from the previous section. We use [bindgen](https://rust-lang.github.io/rust-bindgen/) to generate Rust interfaces to the lib.
+
+A simple Rust code:
+
+```rust
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+
+use std::ffi::{CStr, CString};
+use std::str::Utf8Error;
+use std::{env, ptr};
+
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+fn eval(expr: String) -> Result<&'static str, Utf8Error> {
+    unsafe {
+        let mut isolate: *mut graal_isolate_t = ptr::null_mut();
+        let mut thread: *mut graal_isolatethread_t = ptr::null_mut();
+
+        graal_create_isolate(ptr::null_mut(), &mut isolate, &mut thread);
+
+        let result = eval_string(
+            thread as i64,
+            CString::new(expr).expect("CString::new failed").as_ptr(),
+        );
+
+        CStr::from_ptr(result).to_str()
+    }
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let result = eval(args[1].to_owned());
+
+    match result {
+        Ok(output) => println!("{}", output),
+        Err(_) => println!("Failed."),
+    };
+}
+```
+
+Project setup:
+
+In a dir called `sci-rs` for example:
+1. Create a `Cargo.toml` with:
+    ```toml
+    [package]
+    name = "sci-rs"
+    version = "0.1.0"
+    edition = "2018"
+
+    [build-dependencies]
+    bindgen = "0.53"
+    ```
+1. Create a `build.rs` in the root dir with:
+    ```rust
+    extern crate bindgen;
+
+    use std::env;
+    use std::path::PathBuf;
+
+    fn main() {
+        let path = "<PATH TO libsci/target dir made earlier>";
+
+        println!("cargo:rustc-link-lib=sci");
+
+        println!("cargo:rustc-link-search={path}", path = path);
+
+        let bindings = bindgen::Builder::default()
+            .header(format!("{path}/libsci.h", path = path))
+            .clang_arg(format!("-I{path}", path = path))
+            .generate()
+            .expect("Unable to generate bindings");
+
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        bindings
+            .write_to_file(out_path.join("bindings.rs"))
+            .expect("Couldn't write bindings!");
+    }
+    ```
+    learn [more](https://doc.rust-lang.org/cargo/reference/build-scripts.html) about build.rs files.
+  1. Put the above code in `src/main.rs`.
+  1. Run `cargo build` to generate the FFI interfaces to libsci and compile our code.
+  1. Export the lib path like above with either `DYLD_LIBRARY_PATH` or `LD_LIBRARY_PATH`.
+  1. Running `cargo run "(defn f [] :yes) (f)"` should produce `:yes`.
+
+##References
 
 - [Implementing native methods in Java with SVM](https://github.com/oracle/graal/blob/master/substratevm/ImplementingNativeMethodsInJavaWithSVM.md)
 - [Code in Java, execute as C++](https://towardsdatascience.com/code-in-java-execute-as-c-921f5db45f20)
