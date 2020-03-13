@@ -1,6 +1,8 @@
-# Libsci
+# libsci
 
-To use sci as a shared library from e.g. C++, follow along with this tutorial. We illustrate what is happening when you run the script `libsci/compile`.
+To use sci as a shared library from e.g. C++, follow along with this
+tutorial. We illustrate what is happening when you run the script
+`libsci/compile-libsci` and `libsci/compile-cpp`.
 
 ## Prerequisites
 
@@ -132,13 +134,50 @@ It worked. First we printed a keyword from within the interpreter. Then we
 returned a Clojure hash-map that was converted into JSON by cheshire. And then
 we printed the JSON string from the C++ program.
 
-### Using with Rust
+### Using libsci from Rust
 
-To use the lib from a Rust program, we use the same shared lib generated from the previous section. We use [bindgen](https://rust-lang.github.io/rust-bindgen/) to generate Rust interfaces to the lib.
+To use `libsci` from a Rust program, we use the same shared lib generated in the
+previous section (produced by running `libsci/compile-libsci`).  Here we
+describe what happens when you run `libsci/compile-rust`.
 
-A simple Rust code:
+To build Rust language bindings to `libsci`, we use
+[bindgen](https://rust-lang.github.io/rust-bindgen/) which need a `build.rs`
+file.
 
-```rust
+This file is located in `libsci/from-rust/build.rs`.
+
+``` rust
+extern crate bindgen;
+
+use std::env;
+use std::path::PathBuf;
+
+fn main() {
+    let path = "<PATH TO libsci/target dir made earlier>";
+
+    println!("cargo:rustc-link-lib=sci");
+
+    println!("cargo:rustc-link-search={path}", path = path);
+
+    let bindings = bindgen::Builder::default()
+        .header(format!("{path}/libsci.h", path = path))
+        .clang_arg(format!("-I{path}", path = path))
+        .generate()
+        .expect("Unable to generate bindings");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
+}
+```
+
+Learn [more](https://doc.rust-lang.org/cargo/reference/build-scripts.html) about `build.rs` files here.
+
+Secondly we write a main program that uses these bindings to call `libsci`. This
+code is located in `libsci/from-rust/src/main.rs`.
+
+``` rust
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
@@ -175,50 +214,14 @@ fn main() {
 }
 ```
 
-Project setup:
+After running `libsci/compile-rust` and exporting `DYLD_LIBRARY_PATH`
+(`LD_LIBRARY_PATH` on linux) to `libsci/target`, you should be able to run as
+follows:
 
-In a dir called `sci-rs` for example:
-1. Create a `Cargo.toml` with:
-    ```toml
-    [package]
-    name = "sci-rs"
-    version = "0.1.0"
-    edition = "2018"
-
-    [build-dependencies]
-    bindgen = "0.53"
-    ```
-1. Create a `build.rs` in the root dir with:
-    ```rust
-    extern crate bindgen;
-
-    use std::env;
-    use std::path::PathBuf;
-
-    fn main() {
-        let path = "<PATH TO libsci/target dir made earlier>";
-
-        println!("cargo:rustc-link-lib=sci");
-
-        println!("cargo:rustc-link-search={path}", path = path);
-
-        let bindings = bindgen::Builder::default()
-            .header(format!("{path}/libsci.h", path = path))
-            .clang_arg(format!("-I{path}", path = path))
-            .generate()
-            .expect("Unable to generate bindings");
-
-        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-        bindings
-            .write_to_file(out_path.join("bindings.rs"))
-            .expect("Couldn't write bindings!");
-    }
-    ```
-    learn [more](https://doc.rust-lang.org/cargo/reference/build-scripts.html) about build.rs files.
-  1. Put the above code in `src/main.rs`.
-  1. Run `cargo build` to generate the FFI interfaces to libsci and compile our code.
-  1. Export the lib path like above with either `DYLD_LIBRARY_PATH` or `LD_LIBRARY_PATH`.
-  1. Running `cargo run "(defn f [] :yes) (f)"` should produce `:yes`.
+``` shell
+$ libsci/target/from-rust "(require '[cheshire.core :as json]) (json/generate-string (range 10))"
+[0,1,2,3,4,5,6,7,8,9]
+```
 
 ##References
 

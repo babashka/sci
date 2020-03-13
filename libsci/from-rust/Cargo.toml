@@ -1,5 +1,5 @@
 [package]
-name = "bb"
+name = "from-rust"
 version = "0.1.0"
 edition = "2018"
 

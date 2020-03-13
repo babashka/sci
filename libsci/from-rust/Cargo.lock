@@ -30,13 +30,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bb"
-version = "0.1.0"
-dependencies = [
- "bindgen",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.53.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -124,6 +117,13 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "from-rust"
+version = "0.1.0"
+dependencies = [
+ "bindgen",
 ]
 
 [[package]]
