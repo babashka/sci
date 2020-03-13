@@ -17,7 +17,7 @@ fn my_string_safe(ptr: *mut i8) -> Result<String,Utf8Error> {
     }
 }
 
-fn eval(expr: String) -> String {
+fn eval(expr: String) -> *mut i8 {
     unsafe {
         let mut isolate: *mut graal_isolate_t = ptr::null_mut();
         let mut thread: *mut graal_isolatethread_t = ptr::null_mut();
@@ -29,12 +29,18 @@ fn eval(expr: String) -> String {
             CString::new(expr).expect("CString::new failed").as_ptr(),
         );
 
-        my_string_safe(result).unwrap()
+        result
     }
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let result = eval(args[1].to_owned());
-    println!("{}", result)
+    {
+        let s = my_string_safe(result).unwrap();
+        println!("{}", s)
+    }
+
+    let s = my_string_safe(result).unwrap();
+    println!("{}", s) // works the second time... when will the data at the pointer be cleaned up?
 }
