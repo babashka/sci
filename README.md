@@ -346,9 +346,9 @@ Note for Java users: the Java API for is conceptually similar to the Clojure
 one, but made more idiomatic for Java users. Check the generated [Java
 documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
 
-## Use as shared library
+## Use as native shared library
 
-To use sci as a shared library from e.g. C++, read this [tutorial](doc/libsci.md).
+To use sci as a native shared library from e.g. C, C++, Rust, read this [tutorial](doc/libsci.md).
 
 ## Test
 
