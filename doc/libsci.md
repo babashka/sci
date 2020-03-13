@@ -153,7 +153,7 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let path = "<PATH TO libsci/target dir made earlier>";
+    let path = env::var("LIBSCI_PATH").unwrap();
 
     println!("cargo:rustc-link-lib=sci");
 
