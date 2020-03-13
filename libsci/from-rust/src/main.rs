@@ -7,9 +7,13 @@ use std::{env, ptr};
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
-fn my_string_safe(ptr: *mut i8) -> String {
-    unsafe {
-        CStr::from_ptr(ptr).to_string_lossy().into_owned()
+fn my_string_safe(ptr: *mut i8) -> Result<String,Utf8Error> {
+    let s = unsafe {
+        CStr::from_ptr(ptr).to_str()
+    };
+    match s {
+        Ok(s) => Ok(String::from(s)),
+        Err(x) => Err(x)
     }
 }
 
@@ -25,7 +29,7 @@ fn eval(expr: String) -> String {
             CString::new(expr).expect("CString::new failed").as_ptr(),
         );
 
-        my_string_safe(result)
+        my_string_safe(result).unwrap()
     }
 }
 
