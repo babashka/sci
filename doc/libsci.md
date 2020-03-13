@@ -1,4 +1,4 @@
-# libsci
+# Libsci
 
 To use sci as a shared library from e.g. C++, follow along with this
 tutorial. We illustrate what is happening when you run the script
@@ -223,7 +223,7 @@ $ libsci/target/from-rust "(require '[cheshire.core :as json]) (json/generate-st
 [0,1,2,3,4,5,6,7,8,9]
 ```
 
-##References
+## References
 
 - [Implementing native methods in Java with SVM](https://github.com/oracle/graal/blob/master/substratevm/ImplementingNativeMethodsInJavaWithSVM.md)
 - [Code in Java, execute as C++](https://towardsdatascience.com/code-in-java-execute-as-c-921f5db45f20)
