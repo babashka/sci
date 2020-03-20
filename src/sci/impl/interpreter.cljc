@@ -246,7 +246,8 @@
   [ctx expr]
   (let [{:keys [:body :catches :finally]} (:sci.impl/try expr)]
     (try
-      (interpret (assoc ctx :sci.impl/in-try true) body)
+      (binding [utils/*in-try* true]
+        (interpret ctx body))
       (catch #?(:clj Throwable :cljs js/Error) e
         (if-let
             [[_ r]

@@ -53,8 +53,10 @@
                                  :line line
                                  :column column} data))))))
 
+(def ^:dynamic *in-try* false)
+
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
-  (if-not (:sci.impl/in-try ctx)
+  (if-not *in-try*
     (if-let [m #?(:clj (.getMessage e)
                   :cljs (.-message e))]
       (if (str/includes? m "[at")
