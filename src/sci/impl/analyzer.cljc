@@ -564,15 +564,8 @@
 
 ;;;; Vars
 
-(defn wrapped-var [v]
-  (with-meta [v]
-    {:sci.impl/op :var-value}))
-
 (defn analyze-var [ctx [_ var-name]]
-  (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
-    (if (vars/var? v)
-      v #_(wrapped-var v)
-      v)))
+  (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name))
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)

@@ -513,8 +513,9 @@
                 :static-access (interop/get-static-field expr)
                 :var-value (nth expr 0)
                 :deref! (let [v (first expr)
-                              v (if (vars/var? v) @v v)]
-                          (force v))
+                              v (if (vars/var? v) @v v)
+                              v (force v)]
+                          v)
                 :resolve-sym (resolve-symbol ctx expr)
                 :needs-ctx (partial expr ctx)
                 (cond (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
