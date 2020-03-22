@@ -21,7 +21,7 @@
 ;; Built-in macros.
 
 (def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
-               comment loop lazy-seq for doseq require case try defmacro
+               comment loop lazy-seq for doseq case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1 macroexpand the-ns})
 
@@ -546,15 +546,18 @@
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
-            :require (recur (next exprs) (conj ret
-                                               (mark-eval-call `(~'require ~@args))))
+            :require (recur (next exprs)
+                            (conj ret
+                                  (mark-eval-call
+                                   (list* 'require args))))
             :import (do
                       ;; imports are processed analysis time
                       (do-import ctx `(~'import ~@args))
                       (recur (next exprs) ret))
             :refer-clojure (recur (next exprs)
                                   (conj ret
-                                        (mark-eval-call `(~'refer ~'clojure.core ~@args))))
+                                        (mark-eval-call
+                                         (list* 'refer 'clojure.core args))))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
         (mark-eval-call (list* 'do ret))))))
@@ -628,8 +631,6 @@
                     res
                     (analyze ctx res)))
             doseq (analyze ctx (expand-doseq ctx expr))
-            require (mark-eval-call
-                     (cons 'require (analyze-children ctx (rest expr))))
             if (expand-if ctx expr)
             case (expand-case ctx expr)
             try (expand-try ctx expr)

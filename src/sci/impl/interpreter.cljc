@@ -24,8 +24,8 @@
 
 (def #?(:clj ^:const macros :cljs macros)
   '#{do if and or quote let fn def defn
-     lazy-seq require try syntax-quote case . in-ns set!
-     macroexpand-1 macroexpand})
+     lazy-seq try syntax-quote case . in-ns set!
+     macroexpand-1 macroexpand require})
 
 ;;;; Evaluation
 
@@ -206,31 +206,32 @@
                     (str "Could not require " lib-name ".")))))))
 
 (defn eval-require
-  [ctx expr]
-  (let [args (next expr)]
-    (loop [libspecs []
-           current-libspec nil
-           args args]
-      (if args
-        (let [ret (interpret ctx (first args))]
-          (cond
-            (symbol? ret)
-            (recur (cond-> libspecs
-                     current-libspec (conj current-libspec))
-                   [ret]
-                   (next args))
-            (keyword? ret)
-            (recur (conj libspecs (conj current-libspec ret))
-                   nil
-                   (next args))
-            :else
-            (recur (cond-> libspecs
-                     current-libspec (conj current-libspec ))
-                   ret
-                   (next args))))
-        (let [libspecs (cond-> libspecs
-                         current-libspec (conj current-libspec ))]
-          (run! #(handle-require-libspec ctx %) libspecs))))))
+  [ctx & args]
+  (loop [libspecs []
+         current-libspec nil
+         args args]
+    (if args
+      (let [ret (interpret ctx (first args))]
+        (cond
+          (symbol? ret)
+          (recur (cond-> libspecs
+                   current-libspec (conj current-libspec))
+                 [ret]
+                 (next args))
+          (keyword? ret)
+          (recur (conj libspecs (conj current-libspec ret))
+                 nil
+                 (next args))
+          :else
+          (recur (cond-> libspecs
+                   current-libspec (conj current-libspec))
+                 ret
+                 (next args))))
+      (let [libspecs (cond-> libspecs
+                       current-libspec (conj current-libspec))]
+        (run! #(handle-require-libspec ctx %) libspecs)))))
+
+(vreset! utils/eval-require-state eval-require)
 
 (defn eval-case
   [ctx [_case {:keys [:case-map :case-val :case-default]}]]
@@ -441,7 +442,6 @@
                   #?@(:clj []
                       :cljs [nil nil]))
     recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
-    require (eval-require ctx expr)
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -453,6 +453,7 @@
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
     refer (eval-refer ctx expr)
+    require (apply eval-require ctx (rest expr))
     resolve (eval-resolve ctx expr)
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))))
