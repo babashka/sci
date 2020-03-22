@@ -147,3 +147,4 @@
     (t/setVal vars/current-ns ns-obj)))
 
 (def eval-form-state (volatile! nil))
+(def eval-require-state (volatile! nil))

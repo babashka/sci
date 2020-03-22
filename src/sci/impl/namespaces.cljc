@@ -1,6 +1,6 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message ex-cause eval read-string])
+  (:refer-clojure :exclude [ex-message ex-cause eval read-string require])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -398,6 +398,9 @@
 
 ;;;; End eval and read-string
 
+(defn require [sci-ctx & args]
+  (apply @utils/eval-require-state sci-ctx args))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -688,6 +691,7 @@
    're-matches (copy-core-var re-matches)
    'rem (copy-core-var rem)
    'remove (copy-core-var remove)
+   'require (with-meta require {:sci.impl/op :needs-ctx})
    'reset-meta! (copy-core-var reset-meta!)
    'rest (copy-core-var rest)
    'repeatedly (copy-core-var repeatedly)
