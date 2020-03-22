@@ -25,7 +25,7 @@
 (def #?(:clj ^:const macros :cljs macros)
   '#{do if and or quote let fn def defn
      lazy-seq try syntax-quote case . in-ns set!
-     macroexpand-1 macroexpand})
+     macroexpand-1 macroexpand require})
 
 ;;;; Evaluation
 
@@ -453,6 +453,7 @@
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
     refer (eval-refer ctx expr)
+    require (apply eval-require ctx (rest expr))
     resolve (eval-resolve ctx expr)
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))))

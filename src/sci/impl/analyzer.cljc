@@ -548,7 +548,8 @@
           (case k
             :require (recur (next exprs)
                             (conj ret
-                                  (analyze ctx `(require '~@args))))
+                                  (mark-eval-call
+                                   (list* 'require args))))
             :import (do
                       ;; imports are processed analysis time
                       (do-import ctx `(~'import ~@args))
