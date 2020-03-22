@@ -490,7 +490,9 @@
 (in-ns 'baz)
 (def x 3)
 (require (symbol \"foo\") (symbol \"bar\"))
-[foo/x bar/x x]")))))
+[foo/x bar/x x]"))))
+  (testing "require as function"
+    (is (= 1 (eval* "(ns foo) (defn foo [] 1) (ns bar) (apply require ['[foo :as f]]) (f/foo)")))))
 
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
@@ -857,6 +859,7 @@ clojure.core/inc
   (is (= :foo (eval* "(def f (eval (read-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\"))) (f 1)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
                         (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]}))))
+
 
 ;;;; Scratch
 
