@@ -409,6 +409,7 @@
    '*out* io/out
    '*err* io/err
    '*file* vars/current-file
+   '*print-length* io/print-length
    'newline io/newline
    'flush io/flush
    'pr io/pr
