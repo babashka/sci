@@ -38,8 +38,9 @@
   (is (str/includes?
        (sci/with-out-str (eval* "(binding [*print-length* 10] (println (range)))"))
        "1 2 3"))
-  (is (str/includes?
-       (sci/with-out-str
-         (sci/binding [sci/print-length 10]
-           (eval* "(println (range))")))
-       "1 2 3")))
+  (when-not tu/native?
+    (is (str/includes?
+         (sci/with-out-str
+           (sci/binding [sci/print-length 10]
+             (eval* "(println (range))")))
+         "1 2 3"))))
