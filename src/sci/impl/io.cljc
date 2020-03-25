@@ -10,15 +10,6 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def init-in (fn []
-               #?(:clj (-> (java.io.StringReader. "")
-                           clojure.lang.LineNumberingPushbackReader.))))
-
-(def init-out (fn [] (new #?(:clj java.io.StringWriter
-                             :cljs goog.string/StringBuffer))))
-
-(def init-err (fn [] #?(:clj (java.io.StringWriter.))))
-
 (def in (binding [*unrestricted* true]
           (doto (vars/dynamic-var '*in*)
                                         (vars/unbind))))
@@ -30,6 +21,9 @@
 (def err (binding [*unrestricted* true]
            (doto (vars/dynamic-var '*err*)
              (vars/unbind))))
+
+;; used in print-sequential
+(def print-length (vars/dynamic-var '*print-length* nil))
 
 #?(:clj (defn pr-on
           {:private true
@@ -43,7 +37,8 @@
 #?(:clj (defn pr
           ([] nil)
           ([x]
-           (pr-on x @out))
+           (binding [*print-length* @print-length]
+             (pr-on x @out)))
           ([x & more]
            (pr x)
            (. ^java.io.Writer @out (append \space))
@@ -52,7 +47,8 @@
              (apply pr more))))
    :cljs (defn pr
            [& objs]
-           (.append @out (apply pr-str objs))))
+           (binding [*print-length* @print-length]
+             (.append @out (apply pr-str objs)))))
 
 #?(:clj
    (defn flush
@@ -82,7 +78,8 @@
    :cljs
    (defn prn
      [& objs]
-     (.append @out (apply prn-str objs))))
+     (binding [*print-length* @print-length]
+       (.append @out (apply prn-str objs)))))
 
 #?(:clj
    (defn print
@@ -92,7 +89,8 @@
    :cljs
    (defn print
      [& objs]
-     (.append @out (apply print-str objs))))
+     (binding [*print-length* @print-length]
+       (.append @out (apply print-str objs)))))
 
 #?(:clj
    (defn println
@@ -102,7 +100,8 @@
    :cljs
    (defn println
      [& objs]
-     (.append @out (apply println-str objs))))
+     (binding [*print-length* @print-length]
+       (.append @out (apply println-str objs)))))
 
 #?(:clj
    (defn printf

@@ -78,6 +78,7 @@
 (def in "Sci var that represents sci's `clojure.core/*in*`" sio/in)
 (def out "Sci var that represents sci's `clojure.core/*out*`" sio/out)
 (def err "Sci var that represents sci's `clojure.core/*err*`" sio/err)
+(def print-length "Sci var that represents sci's `clojure.core/*print-length*`" sio/print-length)
 
 (macros/deftime
   (defmacro with-in-str
