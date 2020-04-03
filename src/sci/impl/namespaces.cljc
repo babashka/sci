@@ -311,7 +311,7 @@
 
 (defn sci-find-ns [ctx ns-sym]
   (assert (symbol? ns-sym))
-  (utils/get-namespace (:env ctx) ns-sym nil))
+  (utils/namespace-object (:env ctx) ns-sym false nil))
 
 (defn sci-the-ns [ctx x]
   (if (instance? sci.impl.vars.SciNamespace x) x
@@ -381,7 +381,7 @@
 
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)]
-    (map #(utils/get-namespace env % nil) (keys (get @env :namespaces)))))
+    (map #(utils/namespace-object env % true nil) (keys (get @env :namespaces)))))
 
 ;;;; End namespaces
 
