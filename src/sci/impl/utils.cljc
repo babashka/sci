@@ -130,17 +130,17 @@
   (walk* (partial prewalk f) (f form)))
 
 (defn namespace-object
-  "Fetches namespaces from env if it exists. Else, if `create?`, produces
-  one and adds it to env before returning it."
+  "Fetches namespaces from env if it exists. Else, if `create?`,
+  produces one regardless of the existince of the namespace in env and
+  adds it to env before returning it."
   [env ns-sym create? attr-map]
-  ;; (prn "env" (some? env))
-  (or (let [v (get-in @env [:namespaces ns-sym :obj])]
-        ;; (prn "v" v)
-        v)
-      (when create?
-        (let [ns-obj (vars/->SciNamespace ns-sym attr-map)]
-          (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
-          ns-obj))))
+  (let [env* @env
+        ns-map (get-in env* [:namespaces ns-sym])]
+    (or (:obj ns-map)
+        (when (or ns-map create?)
+          (let [ns-obj (vars/->SciNamespace ns-sym attr-map)]
+            (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
+            ns-obj)))))
 
 (defn set-namespace! [ctx ns-sym attr-map]
   (let [env (:env ctx)
