@@ -60,10 +60,10 @@
   (let [i (first bindings)
         n (second bindings)]
     `(let [n# (long ~n)]
-       (loop [~i 0]
+       (~utils/allowed-loop [~i 0]
          (when (< ~i n#)
            ~@body
-           (recur (unchecked-inc ~i)))))))
+           (~utils/allowed-recur (unchecked-inc ~i)))))))
 
 (defn if-not*
   "if-not from clojure.core"
