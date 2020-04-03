@@ -71,5 +71,5 @@
   (is (eval* "(defn- baz []) (ns-unmap *ns* 'baz) (nil? (resolve 'baz))")))
 
 (deftest find-ns-test
-  (is (some? (eval* "(ns foo) (find-ns 'foo)")))
+  (is (true? (eval* "(ns foo) (some? (find-ns 'foo))")))
   (is (nil? (eval* "(find-ns 'foo)"))))
