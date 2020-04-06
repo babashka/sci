@@ -290,6 +290,13 @@
      (when-not (~'has-root-impl v#)
        (def ~name ~expr))))
 
+(defn while*
+  [_ _ test & body]
+  `(loop []
+     (when ~test
+       ~@body
+       (recur))))
+
 (defn double-dot
   ([_ _ x form] `(. ~x ~form))
   ([_ _ x form & more] `(.. (. ~x ~form) ~@more)))
@@ -814,6 +821,7 @@
    'when-some (macrofy when-some*)
    'when (macrofy when*)
    'when-not (macrofy when-not*)
+   'while (macrofy while*)
    'with-meta (copy-core-var with-meta)
    'with-open (macrofy with-open*)
    ;; 'with-redefs (macrofy vars/with-redefs)

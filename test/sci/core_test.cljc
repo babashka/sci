@@ -861,6 +861,8 @@ clojure.core/inc
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
                         (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]}))))
 
+(deftest while-test
+  (is (= 10 (eval* "(def a (atom 0)) (while (< @a 10) (swap! a inc)) @a"))))
 
 ;;;; Scratch
 
