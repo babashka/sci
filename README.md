@@ -46,6 +46,7 @@ It is used in:
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
+- [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
 ## Status
