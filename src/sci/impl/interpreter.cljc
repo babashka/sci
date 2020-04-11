@@ -556,14 +556,11 @@
 
 (defn eval-string* [ctx s]
   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-    (loop [queue []
-           ret nil]
-      (let [expr (or (first queue)
-                     (p/parse-next ctx reader))]
+    (loop [ret nil]
+      (let [expr (p/parse-next ctx reader)]
         (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
             (let [ret (eval-form ctx expr)]
-              (if (seq queue) (recur (rest queue) ret)
-                  (recur [] ret))))))))
+              (recur ret)))))))
 
 ;;;; Called from public API
 
