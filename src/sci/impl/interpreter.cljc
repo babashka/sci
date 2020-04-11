@@ -291,20 +291,20 @@
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (interpret ctx instance-expr)
-        ^Class target-class (or tag-class
-                                (when-let [f (:public-class ctx)]
-                                  (f instance-expr*)))
-        resolved-class (or target-class (#?(:clj class :cljs type) instance-expr*))
-        class-name (#?(:clj .getName :cljs .-name) resolved-class)
-        class-symbol (symbol class-name)
-        ;; _ #?(:cljs (.log js/console (clj->js class->opts)) :clj nil)
+        instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+        instance-class-name #?(:clj (.getName ^Class instance-class)
+                               :cljs (.-name instance-class))
+        instance-class-symbol (symbol instance-class-name)
         allowed? (or
                   (get class->opts :allow)
-                  (get class->opts class-symbol))]
+                  (get class->opts instance-class-symbol))
+        ^Class target-class (if allowed? instance-class
+                           (when-let [f (:public-class ctx)]
+                             (f instance-expr*)))]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
-    (when-not allowed?
-      (throw-error-with-location (str "Method " method-str " on " resolved-class " not allowed!") instance-expr))
+    (when-not target-class
+      (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
     (let [args (map #(interpret ctx %) args)] ;; eval args!
       (interop/invoke-instance-method instance-expr* target-class method-str args))))
 
