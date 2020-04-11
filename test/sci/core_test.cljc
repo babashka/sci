@@ -864,6 +864,9 @@ clojure.core/inc
 (deftest while-test
   (is (= 10 (eval* "(def a (atom 0)) (while (< @a 10) (swap! a inc)) @a"))))
 
+(deftest meta-on-syntax-quote-test
+  (is (:foo (eval* "(meta `^:foo (1 2 3))"))))
+
 ;;;; Scratch
 
 (comment
