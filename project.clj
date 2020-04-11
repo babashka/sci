@@ -10,7 +10,7 @@
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [borkdude/edamame "0.0.11-alpha.5"]
+                 [borkdude/edamame "0.0.11-alpha.6"]
                  [borkdude/sci.impl.reflector "0.0.1"]
                  [org.clojure/tools.reader "1.3.2"]]
   :plugins [[lein-codox "0.10.7"]]
