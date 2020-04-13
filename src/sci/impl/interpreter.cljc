@@ -132,8 +132,8 @@
       sym))))
 
 (defn parse-libspec [libspec]
-  (if (symbol? libspec)
-    {:lib-name libspec}
+  (cond
+    (sequential? libspec)
     (let [[lib-name & opts] libspec]
       (loop [ret {:lib-name lib-name}
              [opt-name fst-opt & rst-opts] opts]
@@ -145,7 +145,10 @@
                                                   (assoc ret :reload true)
                                                   (cons fst-opt rst-opts))
                   :refer (recur (assoc ret :refer fst-opt)
-                                rst-opts)))))))
+                                rst-opts)))))
+    (symbol? libspec) {:lib-name libspec}
+    :else (throw (new #?(:clj Exception :cljs js/Error)
+                      (str "Invalid libspec: " libspec)))))
 
 (declare eval-string*)
 
@@ -156,18 +159,24 @@
                            the-current-ns)
         the-current-ns
         (if refer
-          (do
-            (when-not (sequential? refer)
-              (throw (new #?(:clj Exception :cljs js/Error)
-                          (str ":refer value must be a sequential collection of symbols"))))
-            (reduce (fn [ns sym]
-                      (assoc ns sym
-                             (if-let [[_k v] (find the-loaded-ns sym)]
-                               v
-                               (throw (new #?(:clj Exception :cljs js/Error)
-                                           (str sym " does not exist"))))))
-                    the-current-ns
-                    refer))
+          (cond (kw-identical? :all refer)
+                (reduce (fn [ns [k v]]
+                          (if (symbol? k)
+                            (assoc ns k v)
+                            ns))
+                        the-current-ns
+                        the-loaded-ns)
+                (sequential? refer)
+                (reduce (fn [ns sym]
+                          (assoc ns sym
+                                 (if-let [[_k v] (find the-loaded-ns sym)]
+                                   v
+                                   (throw (new #?(:clj Exception :cljs js/Error)
+                                               (str sym " does not exist"))))))
+                        the-current-ns
+                        refer)
+                :else (throw (new #?(:clj Exception :cljs js/Error)
+                                  (str ":refer value must be a sequential collection of symbols"))))
           the-current-ns)
         env (assoc-in env [:namespaces current-ns] the-current-ns)]
     env))
@@ -299,8 +308,8 @@
                   (get class->opts :allow)
                   (get class->opts instance-class-symbol))
         ^Class target-class (if allowed? instance-class
-                           (when-let [f (:public-class ctx)]
-                             (f instance-expr*)))]
+                                (when-let [f (:public-class ctx)]
+                                  (f instance-expr*)))]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
     (when-not target-class
