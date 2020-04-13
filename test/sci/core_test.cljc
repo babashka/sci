@@ -856,6 +856,29 @@ clojure.core/inc
             "-------------------------\nfoo\n  foodoc\n")
            (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))))
 
+(deftest repl-find-doc-test
+  (when-not tu/native?
+    (is (= (str/trim "
+-------------------------
+foo-ns/foo-fun
+([x] [x y])
+Macro
+  foodoc
+-------------------------
+foo-ns/foo-macro
+([x] [x y])
+Macro
+  foodoc
+-------------------------
+foo-ns
+  foodoc")
+           (str/trim (sci/with-out-str (eval* "
+(ns foo-ns \"foodoc\")
+(defmacro foo-fun \"foodoc\" ([x]) ([x y]))
+(defmacro foo-macro \"foodoc\" ([x]) ([x y]))
+
+(clojure.repl/find-doc #\"foodoc\")")))))))
+
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
     (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))

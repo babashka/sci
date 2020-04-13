@@ -875,65 +875,50 @@
   `(doseq [v# (clojure.repl/dir-fn '~nsname)]
      (println v#)))
 
-#_(defn- print-doc [{n :ns
-                   nm :name
-                   :keys [forms arglists special-form doc url macro spec]
-                   :as m}]
-  (println "-------------------------")
-  (println (or spec (str (when n (str (ns-name n) "/")) nm)))
-  (when forms
-    (doseq [f forms]
-      (print "  ")
-      (prn f)))
-  (when arglists
-    (prn arglists))
-  (cond
-    special-form
-    (do
-      (println "Special Form")
-      (println " " doc)
-      (if (contains? m :url)
-        (when url
-          (println (str "\n  Please see http://clojure.org/" url)))
-        (println (str "\n  Please see http://clojure.org/special_forms#" nm))))
-    macro
-    (println "Macro")
-    spec
-    (println "Spec"))
-  (when doc (println " " doc))
-  (when n
-    (when-let [fnspec (spec/get-spec (symbol (str (ns-name n)) (name nm)))]
-      (println "Spec")
-      (doseq [role [:args :ret :fn]]
-        (when-let [spec (get fnspec role)]
-          (println " " (str (name role) ":") (spec/describe spec)))))))
+(defn print-doc
+  [m]
+  (let [arglists (:arglists m)
+        doc (:doc m)
+        macro? (:macro m)]
+    (io/println "-------------------------")
+    (io/println (str (when-let [ns* (:ns m)]
+                    (str (sci-ns-name ns*) "/"))
+                  (:name m)))
+    (when arglists (io/println arglists))
+    (when macro? (io/println "Macro"))
+    (when doc (io/println " " doc))))
 
 (defn doc
   [_ _ sym]
   `(if-let [var# (resolve '~sym)]
-     (let [m# (meta var#)
-           arglists# (:arglists m#)
-           doc# (:doc m#)
-           macro?# (:macro m#)]
-       (println "-------------------------")
-       (println (str (when-let [ns* (:ns m#)]
-                       (str (ns-name ns*) "/"))
-                     (:name m#)))
-       (when arglists# (println arglists#))
-       (when macro?# (println "Macro"))
-       (when doc# (println " " doc#)))
+     (~'clojure.repl/print-doc (meta var#))
      (if-let [ns# (find-ns '~sym)]
-       (let [m# (meta ns#)
-             doc# (:doc m#)]
-         (println "-------------------------")
-         (println (str (ns-name ns#)))
-         (when doc# (println " " doc#))))))
+       (~'clojure.repl/print-doc (assoc (meta ns#)
+                                        :name (ns-name ns#))))))
+
+(defn find-doc
+  "Prints documentation for any var whose documentation or name
+ contains a match for re-string-or-pattern"
+  [ctx re-string-or-pattern]
+  (let [re (re-pattern re-string-or-pattern)
+        ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
+                           (sci-all-ns ctx))
+                   (map #(assoc (meta %)
+                                :name (sci-ns-name %)) (sci-all-ns ctx))
+                   #_(map special-doc (keys special-doc-map)))]
+    (doseq [m ms
+            :when (and (:doc m)
+                       (or (re-find re (:doc m))
+                           (re-find re (str (:name m)))))]
+      (print-doc m))))
 
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
    'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
    'dir (macrofy dir)
-   'doc (macrofy doc)})
+   'print-doc (with-meta print-doc {:private true})
+   'doc (macrofy doc)
+   'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})})
 
 (defn apply-template
   [argv expr values]
