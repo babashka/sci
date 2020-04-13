@@ -145,7 +145,9 @@
                                                   (assoc ret :reload true)
                                                   (cons fst-opt rst-opts))
                   :refer (recur (assoc ret :refer fst-opt)
-                                rst-opts)))))
+                                rst-opts)
+                  :rename (recur (assoc ret :rename fst-opt)
+                                 rst-opts)))))
     (symbol? libspec) {:lib-name libspec}
     :else (throw (new #?(:clj Exception :cljs js/Error)
                       (str "Invalid libspec: " libspec)))))
@@ -153,22 +155,25 @@
 (declare eval-string*)
 
 (defn handle-require-libspec-env
-  [env current-ns the-loaded-ns lib-name {:keys [:as :refer] :as _parsed-libspec}]
+  [env current-ns the-loaded-ns lib-name
+   {:keys [:as :refer :rename] :as _parsed-libspec}]
   (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                            the-current-ns)
+        rename-sym (if rename (fn [sym] (or (rename sym) sym))
+                       identity)
         the-current-ns
         (if refer
           (cond (kw-identical? :all refer)
                 (reduce (fn [ns [k v]]
                           (if (symbol? k)
-                            (assoc ns k v)
+                            (assoc ns (rename-sym k) v)
                             ns))
                         the-current-ns
                         the-loaded-ns)
                 (sequential? refer)
                 (reduce (fn [ns sym]
-                          (assoc ns sym
+                          (assoc ns (rename-sym sym)
                                  (if-let [[_k v] (find the-loaded-ns sym)]
                                    v
                                    (throw (new #?(:clj Exception :cljs js/Error)

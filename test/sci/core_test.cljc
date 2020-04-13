@@ -494,7 +494,9 @@
 (require (symbol \"foo\") (symbol \"bar\"))
 [foo/x bar/x x]"))))
   (testing "require as function"
-    (is (= 1 (eval* "(ns foo) (defn foo [] 1) (ns bar) (apply require ['[foo :as f]]) (f/foo)")))))
+    (is (= 1 (eval* "(ns foo) (defn foo [] 1) (ns bar) (apply require ['[foo :as f]]) (f/foo)"))))
+  (testing "rename"
+    (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})")))))
 
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
