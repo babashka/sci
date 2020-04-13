@@ -498,6 +498,19 @@
   (testing "rename"
     (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})")))))
 
+(deftest use-test
+  (is (= #{1 2} (eval* "(ns foo (:use clojure.set)) (union #{1} #{2})")))
+  (is (= #{1 2} (eval* "(use 'clojure.set) (union #{1} #{2})")))
+  (is (= #{1 2} (eval* "(use '[clojure.set :only [union]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"not.*resolve.*union"
+       (eval* "(use '[clojure.set :exclude [union]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"not.*resolve.*union"
+       (eval* "(use '[clojure.set :only [difference]]) (union #{1} #{2})"))))
+
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
   (is (= #{1 3 2} (eval* "(mapv alias ['set1 'set2] ['clojure.set 'clojure.set]) (set2/difference

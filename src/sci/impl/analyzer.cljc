@@ -546,10 +546,11 @@
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
-            :require (recur (next exprs)
-                            (conj ret
-                                  (mark-eval-call
-                                   (list* 'require args))))
+            (:require :use)
+            (recur (next exprs)
+                   (conj ret
+                         (mark-eval-call
+                          (list* (symbol (name k)) args))))
             :import (do
                       ;; imports are processed analysis time
                       (do-import ctx `(~'import ~@args))

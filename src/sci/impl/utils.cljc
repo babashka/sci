@@ -150,3 +150,4 @@
 
 (def eval-form-state (volatile! nil))
 (def eval-require-state (volatile! nil))
+(def eval-use-state (volatile! nil))

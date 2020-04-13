@@ -1,6 +1,6 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message ex-cause eval read-string require])
+  (:refer-clojure :exclude [ex-message ex-cause eval read-string require use])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -408,6 +408,9 @@
 (defn require [sci-ctx & args]
   (apply @utils/eval-require-state sci-ctx args))
 
+(defn use [sci-ctx & args]
+  (apply @utils/eval-use-state sci-ctx args))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -806,6 +809,7 @@
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
    'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
+   'use (with-meta use {:sci.impl/op :needs-ctx})
    'val (copy-core-var val)
    'vals (copy-core-var vals)
    'var? sci.impl.vars/var?

@@ -144,45 +144,58 @@
                   (:reload :reload-all :verbose) (recur
                                                   (assoc ret :reload true)
                                                   (cons fst-opt rst-opts))
-                  :refer (recur (assoc ret :refer fst-opt)
-                                rst-opts)
-                  :rename (recur (assoc ret :rename fst-opt)
-                                 rst-opts)))))
+                  (:refer :rename :exclude :only) (recur (assoc ret opt-name fst-opt)
+                                                         rst-opts)))))
     (symbol? libspec) {:lib-name libspec}
     :else (throw (new #?(:clj Exception :cljs js/Error)
                       (str "Invalid libspec: " libspec)))))
 
 (declare eval-string*)
 
+(defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
+  (let [only (when only (set only))]
+    (reduce (fn [ns [k v]]
+              (if (and (symbol? k) (include-sym? k)
+                       (or (not only)
+                           (contains? only k)))
+                (assoc ns (rename-sym k) v)
+                ns))
+            the-current-ns
+            the-loaded-ns)))
+
 (defn handle-require-libspec-env
-  [env current-ns the-loaded-ns lib-name
-   {:keys [:as :refer :rename] :as _parsed-libspec}]
+  [env use? current-ns the-loaded-ns lib-name
+   {:keys [:as :refer :rename :exclude :only] :as _parsed-libspec}]
   (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                            the-current-ns)
         rename-sym (if rename (fn [sym] (or (rename sym) sym))
                        identity)
+        include-sym? (if exclude
+                       (let [excludes (set exclude)]
+                         (fn [sym]
+                           (not (contains? excludes sym))))
+                       (constantly true))
         the-current-ns
-        (if refer
-          (cond (kw-identical? :all refer)
-                (reduce (fn [ns [k v]]
-                          (if (symbol? k)
-                            (assoc ns (rename-sym k) v)
-                            ns))
-                        the-current-ns
-                        the-loaded-ns)
-                (sequential? refer)
-                (reduce (fn [ns sym]
-                          (assoc ns (rename-sym sym)
-                                 (if-let [[_k v] (find the-loaded-ns sym)]
-                                   v
-                                   (throw (new #?(:clj Exception :cljs js/Error)
-                                               (str sym " does not exist"))))))
-                        the-current-ns
-                        refer)
-                :else (throw (new #?(:clj Exception :cljs js/Error)
-                                  (str ":refer value must be a sequential collection of symbols"))))
-          the-current-ns)
+        (cond refer
+              (cond (or (kw-identical? :all refer)
+                        use?)
+                    (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym nil)
+                    (sequential? refer)
+                    (reduce (fn [ns sym]
+                              (if (include-sym? sym)
+                                (assoc ns (rename-sym sym)
+                                       (if-let [[_k v] (find the-loaded-ns sym)]
+                                         v
+                                         (throw (new #?(:clj Exception :cljs js/Error)
+                                                     (str sym " does not exist")))))
+                                ns))
+                            the-current-ns
+                            refer)
+                    :else (throw (new #?(:clj Exception :cljs js/Error)
+                                      (str ":refer value must be a sequential collection of symbols"))))
+              use? (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
+              :else the-current-ns)
         env (assoc-in env [:namespaces current-ns] the-current-ns)]
     env))
 
@@ -192,9 +205,10 @@
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
-        namespaces (get env :namespaces)]
+        namespaces (get env :namespaces)
+        use? (:sci.impl/use ctx)]
     (if-let [the-loaded-ns (when-not reload (get namespaces lib-name))]
-      (reset! env* (handle-require-libspec-env env cnn the-loaded-ns lib-name parsed-libspec))
+      (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn ctx)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
@@ -208,12 +222,12 @@
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
-                            (handle-require-libspec-env env cnn
+                            (handle-require-libspec-env env use? cnn
                                                         the-loaded-ns
                                                         lib-name parsed-libspec)))))
           (or (when reload
                 (when-let [the-loaded-ns (get namespaces lib-name)]
-                  (reset! env* (handle-require-libspec-env env cnn the-loaded-ns lib-name parsed-libspec))))
+                  (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))))
               (throw (new #?(:clj Exception :cljs js/Error)
                           (str "Could not require " lib-name ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
@@ -246,6 +260,12 @@
         (run! #(handle-require-libspec ctx %) libspecs)))))
 
 (vreset! utils/eval-require-state eval-require)
+
+(defn eval-use
+  [ctx & args]
+  (apply eval-require (assoc ctx :sci.impl/use true) args))
+
+(vreset! utils/eval-use-state eval-use)
 
 (defn eval-case
   [ctx [_case {:keys [:case-map :case-val :case-default]}]]
@@ -468,6 +488,7 @@
     set! (eval-set! ctx expr)
     refer (eval-refer ctx expr)
     require (apply eval-require ctx (rest expr))
+    use (apply eval-use ctx (rest expr))
     resolve (eval-resolve ctx expr)
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))))
