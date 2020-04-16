@@ -58,8 +58,9 @@ foo-ns
 (clojure.repl/find-doc #\"foodoc\")")))))))
 
 (deftest repl-dir-test
-  (let [output (sci/with-out-str (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.string)"))]
-    (is (str/includes? output "includes?")))
+  (when-not tu/native?
+    (let [output (sci/with-out-str (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.string)"))]
+      (is (str/includes? output "includes?"))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"No namespace.*found "
                         (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.typo)"))))

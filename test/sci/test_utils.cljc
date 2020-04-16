@@ -1,8 +1,8 @@
 (ns sci.test-utils
-  (:require [sci.core :refer [eval-string]]
+  (:require #?(:clj [edamame.core :as edamame])
             #?(:clj [me.raynes.conch :refer [let-programs] :as sh])
             [clojure.test :refer [is]]
-            #?(:clj [edamame.core :as edamame])))
+            [sci.core :refer [eval-string]]))
 
 (def native? #?(:clj (= "native" (System/getenv "SCI_TEST_ENV"))
                 :cljs false))
