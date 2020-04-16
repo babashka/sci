@@ -7,6 +7,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
+   #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
@@ -33,11 +34,11 @@
     ([sym]
      `(copy-var ~sym clojure-core-ns)
      #_`(let [m# (-> (var ~sym) meta)]
-        (vars/->SciVar ~sym '~sym {:doc (:doc m#)
-                                   :name (:name m#)
-                                   :arglists (:arglists m#)
-                                   :ns clojure-core-ns
-                                   :sci.impl/built-in true})))))
+          (vars/->SciVar ~sym '~sym {:doc (:doc m#)
+                                     :name (:name m#)
+                                     :arglists (:arglists m#)
+                                     :ns clojure-core-ns
+                                     :sci.impl/built-in true})))))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -61,9 +62,9 @@
         n (second bindings)]
     `(let [n# (long ~n)]
        (~utils/allowed-loop [~i 0]
-         (when (< ~i n#)
-           ~@body
-           (~utils/allowed-recur (unchecked-inc ~i)))))))
+        (when (< ~i n#)
+          ~@body
+          (~utils/allowed-recur (unchecked-inc ~i)))))))
 
 (defn if-not*
   "if-not from clojure.core"
@@ -413,6 +414,9 @@
 (defn use [sci-ctx & args]
   (apply @utils/eval-use-state sci-ctx args))
 
+(defn sci-resolve [sci-ctx sym]
+  (@utils/eval-resolve-state sci-ctx sym))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -720,6 +724,7 @@
    'reset! (copy-core-var reset!)
    'reset-vals! (copy-core-var reset-vals!)
    'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
+   'resolve (with-meta sci-resolve {:sci.impl/op :needs-ctx})
    'reversible? (copy-core-var reversible?)
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
@@ -884,8 +889,8 @@
         macro? (:macro m)]
     (io/println "-------------------------")
     (io/println (str (when-let [ns* (:ns m)]
-                    (str (sci-ns-name ns*) "/"))
-                  (:name m)))
+                       (str (sci-ns-name ns*) "/"))
+                     (:name m)))
     (when arglists (io/println arglists))
     (when macro? (io/println "Macro"))
     (when doc (io/println " " doc))))
@@ -900,7 +905,7 @@
 
 (defn find-doc
   "Prints documentation for any var whose documentation or name
- contains a match for re-string-or-pattern"
+  contains a match for re-string-or-pattern"
   [ctx re-string-or-pattern]
   (let [re (re-pattern re-string-or-pattern)
         ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
@@ -916,8 +921,8 @@
 
 (defn apropos
   "Given a regular expression or stringable thing, return a seq of all
-public definitions in all currently-loaded namespaces that match the
-str-or-pattern."
+  public definitions in all currently-loaded namespaces that match the
+  str-or-pattern."
   [ctx str-or-pattern]
   (let [matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
                    #(re-find str-or-pattern (str %))
@@ -928,6 +933,39 @@ str-or-pattern."
                            (filter matches? (keys (sci-ns-publics ctx ns))))))
                   (sci-all-ns ctx)))))
 
+(defn source-fn
+  "Returns a string of the source code for the given symbol, if it can
+  find it.  This requires that the symbol resolve to a Var defined in
+  a namespace for which the .clj is in the classpath.  Returns nil if
+  it can't find the source.  For most REPL usage, 'source' is more
+  convenient.
+
+  Example: (source-fn 'filter)"
+  [ctx x]
+  (when-let [v (sci-resolve ctx x)]
+    (let [{:keys [:file :line :end-line :ns]} (meta v)]
+      (when (and file line end-line)
+        (when-let [source (or #?(:clj (let [f (jio/file file)]
+                                        (when (.exists f) (slurp f))))
+                              (when-let [load-fn (:load-fn ctx)]
+                                (:source (load-fn {:namespace (sci-ns-name ns)}))))]
+          (let [lines (str/split source #"\n")
+                line (dec line)
+                end-line (dec end-line)
+                lines (take (- end-line (dec line))
+                            (drop line
+                                  lines))]
+            (str/join "\n" lines)))))))
+
+(defn source
+  "Prints the source code for the given symbol, if it can find it.
+  This requires that the symbol resolve to a Var defined in a
+  namespace for which the .clj is in the classpath.
+
+  Example: (source filter)"
+  [_ _ n]
+  `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
+
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
    'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
@@ -935,7 +973,9 @@ str-or-pattern."
    'print-doc (with-meta print-doc {:private true})
    'doc (macrofy doc)
    'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})
-   'apropos (with-meta apropos {:sci.impl/op :needs-ctx})})
+   'apropos (with-meta apropos {:sci.impl/op :needs-ctx})
+   'source (macrofy source)
+   'source-fn (with-meta source-fn {:sci.impl/op :needs-ctx})})
 
 (defn apply-template
   [argv expr values]

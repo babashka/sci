@@ -219,7 +219,8 @@
   (is (= 1 (eval* "(let [case 'case] (case {'case 1}))")))
   ;; in call position Clojure prioritizes special symbols over bindings
   (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
-  (is (= 1 (eval* "((symbol \"recur\") {'recur 1})"))))
+  (is (= 1 (eval* "((symbol \"recur\") {'recur 1})")))
+  (is (= [true false] (eval* "(mapv (comp some? resolve) '[inc x])"))))
 
 (deftest top-level-test
   (testing "top level expressions are evaluated in order and have side effects,
@@ -857,6 +858,7 @@
 
 (deftest meta-on-syntax-quote-test
   (is (:foo (eval* "(meta `^:foo (1 2 3))"))))
+
 
 ;;;; Scratch
 

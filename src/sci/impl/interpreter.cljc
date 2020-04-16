@@ -367,9 +367,11 @@
 
 (declare eval-form)
 
-(defn eval-resolve [ctx [_ sym]]
+(defn eval-resolve [ctx sym]
   (let [sym (interpret ctx sym)]
     (second (ana/lookup ctx sym false))))
+
+(vreset! utils/eval-resolve-state eval-resolve)
 
 ;;;; End namespaces
 
@@ -489,7 +491,7 @@
     refer (eval-refer ctx expr)
     require (apply eval-require ctx (rest expr))
     use (apply eval-use ctx (rest expr))
-    resolve (eval-resolve ctx expr)
+    resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))))
 
