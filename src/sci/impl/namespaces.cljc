@@ -912,13 +912,28 @@
                            (re-find re (str (:name m)))))]
       (print-doc m))))
 
+(defn apropos
+  "Given a regular expression or stringable thing, return a seq of all
+public definitions in all currently-loaded namespaces that match the
+str-or-pattern."
+  [ctx str-or-pattern]
+  (let [matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
+                   #(re-find str-or-pattern (str %))
+                   #(str/includes? (str %) (str str-or-pattern)))]
+    (sort (mapcat (fn [ns]
+                    (let [ns-name (str ns)]
+                      (map #(symbol ns-name (str %))
+                           (filter matches? (keys (sci-ns-publics ctx ns))))))
+                  (sci-all-ns ctx)))))
+
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
    'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
    'dir (macrofy dir)
    'print-doc (with-meta print-doc {:private true})
    'doc (macrofy doc)
-   'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})})
+   'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})
+   'apropos (with-meta apropos {:sci.impl/op :needs-ctx})})
 
 (defn apply-template
   [argv expr values]

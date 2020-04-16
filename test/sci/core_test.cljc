@@ -879,6 +879,11 @@ foo-ns
 
 (clojure.repl/find-doc #\"foodoc\")")))))))
 
+(deftest repl-apropos-test
+  (let [symbols (set (eval* "(require '[clojure.repl :refer [apropos]]) (apropos \"inc\")"))]
+    (is (contains? symbols 'clojure.core/inc))
+    (is (contains? symbols 'clojure.string/includes?))))
+
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
     (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
