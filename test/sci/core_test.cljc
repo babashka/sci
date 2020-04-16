@@ -831,59 +831,6 @@
        #?(:clj Exception :cljs js/Error) #"read-only"
        (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {}))))
 
-(deftest repl-doc-test
-  (when-not tu/native?
-    (is (= (str/trim "
--------------------------
-user/f
-([x] [x y])
-Macro
-  foodoc")
-           (str/trim (sci/with-out-str (eval* "(defmacro f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
-    (is (= (str/trim  #?(:clj "
--------------------------
-clojure.core/inc
-([x])
-  Returns a number one greater than num. Does not auto-promote
-  longs, will throw on overflow. See also: inc'"
-                         :cljs "
--------------------------
-clojure.core/inc
-([x])
-  Returns a number one greater than num."))
-           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))
-    (is (= (str/trim
-            "-------------------------\nfoo\n  foodoc\n")
-           (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))))
-
-(deftest repl-find-doc-test
-  (when-not tu/native?
-    (is (= (str/trim "
--------------------------
-foo-ns/foo-fun
-([x] [x y])
-Macro
-  foodoc
--------------------------
-foo-ns/foo-macro
-([x] [x y])
-Macro
-  foodoc
--------------------------
-foo-ns
-  foodoc")
-           (str/trim (sci/with-out-str (eval* "
-(ns foo-ns \"foodoc\")
-(defmacro foo-fun \"foodoc\" ([x]) ([x y]))
-(defmacro foo-macro \"foodoc\" ([x]) ([x y]))
-
-(clojure.repl/find-doc #\"foodoc\")")))))))
-
-(deftest repl-apropos-test
-  (let [symbols (set (eval* "(require '[clojure.repl :refer [apropos]]) (apropos \"inc\")"))]
-    (is (contains? symbols 'clojure.core/inc))
-    (is (contains? symbols 'clojure.string/includes?))))
-
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
     (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))

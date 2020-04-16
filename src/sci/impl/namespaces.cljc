@@ -322,7 +322,9 @@
 
 (defn sci-the-ns [ctx x]
   (if (instance? sci.impl.vars.SciNamespace x) x
-      (sci-find-ns ctx x)))
+      (or (sci-find-ns ctx x)
+          (throw (new #?(:clj Exception :cljs js/Error)
+                      (str "No namespace: " x " found"))))))
 
 (defn sci-ns-aliases [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
