@@ -1,8 +1,8 @@
 (ns sci.impl.utils
   {:no-doc true}
   (:require [clojure.string :as str]
-            [sci.impl.vars :as vars]
-            [sci.impl.types :as t]))
+            [sci.impl.types :as t]
+            [sci.impl.vars :as vars]))
 
 (derive :sci.error/realized-beyond-max :sci/error)
 
