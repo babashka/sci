@@ -46,6 +46,7 @@ It is used in:
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
+- [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
 ## Status
@@ -131,7 +132,7 @@ Providing a macro as a binding can be done by providing a normal function that:
 - has two extra arguments at the start for `&form` and `&env`:
 
 ``` clojure
-user=> (def do-twice ^:sci/macro (fn [_&env _&form x] (list 'do x x)))
+user=> (def do-twice ^:sci/macro (fn [_&form _&env x] (list 'do x x)))
 user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice do-twice 'f #(println "hello")}})
 hello
 hello
@@ -345,6 +346,10 @@ Sci.evalString("foo.bar/x", opts); // returns 1
 Note for Java users: the Java API for is conceptually similar to the Clojure
 one, but made more idiomatic for Java users. Check the generated [Java
 documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
+
+## Use as native shared library
+
+To use sci as a native shared library from e.g. C, C++, Rust, read this [tutorial](doc/libsci.md).
 
 ## Test
 

@@ -21,7 +21,7 @@
 ;; Built-in macros.
 
 (def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
-               comment loop lazy-seq for doseq require case try defmacro
+               comment loop lazy-seq for doseq case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1 macroexpand the-ns})
 
@@ -476,7 +476,7 @@
 
 ;;;; Interop
 
-(defn expand-dot [ctx [_dot instance-expr method-expr & args]]
+(defn expand-dot [ctx [_dot instance-expr method-expr & args :as _expr]]
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
@@ -498,7 +498,20 @@
                :cljs `(~'. ~instance-expr ~method-expr ~args))]
     (mark-eval-call res)))
 
-(defn expand-dot* [ctx [method-name obj & args]]
+(defn expand-dot**
+  "Expands (. x method)"
+  [ctx expr]
+  (when (< (count expr) 3)
+    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+                "Malformed member expression, expecting (.member target ...)")))
+  (expand-dot ctx expr))
+
+(defn expand-dot*
+  "Expands (.foo x)"
+  [ctx [method-name obj & args :as expr]]
+  (when (< (count expr) 2)
+    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+                "Malformed member expression, expecting (.member target ...)")))
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
 (defn expand-new [ctx [_new class-sym & args]]
@@ -546,15 +559,19 @@
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
-            :require (recur (next exprs) (conj ret
-                                               (mark-eval-call `(~'require ~@args))))
+            (:require :use)
+            (recur (next exprs)
+                   (conj ret
+                         (mark-eval-call
+                          (list* (symbol (name k)) args))))
             :import (do
                       ;; imports are processed analysis time
                       (do-import ctx `(~'import ~@args))
                       (recur (next exprs) ret))
             :refer-clojure (recur (next exprs)
                                   (conj ret
-                                        (mark-eval-call `(~'refer ~'clojure.core ~@args))))
+                                        (mark-eval-call
+                                         (list* 'refer 'clojure.core args))))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
         (mark-eval-call (list* 'do ret))))))
@@ -564,15 +581,8 @@
 
 ;;;; Vars
 
-(defn wrapped-var [v]
-  (with-meta [v]
-    {:sci.impl/op :var-value}))
-
 (defn analyze-var [ctx [_ var-name]]
-  (let [v (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name)]
-    (if (vars/var? v)
-      v #_(wrapped-var v)
-      v)))
+  (resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name))
 
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)
@@ -635,14 +645,12 @@
                     res
                     (analyze ctx res)))
             doseq (analyze ctx (expand-doseq ctx expr))
-            require (mark-eval-call
-                     (cons 'require (analyze-children ctx (rest expr))))
             if (expand-if ctx expr)
             case (expand-case ctx expr)
             try (expand-try ctx expr)
             declare (expand-declare ctx expr)
             expand-dot* (expand-dot* ctx expr)
-            . (expand-dot ctx expr)
+            . (expand-dot** ctx expr)
             expand-constructor (expand-constructor ctx expr)
             new (expand-new ctx expr)
             import (do-import ctx expr)

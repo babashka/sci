@@ -1,18 +1,19 @@
 (ns sci.impl.main
   "Only used for testing"
   {:no-doc true}
-  (:require [sci.core :as sci :refer [eval-string]]
-            #?(:clj [sci.addons :as addons])
-            #?(:clj [clojure.edn :as edn]
-               :cljs [cljs.reader :as edn])
-            [sci.impl.opts :as opts]
-            [sci.impl.parser :as p]
-            [sci.impl.interpreter :as i]
-            [sci.impl.analyzer :as ana]
-            [clojure.tools.reader.reader-types :as r])
+  (:require
+   [clojure.tools.reader.reader-types :as r]
+   [sci.core :as sci :refer [eval-string]]
+   #?(:clj [sci.addons :as addons])
+   #?(:clj [clojure.edn :as edn]
+      :cljs [cljs.reader :as edn])
+   [sci.impl.analyzer :as ana]
+   [sci.impl.interpreter :as i]
+   [sci.impl.opts :as opts]
+   [sci.impl.parser :as p])
   #?(:clj (:gen-class)))
 
-(defn main [& [form ctx n]]
+(defn ^:skip-aot main [& [form ctx n]]
   (let [n (when n (Integer. n))
         ctx (edn/read-string ctx)
         ctx (-> ctx #?(:clj (addons/future)))

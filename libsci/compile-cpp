@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+echo "Compiling C++!"
+
+g++ libsci/src/from_cpp.cpp -L libsci/target -I libsci/target -lsci -o libsci/target/from_cpp
+
+echo "Created libsci/target/from_cpp."

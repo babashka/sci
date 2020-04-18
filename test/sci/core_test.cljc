@@ -219,7 +219,8 @@
   (is (= 1 (eval* "(let [case 'case] (case {'case 1}))")))
   ;; in call position Clojure prioritizes special symbols over bindings
   (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
-  (is (= 1 (eval* "((symbol \"recur\") {'recur 1})"))))
+  (is (= 1 (eval* "((symbol \"recur\") {'recur 1})")))
+  (is (= [true false] (eval* "(mapv (comp some? resolve) '[inc x])"))))
 
 (deftest top-level-test
   (testing "top level expressions are evaluated in order and have side effects,
@@ -286,9 +287,10 @@
                         #"allowed"
                         (tu/eval* "(resolve 'trampoline)" {:preset :termination-safe})))
 
-  (testing "for/doseq use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
+  (testing "for/doseq/dotimes use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
     (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
+    (is (nil? (tu/eval* "(dotimes [i 3] i)" {:deny '[loop recur]})))
     (testing "users should not be able to hack around this by messing with metadata"
       (is (int? (:line (eval* "(def x (with-meta (symbol \"y\") {:line :allow})) (meta x)"))))
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
@@ -466,9 +468,10 @@
   (is (= "1-2-3" (eval* "(str/join \"-\" [1 2 3])")))
   (is (= "1-2-3" (eval* "(require '[clojure.string :as string]) (string/join \"-\" [1 2 3])")))
   (is (= "1-2-3" (eval* "(require '[clojure.string :refer [join]]) (join \"-\" [1 2 3])")))
+  (is (= "1-2-3" (eval* "(require '[clojure.string :refer :all]) (join \"-\" [1 2 3])")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"must be a sequential"
-                        (eval* "(require '[clojure.string :refer :all]) (join \"-\" [1 2 3])")))
+                        (eval* "(require '[clojure.string :refer 1]) (join \"-\" [1 2 3])")))
   (is (= #{1 4 6 3 2 5} (eval* "(set/union #{1 2 3} #{4 5 6})")))
   (is (= #{1 4 6 3 2 5} (eval* "(require '[clojure.set :as s]) (s/union #{1 2 3} #{4 5 6})")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
@@ -490,7 +493,24 @@
 (in-ns 'baz)
 (def x 3)
 (require (symbol \"foo\") (symbol \"bar\"))
-[foo/x bar/x x]")))))
+[foo/x bar/x x]"))))
+  (testing "require as function"
+    (is (= 1 (eval* "(ns foo) (defn foo [] 1) (ns bar) (apply require ['[foo :as f]]) (f/foo)"))))
+  (testing "rename"
+    (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})")))))
+
+(deftest use-test
+  (is (= #{1 2} (eval* "(ns foo (:use clojure.set)) (union #{1} #{2})")))
+  (is (= #{1 2} (eval* "(use 'clojure.set) (union #{1} #{2})")))
+  (is (= #{1 2} (eval* "(use '[clojure.set :only [union]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"not.*resolve.*union"
+       (eval* "(use '[clojure.set :exclude [union]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"not.*resolve.*union"
+       (eval* "(use '[clojure.set :only [difference]]) (union #{1} #{2})"))))
 
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
@@ -812,31 +832,6 @@
        #?(:clj Exception :cljs js/Error) #"read-only"
        (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {}))))
 
-(deftest repl-doc-test
-  (when-not tu/native?
-    (is (= (str/trim "
--------------------------
-user/f
-([x] [x y])
-Macro
-  foodoc")
-           (str/trim (sci/with-out-str (eval* "(defmacro f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
-    (is (= (str/trim  #?(:clj "
--------------------------
-clojure.core/inc
-([x])
-  Returns a number one greater than num. Does not auto-promote
-  longs, will throw on overflow. See also: inc'"
-                         :cljs "
--------------------------
-clojure.core/inc
-([x])
-  Returns a number one greater than num."))
-           (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))
-    (is (= (str/trim
-            "-------------------------\nfoo\n  foodoc\n")
-           (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))))
-
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
     (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
@@ -855,8 +850,18 @@ clojure.core/inc
 
 (deftest read-string-eval-test
   (is (= :foo (eval* "(def f (eval (read-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\"))) (f 1)")))
+  (is (= :foo (eval* "(def f (load-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\")) (f 1)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
-                        (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]}))))
+                        (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
+                        (tu/eval* "(load-string \"(loop [] (recur))\")" {:deny '[loop]}))))
+
+(deftest while-test
+  (is (= 10 (eval* "(def a (atom 0)) (while (< @a 10) (swap! a inc)) @a"))))
+
+(deftest meta-on-syntax-quote-test
+  (is (:foo (eval* "(meta `^:foo (1 2 3))"))))
+
 
 ;;;; Scratch
 

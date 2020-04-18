@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+echo "Compiling Rust!"
+
+export LIBSCI_PATH=$PWD/libsci/target
+
+( cd libsci/from-rust; cargo build --release )
+
+cp libsci/from-rust/target/release/from-rust libsci/target
+
+echo "Copied the from-rust binary to libsci/target"
