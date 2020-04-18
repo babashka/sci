@@ -78,3 +78,9 @@
      (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
      (is (thrown-with-msg? Exception #"resolve.*at.*1"
                            (eval* "(import foo.bar.Baz)")))))
+
+(deftest syntax-test
+  (doseq [expr ["(.)" "(. {})" "(.foo)"]]
+    (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error)
+                          #"Malformed"
+                          (eval* expr)))))

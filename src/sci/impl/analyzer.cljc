@@ -476,7 +476,7 @@
 
 ;;;; Interop
 
-(defn expand-dot [ctx [_dot instance-expr method-expr & args]]
+(defn expand-dot [ctx [_dot instance-expr method-expr & args :as _expr]]
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
@@ -498,7 +498,20 @@
                :cljs `(~'. ~instance-expr ~method-expr ~args))]
     (mark-eval-call res)))
 
-(defn expand-dot* [ctx [method-name obj & args]]
+(defn expand-dot**
+  "Expands (. x method)"
+  [ctx expr]
+  (when (< (count expr) 3)
+    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+                "Malformed member expression, expecting (.member target ...)")))
+  (expand-dot ctx expr))
+
+(defn expand-dot*
+  "Expands (.foo x)"
+  [ctx [method-name obj & args :as expr]]
+  (when (< (count expr) 2)
+    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+                "Malformed member expression, expecting (.member target ...)")))
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
 (defn expand-new [ctx [_new class-sym & args]]
@@ -637,7 +650,7 @@
             try (expand-try ctx expr)
             declare (expand-declare ctx expr)
             expand-dot* (expand-dot* ctx expr)
-            . (expand-dot ctx expr)
+            . (expand-dot** ctx expr)
             expand-constructor (expand-constructor ctx expr)
             new (expand-new ctx expr)
             import (do-import ctx expr)
