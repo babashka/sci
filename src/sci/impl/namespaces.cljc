@@ -645,6 +645,7 @@
    'max (copy-core-var max)
    'max-key (copy-core-var max-key)
    'meta (copy-core-var meta)
+   'memoize (copy-core-var memoize)
    'merge (copy-core-var merge)
    'merge-with (copy-core-var merge-with)
    'min (copy-core-var min)
@@ -653,7 +654,6 @@
    'mod (copy-core-var mod)
    'name (copy-core-var name)
    'namespace (copy-core-var namespace)
-   ;; 'newline newline
    'nfirst (copy-core-var nfirst)
    'not (copy-core-var not)
    'not= (copy-core-var not=)
