@@ -80,7 +80,8 @@
                            (eval* "(import foo.bar.Baz)")))))
 
 (deftest syntax-test
-  (doseq [expr ["(.)" "(. {})" "(.foo)"]]
-    (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error)
-                          #"Malformed"
-                          (eval* expr)))))
+  (when-not tu/native?
+    (doseq [expr ["(.)" "(. {})" "(.foo)"]]
+      (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error)
+                            #"Malformed"
+                            (eval* expr))))))
