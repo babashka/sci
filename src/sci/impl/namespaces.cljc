@@ -1,6 +1,8 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message ex-cause eval read-string require use])
+  (:refer-clojure :exclude [ex-message ex-cause eval
+                            read-string require use
+                            load-string])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -400,11 +402,13 @@
 (defn read-string
   ([sci-ctx s]
    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-     (parser/parse-next sci-ctx reader)))
-  #_([opts s] (clojure.lang.RT/readString s opts)))
+     (parser/parse-next sci-ctx reader))))
 
 (defn eval [sci-ctx form]
   (@utils/eval-form-state sci-ctx form))
+
+(defn load-string [sci-ctx s]
+  (eval sci-ctx (read-string sci-ctx s)))
 
 ;;;; End eval and read-string
 
@@ -628,6 +632,7 @@
    'keyword? (copy-core-var keyword?)
    'last (copy-core-var last)
    'letfn (macrofy letfn*)
+   'load-string (with-meta load-string {:sci.impl/op :needs-ctx})
    'long (copy-core-var long)
    'list (copy-core-var list)
    'list? (copy-core-var list?)

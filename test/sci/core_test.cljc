@@ -850,8 +850,11 @@
 
 (deftest read-string-eval-test
   (is (= :foo (eval* "(def f (eval (read-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\"))) (f 1)")))
+  (is (= :foo (eval* "(def f (load-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\")) (f 1)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
-                        (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]}))))
+                        (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
+                        (tu/eval* "(load-string \"(loop [] (recur))\")" {:deny '[loop]}))))
 
 (deftest while-test
   (is (= 10 (eval* "(def a (atom 0)) (while (< @a 10) (swap! a inc)) @a"))))
