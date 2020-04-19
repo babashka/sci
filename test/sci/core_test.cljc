@@ -443,6 +443,14 @@
   (if (> c 4)
     l
     (recur (conj l (inc c)) (inc c))))
+" {})))
+  (is (= 4 (tu/eval* "
+(defmacro & [])
+(loop [[x & xs] [1 2 3 4 5]
+       y x]
+  (if (> x 4)
+    y
+    (recur xs x)))
 " {}))))
 
 (deftest for-test

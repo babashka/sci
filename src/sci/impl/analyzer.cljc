@@ -337,11 +337,12 @@
   [ctx expr]
   (let [bv (second expr)
         arg-names (take-nth 2 bv)
-        ;;init-vals (take-nth 2 (rest bv))
-        body (nnext expr)]
-    (analyze ctx (list 'let bv
-                      (apply list `(fn ~(vec arg-names) ~@body)
-                             arg-names)))))
+        init-vals (take-nth 2 (rest bv))
+        body (nnext expr)
+        expansion (list 'let bv
+                        (list* `(fn ~(vec arg-names) ~@body)
+                               init-vals))]
+    (analyze ctx expansion)))
 
 (defn expand-lazy-seq
   [ctx expr]
