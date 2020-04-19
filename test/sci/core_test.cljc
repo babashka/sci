@@ -436,8 +436,14 @@
         (f 0)))))
 
 (deftest loop-test
-  (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))"
-                     {}))))
+  (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
+  (is (= '(5 4 3 2 1) (tu/eval* "
+(loop [l (list 2 1)
+       c (count l)]
+  (if (> c 4)
+    l
+    (recur (conj l (inc c)) (inc c))))
+" {}))))
 
 (deftest for-test
   (is (= '([1 4] [1 6])
