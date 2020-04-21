@@ -373,25 +373,6 @@
    (let [meta (assoc meta :dynamic true)]
      (SciVar. init-val name meta))))
 
-#_(defn with-redefs-fn
-  [binding-map func]
-  (let [root-bind (fn [m]
-                    (doseq [[a-var a-val] m]
-                      (sci.impl.vars/bindRoot a-var a-val)))
-        old-vals (zipmap (keys binding-map)
-                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
-    (try
-      (root-bind binding-map)
-      (func)
-      (finally
-        (root-bind old-vals)))))
-
-#_(defn with-redefs
-  [_ _ bindings & body]
-  `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
-                                         (take-nth 2 (next bindings)))
-     (fn [] ~@body)))
-
 (defn binding
   [_ _ bindings & body]
   #_(assert-args
@@ -413,8 +394,7 @@
 
 (macros/deftime
   (defmacro with-bindings
-    "Macro for binding sci vars. Must be called with map of sci dynamic
-  vars to values. Used in babashka."
+    "Macro for binding sci vars for internal use."
     [bindings & body]
     ;; important: outside try
     `(do (vars/push-thread-bindings ~bindings)
