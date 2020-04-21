@@ -451,6 +451,11 @@
   (if (> x 4)
     y
     (recur xs x)))
+" {})))
+  (is (= 2 (tu/eval* "
+(let [x 1]
+  (loop [x (inc x)]
+    x))
 " {}))))
 
 (deftest for-test
