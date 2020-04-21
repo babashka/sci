@@ -338,12 +338,14 @@
   (let [bv (second expr)
         arg-names (take-nth 2 bv)
         init-vals (take-nth 2 (rest bv))
-        syms (repeatedly (count arg-names) #(gensym))
-        bv1 (map vector syms init-vals)
-        bv2  (map vector arg-names syms)
-        bv* (into [] cat (interleave bv1 bv2))
+        [bv syms] (if (every? symbol? arg-names)
+                    [bv arg-names]
+                    (let [syms (repeatedly (count arg-names) #(gensym))
+                          bv1 (map vector syms init-vals)
+                          bv2  (map vector arg-names syms)]
+                      [(into [] cat (interleave bv1 bv2)) syms]))
         body (nnext expr)
-        expansion (list 'let bv*
+        expansion (list 'let bv
                         (list* `(fn ~(vec arg-names) ~@body)
                                syms))]
     (analyze ctx expansion)))
