@@ -1018,16 +1018,13 @@
      ([ctx e-or-depth]
       (if (instance? Throwable e-or-depth)
         (pst ctx e-or-depth 12)
-        (when-let [e (get-in @(:env ctx) ['clojure.core '*e])]
-          (pst (root-cause e) e-or-depth))))
+        (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
+          (pst ctx (root-cause e) e-or-depth))))
      ([_ctx ^Throwable e depth]
       (vars/with-bindings {io/out @io/err}
-        (when (#{:read-source :macro-syntax-check :macroexpansion :compile-syntax-check :compilation}
-               (-> e ex-data :clojure.error/phase))
-          (io/println "Note: The following stack trace applies to the reader or compiler, your code was not executed."))
         (io/println (str (-> e class .getSimpleName) " "
-                      (.getMessage e)
-                      (when-let [info (ex-data e)] (str " " (pr-str info)))))
+                         (.getMessage e)
+                         (when-let [info (ex-data e)] (str " " (pr-str info)))))
         (let [st (.getStackTrace e)
               cause (.getCause e)]
           (doseq [el (take depth
