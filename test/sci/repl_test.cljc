@@ -69,3 +69,17 @@ foo-ns
   (let [symbols (set (eval* "(require '[clojure.repl :refer [apropos]]) (apropos \"inc\")"))]
     (is (contains? symbols 'clojure.core/inc))
     (is (contains? symbols 'clojure.string/includes?))))
+
+(deftest repl-pst-test
+  #?(:clj
+     (when-not tu/native?
+       (let [sw (java.io.StringWriter.)]
+         (sci/binding [sci/err sw]
+           (eval* "(try (/ 1 0) (catch Exception e (clojure.repl/pst e 2)))"))
+         (is (str/includes? (str sw) "Divide by zero")))
+       (let [sw (java.io.StringWriter.)]
+         (sci/binding [sci/err sw]
+           (eval* "(try (/ 1 0) (catch Exception e (clojure.repl/pst e 2)))"))
+         (is (str/includes? (str/trim (str sw)) (str/trim "
+ArithmeticException Divide by zero
+\tclojure.lang.Numbers.divide")))))))

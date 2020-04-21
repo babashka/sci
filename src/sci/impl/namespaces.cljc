@@ -20,6 +20,8 @@
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
 
 (macros/deftime
@@ -971,6 +973,71 @@
   [_ _ n]
   `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
 
+#?(:clj
+   (defn root-cause
+     "Returns the initial cause of an exception or error by peeling off all of
+  its wrappers"
+     {:added "1.3"}
+     [^Throwable t]
+     (loop [cause t]
+       (if (and (instance? clojure.lang.Compiler$CompilerException cause)
+                (not= (.source ^clojure.lang.Compiler$CompilerException cause) "NO_SOURCE_FILE"))
+         cause
+         (if-let [cause (.getCause cause)]
+           (recur cause)
+           cause)))))
+
+#?(:clj
+   (defn demunge
+     "Given a string representation of a fn class,
+  as in a stack trace element, returns a readable version."
+     {:added "1.3"}
+     [fn-name]
+     (clojure.lang.Compiler/demunge fn-name)))
+
+#?(:clj
+   (defn stack-element-str
+     "Returns a (possibly unmunged) string representation of a StackTraceElement"
+     {:added "1.3"}
+     [^StackTraceElement el]
+     (let [file (.getFileName el)
+           clojure-fn? (and file (or (.endsWith file ".clj")
+                                     (.endsWith file ".cljc")
+                                     (= file "NO_SOURCE_FILE")))]
+       (str (if clojure-fn?
+              (demunge (.getClassName el))
+              (str (.getClassName el) "." (.getMethodName el)))
+            " (" (.getFileName el) ":" (.getLineNumber el) ")"))))
+
+#?(:clj
+   (defn pst
+     "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
+  most recent repl exception (*e), and a depth of 12."
+     {:added "1.3"}
+     ([ctx] (pst ctx 12))
+     ([ctx e-or-depth]
+      (if (instance? Throwable e-or-depth)
+        (pst ctx e-or-depth 12)
+        (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
+          (pst ctx (root-cause e) e-or-depth))))
+     ([_ctx ^Throwable e depth]
+      (vars/with-bindings {io/out @io/err}
+        (io/println (str (-> e class .getSimpleName) " "
+                         (.getMessage e)
+                         (when-let [info (ex-data e)] (str " " (pr-str info)))))
+        (let [st (.getStackTrace e)
+              cause (.getCause e)]
+          (doseq [el (take depth
+                           (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
+                                     (.getClassName ^StackTraceElement %))
+                                   st))]
+            (io/println (str \tab (stack-element-str el))))
+          (when cause
+            (io/println "Caused by:")
+            (pst cause (min depth
+                            (+ 2 (- (count (.getStackTrace cause))
+                                    (count st)))))))))))
+
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
    'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
@@ -980,7 +1047,10 @@
    'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})
    'apropos (with-meta apropos {:sci.impl/op :needs-ctx})
    'source (macrofy source)
-   'source-fn (with-meta source-fn {:sci.impl/op :needs-ctx})})
+   'source-fn (with-meta source-fn {:sci.impl/op :needs-ctx})
+   #?@(:clj ['pst (with-meta pst {:sci.impl/op :needs-ctx})
+             'stack-element-str stack-element-str
+             'demunge demunge])})
 
 (defn apply-template
   [argv expr values]
