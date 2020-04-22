@@ -212,13 +212,12 @@
       (if-let [load-fn (:load-fn ctx)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
-            (try (vars/with-bindings {vars/current-file file}
+            (try (vars/with-bindings {vars/current-ns @vars/current-ns
+                                      vars/current-file file}
                    (eval-string* (assoc ctx :bindings {}) source))
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
-                   (throw e))
-                 ;; TODO: fix ns metadata
-                 (finally (set-namespace! ctx cnn nil)))
+                   (throw e)))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
