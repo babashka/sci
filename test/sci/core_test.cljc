@@ -868,6 +868,8 @@
   (is (= 1 (eval* "(when-some [foo false] 1)"))))
 
 (deftest read-string-eval-test
+  (is (= 3 (eval* "(load-string \"1 2 3\")")))
+  (is (= 'user (eval* "(load-string \"(ns bar)\") (ns-name *ns*)")))
   (is (= :foo (eval* "(def f (eval (read-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\"))) (f 1)")))
   (is (= :foo (eval* "(def f (load-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\")) (f 1)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"

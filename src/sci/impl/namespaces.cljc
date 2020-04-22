@@ -410,7 +410,13 @@
   (@utils/eval-form-state sci-ctx form))
 
 (defn load-string [sci-ctx s]
-  (eval sci-ctx (read-string sci-ctx s)))
+  (vars/with-bindings {vars/current-ns @vars/current-ns}
+    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+      (loop [ret nil]
+        (let [x (parser/parse-next sci-ctx reader)]
+          (if (utils/kw-identical? :edamame.impl.parser/eof x)
+            ret
+            (recur (eval sci-ctx x))))))))
 
 ;;;; End eval and read-string
 
