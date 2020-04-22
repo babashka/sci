@@ -1,11 +1,12 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
-                            with-redefs binding future pmap alter-var-root])
+                            with-redefs binding future pmap alter-var-root
+                            ns])
   (:require
    [sci.impl.interpreter :as i]
-   [sci.impl.vars :as vars]
    [sci.impl.io :as sio]
-   [sci.impl.macros :as macros])
+   [sci.impl.macros :as macros]
+   [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -78,6 +79,8 @@
 (def in "Sci var that represents sci's `clojure.core/*in*`" sio/in)
 (def out "Sci var that represents sci's `clojure.core/*out*`" sio/out)
 (def err "Sci var that represents sci's `clojure.core/*err*`" sio/err)
+(def ns "Sci var that represents sci's `clojure.core/*ns*`" vars/current-ns)
+(def file "Sci var that represents sci's `clojure.core/*file*`" vars/current-file)
 (def print-length "Sci var that represents sci's `clojure.core/*print-length*`" sio/print-length)
 
 (macros/deftime
