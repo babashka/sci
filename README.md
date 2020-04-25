@@ -330,11 +330,12 @@ Another option for dynamically loading code at runtime is to reimplement
 clojure's `load-file` call. A minimal example is presented here:
 
 ```
-(spit "sci-load-example.clj" "(* 10 x)")
+(ns my.sci.app
+    (:require [sci.core :as sci]
+              [sci.impl.interpreter :refer [eval-string*]]
+              [clojure.java.io :as io]))
 
-(require '[sci.core :as sci]
-         '[sci.impl.interpreter :refer [eval-string*]]
-         '[clojure.java.io :as io])
+(spit "sci-load-example.clj" "(* 10 x)")
 
 (defn load-file* [sci-opts path]
   (let [file-path (io/file path)
