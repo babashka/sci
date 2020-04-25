@@ -288,20 +288,23 @@ the atom yourself as the value for the `:env` key:
 
 ### Dynamic Code Evaluation
 
-Sci supports implementation of dynamic code loading by a function hook
-that is invoked by sci's internal implementation of `require` in order
-to find and return the source code for the requested namespace. This
-passed-in function will be called with a single argument that is a
-hashmap with a key `:namespace` that has the symbol of the required
-namespace as a value. This function can choose to return a hashmap
-with the keys `:file` (containing the filename to be used in error
-messages) and `:source` (containing the source code text) in response
-and sci will evaluate that source code to satisfy the
-require. Alternatively the function can return `nil` which will result
-in sci throwing an exception that the namespace can not be found.
+Sci supports implementation of dynamic code loading via a function
+hook that is invoked by sci's internal implementation of
+`require`. The job of this function is to find and return the source
+code for the requested namespace. This passed-in function will be
+called with a single argument that is a hashmap with a key
+`:namespace`. The value for this key will be the _symbol_ of the
+requested namespace.
+
+This function can return a hashmap with the keys `:file` (containing
+the filename to be used in error messages) and `:source` (containing
+the source code text) and sci will evaluate that source code to
+satisfy the require. Alternatively the function can return `nil` which
+will result in sci throwing an exception that the namespace can not be
+found.
 
 This custom function is passed into the sci context under the
-`:load-fn` key, thus:
+`:load-fn` key as shown below.
 
 ``` clojure
 (defn load-fn [{:keys [namespace]}]
@@ -313,8 +316,8 @@ This custom function is passed into the sci context under the
 ```
 
 Note that internally specified namespaces (either those within sci
-itself, or those mounted under the `:namespaces` context setting) will
-be used first and load-fn will not be called in those cases:
+itself or those mounted under the `:namespaces` context setting) will
+be utilised first and load-fn will not be called in those cases:
 
 ``` clojure
 (sci/eval-string "(require '[foo :as fu]) fu/val"
