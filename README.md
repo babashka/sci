@@ -286,6 +286,70 @@ the atom yourself as the value for the `:env` key:
 (sci/eval-string "(foo)" {:env env}) ;;=> :foo
 ```
 
+### Dynamic Code Evaluation
+
+Sci supports implementation of dynamic code loading by a function hook
+that is invoked by sci's internal implementation of `require` in order
+to find and return the source code for the requested namespace. This
+passed-in function will be called with a single argument that is a
+hashmap with a key `:namespace` that has the symbol of the required
+namespace as a value. This function can choose to return a hashmap
+with the keys `:file` (containing the filename to be used in error
+messages) and `:source` (containing the source code text) in response
+and sci will evaluate that source code to satisfy the
+require. Alternatively the function can return `nil` which will result
+in sci throwing an exception that the namespace can not be found.
+
+This custom function is passed into the sci context under the
+`:load-fn` key, thus:
+
+``` clojure
+(defn load-fn [{:keys [namespace]}]
+  (when (= namespace 'foo)
+    {:file "my-foo-file.clj"
+     :source "(ns foo) (def val :foo)"}))
+(sci/eval-string "(require '[foo :as fu]) fu/val" {:load-fn load-fn})
+;;=> :foo
+```
+
+Note that internally specified namespaces (either those within sci
+itself, or those mounted under the `:namespaces` context setting) will
+be used first and load-fn will not be called in those cases:
+
+``` clojure
+(sci/eval-string "(require '[foo :as fu]) fu/val"
+                 {:load-fn load-fn
+                  :namespaces {'foo {'val :internal}}})
+;;=> :internal
+```
+
+Another option for dynamically loading code at runtime is to reimplement
+clojure's `load-file` call. A minimal example is presented here:
+
+```
+(spit "sci-load-example.clj" "(* 10 x)")
+
+(require '[sci.core :as sci]
+         '[sci.impl.interpreter :refer [eval-string*]]
+         '[clojure.java.io :as io])
+
+(defn load-file* [sci-opts path]
+  (let [file-path (io/file path)
+        source (slurp file-path)]
+    (sci/with-bindings {sci/ns @sci/ns
+                        sci/file (.getCanonicalPath file-path)}
+      (eval-string* sci-opts source))))
+
+(let [env (atom {})
+      sci-context {:env env
+                   :namespaces {}}]
+  (sci/eval-string "(def x 5) (load-file \"sci-load-example.clj\")"
+                   (assoc-in sci-context
+                             [:namespaces 'clojure.core 'load-file]
+                             #(load-file* sci-context %))))
+;;=> 50
+```
+
 ## Feature parity
 
 Currently the following special forms/macros are supported: `def`, `fn`,
