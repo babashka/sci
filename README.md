@@ -329,7 +329,7 @@ be utilised first and load-fn will not be called in those cases:
 Another option for dynamically loading code at runtime is to reimplement
 clojure's `load-file` call. A minimal example is presented here:
 
-```
+``` clojure
 (ns my.sci.app
     (:require [sci.core :as sci]
               [sci.impl.interpreter :refer [eval-string*]]
