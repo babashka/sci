@@ -518,10 +518,9 @@
          (rethrow-with-location-of-node ctx e expr))))
 
 (defn fix-meta [v old-meta]
-  ;; TODO: find out why the special case for vars is needed. When I remove it,
-  ;; spartan.spec does not work.
-  (if (and (meta v) (and (not (vars/var? v))
-                         (not (vars/namespace? v))))
+  (if (and #?(:clj (instance? clojure.lang.IObj v)
+              :cljs (implements? IWithMeta v))
+           (meta v))
     (vary-meta v (fn [m]
                    (-> m
                        (dissoc :sci.impl/op)

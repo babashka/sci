@@ -883,6 +883,8 @@
 (deftest meta-on-syntax-quote-test
   (is (:foo (eval* "(meta `^:foo (1 2 3))"))))
 
+(deftest atom-with-meta-test
+  (is (= 1 (eval* "@(atom 1 :meta {:a 1})"))))
 
 ;;;; Scratch
 
