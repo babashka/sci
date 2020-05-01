@@ -429,6 +429,16 @@
 (defn sci-resolve [sci-ctx sym]
   (@utils/eval-resolve-state sci-ctx sym))
 
+(defn sci-with-bindings
+  [_ _ bindings & body]
+  `(do
+     ;; important: outside try
+     (clojure.core/push-thread-bindings ~bindings)
+     (try
+       ~@body
+       (finally
+         (clojure.core/pop-thread-bindings)))))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -846,6 +856,7 @@
    'when (macrofy when*)
    'when-not (macrofy when-not*)
    'while (macrofy while*)
+   'with-bindings (macrofy sci-with-bindings)
    'with-meta (copy-core-var with-meta)
    'with-open (macrofy with-open*)
    ;; 'with-redefs (macrofy vars/with-redefs)

@@ -396,11 +396,12 @@
   (defmacro with-bindings
     "Macro for binding sci vars for internal use."
     [bindings & body]
-    ;; important: outside try
-    `(do (vars/push-thread-bindings ~bindings)
-         (try
-           (do ~@body)
-           (finally (vars/pop-thread-bindings))))))
+    `(do
+       ;; important: outside try
+       (vars/push-thread-bindings ~bindings)
+       (try
+         (do ~@body)
+         (finally (vars/pop-thread-bindings))))))
 
 (def current-file (dynamic-var '*file* nil))
 
