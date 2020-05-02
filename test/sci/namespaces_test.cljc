@@ -73,3 +73,6 @@
 (deftest find-ns-test
   (is (true? (eval* "(ns foo) (some? (find-ns 'foo))")))
   (is (nil? (eval* "(find-ns 'foo)"))))
+
+(deftest remove-ns-test
+  (is (nil? (eval* "(ns foo) (ns bar) (remove-ns 'foo) (find-ns 'foo)"))))

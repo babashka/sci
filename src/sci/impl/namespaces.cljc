@@ -401,6 +401,11 @@
   (let [env (:env ctx)]
     (map #(utils/namespace-object env % true nil) (keys (get @env :namespaces)))))
 
+(defn sci-remove-ns [ctx sym]
+  (let [env (:env ctx)]
+    (swap! env update :namespaces dissoc sym)
+    nil))
+
 ;;;; End namespaces
 
 ;;;; Eval and read-string
@@ -760,6 +765,7 @@
    're-matches (copy-core-var re-matches)
    'rem (copy-core-var rem)
    'remove (copy-core-var remove)
+   'remove-ns (with-meta sci-remove-ns {:sci.impl/op :needs-ctx})
    'require (with-meta require {:sci.impl/op :needs-ctx})
    'reset-meta! (copy-core-var reset-meta!)
    'rest (copy-core-var rest)
