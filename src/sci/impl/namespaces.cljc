@@ -1,8 +1,8 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message ex-cause eval
-                            read-string require use
-                            load-string])
+  (:refer-clojure :exclude [ex-message ex-cause eval read
+                            read-string require
+                            use load-string])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -405,6 +405,19 @@
 
 ;;;; Eval and read-string
 
+(defn read
+  "Added for compatibility. Does not support the options from the original yet."
+  ([sci-ctx]
+   (read sci-ctx @io/in))
+  ([sci-ctx stream]
+   (read sci-ctx stream true nil))
+  ([sci-ctx stream eof-error? eof-value]
+   (read sci-ctx stream eof-error? eof-value false))
+  ([sci-ctx stream _eof-error? _eof-value _recursive?]
+   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?))
+  ([sci-ctx _opts stream]
+   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?)))
+
 (defn read-string
   ([sci-ctx s]
    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
@@ -768,6 +781,7 @@
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
    'rand (copy-core-var rand)
+   'read (with-meta read {:sci.impl/op :needs-ctx})
    'read-string (with-meta read-string {:sci.impl/op :needs-ctx})
    'replace (copy-core-var replace)
    'rseq (copy-core-var rseq)
