@@ -222,6 +222,9 @@
   (is (= 1 (eval* "((symbol \"recur\") {'recur 1})")))
   (is (= [true false] (eval* "(mapv (comp some? resolve) '[inc x])"))))
 
+(deftest ns-resolve-test
+  (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
+
 (deftest top-level-test
   (testing "top level expressions are evaluated in order and have side effects,
   even when one of the following expressions have an unresolved symbol"

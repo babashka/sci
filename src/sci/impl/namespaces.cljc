@@ -28,12 +28,16 @@
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
   (defmacro copy-var
     ([sym ns]
-     `(let [m# (-> (var ~sym) meta)]
-        (vars/->SciVar ~sym '~sym {:doc (:doc m#)
-                                   :name (:name m#)
-                                   :arglists (:arglists m#)
-                                   :ns ~ns
-                                   :sci.impl/built-in true}))))
+     `(let [ns# ~ns
+            m# (-> (var ~sym) meta)
+            ns-name# (vars/getName ns#)
+            name# (:name m#)
+            name-sym# (symbol (str ns-name#) (str name#))]
+        (vars/->SciVar ~sym name-sym# {:doc (:doc m#)
+                                       :name name#
+                                       :arglists (:arglists m#)
+                                       :ns ns#
+                                       :sci.impl/built-in true}))))
   (defmacro copy-core-var
     ([sym]
      `(copy-var ~sym clojure-core-ns)
@@ -420,6 +424,8 @@
 
 ;;;; End eval and read-string
 
+;;;; Require + resolve
+
 (defn require [sci-ctx & args]
   (apply @utils/eval-require-state sci-ctx args))
 
@@ -428,6 +434,15 @@
 
 (defn sci-resolve [sci-ctx sym]
   (@utils/eval-resolve-state sci-ctx sym))
+
+(defn sci-ns-resolve
+  ([sci-ctx ns sym] (sci-ns-resolve sci-ctx ns nil sym))
+  ([sci-ctx ns env sym]
+   (when-not (contains? env sym)
+     (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
+       (sci-resolve sci-ctx sym)))))
+
+;;;; End require + resolve
 
 (defn sci-with-bindings
   [_ _ bindings & body]
@@ -688,6 +703,7 @@
    'nthrest (copy-core-var nthrest)
    'nil? (copy-core-var nil?)
    'nat-int? (copy-core-var nat-int?)
+   'ns-resolve (with-meta sci-ns-resolve {:sci.impl/op :needs-ctx})
    'number? (copy-core-var number?)
    'not-empty (copy-core-var not-empty)
    'not-any? (copy-core-var not-any?)
