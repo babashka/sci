@@ -466,6 +466,10 @@
          (eval* "(for [i [1 2 3] :while (< i 2) j [4 5 6] :when (even? j)] [i j])")))
   (is (= (for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)
          (eval* "(for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)")))
+  (is (= (for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)
+         (eval* "
+(defn when []) (defn nth [])
+(for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"vector"
                         (eval* "(for 1 [i j])")))

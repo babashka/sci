@@ -31,7 +31,7 @@
                           do-mod (fn do-mod [[[k v :as pair] & etc]]
                                    (cond
                                      (= k :let) `(let ~v ~(do-mod etc))
-                                     (= k :while) `(~'when ~v ~(do-mod etc))
+                                     (= k :while) `(when ~v ~(do-mod etc))
                                      (= k :when) `(if ~v
                                                     ~(do-mod etc)
                                                     (~allowed-recur (rest ~gxs)))
@@ -57,7 +57,7 @@
                               do-cmod (fn do-cmod [[[k v :as pair] & etc]]
                                         (cond
                                           (= k :let) `(let ~v ~(do-cmod etc))
-                                          (= k :while) `(~'when ~v ~(do-cmod etc))
+                                          (= k :while) `(when ~v ~(do-cmod etc))
                                           (= k :when) `(if ~v
                                                          ~(do-cmod etc)
                                                          (~allowed-recur
@@ -71,14 +71,14 @@
                              (lazy-seq
                               (~allowed-loop [~gxs ~gxs]
                                (let [~gxs (seq ~gxs)]
-                                 (~'when ~gxs
+                                 (when ~gxs
                                   (if (chunked-seq? ~gxs)
                                     (let [c# (chunk-first ~gxs)
                                           size# (int (count c#))
                                           ~gb (chunk-buffer size#)]
                                       (if (~allowed-loop [~gi (int 0)]
                                            (if (< ~gi size#)
-                                             (let [~bind (~'nth c# ~gi)]
+                                             (let [~bind (nth c# ~gi)]
                                                ~(do-cmod mod-pairs))
                                              true))
                                         (chunk-cons
