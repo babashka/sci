@@ -16,9 +16,10 @@
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
+   [sci.impl.protocols :as protocols]
+   [sci.impl.records :as records]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
-   [sci.impl.protocols :as protocols])
+   [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -609,6 +610,9 @@
    'defprotocol (with-meta protocols/defprotocol
                   {:sci/macro true
                    :sci.impl/op :needs-ctx})
+   'defrecord (with-meta records/defrecord
+                {:sci/macro true
+                 :sci.impl/op :needs-ctx})
    'delay (macrofy delay*)
    #?@(:clj ['deliver (copy-core-var deliver)])
    'deref (copy-core-var deref)
