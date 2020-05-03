@@ -51,7 +51,25 @@
 
 #?(:cljs
    (deftest static-methods
-     (is (= \C (tu/eval* "(String/fromCharCode 67)" {:classes {'String js/String}})))))
+     (is (= \C (tu/eval* "(String/fromCharCode 67)" {:classes {'String js/String}})))
+     (is (= 42 (tu/eval* "(js/parseInt \"42\")"     {:classes {'js js/global}})))))
+
+#?(:cljs
+   (deftest methods-on-static-fields
+     (is (= 42 (tu/eval* "(do (.log js/console \"42\") 42)" {:classes {:allow :all
+                                                                       'js js/global}})))
+     (is (= 42 (tu/eval* "(do (js/console.log \"42\") 42)" {:classes {:allow :all
+                                                                      'js js/global}})))))
+
+#?(:cljs
+   (deftest static-field-constructors
+     (is (= 42 (tu/eval* "(js/parseInt (.-message (js/Error. \"42\")))" {:classes {:allow :all
+                                                                                   'js js/global}})))))
+
+;; TODO add test for special Objects (need browser for this)
+#_(let [sse (js/EventSource. "/sse")]
+        (.addEventListener sse "message" (fn [e] (.log js/console "Data" e))))
+
 
 #?(:cljs
    (do (def fs (let [m (js->clj (js/require "fs"))]
