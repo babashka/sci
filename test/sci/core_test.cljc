@@ -523,7 +523,15 @@
   (testing "require as function"
     (is (= 1 (eval* "(ns foo) (defn foo [] 1) (ns bar) (apply require ['[foo :as f]]) (f/foo)"))))
   (testing "rename"
-    (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})")))))
+    (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})"))))
+  (when-not tu/native?
+    (testing "load-fn + requiring-resolve"
+      (is (= :success
+             (tu/eval* "(deref (requiring-resolve 'foo.bar/x))"
+                       {:load-fn (fn [{:keys [:namespace]}]
+                                   (when (= 'foo.bar namespace)
+                                     {:source "(ns foo.bar) (def x :success)"
+                                      :file "foo/bar.clj"}))}))))))
 
 (deftest use-test
   (is (= #{1 2} (eval* "(ns foo (:use clojure.set)) (union #{1} #{2})")))

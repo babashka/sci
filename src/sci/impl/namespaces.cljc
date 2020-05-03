@@ -460,6 +460,17 @@
      (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
        (sci-resolve sci-ctx sym)))))
 
+(defn sci-requiring-resolve
+  ([sci-ctx sym]
+   (if (qualified-symbol? sym)
+     (or (sci-resolve sci-ctx sym)
+         (let [namespace (-> sym namespace symbol)]
+           (require sci-ctx namespace)
+           (sci-resolve sci-ctx sym)))
+     (throw (new #?(:clj IllegalArgumentException
+                    :cljs js/Error)
+                 (str "Not a qualified symbol: " sym))))))
+
 ;;;; End require + resolve
 
 (defn sci-with-bindings
@@ -793,6 +804,7 @@
    'rseq (copy-core-var rseq)
    'random-sample (copy-core-var random-sample)
    'repeat (copy-core-var repeat)
+   'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op :needs-ctx})
    'run! (copy-core-var run!)
    #?@(:clj ['satisfies? (copy-core-var satisfies?)])
    'set? (copy-core-var set?)
