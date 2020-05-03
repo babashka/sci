@@ -1,12 +1,15 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message ex-cause eval read-string])
+  (:refer-clojure :exclude [ex-message ex-cause eval read
+                            read-string require
+                            use load-string])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
+   #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
@@ -17,27 +20,33 @@
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
 
 (macros/deftime
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
   (defmacro copy-var
     ([sym ns]
-     `(let [m# (-> (var ~sym) meta)]
-        (vars/->SciVar ~sym '~sym {:doc (:doc m#)
-                                   :name (:name m#)
-                                   :arglists (:arglists m#)
-                                   :ns ~ns
-                                   :sci.impl/built-in true}))))
+     `(let [ns# ~ns
+            m# (-> (var ~sym) meta)
+            ns-name# (vars/getName ns#)
+            name# (:name m#)
+            name-sym# (symbol (str ns-name#) (str name#))]
+        (vars/->SciVar ~sym name-sym# {:doc (:doc m#)
+                                       :name name#
+                                       :arglists (:arglists m#)
+                                       :ns ns#
+                                       :sci.impl/built-in true}))))
   (defmacro copy-core-var
     ([sym]
      `(copy-var ~sym clojure-core-ns)
      #_`(let [m# (-> (var ~sym) meta)]
-        (vars/->SciVar ~sym '~sym {:doc (:doc m#)
-                                   :name (:name m#)
-                                   :arglists (:arglists m#)
-                                   :ns clojure-core-ns
-                                   :sci.impl/built-in true})))))
+          (vars/->SciVar ~sym '~sym {:doc (:doc m#)
+                                     :name (:name m#)
+                                     :arglists (:arglists m#)
+                                     :ns clojure-core-ns
+                                     :sci.impl/built-in true})))))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -60,10 +69,10 @@
   (let [i (first bindings)
         n (second bindings)]
     `(let [n# (long ~n)]
-       (loop [~i 0]
-         (when (< ~i n#)
-           ~@body
-           (recur (unchecked-inc ~i)))))))
+       (~utils/allowed-loop [~i 0]
+        (when (< ~i n#)
+          ~@body
+          (~utils/allowed-recur (unchecked-inc ~i)))))))
 
 (defn if-not*
   "if-not from clojure.core"
@@ -290,6 +299,13 @@
      (when-not (~'has-root-impl v#)
        (def ~name ~expr))))
 
+(defn while*
+  [_ _ test & body]
+  `(loop []
+     (when ~test
+       ~@body
+       (recur))))
+
 (defn double-dot
   ([_ _ x form] `(. ~x ~form))
   ([_ _ x form & more] `(.. (. ~x ~form) ~@more)))
@@ -311,11 +327,13 @@
 
 (defn sci-find-ns [ctx ns-sym]
   (assert (symbol? ns-sym))
-  (utils/get-namespace (:env ctx) ns-sym nil))
+  (utils/namespace-object (:env ctx) ns-sym false nil))
 
 (defn sci-the-ns [ctx x]
   (if (instance? sci.impl.vars.SciNamespace x) x
-      (sci-find-ns ctx x)))
+      (or (sci-find-ns ctx x)
+          (throw (new #?(:clj Exception :cljs js/Error)
+                      (str "No namespace: " x " found"))))))
 
 (defn sci-ns-aliases [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
@@ -369,24 +387,101 @@
          (sci-ns-refers ctx sci-ns)
          (sci-ns-imports ctx sci-ns)))
 
+(defn sci-ns-unmap [ctx sci-ns sym]
+  (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
+  (swap! (:env ctx)
+         (fn [env]
+           (let [sci-ns (sci-the-ns ctx sci-ns)
+                 name (sci-ns-name sci-ns)
+                 m (get-in env [:namespaces name])]
+             (assoc-in env [:namespaces name] (dissoc m sym)))))
+  nil)
+
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)]
-    (map #(utils/get-namespace env % nil) (keys (get @env :namespaces)))))
+    (map #(utils/namespace-object env % true nil) (keys (get @env :namespaces)))))
+
+(defn sci-remove-ns [ctx sym]
+  (let [env (:env ctx)]
+    (swap! env update :namespaces dissoc sym)
+    nil))
 
 ;;;; End namespaces
 
 ;;;; Eval and read-string
 
+(defn read
+  "Added for compatibility. Does not support the options from the original yet."
+  ([sci-ctx]
+   (read sci-ctx @io/in))
+  ([sci-ctx stream]
+   (read sci-ctx stream true nil))
+  ([sci-ctx stream eof-error? eof-value]
+   (read sci-ctx stream eof-error? eof-value false))
+  ([sci-ctx stream _eof-error? _eof-value _recursive?]
+   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?))
+  ([sci-ctx _opts stream]
+   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?)))
+
 (defn read-string
   ([sci-ctx s]
    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-     (parser/parse-next sci-ctx reader)))
-  #_([opts s] (clojure.lang.RT/readString s opts)))
+     (parser/parse-next sci-ctx reader))))
 
 (defn eval [sci-ctx form]
   (@utils/eval-form-state sci-ctx form))
 
+(defn load-string [sci-ctx s]
+  (vars/with-bindings {vars/current-ns @vars/current-ns}
+    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+      (loop [ret nil]
+        (let [x (parser/parse-next sci-ctx reader)]
+          (if (utils/kw-identical? :edamame.impl.parser/eof x)
+            ret
+            (recur (eval sci-ctx x))))))))
+
 ;;;; End eval and read-string
+
+;;;; Require + resolve
+
+(defn require [sci-ctx & args]
+  (apply @utils/eval-require-state sci-ctx args))
+
+(defn use [sci-ctx & args]
+  (apply @utils/eval-use-state sci-ctx args))
+
+(defn sci-resolve [sci-ctx sym]
+  (@utils/eval-resolve-state sci-ctx sym))
+
+(defn sci-ns-resolve
+  ([sci-ctx ns sym] (sci-ns-resolve sci-ctx ns nil sym))
+  ([sci-ctx ns env sym]
+   (when-not (contains? env sym)
+     (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
+       (sci-resolve sci-ctx sym)))))
+
+(defn sci-requiring-resolve
+  ([sci-ctx sym]
+   (if (qualified-symbol? sym)
+     (or (sci-resolve sci-ctx sym)
+         (let [namespace (-> sym namespace symbol)]
+           (require sci-ctx namespace)
+           (sci-resolve sci-ctx sym)))
+     (throw (new #?(:clj IllegalArgumentException
+                    :cljs js/Error)
+                 (str "Not a qualified symbol: " sym))))))
+
+;;;; End require + resolve
+
+(defn sci-with-bindings
+  [_ _ bindings & body]
+  `(do
+     ;; important: outside try
+     (clojure.core/push-thread-bindings ~bindings)
+     (try
+       ~@body
+       (finally
+         (clojure.core/pop-thread-bindings)))))
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -396,6 +491,7 @@
    '*out* io/out
    '*err* io/err
    '*file* vars/current-file
+   '*print-length* io/print-length
    'newline io/newline
    'flush io/flush
    'pr io/pr
@@ -598,6 +694,7 @@
    'keyword? (copy-core-var keyword?)
    'last (copy-core-var last)
    'letfn (macrofy letfn*)
+   'load-string (with-meta load-string {:sci.impl/op :needs-ctx})
    'long (copy-core-var long)
    'list (copy-core-var list)
    'list? (copy-core-var list?)
@@ -615,6 +712,7 @@
    'max (copy-core-var max)
    'max-key (copy-core-var max-key)
    'meta (copy-core-var meta)
+   'memoize (copy-core-var memoize)
    'merge (copy-core-var merge)
    'merge-with (copy-core-var merge-with)
    'min (copy-core-var min)
@@ -623,7 +721,6 @@
    'mod (copy-core-var mod)
    'name (copy-core-var name)
    'namespace (copy-core-var namespace)
-   ;; 'newline newline
    'nfirst (copy-core-var nfirst)
    'not (copy-core-var not)
    'not= (copy-core-var not=)
@@ -635,6 +732,7 @@
    'nthrest (copy-core-var nthrest)
    'nil? (copy-core-var nil?)
    'nat-int? (copy-core-var nat-int?)
+   'ns-resolve (with-meta sci-ns-resolve {:sci.impl/op :needs-ctx})
    'number? (copy-core-var number?)
    'not-empty (copy-core-var not-empty)
    'not-any? (copy-core-var not-any?)
@@ -646,6 +744,7 @@
    'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
    'ns-refers (with-meta sci-ns-refers {:sci.impl/op :needs-ctx})
    'ns-map (with-meta sci-ns-map {:sci.impl/op :needs-ctx})
+   'ns-unmap (with-meta sci-ns-unmap {:sci.impl/op :needs-ctx})
    'ns-name sci-ns-name
    'odd? (copy-core-var odd?)
    'object-array (copy-core-var object-array)
@@ -677,6 +776,8 @@
    're-matches (copy-core-var re-matches)
    'rem (copy-core-var rem)
    'remove (copy-core-var remove)
+   'remove-ns (with-meta sci-remove-ns {:sci.impl/op :needs-ctx})
+   'require (with-meta require {:sci.impl/op :needs-ctx})
    'reset-meta! (copy-core-var reset-meta!)
    'rest (copy-core-var rest)
    'repeatedly (copy-core-var repeatedly)
@@ -692,15 +793,18 @@
    'reset! (copy-core-var reset!)
    'reset-vals! (copy-core-var reset-vals!)
    'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
+   'resolve (with-meta sci-resolve {:sci.impl/op :needs-ctx})
    'reversible? (copy-core-var reversible?)
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
    'rand (copy-core-var rand)
+   'read (with-meta read {:sci.impl/op :needs-ctx})
    'read-string (with-meta read-string {:sci.impl/op :needs-ctx})
    'replace (copy-core-var replace)
    'rseq (copy-core-var rseq)
    'random-sample (copy-core-var random-sample)
    'repeat (copy-core-var repeat)
+   'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op :needs-ctx})
    'run! (copy-core-var run!)
    #?@(:clj ['satisfies? (copy-core-var satisfies?)])
    'set? (copy-core-var set?)
@@ -783,6 +887,7 @@
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
    'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
+   'use (with-meta use {:sci.impl/op :needs-ctx})
    'val (copy-core-var val)
    'vals (copy-core-var vals)
    'var? sci.impl.vars/var?
@@ -798,6 +903,8 @@
    'when-some (macrofy when-some*)
    'when (macrofy when*)
    'when-not (macrofy when-not*)
+   'while (macrofy while*)
+   'with-bindings (macrofy sci-with-bindings)
    'with-meta (copy-core-var with-meta)
    'with-open (macrofy with-open*)
    ;; 'with-redefs (macrofy vars/with-redefs)
@@ -847,65 +954,168 @@
   `(doseq [v# (clojure.repl/dir-fn '~nsname)]
      (println v#)))
 
-#_(defn- print-doc [{n :ns
-                   nm :name
-                   :keys [forms arglists special-form doc url macro spec]
-                   :as m}]
-  (println "-------------------------")
-  (println (or spec (str (when n (str (ns-name n) "/")) nm)))
-  (when forms
-    (doseq [f forms]
-      (print "  ")
-      (prn f)))
-  (when arglists
-    (prn arglists))
-  (cond
-    special-form
-    (do
-      (println "Special Form")
-      (println " " doc)
-      (if (contains? m :url)
-        (when url
-          (println (str "\n  Please see http://clojure.org/" url)))
-        (println (str "\n  Please see http://clojure.org/special_forms#" nm))))
-    macro
-    (println "Macro")
-    spec
-    (println "Spec"))
-  (when doc (println " " doc))
-  (when n
-    (when-let [fnspec (spec/get-spec (symbol (str (ns-name n)) (name nm)))]
-      (println "Spec")
-      (doseq [role [:args :ret :fn]]
-        (when-let [spec (get fnspec role)]
-          (println " " (str (name role) ":") (spec/describe spec)))))))
+(defn print-doc
+  [m]
+  (let [arglists (:arglists m)
+        doc (:doc m)
+        macro? (:macro m)]
+    (io/println "-------------------------")
+    (io/println (str (when-let [ns* (:ns m)]
+                       (str (sci-ns-name ns*) "/"))
+                     (:name m)))
+    (when arglists (io/println arglists))
+    (when macro? (io/println "Macro"))
+    (when doc (io/println " " doc))))
 
 (defn doc
   [_ _ sym]
   `(if-let [var# (resolve '~sym)]
-     (let [m# (meta var#)
-           arglists# (:arglists m#)
-           doc# (:doc m#)
-           macro?# (:macro m#)]
-       (println "-------------------------")
-       (println (str (when-let [ns* (:ns m#)]
-                       (str (ns-name ns*) "/"))
-                     (:name m#)))
-       (when arglists# (println arglists#))
-       (when macro?# (println "Macro"))
-       (when doc# (println " " doc#)))
+     (~'clojure.repl/print-doc (meta var#))
      (if-let [ns# (find-ns '~sym)]
-       (let [m# (meta ns#)
-             doc# (:doc m#)]
-         (println "-------------------------")
-         (println (str (ns-name ns#)))
-         (when doc# (println " " doc#))))))
+       (~'clojure.repl/print-doc (assoc (meta ns#)
+                                        :name (ns-name ns#))))))
+
+(defn find-doc
+  "Prints documentation for any var whose documentation or name
+  contains a match for re-string-or-pattern"
+  [ctx re-string-or-pattern]
+  (let [re (re-pattern re-string-or-pattern)
+        ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
+                           (sci-all-ns ctx))
+                   (map #(assoc (meta %)
+                                :name (sci-ns-name %)) (sci-all-ns ctx))
+                   #_(map special-doc (keys special-doc-map)))]
+    (doseq [m ms
+            :when (and (:doc m)
+                       (or (re-find re (:doc m))
+                           (re-find re (str (:name m)))))]
+      (print-doc m))))
+
+(defn apropos
+  "Given a regular expression or stringable thing, return a seq of all
+  public definitions in all currently-loaded namespaces that match the
+  str-or-pattern."
+  [ctx str-or-pattern]
+  (let [matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
+                   #(re-find str-or-pattern (str %))
+                   #(str/includes? (str %) (str str-or-pattern)))]
+    (sort (mapcat (fn [ns]
+                    (let [ns-name (str ns)]
+                      (map #(symbol ns-name (str %))
+                           (filter matches? (keys (sci-ns-publics ctx ns))))))
+                  (sci-all-ns ctx)))))
+
+(defn source-fn
+  "Returns a string of the source code for the given symbol, if it can
+  find it.  This requires that the symbol resolve to a Var defined in
+  a namespace for which the .clj is in the classpath.  Returns nil if
+  it can't find the source.  For most REPL usage, 'source' is more
+  convenient.
+
+  Example: (source-fn 'filter)"
+  [ctx x]
+  (when-let [v (sci-resolve ctx x)]
+    (let [{:keys [:file :line :end-line :ns]} (meta v)]
+      (when (and file line end-line)
+        (when-let [source (or #?(:clj (let [f (jio/file file)]
+                                        (when (.exists f) (slurp f))))
+                              (when-let [load-fn (:load-fn ctx)]
+                                (:source (load-fn {:namespace (sci-ns-name ns)}))))]
+          (let [lines (str/split source #"\n")
+                line (dec line)
+                end-line (dec end-line)
+                lines (take (- end-line (dec line))
+                            (drop line
+                                  lines))]
+            (str/join "\n" lines)))))))
+
+(defn source
+  "Prints the source code for the given symbol, if it can find it.
+  This requires that the symbol resolve to a Var defined in a
+  namespace for which the .clj is in the classpath.
+
+  Example: (source filter)"
+  [_ _ n]
+  `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
+
+#?(:clj
+   (defn root-cause
+     "Returns the initial cause of an exception or error by peeling off all of
+  its wrappers"
+     {:added "1.3"}
+     [^Throwable t]
+     (loop [cause t]
+       (if (and (instance? clojure.lang.Compiler$CompilerException cause)
+                (not= (.source ^clojure.lang.Compiler$CompilerException cause) "NO_SOURCE_FILE"))
+         cause
+         (if-let [cause (.getCause cause)]
+           (recur cause)
+           cause)))))
+
+#?(:clj
+   (defn demunge
+     "Given a string representation of a fn class,
+  as in a stack trace element, returns a readable version."
+     {:added "1.3"}
+     [fn-name]
+     (clojure.lang.Compiler/demunge fn-name)))
+
+#?(:clj
+   (defn stack-element-str
+     "Returns a (possibly unmunged) string representation of a StackTraceElement"
+     {:added "1.3"}
+     [^StackTraceElement el]
+     (let [file (.getFileName el)
+           clojure-fn? (and file (or (.endsWith file ".clj")
+                                     (.endsWith file ".cljc")
+                                     (= file "NO_SOURCE_FILE")))]
+       (str (if clojure-fn?
+              (demunge (.getClassName el))
+              (str (.getClassName el) "." (.getMethodName el)))
+            " (" (.getFileName el) ":" (.getLineNumber el) ")"))))
+
+#?(:clj
+   (defn pst
+     "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
+  most recent repl exception (*e), and a depth of 12."
+     {:added "1.3"}
+     ([ctx] (pst ctx 12))
+     ([ctx e-or-depth]
+      (if (instance? Throwable e-or-depth)
+        (pst ctx e-or-depth 12)
+        (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
+          (pst ctx (root-cause e) e-or-depth))))
+     ([_ctx ^Throwable e depth]
+      (vars/with-bindings {io/out @io/err}
+        (io/println (str (-> e class .getSimpleName) " "
+                         (.getMessage e)
+                         (when-let [info (ex-data e)] (str " " (pr-str info)))))
+        (let [st (.getStackTrace e)
+              cause (.getCause e)]
+          (doseq [el (take depth
+                           (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
+                                     (.getClassName ^StackTraceElement %))
+                                   st))]
+            (io/println (str \tab (stack-element-str el))))
+          (when cause
+            (io/println "Caused by:")
+            (pst cause (min depth
+                            (+ 2 (- (count (.getStackTrace cause))
+                                    (count st)))))))))))
 
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
    'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
    'dir (macrofy dir)
-   'doc (macrofy doc)})
+   'print-doc (with-meta print-doc {:private true})
+   'doc (macrofy doc)
+   'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})
+   'apropos (with-meta apropos {:sci.impl/op :needs-ctx})
+   'source (macrofy source)
+   'source-fn (with-meta source-fn {:sci.impl/op :needs-ctx})
+   #?@(:clj ['pst (with-meta pst {:sci.impl/op :needs-ctx})
+             'stack-element-str stack-element-str
+             'demunge demunge])})
 
 (defn apply-template
   [argv expr values]

@@ -28,7 +28,7 @@
 
 (def presets
   {:termination-safe
-   {:deny '[loop recur trampoline]
+   {:deny '[loop recur trampoline resolve]
     :realize-max 100}})
 
 (defn process-permissions [& permissions]

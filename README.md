@@ -46,6 +46,7 @@ It is used in:
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
+- [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
 ## Status
@@ -131,7 +132,7 @@ Providing a macro as a binding can be done by providing a normal function that:
 - has two extra arguments at the start for `&form` and `&env`:
 
 ``` clojure
-user=> (def do-twice ^:sci/macro (fn [_&env _&form x] (list 'do x x)))
+user=> (def do-twice ^:sci/macro (fn [_&form _&env x] (list 'do x x)))
 user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice do-twice 'f #(println "hello")}})
 hello
 hello
@@ -285,6 +286,79 @@ the atom yourself as the value for the `:env` key:
 (sci/eval-string "(foo)" {:env env}) ;;=> :foo
 ```
 
+### Implementing require and load-file
+
+Sci supports implementation of code loading via a function hook that is invoked
+by sci's internal implementation of `require`. The job of this function is to
+find and return the source code for the requested namespace. This passed-in
+function will be called with a single argument that is a hashmap with a key
+`:namespace`. The value for this key will be the _symbol_ of the requested
+namespace.
+
+This function can return a hashmap with the keys `:file` (containing the
+filename to be used in error messages) and `:source` (containing the source code
+text) and sci will evaluate that source code to satisfy the
+require. Alternatively the function can return `nil` which will result in sci
+throwing an exception that the namespace can not be found.
+
+This custom function is passed into the sci context under the `:load-fn` key as
+shown below.
+
+``` clojure
+(defn load-fn [{:keys [namespace]}]
+  (when (= namespace 'foo)
+    {:file "foo.clj"
+     :source "(ns foo) (def val :foo)"}))
+(sci/eval-string "(require '[foo :as fu]) fu/val" {:load-fn load-fn})
+;;=> :foo
+```
+
+Note that internally specified namespaces (either those within sci itself or
+those mounted under the `:namespaces` context setting) will be utilised first
+and load-fn will not be called in those cases, unless `:reload` or `:reload-all`
+are used:
+
+``` clojure
+(sci/eval-string
+  "(require '[foo :as fu])
+   fu/val"
+  {:load-fn load-fn
+   :namespaces {'foo {'val (sci/new-var 'val :internal)}}})
+;;=> :internal
+
+(sci/eval-string
+  "(require '[foo :as fu] :reload)
+   fu/val"
+  {:load-fn load-fn
+   :namespaces {'foo {'val (sci/new-var 'val :internal)}}})
+;;=> :foo
+```
+
+Another option for loading code is to provide an implementation of
+`clojure.core/load-file`. An example is presented here.
+
+``` clojure
+(ns my.sci.app
+    (:require [sci.core :as sci]
+              [clojure.java.io :as io]))
+
+(spit "example1.clj" "(defn foo [] :foo)")
+(spit "example2.clj" "(load-file \"example1.clj\")")
+
+(let [env (atom {})
+      opts {:env env}
+      load-file (fn [file]
+                  (let [file (io/file file)
+                        source (slurp file)]
+                    (sci/with-bindings
+                      {sci/ns @sci/ns
+                       sci/file (.getCanonicalPath file)}
+                      (sci/eval-string source opts))))
+      opts (assoc-in opts [:namespaces 'clojure.core 'load-file] load-file)]
+  (sci/eval-string "(load-file \"example2.clj\") (foo)" opts))
+;;=> :foo
+```
+
 ## Feature parity
 
 Currently the following special forms/macros are supported: `def`, `fn`,
@@ -345,6 +419,10 @@ Sci.evalString("foo.bar/x", opts); // returns 1
 Note for Java users: the Java API for is conceptually similar to the Clojure
 one, but made more idiomatic for Java users. Check the generated [Java
 documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
+
+## Use as native shared library
+
+To use sci as a native shared library from e.g. C, C++, Rust, read this [tutorial](doc/libsci.md).
 
 ## Test
 

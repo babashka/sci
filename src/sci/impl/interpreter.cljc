@@ -24,8 +24,8 @@
 
 (def #?(:clj ^:const macros :cljs macros)
   '#{do if and or quote let fn def defn
-     lazy-seq require try syntax-quote case . in-ns set!
-     macroexpand-1 macroexpand})
+     lazy-seq try syntax-quote case . in-ns set!
+     macroexpand-1 macroexpand require})
 
 ;;;; Evaluation
 
@@ -132,8 +132,8 @@
       sym))))
 
 (defn parse-libspec [libspec]
-  (if (symbol? libspec)
-    {:lib-name libspec}
+  (cond
+    (sequential? libspec)
     (let [[lib-name & opts] libspec]
       (loop [ret {:lib-name lib-name}
              [opt-name fst-opt & rst-opts] opts]
@@ -144,31 +144,58 @@
                   (:reload :reload-all :verbose) (recur
                                                   (assoc ret :reload true)
                                                   (cons fst-opt rst-opts))
-                  :refer (recur (assoc ret :refer fst-opt)
-                                rst-opts)))))))
+                  (:refer :rename :exclude :only) (recur (assoc ret opt-name fst-opt)
+                                                         rst-opts)))))
+    (symbol? libspec) {:lib-name libspec}
+    :else (throw (new #?(:clj Exception :cljs js/Error)
+                      (str "Invalid libspec: " libspec)))))
 
 (declare eval-string*)
 
+(defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
+  (let [only (when only (set only))]
+    (reduce (fn [ns [k v]]
+              (if (and (symbol? k) (include-sym? k)
+                       (or (not only)
+                           (contains? only k)))
+                (assoc ns (rename-sym k) v)
+                ns))
+            the-current-ns
+            the-loaded-ns)))
+
 (defn handle-require-libspec-env
-  [env current-ns the-loaded-ns lib-name {:keys [:as :refer] :as _parsed-libspec}]
+  [env use? current-ns the-loaded-ns lib-name
+   {:keys [:as :refer :rename :exclude :only] :as _parsed-libspec}]
   (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                            the-current-ns)
+        rename-sym (if rename (fn [sym] (or (rename sym) sym))
+                       identity)
+        include-sym? (if exclude
+                       (let [excludes (set exclude)]
+                         (fn [sym]
+                           (not (contains? excludes sym))))
+                       (constantly true))
         the-current-ns
-        (if refer
-          (do
-            (when-not (sequential? refer)
-              (throw (new #?(:clj Exception :cljs js/Error)
-                          (str ":refer value must be a sequential collection of symbols"))))
-            (reduce (fn [ns sym]
-                      (assoc ns sym
-                             (if-let [[_k v] (find the-loaded-ns sym)]
-                               v
-                               (throw (new #?(:clj Exception :cljs js/Error)
-                                           (str sym " does not exist"))))))
-                    the-current-ns
-                    refer))
-          the-current-ns)
+        (cond refer
+              (cond (or (kw-identical? :all refer)
+                        use?)
+                    (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym nil)
+                    (sequential? refer)
+                    (reduce (fn [ns sym]
+                              (if (include-sym? sym)
+                                (assoc ns (rename-sym sym)
+                                       (if-let [[_k v] (find the-loaded-ns sym)]
+                                         v
+                                         (throw (new #?(:clj Exception :cljs js/Error)
+                                                     (str sym " does not exist")))))
+                                ns))
+                            the-current-ns
+                            refer)
+                    :else (throw (new #?(:clj Exception :cljs js/Error)
+                                      (str ":refer value must be a sequential collection of symbols"))))
+              use? (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
+              :else the-current-ns)
         env (assoc-in env [:namespaces current-ns] the-current-ns)]
     env))
 
@@ -178,59 +205,67 @@
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
-        namespaces (get env :namespaces)]
+        namespaces (get env :namespaces)
+        use? (:sci.impl/use ctx)]
     (if-let [the-loaded-ns (when-not reload (get namespaces lib-name))]
-      (reset! env* (handle-require-libspec-env env cnn the-loaded-ns lib-name parsed-libspec))
+      (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn ctx)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
-            (try (vars/with-bindings {vars/current-file file}
+            (try (vars/with-bindings
+                   {vars/current-ns @vars/current-ns
+                    vars/current-file file}
                    (eval-string* (assoc ctx :bindings {}) source))
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
-                   (throw e))
-                 ;; TODO: fix ns metadata
-                 (finally (set-namespace! ctx cnn nil)))
+                   (throw e)))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
-                            (handle-require-libspec-env env cnn
+                            (handle-require-libspec-env env use? cnn
                                                         the-loaded-ns
                                                         lib-name parsed-libspec)))))
           (or (when reload
                 (when-let [the-loaded-ns (get namespaces lib-name)]
-                  (reset! env* (handle-require-libspec-env env cnn the-loaded-ns lib-name parsed-libspec))))
+                  (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))))
               (throw (new #?(:clj Exception :cljs js/Error)
                           (str "Could not require " lib-name ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
                     (str "Could not require " lib-name ".")))))))
 
 (defn eval-require
-  [ctx expr]
-  (let [args (next expr)]
-    (loop [libspecs []
-           current-libspec nil
-           args args]
-      (if args
-        (let [ret (interpret ctx (first args))]
-          (cond
-            (symbol? ret)
-            (recur (cond-> libspecs
-                     current-libspec (conj current-libspec))
-                   [ret]
-                   (next args))
-            (keyword? ret)
-            (recur (conj libspecs (conj current-libspec ret))
-                   nil
-                   (next args))
-            :else
-            (recur (cond-> libspecs
-                     current-libspec (conj current-libspec ))
-                   ret
-                   (next args))))
-        (let [libspecs (cond-> libspecs
-                         current-libspec (conj current-libspec ))]
-          (run! #(handle-require-libspec ctx %) libspecs))))))
+  [ctx & args]
+  (loop [libspecs []
+         current-libspec nil
+         args args]
+    (if args
+      (let [ret (interpret ctx (first args))]
+        (cond
+          (symbol? ret)
+          (recur (cond-> libspecs
+                   current-libspec (conj current-libspec))
+                 [ret]
+                 (next args))
+          (keyword? ret)
+          (recur (conj libspecs (conj current-libspec ret))
+                 nil
+                 (next args))
+          :else
+          (recur (cond-> libspecs
+                   current-libspec (conj current-libspec))
+                 ret
+                 (next args))))
+      (let [libspecs (cond-> libspecs
+                       current-libspec (conj current-libspec))]
+        (run! #(handle-require-libspec ctx %) libspecs)))))
+
+(vreset! utils/eval-require-state eval-require)
+
+(defn eval-use
+  [ctx & args]
+  (apply eval-require (assoc ctx :sci.impl/use true) args))
+
+(vreset! utils/eval-use-state eval-use)
 
 (defn eval-case
   [ctx [_case {:keys [:case-map :case-val :case-default]}]]
@@ -246,7 +281,8 @@
   [ctx expr]
   (let [{:keys [:body :catches :finally]} (:sci.impl/try expr)]
     (try
-      (interpret (assoc ctx :sci.impl/in-try true) body)
+      (binding [utils/*in-try* true]
+        (interpret ctx body))
       (catch #?(:clj Throwable :cljs js/Error) e
         (if-let
             [[_ r]
@@ -289,20 +325,20 @@
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (interpret ctx instance-expr)
-        ^Class target-class (or tag-class
-                                (when-let [f (:public-class ctx)]
-                                  (f instance-expr*)))
-        resolved-class (or target-class (#?(:clj class :cljs type) instance-expr*))
-        class-name (#?(:clj .getName :cljs .-name) resolved-class)
-        class-symbol (symbol class-name)
-        ;; _ #?(:cljs (.log js/console (clj->js class->opts)) :clj nil)
+        instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+        instance-class-name #?(:clj (.getName ^Class instance-class)
+                               :cljs (.-name instance-class))
+        instance-class-symbol (symbol instance-class-name)
         allowed? (or
                   (get class->opts :allow)
-                  (get class->opts class-symbol))]
+                  (get class->opts instance-class-symbol))
+        ^Class target-class (if allowed? instance-class
+                                (when-let [f (:public-class ctx)]
+                                  (f instance-expr*)))]
     ;; we have to check options at run time, since we don't know what the class
     ;; of instance-expr is at analysis time
-    (when-not allowed?
-      (throw-error-with-location (str "Method " method-str " on " resolved-class " not allowed!") instance-expr))
+    (when-not target-class
+      (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
     (let [args (map #(interpret ctx %) args)] ;; eval args!
       (interop/invoke-instance-method instance-expr* target-class method-str args))))
 
@@ -331,9 +367,11 @@
 
 (declare eval-form)
 
-(defn eval-resolve [ctx [_ sym]]
+(defn eval-resolve [ctx sym]
   (let [sym (interpret ctx sym)]
     (second (ana/lookup ctx sym false))))
+
+(vreset! utils/eval-resolve-state eval-resolve)
 
 ;;;; End namespaces
 
@@ -440,7 +478,6 @@
                   #?@(:clj []
                       :cljs [nil nil]))
     recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
-    require (eval-require ctx expr)
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -452,7 +489,9 @@
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
     refer (eval-refer ctx expr)
-    resolve (eval-resolve ctx expr)
+    require (apply eval-require ctx (rest expr))
+    use (apply eval-use ctx (rest expr))
+    resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))))
 
@@ -479,10 +518,9 @@
          (rethrow-with-location-of-node ctx e expr))))
 
 (defn fix-meta [v old-meta]
-  ;; TODO: find out why the special case for vars is needed. When I remove it,
-  ;; spartan.spec does not work.
-  (if (and (meta v) (and (not (vars/var? v))
-                         (not (vars/namespace? v))))
+  (if (and #?(:clj (instance? clojure.lang.IObj v)
+              :cljs (implements? IWithMeta v))
+           (meta v))
     (vary-meta v (fn [m]
                    (-> m
                        (dissoc :sci.impl/op)
@@ -512,8 +550,9 @@
                 :static-access (interop/get-static-field expr)
                 :var-value (nth expr 0)
                 :deref! (let [v (first expr)
-                              v (if (vars/var? v) @v v)]
-                          (force v))
+                              v (if (vars/var? v) @v v)
+                              v (force v)]
+                          v)
                 :resolve-sym (resolve-symbol ctx expr)
                 :needs-ctx (partial expr ctx)
                 (cond (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
@@ -553,14 +592,11 @@
 
 (defn eval-string* [ctx s]
   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-    (loop [queue []
-           ret nil]
-      (let [expr (or (first queue)
-                     (p/parse-next ctx reader))]
+    (loop [ret nil]
+      (let [expr (p/parse-next ctx reader)]
         (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
             (let [ret (eval-form ctx expr)]
-              (if (seq queue) (recur (rest queue) ret)
-                  (recur [] ret))))))))
+              (recur ret)))))))
 
 ;;;; Called from public API
 
