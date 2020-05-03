@@ -95,6 +95,14 @@
                               (binding [x (inc x)]
                                 @(future (binding [x (inc x)] @(future (binding [x (inc x)] x)))))"
                            (addons/future {})))))))
+#?(:clj
+   (deftest with-bindings-test
+     (is (= 6 (eval* "
+(let [sw (java.io.StringWriter.)]
+  (with-bindings {#'*out* sw}
+    (println \"hello\"))
+  (let [res (str sw)]
+    (count res)))")))))
 
 (deftest with-bindings-api-test
   (when-not tu/native?
@@ -161,4 +169,4 @@
   (is (= 2 (eval* "(def x 1) (alter-var-root #'x (fn foo [v] (inc x))) x")))
   #?(:clj (testing "it is atomic"
             (is (= 1000 (sci/eval-string "(def x 0) (do (doall (pmap #(alter-var-root #'x (fn foo [v] (+ v %))) (take 1000 (repeat 1)))) x)"
-                                        {:namespaces {'clojure.core {'pmap clojure.core/pmap}}}))))))
+                                         {:namespaces {'clojure.core {'pmap clojure.core/pmap}}}))))))

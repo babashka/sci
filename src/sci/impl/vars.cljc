@@ -10,7 +10,6 @@
                             thread-bound?
                             alter-var-root])
   (:require [sci.impl.macros :as macros]
-            #?(:clj [borkdude.graal.locking :as locking])
             [sci.impl.types :as t]
             [sci.impl.unrestrict :refer [*unrestricted*]])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
@@ -45,10 +44,10 @@
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (with-writeable-namespace this meta
-                       (locking/locking (set! meta (apply f meta args))))))
+                       (locking (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
                      (with-writeable-namespace this meta
-                       (locking/locking (set! meta m))))))
+                       (locking (set! meta m))))))
 
 (defn namespace? [x]
   (instance? sci.impl.vars.SciNamespace x))
@@ -303,10 +302,10 @@
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (with-writeable-var this meta
-                       (locking/locking (set! meta (apply f meta args))))))
+                       (locking (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
                      (with-writeable-var this meta
-                       (locking/locking (set! meta m)))))
+                       (locking (set! meta m)))))
   #?(:clj clojure.lang.IRef) ;; added for multi-methods
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [_]
@@ -374,25 +373,6 @@
    (let [meta (assoc meta :dynamic true)]
      (SciVar. init-val name meta))))
 
-#_(defn with-redefs-fn
-  [binding-map func]
-  (let [root-bind (fn [m]
-                    (doseq [[a-var a-val] m]
-                      (sci.impl.vars/bindRoot a-var a-val)))
-        old-vals (zipmap (keys binding-map)
-                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
-    (try
-      (root-bind binding-map)
-      (func)
-      (finally
-        (root-bind old-vals)))))
-
-#_(defn with-redefs
-  [_ _ bindings & body]
-  `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
-                                         (take-nth 2 (next bindings)))
-     (fn [] ~@body)))
-
 (defn binding
   [_ _ bindings & body]
   #_(assert-args
@@ -414,14 +394,14 @@
 
 (macros/deftime
   (defmacro with-bindings
-    "Macro for binding sci vars. Must be called with map of sci dynamic
-  vars to values. Used in babashka."
+    "Macro for binding sci vars for internal use."
     [bindings & body]
-    ;; important: outside try
-    `(do (vars/push-thread-bindings ~bindings)
-         (try
-           (do ~@body)
-           (finally (vars/pop-thread-bindings))))))
+    `(do
+       ;; important: outside try
+       (vars/push-thread-bindings ~bindings)
+       (try
+         (do ~@body)
+         (finally (vars/pop-thread-bindings))))))
 
 (def current-file (dynamic-var '*file* nil))
 
@@ -432,7 +412,7 @@
 
 (defn alter-var-root [v f & args]
   #?(:clj
-     (locking/locking v (bindRoot v (apply f @v args)))
+     (locking v (bindRoot v (apply f @v args)))
      :cljs (bindRoot v (apply f @v args))))
 
 (comment

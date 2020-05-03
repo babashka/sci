@@ -10,13 +10,12 @@
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [borkdude/edamame "0.0.10"]
-                 [borkdude/graal.locking "0.0.2"]
+                 [borkdude/edamame "0.0.11-alpha.9"]
                  [borkdude/sci.impl.reflector "0.0.1"]
                  [org.clojure/tools.reader "1.3.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
-             :clojure-1.10.1 {:dependencies [[org.clojure/clojure "1.10.1"]]}
+             :clojure-1.10.2-alpha1 {:dependencies [[org.clojure/clojure "1.10.2-alpha1"]]}
              :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
              :test {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
                     :dependencies [[clj-commons/conch "0.9.2"]
@@ -28,7 +27,9 @@
              :uberjar {:global-vars {*assert* false}
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]
-                       :aot :all}}
+                       :aot :all}
+             :libsci {:dependencies [[cheshire "5.10.0"]]
+                      :source-paths ["src" "libsci/src"]}}
   ;; for testing only
   :main sci.impl.main
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"

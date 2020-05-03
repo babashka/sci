@@ -1,8 +1,8 @@
 (ns sci.impl.utils
   {:no-doc true}
   (:require [clojure.string :as str]
-            [sci.impl.vars :as vars]
-            [sci.impl.types :as t]))
+            [sci.impl.types :as t]
+            [sci.impl.vars :as vars]))
 
 (derive :sci.error/realized-beyond-max :sci/error)
 
@@ -53,8 +53,10 @@
                                  :line line
                                  :column column} data))))))
 
+(def ^:dynamic *in-try* false)
+
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
-  (if-not (:sci.impl/in-try ctx)
+  (if-not *in-try*
     (if-let [m #?(:clj (.getMessage e)
                   :cljs (.-message e))]
       (if (str/includes? m "[at")
@@ -81,17 +83,17 @@
 (defn vary-meta*
   "Only adds metadata to obj if d is not nil and if obj already has meta"
   [obj f & args]
-  (if (not (vars/var? obj)) ;; vars can have metadata but don't support with-meta
-    (if (meta obj)
-      (apply vary-meta obj f args)
-      obj)
+  (if (and #?(:clj (instance? clojure.lang.IObj obj)
+              :cljs (implements? IWithMeta obj))
+           (meta obj))
+    (apply vary-meta obj f args)
     obj))
 
 (defn merge-meta
   "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
   [obj d]
-  (if (and d (not (vars/var? obj))
-             (not (vars/namespace? obj))) ;; vars can have metadata but don't support with-meta
+  (if (and d #?(:clj (instance? clojure.lang.IObj obj)
+                :cljs (implements? IWithMeta obj)))
     (if-let [m (meta obj)]
       (with-meta obj (merge m d))
       obj)
@@ -127,19 +129,26 @@
   [f form]
   (walk* (partial prewalk f) (f form)))
 
-(defn get-namespace
-  "Fetches namespaces from env if it exists. Else produces one and adds it to env before returning it."
-  [env ns-sym attr-map]
-  ;; (prn "env" (some? env))
-  (or (let [v (get-in @env [:namespaces ns-sym :obj])]
-        ;; (prn "v" v)
-        v)
-      (let [ns-obj (vars/->SciNamespace ns-sym attr-map)]
-        (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
-        ns-obj)))
+(defn namespace-object
+  "Fetches namespaces from env if it exists. Else, if `create?`,
+  produces one regardless of the existince of the namespace in env and
+  adds it to env before returning it."
+  [env ns-sym create? attr-map]
+  (let [env* @env
+        ns-map (get-in env* [:namespaces ns-sym])]
+    (or (:obj ns-map)
+        (when (or ns-map create?)
+          (let [ns-obj (vars/->SciNamespace ns-sym attr-map)]
+            (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
+            ns-obj)))))
 
 (defn set-namespace! [ctx ns-sym attr-map]
   (let [env (:env ctx)
         attr-map (merge (meta ns-sym) attr-map)
-        ns-obj (get-namespace env ns-sym attr-map)]
+        ns-obj (namespace-object env ns-sym true attr-map)]
     (t/setVal vars/current-ns ns-obj)))
+
+(def eval-form-state (volatile! nil))
+(def eval-require-state (volatile! nil))
+(def eval-use-state (volatile! nil))
+(def eval-resolve-state (volatile! nil))

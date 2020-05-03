@@ -26,10 +26,10 @@
 [More](#Usage) on how to use sci from Clojure.
 Use from [JavaScript](#use-from-javaScript). Use from [Java](#use-from-java).
 
-## Rationale
+## Why
 
-You want to evaluate code from user input, or use Clojure for a DSL inside
-configuration files, but `eval` isn't safe or simply doesn't work.
+You want to evaluate code from user input, or use Clojure for a DSL inside your
+project, but `eval` isn't safe or simply doesn't work.
 
 This library works with:
 
@@ -41,10 +41,13 @@ It is used in:
 
 - [Babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
-- [Dad](https://github.com/liquidz/dad). A configuration management tool.
+- [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
+- [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
+- [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
+- [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
 ## Status
 
@@ -90,6 +93,8 @@ hello
 nil
 ```
 
+In fact `{:bindings ...}` is just shorthand for `{:namespaces {'user ...}}`.
+
 You can provide a list of allowed symbols. Using other symbols causes an exception:
 
 ``` clojure
@@ -127,14 +132,14 @@ Providing a macro as a binding can be done by providing a normal function that:
 - has two extra arguments at the start for `&form` and `&env`:
 
 ``` clojure
-user=> (def do-twice ^:sci/macro (fn [_&env _&form x] (list 'do x x)))
+user=> (def do-twice ^:sci/macro (fn [_&form _&env x] (list 'do x x)))
 user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice do-twice 'f #(println "hello")}})
 hello
 hello
 nil
 ```
 
-## Vars
+### Vars
 
 Sci has a var type, distinguished from Clojure vars. In a sci program these vars
 are created with `def` and `defn` just like in normal Clojure:
@@ -197,7 +202,7 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
 ```
 
-## Stdout and stdin
+### Stdout and stdin
 
 To enable printing to `stdout` and reading from `stdin` you can bind
 `sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
@@ -217,7 +222,7 @@ Type your name!
 Hello Michiel!
 ```
 
-## Futures
+### Futures
 
 Creating threads with `future` and `pmap` is disabled by default, but can be
 enabled by requiring `sci.addons` and applying the `sci.addons/future` function
@@ -254,7 +259,7 @@ For conveying thread-local sci bindings to an external `future` use
 ;;=> 12
 ```
 
-## Classes
+### Classes
 
 Adding support for classes is done via the `:classes` option:
 
@@ -269,7 +274,7 @@ To make this work with `GraalVM` you will also need to add an entry to your
 config](https://github.com/oracle/graal/blob/master/substratevm/REFLECTION.md)
 for this class. Also see [`reflection.json`](reflection.json).
 
-## State
+### State
 
 Sci uses an atom to keep track of state changes like newly defined namespaces
 and vars. You can carry this state over from one call to another by providing
@@ -279,6 +284,79 @@ the atom yourself as the value for the `:env` key:
 (def env (atom {})
 (sci/eval-string "(defn foo [] :foo)" {:env env})
 (sci/eval-string "(foo)" {:env env}) ;;=> :foo
+```
+
+### Implementing require and load-file
+
+Sci supports implementation of code loading via a function hook that is invoked
+by sci's internal implementation of `require`. The job of this function is to
+find and return the source code for the requested namespace. This passed-in
+function will be called with a single argument that is a hashmap with a key
+`:namespace`. The value for this key will be the _symbol_ of the requested
+namespace.
+
+This function can return a hashmap with the keys `:file` (containing the
+filename to be used in error messages) and `:source` (containing the source code
+text) and sci will evaluate that source code to satisfy the
+require. Alternatively the function can return `nil` which will result in sci
+throwing an exception that the namespace can not be found.
+
+This custom function is passed into the sci context under the `:load-fn` key as
+shown below.
+
+``` clojure
+(defn load-fn [{:keys [namespace]}]
+  (when (= namespace 'foo)
+    {:file "foo.clj"
+     :source "(ns foo) (def val :foo)"}))
+(sci/eval-string "(require '[foo :as fu]) fu/val" {:load-fn load-fn})
+;;=> :foo
+```
+
+Note that internally specified namespaces (either those within sci itself or
+those mounted under the `:namespaces` context setting) will be utilised first
+and load-fn will not be called in those cases, unless `:reload` or `:reload-all`
+are used:
+
+``` clojure
+(sci/eval-string
+  "(require '[foo :as fu])
+   fu/val"
+  {:load-fn load-fn
+   :namespaces {'foo {'val (sci/new-var 'val :internal)}}})
+;;=> :internal
+
+(sci/eval-string
+  "(require '[foo :as fu] :reload)
+   fu/val"
+  {:load-fn load-fn
+   :namespaces {'foo {'val (sci/new-var 'val :internal)}}})
+;;=> :foo
+```
+
+Another option for loading code is to provide an implementation of
+`clojure.core/load-file`. An example is presented here.
+
+``` clojure
+(ns my.sci.app
+    (:require [sci.core :as sci]
+              [clojure.java.io :as io]))
+
+(spit "example1.clj" "(defn foo [] :foo)")
+(spit "example2.clj" "(load-file \"example1.clj\")")
+
+(let [env (atom {})
+      opts {:env env}
+      load-file (fn [file]
+                  (let [file (io/file file)
+                        source (slurp file)]
+                    (sci/with-bindings
+                      {sci/ns @sci/ns
+                       sci/file (.getCanonicalPath file)}
+                      (sci/eval-string source opts))))
+      opts (assoc-in opts [:namespaces 'clojure.core 'load-file] load-file)]
+  (sci/eval-string "(load-file \"example2.clj\") (foo)" opts))
+;;=> :foo
 ```
 
 ## Feature parity
@@ -342,6 +420,10 @@ Note for Java users: the Java API for is conceptually similar to the Clojure
 one, but made more idiomatic for Java users. Check the generated [Java
 documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
 
+## Use as native shared library
+
+To use sci as a native shared library from e.g. C, C++, Rust, read this [tutorial](doc/libsci.md).
+
 ## Test
 
 Required: `lein`, the `clojure` CLI and GraalVM.
@@ -357,7 +439,9 @@ For running individual tests, see the scripts in `script/test`.
 
 ## Thanks
 
-- [adgoji](https://www.adgoji.com/) for financial support
+- [adgoji](https://www.adgoji.com/) for financial support.
+- [Lee Read](https://github.com/lread/) for the logo.
+- [contributors](https://github.com/borkdude/sci/graphs/contributors) and other users posting issues with bug reports and ideas
 
 ## License
 
