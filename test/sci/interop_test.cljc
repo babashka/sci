@@ -56,10 +56,14 @@
 
 #?(:cljs
    (deftest methods-on-static-fields
-     (is (= 42 (tu/eval* "(do (.log js/console \"42\") 42)" {:classes {:allow :all
-                                                                       'js js/global}})))
-     (is (= 42 (tu/eval* "(do (js/console.log \"42\") 42)" {:classes {:allow :all
-                                                                      'js js/global}})))))
+     (is (= "42"
+            (tu/eval* "(do (.log js/console \"42\"))"
+                      {:classes {:allow :all
+                                 'js #js {:console #js {:log identity}}}})))
+     (is (= "42"
+            (tu/eval* "(js/console.log \"42\")"
+                      {:classes {:allow :all
+                                 'js #js {:console #js {:log identity}}}})))))
 
 #?(:cljs
    (deftest static-field-constructors
@@ -68,7 +72,7 @@
 
 ;; TODO add test for special Objects (need browser for this)
 #_(let [sse (js/EventSource. "/sse")]
-        (.addEventListener sse "message" (fn [e] (.log js/console "Data" e))))
+    (.addEventListener sse "message" (fn [e] (.log js/console "Data" e))))
 
 
 #?(:cljs
