@@ -96,6 +96,7 @@
 (deftest destructure-test
   (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))
   (is (= 1 (eval* nil "(let [{:keys [:a]} {:a 1}] a)")))
+  (is (= 42 (eval* nil "(let [k 'foo, a-map {k 42}, {foo-val k} a-map] foo-val)")))
   (is (= 1 (eval* nil "((fn [{:keys [a]}] a) {:a 1})")))
   (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})")))
   (is (= 1 (eval* nil "((fn [{:person/keys [id]}] id) {:person/id 1})")))
