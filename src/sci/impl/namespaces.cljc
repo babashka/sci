@@ -848,6 +848,7 @@
    'swap! (copy-core-var swap!)
    'swap-vals! (copy-core-var swap-vals!)
    'tagged-literal (copy-core-var tagged-literal)
+   'tagged-literal? (copy-core-var tagged-literal?)
    'take (copy-core-var take)
    'take-last (copy-core-var take-last)
    'take-nth (copy-core-var take-nth)
