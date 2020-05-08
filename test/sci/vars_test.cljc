@@ -170,3 +170,6 @@
   #?(:clj (testing "it is atomic"
             (is (= 1000 (sci/eval-string "(def x 0) (do (doall (pmap #(alter-var-root #'x (fn foo [v] (+ v %))) (take 1000 (repeat 1)))) x)"
                                          {:namespaces {'clojure.core {'pmap clojure.core/pmap}}}))))))
+
+(deftest with-redefs-test
+  (is (= [2 1]  (eval* "(def x 1) [(with-redefs [x 2] x) x]"))))
