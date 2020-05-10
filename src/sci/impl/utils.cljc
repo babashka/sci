@@ -176,5 +176,5 @@
 
 (partition-by (stateful-pred odd?) [1 2 3 4 5])
 
-
+;; see https://stackoverflow.com/a/23221442/6264
 
