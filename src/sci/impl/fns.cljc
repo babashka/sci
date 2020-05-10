@@ -45,7 +45,15 @@
                         (eval-do* ctx body))
                   ;; m (meta ret)
                   recur? (instance? Recur ret)]
-              (if recur? (recur (t/getVal ret)) ret)))]
+              (if recur?
+                (let [recur-val (t/getVal ret)]
+                  (if min-var-args-arity
+                    (let [[fixed-args [rest-args]]
+                          [(subvec recur-val 0 min-var-args-arity)
+                           (subvec recur-val min-var-args-arity)]]
+                      (recur (into fixed-args rest-args)))
+                    (recur recur-val)))
+                ret)))]
     (if with-meta?
       (with-meta
         f

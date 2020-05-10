@@ -475,6 +475,8 @@
 
 ;;;; End require + resolve
 
+;;;; Binding vars
+
 (defn sci-with-bindings
   [_ _ bindings & body]
   `(do
@@ -484,6 +486,28 @@
        ~@body
        (finally
          (clojure.core/pop-thread-bindings)))))
+
+(defn sci-with-redefs-fn
+  [binding-map func]
+  (let [root-bind (fn [m]
+                    (doseq [[a-var a-val] m]
+                      (sci.impl.vars/bindRoot a-var a-val)))
+        old-vals (zipmap (keys binding-map)
+                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
+    (try
+      (root-bind binding-map)
+      (func)
+      (finally
+        (root-bind old-vals)))))
+
+(defn sci-with-redefs
+  [_ _ bindings & body]
+  `(clojure.core/with-redefs-fn
+     ~(zipmap (map #(list `var %) (take-nth 2 bindings))
+              (take-nth 2 (next bindings)))
+     (fn [] ~@body)))
+
+;;;; End binding vars
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -859,6 +883,7 @@
    'swap! (copy-core-var swap!)
    'swap-vals! (copy-core-var swap-vals!)
    'tagged-literal (copy-core-var tagged-literal)
+   'tagged-literal? (copy-core-var tagged-literal?)
    'take (copy-core-var take)
    'take-last (copy-core-var take-last)
    'take-nth (copy-core-var take-nth)
@@ -918,8 +943,8 @@
    'with-bindings (macrofy sci-with-bindings)
    'with-meta (copy-core-var with-meta)
    'with-open (macrofy with-open*)
-   ;; 'with-redefs (macrofy vars/with-redefs)
-   ;; 'with-redefs-fn vars/with-redefs-fn
+   'with-redefs-fn sci-with-redefs-fn
+   'with-redefs (macrofy sci-with-redefs)
    'zipmap (copy-core-var zipmap)
    'zero? (copy-core-var zero?)
    #?@(:clj ['+' (copy-core-var +')

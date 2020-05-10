@@ -91,7 +91,11 @@
                                               :cljs (implements? INamed bb))
                                          (with-meta (symbol nil (name bb)) (meta bb))
                                          bb)
-                                 bk (if (symbol? bk) (list 'quote bk) bk)
+                                 ;; if bk has metadata (:line, :column, etc)
+                                 ;; then it's a binding that needs eval
+                                 bk (if-not (meta bk)
+                                      (list 'quote bk)
+                                      bk)
                                  bv (if-let [default (get defaults local)]
                                       (mark-eval-call (list get gmap bk default))
                                       (mark-eval-call (list get gmap bk)))]

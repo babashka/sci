@@ -96,6 +96,7 @@
 (deftest destructure-test
   (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))
   (is (= 1 (eval* nil "(let [{:keys [:a]} {:a 1}] a)")))
+  (is (= 42 (eval* nil "(let [k 'foo, a-map {k 42}, {foo-val k} a-map] foo-val)")))
   (is (= 1 (eval* nil "((fn [{:keys [a]}] a) {:a 1})")))
   (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})")))
   (is (= 1 (eval* nil "((fn [{:person/keys [id]}] id) {:person/id 1})")))
@@ -433,6 +434,14 @@
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
                          {})))
+  (testing "variadic recur"
+    (is (= '(4) (eval* "((fn [& args] (if-let [x (next args)] (recur x) args)) 1 2 3 4)")))
+    (is (= '(4) (eval* "((fn [x & args] (if-let [x (next args)] (recur x x) x)) nil 2 3 4)")))
+    (is (= '((3 4) (5 6)) (eval* "
+((fn [& sqs]
+  (if (= 3 (ffirst sqs))
+    sqs
+    (recur (map #(map inc %) sqs)))) [1 2] [3 4])"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
