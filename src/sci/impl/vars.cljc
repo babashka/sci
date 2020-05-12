@@ -405,7 +405,9 @@
 
 (def current-file (dynamic-var '*file* nil))
 
-(def current-ns (dynamic-var '*ns* nil))
+(def user-ns (->SciNamespace 'user nil))
+
+(def current-ns (dynamic-var '*ns* user-ns))
 
 (defn current-ns-name []
   (getName @current-ns))

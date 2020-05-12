@@ -914,6 +914,12 @@
 (deftest resolve-unquote
   (is (= 'clojure.core/unquote (eval* "`unquote"))))
 
+(deftest ctx-test
+  (let [ctx (sci/init {:bindings {'x 1}})]
+    (is (= 1 (sci/eval-string* ctx "x")))
+    (is (= 2 (do (sci/eval-string* ctx "(def x 2)")
+                 (sci/eval-string* ctx "x"))))))
+
 ;;;; Scratch
 
 (comment

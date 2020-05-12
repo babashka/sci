@@ -109,6 +109,10 @@
         (fn [env]
           (let [the-current-ns (get-in env [:namespaces cnn])
                 prev (get the-current-ns var-name)
+                prev (if-not (vars/var? prev)
+                       (vars/->SciVar prev (symbol (str cnn) (str var-name))
+                                      (meta prev))
+                       prev)
                 v (if (kw-identical? :sci.impl/var.unbound init)
                     (doto prev
                       (alter-meta! merge m))
@@ -591,12 +595,13 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
-  (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-    (loop [ret nil]
-      (let [expr (p/parse-next ctx reader)]
-        (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
-            (let [ret (eval-form ctx expr)]
-              (recur ret)))))))
+  (vars/with-bindings {vars/current-ns @vars/current-ns}
+    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+      (loop [ret nil]
+        (let [expr (p/parse-next ctx reader)]
+          (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
+              (let [ret (eval-form ctx expr)]
+                (recur ret))))))))
 
 ;;;; Called from public API
 
@@ -604,10 +609,7 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts/init opts)
-         ret (vars/with-bindings
-               (when-not @vars/current-ns
-                 {vars/current-ns opts/user-ns})
-               (eval-string* init-ctx s))]
+         ret (eval-string* init-ctx s)]
      ret)))
 
 ;;;; Scratch

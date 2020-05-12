@@ -6,6 +6,7 @@
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
+   [sci.impl.opts :as opts]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str]])))
 
@@ -176,6 +177,20 @@
   ([s] (eval-string s nil))
   ([s opts]
    (i/eval-string s opts)))
+
+(defn init
+  "Creates an initial sci context from given options `opts`. The context
+  can be used with `eval-string*`. See `eval-string` for available
+  options. The internal organization of the context is implementation
+  detail and may change in the future."
+  [opts]
+  (opts/init opts))
+
+(defn eval-string*
+  "Evaluates string `s` in the context of `ctx` (as produced with
+  `init`)."
+  [ctx s]
+  (sci.impl.interpreter/eval-string* ctx s))
 
 ;;;; Scratch
 
