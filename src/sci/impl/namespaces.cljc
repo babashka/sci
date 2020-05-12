@@ -912,6 +912,8 @@
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
    'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
+   'unquote (doto (vars/->SciVar nil 'clojure.core/unquote nil)
+              (vars/unbind))
    'use (with-meta use {:sci.impl/op :needs-ctx})
    'val (copy-core-var val)
    'vals (copy-core-var vals)

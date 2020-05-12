@@ -911,6 +911,9 @@
 (deftest atom-with-meta-test
   (is (= 1 (eval* "@(atom 1 :meta {:a 1})"))))
 
+(deftest resolve-unquote
+  (is (= 'clojure.core/unquote (eval* "`unquote"))))
+
 ;;;; Scratch
 
 (comment
