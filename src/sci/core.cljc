@@ -1,14 +1,15 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
-                            ns])
+                            ns create-ns])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
    [sci.impl.opts :as opts]
    [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.core :refer [with-bindings with-out-str]])))
+  #?(:cljs (:require-macros
+            [sci.core :refer [with-bindings with-out-str copy-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -16,7 +17,7 @@
   "Alpha! Returns a new sci var. API subject to change."
   ([name] (doto (new-var name nil nil)
             (vars/unbind)))
-  ([name val] (new-var name val (meta name)))
+  ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta)))
 
 (defn new-dynamic-var
@@ -27,10 +28,35 @@
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
 
-;; (defn set-var-root!
-;;   "Alpha! Sets root of sci var. API subject to change."
-;;   [sci-var root-val]
-;;   (vars/bindRoot sci-var root-val))
+(defn new-macro-var
+  "Alpha! Same as new-var but adds :macro true to meta as well
+  as :sci/macro true to meta of the fn itself. API subject to change."
+  ([name init-val] (new-var name init-val (meta name)))
+  ([name init-val meta] (sci.impl.vars.SciVar.
+                         (vary-meta init-val
+                                    assoc :sci/macro true)
+                         name (assoc meta :macro true))))
+
+(defmacro copy-var
+  "Copies contents from var `sym` to a new sci var. The value `ns` is an
+  object created with `sci.core/create-ns`."
+  ([sym ns]
+   `(let [ns# ~ns
+          var# (var ~sym)
+          val# (deref var#)
+          m# (-> var# meta)
+          ns-name# (vars/getName ns#)
+          name# (:name m#)
+          name-sym# (symbol (str ns-name#) (str name#))
+          new-m# {:doc (:doc m#)
+                  :name name#
+                  :arglists (:arglists m#)
+                  :ns ns#}]
+      (cond (:dynamic m#)
+            (new-dynamic-var name# val# new-m#)
+            (:macro m#)
+            (new-macro-var name# val# new-m#)
+            :else (new-var name# val# new-m#)))))
 
 (macros/deftime
   (defmacro with-bindings
@@ -50,32 +76,7 @@
     [bindings & body]
     (assert (vector? bindings))
     `(with-bindings ~(apply hash-map bindings)
-       (do ~@body)))
-
-  #_(defmacro with-redefs
-    "Temporarily redefines sci vars while executing the body. The
-  temp-value-exprs will be evaluated and each resulting value will
-  replace in parallel the root value of its Var. After the body is
-  executed, the root values of all the sci vars will be set back to
-  their old values.  These temporary changes will be visible in all
-  threads.  Useful for mocking out functions during testing."
-    [bindings & body]
-    (assert (vector? bindings))
-    (let [binding-map (apply hash-map bindings)]
-      `(let [root-bind# (fn [m#]
-                          (doseq [[a-var# a-val#] m#]
-                            (vars/bindRoot a-var# a-val#)))
-             bm# ~binding-map
-             ks# (keys bm#)
-             _# (doseq [k# ks#]
-                  (assert (sci.impl.vars/var? k#) (str k# " is not a var.")))
-             old-vals# (zipmap ks#
-                               (map #(vars/getRawRoot %) ks#))]
-         (try
-           (root-bind# bm#)
-           (do ~@body)
-           (finally
-             (root-bind# old-vals#)))))))
+       (do ~@body))))
 
 (def in "Sci var that represents sci's `clojure.core/*in*`" sio/in)
 (def out "Sci var that represents sci's `clojure.core/*out*`" sio/out)
@@ -191,6 +192,12 @@
   `init`)."
   [ctx s]
   (sci.impl.interpreter/eval-string* ctx s))
+
+(defn create-ns
+  "Creates namespace object. Can be used in var metadata."
+  ([sym] (create-ns sym nil))
+  ([sym meta]
+   (vars/->SciNamespace sym meta)))
 
 ;;;; Scratch
 
