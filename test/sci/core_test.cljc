@@ -920,6 +920,29 @@
     (is (= 2 (do (sci/eval-string* ctx "(def x 2)")
                  (sci/eval-string* ctx "x"))))))
 
+(defmacro do-twice [x] `(do ~x ~x))
+(def ^:dynamic *foo* 1)
+(defn always-foo [& _args] :foo)
+
+(deftest copy-var-test
+  (let [foo-ns (sci/create-ns 'foo)
+        do-twice-var (sci/copy-var do-twice foo-ns)
+        foo-var (sci/copy-var *foo* foo-ns)
+        always-foo-var (sci/copy-var always-foo foo-ns)
+        opts {:namespaces {'foo {'do-twice do-twice-var
+                                 '*foo* foo-var
+                                 'always-foo always-foo-var}}}
+        effects (sci/with-out-str (sci/eval-string "
+(foo/do-twice (prn 1))
+(prn (foo/always-foo))
+(prn foo/*foo*)
+(binding [foo/*foo* 10] (prn foo/*foo*))" opts))
+        do-twice-doc (sci/with-out-str (sci/eval-string "(clojure.repl/doc foo/do-twice)" opts))
+        always-foo-doc (sci/with-out-str (sci/eval-string "(clojure.repl/doc foo/always-foo)" opts))]
+    (is (= "1\n1\n:foo\n1\n10\n" effects))
+    (is (= "-------------------------\nfoo/do-twice\n([x])\nMacro\n" do-twice-doc))
+    (is (= "-------------------------\nfoo/always-foo\n([& _args])\n" always-foo-doc))))
+
 ;;;; Scratch
 
 (comment
