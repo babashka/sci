@@ -291,7 +291,7 @@ The contents of the the `:env` atom should be considered implementation detail.
 
 Using an `:env` atom you are allowed to change options at each invocation of
 `eval-string`. If your use case doesn't require this, the recommendation is to
-use a sci context.
+use a sci context instead.
 
 A sci context is derived once from options as documented in
 `sci.core/eval-string` and contains the runtime state of a sci session.
