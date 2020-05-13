@@ -32,7 +32,8 @@ clojure.core/inc
            (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))
     (is (= (str/trim
             "-------------------------\nfoo\n  foodoc\n")
-           (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))))
+           (str/trim (sci/with-out-str (eval* "(ns foo \"foodoc\") (clojure.repl/doc foo)")))))
+    (is (empty? (sci/with-out-str (tu/eval* "(clojure.repl/doc x)" {:bindings {'x 1}}))))))
 
 (deftest repl-find-doc-test
   (when-not tu/native?

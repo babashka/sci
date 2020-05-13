@@ -997,7 +997,8 @@
 (defn doc
   [_ _ sym]
   `(if-let [var# (resolve '~sym)]
-     (~'clojure.repl/print-doc (meta var#))
+     (when (var? var#)
+           (~'clojure.repl/print-doc (meta var#)))
      (if-let [ns# (find-ns '~sym)]
        (~'clojure.repl/print-doc (assoc (meta ns#)
                                         :name (ns-name ns#))))))
