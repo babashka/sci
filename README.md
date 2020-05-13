@@ -287,6 +287,40 @@ the atom yourself as the value for the `:env` key:
 (sci/eval-string "(foo)" {:env env}) ;;=> :foo
 ```
 
+The contents of the the `:env` atom should be considered implementation detail.
+
+Using an `:env` atom you are allowed to change options at each invocation of
+`eval-string`. If your use case doesn't require this, the recommendation is to
+use a sci context.
+
+A sci context is derived once from options as documented in
+`sci.core/eval-string` and contains the runtime state of a sci session.
+
+``` clojure
+(require '[sci.core :as sci])
+
+(def opts {:namespaces {'foo.bar {'x 1}}})
+(def sci-ctx (sci/init opts))
+```
+
+Once created, a sci context should be considered final and should not be mutated
+by the user. The contents of the sci context should be considered implementation
+detail.
+
+The sci context can be re-used over successive invocations of
+`sci.core/eval-string*`.
+
+The major difference between `eval-string` and `eval-string*` is that
+`eval-string` will call `init` on the passed options and will pass that through
+to `eval-string*`. When you create a sci context yourself, you can skip the
+extra work that `eval-string` does and work directly with `eval-string*`.
+
+``` clojure
+(sci/eval-string* sci-ctx "foo.bar/x") ;;=> 1
+(sci/eval-string* sci-ctx "(ns foo.bar) (def x 2) x") ;;=> 2
+(sci/eval-string* sci-ctx "foo.bar/x") ;;=> 2
+```
+
 ### Implementing require and load-file
 
 Sci supports implementation of code loading via a function hook that is invoked
