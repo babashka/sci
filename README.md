@@ -297,8 +297,6 @@ A sci context is derived once from options as documented in
 `sci.core/eval-string` and contains the runtime state of a sci session.
 
 ``` clojure
-(require '[sci.core :as sci])
-
 (def opts {:namespaces {'foo.bar {'x 1}}})
 (def sci-ctx (sci/init opts))
 ```
