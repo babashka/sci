@@ -14,23 +14,22 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (defn new-var
-  "Alpha! Returns a new sci var. API subject to change."
+  "Returns a new sci var."
   ([name] (doto (new-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta)))
 
 (defn new-dynamic-var
-  "Alpha! Same as new-var but adds :dynamic true to meta. API subject to
-  change."
+  "Same as new-var but adds :dynamic true to meta."
   ([name] (doto (new-dynamic-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
 
 (defn new-macro-var
-  "Alpha! Same as new-var but adds :macro true to meta as well
-  as :sci/macro true to meta of the fn itself. API subject to change."
+  "Same as new-var but adds :macro true to meta as well
+  as :sci/macro true to meta of the fn itself."
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar.
                          (vary-meta init-val
