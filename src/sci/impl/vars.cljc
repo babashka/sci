@@ -308,53 +308,53 @@
                        (locking (set! meta m)))))
   #?(:clj clojure.lang.IRef) ;; added for multi-methods
   #?(:clj clojure.lang.IFn :cljs IFn)
-  (#?(:clj invoke :cljs -invoke) [f]
-    (@f))
-  (#?(:clj invoke :cljs -invoke) [f a]
-    (@f a))
-  (#?(:clj invoke :cljs -invoke) [f a b]
-    (@f a b))
-  (#?(:clj invoke :cljs -invoke) [f a b c]
-    (@f a b c))
-  (#?(:clj invoke :cljs -invoke) [f a b c d]
-    (@f a b c d))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e]
-    (@f a b c d e))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f]
-    (@f a b c d e f))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g]
-    (@f a b c d e f g))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h]
-    (@f a b c d e f g h))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i]
-    (@f a b c d e f g h i))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j]
-    (@f a b c d e f g h i j))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k]
-    (@f a b c d e f g h i j k))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l]
-    (@f a b c d e f g h i j k l))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m]
-    (@f a b c d e f g h i j k l m))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n]
-    (@f a b c d e f g h i j k l m n))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n o]
-    (@f a b c d e f g h i j k l m n o))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n o p]
-    (@f a b c d e f g h i j k l m n o p))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n o p q]
-    (@f a b c d e f g h i j k l m n o p q))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n o p q r]
-    (@f a b c d e f g h i j k l m n o p q r))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n o p q r s]
-    (@f a b c d e f g h i j k l m n o p q r s))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n o p q r s t]
-    (@f a b c d e f g h i j k l m n o p q r s t))
-  (#?(:clj invoke :cljs -invoke) [f a b c d e f g h i j k l m n o p q r s t rest]
-    (apply @f a b c d e f g h i j k l m n o p q r s t rest))
+  (#?(:clj invoke :cljs -invoke) [this]
+    (@this))
+  (#?(:clj invoke :cljs -invoke) [this a]
+    (@this a))
+  (#?(:clj invoke :cljs -invoke) [this a b]
+    (@this a b))
+  (#?(:clj invoke :cljs -invoke) [this a b c]
+    (@this a b c))
+  (#?(:clj invoke :cljs -invoke) [this a b c d]
+    (@this a b c d))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e]
+    (@this a b c d e))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f]
+    (@this a b c d e f))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g]
+    (@this a b c d e f g))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h]
+    (@this a b c d e f g h))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i]
+    (@this a b c d e f g h i))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j]
+    (@this a b c d e f g h i j))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k]
+    (@this a b c d e f g h i j k))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l]
+    (@this a b c d e f g h i j k l))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m]
+    (@this a b c d e f g h i j k l m))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n]
+    (@this a b c d e f g h i j k l m n))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o]
+    (@this a b c d e f g h i j k l m n o))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p]
+    (@this a b c d e f g h i j k l m n o p))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q]
+    (@this a b c d e f g h i j k l m n o p q))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r]
+    (@this a b c d e f g h i j k l m n o p q r))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s]
+    (@this a b c d e f g h i j k l m n o p q r s))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t]
+    (@this a b c d e f g h i j k l m n o p q r s t))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t rest]
+    (apply @this a b c d e f g h i j k l m n o p q r s t rest))
   #?(:clj
-     (applyTo [f args]
-              (apply @f args))))
+     (applyTo [this args]
+              (apply @this args))))
 
 #?(:clj
    (do (defmethod print-method sci.impl.vars.IVar [o ^java.io.Writer w]
