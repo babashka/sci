@@ -623,7 +623,10 @@
             f (if (and (vars/var? f)
                        (or
                         (vars/isMacro f)
-                        (-> f meta :sci.impl/built-in)))
+                        (let [m (meta f)]
+                          (and
+                           (:sci.impl/built-in m)
+                           (not (:dynamic m))))))
                 @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or

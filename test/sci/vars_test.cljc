@@ -172,4 +172,9 @@
                                          {:namespaces {'clojure.core {'pmap clojure.core/pmap}}}))))))
 
 (deftest with-redefs-test
-  (is (= [2 1]  (eval* "(def x 1) [(with-redefs [x 2] x) x]"))))
+  (is (= [2 1]  (eval* "(def x 1) [(with-redefs [x 2] x) x]")))
+  (let [x (sci/new-dynamic-var '*x* (fn [] 10) {:ns (sci/create-ns 'user)
+                                                :sci.impl/built-in true})]
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Built-in var"
+                          (tu/eval* "[(with-redefs [*x* (fn [] 11)] (*x*)) (*x*)]" {:bindings {'*x* x}})))))
