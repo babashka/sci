@@ -503,7 +503,7 @@
   (try (let [f (first expr)
              m (meta f)
              op (when m (.get ^java.util.Map m :sci.impl/op))]
-         ;; (prn "call first op" (type f) op)
+         ;; (prn op expr)
          (cond
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)

@@ -606,7 +606,7 @@
 
 (defn macro? [f]
   (when-let [m (meta f)]
-    (or (:sci/macro m) ;; TODO: deprecate
+    (or (:sci/macro m)
         (:macro m))))
 
 ;;;; End macros
