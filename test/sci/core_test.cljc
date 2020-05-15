@@ -943,6 +943,10 @@
     (is (= "-------------------------\nfoo/do-twice\n([x])\nMacro\n" do-twice-doc))
     (is (= "-------------------------\nfoo/always-foo\n([& _args])\n" always-foo-doc))))
 
+(deftest data-readers-test
+  (is (= 2 (sci/eval-string "#t/tag 1" {:readers {'t/tag inc}})))
+  (is (= 2 (sci/eval-string "#t/tag 1" {:readers (sci/new-var 'readers {'t/tag inc})}))))
+
 ;;;; Scratch
 
 (comment

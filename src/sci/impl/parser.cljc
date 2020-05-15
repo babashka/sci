@@ -47,6 +47,7 @@
   ([ctx r]
    (let [features (:features ctx)
          readers (:readers ctx)
+         readers (if (vars/var? readers) @readers readers)
          env (:env ctx)
          env-val @env
          current-ns (vars/current-ns-name)
