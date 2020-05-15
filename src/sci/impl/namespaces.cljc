@@ -651,6 +651,7 @@
    'eduction (copy-core-var eduction)
    'empty (copy-core-var empty)
    'empty? (copy-core-var empty?)
+   #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
    'eval (with-meta eval {:sci.impl/op :needs-ctx})
    'even? (copy-core-var even?)
    'every? (copy-core-var every?)
