@@ -338,9 +338,17 @@
   (let [bv (second expr)
         arg-names (take-nth 2 bv)
         init-vals (take-nth 2 (rest bv))
-        body (nnext expr)]
-    (analyze ctx (apply list `(fn ~(vec arg-names) ~@body)
-                        init-vals))))
+        [bv syms] (if (every? symbol? arg-names)
+                    [bv arg-names]
+                    (let [syms (repeatedly (count arg-names) #(gensym))
+                          bv1 (map vector syms init-vals)
+                          bv2  (map vector arg-names syms)]
+                      [(into [] cat (interleave bv1 bv2)) syms]))
+        body (nnext expr)
+        expansion (list 'let bv
+                        (list* `(fn ~(vec arg-names) ~@body)
+                               syms))]
+    (analyze ctx expansion)))
 
 (defn expand-lazy-seq
   [ctx expr]
@@ -537,6 +545,10 @@
 ;;;; Namespaces
 
 (defn analyze-ns-form [ctx [_ns ns-name & exprs]]
+  (when-not (symbol? ns-name)
+    (throw (new #?(:clj IllegalArgumentException
+                   :cljs js/Error)
+                (str "Namespace name must be symbol, got: " (pr-str ns-name)))))
   (let [[docstring exprs]
         (let [fexpr (first exprs)]
           (if (string? fexpr)
@@ -553,9 +565,7 @@
                    attr-map)]
     (set-namespace! ctx ns-name attr-map)
     (loop [exprs exprs
-           ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
-                ;; this twice I guess?
-                ]]
+           ret []]
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
@@ -596,7 +606,8 @@
 
 (defn macro? [f]
   (when-let [m (meta f)]
-    (:sci/macro m)))
+    (or (:sci/macro m)
+        (:macro m))))
 
 ;;;; End macros
 
@@ -612,7 +623,10 @@
             f (if (and (vars/var? f)
                        (or
                         (vars/isMacro f)
-                        (-> f meta :sci.impl/built-in)))
+                        (let [m (meta f)]
+                          (and
+                           (:sci.impl/built-in m)
+                           (not (:dynamic m))))))
                 @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or

@@ -41,6 +41,7 @@ It is used in:
 
 - [Babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
+- [Chlorine](https://github.com/mauricioszabo/atom-chlorine). Socket-REPL and nREPL package for Atom editor.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
@@ -284,6 +285,111 @@ the atom yourself as the value for the `:env` key:
 (def env (atom {})
 (sci/eval-string "(defn foo [] :foo)" {:env env})
 (sci/eval-string "(foo)" {:env env}) ;;=> :foo
+```
+
+The contents of the the `:env` atom should be considered implementation detail.
+
+Using an `:env` atom you are allowed to change options at each invocation of
+`eval-string`. If your use case doesn't require this, the recommendation is to
+use a sci context instead.
+
+A sci context is derived once from options as documented in
+`sci.core/eval-string` and contains the runtime state of a sci session.
+
+``` clojure
+(def opts {:namespaces {'foo.bar {'x 1}}})
+(def sci-ctx (sci/init opts))
+```
+
+Once created, a sci context should be considered final and should not be mutated
+by the user. The contents of the sci context should be considered implementation
+detail.
+
+The sci context can be re-used over successive invocations of
+`sci.core/eval-string*`.
+
+The major difference between `eval-string` and `eval-string*` is that
+`eval-string` will call `init` on the passed options and will pass that through
+to `eval-string*`. When you create a sci context yourself, you can skip the
+extra work that `eval-string` does and work directly with `eval-string*`.
+
+``` clojure
+(sci/eval-string* sci-ctx "foo.bar/x") ;;=> 1
+(sci/eval-string* sci-ctx "(ns foo.bar) (def x 2) x") ;;=> 2
+(sci/eval-string* sci-ctx "foo.bar/x") ;;=> 2
+```
+
+### Implementing require and load-file
+
+Sci supports implementation of code loading via a function hook that is invoked
+by sci's internal implementation of `require`. The job of this function is to
+find and return the source code for the requested namespace. This passed-in
+function will be called with a single argument that is a hashmap with a key
+`:namespace`. The value for this key will be the _symbol_ of the requested
+namespace.
+
+This function can return a hashmap with the keys `:file` (containing the
+filename to be used in error messages) and `:source` (containing the source code
+text) and sci will evaluate that source code to satisfy the
+require. Alternatively the function can return `nil` which will result in sci
+throwing an exception that the namespace can not be found.
+
+This custom function is passed into the sci context under the `:load-fn` key as
+shown below.
+
+``` clojure
+(defn load-fn [{:keys [namespace]}]
+  (when (= namespace 'foo)
+    {:file "foo.clj"
+     :source "(ns foo) (def val :foo)"}))
+(sci/eval-string "(require '[foo :as fu]) fu/val" {:load-fn load-fn})
+;;=> :foo
+```
+
+Note that internally specified namespaces (either those within sci itself or
+those mounted under the `:namespaces` context setting) will be utilised first
+and load-fn will not be called in those cases, unless `:reload` or `:reload-all`
+are used:
+
+``` clojure
+(sci/eval-string
+  "(require '[foo :as fu])
+   fu/val"
+  {:load-fn load-fn
+   :namespaces {'foo {'val (sci/new-var 'val :internal)}}})
+;;=> :internal
+
+(sci/eval-string
+  "(require '[foo :as fu] :reload)
+   fu/val"
+  {:load-fn load-fn
+   :namespaces {'foo {'val (sci/new-var 'val :internal)}}})
+;;=> :foo
+```
+
+Another option for loading code is to provide an implementation of
+`clojure.core/load-file`. An example is presented here.
+
+``` clojure
+(ns my.sci.app
+    (:require [sci.core :as sci]
+              [clojure.java.io :as io]))
+
+(spit "example1.clj" "(defn foo [] :foo)")
+(spit "example2.clj" "(load-file \"example1.clj\")")
+
+(let [env (atom {})
+      opts {:env env}
+      load-file (fn [file]
+                  (let [file (io/file file)
+                        source (slurp file)]
+                    (sci/with-bindings
+                      {sci/ns @sci/ns
+                       sci/file (.getCanonicalPath file)}
+                      (sci/eval-string source opts))))
+      opts (assoc-in opts [:namespaces 'clojure.core 'load-file] load-file)]
+  (sci/eval-string "(load-file \"example2.clj\") (foo)" opts))
+;;=> :foo
 ```
 
 ## Feature parity

@@ -1,4 +1,5 @@
-(ns sci.impl.types)
+(ns sci.impl.types
+  {:no-doc true})
 
 (defprotocol IBox
   (setVal [_this _v])

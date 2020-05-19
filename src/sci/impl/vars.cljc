@@ -308,53 +308,53 @@
                        (locking (set! meta m)))))
   #?(:clj clojure.lang.IRef) ;; added for multi-methods
   #?(:clj clojure.lang.IFn :cljs IFn)
-  (#?(:clj invoke :cljs -invoke) [_]
-    (root))
-  (#?(:clj invoke :cljs -invoke) [_ a]
-    (root a))
-  (#?(:clj invoke :cljs -invoke) [_ a b]
-    (root a b))
-  (#?(:clj invoke :cljs -invoke) [_ a b c]
-    (root a b c))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d]
-    (root a b c d))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e]
-    (root a b c d e))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f]
-    (root a b c d e f))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g]
-    (root a b c d e f g))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h]
-    (root a b c d e f g h))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i]
-    (root a b c d e f g h i))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j]
-    (root a b c d e f g h i j))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k]
-    (root a b c d e f g h i j k))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l]
-    (root a b c d e f g h i j k l))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m]
-    (root a b c d e f g h i j k l m))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n]
-    (root a b c d e f g h i j k l m n))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o]
-    (root a b c d e f g h i j k l m n o))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p]
-    (root a b c d e f g h i j k l m n o p))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q]
-    (root a b c d e f g h i j k l m n o p q))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r]
-    (root a b c d e f g h i j k l m n o p q r))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s]
-    (root a b c d e f g h i j k l m n o p q r s))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t]
-    (root a b c d e f g h i j k l m n o p q r s t))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
-    (apply root a b c d e f g h i j k l m n o p q r s t rest))
+  (#?(:clj invoke :cljs -invoke) [this]
+    (@this))
+  (#?(:clj invoke :cljs -invoke) [this a]
+    (@this a))
+  (#?(:clj invoke :cljs -invoke) [this a b]
+    (@this a b))
+  (#?(:clj invoke :cljs -invoke) [this a b c]
+    (@this a b c))
+  (#?(:clj invoke :cljs -invoke) [this a b c d]
+    (@this a b c d))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e]
+    (@this a b c d e))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f]
+    (@this a b c d e f))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g]
+    (@this a b c d e f g))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h]
+    (@this a b c d e f g h))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i]
+    (@this a b c d e f g h i))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j]
+    (@this a b c d e f g h i j))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k]
+    (@this a b c d e f g h i j k))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l]
+    (@this a b c d e f g h i j k l))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m]
+    (@this a b c d e f g h i j k l m))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n]
+    (@this a b c d e f g h i j k l m n))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o]
+    (@this a b c d e f g h i j k l m n o))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p]
+    (@this a b c d e f g h i j k l m n o p))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q]
+    (@this a b c d e f g h i j k l m n o p q))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r]
+    (@this a b c d e f g h i j k l m n o p q r))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s]
+    (@this a b c d e f g h i j k l m n o p q r s))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t]
+    (@this a b c d e f g h i j k l m n o p q r s t))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t rest]
+    (apply @this a b c d e f g h i j k l m n o p q r s t rest))
   #?(:clj
-     (applyTo [_ args]
-              (apply root args))))
+     (applyTo [this args]
+              (apply @this args))))
 
 #?(:clj
    (do (defmethod print-method sci.impl.vars.IVar [o ^java.io.Writer w]
@@ -372,25 +372,6 @@
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true)]
      (SciVar. init-val name meta))))
-
-#_(defn with-redefs-fn
-  [binding-map func]
-  (let [root-bind (fn [m]
-                    (doseq [[a-var a-val] m]
-                      (sci.impl.vars/bindRoot a-var a-val)))
-        old-vals (zipmap (keys binding-map)
-                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
-    (try
-      (root-bind binding-map)
-      (func)
-      (finally
-        (root-bind old-vals)))))
-
-#_(defn with-redefs
-  [_ _ bindings & body]
-  `(clojure.core/with-redefs-fn ~(zipmap (map #(list `var %) (take-nth 2 bindings))
-                                         (take-nth 2 (next bindings)))
-     (fn [] ~@body)))
 
 (defn binding
   [_ _ bindings & body]
@@ -413,18 +394,20 @@
 
 (macros/deftime
   (defmacro with-bindings
-    "Macro for binding sci vars. Must be called with map of sci dynamic
-  vars to values. Used in babashka."
+    "Macro for binding sci vars for internal use."
     [bindings & body]
-    ;; important: outside try
-    `(do (vars/push-thread-bindings ~bindings)
-         (try
-           (do ~@body)
-           (finally (vars/pop-thread-bindings))))))
+    `(do
+       ;; important: outside try
+       (vars/push-thread-bindings ~bindings)
+       (try
+         (do ~@body)
+         (finally (vars/pop-thread-bindings))))))
 
 (def current-file (dynamic-var '*file* nil))
 
-(def current-ns (dynamic-var '*ns* nil))
+(def user-ns (->SciNamespace 'user nil))
+
+(def current-ns (dynamic-var '*ns* user-ns))
 
 (defn current-ns-name []
   (getName @current-ns))

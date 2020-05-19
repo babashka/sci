@@ -1,8 +1,8 @@
 (ns sci.impl.namespaces
   {:no-doc true}
-  (:refer-clojure :exclude [ex-message ex-cause eval
-                            read-string require use
-                            load-string])
+  (:refer-clojure :exclude [ex-message ex-cause eval read
+                            read-string require
+                            use load-string])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -20,18 +20,24 @@
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
 
 (macros/deftime
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
   (defmacro copy-var
     ([sym ns]
-     `(let [m# (-> (var ~sym) meta)]
-        (vars/->SciVar ~sym '~sym {:doc (:doc m#)
-                                   :name (:name m#)
-                                   :arglists (:arglists m#)
-                                   :ns ~ns
-                                   :sci.impl/built-in true}))))
+     `(let [ns# ~ns
+            m# (-> (var ~sym) meta)
+            ns-name# (vars/getName ns#)
+            name# (:name m#)
+            name-sym# (symbol (str ns-name#) (str name#))]
+        (vars/->SciVar ~sym name-sym# {:doc (:doc m#)
+                                       :name name#
+                                       :arglists (:arglists m#)
+                                       :ns ns#
+                                       :sci.impl/built-in true}))))
   (defmacro copy-core-var
     ([sym]
      `(copy-var ~sym clojure-core-ns)
@@ -395,9 +401,27 @@
   (let [env (:env ctx)]
     (map #(utils/namespace-object env % true nil) (keys (get @env :namespaces)))))
 
+(defn sci-remove-ns [ctx sym]
+  (let [env (:env ctx)]
+    (swap! env update :namespaces dissoc sym)
+    nil))
+
 ;;;; End namespaces
 
 ;;;; Eval and read-string
+
+(defn read
+  "Added for compatibility. Does not support the options from the original yet."
+  ([sci-ctx]
+   (read sci-ctx @io/in))
+  ([sci-ctx stream]
+   (read sci-ctx stream true nil))
+  ([sci-ctx stream eof-error? eof-value]
+   (read sci-ctx stream eof-error? eof-value false))
+  ([sci-ctx stream _eof-error? _eof-value _recursive?]
+   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?))
+  ([sci-ctx _opts stream]
+   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?)))
 
 (defn read-string
   ([sci-ctx s]
@@ -408,9 +432,17 @@
   (@utils/eval-form-state sci-ctx form))
 
 (defn load-string [sci-ctx s]
-  (eval sci-ctx (read-string sci-ctx s)))
+  (vars/with-bindings {vars/current-ns @vars/current-ns}
+    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+      (loop [ret nil]
+        (let [x (parser/parse-next sci-ctx reader)]
+          (if (utils/kw-identical? :edamame.impl.parser/eof x)
+            ret
+            (recur (eval sci-ctx x))))))))
 
 ;;;; End eval and read-string
+
+;;;; Require + resolve
 
 (defn require [sci-ctx & args]
   (apply @utils/eval-require-state sci-ctx args))
@@ -420,6 +452,60 @@
 
 (defn sci-resolve [sci-ctx sym]
   (@utils/eval-resolve-state sci-ctx sym))
+
+(defn sci-ns-resolve
+  ([sci-ctx ns sym] (sci-ns-resolve sci-ctx ns nil sym))
+  ([sci-ctx ns env sym]
+   (when-not (contains? env sym)
+     (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
+       (sci-resolve sci-ctx sym)))))
+
+(defn sci-requiring-resolve
+  ([sci-ctx sym]
+   (if (qualified-symbol? sym)
+     (or (sci-resolve sci-ctx sym)
+         (let [namespace (-> sym namespace symbol)]
+           (require sci-ctx namespace)
+           (sci-resolve sci-ctx sym)))
+     (throw (new #?(:clj IllegalArgumentException
+                    :cljs js/Error)
+                 (str "Not a qualified symbol: " sym))))))
+
+;;;; End require + resolve
+
+;;;; Binding vars
+
+(defn sci-with-bindings
+  [_ _ bindings & body]
+  `(do
+     ;; important: outside try
+     (clojure.core/push-thread-bindings ~bindings)
+     (try
+       ~@body
+       (finally
+         (clojure.core/pop-thread-bindings)))))
+
+(defn sci-with-redefs-fn
+  [binding-map func]
+  (let [root-bind (fn [m]
+                    (doseq [[a-var a-val] m]
+                      (sci.impl.vars/bindRoot a-var a-val)))
+        old-vals (zipmap (keys binding-map)
+                         (map #(sci.impl.vars/getRawRoot %) (keys binding-map)))]
+    (try
+      (root-bind binding-map)
+      (func)
+      (finally
+        (root-bind old-vals)))))
+
+(defn sci-with-redefs
+  [_ _ bindings & body]
+  `(clojure.core/with-redefs-fn
+     ~(zipmap (map #(list `var %) (take-nth 2 bindings))
+              (take-nth 2 (next bindings)))
+     (fn [] ~@body)))
+
+;;;; End binding vars
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -565,6 +651,7 @@
    'eduction (copy-core-var eduction)
    'empty (copy-core-var empty)
    'empty? (copy-core-var empty?)
+   #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
    'eval (with-meta eval {:sci.impl/op :needs-ctx})
    'even? (copy-core-var even?)
    'every? (copy-core-var every?)
@@ -670,6 +757,7 @@
    'nthrest (copy-core-var nthrest)
    'nil? (copy-core-var nil?)
    'nat-int? (copy-core-var nat-int?)
+   'ns-resolve (with-meta sci-ns-resolve {:sci.impl/op :needs-ctx})
    'number? (copy-core-var number?)
    'not-empty (copy-core-var not-empty)
    'not-any? (copy-core-var not-any?)
@@ -713,6 +801,7 @@
    're-matches (copy-core-var re-matches)
    'rem (copy-core-var rem)
    'remove (copy-core-var remove)
+   'remove-ns (with-meta sci-remove-ns {:sci.impl/op :needs-ctx})
    'require (with-meta require {:sci.impl/op :needs-ctx})
    'reset-meta! (copy-core-var reset-meta!)
    'rest (copy-core-var rest)
@@ -734,11 +823,13 @@
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
    'rand (copy-core-var rand)
+   'read (with-meta read {:sci.impl/op :needs-ctx})
    'read-string (with-meta read-string {:sci.impl/op :needs-ctx})
    'replace (copy-core-var replace)
    'rseq (copy-core-var rseq)
    'random-sample (copy-core-var random-sample)
    'repeat (copy-core-var repeat)
+   'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op :needs-ctx})
    'run! (copy-core-var run!)
    #?@(:clj ['satisfies? (copy-core-var satisfies?)])
    'set? (copy-core-var set?)
@@ -782,6 +873,7 @@
    'swap! (copy-core-var swap!)
    'swap-vals! (copy-core-var swap-vals!)
    'tagged-literal (copy-core-var tagged-literal)
+   'tagged-literal? (copy-core-var tagged-literal?)
    'take (copy-core-var take)
    'take-last (copy-core-var take-last)
    'take-nth (copy-core-var take-nth)
@@ -821,6 +913,8 @@
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
    'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
+   'unquote (doto (vars/->SciVar nil 'clojure.core/unquote nil)
+              (vars/unbind))
    'use (with-meta use {:sci.impl/op :needs-ctx})
    'val (copy-core-var val)
    'vals (copy-core-var vals)
@@ -838,10 +932,11 @@
    'when (macrofy when*)
    'when-not (macrofy when-not*)
    'while (macrofy while*)
+   'with-bindings (macrofy sci-with-bindings)
    'with-meta (copy-core-var with-meta)
    'with-open (macrofy with-open*)
-   ;; 'with-redefs (macrofy vars/with-redefs)
-   ;; 'with-redefs-fn vars/with-redefs-fn
+   'with-redefs-fn sci-with-redefs-fn
+   'with-redefs (macrofy sci-with-redefs)
    'zipmap (copy-core-var zipmap)
    'zero? (copy-core-var zero?)
    #?@(:clj ['+' (copy-core-var +')
@@ -903,7 +998,8 @@
 (defn doc
   [_ _ sym]
   `(if-let [var# (resolve '~sym)]
-     (~'clojure.repl/print-doc (meta var#))
+     (when (var? var#)
+           (~'clojure.repl/print-doc (meta var#)))
      (if-let [ns# (find-ns '~sym)]
        (~'clojure.repl/print-doc (assoc (meta ns#)
                                         :name (ns-name ns#))))))
@@ -971,6 +1067,71 @@
   [_ _ n]
   `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
 
+#?(:clj
+   (defn root-cause
+     "Returns the initial cause of an exception or error by peeling off all of
+  its wrappers"
+     {:added "1.3"}
+     [^Throwable t]
+     (loop [cause t]
+       (if (and (instance? clojure.lang.Compiler$CompilerException cause)
+                (not= (.source ^clojure.lang.Compiler$CompilerException cause) "NO_SOURCE_FILE"))
+         cause
+         (if-let [cause (.getCause cause)]
+           (recur cause)
+           cause)))))
+
+#?(:clj
+   (defn demunge
+     "Given a string representation of a fn class,
+  as in a stack trace element, returns a readable version."
+     {:added "1.3"}
+     [fn-name]
+     (clojure.lang.Compiler/demunge fn-name)))
+
+#?(:clj
+   (defn stack-element-str
+     "Returns a (possibly unmunged) string representation of a StackTraceElement"
+     {:added "1.3"}
+     [^StackTraceElement el]
+     (let [file (.getFileName el)
+           clojure-fn? (and file (or (.endsWith file ".clj")
+                                     (.endsWith file ".cljc")
+                                     (= file "NO_SOURCE_FILE")))]
+       (str (if clojure-fn?
+              (demunge (.getClassName el))
+              (str (.getClassName el) "." (.getMethodName el)))
+            " (" (.getFileName el) ":" (.getLineNumber el) ")"))))
+
+#?(:clj
+   (defn pst
+     "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
+  most recent repl exception (*e), and a depth of 12."
+     {:added "1.3"}
+     ([ctx] (pst ctx 12))
+     ([ctx e-or-depth]
+      (if (instance? Throwable e-or-depth)
+        (pst ctx e-or-depth 12)
+        (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
+          (pst ctx (root-cause e) e-or-depth))))
+     ([_ctx ^Throwable e depth]
+      (vars/with-bindings {io/out @io/err}
+        (io/println (str (-> e class .getSimpleName) " "
+                         (.getMessage e)
+                         (when-let [info (ex-data e)] (str " " (pr-str info)))))
+        (let [st (.getStackTrace e)
+              cause (.getCause e)]
+          (doseq [el (take depth
+                           (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
+                                     (.getClassName ^StackTraceElement %))
+                                   st))]
+            (io/println (str \tab (stack-element-str el))))
+          (when cause
+            (io/println "Caused by:")
+            (pst cause (min depth
+                            (+ 2 (- (count (.getStackTrace cause))
+                                    (count st)))))))))))
+
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
    'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
@@ -980,7 +1141,10 @@
    'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})
    'apropos (with-meta apropos {:sci.impl/op :needs-ctx})
    'source (macrofy source)
-   'source-fn (with-meta source-fn {:sci.impl/op :needs-ctx})})
+   'source-fn (with-meta source-fn {:sci.impl/op :needs-ctx})
+   #?@(:clj ['pst (with-meta pst {:sci.impl/op :needs-ctx})
+             'stack-element-str stack-element-str
+             'demunge demunge])})
 
 (defn apply-template
   [argv expr values]

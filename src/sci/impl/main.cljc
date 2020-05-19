@@ -17,7 +17,8 @@
   (let [n (when n (Integer. n))
         ctx (edn/read-string ctx)
         ctx (-> ctx #?(:clj (addons/future)))
-        v (sci/with-bindings {sci/out *out*}
+        v (sci/with-bindings {sci/out *out*
+                              #?@(:clj [sci/err *err*])}
             (if n
               (let [ctx (opts/init ctx)
                     reader (r/indexing-push-back-reader (r/string-push-back-reader form))

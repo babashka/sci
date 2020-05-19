@@ -73,3 +73,12 @@
 (deftest find-ns-test
   (is (true? (eval* "(ns foo) (some? (find-ns 'foo))")))
   (is (nil? (eval* "(find-ns 'foo)"))))
+
+(deftest remove-ns-test
+  (is (nil? (eval* "(ns foo) (ns bar) (remove-ns 'foo) (find-ns 'foo)"))))
+
+(deftest ns-syntax-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"symbol"
+       (eval* "(ns)"))))

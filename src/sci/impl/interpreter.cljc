@@ -109,6 +109,10 @@
         (fn [env]
           (let [the-current-ns (get-in env [:namespaces cnn])
                 prev (get the-current-ns var-name)
+                prev (if-not (vars/var? prev)
+                       (vars/->SciVar prev (symbol (str cnn) (str var-name))
+                                      (meta prev))
+                       prev)
                 v (if (kw-identical? :sci.impl/var.unbound init)
                     (doto prev
                       (alter-meta! merge m))
@@ -212,13 +216,13 @@
       (if-let [load-fn (:load-fn ctx)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
-            (try (vars/with-bindings {vars/current-file file}
+            (try (vars/with-bindings
+                   {vars/current-ns @vars/current-ns
+                    vars/current-file file}
                    (eval-string* (assoc ctx :bindings {}) source))
                  (catch #?(:clj Exception :cljs js/Error) e
                    (swap! env* update :namespaces dissoc lib-name)
-                   (throw e))
-                 ;; TODO: fix ns metadata
-                 (finally (set-namespace! ctx cnn nil)))
+                   (throw e)))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
@@ -499,7 +503,7 @@
   (try (let [f (first expr)
              m (meta f)
              op (when m (.get ^java.util.Map m :sci.impl/op))]
-         ;; (prn "call first op" (type f) op)
+         ;; (prn op expr)
          (cond
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
@@ -518,10 +522,9 @@
          (rethrow-with-location-of-node ctx e expr))))
 
 (defn fix-meta [v old-meta]
-  ;; TODO: find out why the special case for vars is needed. When I remove it,
-  ;; spartan.spec does not work.
-  (if (and (meta v) (and (not (vars/var? v))
-                         (not (vars/namespace? v))))
+  (if (and #?(:clj (instance? clojure.lang.IObj v)
+              :cljs (implements? IWithMeta v))
+           (meta v))
     (vary-meta v (fn [m]
                    (-> m
                        (dissoc :sci.impl/op)
@@ -592,12 +595,13 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
-  (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-    (loop [ret nil]
-      (let [expr (p/parse-next ctx reader)]
-        (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
-            (let [ret (eval-form ctx expr)]
-              (recur ret)))))))
+  (vars/with-bindings {vars/current-ns @vars/current-ns}
+    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+      (loop [ret nil]
+        (let [expr (p/parse-next ctx reader)]
+          (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
+              (let [ret (eval-form ctx expr)]
+                (recur ret))))))))
 
 ;;;; Called from public API
 
@@ -605,10 +609,7 @@
   ([s] (eval-string s nil))
   ([s opts]
    (let [init-ctx (opts/init opts)
-         ret (vars/with-bindings
-               (when-not @vars/current-ns
-                 {vars/current-ns opts/user-ns})
-               (eval-string* init-ctx s))]
+         ret (eval-string* init-ctx s)]
      ret)))
 
 ;;;; Scratch

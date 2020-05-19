@@ -96,6 +96,7 @@
 (deftest destructure-test
   (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))
   (is (= 1 (eval* nil "(let [{:keys [:a]} {:a 1}] a)")))
+  (is (= 42 (eval* nil "(let [k 'foo, a-map {k 42}, {foo-val k} a-map] foo-val)")))
   (is (= 1 (eval* nil "((fn [{:keys [a]}] a) {:a 1})")))
   (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})")))
   (is (= 1 (eval* nil "((fn [{:person/keys [id]}] id) {:person/id 1})")))
@@ -221,6 +222,9 @@
   (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
   (is (= 1 (eval* "((symbol \"recur\") {'recur 1})")))
   (is (= [true false] (eval* "(mapv (comp some? resolve) '[inc x])"))))
+
+(deftest ns-resolve-test
+  (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
 
 (deftest top-level-test
   (testing "top level expressions are evaluated in order and have side effects,
@@ -430,20 +434,51 @@
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
                          {})))
+  (testing "variadic recur"
+    (is (= '(4) (eval* "((fn [& args] (if-let [x (next args)] (recur x) args)) 1 2 3 4)")))
+    (is (= '(4) (eval* "((fn [x & args] (if-let [x (next args)] (recur x x) x)) nil 2 3 4)")))
+    (is (= '((3 4) (5 6)) (eval* "
+((fn [& sqs]
+  (if (= 3 (ffirst sqs))
+    sqs
+    (recur (map #(map inc %) sqs)))) [1 2] [3 4])"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
         (f 0)))))
 
 (deftest loop-test
-  (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))"
-                     {}))))
+  (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
+  (is (= '(5 4 3 2 1) (tu/eval* "
+(loop [l (list 2 1)
+       c (count l)]
+  (if (> c 4)
+    l
+    (recur (conj l (inc c)) (inc c))))
+" {})))
+  (is (= 4 (tu/eval* "
+(defmacro & [])
+(loop [[x & xs] [1 2 3 4 5]
+       y x]
+  (if (> x 4)
+    y
+    (recur xs x)))
+" {})))
+  (is (= 2 (tu/eval* "
+(let [x 1]
+  (loop [x (inc x)]
+    x))
+" {}))))
 
 (deftest for-test
   (is (= '([1 4] [1 6])
          (eval* "(for [i [1 2 3] :while (< i 2) j [4 5 6] :when (even? j)] [i j])")))
   (is (= (for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)
          (eval* "(for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)")))
+  (is (= (for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)
+         (eval* "
+(defn when []) (defn nth [])
+(for [[_ counts] [[1 [1 2 3]] [3 [1 2 3]]] c counts] c)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"vector"
                         (eval* "(for 1 [i j])")))
@@ -497,7 +532,15 @@
   (testing "require as function"
     (is (= 1 (eval* "(ns foo) (defn foo [] 1) (ns bar) (apply require ['[foo :as f]]) (f/foo)"))))
   (testing "rename"
-    (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})")))))
+    (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})"))))
+  (when-not tu/native?
+    (testing "load-fn + requiring-resolve"
+      (is (= :success
+             (tu/eval* "(deref (requiring-resolve 'foo.bar/x))"
+                       {:load-fn (fn [{:keys [:namespace]}]
+                                   (when (= 'foo.bar namespace)
+                                     {:source "(ns foo.bar) (def x :success)"
+                                      :file "foo/bar.clj"}))}))))))
 
 (deftest use-test
   (is (= #{1 2} (eval* "(ns foo (:use clojure.set)) (union #{1} #{2})")))
@@ -849,7 +892,10 @@
   (is (= 1 (eval* "(when-some [foo false] 1)"))))
 
 (deftest read-string-eval-test
+  (is (= 3 (eval* "(load-string \"1 2 3\")")))
+  (is (= 'user (eval* "(load-string \"(ns bar)\") (ns-name *ns*)")))
   (is (= :foo (eval* "(def f (eval (read-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\"))) (f 1)")))
+  #?(:clj (is (= :foo (eval* "(with-in-str \":foo\" (read))"))))
   (is (= :foo (eval* "(def f (load-string \"(with-meta (fn [ctx] :foo) {:sci.impl/op :needs-ctx})\")) (f 1)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
                         (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]})))
@@ -862,6 +908,44 @@
 (deftest meta-on-syntax-quote-test
   (is (:foo (eval* "(meta `^:foo (1 2 3))"))))
 
+(deftest atom-with-meta-test
+  (is (= 1 (eval* "@(atom 1 :meta {:a 1})"))))
+
+(deftest resolve-unquote
+  (is (= 'clojure.core/unquote (eval* "`unquote"))))
+
+(deftest ctx-test
+  (let [ctx (sci/init {:bindings {'x 1}})]
+    (is (= 1 (sci/eval-string* ctx "x")))
+    (is (= 2 (do (sci/eval-string* ctx "(def x 2)")
+                 (sci/eval-string* ctx "x"))))))
+
+(defmacro do-twice [x] `(do ~x ~x))
+(def ^:dynamic *foo* 1)
+(defn always-foo [& _args] :foo)
+
+(deftest copy-var-test
+  (let [foo-ns (sci/create-ns 'foo)
+        do-twice-var (sci/copy-var do-twice foo-ns)
+        foo-var (sci/copy-var *foo* foo-ns)
+        always-foo-var (sci/copy-var always-foo foo-ns)
+        opts {:namespaces {'foo {'do-twice do-twice-var
+                                 '*foo* foo-var
+                                 'always-foo always-foo-var}}}
+        effects (sci/with-out-str (sci/eval-string "
+(foo/do-twice (prn 1))
+(prn (foo/always-foo))
+(prn foo/*foo*)
+(binding [foo/*foo* 10] (prn foo/*foo*))" opts))
+        do-twice-doc (sci/with-out-str (sci/eval-string "(clojure.repl/doc foo/do-twice)" opts))
+        always-foo-doc (sci/with-out-str (sci/eval-string "(clojure.repl/doc foo/always-foo)" opts))]
+    (is (= "1\n1\n:foo\n1\n10\n" effects))
+    (is (= "-------------------------\nfoo/do-twice\n([x])\nMacro\n" do-twice-doc))
+    (is (= "-------------------------\nfoo/always-foo\n([& _args])\n" always-foo-doc))))
+
+(deftest data-readers-test
+  (is (= 2 (sci/eval-string "#t/tag 1" {:readers {'t/tag inc}})))
+  (is (= 2 (sci/eval-string "#t/tag 1" {:readers (sci/new-var 'readers {'t/tag inc})}))))
 
 ;;;; Scratch
 

@@ -11,7 +11,7 @@
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/sci.impl.reflector "0.0.1-jdk11"]
-                 [borkdude/edamame "0.0.11-alpha.9"]
+                 [borkdude/edamame "0.0.11-alpha.12"]
                  [org.clojure/tools.reader "1.3.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
@@ -32,7 +32,7 @@
              :libsci {:dependencies [[cheshire "5.10.0"]]
                       :source-paths ["src" "libsci/src"]}}
   ;; for testing only
-  :main sci.impl.main
+  :main ^:skip-aot sci.impl.main
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
                                     :username :env/clojars_user
                                     :password :env/clojars_pass
