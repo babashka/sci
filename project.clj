@@ -21,17 +21,14 @@
                     :dependencies [[clj-commons/conch "0.9.2"]
                                    [criterium "0.4.5"]
                                    [com.clojure-goes-fast/clj-async-profiler "0.4.0"]]}
-             :compile-java {:java-source-paths ["src-java"]
-                            :source-paths ["src" "src-java"]
-                            :aot [sci.impl.java]}
              :uberjar {:global-vars {*assert* false}
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]
-                       :aot :all}
+                       :aot :all
+                       :main sci.impl.main}
              :libsci {:dependencies [[cheshire "5.10.0"]]
                       :source-paths ["src" "libsci/src"]}}
   ;; for testing only
-  :main ^:skip-aot sci.impl.main
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
                                     :username :env/clojars_user
                                     :password :env/clojars_pass
