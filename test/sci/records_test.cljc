@@ -8,7 +8,7 @@
 (let [r (->Foo 1 2)]
   [(:a r) (:b r)])"]
     (is (= [1 2] (tu/eval* prog {}))))
-  #_(testing "protocols"
+  (testing "protocols"
     (let [prog "
 (defprotocol Foo (foo [_] 42))
 

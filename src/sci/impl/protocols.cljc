@@ -19,7 +19,7 @@
 
 (defn defprotocol [_ _ ctx protocol-name & signatures]
   (let [expansion `(do ~@(map (fn [[method-name & _]]
-                                `(defmulti ~method-name type))
+                                `(defmulti ~method-name clojure.core/protocol-type-impl))
                               signatures))]
     ;; (prn expansion)
     expansion))
