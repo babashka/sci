@@ -155,7 +155,7 @@
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns
-  truthy value. E.g. `(split-when odd? [1 2 3 4 5]) => ((1 2) (3 4) (5))`"
+  a truthy value. E.g. `(split-when odd? [1 2 3 4 5]) => ((1 2) (3 4) (5))`"
   [pred coll]
   (when-first [x coll]
     (if (not (pred x))
@@ -163,18 +163,3 @@
       (let [tail (lazy-seq (split-when pred (rest coll)))
             coll (first tail)]
         (cons (conj coll x) (rest tail))))))
-
-(let [state (volatile! ::init)]
-  (defn stateful-pred [pred]
-    (fn [x] (let [old-val @state
-                  new-val (pred x)
-                  _ (vreset! state new-val)]
-              (cond (identical? old-val ::init) true
-                    :else new-val)))))
-
-(map (stateful-pred odd?) [1 2 3 4 5])
-
-(partition-by (stateful-pred odd?) [1 2 3 4 5])
-
-;; see https://stackoverflow.com/a/23221442/6264
-

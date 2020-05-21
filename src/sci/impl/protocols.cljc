@@ -29,5 +29,5 @@
         `(do ~@(map (fn [[type impl]]
                       `(defmethod ~(first impl) ~type ~(second impl) ~@(nnext impl)))
                     (partition 2 pairs)))]
-    ;; (prn expansion)
+    #_(prn expansion)
     expansion))

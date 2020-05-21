@@ -19,6 +19,6 @@
         prog #?(:clj prog
                 :cljs (str/replace prog "String" "js/String"))]
     (is (= ["foo-A!" "foo-A-BAR"]
-           (tu/eval* prog #?(:clj {}
+           (tu/eval* prog #?(:clj {'prn #(.println System/out %)}
                              :cljs {:classes {:allow :all
                                               'js #js {:String js/String}}}))))))
