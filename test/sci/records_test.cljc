@@ -13,11 +13,11 @@
 (defprotocol Foo (foo [_] 42))
 
 (defrecord FooRecord [a b]
-  Foo (foo [_] a))
+  Foo (foo [_] (dec a)))
 
 (defrecord BarRecord [a b]
-  Foo (foo [_] b))
+  Foo (foo [_] (inc b)))
 
 (let [a (->FooRecord 1 2) b (->BarRecord 1 2)]
   [(foo a) (foo b)])"]
-      (is (= [1 2] (tu/eval* prog {}))))))
+      (is (= [0 3] (tu/eval* prog {}))))))
