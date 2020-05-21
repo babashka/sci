@@ -545,6 +545,10 @@
 ;;;; Namespaces
 
 (defn analyze-ns-form [ctx [_ns ns-name & exprs]]
+  (when-not (symbol? ns-name)
+    (throw (new #?(:clj IllegalArgumentException
+                   :cljs js/Error)
+                (str "Namespace name must be symbol, got: " (pr-str ns-name)))))
   (let [[docstring exprs]
         (let [fexpr (first exprs)]
           (if (string? fexpr)
@@ -561,9 +565,7 @@
                    attr-map)]
     (set-namespace! ctx ns-name attr-map)
     (loop [exprs exprs
-           ret [#_(mark-eval-call (list 'in-ns ns-name)) ;; we don't have to do
-                ;; this twice I guess?
-                ]]
+           ret []]
       (if exprs
         (let [[k & args] (first exprs)]
           (case k
@@ -604,7 +606,8 @@
 
 (defn macro? [f]
   (when-let [m (meta f)]
-    (:sci/macro m)))
+    (or (:sci/macro m)
+        (:macro m))))
 
 ;;;; End macros
 
@@ -620,7 +623,10 @@
             f (if (and (vars/var? f)
                        (or
                         (vars/isMacro f)
-                        (-> f meta :sci.impl/built-in)))
+                        (let [m (meta f)]
+                          (and
+                           (:sci.impl/built-in m)
+                           (not (:dynamic m))))))
                 @f f)]
         (if (and (not (eval? f)) ;; the symbol is not a binding
                  (or

@@ -24,7 +24,7 @@
 ```
 
 [More](#Usage) on how to use sci from Clojure.
-Use from [JavaScript](#use-from-javaScript). Use from [Java](#use-from-java).
+Use from [JavaScript](#use-from-javaScript).
 
 ## Why
 
@@ -64,8 +64,7 @@ Use as a dependency:
 ## API docs
 
 For Clojure, see the generated [codox](https://borkdude.github.io/sci/doc/codox)
-documentation. For Java, see the generated [Java
-documentation](https://borkdude.github.io/sci/doc/javadoc/index.html)
+documentation.
 
 ## Usage
 
@@ -287,6 +286,38 @@ the atom yourself as the value for the `:env` key:
 (sci/eval-string "(foo)" {:env env}) ;;=> :foo
 ```
 
+The contents of the the `:env` atom should be considered implementation detail.
+
+Using an `:env` atom you are allowed to change options at each invocation of
+`eval-string`. If your use case doesn't require this, the recommendation is to
+use a sci context instead.
+
+A sci context is derived once from options as documented in
+`sci.core/eval-string` and contains the runtime state of a sci session.
+
+``` clojure
+(def opts {:namespaces {'foo.bar {'x 1}}})
+(def sci-ctx (sci/init opts))
+```
+
+Once created, a sci context should be considered final and should not be mutated
+by the user. The contents of the sci context should be considered implementation
+detail.
+
+The sci context can be re-used over successive invocations of
+`sci.core/eval-string*`.
+
+The major difference between `eval-string` and `eval-string*` is that
+`eval-string` will call `init` on the passed options and will pass that through
+to `eval-string*`. When you create a sci context yourself, you can skip the
+extra work that `eval-string` does and work directly with `eval-string*`.
+
+``` clojure
+(sci/eval-string* sci-ctx "foo.bar/x") ;;=> 1
+(sci/eval-string* sci-ctx "(ns foo.bar) (def x 2) x") ;;=> 2
+(sci/eval-string* sci-ctx "foo.bar/x") ;;=> 2
+```
+
 ### Implementing require and load-file
 
 Sci supports implementation of code loading via a function hook that is invoked
@@ -404,22 +435,6 @@ expressions and `toJS` to convert Clojure data structures back to JavaScript.
 The function `evalString` takes an optional second argument to pass
 options. Read [here](#Usage) how to use those options. Instead of symbols and
 keywords it expects strings. Instead of kebab-case, use camelCase.
-
-## Use from Java
-
-``` java
-import borkdude.sci.*;
-import borkdude.sci.options.*;
-
-Namespace fooBar = new Namespace("foo.bar");
-fooBar.addVar("x", 1);
-Options opts = new Options().addNamespace(fooBar);
-Sci.evalString("foo.bar/x", opts); // returns 1
-```
-
-Note for Java users: the Java API for is conceptually similar to the Clojure
-one, but made more idiomatic for Java users. Check the generated [Java
-documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
 
 ## Use as native shared library
 

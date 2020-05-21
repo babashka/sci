@@ -659,6 +659,7 @@
    'eduction (copy-core-var eduction)
    'empty (copy-core-var empty)
    'empty? (copy-core-var empty?)
+   #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
    'eval (with-meta eval {:sci.impl/op :needs-ctx})
    'even? (copy-core-var even?)
    'every? (copy-core-var every?)
@@ -923,6 +924,8 @@
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
    'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
+   'unquote (doto (vars/->SciVar nil 'clojure.core/unquote nil)
+              (vars/unbind))
    'use (with-meta use {:sci.impl/op :needs-ctx})
    'val (copy-core-var val)
    'vals (copy-core-var vals)
@@ -1006,7 +1009,8 @@
 (defn doc
   [_ _ sym]
   `(if-let [var# (resolve '~sym)]
-     (~'clojure.repl/print-doc (meta var#))
+     (when (var? var#)
+           (~'clojure.repl/print-doc (meta var#)))
      (if-let [ns# (find-ns '~sym)]
        (~'clojure.repl/print-doc (assoc (meta ns#)
                                         :name (ns-name ns#))))))

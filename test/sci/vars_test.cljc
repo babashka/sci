@@ -27,15 +27,14 @@
                        (add! x)
                      @a"))))
   (testing "usage of var name evals to var value, but using it as var prints var name"
-    (is (= "[1 #'user/x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])")))))
-
-#_(deftest with-redefs-test
-    (is (= [10 11 10]
-           (eval* "(def a (atom []))
-                 (defn add! [v] (swap! a conj v))
-                 (def ^:dynamic x 10)
-                 (add! x)
-                 (with-redefs [x 11] (add! x)) (add! x)"))))
+    (is (= "[1 #'user/x]" (eval* "(def ^:dynamic x 1) (str [x (var x)])"))))
+  (testing "dynamic vars are never directly linked, not even built in ones"
+    (let [x (sci/new-dynamic-var '*x* (fn [] 10)
+                                 {:ns (sci/create-ns 'user)
+                                  #_#_:sci.impl/built-in true})]
+      (is (= [11 10] (sci/eval-string
+                      "[(binding [*x* (fn [] 11)] (*x*)) (*x*)]"
+                      {:bindings {'*x* x}}))))))
 
 (deftest redefine-var-test
   (is (= 11 (eval* "
@@ -172,4 +171,11 @@
                                          {:namespaces {'clojure.core {'pmap clojure.core/pmap}}}))))))
 
 (deftest with-redefs-test
-  (is (= [2 1]  (eval* "(def x 1) [(with-redefs [x 2] x) x]"))))
+  (is (= [2 1]  (eval* "(def x 1) [(with-redefs [x 2] x) x]")))
+  (let [x (sci/new-dynamic-var '*x* (fn [] 10) {:ns (sci/create-ns 'user)
+                                                :sci.impl/built-in true})]
+    (is (thrown-with-msg?
+         #?(:clj Exception :cljs js/Error)
+         #"Built-in var"
+         (sci/eval-string
+          "[(with-redefs [*x* (fn [] 11)] (*x*)) (*x*)]" {:bindings {'*x* x}})))))

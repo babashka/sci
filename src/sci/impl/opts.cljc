@@ -6,14 +6,12 @@
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]))
 
-(def user-ns (vars/->SciNamespace 'user nil))
-
 (defn init-env! [env bindings aliases namespaces imports]
   (swap! env (fn [env]
                (let [namespaces (merge-with merge
                                             namespaces/namespaces
                                             {'user (assoc bindings
-                                                          :obj user-ns)}
+                                                          :obj vars/user-ns)}
                                             namespaces
                                             (:namespaces env))
                      aliases (merge namespaces/aliases aliases
@@ -107,6 +105,7 @@
                     :features features
                     :load-fn load-fn
                     :dry-run dry-run
-                    :readers readers}
+                    :readers readers
+                    ::ctx true}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
