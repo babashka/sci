@@ -25,8 +25,7 @@
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]
                        :aot :all
-                       :native-image {
-                                      :dependencies [[borkdude/clj-reflector-graal-java11-fix "0.0.1-graalvm-20.1.0"]]}
+                       :native-image {:dependencies [[borkdude/clj-reflector-graal-java11-fix "0.0.1-graalvm-20.1.0"]]}
                        :main sci.impl.main}
              :libsci {:dependencies [[cheshire "5.10.0"]]
                       :source-paths ["src" "libsci/src"]}}
