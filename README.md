@@ -24,7 +24,7 @@
 ```
 
 [More](#Usage) on how to use sci from Clojure.
-Use from [JavaScript](#use-from-javaScript). Use from [Java](#use-from-java).
+Use from [JavaScript](#use-from-javaScript).
 
 ## Why
 
@@ -64,8 +64,7 @@ Use as a dependency:
 ## API docs
 
 For Clojure, see the generated [codox](https://borkdude.github.io/sci/doc/codox)
-documentation. For Java, see the generated [Java
-documentation](https://borkdude.github.io/sci/doc/javadoc/index.html)
+documentation.
 
 ## Usage
 
@@ -436,22 +435,6 @@ expressions and `toJS` to convert Clojure data structures back to JavaScript.
 The function `evalString` takes an optional second argument to pass
 options. Read [here](#Usage) how to use those options. Instead of symbols and
 keywords it expects strings. Instead of kebab-case, use camelCase.
-
-## Use from Java
-
-``` java
-import borkdude.sci.*;
-import borkdude.sci.options.*;
-
-Namespace fooBar = new Namespace("foo.bar");
-fooBar.addVar("x", 1);
-Options opts = new Options().addNamespace(fooBar);
-Sci.evalString("foo.bar/x", opts); // returns 1
-```
-
-Note for Java users: the Java API for is conceptually similar to the Clojure
-one, but made more idiomatic for Java users. Check the generated [Java
-documentation](https://borkdude.github.io/sci/doc/javadoc/index.html).
 
 ## Use as native shared library
 
