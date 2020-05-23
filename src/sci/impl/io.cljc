@@ -1,8 +1,8 @@
 (ns sci.impl.io
   {:no-doc true}
-  (:refer-clojure :exclude [pr prn print println newline flush with-out-str
-                            with-in-str read-line printf
-                            #?@(:cljs [string-print])])
+  (:refer-clojure :exclude [pr prn pr-str prn-str print print-str println
+                            newline flush with-out-str with-in-str read-line
+                            printf #?@(:cljs [string-print])])
   (:require #?(:clj [sci.impl.io :as sio])
             #?(:cljs [goog.string])
             [sci.impl.unrestrict :refer [*unrestricted*]]
@@ -22,6 +22,9 @@
            (doto (vars/dynamic-var '*err*)
              (vars/unbind))))
 
+(def print-meta
+  (vars/dynamic-var '*print-meta* false))
+
 ;; used in print-sequential
 (def print-length (vars/dynamic-var '*print-length* nil))
 
@@ -37,7 +40,8 @@
 #?(:clj (defn pr
           ([] nil)
           ([x]
-           (binding [*print-length* @print-length]
+           (binding [*print-length* @print-length
+                     *print-meta* @print-meta]
              (pr-on x @out)))
           ([x & more]
            (pr x)
@@ -47,8 +51,9 @@
              (apply pr more))))
    :cljs (defn pr
            [& objs]
-           (binding [*print-length* @print-length]
-             (.append @out (apply pr-str objs)))))
+           (binding [*print-length* @print-length
+                     *print-meta* @print-meta]
+             (.append @out (apply cljs.core/pr-str objs)))))
 
 #?(:clj
    (defn flush
@@ -69,6 +74,22 @@
            (println)))
 
 #?(:clj
+   (defn pr-str
+     "pr to a string, returning it"
+     [& xs]
+     (let [sw (java.io.StringWriter.)]
+       (vars/with-bindings {out sw}
+         (apply pr xs))
+       (str sw)))
+   :cljs
+   (defn pr-str
+     "pr to a string, returning it"
+     [& objs]
+     (binding [*print-length* @print-length
+               *print-meta* @print-meta]
+       (apply cljs.core/pr-str objs))))
+
+#?(:clj
    (defn prn
      [& more]
      (apply pr more)
@@ -78,8 +99,25 @@
    :cljs
    (defn prn
      [& objs]
-     (binding [*print-length* @print-length]
-       (.append @out (apply prn-str objs)))))
+     (binding [*print-length* @print-length
+               *print-meta* @print-meta]
+       (.append @out (apply cljs.core/prn-str objs)))))
+
+#?(:clj
+   (defn prn-str
+     "pr to a string, returning it"
+     [& xs]
+     (let [sw (java.io.StringWriter.)]
+       (vars/with-bindings {out sw}
+         (apply prn xs))
+       (str sw)))
+   :cljs
+   (defn prn-str
+     "pr to a string, returning it"
+     [& objs]
+     (binding [*print-length* @print-length
+               *print-meta* @print-meta]
+       (apply cljs.core/prn-str objs))))
 
 #?(:clj
    (defn print
@@ -90,7 +128,23 @@
    (defn print
      [& objs]
      (binding [*print-length* @print-length]
-       (.append @out (apply print-str objs)))))
+       (.append @out (apply cljs.core/print-str objs)))))
+
+#?(:clj
+   (defn print-str
+     "pr to a string, returning it"
+     [& xs]
+     (let [sw (java.io.StringWriter.)]
+       (vars/with-bindings {out sw}
+         (apply print xs))
+       (str sw)))
+   :cljs
+   (defn print-str
+     "pr to a string, returning it"
+     [& objs]
+     (binding [*print-length* @print-length
+               *print-meta* @print-meta]
+       (apply cljs.core/print-str objs))))
 
 #?(:clj
    (defn println
@@ -100,7 +154,8 @@
    :cljs
    (defn println
      [& objs]
-     (binding [*print-length* @print-length]
+     (binding [*print-length* @print-length
+               *print-meta* @print-meta]
        (.append @out (apply println-str objs)))))
 
 #?(:clj

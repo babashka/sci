@@ -516,12 +516,16 @@
    '*err* io/err
    '*file* vars/current-file
    '*print-length* io/print-length
+   '*print-meta* io/print-meta
    'newline io/newline
    'flush io/flush
    'pr io/pr
    'prn io/prn
    'print io/print
    'println io/println
+   'pr-str (copy-core-var io/pr-str)
+   'prn-str (copy-core-var io/prn-str)
+   'print-str (copy-core-var #?(:cljs io/print-str :clj print-str))
    #?@(:clj ['printf io/printf])
    'with-out-str (with-meta io/with-out-str
                    {:sci/macro true})
@@ -785,10 +789,7 @@
    'partition-all (copy-core-var partition-all)
    'partition-by (copy-core-var partition-by)
    'persistent! (copy-core-var persistent!)
-   'pr-str (copy-core-var pr-str)
    #?@(:clj ['promise (copy-core-var promise)])
-   'prn-str (copy-core-var prn-str)
-   'print-str (copy-core-var print-str)
    'push-thread-bindings vars/push-thread-bindings
    'qualified-ident? (copy-core-var qualified-ident?)
    'qualified-symbol? (copy-core-var qualified-symbol?)
