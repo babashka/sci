@@ -77,7 +77,6 @@
                   (let [d (ex-data e)]
                     (ex-info m (merge
                                 {:type :sci/error
-                                 #?@(:clj [:name (str (-> e .getClass .getName))])
                                  :line line
                                  :column column
                                  :message m} d) e))]

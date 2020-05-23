@@ -352,8 +352,7 @@
   (when-not tu/native?
     (testing "ex-data"
       (tu/assert-submap {:type :sci/error, :line 1, :column 15,
-                         :message #"Cannot call foo with 1 arguments \[at line 1, column 15\]"
-                         :name "java.lang.Exception"}
+                         :message #"Cannot call foo with 1 arguments \[at line 1, column 15\]"}
                         (try (eval* "(defn foo []) (foo 1)")
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
