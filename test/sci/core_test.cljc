@@ -947,11 +947,15 @@
   (is (= 2 (sci/eval-string "#t/tag 1" {:readers {'t/tag inc}})))
   (is (= 2 (sci/eval-string "#t/tag 1" {:readers (sci/new-var 'readers {'t/tag inc})}))))
 
-(deftest nullpointer-location-test
+(deftest exception-without-message-location-test
   (is (thrown-with-msg?
        #?(:clj java.lang.NullPointerException :cljs js/Error)
        #"\[at line 1, column 2\]"
-       (sci/eval-string " (clojure.string/includes? nil :foo)"))))
+       (sci/eval-string " (clojure.string/includes? nil :foo)")))
+  #?(:clj
+     (is (thrown-with-msg? java.lang.Exception
+          #"\[at line 1, column 2\]"
+          (sci/eval-string " (throw (Exception.))")))))
 
 ;;;; Scratch
 
