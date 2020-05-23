@@ -1,5 +1,6 @@
 (ns sci.io-test
   (:require
+   [clojure.edn :as edn]
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is]]
    [sci.core :as sci]
@@ -44,3 +45,15 @@
            (sci/binding [sci/print-length 10]
              (eval* "(println (range))")))
          "1 2 3"))))
+
+(deftest print-meta-test
+  (is (= true (eval* "(:a (meta (clojure.edn/read-string (binding [*print-meta* true] (pr-str ^:a [])))))")))
+  (is (= true (eval* "(:a (meta (clojure.edn/read-string (binding [*print-meta* true] (prn-str ^:a [])))))")))
+  #?(:cljs
+     ;; for some reason this doesn't work in JVM Clojure
+     (is (= true (eval* "(:a (meta (clojure.edn/read-string (binding [*print-meta* true] (print-str ^:a [])))))"))))
+  (when-not tu/native?
+    (is (= true (-> (sci/with-out-str (eval* "(binding [*print-meta* true] (prn ^:a []))"))
+                    (edn/read-string)
+                    meta
+                    :a)))))
