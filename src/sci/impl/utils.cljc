@@ -4,6 +4,8 @@
             [sci.impl.types :as t]
             [sci.impl.vars :as vars]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (derive :sci.error/realized-beyond-max :sci/error)
 
 (defn constant? [x]
@@ -55,26 +57,37 @@
 
 (def ^:dynamic *in-try* false)
 
+#?(:clj
+   (defn recreate-exception [^Throwable ex message]
+     (let [name (-> ex .getClass .getName)]
+       (case name
+         "java.lang.NullPointerException"
+         (java.lang.NullPointerException. message)
+         nil))))
+
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (if-not *in-try*
-    (if-let [m #?(:clj (.getMessage e)
-                  :cljs (.-message e))]
-      (if (str/includes? m "[at")
+    (let [ex-msg (or #?(:clj (or (.getMessage e))
+                        :cljs (.-message e)))]
+      (if (and ex-msg (str/includes? ex-msg "[at"))
         (throw e)
         (let [{:keys [:line :column] :or {line (:line ctx)
                                           column (:column ctx)}} (meta node)]
           (if (and line column)
-            (let [m (str m
-                         " [at "
+            (let [m (str ex-msg
+                         (when ex-msg " ")
+                         "[at "
                          (when-let [v @vars/current-file]
                            (str v ", "))
                          "line "
                          line ", column " column"]")
-                  new-exception (let [d (ex-data e)]
-                                  (ex-info m (merge {:type :sci/error
-                                                     :line line
-                                                     :column column
-                                                     :message m} d) e))]
+                  new-exception (or
+                                 #?(:clj (recreate-exception e m))
+                                 (let [d (ex-data e)]
+                                   (ex-info m (merge {:type :sci/error
+                                                      :line line
+                                                      :column column
+                                                      :message m} d) e)))]
               (throw new-exception))
             (throw e))))
       (throw e))
