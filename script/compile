@@ -20,8 +20,6 @@ SCI_VERSION=$(cat resources/SCI_VERSION)
 export JAVA_HOME=$GRAALVM_HOME
 export PATH=$GRAALVM_HOME/bin:$PATH
 
-( cd reflector; lein install )
-
 lein with-profiles +clojure-1.10.2-alpha1,+native-image do clean, uberjar
 
 SCI_JAR=target/sci-$SCI_VERSION-standalone.jar

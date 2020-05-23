@@ -5,7 +5,7 @@
 
 (def version (str "0.0.1"
                   (if (= "true" (System/getenv "SCI_REFLECTOR_JAVA11"))
-                    "-jdk11"
+                    "-java11"
                     "")))
 
 (def java-source-path (str "src-java"
