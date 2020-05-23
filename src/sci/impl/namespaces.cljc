@@ -574,6 +574,7 @@
    'assoc-in (copy-core-var assoc-in)
    'associative? (copy-core-var associative?)
    'atom (copy-core-var atom)
+   #?@(:clj ['bean (copy-core-var bean)])
    'binding (with-meta vars/binding {:sci/macro true})
    'binding-conveyor-fn vars/binding-conveyor-fn
    'bit-and-not (copy-core-var bit-and-not)
