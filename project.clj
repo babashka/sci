@@ -10,8 +10,8 @@
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
+                 [borkdude/sci.impl.reflector "0.0.1"] ;; use 0.0.1-jdk11 with JDK 11
                  [borkdude/edamame "0.0.11-alpha.12"]
-                 [borkdude/sci.impl.reflector "0.0.1"]
                  [org.clojure/tools.reader "1.3.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
@@ -26,6 +26,8 @@
                                   "-Dclojure.spec.skip-macros=true"]
                        :aot :all
                        :main sci.impl.main}
+             :native-image {:dependencies [[borkdude/sci.impl.reflector "0.0.1-jdk11"]
+                                           [borkdude/clj-reflector-graal-java11-fix "0.0.1-graalvm-20.1.0"]]}
              :libsci {:dependencies [[cheshire "5.10.0"]]
                       :source-paths ["src" "libsci/src"]}}
   ;; for testing only

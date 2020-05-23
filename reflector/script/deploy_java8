@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+export SCI_REFLECTOR_JAVA11=false
+script/update-project.clj
+lein deploy clojars
