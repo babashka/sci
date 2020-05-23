@@ -74,14 +74,13 @@
                          "line "
                          line ", column " column"]")
                   new-exception
-                  (let [d (ex-data e)
-                        #?@(:clj [m (if-not ex-msg
-                                      (str (-> e .getClass .getName) ": " m)
-                                      m)])]
-                    (ex-info m (merge {:type :sci/error
-                                       :line line
-                                       :column column
-                                       :message m} d) e))]
+                  (let [d (ex-data e)]
+                    (ex-info m (merge
+                                {:type :sci/error
+                                 #?@(:clj [:name (str (-> e .getClass .getName))])
+                                 :line line
+                                 :column column
+                                 :message m} d) e))]
               (throw new-exception))
             (throw e))))
       (throw e))
