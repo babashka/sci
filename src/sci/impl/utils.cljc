@@ -57,15 +57,6 @@
 
 (def ^:dynamic *in-try* false)
 
-#?(:clj
-   (defn recreate-exception [ex-name ^Throwable ex message]
-     (case ex-name
-       "java.lang.Exception"
-       (java.lang.Exception. message (.getCause ex))
-       "java.lang.NullPointerException"
-       (java.lang.NullPointerException. message)
-       nil)))
-
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (if-not *in-try*
     (let [ex-msg (or #?(:clj (or (.getMessage e))
@@ -82,18 +73,15 @@
                            (str v ", "))
                          "line "
                          line ", column " column"]")
-                  #?@(:clj [ex-name (-> e .getClass .getName)])
-                  new-exception (or
-                                 #?(:clj (when-not ex-msg
-                                           (recreate-exception ex-name e m)))
-                                 (let [d (ex-data e)
-                                       #?@(:clj [m (if-not ex-msg
-                                                     (str ex-name ": " m)
-                                                     m)])]
-                                   (ex-info m (merge {:type :sci/error
-                                                      :line line
-                                                      :column column
-                                                      :message m} d) e)))]
+                  new-exception
+                  (let [d (ex-data e)
+                        #?@(:clj [m (if-not ex-msg
+                                      (str (-> e .getClass .getName) ": " m)
+                                      m)])]
+                    (ex-info m (merge {:type :sci/error
+                                       :line line
+                                       :column column
+                                       :message m} d) e))]
               (throw new-exception))
             (throw e))))
       (throw e))
