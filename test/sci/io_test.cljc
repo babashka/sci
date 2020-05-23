@@ -52,7 +52,8 @@
   #?(:cljs
      ;; for some reason this doesn't work in JVM Clojure
      (is (= true (eval* "(:a (meta (clojure.edn/read-string (binding [*print-meta* true] (print-str ^:a [])))))"))))
-  (is (= true (-> (sci/with-out-str (eval* "(binding [*print-meta* true] (prn ^:a []))"))
-                  (edn/read-string)
-                  meta
-                  :a))))
+  (when-not tu/native?
+    (is (= true (-> (sci/with-out-str (eval* "(binding [*print-meta* true] (prn ^:a []))"))
+                    (edn/read-string)
+                    meta
+                    :a)))))
