@@ -213,7 +213,7 @@
         use? (:sci.impl/use ctx)]
     (if-let [the-loaded-ns (when-not reload (get namespaces lib-name))]
       (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))
-      (if-let [load-fn (:load-fn ctx)]
+      (if-let [load-fn (:load-fn env)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
           (do
             (try (vars/with-bindings
