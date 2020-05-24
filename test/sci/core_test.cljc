@@ -957,6 +957,22 @@
           #"\[at line 1, column 2\]"
           (sci/eval-string " (throw (Exception.))")))))
 
+(deftest intern-test
+  (testing "interning results in unbound var"
+    (when-not tu/native?
+      (is (str/includes? (str (sci/eval-string "(ns foo) (ns bar) (intern 'foo 'x) foo/x"))
+                         "Unbound"))))
+  (testing "interning existing var returns var"
+    (is (= [1 true] (sci/eval-string "(ns foo) (def ^:a x 1) (ns bar) [@(intern 'foo 'x) (:a (meta #'foo/x))]"))))
+  (testing "interning existing var with value returns same var with value"
+    (is (= [2 true]
+           (sci/eval-string
+            "(ns foo) (def ^:a x 1) (ns bar) [@(intern 'foo 'x 2) (:a (meta #'foo/x))]"))))
+  (testing "interning var copies meta from name symbol"
+    (is (true?
+         (sci/eval-string
+          "(ns foo) (ns bar) (intern 'foo (with-meta 'x {:a true}) 1) (:a (meta #'foo/x))")))))
+
 ;;;; Scratch
 
 (comment
