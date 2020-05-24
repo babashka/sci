@@ -25,15 +25,15 @@
     expansion))
 
 #_(defn- assert-same-protocol [protocol-var method-syms]
-  (doseq [m method-syms]
-    (let [v (resolve m)
-          p (:protocol (meta v))]
-      (when (and v #_(bound? v) (not= protocol-var p))
-        (binding [*out* *err*]
-          (println "Warning: protocol" protocol-var "is overwriting"
-                   (if p
-                     (str "method " (.sym v) " of protocol " (.sym p))
-                     (str "function " (.sym v)))))))))
+    (doseq [m method-syms]
+      (let [v (resolve m)
+            p (:protocol (meta v))]
+        (when (and v #_(bound? v) (not= protocol-var p))
+          (binding [*out* *err*]
+            (println "Warning: protocol" protocol-var "is overwriting"
+                     (if p
+                       (str "method " (.sym v) " of protocol " (.sym p))
+                       (str "function " (.sym v)))))))))
 
 (defn- emit-method-builder [on-interface method on-method arglists extend-via-meta]
   (let [methodk (keyword method)
@@ -47,7 +47,7 @@
                     (let [gargs (map #(gensym (str "gf__" % "__")) args)
                           target (first gargs)]
                       `([~@gargs]
-                          (. ~(with-meta target {:tag on-interface}) (~(or on-method method) ~@(rest gargs))))))
+                        (. ~(with-meta target {:tag on-interface}) (~(or on-method method) ~@(rest gargs))))))
                   arglists))
              ^clojure.lang.AFunction f#
              (fn ~gthis
@@ -57,21 +57,21 @@
                           target (first gargs)]
                       (if extend-via-meta
                         `([~@gargs]
-                            (let [cache# (.__methodImplCache ~gthis)
-                                  f# (.fnFor cache# (clojure.lang.Util/classOf ~target))]
-                              (if (identical? f# ~ginterf)
-                                (f# ~@gargs)
-                                (if-let [meta# (when-let [m# (meta ~target)] ((.sym cache#) m#))]
-                                  (meta# ~@gargs)
-                                  (if f#
-                                    (f# ~@gargs)
-                                    ((-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs))))))
+                          (let [cache# (.__methodImplCache ~gthis)
+                                f# (.fnFor cache# (clojure.lang.Util/classOf ~target))]
+                            (if (identical? f# ~ginterf)
+                              (f# ~@gargs)
+                              (if-let [meta# (when-let [m# (meta ~target)] ((.sym cache#) m#))]
+                                (meta# ~@gargs)
+                                (if f#
+                                  (f# ~@gargs)
+                                  ((-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs))))))
                         `([~@gargs]
-                            (let [cache# (.__methodImplCache ~gthis)
-                                  f# (.fnFor cache# (clojure.lang.Util/classOf ~target))]
-                              (if f#
-                                (f# ~@gargs)
-                                ((-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs)))))))
+                          (let [cache# (.__methodImplCache ~gthis)
+                                f# (.fnFor cache# (clojure.lang.Util/classOf ~target))]
+                            (if f#
+                              (f# ~@gargs)
+                              ((-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs)))))))
                   arglists))]
          (set! (.__methodImplCache f#) cache#)
          f#))))
@@ -86,58 +86,60 @@
             [opts sigs]))
         sigs (when sigs
                (reduce (fn [m s]
-                          (let [name-meta (meta (first s))
-                                mname (with-meta (first s) nil)
-                                [arglists doc]
-                                (loop [as [] rs (rest s)]
-                                  (if (vector? (first rs))
-                                    (recur (conj as (first rs)) (next rs))
-                                    [(seq as) (first rs)]))]
-                            (when (some #{0} (map count arglists))
-                              (throw (IllegalArgumentException. (str "Definition of function " mname " in protocol " name " must take at least one arg."))))
-                            (when (m (keyword mname))
-                              (throw (IllegalArgumentException. (str "Function " mname " in protocol " name " was redefined. Specify all arities in single definition."))))
-                            (assoc m (keyword mname)
-                                   (merge name-meta
-                                          {:name (vary-meta mname assoc :doc doc :arglists arglists)
-                                           :arglists arglists
-                                           :doc doc}))))
-                        {} sigs))
+                         (let [name-meta (meta (first s))
+                               mname (with-meta (first s) nil)
+                               [arglists doc]
+                               (loop [as [] rs (rest s)]
+                                 (if (vector? (first rs))
+                                   (recur (conj as (first rs)) (next rs))
+                                   [(seq as) (first rs)]))]
+                           (when (some #{0} (map count arglists))
+                             (throw (IllegalArgumentException. (str "Definition of function " mname " in protocol " name " must take at least one arg."))))
+                           (when (m (keyword mname))
+                             (throw (IllegalArgumentException. (str "Function " mname " in protocol " name " was redefined. Specify all arities in single definition."))))
+                           (assoc m (keyword mname)
+                                  (merge name-meta
+                                         {:name (vary-meta mname assoc :doc doc :arglists arglists)
+                                          :arglists arglists
+                                          :doc doc}))))
+                       {} sigs))
         meths (mapcat (fn [sig]
                         (let [m (munge (:name sig))]
                           (map #(vector m (vec (repeat (dec (count %)) 'Object)) 'Object)
                                (:arglists sig))))
                       (vals sigs))]
-  `(do
-     (defonce ~name {})
-     ;; TODO:
-     #_(gen-interface :name ~iname :methods ~meths)
-     (alter-meta! (var ~name) assoc :doc ~(:doc opts))
-     ;; TODO:
-     #_~(when sigs
-        `(#'assert-same-protocol (var ~name) '~(map :name (vals sigs))))
-     (alter-var-root (var ~name) merge
-                     (assoc ~opts
-                       :sigs '~sigs
-                       :var (var ~name)
-                       :method-map
-                         ~(and (:on opts)
-                               (apply hash-map
+    `(do
+       (defonce ~name {})
+       ;; TODO:
+       #_(gen-interface :name ~iname :methods ~meths)
+       (alter-meta! (var ~name) assoc :doc ~(:doc opts))
+       ;; TODO:
+       #_~(when sigs
+            `(#'assert-same-protocol (var ~name) '~(map :name (vals sigs))))
+       (alter-var-root (var ~name) merge
+                       (assoc ~opts
+                              :sigs '~sigs
+                              :var (var ~name)
+                              :method-map
+                              ~(and (:on opts)
+                                    (apply hash-map
+                                           (mapcat
+                                            (fn [s]
+                                              [(keyword (:name s)) (keyword (or (:on s) (:name s)))])
+                                            (vals sigs))))
+                              :method-builders
+                              ~(apply hash-map
                                       (mapcat
                                        (fn [s]
-                                         [(keyword (:name s)) (keyword (or (:on s) (:name s)))])
-                                       (vals sigs))))
-                       :method-builders
-                        ~(apply hash-map
-                                (mapcat
-                                 (fn [s]
-                                   [`(intern *ns* (with-meta '~(:name s) (merge '~s {:protocol (var ~name)})))
-                                    (emit-method-builder (:on-interface opts) (:name s) (:on s) (:arglists s)
-                                                         (:extend-via-metadata opts))])
-                                 (vals sigs)))))
-     ;; TODO:
-     #_(-reset-methods ~name)
-     '~name)))
+                                         [`(intern *ns* (with-meta '~(:name s) (merge '~s {:protocol (var ~name)})))
+                                          ;; TODO:
+                                          nil
+                                          #_(emit-method-builder (:on-interface opts) (:name s) (:on s) (:arglists s)
+                                                                 (:extend-via-metadata opts))])
+                                       (vals sigs)))))
+       ;; TODO:
+       #_(-reset-methods ~name)
+       '~name)))
 
 (defn defprotocol2 [_ _ name & opts+sigs]
   (emit-protocol name opts+sigs))
