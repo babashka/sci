@@ -406,6 +406,30 @@
     (swap! env update :namespaces dissoc sym)
     nil))
 
+(defn sci-intern
+  ;; in this case the var will become unbound
+  ([ctx ns var-sym]
+   (let [ns (sci-the-ns ctx ns)
+         ns-name (sci-ns-name ns)
+         env (:env ctx)]
+     (or (get-in @env [:namespaces ns-name var-sym])
+         (let [var-name (symbol (str ns-name) (str var-sym))
+               new-var (vars/->SciVar nil var-name (meta var-sym))]
+           (vars/unbind new-var)
+           (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
+           new-var))))
+  ([ctx ns var-sym val]
+   (let [ns (sci-the-ns ctx ns)
+         ns-name (sci-ns-name ns)
+         env (:env ctx)]
+     (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
+           (vars/bindRoot v val)
+           v)
+         (let [var-name (symbol (str ns-name) (str var-sym))
+               new-var (vars/->SciVar val var-name (meta var-sym))]
+           (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
+           new-var)))))
+
 ;;;; End namespaces
 
 ;;;; Eval and read-string
@@ -703,6 +727,7 @@
    'instance? (copy-core-var instance?)
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
+   'intern (with-meta sci-intern {:sci.impl/op :needs-ctx})
    'into (copy-core-var into)
    'iterate (copy-core-var iterate)
    'int (copy-core-var int)
