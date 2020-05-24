@@ -17,10 +17,18 @@ fi
 
 SCI_VERSION=$(cat resources/SCI_VERSION)
 
-lein with-profiles +clojure-1.10.2-alpha1 do clean, uberjar
+export JAVA_HOME=$GRAALVM_HOME
+export PATH=$GRAALVM_HOME/bin:$PATH
+
+lein with-profiles +clojure-1.10.2-alpha1,+native-image do clean, uberjar
+
+SCI_JAR=target/sci-$SCI_VERSION-standalone.jar
+# SVM_JAR=$(find $GRAALVM_HOME | grep svm.jar)
+# $GRAALVM_HOME/bin/javac -cp $SCI_JAR:$SVM_JAR src-java-graalvm/borkdude/Clojure_lang_Reflector_Substitutions.java
 
 $NATIVE_IMAGE \
-  -jar target/sci-$SCI_VERSION-standalone.jar \
+  -jar $SCI_JAR \
+  -cp src-java-graalvm \
   -H:Name=sci \
   -H:+ReportExceptionStackTraces \
   -J-Dclojure.spec.skip-macros=true \

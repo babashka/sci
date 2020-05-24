@@ -406,13 +406,28 @@ More examples of what is currently possible can be found at
 
 If you miss something, feel free to post an issue.
 
-## Caveats
+## GraalVM
+
+### Random numbers
 
 To make the `rand-*` functions behave well when compiling to a GraalVM native binary, use this setting:
 
 ``` clojure
 --initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder
 ```
+
+### Java 11
+
+To use sci with GraalVM java11 override the dependency
+`[borkdude/sci.impl.reflector "0.0.1"]` to `[borkdude/sci.impl.reflector
+"0.0.1-java11]` in your `project.clj` or `deps.edn`.
+
+Also you'll likely need a fix for `clojure.lang.Reflector`:
+
+See
+[clj-graal-docs](https://github.com/lread/clj-graal-docs#jdk11-and-clojurelangreflector)
+and
+[clj-reflector-graal-java11-fix](https://github.com/borkdude/clj-reflector-graal-java11-fix).
 
 ## Use from JavaScript
 

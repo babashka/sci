@@ -1,6 +1,6 @@
-(defproject borkdude/sci.impl.reflector "0.0.1"
+(defproject borkdude/sci.impl.reflector "{{version}}"
   :dependencies [[org.clojure/clojure "1.9.0"]]
-  :java-source-paths ["src-java"]
+  :java-source-paths ["{{java-source-path}}"]
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
                                     :username :env/clojars_user
                                     :password :env/clojars_pass
