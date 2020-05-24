@@ -639,6 +639,8 @@
    'defprotocol (with-meta protocols/defprotocol
                   {:sci/macro true
                    :sci.impl/op :needs-ctx})
+   'defprotocol2 (with-meta protocols/defprotocol2
+                   {:sci/macro true})
    'defrecord (with-meta records/defrecord
                 {:sci/macro true
                  :sci.impl/op :needs-ctx})
