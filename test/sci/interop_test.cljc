@@ -29,6 +29,26 @@
 (defn foo [e] (.getMessage ^ExceptionInfo e))
 (ns bar (:require [foo]))
 (foo/foo (ex-info \"message\" {}))"))))))
+
+#?(:clj
+   (deftest static-fields
+     (is (= 32 (eval* "Integer/SIZE")))
+     (is (= 32 (eval* "(. Integer -SIZE)")))
+     (testing "calling static field on unconfigured classes is not allowed"
+       (is (thrown-with-msg? Exception #"not"
+                             (eval* "System/PrintStream"))))))
+
+#?(:clj
+   (deftest constructor-test
+     (is (= "dude" (eval* "(String. (str \"dude\"))")))
+     (is (= "dude" (eval* "(new String (str \"dude\"))")))))
+
+#?(:clj
+   (deftest import-test
+     (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
+     (is (thrown-with-msg? Exception #"resolve.*at.*1"
+                           (eval* "(import foo.bar.Baz)")))))
+
 #?(:cljs
    (deftest instance-methods
      (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))))
@@ -49,15 +69,21 @@
        (is (thrown-with-msg? Exception #"not"
                              (eval* "(System/exit 0)"))))))
 
-#?(:cljs
-   (deftest static-methods
-     (is (= \C (tu/eval* "(String/fromCharCode 67)" {:classes {'String js/String}})))
-     (is (= 42 (tu/eval* "(js/parseInt \"42\")"     {:classes {'js js/global}})))))
+(deftest syntax-test
+  (when-not tu/native?
+    (doseq [expr ["(.)" "(. {})" "(.foo)"]]
+      (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error)
+                            #"Malformed"
+                            (eval* expr))))))
+
+;;;; CLJS
 
 #?(:cljs
-   (deftest methods-on-static-fields
+   (deftest methods-test
+     (is (= \C (tu/eval* "(String/fromCharCode 67)" {:classes {'String js/String}})))
+     (is (= 42 (tu/eval* "(js/parseInt \"42\")"     {:classes {'js js/global}})))
      (is (= "42"
-            (tu/eval* "(do (.log js/console \"42\"))"
+            (tu/eval* "(.log js/console \"42\")"
                       {:classes {:allow :all
                                  'js #js {:console #js {:log identity}}}})))
      (is (= "42"
@@ -66,44 +92,23 @@
                                  'js #js {:console #js {:log identity}}}})))))
 
 #?(:cljs
-   (deftest static-field-constructors
-     (is (= 42 (tu/eval* "(js/parseInt (.-message (js/Error. \"42\")))" {:classes {:allow :all
-                                                                                   'js js/global}})))))
-
-;; TODO add test for special Objects (need browser for this)
-#_(let [sse (js/EventSource. "/sse")]
-    (.addEventListener sse "message" (fn [e] (.log js/console "Data" e))))
-
+   (deftest field-access-test
+     (is (= "NL" (tu/eval* "goog/LOCALE" {:classes {:allow :all
+                                                    'goog #js {:LOCALE "NL"}}})))
+     (is (= "NL" (tu/eval* "(. js/goog -LOCALE)" {:classes {:allow :all
+                                                            'js #js {:goog #js {:LOCALE "NL"}}}})))))
 
 #?(:cljs
-   (do (def fs (let [m (js->clj (js/require "fs"))]
-                 (zipmap (map symbol (keys m)) (vals m))))
-       (deftest add-object-as-namespace
-         (is (str/includes?
-              (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
-              "EPL")))))
-
-#?(:clj
-   (deftest static-fields
-     (is (some? (eval* "Integer/SIZE")))
-     (testing "calling static field on unconfigured classes is not allowed"
-       (is (thrown-with-msg? Exception #"not"
-                             (eval* "System/PrintStream"))))))
-
-#?(:clj
    (deftest constructor-test
-     (is (= "dude" (eval* "(String. (str \"dude\"))")))
-     (is (= "dude" (eval* "(new String (str \"dude\"))")))))
+     (is (= 42 (tu/eval* "(js/parseInt (.-message (js/Error. \"42\")))"
+                         {:classes {:allow :all
+                                    'js js/global}})))))
 
-#?(:clj
-   (deftest import-test
-     (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
-     (is (thrown-with-msg? Exception #"resolve.*at.*1"
-                           (eval* "(import foo.bar.Baz)")))))
-
-(deftest syntax-test
-  (when-not tu/native?
-    (doseq [expr ["(.)" "(. {})" "(.foo)"]]
-      (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error)
-                            #"Malformed"
-                            (eval* expr))))))
+#?(:cljs
+   (def fs (let [m (js->clj (js/require "fs"))]
+             (zipmap (map symbol (keys m)) (vals m)))))
+#?(:cljs
+   (deftest object-as-namespace-test
+     (is (str/includes?
+          (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
+          "EPL"))))

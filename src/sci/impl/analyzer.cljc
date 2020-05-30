@@ -498,13 +498,18 @@
                              (assoc m :tag-class clazz))
                            m)))
         method-expr (name method-expr)
-        args (analyze-children ctx args)
+        args (when args (analyze-children ctx args))
         res #?(:clj (if (class? instance-expr)
-                      `(~(with-meta [instance-expr method-expr]
-                           {:sci.impl/op :static-access}) ~@args)
-                      `(~'. ~instance-expr ~method-expr ~args))
-               :cljs `(~'. ~instance-expr ~method-expr ~args))]
-    (mark-eval-call res)))
+                      (if (and (nil? args)
+                               (str/starts-with? method-expr "-"))
+                        (with-meta [instance-expr (subs method-expr 1)]
+                          {:sci.impl/op :static-access})
+                        (mark-eval-call
+                         `(~(with-meta [instance-expr method-expr]
+                              {:sci.impl/op :static-access}) ~@args)))
+                      (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))
+               :cljs (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))]
+    res))
 
 (defn expand-dot**
   "Expands (. x method)"
