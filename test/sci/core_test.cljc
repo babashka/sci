@@ -738,6 +738,9 @@
 (deftest syntax-errors
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
                         (eval* "(def f/b 1)")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to def"
+                        (eval* "(def -main [] 1)")))
+  (is (= 1 (eval* "(def x \"foo\" 1) x")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
                         (eval* "(defn f/b [])")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
