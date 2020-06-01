@@ -6,7 +6,7 @@
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]))
 
-(defn init-env! [env bindings aliases namespaces imports]
+(defn init-env! [env bindings aliases namespaces imports load-fn]
   (swap! env (fn [env]
                (let [namespaces (merge-with merge
                                             namespaces/namespaces
@@ -22,7 +22,8 @@
                                             (vars/->SciVar (make-hierarchy) 'global-hierarchy nil)))]
                  (assoc env
                         :namespaces namespaces
-                        :imports imports)))))
+                        :imports imports
+                        :load-fn load-fn)))))
 
 (def presets
   {:termination-safe
@@ -96,14 +97,13 @@
         env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
-        _ (init-env! env bindings aliases namespaces imports)
+        _ (init-env! env bindings aliases namespaces imports load-fn)
         ctx (merge {:env env
                     :bindings {}
                     :allow (process-permissions (:allow preset) allow)
                     :deny (process-permissions (:deny preset) deny)
                     :realize-max (or realize-max (:realize-max preset))
                     :features features
-                    :load-fn load-fn
                     :dry-run dry-run
                     :readers readers
                     ::ctx true}

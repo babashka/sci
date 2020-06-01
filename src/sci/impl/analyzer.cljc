@@ -287,18 +287,26 @@
   (expand-declare ctx [nil var-name])
   (when-not (simple-symbol? var-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
-  (let [docstring (when ?init ?docstring)
-        init (if docstring ?init ?docstring)
-        init (if (= (count expr) 2)
-               :sci.impl/var.unbound
-               (analyze ctx init))
-        m (meta var-name)
-        m (analyze ctx m)
-        m (assoc m :ns @vars/current-ns)
-        m (if docstring (assoc m :doc docstring) m)
-        var-name (with-meta var-name m)]
-    (expand-declare ctx [nil var-name])
-    (mark-eval-call (list 'def var-name init))))
+  (let [arg-count (count expr)
+        docstring (when (and ?init
+                             (string? ?docstring))
+                        ?docstring)
+        expected-arg-count (if docstring 4 3)]
+    (when-not (<= arg-count expected-arg-count)
+      (throw (new #?(:clj  IllegalArgumentException
+                     :cljs js/Error)
+                  "Too many arguments to def")))
+    (let [init (if docstring ?init ?docstring)
+          init (if (= 2 arg-count)
+                 :sci.impl/var.unbound
+                 (analyze ctx init))
+          m (meta var-name)
+          m (analyze ctx m)
+          m (assoc m :ns @vars/current-ns)
+          m (if docstring (assoc m :doc docstring) m)
+          var-name (with-meta var-name m)]
+      (expand-declare ctx [nil var-name])
+      (mark-eval-call (list 'def var-name init)))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
   (when-not (simple-symbol? fn-name)
@@ -498,13 +506,18 @@
                              (assoc m :tag-class clazz))
                            m)))
         method-expr (name method-expr)
-        args (analyze-children ctx args)
+        args (when args (analyze-children ctx args))
         res #?(:clj (if (class? instance-expr)
-                      `(~(with-meta [instance-expr method-expr]
-                           {:sci.impl/op :static-access}) ~@args)
-                      `(~'. ~instance-expr ~method-expr ~args))
-               :cljs `(~'. ~instance-expr ~method-expr ~args))]
-    (mark-eval-call res)))
+                      (if (and (nil? args)
+                               (str/starts-with? method-expr "-"))
+                        (with-meta [instance-expr (subs method-expr 1)]
+                          {:sci.impl/op :static-access})
+                        (mark-eval-call
+                         `(~(with-meta [instance-expr method-expr]
+                              {:sci.impl/op :static-access}) ~@args)))
+                      (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))
+               :cljs (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))]
+    res))
 
 (defn expand-dot**
   "Expands (. x method)"
