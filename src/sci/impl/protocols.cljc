@@ -1,6 +1,7 @@
 (ns sci.impl.protocols
   {:no-doc true}
-  (:refer-clojure :exclude [defprotocol extend extend-protocol]))
+  (:refer-clojure :exclude [defprotocol extend extend-protocol -reset-methods])
+  (:require [sci.impl.vars :as vars]))
 
 ;; user=> (defprotocol P (feed [_]))
 ;; P
@@ -76,6 +77,16 @@
          (set! (.__methodImplCache f#) cache#)
          f#))))
 
+(deftype MethodCache [method-sym protocol-map method-kw])
+
+(defn -reset-methods [protocol]
+  (doseq [[sci-var build] (:method-builders protocol)]
+    (let [name (vars/getName sci-var)
+          cache (->MethodCache name
+                               protocol
+                               (keyword name))]
+      (vars/bindRoot sci-var (build cache)))))
+
 (defn- emit-protocol [name opts+sigs]
   (let [iname name #_(symbol (str (munge (namespace-munge *ns*)) "." (munge name)))
         [opts sigs]
@@ -116,27 +127,28 @@
        ;; TODO:
        #_~(when sigs
             `(#'assert-same-protocol (var ~name) '~(map :name (vals sigs))))
-       (alter-var-root (var ~name) merge
+       (alter-var-root (var ~name)
+                       merge
                        (assoc ~opts
-                              :sigs '~sigs
-                              :var (var ~name)
-                              :method-map
-                              ~(and (:on opts)
-                                    (apply hash-map
-                                           (mapcat
-                                            (fn [s]
-                                              [(keyword (:name s)) (keyword (or (:on s) (:name s)))])
-                                            (vals sigs))))
-                              :method-builders
-                              ~(apply hash-map
-                                      (mapcat
-                                       (fn [s]
-                                         [`(intern *ns* (with-meta '~(:name s) (merge '~s {:protocol (var ~name)})))
-                                          ;; TODO:
-                                          nil
-                                          #_(emit-method-builder (:on-interface opts) (:name s) (:on s) (:arglists s)
-                                                                 (:extend-via-metadata opts))])
-                                       (vals sigs)))))
+                                          :sigs '~sigs
+                                          :var (var ~name)
+                                          :method-map
+                                          ~(and (:on opts)
+                                                (apply hash-map
+                                                       (mapcat
+                                                        (fn [s]
+                                                          [(keyword (:name s)) (keyword (or (:on s) (:name s)))])
+                                                        (vals sigs))))
+                                          :method-builders
+                                          ~(apply hash-map
+                                                  (mapcat
+                                                   (fn [s]
+                                                     [`(intern *ns* (with-meta '~(:name s) (merge '~s {:protocol (var ~name)})))
+                                                      ;; TODO:
+                                                      nil
+                                                      #_(emit-method-builder (:on-interface opts) (:name s) (:on s) (:arglists s)
+                                                                             (:extend-via-metadata opts))])
+                                                   (vals sigs)))))
        ;; TODO:
        #_(-reset-methods ~name)
        '~name)))
@@ -164,6 +176,23 @@
 ;; user=> (macroexpand '(clojure.core/extend-type String Foo (foo [this x] (inc x))))
 ;; (clojure.core/extend String Foo {:foo (clojure.core/fn ([this x] (inc x)))})
 
-(defn extend [_ _ ctx type & pairs]
-  (map (fn [[protocol methods]]
-         `(extend-protocol ~protocol  )))(partition 2 pairs))
+(defn- protocol?
+  [maybe-p]
+  (boolean (:on-interface maybe-p)))
+
+#_(defn- implements? [protocol atype]
+  (prn protocol (:on-interface protocol) (type (:on-interface protocol)))
+  #?(:clj (and atype (.isAssignableFrom ^Class (:on-interface protocol) atype))))
+
+(defn extend [atype & proto+mmaps]
+  (doseq [[proto mmap] (partition 2 proto+mmaps)]
+    (when-not (protocol? proto)
+      (throw (new #?(:clj IllegalArgumentException
+                     :cljs js/Error)
+                  (str proto " is not a protocol"))))
+    #_(when (implements? proto atype)
+      (throw (new #?(:clj IllegalArgumentException
+                     :cljs js/Error)
+                  (str atype " already directly implements " (:on-interface proto) " for protocol:"
+                       (:var proto)))))
+    (-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))

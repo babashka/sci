@@ -700,6 +700,7 @@
    'ex-info (copy-core-var ex-info)
    'ex-message (copy-core-var ex-message)
    'ex-cause (copy-core-var ex-cause)
+   'extend protocols/extend
    'extend-protocol (with-meta protocols/extend-protocol
                       {:sci/macro true
                        :sci.impl/op :needs-ctx})
