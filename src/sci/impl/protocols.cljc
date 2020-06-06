@@ -1,6 +1,8 @@
 (ns sci.impl.protocols
   {:no-doc true}
-  (:refer-clojure :exclude [defprotocol extend extend-protocol -reset-methods])
+  (:refer-clojure :exclude [defprotocol extend extend-protocol
+                            -reset-methods -cache-protocol-fn
+                            find-protocol-method find-protocol-impl])
   (:require [sci.impl.vars :as vars]))
 
 ;; user=> (defprotocol P (feed [_]))
@@ -36,9 +38,69 @@
                        (str "method " (.sym v) " of protocol " (.sym p))
                        (str "function " (.sym v)))))))))
 
+#?(:clj
+   (defn- pref
+     ([] nil)
+     ([a] a)
+     ([^Class a ^Class b]
+      (if (.isAssignableFrom a b) b a))))
+
+#?(:clj
+   (defn- super-chain [^Class c]
+     (when c
+       (cons c (super-chain (.getSuperclass c))))))
+
+(defn find-protocol-impl [protocol x]
+  #?(:clj (if (instance? (:on-interface protocol) x)
+            x
+            (let [c (class x)
+                  impl #(get (:impls protocol) %)]
+              (or (impl c)
+                  (and c (or (first (remove nil? (map impl (butlast (super-chain c)))))
+                             (when-let [t (reduce pref (filter impl (disj (supers c) Object)))]
+                               (impl t))
+                             (impl Object))))))))
+
+(defn find-protocol-method [protocol methodk x]
+  (get (find-protocol-impl protocol x) methodk))
+
+(deftype MethodCache [method-sym protocol-map method-kw])
+
+(defn- expand-method-impl-cache [^clojure.lang.MethodImplCache cache c f]
+  (MethodCache. (.method-sym cache) (.protocol-map cache) (.method-kw cache) #_cs)
+
+  #_(if (.map cache)
+    (let [cs (assoc (.map cache) c (clojure.lang.MethodImplCache$Entry. c f))]
+      (clojure.lang.MethodImplCache. (.sym cache) (.protocol cache) (.methodk cache) cs))
+    (let [cs (into1 {} (remove (fn [[c e]] (nil? e)) (map vec (partition 2 (.table cache)))))
+          cs (assoc cs c (clojure.lang.MethodImplCache$Entry. c f))]
+      (if-let [[shift mask] (maybe-min-hash (map hash (keys cs)))]
+        (let [table (make-array Object (* 2 (inc mask)))
+              table (reduce1 (fn [^objects t [c e]]
+                               (let [i (* 2 (int (shift-mask shift mask (hash c))))]
+                                 (aset t i c)
+                                 (aset t (inc i) e)
+                                 t))
+                             table cs)]
+          (clojure.lang.MethodImplCache. (.sym cache) (.protocol cache) (.methodk cache) shift mask table))
+        (clojure.lang.MethodImplCache. (.sym cache) (.protocol cache) (.methodk cache) cs)))))
+
+#?(:clj
+   (defn -cache-protocol-fn [^clojure.lang.AFunction pf x ^Class c ^clojure.lang.IFn interf]
+     (let [cache  (.__methodImplCache pf)
+           f (if (.isInstance c x)
+               interf
+               (find-protocol-method (.protocol cache) (.methodk cache) x))]
+       (when-not f
+         (throw (IllegalArgumentException. (str "No implementation of method: " (.methodk cache)
+                                                " of protocol: " (:var (.protocol cache))
+                                                " found for class: " (if (nil? x) "nil" (.getName (class x)))))))
+       (set! (.__methodImplCache pf) (expand-method-impl-cache cache (class x) f))
+       f)))
+
 (defn- emit-method-builder [on-interface method on-method arglists extend-via-meta]
   (let [methodk (keyword method)
-        gthis (with-meta (gensym) {:tag 'clojure.lang.AFunction})
+        gthis (gensym) #_(with-meta (gensym) {:tag 'clojure.lang.AFunction})
         ginterf (gensym)]
     `(fn [cache#]
        (let [~ginterf
@@ -48,9 +110,10 @@
                     (let [gargs (map #(gensym (str "gf__" % "__")) args)
                           target (first gargs)]
                       `([~@gargs]
-                        (. ~(with-meta target {:tag on-interface}) (~(or on-method method) ~@(rest gargs))))))
+                        (. ~(with-meta target nil #_{:tag on-interface}) (~(or on-method method) ~@(rest gargs))))))
                   arglists))
-             ^clojure.lang.AFunction f#
+             ;; ^clojure.lang.AFunction
+             f#
              (fn ~gthis
                ~@(map
                   (fn [args]
@@ -59,25 +122,23 @@
                       (if extend-via-meta
                         `([~@gargs]
                           (let [cache# (.__methodImplCache ~gthis)
-                                f# (.fnFor cache# (clojure.lang.Util/classOf ~target))]
+                                f# (.fnFor cache# (class ~target))]
                             (if (identical? f# ~ginterf)
                               (f# ~@gargs)
                               (if-let [meta# (when-let [m# (meta ~target)] ((.sym cache#) m#))]
                                 (meta# ~@gargs)
                                 (if f#
                                   (f# ~@gargs)
-                                  ((-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs))))))
+                                  ((clojure.core/-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs))))))
                         `([~@gargs]
                           (let [cache# (.__methodImplCache ~gthis)
-                                f# (.fnFor cache# (clojure.lang.Util/classOf ~target))]
+                                f# (.fnFor cache# (class ~target))]
                             (if f#
                               (f# ~@gargs)
-                              ((-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs)))))))
+                              ((clojure.core/-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs)))))))
                   arglists))]
          (set! (.__methodImplCache f#) cache#)
          f#))))
-
-(deftype MethodCache [method-sym protocol-map method-kw])
 
 (defn -reset-methods [protocol]
   (doseq [[sci-var build] (:method-builders protocol)]
@@ -144,10 +205,8 @@
                                                   (mapcat
                                                    (fn [s]
                                                      [`(intern *ns* (with-meta '~(:name s) (merge '~s {:protocol (var ~name)})))
-                                                      ;; TODO:
-                                                      nil
-                                                      #_(emit-method-builder (:on-interface opts) (:name s) (:on s) (:arglists s)
-                                                                             (:extend-via-metadata opts))])
+                                                      (emit-method-builder (:on-interface opts) (:name s) (:on s) (:arglists s)
+                                                                           (:extend-via-metadata opts))])
                                                    (vals sigs)))))
        ;; TODO:
        #_(-reset-methods ~name)

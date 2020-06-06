@@ -574,6 +574,9 @@
    'remove-method (copy-core-var remove-method)
    'remove-all-methods (copy-core-var remove-all-methods)
    ;; end multimethods
+   ;; protocols
+   '-cache-protocol-fn protocols/-cache-protocol-fn
+   ;; end protocols
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
