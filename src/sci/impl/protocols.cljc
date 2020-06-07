@@ -4,7 +4,8 @@
                             -reset-methods -cache-protocol-fn
                             find-protocol-method find-protocol-impl])
   (:require [sci.impl.vars :as vars]
-            [sci.impl.multimethods :as mms]))
+            [sci.impl.multimethods :as mms]
+            [sci.impl.utils :as utils]))
 
 ;; user=> (defprotocol P (feed [_]))
 ;; P
@@ -41,11 +42,15 @@
                        (str "method " (.sym v) " of protocol " (.sym p))
                        (str "function " (.sym v)))))))))
 
-(defn extend-protocol [_ _ ctx protocol-name & pairs]
-  (let [expansion
-        `(do ~@(map (fn [[type impl]]
-                      `(defmethod ~(first impl) ~type ~(second impl) ~@(nnext impl)))
-                    (partition 2 pairs)))]
+(defn extend-protocol [_ _ ctx protocol-name & impls]
+  (let [impls (utils/split-when #(not (seq? %)) impls)
+        expansion
+        `(do ~@(map (fn [[type & meths]]
+                      `(do
+                         ~@(map (fn [meth]
+                                  `(defmethod ~(first meth) ~type ~(second meth) ~@(nnext meth)))
+                                meths)))
+                    impls))]
     #_(prn expansion)
     expansion))
 

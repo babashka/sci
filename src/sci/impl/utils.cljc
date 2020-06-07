@@ -162,9 +162,9 @@
   "Like partition-by but splits collection only when `pred` returns
   a truthy value. E.g. `(split-when odd? [1 2 3 4 5]) => ((1 2) (3 4) (5))`"
   [pred coll]
-  (when-first [x coll]
-    (if (not (pred x))
-      (cons (list x) (lazy-seq (split-when pred (rest coll))))
-      (let [tail (lazy-seq (split-when pred (rest coll)))
-            coll (first tail)]
-        (cons (conj coll x) (rest tail))))))
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [fst (first s)
+           f (complement pred)
+           run (cons fst (take-while #(f %) (next s)))]
+       (cons run (split-when pred (lazy-seq (drop (count run) s))))))))
