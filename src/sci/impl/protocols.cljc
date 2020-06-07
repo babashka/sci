@@ -1,6 +1,7 @@
 (ns sci.impl.protocols
   {:no-doc true}
-  (:refer-clojure :exclude [defprotocol extend-protocol extend])
+  (:refer-clojure :exclude [defprotocol extend-protocol
+                            extend extend-type])
   (:require [sci.impl.multimethods :as mms]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -29,14 +30,14 @@
 (defn extend [ctx atype & proto+mmaps]
   (doseq [[_proto mmap] (partition 2 proto+mmaps)]
     #_(when-not (protocol? proto)
-      (throw (new #?(:clj IllegalArgumentException
-                     :cljs js/Error)
-                  (str proto " is not a protocol"))))
+        (throw (new #?(:clj IllegalArgumentException
+                       :cljs js/Error)
+                    (str proto " is not a protocol"))))
     #_(when (implements? proto atype)
-      (throw (new #?(:clj IllegalArgumentException
-                     :cljs js/Error)
-                  (str atype " already directly implements " (:on-interface proto) " for protocol:"
-                       (:var proto)))))
+        (throw (new #?(:clj IllegalArgumentException
+                       :cljs js/Error)
+                    (str atype " already directly implements " (:on-interface proto) " for protocol:"
+                         (:var proto)))))
     (doseq [[fn-name f] mmap]
       (let [fn-sym (symbol (name fn-name))
             cns (vars/current-ns-name)
@@ -45,3 +46,11 @@
             multi-method @multi-method-var]
         (mms/multi-fn-add-method-impl multi-method atype f)))
     #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
+
+(defn extend-type [_ _ _ctx type & proto+meths]
+  (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
+    `(do ~@(map (fn [[_proto & meths]]
+                  `(do
+                     ~@(map (fn [meth]
+                              `(defmethod ~(first meth) ~type ~(second meth) ~@(nnext meth)))
+                            meths))) proto+meths))))
