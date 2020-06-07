@@ -65,5 +65,11 @@
     "allPublicMethods":true,
     "allPublicFields": true,
     "allPublicConstructors": true
+  },
+  {
+    "name":"java.lang.Number",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
   }
 ]
