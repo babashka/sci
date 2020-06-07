@@ -395,7 +395,10 @@
                                  (vars/isMacro f))
                           @f f)]
                   (if (ana/macro? f)
-                    (apply f original-expr (:bindings ctx) (rest expr))
+                    (let [f (if (kw-identical? :needs-ctx (some-> f meta :sci.impl/op))
+                              (partial f ctx)
+                              f)]
+                      (apply f original-expr (:bindings ctx) (rest expr)))
                     expr)))
           expr))
       expr)))
