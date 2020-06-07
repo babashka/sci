@@ -575,7 +575,13 @@
    'remove-all-methods (copy-core-var remove-all-methods)
    ;; end multimethods
    ;; protocols
-   '-cache-protocol-fn protocols/-cache-protocol-fn
+   'defprotocol (with-meta protocols/defprotocol
+                  {:sci/macro true
+                   :sci.impl/op :needs-ctx})
+   'extend protocols/extend
+   'extend-protocol (with-meta protocols/extend-protocol
+                      {:sci/macro true
+                       :sci.impl/op :needs-ctx})
    ;; end protocols
    '.. (macrofy double-dot)
    '= (copy-core-var =)
@@ -663,11 +669,6 @@
    'dedupe (copy-core-var dedupe)
    'defn- (macrofy defn-*)
    'defonce (macrofy defonce*)
-   'defprotocol (with-meta protocols/defprotocol
-                  {:sci/macro true
-                   :sci.impl/op :needs-ctx})
-   'defprotocol2 (with-meta protocols/defprotocol2
-                   {:sci/macro true})
    'defrecord (with-meta records/defrecord
                 {:sci/macro true
                  :sci.impl/op :needs-ctx})
@@ -703,10 +704,6 @@
    'ex-info (copy-core-var ex-info)
    'ex-message (copy-core-var ex-message)
    'ex-cause (copy-core-var ex-cause)
-   'extend protocols/extend
-   'extend-protocol (with-meta protocols/extend-protocol
-                      {:sci/macro true
-                       :sci.impl/op :needs-ctx})
    'find-ns (with-meta sci-find-ns {:sci.impl/op :needs-ctx})
    'first (copy-core-var first)
    'float? (copy-core-var float?)

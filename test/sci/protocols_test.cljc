@@ -23,7 +23,7 @@
                              :cljs {:classes {:allow :all
                                               'js #js {:String js/String}}}))))))
 
-(deftest protocol2-test
+#_(deftest protocol2-test
   (let [prog "
 (defprotocol2 AbstractionA
                (foo [obj]))
