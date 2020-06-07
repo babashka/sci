@@ -24,8 +24,10 @@
                                  (defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
                                    (let [methods# (clojure.core/-reified-methods x#)]
                                      (apply (get methods# '~method-name) x# args#)))
-                                 (alter-var-root (var ~protocol-name)
-                                                 update :methods conj ~method-name)))
+                                 #?(:clj (alter-var-root (var ~protocol-name)
+                                                         update :methods conj ~method-name)
+                                    :cljs (def ~protocol-name
+                                            (update ~protocol-name :methods conj ~method-name)))))
                             signatures))]
     ;; (prn expansion)
     expansion))

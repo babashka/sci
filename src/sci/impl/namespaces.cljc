@@ -591,6 +591,8 @@
    'reify (with-meta protocols/reify
             {:sci/macro true
              :sci.impl/op :needs-ctx})
+   'protocol-type-impl protocols/type-impl
+   'satisfies? protocols/satisfies?
    ;; end protocols
    '.. (macrofy double-dot)
    '= (copy-core-var =)
@@ -881,7 +883,6 @@
    'repeat (copy-core-var repeat)
    'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op :needs-ctx})
    'run! (copy-core-var run!)
-   #?@(:clj ['satisfies? protocols/satisfies? #_(copy-core-var satisfies?)])
    'set? (copy-core-var set?)
    'sequential? (copy-core-var sequential?)
    'select-keys (copy-core-var select-keys)
@@ -934,7 +935,6 @@
    'transient (copy-core-var transient)
    'tree-seq (copy-core-var tree-seq)
    'type (copy-core-var type)
-   'protocol-type-impl protocols/type-impl
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
    'update (copy-core-var update)
