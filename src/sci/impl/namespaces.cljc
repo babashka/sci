@@ -937,6 +937,7 @@
    'protocol-type-impl (fn [x & _xs]
                          (or (when (instance? sci.impl.protocols.Reified x)
                                :sci.impl.protocols/reified)
+                             (some-> x meta :sci.impl/type)
                              (type x)))
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
