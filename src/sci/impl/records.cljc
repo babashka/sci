@@ -5,6 +5,7 @@
 
 (defn defrecord [_ _ _ctx record-name fields & protocol-impls]
   (let [factory-fn-sym (symbol (str "->" record-name))
+        constructor-sym (symbol (str record-name "."))
         keys (mapv keyword fields)
         protocol-impls (split-when symbol? protocol-impls)
         protocol-impls
@@ -26,4 +27,5 @@
                       assoc
                       :sci.impl/record true
                       :sci.impl/type '~record-name))
+       (def ~constructor-sym ~factory-fn-sym)
          ~@protocol-impls)))
