@@ -18,7 +18,10 @@
                      (let ~bindings
                        ~@(nnext impl)))))
               protocol-impls)]
-    `(do (defn ~factory-fn-sym [& args#]
+    `(do
+       ;; (prn '~record-name)
+       (def ~record-name '~record-name)
+       (defn ~factory-fn-sym [& args#]
            (vary-meta (zipmap ~keys args#)
                       assoc
                       :sci.impl/record true
