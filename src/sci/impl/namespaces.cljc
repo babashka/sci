@@ -881,7 +881,7 @@
    'repeat (copy-core-var repeat)
    'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op :needs-ctx})
    'run! (copy-core-var run!)
-   #?@(:clj ['satisfies? (copy-core-var satisfies?)])
+   #?@(:clj ['satisfies? protocols/satisfies? #_(copy-core-var satisfies?)])
    'set? (copy-core-var set?)
    'sequential? (copy-core-var sequential?)
    'select-keys (copy-core-var select-keys)
@@ -934,11 +934,7 @@
    'transient (copy-core-var transient)
    'tree-seq (copy-core-var tree-seq)
    'type (copy-core-var type)
-   'protocol-type-impl (fn [x & _xs]
-                         (or (when (instance? sci.impl.protocols.Reified x)
-                               :sci.impl.protocols/reified)
-                             (some-> x meta :sci.impl/type)
-                             (type x)))
+   'protocol-type-impl protocols/type-impl
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
    'update (copy-core-var update)

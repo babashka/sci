@@ -39,7 +39,8 @@
  (bar 1)
  (foo {})
  (bar {})
- (fooB {} :fooB/object)]"
+ (fooB {} :fooB/object)
+ (satisfies? AbstractionA 1)]"
         prog #?(:clj prog
                 :cljs (-> prog
                           (str/replace "String" "js/String")
@@ -53,7 +54,8 @@
             :bar/number
             :foo/object
             :bar/object
-            :fooB/object]
+            :fooB/object
+            true]
            (tu/eval* prog #?(:clj {}
                              :cljs {:classes {:allow :all
                                               'js #js {:String js/String

@@ -1,7 +1,7 @@
 (ns sci.impl.protocols
   {:no-doc true}
   (:refer-clojure :exclude [defprotocol extend-protocol
-                            extend extend-type reify])
+                            extend extend-type reify satisfies?])
   (:require [sci.impl.multimethods :as mms]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -17,12 +17,15 @@
 
 (defn defprotocol [_ _ _ctx protocol-name & signatures]
   (let [expansion `(do
-                     (def ~protocol-name {})
+                     (def ~protocol-name {:methods #{}})
                      ~@(map (fn [[method-name & _]]
-                              `(do (defmulti ~method-name clojure.core/protocol-type-impl)
-                                   (defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
-                                     (let [methods# (clojure.core/-reified-methods x#)]
-                                       (apply (get methods# '~method-name) x# args#)))))
+                              `(do
+                                 (defmulti ~method-name clojure.core/protocol-type-impl)
+                                 (defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
+                                   (let [methods# (clojure.core/-reified-methods x#)]
+                                     (apply (get methods# '~method-name) x# args#)))
+                                 (alter-var-root (var ~protocol-name)
+                                                 update :methods conj ~method-name)))
                             signatures))]
     ;; (prn expansion)
     expansion))
@@ -56,7 +59,8 @@
             env @(:env ctx)
             multi-method-var (get-in env [:namespaces cns fn-sym])
             multi-method @multi-method-var]
-        (mms/multi-fn-add-method-impl multi-method atype f)))
+        (mms/multi-fn-add-method-impl multi-method atype f))
+      )
     #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
 
 (defn extend-type [_ _ _ctx type & proto+meths]
@@ -72,3 +76,12 @@
                               `['~(first meth) (fn ~(second meth) ~@(nnext meth))])
                             meths))]
     `(clojure.core/-reified ~interface ~meths)))
+
+(defn type-impl [x & _xs]
+  (or (when (instance? sci.impl.protocols.Reified x)
+        :sci.impl.protocols/reified)
+      (some-> x meta :sci.impl/type)
+      (type x)))
+
+(defn satisfies? [protocol obj]
+  (boolean (some #(get-method % (type-impl obj)) (:methods protocol))))
