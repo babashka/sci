@@ -586,6 +586,8 @@
    'extend-protocol (with-meta protocols/extend-protocol
                       {:sci/macro true
                        :sci.impl/op :needs-ctx})
+   '-reified-methods #(protocols/getMethods %)
+   '-reified protocols/->Reified
    'reify (with-meta protocols/reify
             {:sci/macro true
              :sci.impl/op :needs-ctx})
@@ -933,7 +935,8 @@
    'tree-seq (copy-core-var tree-seq)
    'type (copy-core-var type)
    'protocol-type-impl (fn [x & _xs]
-                         (or (some-> x meta :sci.impl/type)
+                         (or (when (instance? sci.impl.protocols.Reified x)
+                               :sci.impl.protocols/reified)
                              (type x)))
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)

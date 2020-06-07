@@ -59,3 +59,9 @@
                                               'js #js {:String js/String
                                                        :Number js/Number}}}))))))
 
+(deftest reify-test
+  (let [prog "
+(defprotocol Fruit (subtotal [item]))
+(def x (reify Fruit (subtotal [_] 1)))
+(subtotal x)"]
+    (is (= 1 (tu/eval* prog {})))))

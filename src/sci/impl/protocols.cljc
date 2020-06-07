@@ -6,11 +6,23 @@
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
+(clojure.core/defprotocol IReified
+  (getInterface [_])
+  (getMethods [_]))
+
+(deftype Reified [interface meths]
+  IReified
+  (getInterface [_] interface)
+  (getMethods [_] meths))
+
 (defn defprotocol [_ _ _ctx protocol-name & signatures]
   (let [expansion `(do
                      (def ~protocol-name {})
                      ~@(map (fn [[method-name & _]]
-                              `(defmulti ~method-name clojure.core/protocol-type-impl))
+                              `(do (defmulti ~method-name clojure.core/protocol-type-impl)
+                                   (defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
+                                     (let [methods# (clojure.core/-reified-methods x#)]
+                                       (apply (get methods# '~method-name) x# args#)))))
                             signatures))]
     ;; (prn expansion)
     expansion))
@@ -55,6 +67,8 @@
                               `(defmethod ~(first meth) ~type ~(second meth) ~@(nnext meth)))
                             meths))) proto+meths))))
 
-(defn reify [_ _ _ctx & args]
-  (prn args)
-  ",")
+(defn reify [_ _ _ctx interface & meths]
+  (let [meths (into {} (map (fn [meth]
+                              `['~(first meth) (fn ~(second meth) ~@(nnext meth))])
+                            meths))]
+    `(clojure.core/-reified ~interface ~meths)))
