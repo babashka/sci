@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [defprotocol extend extend-protocol
                             -reset-methods -cache-protocol-fn
                             find-protocol-method find-protocol-impl])
-  (:require [sci.impl.vars :as vars]))
+  (:require [sci.impl.vars :as vars]
+            [sci.impl.multimethods :as mms]))
 
 ;; user=> (defprotocol P (feed [_]))
 ;; P
@@ -21,9 +22,11 @@
 ;; {#'user/feed #object[user$eval145$fn__146 0x6e57b5e9 "user$eval145$fn__146@6e57b5e9"]}
 
 (defn defprotocol [_ _ ctx protocol-name & signatures]
-  (let [expansion `(do ~@(map (fn [[method-name & _]]
-                                `(defmulti ~method-name clojure.core/protocol-type-impl))
-                              signatures))]
+  (let [expansion `(do
+                     (def ~protocol-name {})
+                     ~@(map (fn [[method-name & _]]
+                              `(defmulti ~method-name clojure.core/protocol-type-impl))
+                            signatures))]
     ;; (prn expansion)
     expansion))
 
@@ -62,9 +65,9 @@
   (prn protocol (:on-interface protocol) (type (:on-interface protocol)))
   #?(:clj (and atype (.isAssignableFrom ^Class (:on-interface protocol) atype))))
 
-(defn extend [atype & proto+mmaps]
-  #_(doseq [[proto mmap] (partition 2 proto+mmaps)]
-    (when-not (protocol? proto)
+(defn extend [ctx atype & proto+mmaps]
+  (doseq [[proto mmap] (partition 2 proto+mmaps)]
+    #_(when-not (protocol? proto)
       (throw (new #?(:clj IllegalArgumentException
                      :cljs js/Error)
                   (str proto " is not a protocol"))))
@@ -73,4 +76,11 @@
                      :cljs js/Error)
                   (str atype " already directly implements " (:on-interface proto) " for protocol:"
                        (:var proto)))))
-    (-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
+    (doseq [[fn-name f] mmap]
+      (let [fn-sym (symbol (name fn-name))
+            cns (vars/current-ns-name)
+            env @(:env ctx)
+            multi-method-var (get-in env [:namespaces cns fn-sym])
+            multi-method @multi-method-var]
+        (mms/multi-fn-add-method-impl multi-method atype f)))
+    #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
