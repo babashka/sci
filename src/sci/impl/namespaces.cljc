@@ -586,6 +586,9 @@
    'extend-protocol (with-meta protocols/extend-protocol
                       {:sci/macro true
                        :sci.impl/op :needs-ctx})
+   'reify (with-meta protocols/reify
+            {:sci/macro true
+             :sci.impl/op :needs-ctx})
    ;; end protocols
    '.. (macrofy double-dot)
    '= (copy-core-var =)
@@ -929,8 +932,9 @@
    'transient (copy-core-var transient)
    'tree-seq (copy-core-var tree-seq)
    'type (copy-core-var type)
-   'protocol-type-impl (fn [x] (or (some-> x meta :sci.impl/type)
-                                   (type x)))
+   'protocol-type-impl (fn [x & _xs]
+                         (or (some-> x meta :sci.impl/type)
+                             (type x)))
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
    'update (copy-core-var update)

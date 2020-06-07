@@ -10,7 +10,7 @@
                (bar [obj]))
 
 (defprotocol AbstractionB
-               (fooB [obj]))
+               (fooB [obj x]))
 
 (extend Number AbstractionA
   {:foo (fn [_] :number)
@@ -29,7 +29,7 @@
   (foo [_] :foo/object)
   (bar [_] :bar/object)
   AbstractionB
-  (fooB [_] :fooB/object))
+  (fooB [_ x] x))
 
 [(foo nil)
  (bar nil)
@@ -39,7 +39,7 @@
  (bar 1)
  (foo {})
  (bar {})
- (fooB {})]"
+ (fooB {} :fooB/object)]"
         prog #?(:clj prog
                 :cljs (-> prog
                           (str/replace "String" "js/String")

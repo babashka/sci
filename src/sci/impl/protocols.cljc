@@ -1,7 +1,7 @@
 (ns sci.impl.protocols
   {:no-doc true}
   (:refer-clojure :exclude [defprotocol extend-protocol
-                            extend extend-type])
+                            extend extend-type reify])
   (:require [sci.impl.multimethods :as mms]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -54,3 +54,7 @@
                      ~@(map (fn [meth]
                               `(defmethod ~(first meth) ~type ~(second meth) ~@(nnext meth)))
                             meths))) proto+meths))))
+
+(defn reify [_ _ _ctx & args]
+  (prn args)
+  ",")
