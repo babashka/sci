@@ -16,8 +16,13 @@
   (getMethods [_] meths))
 
 (defn defprotocol [_ _ _ctx protocol-name & signatures]
-  (let [expansion `(do
-                     (def ~protocol-name {:methods #{}})
+  (let [[docstring signatures]
+        (let [sig (first signatures)]
+          (if (string? sig) [sig (rest signatures)]
+              [nil signatures]))
+        expansion `(do
+                     (def  ~(with-meta protocol-name
+                              {:doc docstring}) {:methods #{}})
                      ~@(map (fn [[method-name & _]]
                               `(do
                                  (defmulti ~method-name clojure.core/protocol-type-impl)

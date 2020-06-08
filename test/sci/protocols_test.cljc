@@ -6,11 +6,12 @@
 (deftest protocol-test
   (let [prog "
 (defprotocol AbstractionA
-               (foo [obj])
-               (bar [obj]))
+  (foo [obj])
+  (bar [obj]))
 
 (defprotocol AbstractionB
-               (fooB [obj x]))
+  \"A cool protocol\"
+  (fooB [obj x]))
 
 (extend Number AbstractionA
   {:foo (fn [_] :number)
@@ -60,6 +61,12 @@
                              :cljs {:classes {:allow :all
                                               'js #js {:String js/String
                                                        :Number js/Number}}}))))))
+
+(deftest docstring-test
+  (is (= "-------------------------\nuser/Foo\n  cool protocol\n" (tu/eval* "
+(defprotocol Foo \"cool protocol\" (foo [_]))
+(with-out-str (clojure.repl/doc Foo))
+" {}))))
 
 (deftest reify-test
   (let [prog "
