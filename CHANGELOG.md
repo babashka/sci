@@ -48,7 +48,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - add `requiring-resolve` [#316](https://github.com/borkdude/babashka/issues/316)
 - More JS interop improvements ([@jeroenvandijk](https://github.com/jeroenvandijk))
 - fix for variadic recur [#321](https://github.com/borkdude/babashka/issues/321)
-- fix for associative destructuring [https://github.com/borkdude/sci/commit/438ec15798f319f232d789b74b04ac25f15d540b](commit)
+- fix for associative destructuring ([commit](https://github.com/borkdude/sci/commit/438ec15798f319f232d789b74b04ac25f15d540b))
 - add `tagged-literal?` function ([@armincerf](https://github.com/armincerf))
 - support `with-redefs` [#325](https://github.com/borkdude/babashka/issues/325)
 - add syntax check for `ns` macro: first arg is required and should be symbol
