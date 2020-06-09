@@ -79,5 +79,10 @@
   (let [prog "
 (defprotocol Area (get-area [this]))
 (extend-type String Area (get-area [_] 0))
-(extends? Area String)"]
-    (is (true? (tu/eval* prog {})))))
+(extends? Area String)"
+        prog #?(:clj prog
+                :cljs (-> prog
+                          (str/replace "String" "js/String")))]
+    (is (true? (tu/eval* prog #?(:clj {}
+                                 :cljs {:classes {:allow :all
+                                                  'js #js {:String js/String}}}))))))
