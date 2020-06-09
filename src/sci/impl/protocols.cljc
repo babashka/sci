@@ -94,12 +94,7 @@
 (defn satisfies? [protocol obj]
   (boolean (some #(get-method % (type-impl obj)) (:methods protocol))))
 
-#_(defn- implements? [protocol atype]
-  (and atype (.isAssignableFrom ^Class (:on-interface protocol) atype)))
-
 (defn extends?
   "Returns true if atype extends protocol"
   [protocol atype]
-  (boolean (some #(get-method % atype) (:methods protocol)))
-  #_(boolean (or (implements? protocol atype)
-                 (get (:impls protocol) atype))))
+  (boolean (some #(get-method % atype) (:methods protocol))))

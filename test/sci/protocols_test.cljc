@@ -74,3 +74,10 @@
 (def x (reify Fruit (subtotal [_] 1)))
 (subtotal x)"]
     (is (= 1 (tu/eval* prog {})))))
+
+(deftest extends-test
+  (let [prog "
+(defprotocol Area (get-area [this]))
+(extend-type String Area (get-area [_] 0))
+(extends? Area String)"]
+    (is (true? (tu/eval* prog {})))))
