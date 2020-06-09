@@ -1,7 +1,8 @@
 (ns sci.impl.protocols
   {:no-doc true}
   (:refer-clojure :exclude [defprotocol extend-protocol
-                            extend extend-type reify satisfies?])
+                            extend extend-type reify satisfies?
+                            extends? implements?])
   (:require [sci.impl.multimethods :as mms]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -92,3 +93,13 @@
 
 (defn satisfies? [protocol obj]
   (boolean (some #(get-method % (type-impl obj)) (:methods protocol))))
+
+#_(defn- implements? [protocol atype]
+  (and atype (.isAssignableFrom ^Class (:on-interface protocol) atype)))
+
+(defn extends?
+  "Returns true if atype extends protocol"
+  [protocol atype]
+  (boolean (some #(get-method % atype) (:methods protocol)))
+  #_(boolean (or (implements? protocol atype)
+                 (get (:impls protocol) atype))))

@@ -580,6 +580,7 @@
                    :sci.impl/op :needs-ctx})
    'extend (with-meta protocols/extend
              {:sci.impl/op :needs-ctx})
+   'extends? protocols/extends?
    'extend-type (with-meta protocols/extend-type
                   {:sci/macro true
                    :sci.impl/op :needs-ctx})
