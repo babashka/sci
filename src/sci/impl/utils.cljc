@@ -157,3 +157,14 @@
 (def eval-require-state (volatile! nil))
 (def eval-use-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
+
+(defn split-when
+  "Like partition-by but splits collection only when `pred` returns
+  a truthy value. E.g. `(split-when odd? [1 2 3 4 5]) => ((1 2) (3 4) (5))`"
+  [pred coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [fst (first s)
+           f (complement pred)
+           run (cons fst (take-while #(f %) (next s)))]
+       (cons run (split-when pred (lazy-seq (drop (count run) s))))))))

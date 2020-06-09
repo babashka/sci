@@ -16,6 +16,8 @@
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
+   [sci.impl.protocols :as protocols]
+   [sci.impl.records :as records]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
@@ -572,6 +574,27 @@
    'remove-method (copy-core-var remove-method)
    'remove-all-methods (copy-core-var remove-all-methods)
    ;; end multimethods
+   ;; protocols
+   'defprotocol (with-meta protocols/defprotocol
+                  {:sci/macro true
+                   :sci.impl/op :needs-ctx})
+   'extend (with-meta protocols/extend
+             {:sci.impl/op :needs-ctx})
+   'extends? protocols/extends?
+   'extend-type (with-meta protocols/extend-type
+                  {:sci/macro true
+                   :sci.impl/op :needs-ctx})
+   'extend-protocol (with-meta protocols/extend-protocol
+                      {:sci/macro true
+                       :sci.impl/op :needs-ctx})
+   '-reified-methods #(protocols/getMethods %)
+   '-reified protocols/->Reified
+   'reify (with-meta protocols/reify
+            {:sci/macro true
+             :sci.impl/op :needs-ctx})
+   'protocol-type-impl protocols/type-impl
+   'satisfies? protocols/satisfies?
+   ;; end protocols
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
@@ -658,6 +681,9 @@
    'dedupe (copy-core-var dedupe)
    'defn- (macrofy defn-*)
    'defonce (macrofy defonce*)
+   'defrecord (with-meta records/defrecord
+                {:sci/macro true
+                 :sci.impl/op :needs-ctx})
    'delay (macrofy delay*)
    #?@(:clj ['deliver (copy-core-var deliver)])
    'deref (copy-core-var deref)
@@ -858,7 +884,6 @@
    'repeat (copy-core-var repeat)
    'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op :needs-ctx})
    'run! (copy-core-var run!)
-   #?@(:clj ['satisfies? (copy-core-var satisfies?)])
    'set? (copy-core-var set?)
    'sequential? (copy-core-var sequential?)
    'select-keys (copy-core-var select-keys)

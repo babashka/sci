@@ -44,6 +44,7 @@
            'java.io.StringWriter java.io.StringWriter
            'java.io.StringReader java.io.StringReader
            'java.lang.Integer Integer
+           'java.lang.Number Number
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException
            'java.lang.Object Object}
@@ -62,6 +63,7 @@
             String java.lang.String
             ArithmeticException java.lang.ArithmeticException
             Integer java.lang.Integer
+            Number java.lang.Number
             Double java.lang.Double
             Object java.lang.Object}
      :cljs {}))
