@@ -5,13 +5,19 @@
 
 (deftest protocol-test
   (let [prog "
+(ns foo)
 (defprotocol AbstractionA
   (foo [obj])
   (bar [obj]))
 
+(ns bar)
 (defprotocol AbstractionB
   \"A cool protocol\"
   (fooB [obj x]))
+
+(ns baz)
+(require '[foo :as f :refer [AbstractionA]]
+         '[bar :refer [AbstractionB fooB]])
 
 (extend Number AbstractionA
   {:foo (fn [_] :number)
@@ -32,14 +38,14 @@
   AbstractionB
   (fooB [_ x] x))
 
-[(foo nil)
- (bar nil)
- (foo \"Bar\")
- (bar \"Bar\")
- (foo 1)
- (bar 1)
- (foo {})
- (bar {})
+[(f/foo nil)
+ (f/bar nil)
+ (f/foo \"Bar\")
+ (f/bar \"Bar\")
+ (f/foo 1)
+ (f/bar 1)
+ (f/foo {})
+ (f/bar {})
  (fooB {} :fooB/object)
  (satisfies? AbstractionA 1)]"
         prog #?(:clj prog
