@@ -21,21 +21,22 @@
         (let [sig (first signatures)]
           (if (string? sig) [sig (rest signatures)]
               [nil signatures]))
-        expansion `(do
-                     (def  ~(with-meta protocol-name
-                              {:doc docstring}) {:methods #{}
-                                                 :ns *ns*})
-                     ~@(map (fn [[method-name & _]]
-                              `(do
-                                 (defmulti ~method-name clojure.core/protocol-type-impl)
-                                 (defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
-                                   (let [methods# (clojure.core/-reified-methods x#)]
-                                     (apply (get methods# '~method-name) x# args#)))
-                                 #?(:clj (alter-var-root (var ~protocol-name)
-                                                         update :methods conj ~method-name)
-                                    :cljs (def ~protocol-name
-                                            (update ~protocol-name :methods conj ~method-name)))))
-                            signatures))]
+        expansion
+        `(do
+           (def  ~(with-meta protocol-name
+                    {:doc docstring}) {:methods #{}
+                                       :ns *ns*})
+           ~@(map (fn [[method-name & _]]
+                    `(do
+                       (defmulti ~method-name clojure.core/protocol-type-impl)
+                       (defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
+                         (let [methods# (clojure.core/-reified-methods x#)]
+                           (apply (get methods# '~method-name) x# args#)))
+                       #?(:clj (alter-var-root (var ~protocol-name)
+                                               update :methods conj ~method-name)
+                          :cljs (def ~protocol-name
+                                  (update ~protocol-name :methods conj ~method-name)))))
+                  signatures))]
     ;; (prn expansion)
     expansion))
 
