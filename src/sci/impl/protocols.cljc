@@ -4,17 +4,9 @@
                             extend extend-type reify satisfies?
                             extends? implements?])
   (:require [sci.impl.multimethods :as mms]
+            [sci.impl.types :as types]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
-
-(clojure.core/defprotocol IReified
-  (getInterface [_])
-  (getMethods [_]))
-
-(deftype Reified [interface meths]
-  IReified
-  (getInterface [_] interface)
-  (getMethods [_] meths))
 
 (defn defprotocol [_ _ _ctx protocol-name & signatures]
   (let [[docstring signatures]
@@ -99,14 +91,8 @@
                             meths))]
     `(clojure.core/-reified ~interface ~meths)))
 
-(defn type-impl [x & _xs]
-  (or (when (instance? sci.impl.protocols.Reified x)
-        :sci.impl.protocols/reified)
-      (some-> x meta :sci.impl/type)
-      (type x)))
-
 (defn satisfies? [protocol obj]
-  (boolean (some #(get-method % (type-impl obj)) (:methods protocol))))
+  (boolean (some #(get-method % (types/type-impl obj)) (:methods protocol))))
 
 (defn extends?
   "Returns true if atype extends protocol"

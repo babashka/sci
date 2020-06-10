@@ -18,6 +18,7 @@
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
    [sci.impl.records :as records]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
@@ -531,6 +532,12 @@
               (take-nth 2 (next bindings)))
      (fn [] ~@body)))
 
+(defn sci-instance? [clazz x]
+  (or
+   (if (symbol? clazz)
+     (= clazz (types/type-impl x))
+     (instance? clazz x))))
+
 ;;;; End binding vars
 
 (def clojure-core
@@ -587,12 +594,12 @@
    'extend-protocol (with-meta protocols/extend-protocol
                       {:sci/macro true
                        :sci.impl/op :needs-ctx})
-   '-reified-methods #(protocols/getMethods %)
-   '-reified protocols/->Reified
+   '-reified-methods #(types/getMethods %)
+   '-reified types/->Reified
    'reify (with-meta protocols/reify
             {:sci/macro true
              :sci.impl/op :needs-ctx})
-   'protocol-type-impl protocols/type-impl
+   'protocol-type-impl types/type-impl
    'satisfies? protocols/satisfies?
    ;; end protocols
    '.. (macrofy double-dot)
@@ -750,7 +757,7 @@
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
    'inst? (copy-core-var inst?)
-   'instance? (copy-core-var instance?)
+   'instance? sci-instance?
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
    'intern (with-meta sci-intern {:sci.impl/op :needs-ctx})
