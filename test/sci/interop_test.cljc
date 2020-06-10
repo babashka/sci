@@ -33,7 +33,9 @@
 #?(:clj
    (deftest static-fields
      (is (= 32 (eval* "Integer/SIZE")))
+     (is (= 32 (eval* "(Integer/SIZE)")))
      (is (= 32 (eval* "(. Integer -SIZE)")))
+     (is (= 32 (eval* "(. Integer SIZE)")))
      (testing "calling static field on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
                              (eval* "System/PrintStream"))))))

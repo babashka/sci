@@ -9,10 +9,13 @@
    [sci.impl.interop :as interop]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
-    [eval? mark-resolve-sym mark-eval mark-eval-call constant?
+    [mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
      merge-meta kw-identical? strip-core-ns set-namespace!]]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars])
+  #?(:clj (:import [sci.impl Reflector])))
+
+#?(:clj (set! *warn-on-reflection* true))
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
@@ -23,7 +26,7 @@
 (def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
-               set! resolve macroexpand-1 macroexpand the-ns})
+               set! resolve macroexpand-1 macroexpand})
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :line))
@@ -53,7 +56,13 @@
           sym-ns
           (or (some-> env :namespaces sym-ns (find sym-name))
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
-                [sym ^{:sci.impl/op :static-access} [clazz sym-name]]))
+                [sym (with-meta
+                       [clazz sym-name]
+                       #?(:clj
+                          (if call?
+                            {::static-access true}
+                            {:sci.impl/op :static-access})
+                          :cljs {:sci.impl/op :static-access}))]))
           :else
           ;; no sym-ns, this could be a symbol from clojure.core
           (when-not (contains?
@@ -290,7 +299,7 @@
   (let [arg-count (count expr)
         docstring (when (and ?init
                              (string? ?docstring))
-                        ?docstring)
+                    ?docstring)
         expected-arg-count (if docstring 4 3)]
     (when-not (<= arg-count expected-arg-count)
       (throw (new #?(:clj  IllegalArgumentException
@@ -508,10 +517,26 @@
         method-expr (name method-expr)
         args (when args (analyze-children ctx args))
         res #?(:clj (if (class? instance-expr)
-                      (if (and (nil? args)
-                               (str/starts-with? method-expr "-"))
-                        (with-meta [instance-expr (subs method-expr 1)]
-                          {:sci.impl/op :static-access})
+                      (if (nil? args)
+                        (if (str/starts-with? method-expr "-")
+                          (with-meta [instance-expr (subs method-expr 1)]
+                            {:sci.impl/op :static-access})
+                          ;; https://clojure.org/reference/java_interop
+                          ;; If the second operand is a symbol and no args are
+                          ;; supplied it is taken to be a field access - the
+                          ;; name of the field is the name of the symbol, and
+                          ;; the value of the expression is the value of the
+                          ;; field, unless there is a no argument public method
+                          ;; of the same name, in which case it resolves to a
+                          ;; call to the method.
+                          (if-let [_
+                                   (try (Reflector/getStaticField ^Class instance-expr ^String method-expr)
+                                        (catch IllegalArgumentException _ nil))]
+                            (with-meta [instance-expr method-expr]
+                              {:sci.impl/op :static-access})
+                            (mark-eval-call
+                             `(~(with-meta [instance-expr method-expr]
+                                  {:sci.impl/op :static-access}) ~@args))))
                         (mark-eval-call
                          `(~(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access}) ~@args)))
@@ -640,72 +665,77 @@
                           (and
                            (:sci.impl/built-in m)
                            (not (:dynamic m))))))
-                @f f)]
-        (if (and (not (eval? f)) ;; the symbol is not a binding
-                 (or
-                  special-sym
-                  (contains? macros f)))
-          (case f
-            ;; we treat every subexpression of a top-level do as a separate
-            ;; analysis/interpretation unit so we hand this over to the
-            ;; interpreter again, which will invoke analysis + evaluation on
-            ;; every sub expression
-            do (mark-eval-call (cons 'do
-                                     (analyze-children ctx (rest expr))))
-            let (expand-let ctx expr)
-            (fn fn*) (expand-fn ctx expr false)
-            def (expand-def ctx expr)
-            ;; NOTE: defn / defmacro aren't implemented as normal macros yet
-            (defn defmacro) (let [ret (expand-defn ctx expr)]
-                              ret)
-            ;; TODO: implement as normal macro in namespaces.cljc
-            -> (expand-> ctx (rest expr))
-            ;; TODO: implement as normal macro in namespaces.cljc
-            as-> (expand-as-> ctx expr)
-            quote (do nil (second expr))
-            ;; TODO: implement as normal macro in namespaces.cljc
-            comment (expand-comment ctx expr)
-            loop (expand-loop ctx expr)
-            lazy-seq (expand-lazy-seq ctx expr)
-            for (let [res (expand-for ctx expr)]
-                  (if (:sci.impl/macroexpanding ctx)
-                    res
-                    (analyze ctx res)))
-            doseq (analyze ctx (expand-doseq ctx expr))
-            if (expand-if ctx expr)
-            case (expand-case ctx expr)
-            try (expand-try ctx expr)
-            declare (expand-declare ctx expr)
-            expand-dot* (expand-dot* ctx expr)
-            . (expand-dot** ctx expr)
-            expand-constructor (expand-constructor ctx expr)
-            new (expand-new ctx expr)
-            import (do-import ctx expr)
-            ns (analyze-ns-form ctx expr)
-            var (analyze-var ctx expr)
-            set! (analyze-set! ctx expr)
-            ;; macroexpand-1 (macroexpand-1 ctx expr)
-            ;; macroexpand (macroexpand ctx expr)
-            ;; else:
-            (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
-          (try
-            (if (macro? f)
-              (let [needs-ctx? (kw-identical? :needs-ctx
-                                              (:sci.impl/op (meta f)))
-                    v (if needs-ctx?
-                        (apply f expr
-                               (:bindings ctx)
-                               ctx
-                               (rest expr))
-                        (apply f expr
-                               (:bindings ctx) (rest expr)))
-                    expanded (if (:sci.impl/macroexpanding ctx)
-                               v
-                               (analyze ctx v))]
-                expanded)
-              (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
-            (catch #?(:clj Exception :cljs js/Error) e
-              (rethrow-with-location-of-node ctx e expr)))))
+                @f f)
+            f-meta (meta f)
+            eval? (and f-meta (:sci.impl/op f-meta))]
+        (cond (and f-meta (::static-access f-meta))
+              (expand-dot** ctx (list* '. (first f) (second f) (rest expr)))
+              (and (not eval?) ;; the symbol is not a binding
+                   (or
+                    special-sym
+                    (contains? macros f)))
+              (case f
+                ;; we treat every subexpression of a top-level do as a separate
+                ;; analysis/interpretation unit so we hand this over to the
+                ;; interpreter again, which will invoke analysis + evaluation on
+                ;; every sub expression
+                do (mark-eval-call (cons 'do
+                                         (analyze-children ctx (rest expr))))
+                let (expand-let ctx expr)
+                (fn fn*) (expand-fn ctx expr false)
+                def (expand-def ctx expr)
+                ;; NOTE: defn / defmacro aren't implemented as normal macros yet
+                (defn defmacro) (let [ret (expand-defn ctx expr)]
+                                  ret)
+                ;; TODO: implement as normal macro in namespaces.cljc
+                -> (expand-> ctx (rest expr))
+                ;; TODO: implement as normal macro in namespaces.cljc
+                as-> (expand-as-> ctx expr)
+                quote (do nil (second expr))
+                ;; TODO: implement as normal macro in namespaces.cljc
+                comment (expand-comment ctx expr)
+                loop (expand-loop ctx expr)
+                lazy-seq (expand-lazy-seq ctx expr)
+                for (let [res (expand-for ctx expr)]
+                      (if (:sci.impl/macroexpanding ctx)
+                        res
+                        (analyze ctx res)))
+                doseq (analyze ctx (expand-doseq ctx expr))
+                if (expand-if ctx expr)
+                case (expand-case ctx expr)
+                try (expand-try ctx expr)
+                declare (expand-declare ctx expr)
+                expand-dot* (expand-dot* ctx expr)
+                . (expand-dot** ctx expr)
+                expand-constructor (expand-constructor ctx expr)
+                new (expand-new ctx expr)
+                import (do-import ctx expr)
+                ns (analyze-ns-form ctx expr)
+                var (analyze-var ctx expr)
+                set! (analyze-set! ctx expr)
+                ;; macroexpand-1 (macroexpand-1 ctx expr)
+                ;; macroexpand (macroexpand ctx expr)
+                ;; else:
+                (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+              :else
+              (try
+                (if (macro? f)
+                  (let [needs-ctx? (kw-identical? :needs-ctx
+                                                  (:sci.impl/op (meta f)))
+                        v (if needs-ctx?
+                            (apply f expr
+                                   (:bindings ctx)
+                                   ctx
+                                   (rest expr))
+                            (apply f expr
+                                   (:bindings ctx) (rest expr)))
+                        expanded (if (:sci.impl/macroexpanding ctx)
+                                   v
+                                   (analyze ctx v))]
+                    expanded)
+                  (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                (catch #?(:clj Exception :cljs js/Error) e
+                  (rethrow-with-location-of-node ctx e expr)))))
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
 
