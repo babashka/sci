@@ -44,3 +44,9 @@
 (def x (Rectangle. 0 0))
 (instance? Rectangle x)"]
     (is (true? (tu/eval* prog {})))))
+
+(deftest record?-test
+  (let [prog "
+(defrecord Rectangle [width height])
+(record? (->Rectangle 0 0))"]
+    (is (true? (tu/eval* prog {})))))

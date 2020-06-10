@@ -532,13 +532,18 @@
               (take-nth 2 (next bindings)))
      (fn [] ~@body)))
 
+
+;;;; End binding vars
+
+;;;; Type related stuff
+
 (defn sci-instance? [clazz x]
   (or
    (if (symbol? clazz)
      (= clazz (types/type-impl x))
      (instance? clazz x))))
 
-;;;; End binding vars
+;;;; End type related stuff
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -870,7 +875,7 @@
    'rand-int (copy-core-var rand-int)
    'rand-nth (copy-core-var rand-nth)
    'range (copy-core-var range)
-   'record? (copy-core-var record?)
+   'record? records/sci-record?
    'reduce (copy-core-var reduce)
    'reduce-kv (copy-core-var reduce-kv)
    'reduced (copy-core-var reduced)

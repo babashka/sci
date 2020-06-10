@@ -1,6 +1,6 @@
 (ns sci.impl.records
   {:no-doc true}
-  (:refer-clojure :exclude [defrecord])
+  (:refer-clojure :exclude [defrecord record?])
   (:require [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
@@ -26,7 +26,8 @@
               protocol-impls)]
     `(do
        ;; (prn '~record-name)
-       (def ~record-name '~record-name)
+       (def ~record-name (with-meta '~record-name
+                           {:sci.impl/record true}))
        (defn ~factory-fn-sym [& args#]
            (vary-meta (zipmap ~keys args#)
                       assoc
@@ -34,3 +35,9 @@
                       :sci.impl/type '~record-name))
        (def ~constructor-sym ~factory-fn-sym)
          ~@protocol-impls)))
+
+(defn sci-record? [x]
+  (or
+   (when (map? x)
+     (some-> x meta :sci.impl/record))
+   (clojure.core/record? x)))
