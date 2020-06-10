@@ -1,7 +1,7 @@
 (ns sci.addons
   {:no-doc true}
   (:refer-clojure :exclude [future pmap])
-  #?(:clj (:require [sci.impl.addon.future :as f])))
+  #?(:clj (:require [sci.impl.addons.future :as f])))
 
 ;; For backward compatibility
 #?(:clj
