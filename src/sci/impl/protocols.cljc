@@ -13,23 +13,43 @@
         (let [sig (first signatures)]
           (if (string? sig) [sig (rest signatures)]
               [nil signatures]))
+        [opts signatures]
+        (let [opt (first signatures)]
+          (if (keyword? opt) [{opt (second signatures)} (nnext signatures)]
+              [nil signatures]))
+        current-ns (str (vars/current-ns-name))
         expansion
         `(do
            (def  ~(with-meta protocol-name
                     {:doc docstring}) {:methods #{}
                                        :ns *ns*})
            ~@(map (fn [[method-name & _]]
-                    `(do
-                       (defmulti ~method-name clojure.core/protocol-type-impl)
-                       (defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
-                         (let [methods# (clojure.core/-reified-methods x#)]
-                           (apply (get methods# '~method-name) x# args#)))
-                       #?(:clj (alter-var-root (var ~protocol-name)
-                                               update :methods conj ~method-name)
-                          :cljs (def ~protocol-name
-                                  (update ~protocol-name :methods conj ~method-name)))))
+                    (let [fq-name (symbol (str current-ns) (str method-name))
+                          impls [`(defmulti ~method-name clojure.core/protocol-type-impl)
+                                 `(defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
+                                    (let [methods# (clojure.core/-reified-methods x#)]
+                                      (apply (get methods# '~method-name) x# args#)))]
+                          impls (if (:extend-via-metadata opts)
+                                  (conj impls
+                                        `(defmethod ~method-name :default [x# & args#]
+                                           (let [meta# (meta x#)
+                                                 method# (get meta# '~fq-name)]
+                                             (if method#
+                                               (apply method# x# args#)
+                                               (throw (new #?(:clj IllegalArgumentException
+                                                              :cljs js/Error)
+                                                           (str "No implementation of method: "
+                                                                ~(keyword method-name) " of protocol: "
+                                                                (var ~protocol-name) " found for: "
+                                                                (clojure.core/protocol-type-impl x#))))))))
+                                  impls)]
+                      `(do
+                         ~@impls
+                         #?(:clj (alter-var-root (var ~protocol-name)
+                                                 update :methods conj ~method-name)
+                            :cljs (def ~protocol-name
+                                    (update ~protocol-name :methods conj ~method-name))))))
                   signatures))]
-    ;; (prn expansion)
     expansion))
 
 (defn extend-protocol [_ _ ctx protocol-name & impls]

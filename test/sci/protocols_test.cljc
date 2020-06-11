@@ -92,3 +92,23 @@
     (is (true? (tu/eval* prog #?(:clj {}
                                  :cljs {:classes {:allow :all
                                                   'js #js {:String js/String}}}))))))
+
+(deftest extend-via-metadata-test
+  (let [prog "
+(defprotocol Foo :extend-via-metadata true
+  (foo [_]))
+
+(def x (with-meta {} {`foo (fn [_] 1)}))
+(foo x)"]
+    (is (= 1 (tu/eval* prog {}))))
+  (let [prog "
+(defprotocol Foo \"docstring\"
+  :extend-via-metadata true
+  (foo [_]))
+
+(def x (with-meta {} {`foox (fn [_] 1)}))
+(foo x)"]
+    (is (thrown-with-msg? #?(:clj Exception
+                             :cljs js/Error)
+                          #"No implementation of method: :foo of protocol: #'user/Foo found for"
+                          (tu/eval* prog {})))))
