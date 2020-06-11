@@ -19,6 +19,12 @@
    {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
+
+        interpret-body (if (= 1 (count body))
+                         (let [body-part1 (first body)]
+                           (fn [ctx] (interpret ctx body-part1)))
+                         (fn [ctx] (eval-do* ctx body)))
+
         f (fn run-fn [& args]
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                   bindings (:bindings ctx)
@@ -40,9 +46,7 @@
                           (throw-arity fn-name macro? args))
                         ret)))
                   ctx (assoc ctx :bindings bindings)
-                  ret (if (= 1 (count body))
-                        (interpret ctx (first body))
-                        (eval-do* ctx body))
+                  ret (interpret-body ctx)
                   ;; m (meta ret)
                   recur? (instance? Recur ret)]
               (if recur?
