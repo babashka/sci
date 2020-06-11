@@ -71,5 +71,11 @@
     "allPublicMethods":true,
     "allPublicFields": true,
     "allPublicConstructors": true
+  },
+  {
+    "name":"java.lang.IllegalArgumentException",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
   }
 ]
