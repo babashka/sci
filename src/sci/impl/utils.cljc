@@ -7,6 +7,7 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (derive :sci.error/realized-beyond-max :sci/error)
+(derive :sci.error/iterated-beyond-max :sci/error)
 
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x)))
