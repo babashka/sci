@@ -46,6 +46,12 @@
              (eval* "(println (range))")))
          "1 2 3"))))
 
+(deftest print-level-test
+  (when-not tu/native?
+    (is (str/includes?
+         (sci/with-out-str (eval* "(binding [*print-level* 1] (println [:a [:b [:c]]]))"))
+         "[:a #]"))))
+
 (deftest print-meta-test
   (is (= true (eval* "(:a (meta (clojure.edn/read-string (binding [*print-meta* true] (pr-str ^:a [])))))")))
   (is (= true (eval* "(:a (meta (clojure.edn/read-string (binding [*print-meta* true] (prn-str ^:a [])))))")))

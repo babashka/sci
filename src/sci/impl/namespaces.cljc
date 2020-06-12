@@ -554,6 +554,7 @@
    '*err* io/err
    '*file* vars/current-file
    '*print-length* io/print-length
+   '*print-level* io/print-level
    '*print-meta* io/print-meta
    'newline io/newline
    'flush io/flush

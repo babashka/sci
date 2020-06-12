@@ -25,8 +25,9 @@
 (def print-meta
   (vars/dynamic-var '*print-meta* false))
 
-;; used in print-sequential
 (def print-length (vars/dynamic-var '*print-length* nil))
+
+(def print-level (vars/dynamic-var '*print-level* nil))
 
 #?(:clj (defn pr-on
           {:private true
@@ -41,6 +42,7 @@
           ([] nil)
           ([x]
            (binding [*print-length* @print-length
+                     *print-level* @print-level
                      *print-meta* @print-meta]
              (pr-on x @out)))
           ([x & more]
@@ -52,6 +54,7 @@
    :cljs (defn pr
            [& objs]
            (binding [*print-length* @print-length
+                     *print-level* @print-level
                      *print-meta* @print-meta]
              (.append @out (apply cljs.core/pr-str objs)))))
 
@@ -86,6 +89,7 @@
      "pr to a string, returning it"
      [& objs]
      (binding [*print-length* @print-length
+               *print-level* @print-level
                *print-meta* @print-meta]
        (apply cljs.core/pr-str objs))))
 
@@ -100,6 +104,7 @@
    (defn prn
      [& objs]
      (binding [*print-length* @print-length
+               *print-level* @print-level
                *print-meta* @print-meta]
        (.append @out (apply cljs.core/prn-str objs)))))
 
@@ -116,6 +121,7 @@
      "pr to a string, returning it"
      [& objs]
      (binding [*print-length* @print-length
+               *print-level* @print-level
                *print-meta* @print-meta]
        (apply cljs.core/prn-str objs))))
 
@@ -127,7 +133,8 @@
    :cljs
    (defn print
      [& objs]
-     (binding [*print-length* @print-length]
+     (binding [*print-length* @print-length
+               *print-level* @print-level]
        (.append @out (apply cljs.core/print-str objs)))))
 
 #?(:clj
@@ -143,6 +150,7 @@
      "pr to a string, returning it"
      [& objs]
      (binding [*print-length* @print-length
+               *print-level* @print-level
                *print-meta* @print-meta]
        (apply cljs.core/print-str objs))))
 
@@ -155,6 +163,7 @@
    (defn println
      [& objs]
      (binding [*print-length* @print-length
+               *print-level* @print-level
                *print-meta* @print-meta]
        (.append @out (apply println-str objs)))))
 
