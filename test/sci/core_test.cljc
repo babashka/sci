@@ -978,6 +978,12 @@
          (sci/eval-string
           "(ns foo) (ns bar) (intern 'foo (with-meta 'x {:a true}) 1) (:a (meta #'foo/x))")))))
 
+(deftest instance?-test
+  (is (false? (eval* "(defrecord Foo []) (instance? Foo 1)")))
+  (is (true? (eval* "(defrecord Foo []) (instance? Foo (->Foo))")))
+  #?(:clj (is (true? (eval* "(instance? Number 1)"))))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(instance? 'Foo 1)"))))
+
 ;;;; Scratch
 
 (comment

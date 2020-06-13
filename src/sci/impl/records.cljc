@@ -27,10 +27,10 @@
     `(do
        ;; (prn '~record-name)
        (defn ~factory-fn-sym [& args#]
-           (vary-meta (zipmap ~keys args#)
-                      assoc
-                      :sci.impl/record true
-                      :sci.impl/type '~record-name))
+         (vary-meta (zipmap ~keys args#)
+                    assoc
+                    :sci.impl/record true
+                    :sci.impl/type '~record-name))
        (def ~record-name (with-meta '~record-name
                            {:sci.impl/record true
                             :sci.impl.record/constructor ~factory-fn-sym}))

@@ -84,3 +84,17 @@
 (def rect (Rectangle. 10 10))
 (width rect)"]
     (is (= 10 (tu/eval* prog {})))))
+
+(deftest constructor-test
+  (let [prog "
+(ns foo)
+(defprotocol Area (area [_]))
+(defrecord Rectangle [width height]
+  Area
+  (area [_] (* width height)))
+
+(ns bar (:require [foo]) (:import [foo Rectangle]))
+(let [a 6 b 2
+      rect (Rectangle. a b)]
+  (foo/area rect))"]
+    (is (= 12 (tu/eval* prog {})))))

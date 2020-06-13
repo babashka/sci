@@ -552,7 +552,8 @@
     (let [args (analyze-children ctx args)] ;; analyze args!
       (mark-eval-call (list 'new #?(:clj class :cljs constructor) args)))
     (if-let [record (records/resolve-record-class ctx class-sym)]
-      (mark-eval-call (list apply (:sci.impl.record/constructor (meta record)) args))
+      (let [args (analyze-children ctx args)]
+        (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args)))
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
