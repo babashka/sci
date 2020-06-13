@@ -747,7 +747,8 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
                         (eval* "(defn foo)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
-                        (eval* "(defn foo ())"))))
+                        (eval* "(defn foo ())")))
+  (is (eval* "(def *clause* \"During formatting, *clause* is bound to :select, :from, :where, etc.\" nil)")))
 
 (deftest ex-message-test
   (is (= "foo" #?(:clj (eval* "(ex-message (Exception. \"foo\"))")
