@@ -62,3 +62,14 @@
 
 (instance? Rectangle (foo/->Rectangle 10 10))"]
     (is (true? (tu/eval* prog {})))))
+
+#_(deftest field-access-test
+  (let [prog "
+(ns foo)
+(defrecord Rectangle [width height])
+
+(defn width [^Rectangle rect]
+  (.-width rect))
+
+(width (Rectangl. 10 10))"]
+    (is (= 10 (tu/eval* prog {})))))

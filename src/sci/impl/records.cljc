@@ -2,7 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
   (:require [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [clojure.string :as str]))
 
 (defn defrecord [_ _ ctx record-name fields & protocol-impls]
   (let [factory-fn-sym (symbol (str "->" record-name))
@@ -41,3 +42,10 @@
    (when (map? x)
      (some-> x meta :sci.impl/record))
    (clojure.core/record? x)))
+
+(defn resolve-record-class [ctx sym]
+  (let [segments (str/split sym #"\.")
+        [namespace-parts record-part] [(butlast segments) (last segments)]
+        namespace (symbol (str/join "." namespace-parts))
+        record-sym (symbol record-part)]
+    (get-in @(:env ctx) [:namespaces namespace record-sym])))
