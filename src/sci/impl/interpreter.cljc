@@ -439,14 +439,18 @@
      (fn [spec]
        (let [fq-class-name (symbol spec)]
          (if (interop/resolve-class ctx fq-class-name)
-           (do (let [last-dot (str/last-index-of spec ".")
-                     class-name (subs spec (inc last-dot) (count spec))
-                     cnn (vars/current-ns-name)]
-                 (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name)))
-           (let [_ (records/resolve-record-class ctx spec)
-                 last-dot (str/last-index-of spec ".")
-                 ns-sym (subs spec 0 last-dot)
-                 class-name (subs spec (inc last-dot) (count spec))]))))
+           (let [last-dot (str/last-index-of spec ".")
+                 class-name (subs spec (inc last-dot) (count spec))
+                 cnn (vars/current-ns-name)]
+             (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))
+           (if-let [rec (records/resolve-record-class ctx spec)]
+             (let [last-dot (str/last-index-of spec ".")
+                   ;; ns-sym (subs spec 0 last-dot)
+                   class-name (subs spec (inc last-dot) (count spec))
+                   cnn (vars/current-ns-name)]
+               (swap! env assoc-in [:namespaces cnn (symbol class-name)] rec))
+             (throw (new #?(:clj Exception :cljs js/Error)
+                         (str "Unable to resolve classname: " fq-class-name)))))))
      (reduce (fn [v spec]
                (if (symbol? spec)
                  (conj v (name spec))
