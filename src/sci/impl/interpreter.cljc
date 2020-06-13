@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
+   [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
@@ -10,6 +11,7 @@
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
+   [sci.impl.records :as records]
    [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
@@ -425,6 +427,35 @@
 
 ;;;; End macros
 
+
+;;;; Import
+
+(defn eval-import [ctx & import-symbols-or-lists]
+  ;;(prn import-symbols-or-lists)
+  (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
+                   import-symbols-or-lists)
+        env (:env ctx)]
+    (run!
+     (fn [spec]
+       (let [fq-class-name (symbol spec)]
+         (if (interop/resolve-class ctx fq-class-name)
+           (do (let [last-dot (str/last-index-of spec ".")
+                     class-name (subs spec (inc last-dot) (count spec))
+                     cnn (vars/current-ns-name)]
+                 (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name)))
+           (let [_ (records/resolve-record-class ctx spec)
+                 last-dot (str/last-index-of spec ".")
+                 ns-sym (subs spec 0 last-dot)
+                 class-name (subs spec (inc last-dot) (count spec))]))))
+     (reduce (fn [v spec]
+               (if (symbol? spec)
+                 (conj v (name spec))
+                 (let [p (first spec) cs (rest spec)]
+                   (into v (map #(str p "." %) cs)))))
+             [] specs))))
+
+;;;; End import
+
 (defn eval-set! [ctx [_ obj v]]
   (let [obj (interpret ctx obj)
         v (interpret ctx v)]
@@ -513,7 +544,8 @@
     use (apply eval-use ctx (rest expr))
     resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
-    macroexpand (macroexpand ctx (interpret ctx (second expr)))))
+    macroexpand (macroexpand ctx (interpret ctx (second expr)))
+    import (apply eval-import ctx (rest expr))))
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
