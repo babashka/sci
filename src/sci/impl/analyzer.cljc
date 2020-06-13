@@ -486,25 +486,29 @@
 (defn do-import [{:keys [:env] :as ctx} [_ & import-symbols-or-lists :as expr]]
   (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
                    import-symbols-or-lists)]
-    ;; TODO: convert to reduce
-    (doall (for [spec (reduce (fn [v spec]
-                               (if (symbol? spec)
-                                 (conj v (name spec))
-                                 (let [p (first spec) cs (rest spec)]
-                                   (into v (map #(str p "." %) cs)))))
-                             [] specs)
-                :let [fq-class-name (symbol spec)
-                      clazz (when (interop/resolve-class ctx fq-class-name)
-                              (let [last-dot (str/last-index-of spec ".")
-                                    class-name (subs spec (inc last-dot) (count spec))
-                                    cnn (vars/current-ns-name)]
-                                (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name)))]
-                :when (not clazz)
-                :let [_ (or (records/resolve-record-class ctx spec)
-                            (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
-                      last-dot (str/last-index-of spec ".")
-                      class-name (subs spec (inc last-dot) (count spec))]]
-            (mark-eval-call (list 'refer (vars/current-ns-name) :only [(symbol class-name)]))))))
+    (reduce
+     (fn [acc spec]
+       (let [fq-class-name (symbol spec)]
+         (if (interop/resolve-class ctx fq-class-name)
+           (do (let [last-dot (str/last-index-of spec ".")
+                     class-name (subs spec (inc last-dot) (count spec))
+                     cnn (vars/current-ns-name)]
+                 (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))
+               acc)
+           (let [_ (or (records/resolve-record-class ctx spec)
+                       (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
+                 last-dot (str/last-index-of spec ".")
+                 ns-sym (subs spec 0 last-dot)
+                 class-name (subs spec (inc last-dot) (count spec))]
+             (conj acc (mark-eval-call (list 'refer (symbol ns-sym) :only [(symbol class-name)])))))))
+     []
+     ;; TODO: we can probably optimize this and process multiple [foo.bar Foo1 Foo2 Foo3]'s at the same time
+     (reduce (fn [v spec]
+               (if (symbol? spec)
+                 (conj v (name spec))
+                 (let [p (first spec) cs (rest spec)]
+                   (into v (map #(str p "." %) cs)))))
+             [] specs))))
 
 ;;;; Interop
 
@@ -716,7 +720,7 @@
                 . (expand-dot** ctx expr)
                 expand-constructor (expand-constructor ctx expr)
                 new (expand-new ctx expr)
-                import (do (do-import ctx expr) nil)
+                import (seq (do-import ctx expr))
                 ns (analyze-ns-form ctx expr)
                 var (analyze-var ctx expr)
                 set! (analyze-set! ctx expr)
