@@ -325,26 +325,29 @@
      ;; (prn clazz '-> (map #(symbol (.getName ^Class %)) (supers clazz)))
      (map #(symbol (.getName ^Class %)) (supers clazz))))
 
-(defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
+(defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx}
+                                       [_dot instance-expr method-str args :as _expr]]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
-        instance-expr* (interpret ctx instance-expr)
-        instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
-        instance-class-name #?(:clj (.getName ^Class instance-class)
-                               :cljs (.-name instance-class))
-        instance-class-symbol (symbol instance-class-name)
-        allowed? (or
-                  (get class->opts :allow)
-                  (get class->opts instance-class-symbol))
-        ^Class target-class (if allowed? instance-class
-                                (when-let [f (:public-class ctx)]
-                                  (f instance-expr*)))]
-    ;; we have to check options at run time, since we don't know what the class
-    ;; of instance-expr is at analysis time
-    (when-not target-class
-      (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-    (let [args (map #(interpret ctx %) args)] ;; eval args!
-      (interop/invoke-instance-method instance-expr* target-class method-str args))))
+        instance-expr* (interpret ctx instance-expr)]
+    (if (map? instance-expr*) ;; a sci record
+      (get instance-expr* (keyword (subs method-str 1)))
+      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+            instance-class-name #?(:clj (.getName ^Class instance-class)
+                                   :cljs (.-name instance-class))
+            instance-class-symbol (symbol instance-class-name)
+            allowed? (or
+                      (get class->opts :allow)
+                      (get class->opts instance-class-symbol))
+            ^Class target-class (if allowed? instance-class
+                                    (when-let [f (:public-class ctx)]
+                                      (f instance-expr*)))]
+        ;; we have to check options at run time, since we don't know what the class
+        ;; of instance-expr is at analysis time
+        (when-not target-class
+          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+        (let [args (map #(interpret ctx %) args)] ;; eval args!
+          (interop/invoke-instance-method instance-expr* target-class method-str args))))))
 
 ;;;; End interop
 

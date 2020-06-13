@@ -1,13 +1,12 @@
 (ns sci.impl.records
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
-  (:require [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]
-            [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [sci.impl.utils :as utils]
+            [sci.impl.vars :as vars]))
 
 (defn defrecord [_ _ ctx record-name fields & protocol-impls]
   (let [factory-fn-sym (symbol (str "->" record-name))
-        constructor-sym (symbol (str record-name "."))
         keys (mapv keyword fields)
         protocol-impls (utils/split-when symbol? protocol-impls)
         protocol-impls
@@ -27,15 +26,15 @@
               protocol-impls)]
     `(do
        ;; (prn '~record-name)
-       (def ~record-name (with-meta '~record-name
-                           {:sci.impl/record true}))
        (defn ~factory-fn-sym [& args#]
            (vary-meta (zipmap ~keys args#)
                       assoc
                       :sci.impl/record true
                       :sci.impl/type '~record-name))
-       (def ~constructor-sym ~factory-fn-sym)
-         ~@protocol-impls)))
+       (def ~record-name (with-meta '~record-name
+                           {:sci.impl/record true
+                            :sci.impl.record/constructor ~factory-fn-sym}))
+       ~@protocol-impls)))
 
 (defn sci-record? [x]
   (or
@@ -44,8 +43,16 @@
    (clojure.core/record? x)))
 
 (defn resolve-record-class [ctx sym]
-  (let [segments (str/split sym #"\.")
-        [namespace-parts record-part] [(butlast segments) (last segments)]
-        namespace (symbol (str/join "." namespace-parts))
-        record-sym (symbol record-part)]
-    (get-in @(:env ctx) [:namespaces namespace record-sym])))
+  (let [sym-str (str sym)
+        last-dot (str/last-index-of sym-str ".")
+        class-name (if last-dot
+                     (subs sym-str (inc last-dot) (count sym-str))
+                     sym-str)
+        namespace (if last-dot
+                    (symbol (subs sym-str 0 last-dot))
+                    (vars/current-ns-name))
+        record-sym (symbol class-name)]
+    (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace record-sym])]
+      (if (vars/var? sci-var)
+        @sci-var
+        sci-var))))

@@ -140,7 +140,7 @@
      ;; (prn 'resolve sym '-> res (meta res))
      res)))
 
-(declare analyze)
+(declare analyze analyze-call)
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
@@ -515,6 +515,7 @@
                        (fn [m]
                          (if-let [t (:tag m)]
                            (let [clazz (or (interop/resolve-class ctx t)
+                                           (records/resolve-record-class ctx t)
                                            (throw-error-with-location
                                             (str "Unable to resolve classname: " t) t))]
                              (assoc m :tag-class clazz))
@@ -565,12 +566,14 @@
                 "Malformed member expression, expecting (.member target ...)")))
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
-(defn expand-new [ctx [_new class-sym & args]]
+(defn expand-new [ctx [_new class-sym & args :as _expr]]
   (if-let [#?(:clj {:keys [:class] :as _opts}
               :cljs {:keys [:constructor] :as _opts}) (interop/resolve-class-opts ctx class-sym)]
     (let [args (analyze-children ctx args)] ;; analyze args!
       (mark-eval-call (list 'new #?(:clj class :cljs constructor) args)))
-    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
+    (if-let [record (records/resolve-record-class ctx class-sym)]
+      (mark-eval-call (list apply (:sci.impl.record/constructor (meta record)) args))
+      (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
   (let [;; TODO:
