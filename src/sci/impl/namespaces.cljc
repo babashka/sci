@@ -480,6 +480,9 @@
 (defn sci-resolve [sci-ctx sym]
   (@utils/eval-resolve-state sci-ctx sym))
 
+(defn sci-refer [sci-ctx & args]
+  (apply @utils/eval-refer-state sci-ctx args))
+
 (defn sci-ns-resolve
   ([sci-ctx ns sym] (sci-ns-resolve sci-ctx ns nil sym))
   ([sci-ctx ns env sym]
@@ -535,16 +538,6 @@
 
 ;;;; End binding vars
 
-;;;; Type related stuff
-
-(defn sci-instance? [clazz x]
-  (or
-   (if (symbol? clazz)
-     (= clazz (types/type-impl x))
-     (instance? clazz x))))
-
-;;;; End type related stuff
-
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -565,6 +558,8 @@
    'pr-str (copy-core-var io/pr-str)
    'prn-str (copy-core-var io/prn-str)
    'print-str (copy-core-var #?(:cljs io/print-str :clj print-str))
+   #?@(:clj ['print-method (copy-core-var print-method)])
+   #?@(:clj ['print-dup (copy-core-var print-dup)])
    #?@(:clj ['printf io/printf])
    'with-out-str (with-meta io/with-out-str
                    {:sci/macro true})
@@ -764,7 +759,7 @@
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
    'inst? (copy-core-var inst?)
-   'instance? sci-instance?
+   'instance? types/instance-impl
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
    'intern (with-meta sci-intern {:sci.impl/op :needs-ctx})
@@ -861,6 +856,7 @@
    'qualified-keyword? (copy-core-var qualified-keyword?)
    'quot (copy-core-var quot)
    're-seq (copy-core-var re-seq)
+   'refer (with-meta sci-refer {:sci.impl/op :needs-ctx})
    're-find (copy-core-var re-find)
    #?@(:clj ['re-groups (copy-core-var re-groups)])
    're-pattern (copy-core-var re-pattern)

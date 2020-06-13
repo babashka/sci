@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
+   [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
@@ -10,6 +11,7 @@
    [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
+   [sci.impl.records :as records]
    [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
@@ -325,26 +327,29 @@
      ;; (prn clazz '-> (map #(symbol (.getName ^Class %)) (supers clazz)))
      (map #(symbol (.getName ^Class %)) (supers clazz))))
 
-(defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx} [_dot instance-expr method-str args]]
+(defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx}
+                                       [_dot instance-expr method-str args :as _expr]]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
-        instance-expr* (interpret ctx instance-expr)
-        instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
-        instance-class-name #?(:clj (.getName ^Class instance-class)
-                               :cljs (.-name instance-class))
-        instance-class-symbol (symbol instance-class-name)
-        allowed? (or
-                  (get class->opts :allow)
-                  (get class->opts instance-class-symbol))
-        ^Class target-class (if allowed? instance-class
-                                (when-let [f (:public-class ctx)]
-                                  (f instance-expr*)))]
-    ;; we have to check options at run time, since we don't know what the class
-    ;; of instance-expr is at analysis time
-    (when-not target-class
-      (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-    (let [args (map #(interpret ctx %) args)] ;; eval args!
-      (interop/invoke-instance-method instance-expr* target-class method-str args))))
+        instance-expr* (interpret ctx instance-expr)]
+    (if (map? instance-expr*) ;; a sci record
+      (get instance-expr* (keyword (subs method-str 1)))
+      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+            instance-class-name #?(:clj (.getName ^Class instance-class)
+                                   :cljs (.-name instance-class))
+            instance-class-symbol (symbol instance-class-name)
+            allowed? (or
+                      (get class->opts :allow)
+                      (get class->opts instance-class-symbol))
+            ^Class target-class (if allowed? instance-class
+                                    (when-let [f (:public-class ctx)]
+                                      (f instance-expr*)))]
+        ;; we have to check options at run time, since we don't know what the class
+        ;; of instance-expr is at analysis time
+        (when-not target-class
+          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+        (let [args (map #(interpret ctx %) args)] ;; eval args!
+          (interop/invoke-instance-method instance-expr* target-class method-str args))))))
 
 ;;;; End interop
 
@@ -355,7 +360,7 @@
     (set-namespace! ctx ns-sym nil)
     nil))
 
-(defn eval-refer [ctx [_ ns-sym & exprs]]
+(defn eval-refer [ctx ns-sym & exprs]
   (let [ns-sym (interpret ctx ns-sym)]
     (loop [exprs exprs]
       (when exprs
@@ -366,8 +371,18 @@
                    (fn [env]
                      (let [cnn (vars/current-ns-name)]
                        (update-in env [:namespaces cnn :refer ns-sym :exclude]
-                                  (fnil into #{}) v)))))
+                                  (fnil into #{}) v))))
+            :only
+            (swap! (:env ctx)
+                   (fn [env]
+                     (let [cnn (vars/current-ns-name)
+                           other-ns (get-in env [:namespaces ns-sym])
+                           other-vars (select-keys other-ns v)]
+                       (update-in env [:namespaces cnn]
+                                  merge other-vars)))))
           (recur (nnext exprs)))))))
+
+(vreset! utils/eval-refer-state eval-refer)
 
 (declare eval-form)
 
@@ -411,6 +426,43 @@
       (macroexpand ctx ex))))
 
 ;;;; End macros
+
+
+;;;; Import
+
+(defn eval-import [ctx & import-symbols-or-lists]
+  ;;(prn import-symbols-or-lists)
+  (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
+                   import-symbols-or-lists)
+        env (:env ctx)]
+    (run! (fn [spec]
+            (let [[package classes]
+                  (if (symbol? spec)
+                    (let [s (str spec)
+                          last-dot (str/last-index-of s ".")
+                          package+class-name
+                          (if last-dot
+                            [(symbol (subs s 0 last-dot))
+                             [(symbol (subs s (inc last-dot) (count s)))]]
+                            [nil [spec]])]
+                      package+class-name)
+                    (let [p (first spec)
+                          cs (rest spec)]
+                      [p cs]))]
+              (doseq [class classes]
+                (let [fq-class-name (symbol (if package (str package "." class)
+                                                class))]
+                  (if (interop/resolve-class ctx fq-class-name)
+                    (let [cnn (vars/current-ns-name)]
+                      (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name))
+                    (if-let [rec (records/resolve-record-class ctx package class)]
+                      (let [cnn (vars/current-ns-name)]
+                        (swap! env assoc-in [:namespaces cnn class] rec))
+                      (throw (new #?(:clj Exception :cljs js/Error)
+                                  (str "Unable to resolve classname: " fq-class-name)))))))))
+          specs)))
+
+;;;; End import
 
 (defn eval-set! [ctx [_ obj v]]
   (let [obj (interpret ctx obj)
@@ -495,12 +547,13 @@
     throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
-    refer (eval-refer ctx expr)
+    refer (apply eval-refer ctx (rest expr))
     require (apply eval-require ctx (rest expr))
     use (apply eval-use ctx (rest expr))
     resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
-    macroexpand (macroexpand ctx (interpret ctx (second expr)))))
+    macroexpand (macroexpand ctx (interpret ctx (second expr)))
+    import (apply eval-import ctx (rest expr))))
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)

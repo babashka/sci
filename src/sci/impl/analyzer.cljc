@@ -7,6 +7,7 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
+   [sci.impl.records :as records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
     [mark-resolve-sym mark-eval mark-eval-call constant?
@@ -139,7 +140,7 @@
      ;; (prn 'resolve sym '-> res (meta res))
      res)))
 
-(declare analyze)
+(declare analyze analyze-call)
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
@@ -292,30 +293,31 @@
 (declare expand-declare)
 
 (defn expand-def
-  [ctx [_def var-name ?docstring ?init :as expr]]
-  (expand-declare ctx [nil var-name])
-  (when-not (simple-symbol? var-name)
-    (throw-error-with-location "Var name should be simple symbol." expr))
-  (let [arg-count (count expr)
-        docstring (when (and ?init
-                             (string? ?docstring))
-                    ?docstring)
-        expected-arg-count (if docstring 4 3)]
-    (when-not (<= arg-count expected-arg-count)
-      (throw (new #?(:clj  IllegalArgumentException
-                     :cljs js/Error)
-                  "Too many arguments to def")))
-    (let [init (if docstring ?init ?docstring)
-          init (if (= 2 arg-count)
-                 :sci.impl/var.unbound
-                 (analyze ctx init))
-          m (meta var-name)
-          m (analyze ctx m)
-          m (assoc m :ns @vars/current-ns)
-          m (if docstring (assoc m :doc docstring) m)
-          var-name (with-meta var-name m)]
-      (expand-declare ctx [nil var-name])
-      (mark-eval-call (list 'def var-name init)))))
+  [ctx expr]
+  (let [[_def var-name ?docstring ?init] expr ]
+    (expand-declare ctx [nil var-name])
+    (when-not (simple-symbol? var-name)
+      (throw-error-with-location "Var name should be simple symbol." expr))
+    (let [arg-count (count expr)
+          docstring (when (and (= 4 arg-count)
+                               (string? ?docstring))
+                      ?docstring)
+          expected-arg-count (if docstring 4 3)]
+      (when-not (<= arg-count expected-arg-count)
+        (throw (new #?(:clj  IllegalArgumentException
+                       :cljs js/Error)
+                    "Too many arguments to def")))
+      (let [init (if docstring ?init ?docstring)
+            init (if (= 2 arg-count)
+                   :sci.impl/var.unbound
+                   (analyze ctx init))
+            m (meta var-name)
+            m (analyze ctx m)
+            m (assoc m :ns @vars/current-ns)
+            m (if docstring (assoc m :doc docstring) m)
+            var-name (with-meta var-name m)]
+        (expand-declare ctx [nil var-name])
+        (mark-eval-call (list 'def var-name init))))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
   (when-not (simple-symbol? fn-name)
@@ -482,23 +484,6 @@
                                   names))))))
   nil)
 
-(defn do-import [{:keys [:env] :as ctx} [_ & import-symbols-or-lists :as expr]]
-  (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
-                   import-symbols-or-lists)]
-    (doseq [spec (reduce (fn [v spec]
-                           (if (symbol? spec)
-                             (conj v (name spec))
-                             (let [p (first spec) cs (rest spec)]
-                               (into v (map #(str p "." %) cs)))))
-                         [] specs)]
-      (let [fq-class-name (symbol spec)]
-        (when-not (interop/resolve-class ctx fq-class-name)
-          (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
-        (let [last-dot (str/last-index-of spec ".")
-              class-name (subs spec (inc last-dot) (count spec))
-              cnn (vars/current-ns-name)]
-          (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))))))
-
 ;;;; Interop
 
 (defn expand-dot [ctx [_dot instance-expr method-expr & args :as _expr]]
@@ -510,6 +495,7 @@
                        (fn [m]
                          (if-let [t (:tag m)]
                            (let [clazz (or (interop/resolve-class ctx t)
+                                           (records/resolve-record-class ctx t)
                                            (throw-error-with-location
                                             (str "Unable to resolve classname: " t) t))]
                              (assoc m :tag-class clazz))
@@ -560,12 +546,15 @@
                 "Malformed member expression, expecting (.member target ...)")))
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
-(defn expand-new [ctx [_new class-sym & args]]
+(defn expand-new [ctx [_new class-sym & args :as _expr]]
   (if-let [#?(:clj {:keys [:class] :as _opts}
               :cljs {:keys [:constructor] :as _opts}) (interop/resolve-class-opts ctx class-sym)]
     (let [args (analyze-children ctx args)] ;; analyze args!
       (mark-eval-call (list 'new #?(:clj class :cljs constructor) args)))
-    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
+    (if-let [record (records/resolve-record-class ctx class-sym)]
+      (let [args (analyze-children ctx args)]
+        (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args)))
+      (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
   (let [;; TODO:
@@ -612,10 +601,7 @@
                    (conj ret
                          (mark-eval-call
                           (list* (symbol (name k)) args))))
-            :import (do
-                      ;; imports are processed analysis time
-                      (do-import ctx `(~'import ~@args))
-                      (recur (next exprs) ret))
+            :import (recur (next exprs) (conj ret (mark-eval-call (list* 'import args))))
             :refer-clojure (recur (next exprs)
                                   (conj ret
                                         (mark-eval-call
@@ -709,10 +695,10 @@
                 . (expand-dot** ctx expr)
                 expand-constructor (expand-constructor ctx expr)
                 new (expand-new ctx expr)
-                import (do-import ctx expr)
                 ns (analyze-ns-form ctx expr)
                 var (analyze-var ctx expr)
                 set! (analyze-set! ctx expr)
+                import (mark-eval-call expr) ;; don't analyze children
                 ;; macroexpand-1 (macroexpand-1 ctx expr)
                 ;; macroexpand (macroexpand ctx expr)
                 ;; else:

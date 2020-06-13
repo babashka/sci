@@ -50,3 +50,51 @@
 (defrecord Rectangle [width height])
 (record? (->Rectangle 0 0))"]
     (is (true? (tu/eval* prog {})))))
+
+(deftest import-test
+  (let [prog "
+(ns foo)
+(defrecord Rectangle [width height])
+
+(ns bar
+  (:require [foo])
+  (:import [foo Rectangle]))
+
+(instance? Rectangle (foo/->Rectangle 10 10))"]
+    (is (true? (tu/eval* prog {})))))
+
+(deftest field-access-test
+  (let [prog "
+(ns foo)
+(defrecord Rectangle [width height])
+
+(defn width [^Rectangle rect]
+  (.-width rect))
+
+(width (Rectangle. 10 10))"]
+    (is (= 10 (tu/eval* prog {}))))
+  (let [prog "
+(ns foo)
+(defrecord Rectangle [width height])
+
+(ns bar (:import [foo Rectangle]))
+(defn width [^Rectangle rect]
+  (.-width rect))
+
+(def rect (Rectangle. 10 10))
+(width rect)"]
+    (is (= 10 (tu/eval* prog {})))))
+
+(deftest constructor-test
+  (let [prog "
+(ns foo)
+(defprotocol Area (area [_]))
+(defrecord Rectangle [width height]
+  Area
+  (area [_] (* width height)))
+
+(ns bar (:require [foo]) (:import [foo Rectangle]))
+(let [a 6 b 2
+      rect (Rectangle. a b)]
+  (foo/area rect))"]
+    (is (= 12 (tu/eval* prog {})))))

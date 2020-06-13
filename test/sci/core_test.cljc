@@ -747,7 +747,8 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
                         (eval* "(defn foo)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
-                        (eval* "(defn foo ())"))))
+                        (eval* "(defn foo ())")))
+  (is (eval* "(def *clause* \"During formatting, *clause* is bound to :select, :from, :where, etc.\" nil)")))
 
 (deftest ex-message-test
   (is (= "foo" #?(:clj (eval* "(ex-message (Exception. \"foo\"))")
@@ -976,6 +977,12 @@
     (is (true?
          (sci/eval-string
           "(ns foo) (ns bar) (intern 'foo (with-meta 'x {:a true}) 1) (:a (meta #'foo/x))")))))
+
+(deftest instance?-test
+  (is (false? (eval* "(defrecord Foo []) (instance? Foo 1)")))
+  (is (true? (eval* "(defrecord Foo []) (instance? Foo (->Foo))")))
+  #?(:clj (is (true? (eval* "(instance? Number 1)"))))
+  (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(instance? 'Foo 1)"))))
 
 ;;;; Scratch
 

@@ -157,6 +157,7 @@
 (def eval-require-state (volatile! nil))
 (def eval-use-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
+(def eval-refer-state (volatile! nil))
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns
