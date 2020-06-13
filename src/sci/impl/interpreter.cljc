@@ -435,28 +435,32 @@
   (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
                    import-symbols-or-lists)
         env (:env ctx)]
-    (run!
-     (fn [spec]
-       (let [fq-class-name (symbol spec)]
-         (if (interop/resolve-class ctx fq-class-name)
-           (let [last-dot (str/last-index-of spec ".")
-                 class-name (subs spec (inc last-dot) (count spec))
-                 cnn (vars/current-ns-name)]
-             (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))
-           (if-let [rec (records/resolve-record-class ctx spec)]
-             (let [last-dot (str/last-index-of spec ".")
-                   ;; ns-sym (subs spec 0 last-dot)
-                   class-name (subs spec (inc last-dot) (count spec))
-                   cnn (vars/current-ns-name)]
-               (swap! env assoc-in [:namespaces cnn (symbol class-name)] rec))
-             (throw (new #?(:clj Exception :cljs js/Error)
-                         (str "Unable to resolve classname: " fq-class-name)))))))
-     (reduce (fn [v spec]
-               (if (symbol? spec)
-                 (conj v (name spec))
-                 (let [p (first spec) cs (rest spec)]
-                   (into v (map #(str p "." %) cs)))))
-             [] specs))))
+    (run! (fn [spec]
+            (let [[package classes]
+                  (if (symbol? spec)
+                    (let [s (str spec)
+                          last-dot (str/last-index-of s ".")
+                          package+class-name
+                          (if last-dot
+                            [(symbol (subs s 0 last-dot))
+                             [(symbol (subs s (inc last-dot) (count s)))]]
+                            [nil [spec]])]
+                      package+class-name)
+                    (let [p (first spec)
+                          cs (rest spec)]
+                      [p cs]))]
+              (doseq [class classes]
+                (let [fq-class-name (symbol (if package (str package "." class)
+                                                class))]
+                  (if (interop/resolve-class ctx fq-class-name)
+                    (let [cnn (vars/current-ns-name)]
+                      (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name))
+                    (if-let [rec (records/resolve-record-class ctx package class)]
+                      (let [cnn (vars/current-ns-name)]
+                        (swap! env assoc-in [:namespaces cnn class] rec))
+                      (throw (new #?(:clj Exception :cljs js/Error)
+                                  (str "Unable to resolve classname: " fq-class-name)))))))))
+          specs)))
 
 ;;;; End import
 

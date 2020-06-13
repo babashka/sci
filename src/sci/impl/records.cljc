@@ -42,17 +42,20 @@
      (some-> x meta :sci.impl/record))
    (clojure.core/record? x)))
 
-(defn resolve-record-class [ctx sym]
-  (let [sym-str (str sym)
-        last-dot (str/last-index-of sym-str ".")
-        class-name (if last-dot
-                     (subs sym-str (inc last-dot) (count sym-str))
-                     sym-str)
-        namespace (if last-dot
-                    (symbol (subs sym-str 0 last-dot))
-                    (vars/current-ns-name))
-        record-sym (symbol class-name)]
-    (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace record-sym])]
-      (if (vars/var? sci-var)
-        @sci-var
-        sci-var))))
+(defn resolve-record-class
+  ([ctx sym]
+   (let [sym-str (str sym)
+         last-dot (str/last-index-of sym-str ".")
+         class-name (if last-dot
+                      (subs sym-str (inc last-dot) (count sym-str))
+                      sym-str)
+         namespace (if last-dot
+                     (symbol (subs sym-str 0 last-dot))
+                     (vars/current-ns-name))]
+     (resolve-record-class ctx namespace (symbol class-name))))
+  ([ctx package class]
+   (let [namespace package]
+     (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace class])]
+       (if (vars/var? sci-var)
+         @sci-var
+         sci-var)))))
