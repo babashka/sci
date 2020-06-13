@@ -535,16 +535,6 @@
 
 ;;;; End binding vars
 
-;;;; Type related stuff
-
-(defn sci-instance? [clazz x]
-  (or
-   (if (symbol? clazz)
-     (= clazz (types/type-impl x))
-     (instance? clazz x))))
-
-;;;; End type related stuff
-
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -764,7 +754,7 @@
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
    'inst? (copy-core-var inst?)
-   'instance? sci-instance?
+   'instance? types/instance-impl
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
    'intern (with-meta sci-intern {:sci.impl/op :needs-ctx})

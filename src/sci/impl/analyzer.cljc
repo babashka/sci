@@ -492,12 +492,19 @@
                                (into v (map #(str p "." %) cs)))))
                          [] specs)]
       (let [fq-class-name (symbol spec)]
-        (when-not (interop/resolve-class ctx fq-class-name)
-          (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
-        (let [last-dot (str/last-index-of spec ".")
-              class-name (subs spec (inc last-dot) (count spec))
-              cnn (vars/current-ns-name)]
-          (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))))))
+        (if (interop/resolve-class ctx fq-class-name)
+          (let [last-dot (str/last-index-of spec ".")
+                class-name (subs spec (inc last-dot) (count spec))
+                cnn (vars/current-ns-name)]
+            (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))
+          ;; TODO: defrecord import
+          (let [segments (str/split spec #"\.")
+                [namespace-parts record-part] [(butlast segments) (last segments)]
+                namespace (symbol (str/join "." namespace-parts))
+                record-sym (symbol record-part)]
+            (if-let [record (get-in @env [:namespaces namespace record-sym])]
+              (swap! env assoc-in [:namespaces (vars/current-ns-name) record-sym] record)
+              (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))))))))
 
 ;;;; Interop
 

@@ -23,3 +23,9 @@
         :sci.impl.protocols/reified)
       (some-> x meta :sci.impl/type)
       (type x)))
+
+(defn instance-impl [clazz x]
+  (prn clazz)
+  (or (when (symbol? clazz)
+        (= clazz (some-> x meta :sci.impl/type)))
+      (instance? clazz x)))
