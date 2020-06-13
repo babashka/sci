@@ -486,23 +486,25 @@
 (defn do-import [{:keys [:env] :as ctx} [_ & import-symbols-or-lists :as expr]]
   (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
                    import-symbols-or-lists)]
-    (doseq [spec (reduce (fn [v spec]
-                           (if (symbol? spec)
-                             (conj v (name spec))
-                             (let [p (first spec) cs (rest spec)]
-                               (into v (map #(str p "." %) cs)))))
-                         [] specs)]
-      (let [fq-class-name (symbol spec)]
-        (if (interop/resolve-class ctx fq-class-name)
-          (let [last-dot (str/last-index-of spec ".")
-                class-name (subs spec (inc last-dot) (count spec))
-                cnn (vars/current-ns-name)]
-            (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name))
-          (if-let [record (records/resolve-record-class ctx spec)]
-            (let [last-dot (str/last-index-of spec ".")
-                  class-name (subs spec (inc last-dot) (count spec))]
-              (swap! env assoc-in [:namespaces (vars/current-ns-name) (symbol class-name)] record))
-            (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr)))))))
+    ;; TODO: convert to reduce
+    (doall (for [spec (reduce (fn [v spec]
+                               (if (symbol? spec)
+                                 (conj v (name spec))
+                                 (let [p (first spec) cs (rest spec)]
+                                   (into v (map #(str p "." %) cs)))))
+                             [] specs)
+                :let [fq-class-name (symbol spec)
+                      clazz (when (interop/resolve-class ctx fq-class-name)
+                              (let [last-dot (str/last-index-of spec ".")
+                                    class-name (subs spec (inc last-dot) (count spec))
+                                    cnn (vars/current-ns-name)]
+                                (swap! env assoc-in [:namespaces cnn :imports (symbol class-name)] fq-class-name)))]
+                :when (not clazz)
+                :let [_ (or (records/resolve-record-class ctx spec)
+                            (throw-error-with-location (str "Unable to resolve classname: " fq-class-name) expr))
+                      last-dot (str/last-index-of spec ".")
+                      class-name (subs spec (inc last-dot) (count spec))]]
+            (mark-eval-call (list 'refer (vars/current-ns-name) :only [(symbol class-name)]))))))
 
 ;;;; Interop
 
@@ -620,10 +622,7 @@
                    (conj ret
                          (mark-eval-call
                           (list* (symbol (name k)) args))))
-            :import (do
-                      ;; imports are processed analysis time
-                      (do-import ctx `(~'import ~@args))
-                      (recur (next exprs) ret))
+            :import (recur (next exprs) (into ret (do-import ctx `(~'import ~@args))))
             :refer-clojure (recur (next exprs)
                                   (conj ret
                                         (mark-eval-call
@@ -717,7 +716,7 @@
                 . (expand-dot** ctx expr)
                 expand-constructor (expand-constructor ctx expr)
                 new (expand-new ctx expr)
-                import (do-import ctx expr)
+                import (do (do-import ctx expr) nil)
                 ns (analyze-ns-form ctx expr)
                 var (analyze-var ctx expr)
                 set! (analyze-set! ctx expr)

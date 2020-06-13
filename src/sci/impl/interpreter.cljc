@@ -358,7 +358,7 @@
     (set-namespace! ctx ns-sym nil)
     nil))
 
-(defn eval-refer [ctx [_ ns-sym & exprs]]
+(defn eval-refer [ctx ns-sym & exprs]
   (let [ns-sym (interpret ctx ns-sym)]
     (loop [exprs exprs]
       (when exprs
@@ -369,8 +369,18 @@
                    (fn [env]
                      (let [cnn (vars/current-ns-name)]
                        (update-in env [:namespaces cnn :refer ns-sym :exclude]
-                                  (fnil into #{}) v)))))
+                                  (fnil into #{}) v))))
+            :only
+            (swap! (:env ctx)
+                   (fn [env]
+                     (let [cnn (vars/current-ns-name)
+                           other-ns (get-in env [:namespaces ns-sym])
+                           other-vars (select-keys other-ns v)]
+                       (update-in env [:namespaces cnn]
+                                  merge other-vars)))))
           (recur (nnext exprs)))))))
+
+(vreset! utils/eval-refer-state eval-refer)
 
 (declare eval-form)
 
@@ -498,7 +508,7 @@
     throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
-    refer (eval-refer ctx expr)
+    refer (apply eval-refer ctx (rest expr))
     require (apply eval-require ctx (rest expr))
     use (apply eval-use ctx (rest expr))
     resolve (eval-resolve ctx (second expr))
