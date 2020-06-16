@@ -30,7 +30,7 @@
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well
   as :sci/macro true to meta of the fn itself."
-  ([name init-val] (new-var name init-val (meta name)))
+  ([name init-val] (new-macro-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar.
                          (vary-meta init-val
                                     assoc :sci/macro true)
