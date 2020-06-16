@@ -4,7 +4,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## v0.1.0 (2020-06-16)
 
-Thank to @jeroenvandijk, @jjttjj, @justone, @sogaiu and @armincerf for
+Thank to [@jeroenvandijk](https://github.com/jeroenvandijk), [@jjttjj](https://github.com/jjttjj), [@justone](https://github.com/justone), [@sogaiu](https://github.com/sogaiu) and [@armincerf](https://github.com/armincerf) for
 contributing.
 
 ### New
