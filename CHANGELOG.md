@@ -64,7 +64,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Support `clojure.core/intern` [#336](https://github.com/borkdude/babashka/issues/336)
 - Support alternative field access syntax `(. Integer -SIZE)` [#339](https://github.com/borkdude/babashka/issues/339)
 - Check syntax of `def` and report too many arguments [#340](https://github.com/borkdude/babashka/issues/340)
-- Defprotocol and defrecord support #279, #319
+- Defprotocol and defrecord support [#279](https://github.com/borkdude/babashka/issues/279), [#319](https://github.com/borkdude/babashka/issues/319)
 - Fix alternative field access syntax `(Integer/SIZE)`
 - Fix resolving var from other namespace via refer
 - Add `double-array` and `short-array`
