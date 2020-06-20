@@ -67,7 +67,7 @@
                            :features features
                            :auto-resolve auto-resolve
                            :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
-                           :tools.reader/opts {:readers readers})
+                           :readers readers)
          ret (parser/parse-next parse-opts
                                 r)]
      ;; (prn "ret" ret)

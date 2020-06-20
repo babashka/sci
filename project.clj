@@ -11,7 +11,7 @@
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/sci.impl.reflector "0.0.1"] ;; use 0.0.1-jdk11 with JDK 11
-                 [borkdude/edamame "0.0.11-alpha.12"]
+                 [borkdude/edamame "0.0.11-alpha.13"]
                  [org.clojure/tools.reader "1.3.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
