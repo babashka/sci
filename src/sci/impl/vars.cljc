@@ -414,8 +414,8 @@
 
 (defn alter-var-root [v f & args]
   #?(:clj
-     (locking v (bindRoot v (apply f @v args)))
-     :cljs (bindRoot v (apply f @v args))))
+     (locking v (bindRoot v (apply f (getRawRoot v) args)))
+     :cljs (bindRoot v (apply f (getRawRoot v) args))))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))
