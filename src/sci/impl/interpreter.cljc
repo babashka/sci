@@ -105,6 +105,7 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
+        m (interpret ctx m)
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -114,13 +115,11 @@
                        (vars/->SciVar prev (symbol (str cnn) (str var-name))
                                       (meta prev))
                        prev)
-                v (if (kw-identical? :sci.impl/var.unbound init) ;; this is old
+                v (if (kw-identical? :sci.impl/var.unbound init)
                     (doto prev
-                      (alter-meta! (fn [prev-meta]
-                                     (interpret ctx (merge prev-meta m)))))
+                      (alter-meta! merge m))
                     (do (vars/bindRoot prev init)
-                        (alter-meta! prev (fn [prev-meta]
-                                            (interpret ctx (merge prev-meta m))))
+                        (alter-meta! prev merge m)
                         prev))
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces cnn] the-current-ns)))
