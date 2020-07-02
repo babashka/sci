@@ -190,19 +190,35 @@
   (is (= 1 (eval* "(try (let [] (def x 1) x))"))))
 
 (deftest defn-test
-  (is (= 2 (eval* '(do (defn foo "increment c" [x] (inc x)) (foo 1)))))
-  (is (= 3 (eval* '(do (defn foo ([x] (inc x)) ([x y] (+ x y)))
+  (is (= 2 (eval* "(do (defn foo \"increment c\" [x] (inc x)) (foo 1))")))
+  (is (= 3 (eval* "(do (defn foo ([x] (inc x)) ([x y] (+ x y)))
                        (foo 1)
-                       (foo 1 2)))))
-  (is (= 0 (eval* '(do (defn foo [x] (inc x))
-                       (defn foo "decrement c" [x] (dec x))
-                       (foo 1)))))
-  (is (= 1337 (eval* '(do (defn foo "decrement c" {:cool-meta (inc 1336)}
+                       (foo 1 2))")))
+  (is (= 0 (eval* "(do (defn foo [x] (inc x))
+                       (defn foo \"decrement c\" [x] (dec x))
+                       (foo 1))")))
+  (is (= 1337 (eval* "(do (defn foo \"decrement c\" {:cool-meta (inc 1336)}
                             [x] (dec x))
-                          (:cool-meta (meta #'foo))))))
-  (is (= 1337 (eval* '(do (defn foo {:cool-meta (inc 1336)}
+                          (:cool-meta (meta #'foo)))")))
+  (is (= 1337 (eval* "(do (defn foo {:cool-meta (inc 1336)}
                             [x] (dec x))
-                          (:cool-meta (meta #'foo)))))))
+                          (:cool-meta (meta #'foo)))")))
+  (is (= 1337 (eval* "(do (defn ^{:cool-meta (inc 1336)} foo
+                            [x] (dec x))
+                          (:cool-meta (meta #'foo)))")))
+  (testing "var contains location information which can be used by
+  clojure.repl/source to read relevant source lines (see babashka)"
+      (is (true?
+           (eval* "
+(defn foo []
+  (+ 1 2 3))
+
+(defn submap? [m1 m2]
+  (every? (fn [k]
+            (= (get m1 k) (get m2 k)))
+          (keys m1)))
+
+(submap? {:line 2, :column 1, :end-line 3, :end-column 13} (meta #'foo))")))))
 
 (deftest resolve-test
   (is (thrown-with-msg?

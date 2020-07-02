@@ -294,7 +294,7 @@
 
 (defn expand-def
   [ctx expr]
-  (let [[_def var-name ?docstring ?init] expr ]
+  (let [[_def var-name ?docstring ?init] expr]
     (expand-declare ctx [nil var-name])
     (when-not (simple-symbol? var-name)
       (throw-error-with-location "Var name should be simple symbol." expr))
@@ -316,7 +316,6 @@
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
-        (expand-declare ctx [nil var-name])
         (mark-eval-call (list 'def var-name init))))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
@@ -331,7 +330,7 @@
                     (when (string? ds) ds))
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
-        meta-map (analyze ctx (merge (meta expr) meta-map))
+        meta-map (analyze ctx (merge (meta fn-name) (meta expr) meta-map))
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
@@ -475,7 +474,7 @@
                                       (assoc acc name
                                              (doto (vars/->SciVar nil (symbol (str cnn)
                                                                               (str name))
-                                                                  (assoc (meta name)
+                                                                  (assoc (analyze ctx (meta name))
                                                                          :name name
                                                                          :ns @vars/current-ns
                                                                          :file @vars/current-file))
