@@ -294,7 +294,7 @@
 
 (defn expand-def
   [ctx expr]
-  (let [[_def var-name ?docstring ?init] expr ]
+  (let [[_def var-name ?docstring ?init] expr]
     (expand-declare ctx [nil var-name])
     (when-not (simple-symbol? var-name)
       (throw-error-with-location "Var name should be simple symbol." expr))
@@ -475,7 +475,7 @@
                                       (assoc acc name
                                              (doto (vars/->SciVar nil (symbol (str cnn)
                                                                               (str name))
-                                                                  (assoc (meta name)
+                                                                  (assoc (analyze ctx (meta name))
                                                                          :name name
                                                                          :ns @vars/current-ns
                                                                          :file @vars/current-file))
