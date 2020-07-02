@@ -189,11 +189,6 @@
   (is (= 1 (eval* "(try (defn x [] 1) (x))")))
   (is (= 1 (eval* "(try (let [] (def x 1) x))"))))
 
-(defn submap? [m1 m2]
-  (every? (fn [k]
-            (= (get m1 k) (get m2 k)))
-          (keys m1)))
-
 (deftest defn-test
   (is (= 2 (eval* "(do (defn foo \"increment c\" [x] (inc x)) (foo 1))")))
   (is (= 3 (eval* "(do (defn foo ([x] (inc x)) ([x y] (+ x y)))
@@ -213,11 +208,17 @@
                           (:cool-meta (meta #'foo)))")))
   (testing "var contains location information which can be used by
   clojure.repl/source to read relevant source lines (see babashka)"
-      (is (submap? {:line 2, :column 1, :end-line 3, :end-column 13}
-                   (eval* "
+      (is (true?
+           (eval* "
 (defn foo []
   (+ 1 2 3))
-(meta #'foo)")))))
+
+(defn submap? [m1 m2]
+  (every? (fn [k]
+            (= (get m1 k) (get m2 k)))
+          (keys m1)))
+
+(submap? {:line 2, :column 1, :end-line 3, :end-column 13} (meta #'foo))")))))
 
 (deftest resolve-test
   (is (thrown-with-msg?
