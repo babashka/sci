@@ -316,8 +316,6 @@
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
-        ;; TODO: why is this one needed?
-        ;; (expand-declare ctx [nil var-name])
         (mark-eval-call (list 'def var-name init))))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
