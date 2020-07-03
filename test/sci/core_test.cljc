@@ -206,6 +206,7 @@
   (is (= 1337 (eval* "(do (defn ^{:cool-meta (inc 1336)} foo
                             [x] (dec x))
                           (:cool-meta (meta #'foo)))")))
+  (is (= 1337 (eval* "(defn ^{:test (fn [] (g))} g [] 1337) ((:test (meta #'g)))")))
   (testing "var contains location information which can be used by
   clojure.repl/source to read relevant source lines (see babashka)"
       (is (true?
