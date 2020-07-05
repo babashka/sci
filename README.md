@@ -77,7 +77,9 @@ In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
 
 By default `sci` only enables access to the pure non-side-effecting functions in
-Clojure.  More functions can be enabled, at your own risk, using `:bindings`:
+Clojure.  More functions can be enabled, at your own risk, by using `:bindings`.
+Normally you would use sci's version of `println` but here, for the purposes of
+demonstration, we use use Clojure's version of `println` instead:
 
 ``` clojure
 user=> (require '[sci.core :as sci])
@@ -143,8 +145,10 @@ nil
 
 ### Vars
 
-Sci has a var type, distinguished from Clojure vars. In a sci program these vars
-are created with `def` and `defn` just like in normal Clojure:
+To remain safe and sandboxed, sci evaluated Clojure does not have access to Clojure runtime vars.
+Sci has its own var type, distinguished from Clojure vars.
+
+In a sci program these vars are created with `def` and `defn` just like in normal Clojure:
 
 ``` clojure
 (def x 1)
@@ -189,7 +193,7 @@ Pre-created sci vars can also be externally rebound:
 ```
 
 The dynamic vars `*in*`, `*out*`, `*err*` in a sci program correspond to the
-dynamic sci vars `sci.core/in`, `sci.core/out` and `sci.core/err` in API. These
+dynamic sci vars `sci.core/in`, `sci.core/out` and `sci.core/err` in the API. These
 vars can be rebound as well:
 
 ``` clojure
@@ -206,7 +210,7 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 
 ### Stdout and stdin
 
-To enable printing to `stdout` and reading from `stdin` you can bind
+To enable printing to `stdout` and reading from `stdin` you can sci bind
 `sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
 
 
@@ -222,6 +226,24 @@ To enable printing to `stdout` and reading from `stdin` you can bind
 Type your name!
 > Michiel
 Hello Michiel!
+```
+
+When adding a Clojure function to sci that interacts with `*out*` (or `*in*` or `*err*`), you
+can hook it up to sci's world. For example, a Clojure function that writes to `*out*`
+can be Clojure bound to sci's `out`:
+
+```Clojure
+user=> (defn foo [] (println "yello!"))
+#'user/foo
+user=> ;; without binding *out* to sci's out, the Clojure function will use its default *out*:
+user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo foo}})
+yello!
+""
+;; let's hook foo up to sci's world:
+user=> (defn wrapped-foo [] (binding [*out* @sci/out] (foo)))
+#'user/wrapped-foo
+user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo wrapped-foo}})
+"yello!\n"
 ```
 
 ### Futures
@@ -392,6 +414,17 @@ Another option for loading code is to provide an implementation of
   (sci/eval-string "(load-file \"example2.clj\") (foo)" opts))
 ;;=> :foo
 ```
+
+## Positional metadata
+
+Sci includes positional metadata on every parsed Clojure element:
+
+```
+(sci/eval-string "(meta [1 2 3])")
+;;=> {:line 1, :column 7, :end-line 1, :end-column 14}
+```
+
+This positional metadata is used by sci for error reporting.
 
 ## Feature parity
 
