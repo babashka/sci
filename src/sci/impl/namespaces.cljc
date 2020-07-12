@@ -656,6 +656,7 @@
    'cat (copy-core-var cat)
    'char (copy-core-var char)
    'char? (copy-core-var char?)
+   #?@(:clj ['class? (copy-core-var class?)])
    #?@(:cljs ['clj->js (copy-core-var clj->js)])
    'cond (macrofy cond*)
    'cond-> (macrofy cond->*)

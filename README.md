@@ -42,11 +42,12 @@ It is used in:
 
 - [Babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
+- [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Chlorine](https://github.com/mauricioszabo/atom-chlorine). Socket-REPL and nREPL package for Atom editor.
 - [Clj-kondo](https://github.com/borkdude/clj-kondo/). A Clojure linter that sparks joy.
-- [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
+- [Firn](https://github.com/theiceshelf/firn). Org-mode static site generator.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
