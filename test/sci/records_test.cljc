@@ -38,6 +38,19 @@
 (extends? Area Rectangle)"]
     (is (true? (tu/eval* prog {})))))
 
+(deftest multiplefunctions-test
+  (let [prog "
+(defprotocol Area (get-area [this])
+                  (get-perimeter [this]))
+(defrecord Rectangle [width height]
+                  Area
+                  (get-area [this]
+                    (* width height))
+                  (get-perimeter [this]
+                    (+ (* 2 width) (* 2 height))))
+[(get-perimeter (Rectangle. 10 10)) (get-area (Rectangle. 10 10))]"]
+    (is (= [40 100] (tu/eval* prog {})))))
+
 (deftest instance-test
   (let [prog "
 (defrecord Rectangle [width height])
