@@ -10,20 +10,21 @@
         keys (mapv keyword fields)
         protocol-impls (utils/split-when symbol? protocol-impls)
         protocol-impls
-        (mapv (fn [[protocol-name impl]]
-                (let [protocol-var (@utils/eval-resolve-state ctx protocol-name)
-                      protocol-ns (-> protocol-var deref :ns)
-                      pns (str (vars/getName protocol-ns))
-                      fq-meth-name #(symbol pns %)
-                      args (second impl)
-                      this (first args)
-                      bindings (vec (mapcat (fn [field]
-                                              [field (list (keyword field) this)])
-                                            fields))]
-                  `(defmethod ~(fq-meth-name (str (first impl))) '~record-name ~(second impl)
-                     (let ~bindings
-                       ~@(nnext impl)))))
-              protocol-impls)]
+        (mapcat (fn [[protocol-name & impls]]
+                  (for [impl impls]
+                    (let [protocol-var (@utils/eval-resolve-state ctx protocol-name)
+                          protocol-ns (-> protocol-var deref :ns)
+                          pns (str (vars/getName protocol-ns))
+                          fq-meth-name #(symbol pns %)
+                          args (second impl)
+                          this (first args)
+                          bindings (vec (mapcat (fn [field]
+                                                  [field (list (keyword field) this)])
+                                                fields))]
+                      `(defmethod ~(fq-meth-name (str (first impl))) '~record-name ~(second impl)
+                         (let ~bindings
+                           ~@(nnext impl))))))
+                protocol-impls)]
     `(do
        ;; (prn '~record-name)
        (defn ~factory-fn-sym [& args#]
