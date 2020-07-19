@@ -3,8 +3,7 @@
   (:refer-clojure :exclude [pr prn pr-str prn-str print print-str println
                             newline flush with-out-str with-in-str read-line
                             printf #?@(:cljs [string-print])])
-  (:require #?(:clj [sci.impl.io :as sio])
-            #?(:cljs [goog.string])
+  (:require #?(:cljs [goog.string])
             [sci.impl.unrestrict :refer [*unrestricted*]]
             [sci.impl.vars :as vars]))
 
