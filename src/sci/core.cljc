@@ -186,6 +186,13 @@
   [opts]
   (opts/init opts))
 
+(defn fork
+  "Forks a context (as produced with `init`) into a new context. Any new
+  vars created in the new context won't be visible in the original
+  context."
+  [ctx]
+  (update ctx :env (fn [env] (atom @env))))
+
 (defn eval-string*
   "Evaluates string `s` in the context of `ctx` (as produced with
   `init`)."

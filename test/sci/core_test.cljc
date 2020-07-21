@@ -940,7 +940,13 @@
   (let [ctx (sci/init {:bindings {'x 1}})]
     (is (= 1 (sci/eval-string* ctx "x")))
     (is (= 2 (do (sci/eval-string* ctx "(def x 2)")
-                 (sci/eval-string* ctx "x"))))))
+                 (sci/eval-string* ctx "x"))))
+    (let [forked (sci/fork ctx)]
+      (is (= 3 (do (sci/eval-string* forked "(def y 3)")
+                   (sci/eval-string* forked "y"))))
+      (is (thrown-with-msg?
+           #?(:clj Exception :cljs js/Error)
+           #"Could not resolve symbol: y" (sci/eval-string* ctx "y"))))))
 
 (defmacro do-twice [x] `(do ~x ~x))
 (def ^:dynamic *foo* 1)
