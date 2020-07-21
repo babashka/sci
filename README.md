@@ -343,6 +343,19 @@ extra work that `eval-string` does and work directly with `eval-string*`.
 (sci/eval-string* sci-ctx "foo.bar/x") ;;=> 2
 ```
 
+In a multi-user environment it can be useful to give each user their own
+context. This can already be achieved with `eval-string`, but for performance
+reasons it may be desirable to initialize a shared context. This shared context
+can then be forked for each user so that changes in one user's context
+aren't visible for other users:
+
+``` clojure
+(def forked (sci/fork sci-ctx))
+(sci/eval-string* forked "(def forked 1)")
+(sci/eval-string* forked "forked") ;;=> 1
+(sci/eval-string* sci-ctx "forked") ;;=> Could not resolved symbol: forked
+```
+
 ### Implementing require and load-file
 
 Sci supports implementation of code loading via a function hook that is invoked
