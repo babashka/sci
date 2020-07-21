@@ -347,7 +347,7 @@ In a multi-user environment it can be useful to give each user their own
 context. This can already be achieved with `eval-string`, but for performance
 reasons it may be desirable to initialize a shared context. This shared context
 can then be forked for each user so that changes in one user's context
-aren't visible for other users:
+aren't visible to other users:
 
 ``` clojure
 (def forked (sci/fork sci-ctx))
