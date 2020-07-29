@@ -2,7 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/borkdude/sci/tree/master.svg?style=shield)](https://circleci.com/gh/borkdude/sci/tree/master)
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
-[![Financial Contributors on Open Collective](https://opencollective.com/babashka/all/badge.svg?label=financial+contributors)](https://opencollective.com/babashka) 
+[![Financial Contributors on Open Collective](https://opencollective.com/babashka/all/badge.svg?label=financial+contributors)](https://opencollective.com/babashka)
 [![NPM Project](https://img.shields.io/npm/v/@borkdude/sci)](https://www.npmjs.com/package/@borkdude/sci)
 [![project chat](https://img.shields.io/badge/slack-join_chat-brightgreen.svg)](https://app.slack.com/client/T03RZGPFR/C015LCR9MHD)
 
@@ -49,6 +49,7 @@ It is used in:
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Firn](https://github.com/theiceshelf/firn). Org-mode static site generator.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
+- [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
