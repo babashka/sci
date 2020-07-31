@@ -766,6 +766,7 @@
    'intern (with-meta sci-intern {:sci.impl/op :needs-ctx})
    'into (copy-core-var into)
    'iterate (copy-core-var iterate)
+   #?@(:clj ['iterator-seq (copy-core-var iterator-seq)])
    'int (copy-core-var int)
    'int? (copy-core-var int?)
    'interpose (copy-core-var interpose)
