@@ -401,7 +401,8 @@
        (vars/push-thread-bindings ~bindings)
        (try
          (do ~@body)
-         (finally (vars/pop-thread-bindings))))))
+         (finally
+           (vars/pop-thread-bindings))))))
 
 (def current-file (dynamic-var '*file* nil))
 (def callstack (dynamic-var '*file* []))

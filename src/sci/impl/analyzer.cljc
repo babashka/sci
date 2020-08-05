@@ -646,7 +646,7 @@
             f (if (and (vars/var? f)
                        (or
                         (vars/isMacro f)
-                        (let [m (meta f)]
+                        #_(let [m (meta f)]
                           (and
                            (:sci.impl/built-in m)
                            (not (:dynamic m))))))

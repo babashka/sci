@@ -79,7 +79,8 @@
                                 {:type :sci/error
                                  :line line
                                  :column column
-                                 :message m} d) e))]
+                                 :message m
+                                 :callstack @vars/callstack} d) e))]
               (throw new-exception))
             (throw e))))
       (throw e))
