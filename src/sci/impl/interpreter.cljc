@@ -558,22 +558,28 @@
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
              m (meta f)
-             op (when m (.get ^java.util.Map m :sci.impl/op))]
-         ;; (prn op expr)
-         (cond
-           (and (symbol? f) (not op))
-           (eval-special-call ctx f expr)
-           (kw-identical? op :static-access)
-           (when-not (.get ^java.util.Map ctx :dry-run)
-             (eval-static-method-invocation ctx expr))
-           :else
-           (let [f (if op (interpret ctx f)
-                       f)]
-             (if (ifn? f)
-               (when-not (.get ^java.util.Map ctx :dry-run)
-                 (fn-call ctx f (rest expr)))
-               (throw (new #?(:clj Exception :cljs js/Error)
-                           (str "Cannot call " (pr-str f) " as a function.")))))))
+             op (when m (.get ^java.util.Map m :sci.impl/op))
+             file (when (and m (vars/var? f))
+                    (:file m))]
+         (when file
+           (vars/push-thread-bindings {vars/callstack (conj @vars/callstack file)})
+           #_(prn @vars/callstack))
+         (let [res (cond
+                     (and (symbol? f) (not op))
+                     (eval-special-call ctx f expr)
+                     (kw-identical? op :static-access)
+                     (when-not (.get ^java.util.Map ctx :dry-run)
+                       (eval-static-method-invocation ctx expr))
+                     :else
+                     (let [f (if op (interpret ctx f)
+                                 f)]
+                       (if (ifn? f)
+                         (when-not (.get ^java.util.Map ctx :dry-run)
+                           (fn-call ctx f (rest expr)))
+                         (throw (new #?(:clj Exception :cljs js/Error)
+                                     (str "Cannot call " (pr-str f) " as a function."))))))]
+           (when file (vars/pop-thread-bindings))
+           res))
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
@@ -651,7 +657,8 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
-  (vars/with-bindings {vars/current-ns @vars/current-ns}
+  (vars/with-bindings {vars/current-ns @vars/current-ns
+                       vars/callstack @vars/callstack}
     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
         (let [expr (p/parse-next ctx reader)]
