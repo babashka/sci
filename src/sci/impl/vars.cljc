@@ -284,9 +284,11 @@
   #?(:clj clojure.lang.IDeref :cljs IDeref)
   (#?(:clj deref
       :cljs -deref) [this]
-    (or (when-let [tbox (get-thread-binding this)]
-          (t/getVal tbox))
-        root))
+    (if thread-bound
+      (or (when-let [tbox (get-thread-binding this)]
+            (t/getVal tbox))
+          root)
+      root))
   Object
   (toString [_]
     (str "#'" sym))
