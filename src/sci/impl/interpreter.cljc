@@ -113,7 +113,8 @@
                 prev (get the-current-ns var-name)
                 prev (if-not (vars/var? prev)
                        (vars/->SciVar prev (symbol (str cnn) (str var-name))
-                                      (meta prev))
+                                      (meta prev)
+                                      false)
                        prev)
                 v (if (kw-identical? :sci.impl/var.unbound init)
                     (doto prev
@@ -559,7 +560,6 @@
   (try (let [f (first expr)
              m (meta f)
              op (when m (.get ^java.util.Map m :sci.impl/op))]
-         ;; (prn op expr)
          (cond
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
