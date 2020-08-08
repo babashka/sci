@@ -93,7 +93,6 @@
   (toSymbol [this])
   (isMacro [this])
   (hasRoot [this])
-  (isBound [this])
   (setThreadBound [this v])
   (unbind [this]))
 
@@ -136,12 +135,6 @@
                          :cljs @dvals)]
     (when-let [bindings (.-bindings f)]
       (get bindings sci-var))))
-
-#_(defn thread-bound? [sci-var]
-  (when-let [^Frame f #?(:clj (.get dvals)
-                         :cljs @dvals)]
-    (when-let [bindings (.-bindings f)]
-      (contains? bindings sci-var))))
 
 (defn binding-conveyor-fn
   [f]
@@ -259,9 +252,6 @@
     (:sci/macro (clojure.core/meta root)))
   (setThreadBound [this v]
     (set! (.-thread-bound this) v))
-  (isBound [this]
-    thread-bound #_(or (not (instance? SciUnbound root))
-        (thread-bound? this)))
   (unbind [this]
     (with-writeable-var this meta
       (set! (.-root this) (SciUnbound. this))))

@@ -644,14 +644,7 @@
             _ (when special-sym (check-permission! ctx special-sym f))
             f (or special-sym
                   (resolve-symbol ctx f true))
-            f #_(if (and (vars/var? f)
-                       (or
-                        (vars/isMacro f)
-                        (let [m (meta f)]
-                          (and
-                           (:sci.impl/built-in m)
-                           (not (:dynamic m))))))
-                @f f) (if (and (vars/var? f)
+            f (if (and (vars/var? f)
                        (vars/isMacro f))
                 @f f)
             f-meta (meta f)
