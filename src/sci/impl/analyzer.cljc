@@ -477,7 +477,8 @@
                                                                   (assoc (meta name)
                                                                          :name name
                                                                          :ns @vars/current-ns
-                                                                         :file @vars/current-file))
+                                                                         :file @vars/current-file)
+                                                                  false)
                                                (vars/unbind)))))
                                   current-ns
                                   names))))))
@@ -644,12 +645,7 @@
             f (or special-sym
                   (resolve-symbol ctx f true))
             f (if (and (vars/var? f)
-                       (or
-                        (vars/isMacro f)
-                        (let [m (meta f)]
-                          (and
-                           (:sci.impl/built-in m)
-                           (not (:dynamic m))))))
+                       (vars/isMacro f))
                 @f f)
             f-meta (meta f)
             eval? (and f-meta (:sci.impl/op f-meta))]

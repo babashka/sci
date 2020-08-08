@@ -18,14 +18,14 @@
   ([name] (doto (new-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta)))
+  ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta false)))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
   ([name] (doto (new-dynamic-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
-  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true))))
+  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true) false)))
 
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well
@@ -34,7 +34,7 @@
   ([name init-val meta] (sci.impl.vars.SciVar.
                          (vary-meta init-val
                                     assoc :sci/macro true)
-                         name (assoc meta :macro true))))
+                         name (assoc meta :macro true) false)))
 
 (defmacro copy-var
   "Copies contents from var `sym` to a new sci var. The value `ns` is an

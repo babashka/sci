@@ -4,8 +4,6 @@
                             push-thread-bindings
                             get-thread-bindings
                             pop-thread-bindings
-                            with-redefs
-                            with-redefs-fn
                             with-bindings
                             thread-bound?
                             alter-var-root])
@@ -85,8 +83,19 @@
 (declare var?)
 
 (defn dynamic-var? [v]
+  ;; TODO: make separate field
   (and (var? v)
        (:dynamic (meta v))))
+
+(defprotocol IVar
+  (bindRoot [this v])
+  (getRawRoot [this])
+  (toSymbol [this])
+  (isMacro [this])
+  (hasRoot [this])
+  (isBound [this])
+  (setThreadBound [this v])
+  (unbind [this]))
 
 (defn push-thread-bindings [bindings]
   (let [frame (get-thread-binding-frame)
@@ -96,6 +105,7 @@
                          (throw (new #?(:clj IllegalStateException
                                         :cljs js/Error)
                                      (str "Can't dynamically bind non-dynamic var " var*))))
+                       (setThreadBound var* true)
                        (assoc acc var* (TBox. #?(:clj (Thread/currentThread)
                                                  :cljs nil) val*)))
                      bmap
@@ -127,7 +137,7 @@
     (when-let [bindings (.-bindings f)]
       (get bindings sci-var))))
 
-(defn thread-bound? [sci-var]
+#_(defn thread-bound? [sci-var]
   (when-let [^Frame f #?(:clj (.get dvals)
                          :cljs @dvals)]
     (when-let [bindings (.-bindings f)]
@@ -152,15 +162,6 @@
       ([x y z & args]
        (reset-thread-binding-frame frame)
        (apply f x y z args)))))
-
-(defprotocol IVar
-  (bindRoot [this v])
-  (getRawRoot [this])
-  (toSymbol [this])
-  (isMacro [this])
-  (hasRoot [this])
-  (isBound [this])
-  (unbind [this]))
 
 (defn throw-unbound-call-exception [the-var]
   (throw (new #?(:clj IllegalStateException
@@ -241,7 +242,9 @@
                     :cljs ^:mutable root)
                  sym
                  #?(:clj ^:volatile-mutable meta
-                    :cljs ^:mutable meta)]
+                    :cljs ^:mutable meta)
+                 #?(:clj ^:volatile-mutable thread-bound
+                    :cljs ^:mutable thread-bound)]
   HasName
   (getName [this]
     sym)
@@ -254,8 +257,10 @@
   (toSymbol [this] sym)
   (isMacro [_]
     (:sci/macro (clojure.core/meta root)))
+  (setThreadBound [this v]
+    (set! (.-thread-bound this) v))
   (isBound [this]
-    (or (not (instance? SciUnbound root))
+    thread-bound #_(or (not (instance? SciUnbound root))
         (thread-bound? this)))
   (unbind [this]
     (with-writeable-var this meta
@@ -371,7 +376,7 @@
    (dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true)]
-     (SciVar. init-val name meta))))
+     (SciVar. init-val name meta false))))
 
 (defn binding
   [_ _ bindings & body]

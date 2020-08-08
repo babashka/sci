@@ -19,7 +19,7 @@
                      namespaces (-> namespaces
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc 'global-hierarchy
-                                            (vars/->SciVar (make-hierarchy) 'global-hierarchy nil)))]
+                                            (vars/->SciVar (make-hierarchy) 'global-hierarchy nil false)))]
                  (assoc env
                         :namespaces namespaces
                         :imports imports
