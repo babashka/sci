@@ -617,6 +617,7 @@
    '== (copy-core-var ==)
    '->> (macrofy ->>*)
    'add-watch (copy-core-var add-watch)
+   'remove-watch (copy-core-var remove-watch)
    'aget (copy-core-var aget)
    'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
    'all-ns (with-meta sci-all-ns {:sci.impl/op :needs-ctx})
