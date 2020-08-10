@@ -3,6 +3,7 @@
    #?(:clj [sci.addons :as addons])
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
+   [sci.impl.unrestrict :refer [*unrestricted*]]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -180,4 +181,6 @@
          #?(:clj Exception :cljs js/Error)
          #"Built-in var"
          (sci/eval-string
-          "[(with-redefs [*x* (fn [] 11)] (*x*)) (*x*)]" {:bindings {'*x* x}})))))
+          "[(with-redefs [*x* (fn [] 11)] (*x*)) (*x*)]" {:bindings {'*x* x}}))))
+  (binding [*unrestricted* true]
+    (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))))

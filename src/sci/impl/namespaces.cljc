@@ -40,7 +40,8 @@
                                        :name name#
                                        :arglists (:arglists m#)
                                        :ns ns#
-                                       :sci.impl/built-in true}))))
+                                       :sci.impl/built-in true}
+                       false))))
   (defmacro copy-core-var
     ([sym]
      `(copy-var ~sym clojure-core-ns)
@@ -417,7 +418,7 @@
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
          (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (vars/->SciVar nil var-name (meta var-sym))]
+               new-var (vars/->SciVar nil var-name (meta var-sym) false)]
            (vars/unbind new-var)
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var))))
@@ -429,7 +430,7 @@
            (vars/bindRoot v val)
            v)
          (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (vars/->SciVar val var-name (meta var-sym))]
+               new-var (vars/->SciVar val var-name (meta var-sym) false)]
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var)))))
 
@@ -978,7 +979,7 @@
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
    'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
-   'unquote (doto (vars/->SciVar nil 'clojure.core/unquote nil)
+   'unquote (doto (vars/->SciVar nil 'clojure.core/unquote nil false)
               (vars/unbind))
    'use (with-meta use {:sci.impl/op :needs-ctx})
    'val (copy-core-var val)

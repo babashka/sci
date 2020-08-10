@@ -113,7 +113,8 @@
                 prev (get the-current-ns var-name)
                 prev (if-not (vars/var? prev)
                        (vars/->SciVar prev (symbol (str cnn) (str var-name))
-                                      (meta prev))
+                                      (meta prev)
+                                      false)
                        prev)
                 v (if (kw-identical? :sci.impl/var.unbound init)
                     (doto prev
