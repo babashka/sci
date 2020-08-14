@@ -35,7 +35,10 @@
                                   #_#_:sci.impl/built-in true})]
       (is (= [11 10] (sci/eval-string
                       "[(binding [*x* (fn [] 11)] (*x*)) (*x*)]"
-                      {:bindings {'*x* x}}))))))
+                      {:bindings {'*x* x}})))))
+  (testing "dynamic binding of false works"
+    (is (false? (sci/eval-string
+                 "(def ^:dynamic x nil) (binding [x false] x)")))))
 
 (deftest redefine-var-test
   (is (= 11 (eval* "

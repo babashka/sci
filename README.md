@@ -423,7 +423,7 @@ Another option for loading code is to provide an implementation of
                         source (slurp file)]
                     (sci/with-bindings
                       {sci/ns @sci/ns
-                       sci/file (.getCanonicalPath file)}
+                       sci/file (.getAbsolutePath file)}
                       (sci/eval-string source opts))))
       opts (assoc-in opts [:namespaces 'clojure.core 'load-file] load-file)]
   (sci/eval-string "(load-file \"example2.clj\") (foo)" opts))

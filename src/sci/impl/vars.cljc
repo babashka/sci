@@ -64,6 +64,13 @@
   #?(:clj (.get dvals)
      :cljs @dvals))
 
+(deftype TBox #?(:clj [thread ^:volatile-mutable val]
+                 :cljs [thread ^:mutable val])
+  t/IBox
+  (setVal [this v]
+    (set! val v))
+  (getVal [this] val))
+
 (defn clone-thread-binding-frame ^Frame []
   (let [^Frame f #?(:clj (.get dvals)
                     :cljs @dvals)]
@@ -72,13 +79,6 @@
 (defn reset-thread-binding-frame [frame]
   #?(:clj (.set dvals frame)
      :cljs (reset! dvals frame)))
-
-(deftype TBox #?(:clj [thread ^:volatile-mutable val]
-                 :cljs [thread ^:mutable val])
-  t/IBox
-  (setVal [this v]
-    (set! val  v))
-  (getVal [this] val))
 
 (declare var?)
 
@@ -259,25 +259,24 @@
     (not (instance? SciUnbound root)))
   t/IBox
   (setVal [this v]
-    (let [b (get-thread-binding this)]
-      (if (some? b)
-        #?(:clj
-           (let [t (.-thread b)]
-             (if (not (identical? t (Thread/currentThread)))
-               (throw (new IllegalStateException
-                           (str "Can't change/establish root binding of " this " with set")))
-               (t/setVal b v)))
-           :cljs (t/setVal b v))
-        (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                    (str "Can't change/establish root binding of " this " with set"))))))
+    (if-let [b (get-thread-binding this)]
+      #?(:clj
+         (let [t (.-thread b)]
+           (if (not (identical? t (Thread/currentThread)))
+             (throw (new IllegalStateException
+                         (format "Can't set!: %s from non-binding thread" sym)))
+             (t/setVal b v)))
+         :cljs (t/setVal b v))
+      (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                  (str "Can't change/establish root binding of " this " with set")))))
   (getVal [this] root)
   #?(:clj clojure.lang.IDeref :cljs IDeref)
   (#?(:clj deref
       :cljs -deref) [this]
     (if thread-bound
-      (or (when-let [tbox (get-thread-binding this)]
-            (t/getVal tbox))
-          root)
+      (if-let [tbox (get-thread-binding this)]
+        (t/getVal tbox)
+        root)
       root))
   Object
   (toString [_]
