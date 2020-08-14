@@ -561,7 +561,9 @@
         m (meta f)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
     ;; TODO: optimize
-    (do #_#_vars/with-bindings {vars/callstack (if (vars/var? f)
+    ;; TODO: somehow this breaks dynamic bindings!
+    ;; Repro: (def ^:dynamic *foo* 1) (binding [*foo* 10] (prn *foo*)), should be 10, returns 1. WTF?
+    (vars/with-bindings {vars/callstack (if (vars/var? f)
                                           (conj @vars/callstack f)
                                           @vars/callstack)}
       (try
