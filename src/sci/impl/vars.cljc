@@ -133,8 +133,9 @@
 (defn get-thread-binding ^TBox [sci-var]
   (when-let [^Frame f #?(:clj (.get dvals)
                          :cljs @dvals)]
-    (when-let [bindings (.-bindings f)]
-      (get bindings sci-var))))
+    (if-let [bindings (.-bindings f)]
+      (get bindings sci-var)
+      (println "no bindings for " sci-var))))
 
 (defn binding-conveyor-fn
   [f]

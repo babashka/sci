@@ -561,7 +561,7 @@
         m (meta f)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
     ;; TODO: optimize
-    (vars/with-bindings {vars/callstack (if (vars/var? f)
+    (do #_#_vars/with-bindings {vars/callstack (if (vars/var? f)
                                           (conj @vars/callstack f)
                                           @vars/callstack)}
       (try
