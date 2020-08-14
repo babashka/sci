@@ -5,6 +5,7 @@
    [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
+   [sci.impl.callstack :as cs]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
@@ -559,31 +560,31 @@
 (defn eval-call [ctx expr]
   (let [f (first expr)
         m (meta f)
-        op (when m (.get ^java.util.Map m :sci.impl/op))]
+        op (when m (.get ^java.util.Map m :sci.impl/op))
+        var? (vars/var? f)]
     ;; TODO: optimize
     ;; TODO: somehow this breaks dynamic bindings!
     ;; Repro: (def ^:dynamic *foo* 1) (binding [*foo* 10] (prn *foo*)), should be 10, returns 1. WTF?
-    (vars/with-bindings {vars/callstack (if (vars/var? f)
-                                          (conj @vars/callstack f)
-                                          @vars/callstack)}
-      (try
-        (let [res (cond
-                    (and (symbol? f) (not op))
-                    (eval-special-call ctx f expr)
-                    (kw-identical? op :static-access)
-                    (when-not (.get ^java.util.Map ctx :dry-run)
-                      (eval-static-method-invocation ctx expr))
-                    :else
-                    (let [f (if op (interpret ctx f)
-                                f)]
-                      (if (ifn? f)
-                        (when-not (.get ^java.util.Map ctx :dry-run)
-                          (fn-call ctx f (rest expr)))
-                        (throw (new #?(:clj Exception :cljs js/Error)
-                                    (str "Cannot call " (pr-str f) " as a function."))))))]
-          res)
-        (catch #?(:clj Throwable :cljs js/Error) e
-          (rethrow-with-location-of-node ctx e expr))))))
+    (try
+      (when var? (cs/push! f))
+      (let [res (cond
+                  (and (symbol? f) (not op))
+                  (eval-special-call ctx f expr)
+                  (kw-identical? op :static-access)
+                  (when-not (.get ^java.util.Map ctx :dry-run)
+                    (eval-static-method-invocation ctx expr))
+                  :else
+                  (let [f (if op (interpret ctx f)
+                              f)]
+                    (if (ifn? f)
+                      (when-not (.get ^java.util.Map ctx :dry-run)
+                        (fn-call ctx f (rest expr)))
+                      (throw (new #?(:clj Exception :cljs js/Error)
+                                  (str "Cannot call " (pr-str f) " as a function."))))))]
+        (when var? (cs/pop!))
+        res)
+      (catch #?(:clj Throwable :cljs js/Error) e
+        (rethrow-with-location-of-node ctx e expr)))))
 
 (defn fix-meta [v old-meta]
   (if (and #?(:clj (instance? clojure.lang.IObj v)
@@ -659,8 +660,7 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
-  (vars/with-bindings {vars/current-ns @vars/current-ns
-                       vars/callstack @vars/callstack}
+  (vars/with-bindings {vars/current-ns @vars/current-ns}
     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
         (let [expr (p/parse-next ctx reader)]

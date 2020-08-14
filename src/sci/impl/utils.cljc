@@ -2,7 +2,8 @@
   {:no-doc true}
   (:require [clojure.string :as str]
             [sci.impl.types :as t]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.impl.callstack :as cs]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -47,7 +48,7 @@
    (let [{:keys [:line :column]} (meta iobj)
          msg (str msg
                   " [at "
-                  (when-let [v (or (last @vars/callstack) @vars/current-file)]
+                  (when-let [v (or (last (cs/get-callstack)) @vars/current-file)]
                     (str v ", "))
                   "line "
                   line ", column " column"]") ]
@@ -69,7 +70,7 @@
             (let [m (str ex-msg
                          (when ex-msg " ")
                          "[at "
-                         (when-let [v (or (last @vars/callstack) @vars/current-file)]
+                         (when-let [v (or (last (cs/get-callstack)) @vars/current-file)]
                            (str v ", "))
                          "line "
                          line ", column " column"]")
@@ -80,7 +81,7 @@
                                  :line line
                                  :column column
                                  :message m
-                                 :callstack @vars/callstack} d) e))]
+                                 :callstack (cs/get-callstack)} d) e))]
               (throw new-exception))
             (throw e))))
       (throw e))

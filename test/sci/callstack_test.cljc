@@ -1,8 +1,6 @@
 (ns sci.callstack-test
-  (:require [sci.core :as sci :refer [eval-string]]
-            [sci.test-utils :as tu]
-            [sci.impl.vars :refer [callstack]]
-            [clojure.test :as t :refer [deftest]]))
+  (:require [clojure.test :as t :refer [deftest]]
+            [sci.core :as sci :refer [eval-string]]))
 
 (defn print-stacktrace [callstack]
   (doseq [v callstack]

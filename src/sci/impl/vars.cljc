@@ -402,7 +402,6 @@
            (vars/pop-thread-bindings))))))
 
 (def current-file (dynamic-var '*file* nil))
-(def callstack (dynamic-var '*file* []))
 
 (def user-ns (->SciNamespace 'user nil))
 

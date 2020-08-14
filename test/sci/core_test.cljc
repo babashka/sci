@@ -177,10 +177,10 @@
   (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2))))
   (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4]))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"Can't have fixed arity function with more params than variadic function \[at line 1, column 4\]"
+                        #"Can't have fixed arity function with more params than variadic function \[at .*line 1, column 4\]"
                         (eval* "   (fn ([& args]) ([v ]))")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"Can't have more than 1 variadic overload \[at line 1, column 4\]"
+                        #"Can't have more than 1 variadic overload \[at .*line 1, column 4\]"
                         (eval* "   (fn ([& args]) ([v & args]))"))))
 
 (deftest pre-post-conditions-test
@@ -785,7 +785,7 @@
                   :cljs (eval* "(ex-message (js/Error. \"foo\"))")))))
 
 (deftest assert-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"should-be-true.*\[at line 1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"should-be-true.*\[at .*line 1"
                         (eval* "(def should-be-true false) (assert should-be-true)"))))
 
 (deftest dotimes-test
@@ -991,11 +991,11 @@
 (deftest exception-without-message-location-test
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
-       #"\[at line 1, column 2\]"
+       #"\[at .*line 1, column 2\]"
        (sci/eval-string " (clojure.string/includes? nil :foo)")))
   #?(:clj
      (is (thrown-with-msg? Exception
-                           #"\[at line 1, column 2\]"
+                           #"\[at .*line 1, column 2\]"
                            (sci/eval-string " (throw (Exception.))")))))
 
 (deftest intern-test
