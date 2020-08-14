@@ -13,6 +13,7 @@
 (defn foo [] (bar))
 (foo)"
                     )
-       (catch Exception e
+       (catch #?(:clj Exception
+                 :cljs js/Error) e
          (print-stacktrace (:callstack (ex-data e))))))
 

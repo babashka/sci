@@ -12,7 +12,9 @@
      :cljs @callstack))
 
 (defn push! [data]
-  (.set callstack (conj (.get callstack) data)))
+  #?(:clj (.set callstack (conj (.get callstack) data))
+     :cljs (swap! callstack conj data)))
 
 (defn pop! []
-  (.set callstack (pop (.get callstack))))
+  #?(:clj (.set callstack (pop (.get callstack)))
+     :cljs (swap! callstack pop)))
