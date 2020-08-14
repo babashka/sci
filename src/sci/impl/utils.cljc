@@ -42,8 +42,10 @@
    (fn [m]
      (assoc m :sci.impl/op :eval))))
 
-(defn file-from-var [var]
-  (some-> var meta :file))
+(defn file-from-stack [stack]
+  (some #(some-> % meta :file)
+        ;; TODO: this is why we want to use a list instead
+        (reverse stack)))
 
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
@@ -51,7 +53,7 @@
    (let [{:keys [:line :column]} (meta iobj)
          msg (str msg
                   " [at "
-                  (when-let [v (or (file-from-var (last (cs/get-callstack))) @vars/current-file)]
+                  (when-let [v (or (file-from-stack (cs/get-callstack)) @vars/current-file)]
                     (str v ", "))
                   "line "
                   line ", column " column"]") ]
@@ -73,7 +75,7 @@
             (let [m (str ex-msg
                          (when ex-msg " ")
                          "[at "
-                         (when-let [v (or (file-from-var (last (cs/get-callstack))) @vars/current-file)]
+                         (when-let [v (or (file-from-stack (cs/get-callstack)) @vars/current-file)]
                            (str v ", "))
                          "line "
                          line ", column " column"]")
