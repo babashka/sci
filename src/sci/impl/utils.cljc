@@ -42,13 +42,16 @@
    (fn [m]
      (assoc m :sci.impl/op :eval))))
 
+(defn file-from-var [var]
+  (some-> var meta :file))
+
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
    (let [{:keys [:line :column]} (meta iobj)
          msg (str msg
                   " [at "
-                  (when-let [v (or (last (cs/get-callstack)) @vars/current-file)]
+                  (when-let [v (or (file-from-var (last (cs/get-callstack))) @vars/current-file)]
                     (str v ", "))
                   "line "
                   line ", column " column"]") ]
@@ -70,7 +73,7 @@
             (let [m (str ex-msg
                          (when ex-msg " ")
                          "[at "
-                         (when-let [v (or (last (cs/get-callstack)) @vars/current-file)]
+                         (when-let [v (or (file-from-var (last (cs/get-callstack))) @vars/current-file)]
                            (str v ", "))
                          "line "
                          line ", column " column"]")
