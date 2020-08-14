@@ -560,7 +560,10 @@
   (let [f (first expr)
         m (meta f)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
-    (vars/with-bindings {vars/callstack (conj @vars/callstack f)}
+    ;; TODO: optimize
+    (vars/with-bindings {vars/callstack (if (vars/var? f)
+                                          (conj @vars/callstack f)
+                                          @vars/callstack)}
       (try
         (let [res (cond
                     (and (symbol? f) (not op))

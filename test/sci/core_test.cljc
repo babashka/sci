@@ -5,6 +5,19 @@
    [sci.core :as sci :refer [eval-string]]
    [sci.test-utils :as tu]))
 
+#?(:clj
+   (defmethod clojure.test/report :begin-test-var [m]
+     (println "===" (-> m :var meta :name))
+     (println)))
+
+#?(:clj
+   (defmethod clojure.test/report :end-test-var [_m]
+     (let [{:keys [:fail :error]} @test/*report-counters*]
+       (when (and (= "true" (System/getenv "SCI_FAIL_FAST"))
+                  (or (pos? fail) (pos? error)))
+         (println "=== Failing fast")
+         (System/exit 1)))))
+
 (defn eval*
   ([form] (eval* nil form))
   ([binding form]
@@ -23,13 +36,13 @@
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if"
                           (eval* '(if))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if"
                           (eval* '(if 1))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if"
                           (eval* '(if 1 2 3 4))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if"
                           (eval* '(if 1 2 3 4 5))))
     (is (= 1 (eval* 0 '(when (zero? *in*) 1))))
     (is (nil? (eval* 1 '(when (zero? *in*) 1))))
@@ -209,8 +222,8 @@
   (is (= 1337 (eval* "(defn ^{:test (fn [] (g))} g [] 1337) ((:test (meta #'g)))")))
   (testing "var contains location information which can be used by
   clojure.repl/source to read relevant source lines (see babashka)"
-      (is (true?
-           (eval* "
+    (is (true?
+         (eval* "
 (defn foo []
   (+ 1 2 3))
 
@@ -358,18 +371,18 @@
 
 (deftest error-location-test
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at line 1, column 11\]"
+                        #"\[at .*line 1, column 11\]"
                         (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at line 1, column 13\]"
+                        #"\[at .*line 1, column 13\]"
                         (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at line 1, column 19\]"
+                        #"\[at .*line 1, column 19\]"
                         (eval* "(+ 1 2 3 4 5) (do x)")))
   (when-not tu/native?
     (testing "ex-data"
       (tu/assert-submap {:type :sci/error, :line 1, :column 15,
-                         :message #"Cannot call foo with 1 arguments \[at line 1, column 15\]"}
+                         :message #"Cannot call foo with 1 arguments \[at .*line 1, column 15\]"}
                         (try (eval* "(defn foo []) (foo 1)")
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
@@ -982,8 +995,8 @@
        (sci/eval-string " (clojure.string/includes? nil :foo)")))
   #?(:clj
      (is (thrown-with-msg? Exception
-          #"\[at line 1, column 2\]"
-          (sci/eval-string " (throw (Exception.))")))))
+                           #"\[at line 1, column 2\]"
+                           (sci/eval-string " (throw (Exception.))")))))
 
 (deftest intern-test
   (testing "interning results in unbound var"
