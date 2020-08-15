@@ -866,6 +866,7 @@
    're-pattern (copy-core-var re-pattern)
    #?@(:clj ['re-matcher (copy-core-var re-matcher)])
    're-matches (copy-core-var re-matches)
+   'realized? (copy-core-var realized?)
    'rem (copy-core-var rem)
    'remove (copy-core-var remove)
    'remove-ns (with-meta sci-remove-ns {:sci.impl/op :needs-ctx})
