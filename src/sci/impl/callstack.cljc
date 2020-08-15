@@ -31,21 +31,24 @@
 (defn select [m]
   (select-keys m [:ns :name :file :line :column :sci.impl/built-in]))
 
-(defn var->data [var]
-  (let [m (meta var)
+(defn expr->data [expr]
+  (let [m (meta expr)
         m (assoc m :file @vars/current-file)
-        f (first var)
+        f (first expr)
         fm (some-> f meta)]
     [(select m) (select fm)]))
 
 (defn stacktrace [callstack]
-  (let [data (mapcat var->data callstack)
+  (let [data (mapcat expr->data callstack)
         data (reduce (fn [[acc last-ns last-name] entry]
                        (let [new-last-name (or (:name entry)
-                                               last-name)]
-                         [(conj acc (if (identical? last-ns (:ns entry))
-                                      (assoc entry :name new-last-name)
-                                      entry))
+                                               last-name)
+                             new-entry (if (identical? last-ns (:ns entry))
+                                         (assoc entry :name new-last-name)
+                                         entry)]
+                         #_(when-not (= entry new-entry)
+                           (prn entry '-> new-entry))
+                         [(conj acc new-entry)
                           (:ns entry)
                           new-last-name]))
                      (let [fd (first data)]
@@ -62,7 +65,7 @@
                       (if-let [nom (:name elt)]
                         (format "%s/%s"
                                 (:ns elt)
-                                (:name elt))
+                                nom)
                         (:ns elt))
                       (format " - %s"
                               (or (:file elt)
