@@ -45,7 +45,7 @@
 (defn file-from-stack [stack]
   (some #(some-> % meta :file)
         ;; TODO: this is why we want to use a list instead
-        (reverse stack)))
+        stack))
 
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))

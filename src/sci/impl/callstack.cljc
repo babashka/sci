@@ -1,9 +1,12 @@
 (ns sci.impl.callstack
-  (:refer-clojure :exclude [pop!]))
+  (:refer-clojure :exclude [pop!])
+  #?(:clj (:import [java.util LinkedList])))
+
+#?(:clj (set! *warn-on-reflection* true))
 
 #?(:clj
    (def ^ThreadLocal callstack (proxy [ThreadLocal] []
-                             (initialValue [] [])))
+                             (initialValue [] (LinkedList.))))
    :cljs
    (def callstack (atom [])))
 
@@ -12,9 +15,11 @@
      :cljs @callstack))
 
 (defn push! [data]
-  #?(:clj (.set callstack (conj (.get callstack) data))
+  #?(:clj (let [^LinkedList cs (.get callstack)]
+            (.push cs data))
      :cljs (swap! callstack conj data)))
 
 (defn pop! []
-  #?(:clj (.set callstack (pop (.get callstack)))
+  #?(:clj (let [^LinkedList cs (.get callstack)]
+            (.pop cs))
      :cljs (swap! callstack pop)))
