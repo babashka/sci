@@ -65,7 +65,11 @@
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   ;; (prn (meta node) (meta (first node)))
-  (cs/push! node)
+  (let [f (first node)
+        m (meta f)
+        op (when m (.get ^java.util.Map m :sci.impl/op))]
+    (when-not (and (symbol? f) (not op))
+      (cs/push! node)))
   (if-not *in-try*
     (let [ex-msg (or #?(:clj (or (.getMessage e))
                         :cljs (.-message e)))]

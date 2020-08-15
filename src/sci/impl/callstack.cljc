@@ -30,14 +30,15 @@
 
 (defn var->data [var]
   (let [m (meta var)
-        fm (some-> var first meta)
+        f (first var)
+        fm (some-> f meta)
         nom (or (:name fm)
-                (:fn-name fm))]
+                (:fn-name fm)
+                (when (symbol? f) f))]
     (when nom
-      (assoc m
-             :name nom
-             :ns (or (:ns fm)
-                     (:ns m))))))
+      (select-keys (assoc (merge fm m)
+                          :name nom)
+                   [:ns :name :file :line :column]))))
 
 (defn stacktrace [callstack]
   (keep var->data callstack))
