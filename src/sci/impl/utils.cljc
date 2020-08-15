@@ -43,9 +43,7 @@
      (assoc m :sci.impl/op :eval))))
 
 (defn file-from-stack [stack]
-  (some #(some-> % meta :file)
-        ;; TODO: this is why we want to use a list instead
-        stack))
+  (some-> stack first meta :file))
 
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
