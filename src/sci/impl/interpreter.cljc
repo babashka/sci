@@ -561,12 +561,12 @@
   (let [f (first expr)
         m (meta f)
         op (when m (.get ^java.util.Map m :sci.impl/op))
-        var? (vars/var? f)]
+        #_#_var? (vars/var? f)]
     ;; TODO: optimize
     ;; TODO: somehow this breaks dynamic bindings!
     ;; Repro: (def ^:dynamic *foo* 1) (binding [*foo* 10] (prn *foo*)), should be 10, returns 1. WTF?
     (try
-      (when var? (cs/push! f))
+      #_(when var? (cs/push! f))
       (let [res (cond
                   (and (symbol? f) (not op))
                   (eval-special-call ctx f expr)
@@ -581,7 +581,7 @@
                         (fn-call ctx f (rest expr)))
                       (throw (new #?(:clj Exception :cljs js/Error)
                                   (str "Cannot call " (pr-str f) " as a function."))))))]
-        (when var? (cs/pop!))
+        #_(when var? (cs/pop!))
         res)
       (catch #?(:clj Throwable :cljs js/Error) e
         (rethrow-with-location-of-node ctx e expr)))))

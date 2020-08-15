@@ -1,9 +1,9 @@
 (ns sci.impl.utils
   {:no-doc true}
   (:require [clojure.string :as str]
+            [sci.impl.callstack :as cs]
             [sci.impl.types :as t]
-            [sci.impl.vars :as vars]
-            [sci.impl.callstack :as cs]))
+            [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -33,7 +33,9 @@
   (vary-meta
    expr
    (fn [m]
-     (assoc m :sci.impl/op :call))))
+     (assoc m
+            :sci.impl/op :call
+            :ns @vars/current-ns))))
 
 (defn mark-eval
   [expr]
@@ -62,6 +64,8 @@
 (def ^:dynamic *in-try* false)
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
+  ;; (prn (meta node) (meta (first node)))
+  (cs/push! node)
   (if-not *in-try*
     (let [ex-msg (or #?(:clj (or (.getMessage e))
                         :cljs (.-message e)))]
