@@ -8,32 +8,47 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [sci.impl.analyzer :as ana]
+   #?(:clj [sci.impl.callstack :as cs])
    [sci.impl.interpreter :as i]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p])
   #?(:clj (:gen-class)))
 
 (defn ^:skip-aot main [& [form ctx n]]
-  (let [n (when n (Integer. n))
-        ctx (edn/read-string ctx)
-        ctx (-> ctx #?(:clj (addons/future)))
-        v (sci/with-bindings {sci/out *out*
-                              #?@(:clj [sci/err *err*])}
-            (if n
-              (let [ctx (opts/init ctx)
-                    reader (r/indexing-push-back-reader (r/string-push-back-reader form))
-                    form (p/parse-next ctx reader)
-                    form (ana/analyze ctx form)]
-                (loop [i 0]
-                  (let [ret (i/interpret ctx form)]
-                    (if (< i n)
-                      (recur (inc i))
-                      ret))))
-              (eval-string
-               form
-               (-> ctx
-                   #?(:clj (addons/future))))))]
-    (when (some? v) (prn v))))
+  (try
+    (let [n (when n (Integer. n))
+          ctx (edn/read-string ctx)
+          ctx (-> ctx #?(:clj (addons/future)))
+          v (sci/with-bindings {sci/out *out*
+                                #?@(:clj [sci/err *err*])}
+              (if n
+                (let [ctx (opts/init ctx)
+                      reader (r/indexing-push-back-reader (r/string-push-back-reader form))
+                      form (p/parse-next ctx reader)
+                      form (ana/analyze ctx form)]
+                  (loop [i 0]
+                    (let [ret (i/interpret ctx form)]
+                      (if (< i n)
+                        (recur (inc i))
+                        ret))))
+                (eval-string
+                 form
+                 (-> ctx
+                     #?(:clj (addons/future))))))]
+      (when (some? v) (prn v)))
+    #?(:clj
+       (catch clojure.lang.ExceptionInfo e
+         (let [ex-name (some-> ^Throwable (.getCause e)
+                               .getClass .getName)]
+           (println (str (or ex-name
+                             (.. e getClass getName))
+                         (when-let [m (.getMessage e)]
+                           (str ": " m)) )))
+         (println "Stacktrace:")
+         (-> (ex-data e) :callstack
+             cs/stacktrace
+             cs/print-stacktrace)
+         #_(prn e)))))
 
 ;; for testing only
 (defn -main [& args]
