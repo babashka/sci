@@ -660,6 +660,7 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
+  #?(:clj (.clear ^java.util.LinkedList (cs/get-callstack)))
   (vars/with-bindings {vars/current-ns @vars/current-ns}
     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
