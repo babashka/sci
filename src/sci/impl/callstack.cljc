@@ -33,7 +33,6 @@
 
 (defn expr->data [expr]
   (let [m (meta expr)
-        m (assoc m :file @vars/current-file)
         f (first expr)
         fm (some-> f meta)]
     [(select m) (select fm)]))
