@@ -66,7 +66,8 @@
   (let [f (first node)
         m (meta f)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
-    (when-not (and (symbol? f) (not op))
+    (when-not (or (and (symbol? f) (not op))
+                  (kw-identical? :fn op))
       (cs/push! node)))
   (if-not *in-try*
     (let [ex-msg (or #?(:clj (or (.getMessage e))

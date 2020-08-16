@@ -29,12 +29,21 @@
   (vars/getName ns))
 
 (defn select [m]
-  (select-keys m [:ns :name :file :line :column :sci.impl/built-in]))
+  (let [new-m (select-keys m [:ns :name :local-name :file :line :column :sci.impl/built-in :local])]
+    (when (empty? new-m)
+      (prn "empty: "m))
+    new-m))
 
 (defn expr->data [expr]
   (let [m (meta expr)
         f (first expr)
-        fm (some-> f meta)]
+        fm (some-> f meta)
+        fm (if (symbol? f)
+             (assoc fm
+                    :local-name f
+                    :local true
+                    :ns (:ns m))
+             fm)]
     [(select m) (select fm)]))
 
 (defn stacktrace [callstack]
@@ -49,8 +58,6 @@
                                                 :name new-last-name
                                                 :file new-last-file)
                                          entry)]
-                         #_(when-not (= entry new-entry)
-                           (prn entry '-> new-entry))
                          [(conj acc new-entry)
                           new-last-file
                           (:ns entry)
@@ -71,6 +78,8 @@
                                 (:ns elt)
                                 nom)
                         (:ns elt))
+                      (when (:local elt)
+                        (str " local: " (:local-name elt)))
                       (format " - %s"
                               (or (:file elt)
                                   (if (:sci.impl/built-in elt)
