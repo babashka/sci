@@ -214,11 +214,13 @@
         cnn (vars/current-ns-name)
         namespaces (get env :namespaces)
         use? (:sci.impl/use ctx)
-        reload (or reload (:reload ctx))]
-    (if-let [the-loaded-ns (when-not reload (get namespaces lib-name))]
+        uberscript (:uberscript ctx)
+        reload* (or reload uberscript)]
+    (if-let [the-loaded-ns (when-not reload* (get namespaces lib-name))]
       (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn env)]
-        (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name})]
+        (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name
+                                                   :reload reload})]
           (do
             (try (vars/with-bindings
                    {vars/current-ns @vars/current-ns
@@ -233,7 +235,7 @@
                             (handle-require-libspec-env env use? cnn
                                                         the-loaded-ns
                                                         lib-name parsed-libspec)))))
-          (or (when reload
+          (or (when reload*
                 (when-let [the-loaded-ns (get namespaces lib-name)]
                   (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))))
               (throw (new #?(:clj Exception :cljs js/Error)
@@ -542,9 +544,9 @@
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
-    new (when-not (.get ^java.util.Map ctx :dry-run)
+    new (when-not (.get ^java.util.Map ctx :uberscript)
           (eval-constructor-invocation ctx expr))
-    . (when-not (.get ^java.util.Map ctx :dry-run)
+    . (when-not (.get ^java.util.Map ctx :uberscript)
         (eval-instance-method-invocation ctx expr))
     throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
@@ -565,13 +567,13 @@
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
            (kw-identical? op :static-access)
-           (when-not (.get ^java.util.Map ctx :dry-run)
+           (when-not (.get ^java.util.Map ctx :uberscript)
              (eval-static-method-invocation ctx expr))
            :else
            (let [f (if op (interpret ctx f)
                        f)]
              (if (ifn? f)
-               (when-not (.get ^java.util.Map ctx :dry-run)
+               (when-not (.get ^java.util.Map ctx :uberscript)
                  (fn-call ctx f (rest expr)))
                (throw (new #?(:clj Exception :cljs js/Error)
                            (str "Cannot call " (pr-str f) " as a function.")))))))
