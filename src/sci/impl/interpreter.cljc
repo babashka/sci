@@ -213,7 +213,8 @@
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
         namespaces (get env :namespaces)
-        use? (:sci.impl/use ctx)]
+        use? (:sci.impl/use ctx)
+        reload (or reload (:reload ctx))]
     (if-let [the-loaded-ns (when-not reload (get namespaces lib-name))]
       (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn env)]

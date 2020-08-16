@@ -94,7 +94,8 @@
            :features
            :load-fn
            :dry-run
-           :readers]}]
+           :readers
+           :reload]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -108,6 +109,7 @@
                     :features features
                     :dry-run dry-run
                     :readers readers
-                    ::ctx true}
+                    ::ctx true
+                    :reload reload}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
