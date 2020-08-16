@@ -40,19 +40,24 @@
 
 (defn stacktrace [callstack]
   (let [data (mapcat expr->data callstack)
-        data (reduce (fn [[acc last-ns last-name] entry]
+        data (reduce (fn [[acc last-file last-ns last-name] entry]
                        (let [new-last-name (or (:name entry)
                                                last-name)
+                             new-last-file (or (:file entry)
+                                               last-file)
                              new-entry (if (identical? last-ns (:ns entry))
-                                         (assoc entry :name new-last-name)
+                                         (assoc entry
+                                                :name new-last-name
+                                                :file new-last-file)
                                          entry)]
                          #_(when-not (= entry new-entry)
                            (prn entry '-> new-entry))
                          [(conj acc new-entry)
+                          new-last-file
                           (:ns entry)
                           new-last-name]))
                      (let [fd (first data)]
-                       ['() (:ns fd) (:name fd)])
+                       ['() (:file fd) (:ns fd) (:name fd)])
                      data)]
     (first data)))
 

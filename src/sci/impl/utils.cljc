@@ -35,7 +35,8 @@
    (fn [m]
      (assoc m
             :sci.impl/op :call
-            :ns @vars/current-ns))))
+            :ns @vars/current-ns
+            :file @vars/current-file))))
 
 (defn mark-eval
   [expr]
@@ -44,16 +45,13 @@
    (fn [m]
      (assoc m :sci.impl/op :eval))))
 
-(defn file-from-stack [stack]
-  (some-> stack first meta :file))
-
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
-   (let [{:keys [:line :column]} (meta iobj)
+   (let [{:keys [:line :column :file]} (meta iobj)
          msg (str msg
                   " [at "
-                  (when-let [v (or (file-from-stack (cs/get-callstack)) @vars/current-file)]
+                  (when-let [v file #_@vars/current-file]
                     (str v ", "))
                   "line "
                   line ", column " column"]") ]
@@ -75,13 +73,13 @@
                         :cljs (.-message e)))]
       (if (and ex-msg (str/includes? ex-msg "[at"))
         (throw e)
-        (let [{:keys [:line :column] :or {line (:line ctx)
-                                          column (:column ctx)}} (meta node)]
+        (let [{:keys [:line :column :file] :or {line (:line ctx)
+                                                column (:column ctx)}} (meta node)]
           (if (and line column)
             (let [m (str ex-msg
                          (when ex-msg " ")
                          "[at "
-                         (when-let [v (or (file-from-stack (cs/get-callstack)) @vars/current-file)]
+                         (when-let [v file #_(or file @vars/current-file)]
                            (str v ", "))
                          "line "
                          line ", column " column"]")
