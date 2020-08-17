@@ -134,9 +134,11 @@
                    (str/starts-with? n "'") ;; TODO: deprecated?
                    (let [v (symbol (subs n 1))]
                      [v v])
-                   :else (throw-error-with-location
-                          (str "Could not resolve symbol: " (str sym))
-                          sym)))))]
+                   :else
+                   (when-not (:uberscript ctx)
+                     (throw-error-with-location
+                      (str "Could not resolve symbol: " (str sym))
+                      sym))))))]
      ;; (prn 'resolve sym '-> res (meta res))
      res)))
 
