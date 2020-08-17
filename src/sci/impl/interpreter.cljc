@@ -172,7 +172,7 @@
             the-loaded-ns)))
 
 (defn handle-require-libspec-env
-  [env use? current-ns the-loaded-ns lib-name
+  [ctx env use? current-ns the-loaded-ns lib-name
    {:keys [:as :refer :rename :exclude :only] :as _parsed-libspec}]
   (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
@@ -195,8 +195,9 @@
                                 (assoc ns (rename-sym sym)
                                        (if-let [[_k v] (find the-loaded-ns sym)]
                                          v
-                                         (throw (new #?(:clj Exception :cljs js/Error)
-                                                     (str sym " does not exist")))))
+                                         (when-not (:uberscript ctx)
+                                           (throw (new #?(:clj Exception :cljs js/Error)
+                                                       (str sym " does not exist"))))))
                                 ns))
                             the-current-ns
                             refer)
@@ -218,7 +219,7 @@
         uberscript (:uberscript ctx)
         reload* (or reload uberscript)]
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib-name))]
-      (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))
+      (reset! env* (handle-require-libspec-env ctx env use? cnn the-loaded-ns lib-name parsed-libspec))
       (if-let [load-fn (:load-fn env)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name
                                                    :reload reload})]
@@ -233,12 +234,12 @@
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib-name)]
-                            (handle-require-libspec-env env use? cnn
+                            (handle-require-libspec-env ctx env use? cnn
                                                         the-loaded-ns
                                                         lib-name parsed-libspec)))))
           (or (when reload*
                 (when-let [the-loaded-ns (get namespaces lib-name)]
-                  (reset! env* (handle-require-libspec-env env use? cnn the-loaded-ns lib-name parsed-libspec))))
+                  (reset! env* (handle-require-libspec-env ctx env use? cnn the-loaded-ns lib-name parsed-libspec))))
               (throw (new #?(:clj Exception :cljs js/Error)
                           (str "Could not require " lib-name ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
@@ -546,10 +547,8 @@
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
-    new (when-not (.get ^java.util.Map ctx :uberscript)
-          (eval-constructor-invocation ctx expr))
-    . (when-not (.get ^java.util.Map ctx :uberscript)
-        (eval-instance-method-invocation ctx expr))
+    new (eval-constructor-invocation ctx expr)
+    . (eval-instance-method-invocation ctx expr)
     throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
@@ -569,14 +568,12 @@
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
            (kw-identical? op :static-access)
-           (when-not (.get ^java.util.Map ctx :uberscript)
-             (eval-static-method-invocation ctx expr))
+           (eval-static-method-invocation ctx expr)
            :else
            (let [f (if op (interpret ctx f)
                        f)]
              (if (ifn? f)
-               (when-not (.get ^java.util.Map ctx :uberscript)
-                 (fn-call ctx f (rest expr)))
+               (fn-call ctx f (rest expr))
                (throw (new #?(:clj Exception :cljs js/Error)
                            (str "Cannot call " (pr-str f) " as a function.")))))))
        (catch #?(:clj Throwable :cljs js/Error) e
@@ -642,16 +639,23 @@
        (= 'do (first expr))))
 
 (defn eval-form [ctx form]
-  (if (do? form) (loop [exprs (rest form)
-                        ret nil]
-                   (if (seq exprs)
-                     (recur
-                      (rest exprs)
-                      (eval-form ctx (first exprs)))
-                     ret))
-      (let [analyzed (ana/analyze ctx form)
-            ret (interpret ctx analyzed)]
-        ret)))
+  (if (list? form)
+    (if (= 'do (first form))
+      (loop [exprs (rest form)
+             ret nil]
+        (if (seq exprs)
+          (recur
+           (rest exprs)
+           (eval-form ctx (first exprs)))
+          ret))
+      (when (or (not (:uberscript ctx))
+                (= 'ns (first form)))
+        (let [analyzed (ana/analyze ctx form)
+              ret (interpret ctx analyzed)]
+          ret)))
+    (let [analyzed (ana/analyze ctx form)
+          ret (interpret ctx analyzed)]
+      ret)))
 
 (vreset! utils/eval-form-state eval-form)
 
