@@ -101,6 +101,7 @@
 
 (defn eval-def
   [ctx [_def var-name ?docstring ?init]]
+  #_(prn "def" var-name (vars/getName (:ns (meta var-name))))
   (let [docstring (when ?init ?docstring)
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
@@ -245,6 +246,7 @@
 
 (defn eval-require
   [ctx & args]
+  #_(prn "eval require" args)
   (loop [libspecs []
          current-libspec nil
          args args]
