@@ -649,7 +649,8 @@
            (eval-form ctx (first exprs)))
           ret))
       (when (or (not (:uberscript ctx))
-                (= 'ns (first form)))
+                (= 'ns (first form))
+                (= 'require (first form)))
         (let [analyzed (ana/analyze ctx form)
               ret (interpret ctx analyzed)]
           ret)))
