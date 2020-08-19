@@ -47,7 +47,8 @@
     [(select m) (select fm)]))
 
 (defn stacktrace [callstack]
-  (let [data (mapcat expr->data callstack)
+  (let [callstack @callstack
+        data (mapcat expr->data callstack)
         data (reduce (fn [[acc last-file last-ns last-name] entry]
                        (let [new-last-name (or (:name entry)
                                                last-name)

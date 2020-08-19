@@ -61,6 +61,8 @@
 
 (def ^:dynamic *in-try* false)
 
+(def counter (atom 0))
+
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   ;; (prn (meta node) (meta (first node)))
   (let [f (first node)
@@ -68,34 +70,41 @@
         op (when m (.get ^java.util.Map m :sci.impl/op))]
     (when-not (or (and (symbol? f) (not op))
                   (kw-identical? :fn op))
-      (cs/push! node)))
+      ;; can we do this using some local atom?
+      (cs/push! node)
+      (swap! (:env ctx) update-in [:callstack (:id ctx)]
+             (fn [vt]
+               (if vt
+                 (do (vswap! vt conj node)
+                     vt)
+                 (volatile! (list node)))))))
   (if-not *in-try*
-    (let [ex-msg (or #?(:clj (or (.getMessage e))
-                        :cljs (.-message e)))]
-      (if (and ex-msg (str/includes? ex-msg "[at"))
-        (throw e)
-        (let [{:keys [:line :column :file] :or {line (:line ctx)
-                                                column (:column ctx)}} (meta node)]
-          (if (and line column)
-            (let [m (str ex-msg
-                         (when ex-msg " ")
-                         "[at "
-                         (when-let [v file #_(or file @vars/current-file)]
-                           (str v ", "))
-                         "line "
-                         line ", column " column"]")
-                  new-exception
-                  (let [d (ex-data e)]
-                    (ex-info m (merge
-                                {:type :sci/error
-                                 :line line
-                                 :column column
-                                 :message m
-                                 :callstack (cs/get-callstack)} d) e))]
-              (throw new-exception))
-            (throw e))))
-      (throw e))
-    (throw e)))
+      (let [ex-msg (or #?(:clj (or (.getMessage e))
+                          :cljs (.-message e)))]
+        (if (and ex-msg (str/includes? ex-msg "[at"))
+          (throw e)
+          (let [{:keys [:line :column :file] :or {line (:line ctx)
+                                                  column (:column ctx)}} (meta node)]
+            (if (and line column)
+              (let [m (str ex-msg
+                           (when ex-msg " ")
+                           "[at "
+                           (when-let [v file #_(or file @vars/current-file)]
+                             (str v ", "))
+                           "line "
+                           line ", column " column"]")
+                    new-exception
+                    (let [d (ex-data e)]
+                      (ex-info m (merge
+                                  {:type :sci/error
+                                   :line line
+                                   :column column
+                                   :message m
+                                   :callstack (delay @(get-in @(:env ctx) [:callstack (:id ctx)]))} d) e))]
+                (throw new-exception))
+              (throw e))))
+        (throw e))
+      (throw e)))
 
 (defn vary-meta*
   "Only adds metadata to obj if d is not nil and if obj already has meta"

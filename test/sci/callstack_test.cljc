@@ -15,5 +15,5 @@
                     )
        (catch #?(:clj Exception
                  :cljs js/Error) e
-         (print-stacktrace (:callstack (ex-data e))))))
+         (print-stacktrace @(:callstack (ex-data e))))))
 
