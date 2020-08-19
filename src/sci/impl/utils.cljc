@@ -101,7 +101,8 @@
                                    :column column
                                    :message m
                                    :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
-                                                       @v))} d) e))]
+                                                       @v))
+                                   :file file} d) e))]
                 (throw new-exception))
               (throw e))))
         (throw e))
