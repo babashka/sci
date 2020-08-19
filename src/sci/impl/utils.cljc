@@ -100,7 +100,8 @@
                                    :line line
                                    :column column
                                    :message m
-                                   :callstack (delay @(get-in @(:env ctx) [:callstack (:id ctx)]))} d) e))]
+                                   :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
+                                                       @v))} d) e))]
                 (throw new-exception))
               (throw e))))
         (throw e))
