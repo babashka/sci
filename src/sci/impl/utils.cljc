@@ -57,7 +57,8 @@
                   line ", column " column"]") ]
      (throw (ex-info msg (merge {:type :sci/error
                                  :line line
-                                 :column column} data))))))
+                                 :column column
+                                 :file file} data))))))
 
 (def ^:dynamic *in-try* false)
 
