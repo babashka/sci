@@ -93,7 +93,7 @@
            :imports
            :features
            :load-fn
-           :dry-run
+           :uberscript ;; used by babashka, not public!
            :readers]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
@@ -106,8 +106,8 @@
                     :deny (process-permissions (:deny preset) deny)
                     :realize-max (or realize-max (:realize-max preset))
                     :features features
-                    :dry-run dry-run
                     :readers readers
-                    ::ctx true}
+                    ::ctx true
+                    :uberscript uberscript}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
