@@ -48,10 +48,11 @@
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
-   (let [{:keys [:line :column :file]} (meta iobj)
+   (let [{:keys [:line :column :file]
+          :or {file @vars/current-file}} (meta iobj)
          msg (str msg
                   " [at "
-                  (when-let [v file #_@vars/current-file]
+                  (when-let [v file]
                     (str v ", "))
                   "line "
                   line ", column " column"]") ]
@@ -90,7 +91,7 @@
               (let [m (str ex-msg
                            (when ex-msg " ")
                            "[at "
-                           (when-let [v file #_(or file @vars/current-file)]
+                           (when-let [v (or file @vars/current-file)]
                              (str v ", "))
                            "line "
                            line ", column " column"]")
