@@ -69,40 +69,28 @@
                      data)]
     (first data)))
 
-#?(:clj
-   (defn format-stacktrace [st]
-     (let [data (map (fn [elt]
-                       {:name (str (if-let [nom (:name elt)]
-                                     (format "%s/%s"
-                                             (:ns elt)
-                                             nom)
-                                     (:ns elt))
-                                   (when (:local elt)
-                                     (str "#" (:local-name elt))))
-                        :loc (str (or (:file elt)
-                                      (if (:sci.impl/built-in elt)
-                                        "<built-in>"
-                                        "<expr>"))
-                                  (when-let [l (:line elt)]
-                                    (format ":%s:%s"
-                                            l
-                                            (:column elt))))})
-                     st)
-           max-name (reduce max 0 (map (comp count :name) data))
-           max-loc (reduce max 0 (map (comp count :loc) data))]
-       {:data data
-        :max-name max-name
-        :max-loc max-loc})))
-
 (defn right-pad [s n]
   (let [n (- n (count s))]
     (str s (str/join (repeat n " ")))))
 
-(defn print-stacktrace [st]
-  #?(:cljs (doseq [elt st]
-             (prn elt))
-     :clj (let [{:keys [:data :max-name :max-loc]} (format-stacktrace st)]
-            (doseq [{:keys [:name :loc]} data]
-              (println (right-pad name max-name)
-                       "-"
-                       (right-pad loc max-loc))))))
+(defn format-stacktrace [st]
+  (let [data (map (fn [elt]
+                    {:name (str (if-let [nom (:name elt)]
+                                  (str (:ns elt) "/" nom)
+                                  (:ns elt))
+                                (when (:local elt)
+                                  (str "#" (:local-name elt))))
+                     :loc (str (or (:file elt)
+                                   (if (:sci.impl/built-in elt)
+                                     "<built-in>"
+                                     "<expr>"))
+                               (when-let [l (:line elt)]
+                                 (str ":" l ":" (:column elt))))})
+                  st)
+        max-name (reduce max 0 (map (comp count :name) data))
+        max-loc (reduce max 0 (map (comp count :loc) data))]
+    (map (fn [{:keys [:name :loc]}]
+           (str (right-pad name max-name)
+                " - "
+                (right-pad loc max-loc)))
+         data)))
