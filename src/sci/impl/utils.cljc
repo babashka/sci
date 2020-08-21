@@ -71,7 +71,8 @@
         m (meta f)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
     (when-not (or (and (symbol? f) (not op))
-                  (kw-identical? :fn op))
+                  (kw-identical? :fn op)
+                  (kw-identical? :needs-ctx op))
       ;; can we do this using some local atom?
       (cs/push! node)
       (swap! (:env ctx) update-in [:callstack (:id ctx)]

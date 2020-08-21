@@ -31,8 +31,6 @@
 
 (defn select [m]
   (let [new-m (select-keys m [:ns :name :local-name :file :line :column :sci.impl/built-in :local])]
-    (when (empty? new-m)
-      (prn "empty: "m))
     new-m))
 
 (defn expr->data [expr]
