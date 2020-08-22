@@ -63,7 +63,7 @@ foo-ns
     (let [output (sci/with-out-str (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.string)"))]
       (is (str/includes? output "includes?"))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"No namespace.*found "
+                        #"No namespace.*found"
                         (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.typo)"))))
 
 (deftest repl-apropos-test

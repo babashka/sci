@@ -1,8 +1,9 @@
 (ns sci.test-utils
-  (:require #?(:clj [edamame.core :as edamame])
-            #?(:clj [me.raynes.conch :refer [let-programs] :as sh])
-            [clojure.test :refer [is]]
-            [sci.core :refer [eval-string]]))
+  (:require #?(:clj  [edamame.core :as edamame])
+            #?(:clj  [me.raynes.conch :refer [let-programs] :as sh])
+            [clojure.test :as test :refer [is]]
+            [sci.core :refer [eval-string]])
+  #?(:cljs (:require-macros [sci.test-utils.cljs])))
 
 (def native? #?(:clj (= "native" (System/getenv "SCI_TEST_ENV"))
                 :cljs false))
@@ -37,6 +38,28 @@
 
 (defmacro assert-submap [m r]
   `(is (submap? ~m ~r)))
+
+#?(:clj
+   (defmethod test/assert-expr 'thrown-with-data?
+     [msg [_ data expr]]
+     `(let [expected# ~data
+            msg# ~msg]
+        (try
+          ~expr
+          (test/do-report
+           {:type :fail
+            :message msg#
+            :expected expected#
+            :actual nil})
+          (catch Exception ex#
+            (let [data# (ex-data ex#)]
+              (test/do-report
+               {:type (if (= expected# (select-keys data# (keys expected#)))
+                        :pass
+                        :fail)
+                :message msg#
+                :expected expected#
+                :actual data#})))))))
 
 ;;;; Scratch
 

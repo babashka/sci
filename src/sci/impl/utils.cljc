@@ -80,35 +80,37 @@
                      vt)
                  (volatile! (list node)))))))
   (if-not *in-try*
-      (let [ex-msg (or #?(:clj (or (.getMessage e))
-                          :cljs (.-message e)))]
-        (if (and ex-msg (str/includes? ex-msg "[at"))
-          (throw e)
-          (let [{:keys [:line :column :file] :or {line (:line ctx)
-                                                  column (:column ctx)}} (meta node)]
-            (if (and line column)
-              (let [m (str ex-msg
-                           (when ex-msg " ")
-                           "[at "
-                           (when-let [v (or file @vars/current-file)]
-                             (str v ", "))
-                           "line "
-                           line ", column " column"]")
-                    new-exception
-                    (let [d (ex-data e)]
-                      (ex-info m (merge
-                                  {:type :sci/error
-                                   :line line
-                                   :column column
-                                   :message m
-                                   :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
-                                                       @v))
-                                   :file file
-                                   :locals (:bindings ctx)} d) e))]
-                (throw new-exception))
-              (throw e))))
-        (throw e))
-      (throw e)))
+    (let [d (ex-data e)]
+      (if (kw-identical? :sci/error (:type d))
+        (throw e)
+        (let [ex-msg #?(:clj (or (.getMessage e))
+                        :cljs (.-message e))
+              {:keys [:line :column :file]
+               :or {line (:line ctx)
+                    column (:column ctx)}} (meta node)]
+          (if (and line column)
+            (let [m ex-msg #_(str ex-msg
+                         (when ex-msg " ")
+                         "[at "
+                         (when-let [v (or file @vars/current-file)]
+                           (str v ", "))
+                         "line "
+                         line ", column " column"]")
+                  new-exception
+                  (let [d (ex-data e)]
+                    (ex-info m (merge
+                                {:type :sci/error
+                                 :line line
+                                 :column column
+                                 :message m
+                                 :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
+                                                     @v))
+                                 :file file
+                                 :locals (:bindings ctx)} d) e))]
+              (throw new-exception))
+            (throw e))))
+      (throw e))
+    (throw e)))
 
 (defn vary-meta*
   "Only adds metadata to obj if d is not nil and if obj already has meta"

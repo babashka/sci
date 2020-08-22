@@ -370,19 +370,20 @@
   (is (= '[["foo"] ["bar"]] (eval* "(map (fn [x] x) (list (list \"foo\") (list \"bar\")))"))))
 
 (deftest error-location-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at .*line 1, column 11\]"
-                        (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at .*line 1, column 13\]"
-                        (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
+  (is (thrown-with-data?
+       {:line 1 :column 11}
+       (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
+  (is (thrown-with-data?
+       {:line 1 :column 13}
+       (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
+  ;; TODO: analysis error location info
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"\[at .*line 1, column 19\]"
                         (eval* "(+ 1 2 3 4 5) (do x)")))
   (when-not tu/native?
     (testing "ex-data"
       (tu/assert-submap {:type :sci/error, :line 1, :column 15,
-                         :message #"Cannot call foo with 1 arguments \[at .*line 1, column 15\]"}
+                         :message #"Cannot call foo with 1 arguments"}
                         (try (eval* "(defn foo []) (foo 1)")
                              (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                                (let [d (ex-data ex)]
@@ -785,8 +786,13 @@
                   :cljs (eval* "(ex-message (js/Error. \"foo\"))")))))
 
 (deftest assert-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"should-be-true.*\[at .*line 1"
-                        (eval* "(def should-be-true false) (assert should-be-true)"))))
+  (is (thrown-with-msg?
+       #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+       #"should-be-true"
+       (eval* "(def should-be-true false) (assert should-be-true)")))
+  (let [d (try (eval* "(def should-be-true false) (assert should-be-true)")
+               (catch #?(:clj clojure.lang.ExceptionInfo :cljs js/Error) e (ex-data e)))]
+    (is (= 1 (:line d)))))
 
 (deftest dotimes-test
   (when-not tu/native?
@@ -989,13 +995,11 @@
   (is (= 2 (sci/eval-string "#t/tag 1" {:readers (sci/new-var 'readers {'t/tag inc})}))))
 
 (deftest exception-without-message-location-test
-  (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
-       #"\[at .*line 1, column 2\]"
+  (is (thrown-with-data?
+       {:line 1 :column 2}
        (sci/eval-string " (clojure.string/includes? nil :foo)")))
   #?(:clj
-     (is (thrown-with-msg? Exception
-                           #"\[at .*line 1, column 2\]"
+     (is (thrown-with-data? {:line 1 :column 2}
                            (sci/eval-string " (throw (Exception.))")))))
 
 (deftest intern-test
