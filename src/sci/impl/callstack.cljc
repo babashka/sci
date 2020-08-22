@@ -1,5 +1,4 @@
 (ns sci.impl.callstack
-  (:refer-clojure :exclude [pop!])
   (:require [clojure.string :as str]
             [sci.impl.vars :as vars]))
 
