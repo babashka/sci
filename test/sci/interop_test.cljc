@@ -50,8 +50,9 @@
      (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
      (is (thrown-with-msg? Exception #"resolve"
                            (eval* "(import foo.bar.Baz)")))
-     (is (thrown-with-data? {:line 1}
-                            (eval* "(import foo.bar.Baz)")))))
+     (when-not tu/native?
+       (is (thrown-with-data? {:line 1}
+                              (eval* "(import foo.bar.Baz)"))))))
 
 #?(:cljs
    (deftest instance-methods

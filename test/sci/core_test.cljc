@@ -370,44 +370,43 @@
   (is (= '[["foo"] ["bar"]] (eval* "(map (fn [x] x) (list (list \"foo\") (list \"bar\")))"))))
 
 (deftest error-location-test
-  (is (thrown-with-data?
-       {:line 1 :column 11}
-       (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
-  (is (thrown-with-data?
-       {:line 1 :column 13}
-       (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
-  ;; TODO: analysis error location info
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at .*line 1, column 19\]"
-                        (eval* "(+ 1 2 3 4 5) (do x)")))
   (when-not tu/native?
-    (testing "ex-data"
-      (tu/assert-submap {:type :sci/error, :line 1, :column 15,
-                         :message #"Cannot call foo with 1 arguments"}
-                        (try (eval* "(defn foo []) (foo 1)")
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d))))
-      (tu/assert-submap {:type :sci/error, :line 1, :column 21,
-                         :message #"Cannot call foo with 0 arguments"}
-                        (try (eval* "(defn foo [x & xs]) (foo)")
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d))))
-      (tu/assert-submap {:type :sci/error, :line 1, :column 93,
-                         :message #"Cannot call bindings"}
-                        (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
-                                         "(let [x 1] (bindings))"))
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d))))
-      (tu/assert-submap {:type :sci/error, :line 1, :column 25,
-                         :message #"Cannot call foo"}
-                        (try (eval* (str "(defmacro foo [x & xs]) "
-                                         "(foo)"))
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d)))))))
+    (is (thrown-with-data?
+         {:line 1 :column 11}
+         (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
+    (is (thrown-with-data?
+         {:line 1 :column 13}
+         (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
+    ;; TODO: analysis error location info
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"\[at .*line 1, column 19\]"
+                          (eval* "(+ 1 2 3 4 5) (do x)")))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 15,
+                       :message #"Cannot call foo with 1 arguments"}
+                      (try (eval* "(defn foo []) (foo 1)")
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 21,
+                       :message #"Cannot call foo with 0 arguments"}
+                      (try (eval* "(defn foo [x & xs]) (foo)")
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 93,
+                       :message #"Cannot call bindings"}
+                      (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
+                                       "(let [x 1] (bindings))"))
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 25,
+                       :message #"Cannot call foo"}
+                      (try (eval* (str "(defmacro foo [x & xs]) "
+                                       "(foo)"))
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))))
 
 (deftest macro-test
   (when-not tu/native?
@@ -786,13 +785,14 @@
                   :cljs (eval* "(ex-message (js/Error. \"foo\"))")))))
 
 (deftest assert-test
-  (is (thrown-with-msg?
-       #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
-       #"should-be-true"
-       (eval* "(def should-be-true false) (assert should-be-true)")))
-  (let [d (try (eval* "(def should-be-true false) (assert should-be-true)")
-               (catch #?(:clj clojure.lang.ExceptionInfo :cljs js/Error) e (ex-data e)))]
-    (is (= 1 (:line d)))))
+  (when-not tu/native?
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+         #"should-be-true"
+         (eval* "(def should-be-true false) (assert should-be-true)")))
+    (let [d (try (eval* "(def should-be-true false) (assert should-be-true)")
+                 (catch #?(:clj clojure.lang.ExceptionInfo :cljs js/Error) e (ex-data e)))]
+      (is (= 1 (:line d))))))
 
 (deftest dotimes-test
   (when-not tu/native?
