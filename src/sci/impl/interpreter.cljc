@@ -5,7 +5,6 @@
    [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
-   [sci.impl.callstack :as cs]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
@@ -662,9 +661,7 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
-  (let [new-id (gensym)
-        ctx (assoc ctx :id (or (:id ctx) (gensym)))]
-    #?(:clj (.clear ^java.util.LinkedList (cs/get-callstack)))
+  (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
     (vars/with-bindings {vars/current-ns @vars/current-ns}
       (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
         (loop [ret nil]

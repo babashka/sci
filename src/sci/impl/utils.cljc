@@ -74,7 +74,7 @@
                   (kw-identical? :fn op)
                   (kw-identical? :needs-ctx op))
       ;; can we do this using some local atom?
-      (cs/push! node)
+      ;; (cs/push! node)
       (swap! (:env ctx) update-in [:callstack (:id ctx)]
              (fn [vt]
                (if vt
