@@ -49,13 +49,7 @@
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
    (let [{:keys [:line :column :file]
-          :or {file @vars/current-file}} (meta iobj)
-         msg (str msg
-                  " [at "
-                  (when-let [v file]
-                    (str v ", "))
-                  "line "
-                  line ", column " column"]") ]
+          :or {file @vars/current-file}} (meta iobj) ]
      (throw (ex-info msg (merge {:type :sci/error
                                  :line line
                                  :column column

@@ -177,10 +177,10 @@
   (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2))))
   (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4]))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"Can't have fixed arity function with more params than variadic function \[at .*line 1, column 4\]"
+                        #"Can't have fixed arity function with more params than variadic function"
                         (eval* "   (fn ([& args]) ([v ]))")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"Can't have more than 1 variadic overload \[at .*line 1, column 4\]"
+                        #"Can't have more than 1 variadic overload"
                         (eval* "   (fn ([& args]) ([v & args]))"))))
 
 (deftest pre-post-conditions-test
@@ -377,10 +377,9 @@
     (is (thrown-with-data?
          {:line 1 :column 13}
          (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
-    ;; TODO: analysis error location info
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                          #"\[at .*line 1, column 19\]"
-                          (eval* "(+ 1 2 3 4 5) (do x)")))
+    (is (thrown-with-data?
+         {:line 1 :column 19}
+         (eval* "(+ 1 2 3 4 5) (do x)")))
     (tu/assert-submap {:type :sci/error, :line 1, :column 15,
                        :message #"Cannot call foo with 1 arguments"}
                       (try (eval* "(defn foo []) (foo 1)")
@@ -767,16 +766,18 @@
            (eval* "((fn foo [x] (if (= 72 x) x (foo (inc x)))) 0)")))))
 
 (deftest syntax-errors
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol"
                         (eval* "(def f/b 1)")))
+  (is (thrown-with-data? {:line 1}
+                         (eval* "(def f/b 1)")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to def"
                         (eval* "(def -main [] 1)")))
   (is (= 1 (eval* "(def x \"foo\" 1) x")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol"
                         (eval* "(defn f/b [])")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing"
                         (eval* "(defn foo)")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing"
                         (eval* "(defn foo ())")))
   (is (eval* "(def *clause* \"During formatting, *clause* is bound to :select, :from, :where, etc.\" nil)")))
 
