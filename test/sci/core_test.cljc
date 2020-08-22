@@ -768,8 +768,9 @@
 (deftest syntax-errors
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol"
                         (eval* "(def f/b 1)")))
-  (is (thrown-with-data? {:line 1}
-                         (eval* "(def f/b 1)")))
+  (when-not tu/native?
+    (is (thrown-with-data? {:line 1}
+                           (eval* "(def f/b 1)"))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to def"
                         (eval* "(def -main [] 1)")))
   (is (= 1 (eval* "(def x \"foo\" 1) x")))
