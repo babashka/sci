@@ -73,8 +73,6 @@
     (when-not (or (and (symbol? f) (not op))
                   (kw-identical? :fn op)
                   (kw-identical? :needs-ctx op))
-      ;; can we do this using some local atom?
-      ;; (cs/push! node)
       (swap! (:env ctx) update-in [:callstack (:id ctx)]
              (fn [vt]
                (if vt
@@ -105,7 +103,8 @@
                                    :message m
                                    :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
                                                        @v))
-                                   :file file} d) e))]
+                                   :file file
+                                   :locals (:bindings ctx)} d) e))]
                 (throw new-exception))
               (throw e))))
         (throw e))
