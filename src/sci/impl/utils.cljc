@@ -1,13 +1,12 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:require [clojure.string :as str]
-            [sci.impl.callstack :as cs]
-            [sci.impl.types :as t]
+  (:require [sci.impl.types :as t]
             [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 (derive :sci.error/realized-beyond-max :sci/error)
+(derive :sci.error/parse :sci/error)
 
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x)))
