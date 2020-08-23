@@ -7,3 +7,6 @@ lein with-profiles +clojure-1.9.0 test
 
 echo "Testing with Clojure 1.10.2-alpha1"
 lein with-profiles +clojure-1.10.2-alpha1 test
+
+echo "Testing performance with Clojure 1.10.2-alpha1"
+SCI_TEST_PERFORMANCE=true lein with-profiles +clojure-1.10.2-alpha1 test :only sci.performance-test
