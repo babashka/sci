@@ -1,4 +1,4 @@
-(ns sci.performance
+(ns sci.performance-test
   (:require
    [criterium.core :as cc]
    [sci.core :as sci]
