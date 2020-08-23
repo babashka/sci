@@ -1,9 +1,9 @@
 (ns sci.performance-test
   (:require
+   [clojure.test :refer [deftest]]
    [criterium.core :as cc]
    [sci.core :as sci]
-   [sci.test-utils :refer [native?]]
-   [clojure.test :refer [deftest]]))
+   [sci.test-utils :as tu :refer [native?]]))
 
 ;; 381a158f72c1efbb8e48229bc67c7a109dffe7c0 Execution time mean : 160.463688 µs
 ;; 6a63e4212567ad0304a88094eeb2970317d0bfd8 Execution time mean : 94.107237 µs
@@ -20,6 +20,26 @@
       ;; returns {:b 16}
       (let [f (sci/eval-string example)]
         (cc/quick-bench (apply f args))))
+    (println)))
+
+(defn eval*
+  ([form] (eval* nil form))
+  ([binding form]
+   (tu/eval* form {:bindings {'*in* binding}})))
+
+(when (= "true" (System/getenv "SCI_TEST_PERFORMANCE"))
+  (deftest loop-test
+    (let [f #(eval* "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val))")]
+      (loop [run 0
+             times []]
+        (if (= run 10)
+          (println "Average:" (int (/ (apply + times) run)))
+          (let [t0 (System/currentTimeMillis)
+                _ (prn (f))
+                t1 (System/currentTimeMillis)
+                ms (- t1 t0)]
+            (println (format "Loop took %s ms" ms))
+            (recur (inc run) (conj times ms))))))
     (println)))
 
 (comment
