@@ -4,3 +4,6 @@ set -eo pipefail
 
 echo 'Running native test'
 SCI_TEST_ENV="native" lein test
+
+echo "Testing native performance"
+SCI_TEST_ENV="native" SCI_TEST_PERFORMANCE=true lein with-profiles +clojure-1.10.2-alpha1 test :only sci.performance-test
