@@ -56,8 +56,6 @@
 
 (def ^:dynamic *in-try* false)
 
-(def counter (atom 0))
-
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   ;; (prn (meta node) (meta (first node)))
   (let [f (first node)
