@@ -5,10 +5,24 @@
    [sci.core :as sci :refer [eval-string]]
    [sci.test-utils :as tu]))
 
+#?(:cljs
+   (defn testing-vars-str
+     "Returns a string representation of the current test.  Renders names
+  in *testing-vars* as a list, then the source file and line of
+  current assertion."
+     [m]
+     (let [{:keys [file line column]} m]
+       (str
+        (reverse (map #(:name (meta %)) (:testing-vars (test/get-current-env))))
+        " (" file ":" line (when column (str ":" column)) ")"))))
+
 #?(:clj
    (defmethod clojure.test/report :begin-test-var [m]
      (println "===" (-> m :var meta :name))
-     (println)))
+     (println))
+   :cljs (defmethod cljs.test/report [:cljs.test/default :begin-test-var] [m]
+           (println "===" (-> m testing-vars-str))
+           (println)))
 
 #?(:clj
    (defmethod clojure.test/report :end-test-var [_m]
@@ -908,10 +922,14 @@
 (deftest fn-on-meta-test
   (is (= "foo" (eval* "(def ^{:test (fn [] \"foo\")} x) ((:test (meta #'x)))"))))
 
+(defrecord ReaderTestRecord [foo])
+
 (deftest readers-test
   (when-not tu/native?
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
-    (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))))
+    (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))
+    (let [res (tu/eval* "#example.Record{:foo 1}" {:readers {'example.Record map->ReaderTestRecord}})]
+      (is (record? res)))))
 
 (deftest built-in-vars-are-read-only-test
   (is (thrown-with-msg?
