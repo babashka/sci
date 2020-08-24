@@ -5,6 +5,25 @@
    [sci.core :as sci :refer [eval-string]]
    [sci.test-utils :as tu]))
 
+#?(:cljs
+   (defn testing-vars-str
+     "Returns a string representation of the current test.  Renders names
+  in *testing-vars* as a list, then the source file and line of
+  current assertion."
+     [m]
+     (let [{:keys [file line column]} m]
+       (str
+        (reverse (map #(:name (meta %)) (:testing-vars (test/get-current-env))))
+        " (" file ":" line (when column (str ":" column)) ")"))))
+
+#?(:clj
+   (defmethod clojure.test/report :begin-test-var [m]
+     (println "===" (-> m :var meta :name))
+     (println))
+   :cljs (defmethod cljs.test/report [:cljs.test/default :begin-test-var] [m]
+           (println "===" (-> m testing-vars-str))
+           (println)))
+
 (defn eval*
   ([form] (eval* nil form))
   ([binding form]
