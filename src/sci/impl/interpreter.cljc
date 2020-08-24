@@ -661,13 +661,14 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
-  (vars/with-bindings {vars/current-ns @vars/current-ns}
-    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-      (loop [ret nil]
-        (let [expr (p/parse-next ctx reader)]
-          (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
-              (let [ret (eval-form ctx expr)]
-                (recur ret))))))))
+  (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
+    (vars/with-bindings {vars/current-ns @vars/current-ns}
+      (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+        (loop [ret nil]
+          (let [expr (p/parse-next ctx reader)]
+            (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
+                (let [ret (eval-form ctx expr)]
+                  (recur ret)))))))))
 
 ;;;; Called from public API
 

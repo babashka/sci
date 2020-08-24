@@ -1,12 +1,12 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:require [clojure.string :as str]
-            [sci.impl.types :as t]
+  (:require [sci.impl.types :as t]
             [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 (derive :sci.error/realized-beyond-max :sci/error)
+(derive :sci.error/parse :sci/error)
 
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x)))
@@ -32,7 +32,10 @@
   (vary-meta
    expr
    (fn [m]
-     (assoc m :sci.impl/op :call))))
+     (assoc m
+            :sci.impl/op :call
+            :ns @vars/current-ns
+            :file @vars/current-file))))
 
 (defn mark-eval
   [expr]
@@ -44,32 +47,43 @@
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
-   (let [{:keys [:line :column]} (meta iobj)
-         msg (str msg
-                  " [at "
-                  (when-let [v @vars/current-file]
-                    (str v ", "))
-                  "line "
-                  line ", column " column"]") ]
+   (let [{:keys [:line :column :file]
+          :or {file @vars/current-file}} (meta iobj) ]
      (throw (ex-info msg (merge {:type :sci/error
                                  :line line
-                                 :column column} data))))))
+                                 :column column
+                                 :file file} data))))))
 
 (def ^:dynamic *in-try* false)
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
+  ;; (prn (meta node) (meta (first node)))
+  (let [f (first node)
+        m (meta f)
+        op (when m (.get ^java.util.Map m :sci.impl/op))]
+    (when-not (or (and (symbol? f) (not op))
+                  (kw-identical? :fn op)
+                  (kw-identical? :needs-ctx op))
+      (swap! (:env ctx) update-in [:callstack (:id ctx)]
+             (fn [vt]
+               (if vt
+                 (do (vswap! vt conj node)
+                     vt)
+                 (volatile! (list node)))))))
   (if-not *in-try*
-    (let [ex-msg (or #?(:clj (or (.getMessage e))
-                        :cljs (.-message e)))]
-      (if (and ex-msg (str/includes? ex-msg "[at"))
+    (let [d (ex-data e)]
+      (if (kw-identical? :sci/error (:type d))
         (throw e)
-        (let [{:keys [:line :column] :or {line (:line ctx)
-                                          column (:column ctx)}} (meta node)]
+        (let [ex-msg #?(:clj (or (.getMessage e))
+                        :cljs (.-message e))
+              {:keys [:line :column :file]
+               :or {line (:line ctx)
+                    column (:column ctx)}} (meta node)]
           (if (and line column)
-            (let [m (str ex-msg
+            (let [m ex-msg #_(str ex-msg
                          (when ex-msg " ")
                          "[at "
-                         (when-let [v @vars/current-file]
+                         (when-let [v (or file @vars/current-file)]
                            (str v ", "))
                          "line "
                          line ", column " column"]")
@@ -79,7 +93,11 @@
                                 {:type :sci/error
                                  :line line
                                  :column column
-                                 :message m} d) e))]
+                                 :message m
+                                 :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
+                                                     @v))
+                                 :file file
+                                 :locals (:bindings ctx)} d) e))]
               (throw new-exception))
             (throw e))))
       (throw e))

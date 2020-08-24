@@ -24,6 +24,14 @@
            (println "===" (-> m testing-vars-str))
            (println)))
 
+#?(:clj
+   (defmethod clojure.test/report :end-test-var [_m]
+     (let [{:keys [:fail :error]} @test/*report-counters*]
+       (when (and (= "true" (System/getenv "SCI_FAIL_FAST"))
+                  (or (pos? fail) (pos? error)))
+         (println "=== Failing fast")
+         (System/exit 1)))))
+
 (defn eval*
   ([form] (eval* nil form))
   ([binding form]
@@ -42,13 +50,13 @@
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if"
                           (eval* '(if))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if"
                           (eval* '(if 1))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if"
                           (eval* '(if 1 2 3 4))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if" 
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to if"
                           (eval* '(if 1 2 3 4 5))))
     (is (= 1 (eval* 0 '(when (zero? *in*) 1))))
     (is (nil? (eval* 1 '(when (zero? *in*) 1))))
@@ -177,10 +185,10 @@
   (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2))))
   (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4]))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"Can't have fixed arity function with more params than variadic function \[at line 1, column 4\]"
+                        #"Can't have fixed arity function with more params than variadic function"
                         (eval* "   (fn ([& args]) ([v ]))")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"Can't have more than 1 variadic overload \[at line 1, column 4\]"
+                        #"Can't have more than 1 variadic overload"
                         (eval* "   (fn ([& args]) ([v & args]))"))))
 
 (deftest pre-post-conditions-test
@@ -222,8 +230,8 @@
   (is (= 1337 (eval* "(defn ^{:test (fn [] (g))} g [] 1337) ((:test (meta #'g)))")))
   (testing "var contains location information which can be used by
   clojure.repl/source to read relevant source lines (see babashka)"
-      (is (true?
-           (eval* "
+    (is (true?
+         (eval* "
 (defn foo []
   (+ 1 2 3))
 
@@ -370,43 +378,42 @@
   (is (= '[["foo"] ["bar"]] (eval* "(map (fn [x] x) (list (list \"foo\") (list \"bar\")))"))))
 
 (deftest error-location-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at line 1, column 11\]"
-                        (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at line 1, column 13\]"
-                        (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"\[at line 1, column 19\]"
-                        (eval* "(+ 1 2 3 4 5) (do x)")))
   (when-not tu/native?
-    (testing "ex-data"
-      (tu/assert-submap {:type :sci/error, :line 1, :column 15,
-                         :message #"Cannot call foo with 1 arguments \[at line 1, column 15\]"}
-                        (try (eval* "(defn foo []) (foo 1)")
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d))))
-      (tu/assert-submap {:type :sci/error, :line 1, :column 21,
-                         :message #"Cannot call foo with 0 arguments"}
-                        (try (eval* "(defn foo [x & xs]) (foo)")
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d))))
-      (tu/assert-submap {:type :sci/error, :line 1, :column 93,
-                         :message #"Cannot call bindings"}
-                        (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
-                                         "(let [x 1] (bindings))"))
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d))))
-      (tu/assert-submap {:type :sci/error, :line 1, :column 25,
-                         :message #"Cannot call foo"}
-                        (try (eval* (str "(defmacro foo [x & xs]) "
-                                         "(foo)"))
-                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                               (let [d (ex-data ex)]
-                                 d)))))))
+    (is (thrown-with-data?
+         {:line 1 :column 11}
+         (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
+    (is (thrown-with-data?
+         {:line 1 :column 13}
+         (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
+    (is (thrown-with-data?
+         {:line 1 :column 19}
+         (eval* "(+ 1 2 3 4 5) (do x)")))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 15,
+                       :message #"Cannot call foo with 1 arguments"}
+                      (try (eval* "(defn foo []) (foo 1)")
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 21,
+                       :message #"Cannot call foo with 0 arguments"}
+                      (try (eval* "(defn foo [x & xs]) (foo)")
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 93,
+                       :message #"Cannot call bindings"}
+                      (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
+                                       "(let [x 1] (bindings))"))
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))
+    (tu/assert-submap {:type :sci/error, :line 1, :column 25,
+                       :message #"Cannot call foo"}
+                      (try (eval* (str "(defmacro foo [x & xs]) "
+                                       "(foo)"))
+                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                             (let [d (ex-data ex)]
+                               d))))))
 
 (deftest macro-test
   (when-not tu/native?
@@ -767,16 +774,19 @@
            (eval* "((fn foo [x] (if (= 72 x) x (foo (inc x)))) 0)")))))
 
 (deftest syntax-errors
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol"
                         (eval* "(def f/b 1)")))
+  (when-not tu/native?
+    (is (thrown-with-data? {:line 1}
+                           (eval* "(def f/b 1)"))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too many arguments to def"
                         (eval* "(def -main [] 1)")))
   (is (= 1 (eval* "(def x \"foo\" 1) x")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"simple symbol"
                         (eval* "(defn f/b [])")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing"
                         (eval* "(defn foo)")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing.*at.*1"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing"
                         (eval* "(defn foo ())")))
   (is (eval* "(def *clause* \"During formatting, *clause* is bound to :select, :from, :where, etc.\" nil)")))
 
@@ -785,8 +795,14 @@
                   :cljs (eval* "(ex-message (js/Error. \"foo\"))")))))
 
 (deftest assert-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"should-be-true.*\[at line 1"
-                        (eval* "(def should-be-true false) (assert should-be-true)"))))
+  (when-not tu/native?
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+         #"should-be-true"
+         (eval* "(def should-be-true false) (assert should-be-true)")))
+    (let [d (try (eval* "(def should-be-true false) (assert should-be-true)")
+                 (catch #?(:clj clojure.lang.ExceptionInfo :cljs js/Error) e (ex-data e)))]
+      (is (= 1 (:line d))))))
 
 (deftest dotimes-test
   (when-not tu/native?
@@ -993,14 +1009,12 @@
   (is (= 2 (sci/eval-string "#t/tag 1" {:readers (sci/new-var 'readers {'t/tag inc})}))))
 
 (deftest exception-without-message-location-test
-  (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
-       #"\[at line 1, column 2\]"
+  (is (thrown-with-data?
+       {:line 1 :column 2}
        (sci/eval-string " (clojure.string/includes? nil :foo)")))
   #?(:clj
-     (is (thrown-with-msg? Exception
-          #"\[at line 1, column 2\]"
-          (sci/eval-string " (throw (Exception.))")))))
+     (is (thrown-with-data? {:line 1 :column 2}
+                           (sci/eval-string " (throw (Exception.))")))))
 
 (deftest intern-test
   (testing "interning results in unbound var"

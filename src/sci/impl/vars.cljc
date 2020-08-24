@@ -133,8 +133,7 @@
 (defn get-thread-binding ^TBox [sci-var]
   (when-let [^Frame f #?(:clj (.get dvals)
                          :cljs @dvals)]
-    (when-let [bindings (.-bindings f)]
-      (get bindings sci-var))))
+    (.get ^java.util.Map (.-bindings f) sci-var)))
 
 (defn binding-conveyor-fn
   [f]
@@ -397,7 +396,8 @@
        (vars/push-thread-bindings ~bindings)
        (try
          (do ~@body)
-         (finally (vars/pop-thread-bindings))))))
+         (finally
+           (vars/pop-thread-bindings))))))
 
 (def current-file (dynamic-var '*file* nil))
 
