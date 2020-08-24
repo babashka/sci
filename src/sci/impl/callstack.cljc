@@ -63,10 +63,9 @@
                                (when-let [l (:line elt)]
                                  (str ":" l ":" (:column elt))))})
                   st)
-        max-name (reduce max 0 (map (comp count :name) data))
-        max-loc (reduce max 0 (map (comp count :loc) data))]
+        max-name (reduce max 0 (map (comp count :name) data))]
     (map (fn [{:keys [:name :loc]}]
            (str (right-pad name max-name)
                 " - "
-                (right-pad loc max-loc)))
+                loc))
          data)))
