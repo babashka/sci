@@ -887,10 +887,14 @@
 (deftest fn-on-meta-test
   (is (= "foo" (eval* "(def ^{:test (fn [] \"foo\")} x) ((:test (meta #'x)))"))))
 
+(defrecord ReaderTestRecord [foo])
+
 (deftest readers-test
   (when-not tu/native?
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
-    (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))))
+    (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))
+    (let [res (tu/eval* "#example.Record{:foo 1}" {:readers {'example.Record map->ReaderTestRecord}})]
+      (is (record? res)))))
 
 (deftest built-in-vars-are-read-only-test
   (is (thrown-with-msg?

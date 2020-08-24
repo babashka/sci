@@ -734,6 +734,7 @@
                   :else
                   (merge-meta
                    (cond
+                     (record? expr) expr ;; don't evaluate records
                      (map? expr)
                      (-> (zipmap (analyze-children ctx (keys expr))
                                  (analyze-children ctx (vals expr)))
