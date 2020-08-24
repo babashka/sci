@@ -24,7 +24,7 @@
 
 ;; Built-in macros.
 
-(def macros '#{do if and or -> as-> quote quote* let fn fn* def defn
+(def macros '#{do if and or as-> quote quote* let fn fn* def defn
                comment loop lazy-seq for doseq case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1 macroexpand})
@@ -265,21 +265,6 @@
   [ctx [_let let-bindings  & exprs]]
   (let [let-bindings (destructure let-bindings)]
     (expand-let* ctx let-bindings exprs)))
-
-(defn expand->
-  "The -> macro from clojure.core."
-  [ctx [x & forms]]
-  (let [expanded
-        (loop [x x, forms forms]
-          (if forms
-            (let [form (first forms)
-                  threaded (if (seq? form)
-                             (with-meta (concat (list (first form) x)
-                                                (next form))
-                               (meta form))
-                             (list form x))]
-              (recur threaded (next forms))) x))]
-    (analyze ctx expanded)))
 
 (defn expand-as->
   "The ->> macro from clojure.core."
@@ -669,8 +654,6 @@
                 ;; NOTE: defn / defmacro aren't implemented as normal macros yet
                 (defn defmacro) (let [ret (expand-defn ctx expr)]
                                   ret)
-                ;; TODO: implement as normal macro in namespaces.cljc
-                -> (expand-> ctx (rest expr))
                 ;; TODO: implement as normal macro in namespaces.cljc
                 as-> (expand-as-> ctx expr)
                 quote (do nil (second expr))

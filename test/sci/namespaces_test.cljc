@@ -1,7 +1,7 @@
 (ns sci.namespaces-test
   (:require
    [clojure.set :as set]
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -76,6 +76,20 @@
 
 (deftest remove-ns-test
   (is (nil? (eval* "(ns foo) (ns bar) (remove-ns 'foo) (find-ns 'foo)"))))
+
+(deftest threading-macro-test
+  (testing "->"
+    (is (= 4 (eval* 1 '(-> *in* inc inc (inc)))))
+    (is (= '([0 1] [1 2] [2 3]) (eval* '(map-indexed #(-> [%1 %2]) [1 2 3]))))
+    (is (= '(1 2 3) (eval* '(-> '(1 2 3))))))
+  (testing "->>"
+    (is (= 7 (eval* ["foo" "baaar" "baaaaaz"] "(->> *in* (map count) (apply max))"))))
+  (testing "macroexpand ->"
+    (is (= '(/ (inc 9) 100)
+           (eval* "(macroexpand '(-> 9 inc (/ 100)))"))))
+  (testing "macroexpand ->>"
+    (is (= '(/ 100 (inc 9))
+           (eval* "(macroexpand '(->> 9 inc (/ 100)))")))))
 
 (deftest ns-syntax-test
   (is (thrown-with-msg?
