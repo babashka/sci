@@ -68,8 +68,17 @@
                            :auto-resolve auto-resolve
                            :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
                            :readers readers)
-         ret (parser/parse-next parse-opts
-                                r)]
+         ret (try (parser/parse-next parse-opts
+                                     r)
+                  (catch #?(:clj clojure.lang.ExceptionInfo
+                            :cljs cljs.core/ExceptionInfo) e
+                    (throw (ex-info #?(:clj (.getMessage e)
+                                       :cljs (.-message e))
+                                    (assoc (ex-data e)
+                                           :type :sci.error/parse
+                                           :file @vars/current-file)
+                                    e)))
+                  )]
      ;; (prn "ret" ret)
      ret)))
 
