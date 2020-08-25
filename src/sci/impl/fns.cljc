@@ -23,20 +23,20 @@
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                   bindings (:bindings ctx)
                   bindings
-                  (loop [args (seq args)
+                  (loop [args* (seq args)
                          params (seq params)
                          ret bindings]
                     (if params
                       (let [fp (first params)]
                         (if (= '& fp)
-                          (assoc ret (second params) args)
+                          (assoc ret (second params) args*)
                           (do
-                            (when-not args
+                            (when-not args*
                               (throw-arity fn-name macro? args))
-                            (recur (next args) (next params)
-                                   (assoc ret fp (first args))))))
+                            (recur (next args*) (next params)
+                                   (assoc ret fp (first args*))))))
                       (do
-                        (when args
+                        (when args*
                           (throw-arity fn-name macro? args))
                         ret)))
                   ctx (assoc ctx :bindings bindings)

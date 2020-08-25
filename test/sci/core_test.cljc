@@ -408,7 +408,7 @@
                              (let [d (ex-data ex)]
                                d))))
     (tu/assert-submap {:type :sci/error, :line 1, :column 25,
-                       :message #"Cannot call foo"}
+                       :message #"Cannot call foo with 0 arguments"}
                       (try (eval* (str "(defmacro foo [x & xs]) "
                                        "(foo)"))
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
