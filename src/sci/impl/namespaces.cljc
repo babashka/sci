@@ -1294,7 +1294,8 @@
                   'keywordize-keys (copy-var clojure.walk/keywordize-keys clojure-walk-namespace)
                   'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
                   'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
-                  'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)}
+                  'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)
+                  'macroexpand-all (copy-var clojure.walk/macroexpand-all clojure-walk-namespace)}
    'clojure.template clojure-template
    'clojure.repl clojure-repl
    'clojure.edn {:obj clojure-edn-namespace
