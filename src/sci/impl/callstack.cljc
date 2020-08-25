@@ -8,7 +8,8 @@
   (vars/getName ns))
 
 (defn select [m]
-  (let [new-m (select-keys m [:ns :name :local-name :file :line :column :sci.impl/built-in :local])]
+  (let [new-m (select-keys m [:ns :name :local-name :file :line :column
+                              :sci.impl/built-in :local :macro])]
     new-m))
 
 (defn expr->data [expr]
@@ -19,7 +20,9 @@
              (assoc fm
                     :local-name f
                     :local true
-                    :ns (:ns m))
+                    :ns (:ns m)
+                    :macro (or (:sci/macro fm)
+                               (:macro fm)))
              fm)]
     (filter not-empty [(select m) (select fm)])))
 
@@ -44,6 +47,11 @@
                        ['() (:file fd) (:ns fd) (:name fd)])
                      data)]
     (first data)))
+
+(defn phase [ex stacktrace]
+  (or (:phase (ex-data ex))
+      (when (some :macro stacktrace)
+        "macroexpand")))
 
 (defn right-pad [s n]
   (let [n (- n (count s))]

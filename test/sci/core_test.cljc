@@ -383,7 +383,7 @@
          {:line 1 :column 11}
          (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
     (is (thrown-with-data?
-         {:line 1 :column 13}
+         {:line 1 :column 18}
          (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
     (is (thrown-with-data?
          {:line 1 :column 19}

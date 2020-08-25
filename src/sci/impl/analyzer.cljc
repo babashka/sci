@@ -12,7 +12,8 @@
    [sci.impl.utils :as utils :refer
     [mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node throw-error-with-location
-     merge-meta kw-identical? strip-core-ns set-namespace!]]
+     merge-meta kw-identical? strip-core-ns set-namespace!
+     macro?]]
    [sci.impl.vars :as vars])
   #?(:clj (:import [sci.impl Reflector])))
 
@@ -615,15 +616,6 @@
 
 ;;;; End vars
 
-;;;; Macros
-
-(defn macro? [f]
-  (when-let [m (meta f)]
-    (or (:sci/macro m)
-        (:macro m))))
-
-;;;; End macros
-
 (defn analyze-call [ctx expr]
   (let [f (first expr)]
     (if (symbol? f)
@@ -633,9 +625,9 @@
             _ (when special-sym (check-permission! ctx special-sym f))
             f (or special-sym
                   (resolve-symbol ctx f true))
-            f (if (and (vars/var? f)
+            #_#_f (if (and (vars/var? f)
                        (vars/isMacro f))
-                @f f)
+                f f)
             f-meta (meta f)
             eval? (and f-meta (:sci.impl/op f-meta))]
         (cond (and f-meta (::static-access f-meta))
@@ -703,7 +695,11 @@
                     expanded)
                   (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
                 (catch #?(:clj Exception :cljs js/Error) e
-                  (rethrow-with-location-of-node ctx e expr)))))
+                  (rethrow-with-location-of-node ctx e
+                                                 ;; adding metadata for error reporting
+                                                 (mark-eval-call
+                                                  (with-meta (cons f (rest expr))
+                                                    (meta expr))))))))
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
 

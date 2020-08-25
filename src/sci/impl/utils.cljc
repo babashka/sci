@@ -56,45 +56,58 @@
 
 (def ^:dynamic *in-try* false)
 
+(defn macro? [f]
+  (when-let [m (meta f)]
+    (or (:sci/macro m)
+        (:macro m))))
+
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (let [f (when (seqable? node) (first node))
         m (some-> f meta)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
-    (when-not (or (and (symbol? f) (not op))
-                  (kw-identical? :fn op)
-                  (kw-identical? :needs-ctx op))
+    (when-not (or
+               ;; special call like def
+               (and (symbol? f) (not op))
+               ;; anonymous function
+               (kw-identical? :fn op)
+               ;; special thing like require
+               (kw-identical? :needs-ctx op))
       (swap! (:env ctx) update-in [:callstack (:id ctx)]
              (fn [vt]
                (if vt
                  (do (vswap! vt conj node)
                      vt)
-                 (volatile! (list node)))))))
-  (if-not *in-try*
-    (let [d (ex-data e)]
-      (if (kw-identical? :sci/error (:type d))
-        (throw e)
-        (let [ex-msg #?(:clj (or (.getMessage e))
-                        :cljs (.-message e))
-              {:keys [:line :column :file]
-               :or {line (:line ctx)
-                    column (:column ctx)}} (meta node)]
-          (if (and line column)
-            (let [m ex-msg
-                  new-exception
-                  (let [d (ex-data e)]
-                    (ex-info m (merge
-                                {:type :sci/error
-                                 :line line
-                                 :column column
-                                 :message m
-                                 :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
-                                                     @v))
-                                 :file file
-                                 :locals (:bindings ctx)} d) e))]
-              (throw new-exception))
-            (throw e))))
-      (throw e))
-    (throw e)))
+                 (volatile! (list node))))))
+    (if-not *in-try*
+      (let [d (ex-data e)]
+        (if (isa? (:type d) :sci/error )
+          (throw e)
+          (let [ex-msg #?(:clj (or (.getMessage e))
+                          :cljs (.-message e))
+                {:keys [:line :column :file]
+                 :or {line (:line ctx)
+                      column (:column ctx)}} (meta node)]
+            (if (and line column)
+              (let [m ex-msg
+                    new-exception
+                    (let [d (ex-data e)
+                          base {:type :sci/error
+                                :line line
+                                :column column
+                                :message m
+                                :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
+                                                    @v))
+                                :file file
+                                :locals (:bindings ctx)}
+                          phase (:phase ctx)
+                          base (if phase
+                                 (assoc base :phase phase)
+                                 base)]
+                      (ex-info m (merge base d)))]
+                (throw new-exception))
+              (throw e))))
+        (throw e))
+      (throw e))))
 
 (defn vary-meta*
   "Only adds metadata to obj if d is not nil and if obj already has meta"

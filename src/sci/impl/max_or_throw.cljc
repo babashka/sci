@@ -18,10 +18,11 @@
 
 (defn take-or-throw [coll ctx n]
   (take* n coll
-         (bottom n (merge {;;:column (delay coll)
-                           :type :sci.error/realized-beyond-max
+         (bottom n (merge {:type :sci.error/realized-beyond-max
                            :realize-max n
-                           :expression (:expression ctx)}))))
+                           :expression (:expression ctx)}
+                          (select-keys (meta (:expression ctx))
+                                       [:file :line :column])))))
 
 (extend-protocol MaxOrThrow
 

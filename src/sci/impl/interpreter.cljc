@@ -16,7 +16,8 @@
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
-                                     kw-identical?]]
+                                     kw-identical?
+                                     macro?]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.interpreter :refer [def-fn-call]])))
 
@@ -416,7 +417,7 @@
                       f (if (and (vars/var? f)
                                  (vars/isMacro f))
                           @f f)]
-                  (if (ana/macro? f)
+                  (if (macro? f)
                     (let [f (if (kw-identical? :needs-ctx (some-> f meta :sci.impl/op))
                               (partial f ctx)
                               f)]
