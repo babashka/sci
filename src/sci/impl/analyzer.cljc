@@ -330,7 +330,8 @@
                     macro? (assoc :macro true)))
         f (assoc f
                  :sci/macro macro?
-                 :sci.impl/fn-name fn-name)]
+                 :sci.impl/fn-name fn-name
+                 :sci.impl/var true)]
     (mark-eval-call (list 'def fn-name f))))
 
 (defn expand-comment

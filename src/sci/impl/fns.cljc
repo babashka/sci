@@ -70,13 +70,16 @@
                            (>= arity min-var-args-arity)))
               f))) arities))
 
-(defn eval-fn [ctx interpret eval-do* {:sci.impl/keys [fn-bodies fn-name] :as f}]
+(defn eval-fn [ctx interpret eval-do* {:sci.impl/keys [fn-bodies fn-name
+                                                       var] :as f}]
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
-        call-self (fn [& args]
-                    (apply @self-ref args))
-        ctx (if fn-name (assoc-in ctx [:bindings fn-name] call-self)
-                ctx)
+        ctx (if (and (not var)
+                     fn-name)
+              (assoc-in ctx [:bindings fn-name]
+                        (fn call-self [& args]
+                          (apply @self-ref args)))
+              ctx)
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
             (parse-fn-args+body ctx interpret eval-do* (first fn-bodies) fn-name macro? false)
