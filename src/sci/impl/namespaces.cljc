@@ -55,6 +55,17 @@
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
 
+(defn ->*
+  [_ _ x & forms]
+  (loop [x x, forms forms]
+    (if forms
+      (let [form (first forms)
+            threaded (if (seq? form)
+                       (with-meta `(~(first form) ~x ~@(next form)) (meta form))
+                       (list form x))]
+        (recur threaded (next forms)))
+      x)))
+
 (defn ->>*
   [_ _ x & forms]
   (loop [x x, forms forms]
@@ -615,6 +626,7 @@
    '* (copy-core-var *)
    '/ (copy-core-var /)
    '== (copy-core-var ==)
+   '-> (macrofy ->*)
    '->> (macrofy ->>*)
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)

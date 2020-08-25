@@ -1,7 +1,7 @@
 (ns sci.namespaces-test
   (:require
    [clojure.set :as set]
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
 (defn eval*

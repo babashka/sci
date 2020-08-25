@@ -83,12 +83,6 @@
     (is (= [1 2 3] (eval* 1 '(map inc [0 1 2])))))
   (testing "keep"
     (is (= [false true false] (eval* 1 '(keep odd? [0 1 2])))))
-  (testing "->"
-    (is (= 4 (eval* 1 '(-> *in* inc inc (inc)))))
-    (is (= '([0 1] [1 2] [2 3]) (eval* '(map-indexed #(-> [%1 %2]) [1 2 3]))))
-    (is (= '(1 2 3) (eval* '(-> '(1 2 3))))))
-  (testing "->>"
-    (is (= 7 (eval* ["foo" "baaar" "baaaaaz"] "(->> *in* (map count) (apply max))"))))
   (testing "as->"
     (is (= "4444444444"
            (eval* '(as-> 1 x (inc x) (inc x) (inc x) (apply str (repeat 10 (str x))))))))
@@ -1043,6 +1037,20 @@
   (is (true? (eval* "(defrecord Foo []) (instance? Foo (->Foo))")))
   #?(:clj (is (true? (eval* "(instance? Number 1)"))))
   (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(instance? 'Foo 1)"))))
+
+(deftest threading-macro-test
+  (testing "->"
+    (is (= 4 (eval* 1 '(-> *in* inc inc (inc)))))
+    (is (= '([0 1] [1 2] [2 3]) (eval* '(map-indexed #(-> [%1 %2]) [1 2 3]))))
+    (is (= '(1 2 3) (eval* '(-> '(1 2 3))))))
+  (testing "->>"
+    (is (= 7 (eval* ["foo" "baaar" "baaaaaz"] "(->> *in* (map count) (apply max))"))))
+  (testing "macroexpand ->"
+    (is (= '(/ (inc 9) 100)
+           (eval* "(macroexpand '(-> 9 inc (/ 100)))"))))
+  (testing "macroexpand ->>"
+    (is (= '(/ 100 (inc 9))
+           (eval* "(macroexpand '(->> 9 inc (/ 100)))")))))
 
 ;;;; Scratch
 
