@@ -483,9 +483,7 @@
 (defn eval-do*
   [ctx exprs]
   (loop [[expr & exprs] exprs]
-    (let [ret (try (interpret ctx expr)
-                   (catch #?(:clj Throwable :cljs js/Error) e
-                     (rethrow-with-location-of-node ctx e expr)))]
+    (let [ret (interpret ctx expr)]
       (if-let [exprs (seq exprs)]
         (recur exprs)
         ret))))

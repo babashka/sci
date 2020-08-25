@@ -76,6 +76,7 @@
                                        :cljs (.-message e))
                                     (assoc (ex-data e)
                                            :type :sci.error/parse
+                                           :phase "parse"
                                            :file @vars/current-file)
                                     e)))
                   )]

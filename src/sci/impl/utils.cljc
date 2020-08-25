@@ -48,7 +48,7 @@
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
    (let [{:keys [:line :column :file]
-          :or {file @vars/current-file}} (meta iobj) ]
+          :or {file @vars/current-file}} (meta iobj)]
      (throw (ex-info msg (merge {:type :sci/error
                                  :line line
                                  :column column
@@ -57,7 +57,6 @@
 (def ^:dynamic *in-try* false)
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
-  ;; (prn (meta node) (meta (first node)))
   (let [f (first node)
         m (meta f)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
@@ -80,13 +79,7 @@
                :or {line (:line ctx)
                     column (:column ctx)}} (meta node)]
           (if (and line column)
-            (let [m ex-msg #_(str ex-msg
-                         (when ex-msg " ")
-                         "[at "
-                         (when-let [v (or file @vars/current-file)]
-                           (str v ", "))
-                         "line "
-                         line ", column " column"]")
+            (let [m ex-msg
                   new-exception
                   (let [d (ex-data e)]
                     (ex-info m (merge
