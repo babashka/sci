@@ -28,7 +28,7 @@
 (deftest locals-test
   (testing "defn does not introduce fn-named local binding"
     (let [locals
-          (try (eval-string "(defn foo [x] (/ 1 0)) (foo :x)")
+          (try (eval-string "(defn foo [x] (subs nil 0)) (foo :x)")
                (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
                  (:locals (ex-data e))))
           ks (keys locals)]
