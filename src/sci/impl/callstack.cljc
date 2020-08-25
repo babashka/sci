@@ -13,7 +13,7 @@
 
 (defn expr->data [expr]
   (let [m (meta expr)
-        f (first expr)
+        f (when (seqable? expr) (first expr))
         fm (some-> f meta)
         fm (if (symbol? f)
              (assoc fm
@@ -21,7 +21,7 @@
                     :local true
                     :ns (:ns m))
              fm)]
-    [(select m) (select fm)]))
+    (filter not-empty [(select m) (select fm)])))
 
 (defn stacktrace [callstack]
   (let [callstack @callstack

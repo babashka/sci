@@ -57,8 +57,8 @@
 (def ^:dynamic *in-try* false)
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
-  (let [f (first node)
-        m (meta f)
+  (let [f (when (seqable? node) (first node))
+        m (some-> f meta)
         op (when m (.get ^java.util.Map m :sci.impl/op))]
     (when-not (or (and (symbol? f) (not op))
                   (kw-identical? :fn op)
