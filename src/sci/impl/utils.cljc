@@ -80,7 +80,7 @@
                  (volatile! (list node))))))
     (if-not *in-try*
       (let [d (ex-data e)]
-        (if (isa? (:type d) :sci/error )
+        (if (isa? (:type d) :sci/error)
           (throw e)
           (let [ex-msg #?(:clj (or (.getMessage e))
                           :cljs (.-message e))
@@ -103,7 +103,7 @@
                           base (if phase
                                  (assoc base :phase phase)
                                  base)]
-                      (ex-info m (merge base d)))]
+                      (ex-info m (merge base d) e))]
                 (throw new-exception))
               (throw e))))
         (throw e))
