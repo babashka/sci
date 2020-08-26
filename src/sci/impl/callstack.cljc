@@ -28,6 +28,7 @@
 
 (defn stacktrace [callstack]
   (let [callstack @callstack
+        callstack (dedupe callstack)
         data (mapcat expr->data callstack)
         data (reduce (fn [[acc last-file last-ns last-name] entry]
                        (let [new-last-name (or (:name entry)
@@ -58,19 +59,22 @@
     (str s (str/join (repeat n " ")))))
 
 (defn format-stacktrace [st]
-  (let [data (map (fn [elt]
-                    {:name (str (if-let [nom (:name elt)]
-                                  (str (:ns elt) "/" nom)
-                                  (:ns elt))
-                                (when (:local elt)
-                                  (str "#" (:local-name elt))))
-                     :loc (str (or (:file elt)
-                                   (if (:sci.impl/built-in elt)
-                                     "<built-in>"
-                                     "<expr>"))
-                               (when-let [l (:line elt)]
-                                 (str ":" l ":" (:column elt))))})
-                  st)
+  (let [data (keep (fn [{:keys [:file :ns :line :column :sci.impl/built-in
+                                :local :local-name]
+                         nom :name}]
+                     (when (or line built-in)
+                       {:name (str (if nom
+                                     (str ns "/" nom)
+                                     ns)
+                                   (when local
+                                     (str "#" local-name)))
+                        :loc (str (or file
+                                      (if built-in
+                                        "<built-in>"
+                                        "<expr>"))
+                                  (when line
+                                    (str ":" line ":" column)))}))
+                   st)
         max-name (reduce max 0 (map (comp count :name) data))]
     (map (fn [{:keys [:name :loc]}]
            (str (right-pad name max-name)

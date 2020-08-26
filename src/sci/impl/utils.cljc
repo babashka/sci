@@ -62,16 +62,17 @@
         (:macro m))))
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
-  (let [f (when (seqable? node) (first node))
-        m (some-> f meta)
-        op (when m (.get ^java.util.Map m :sci.impl/op))]
-    (when-not (or
-               ;; special call like def
-               (and (symbol? f) (not op))
-               ;; anonymous function
-               (kw-identical? :fn op)
-               ;; special thing like require
-               (kw-identical? :needs-ctx op))
+  (let [m (meta node)
+        f (when (seqable? node) (first node))
+        fm (some-> f meta)
+        op (when fm (.get ^java.util.Map m :sci.impl/op))]
+    (when (not (or
+                ;; special call like def
+                (and (symbol? f) (not op))
+                ;; anonymous function
+                (kw-identical? :fn op)
+                ;; special thing like require
+                (kw-identical? :needs-ctx op)))
       (swap! (:env ctx) update-in [:callstack (:id ctx)]
              (fn [vt]
                (if vt
