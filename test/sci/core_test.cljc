@@ -905,9 +905,10 @@
   (is (true? (eval* "(doto (def x) (alter-meta! assoc :private true)) (:private (meta #'x))")))
   (is (true? (eval* "(doto (def x) (reset-meta! {:private true})) (:private (meta #'x))"))))
 
-(deftest could-not-resolve-symbol
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"resolve.*def"
-                        (eval* "def"))))
+(deftest could-not-resolve-symbol-test3
+  (is (thrown-with-data? #"resolve.*def"
+                         {:phase "analysis"}
+                         (eval* "def"))))
 
 (deftest function-results-dont-have-metadata
   (is (nil? (eval* "(meta (fn []))")))

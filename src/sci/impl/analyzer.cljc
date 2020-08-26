@@ -11,7 +11,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
     [mark-resolve-sym mark-eval mark-eval-call constant?
-     rethrow-with-location-of-node throw-error-with-location
+     rethrow-with-location-of-node
      merge-meta kw-identical? strip-core-ns set-namespace!
      macro?]]
    [sci.impl.vars :as vars])
@@ -29,6 +29,9 @@
                comment loop lazy-seq for doseq case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1 macroexpand})
+
+(defn throw-error-with-location [msg node]
+  (utils/throw-error-with-location msg node {:phase "analysis"}))
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym]
   (when-not (kw-identical? :allow (-> sym meta :line))
