@@ -906,9 +906,10 @@
   (is (true? (eval* "(doto (def x) (reset-meta! {:private true})) (:private (meta #'x))"))))
 
 (deftest could-not-resolve-symbol-test3
-  (is (thrown-with-data? #"resolve.*def"
-                         {:phase "analysis"}
-                         (eval* "def"))))
+  (when-not tu/native?
+    (is (thrown-with-data? #"resolve.*def"
+                           {:phase "analysis"}
+                           (eval* "def")))))
 
 (deftest function-results-dont-have-metadata
   (is (nil? (eval* "(meta (fn []))")))
