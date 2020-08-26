@@ -3,7 +3,7 @@
             #?(:clj  [me.raynes.conch :refer [let-programs] :as sh])
             [clojure.test :as test :refer [is]]
             [sci.core :refer [eval-string]]
-            #?(:clj [edamame.test-utils.macros]) ;; defines thrown-with-data?
+            #?(:clj [sci.test-utils.macros]) ;; defines thrown-with-data?
             [sci.test-utils.utils :as u])
   #?(:cljs (:require-macros [sci.test-utils.macros])))
 

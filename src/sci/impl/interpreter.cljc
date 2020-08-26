@@ -242,9 +242,9 @@
                 (when-let [the-loaded-ns (get namespaces lib-name)]
                   (reset! env* (handle-require-libspec-env ctx env use? cnn the-loaded-ns lib-name parsed-libspec))))
               (throw (new #?(:clj Exception :cljs js/Error)
-                          (str "Could not require " lib-name ".")))))
+                          (str "Could not find namespace: " lib-name ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
-                    (str "Could not require " lib-name ".")))))))
+                    (str "Could not find namespace " lib-name ".")))))))
 
 (defn eval-require
   [ctx & args]
