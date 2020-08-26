@@ -3,8 +3,9 @@
             #?(:clj  [me.raynes.conch :refer [let-programs] :as sh])
             [clojure.test :as test :refer [is]]
             [sci.core :refer [eval-string]]
-            [sci.test-utils.macros] ;; defines thrown-with-data?
-            [sci.test-utils.utils :as u]))
+            #?(:clj [edamame.test-utils.macros]) ;; defines thrown-with-data?
+            [sci.test-utils.utils :as u])
+  #?(:cljs (:require-macros [sci.test-utils.macros])))
 
 (def native? #?(:clj (= "native" (System/getenv "SCI_TEST_ENV"))
                 :cljs false))
