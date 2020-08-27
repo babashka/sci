@@ -547,7 +547,6 @@
               (take-nth 2 (next bindings)))
      (fn [] ~@body)))
 
-
 ;;;; End binding vars
 
 (def clojure-core
@@ -1248,6 +1247,33 @@
 (def clojure-walk-namespace (vars/->SciNamespace 'clojure.walk nil))
 (def clojure-edn-namespace (vars/->SciNamespace 'clojure.edn nil))
 
+(def macroexpand-all
+  (vars/->SciVar (fn [ctx form]
+                   (clojure.walk/prewalk
+                    (fn [x]
+                      (if (seq? x)
+                        (@utils/eval-macroexpand-state ctx x) x))
+                    form))
+                 'macroexpand-all
+                 {:ns clojure-walk-namespace
+                  :name 'macroexpand-all
+                  :sci.impl/op :needs-ctx
+                  :doc "Recursively performs all possible macroexpansions in form."}
+                 false))
+
+(def clojure-walk-ns
+  {:obj clojure-walk-namespace
+   'walk (copy-var clojure.walk/walk clojure-walk-namespace)
+   'postwalk (copy-var clojure.walk/postwalk clojure-walk-namespace)
+   'prewalk (copy-var clojure.walk/prewalk clojure-walk-namespace)
+   #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
+             'prewalk-demo (copy-var clojure.walk/prewalk-demo clojure-walk-namespace)])
+   'keywordize-keys (copy-var clojure.walk/keywordize-keys clojure-walk-namespace)
+   'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
+   'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
+   'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)
+   'macroexpand-all macroexpand-all})
+
 (def namespaces
   {'clojure.core clojure-core
    'clojure.string {:obj clojure-string-namespace
@@ -1285,16 +1311,7 @@
                  'subset? (copy-var set/subset? clojure-set-namespace)
                  'superset? (copy-var set/superset? clojure-set-namespace)
                  'union (copy-var set/union clojure-set-namespace)}
-   'clojure.walk {:obj clojure-walk-namespace
-                  'walk (copy-var clojure.walk/walk clojure-walk-namespace)
-                  'postwalk (copy-var clojure.walk/postwalk clojure-walk-namespace)
-                  'prewalk (copy-var clojure.walk/prewalk clojure-walk-namespace)
-                  #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
-                            'prewalk-demo (copy-var clojure.walk/prewalk-demo clojure-walk-namespace)])
-                  'keywordize-keys (copy-var clojure.walk/keywordize-keys clojure-walk-namespace)
-                  'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
-                  'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
-                  'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)}
+   'clojure.walk clojure-walk-ns
    'clojure.template clojure-template
    'clojure.repl clojure-repl
    'clojure.edn {:obj clojure-edn-namespace

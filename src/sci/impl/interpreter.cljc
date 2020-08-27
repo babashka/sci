@@ -433,6 +433,8 @@
       form
       (macroexpand ctx ex))))
 
+(vreset! utils/eval-macroexpand-state macroexpand)
+
 ;;;; End macros
 
 
