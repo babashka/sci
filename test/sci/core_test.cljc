@@ -811,7 +811,8 @@
       (is (= 10 @state)))))
 
 (deftest clojure-walk-test
-  (is (= {"a" {"b" 1}} (eval* "(clojure.walk/stringify-keys {:a {:b 1}})"))))
+  (is (= {"a" {"b" 1}} (eval* "(clojure.walk/stringify-keys {:a {:b 1}})")))
+  (is (= '(inc (inc 1)) (eval* "(clojure.walk/macroexpand-all '(-> 1 (-> inc inc)))"))))
 
 (deftest letfn-test
   (is (= 2 (eval* "(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1))")))

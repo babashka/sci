@@ -183,7 +183,6 @@
 (def eval-use-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
 (def eval-refer-state (volatile! nil))
-(def eval-macroexpand-1-state (volatile! nil))
 (def eval-macroexpand-state (volatile! nil))
 
 (defn split-when

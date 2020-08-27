@@ -547,7 +547,6 @@
               (take-nth 2 (next bindings)))
      (fn [] ~@body)))
 
-
 ;;;; End binding vars
 
 (def clojure-core
@@ -1248,14 +1247,19 @@
 (def clojure-walk-namespace (vars/->SciNamespace 'clojure.walk nil))
 (def clojure-edn-namespace (vars/->SciNamespace 'clojure.edn nil))
 
-(defn macroexpand-all
-  "Recursively performs all possible macroexpansions in form."
-  [ctx form]
-  (clojure.walk/prewalk
-   (fn [x]
-     (if (seq? x)
-       (@utils/eval-macroexpand-state ctx x) x))
-   form))
+(def macroexpand-all
+  (vars/->SciVar (fn [ctx form]
+                   (clojure.walk/prewalk
+                    (fn [x]
+                      (if (seq? x)
+                        (@utils/eval-macroexpand-state ctx x) x))
+                    form))
+                 'macroexpand-all
+                 {:ns clojure-walk-namespace
+                  :name 'macroexpand-all
+                  :sci.impl/op :needs-ctx
+                  :doc "Recursively performs all possible macroexpansions in form."}
+                 false))
 
 (def clojure-walk-ns
   {:obj clojure-walk-namespace
@@ -1268,8 +1272,7 @@
    'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
    'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
    'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)
-   'macroexpand-all (with-meta macroexpand-all
-                      {:sci.impl/op :needs-ctx})})
+   'macroexpand-all macroexpand-all})
 
 (def namespaces
   {'clojure.core clojure-core
