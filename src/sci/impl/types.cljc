@@ -30,3 +30,8 @@
              (:sci.impl/record m)))
     (= clazz (some-> x meta :sci.impl/type))
     (instance? clazz x)))
+
+(deftype Recur #?(:clj [val]
+                  :cljs [val])
+  IBox
+  (getVal [this] val))

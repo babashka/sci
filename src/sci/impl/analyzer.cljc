@@ -21,7 +21,7 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def . var set!})
+(def special-syms '#{try finally do if new recur quote catch throw def . var set! loop*})
 
 ;; Built-in macros.
 
@@ -361,6 +361,31 @@
                                syms))]
     (analyze ctx expansion)))
 
+(defn expand-loop2
+  [ctx [_ bindings & body]]
+    #_(assert-args
+      (vector? bindings) "a vector for its binding"
+      (even? (count bindings)) "an even number of forms in binding vector")
+  (let [db (destructure bindings)]
+    (if (= db bindings)
+      (let [bs (take-nth 2 bindings)]
+        (analyze (update ctx :bindings merge (zipmap bs (repeat nil)))
+                 `(loop* ~bindings ~@body)))
+      (let [vs (take-nth 2 (drop 1 bindings))
+            bs (take-nth 2 bindings)
+            _ (prn bs)
+            gs (map (fn [b] (if (symbol? b) b (gensym))) bs)
+            bfs (reduce (fn [ret [b v g]]
+                          (if (symbol? b)
+                            (conj ret g v)
+                            (conj ret g v b g)))
+                        [] (map vector bs vs gs))]
+        `(let ~bfs
+           (loop* ~(vec (interleave gs gs))
+                  (let ~(vec (interleave bs gs))
+                    ~@body))))))
+  #_(analyze ctx expansion))
+
 (defn expand-lazy-seq
   [ctx expr]
   (let [body (rest expr)]
@@ -657,7 +682,7 @@
                 quote (do nil (second expr))
                 ;; TODO: implement as normal macro in namespaces.cljc
                 comment (expand-comment ctx expr)
-                loop (expand-loop ctx expr)
+                loop (expand-loop2 ctx expr)
                 lazy-seq (expand-lazy-seq ctx expr)
                 for (let [res (expand-for ctx expr)]
                       (if (:sci.impl/macroexpanding ctx)

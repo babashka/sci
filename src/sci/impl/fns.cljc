@@ -1,6 +1,7 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.types :as t]))
+  (:require [sci.impl.types :as t])
+  (:import [sci.impl.types Recur]))
 
 (defn throw-arity [fn-name macro? args]
   (throw (new #?(:clj Exception
@@ -8,11 +9,6 @@
               (let [actual-count (if macro? (- (count args) 2)
                                      (count args))]
                 (str "Cannot call " fn-name " with " actual-count " arguments")))))
-
-(deftype Recur #?(:clj [val]
-                  :cljs [val])
-  t/IBox
-  (getVal [this] val))
 
 (defn parse-fn-args+body
   [ctx interpret eval-do*

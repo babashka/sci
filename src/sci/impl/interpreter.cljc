@@ -19,7 +19,8 @@
                                      kw-identical?
                                      macro?]]
    [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.impl.interpreter :refer [def-fn-call]])))
+  #?(:cljs (:require-macros [sci.impl.interpreter :refer [def-fn-call]]))
+  (:import [sci.impl.types Recur]))
 
 (declare interpret fn-call)
 
@@ -529,6 +530,39 @@
 
 (def-fn-call)
 
+(defn eval-loop [ctx [_loop* bv & exprs]]
+  (let [names (take-nth 2 bv)
+        ctx (loop [ctx ctx
+                   let-bindings bv]
+              (let [let-name (first let-bindings)
+                    let-bindings (rest let-bindings)
+                    let-val (first let-bindings)
+                    rest-let-bindings (next let-bindings)
+                    val-tag (when-let [m (meta let-val)]
+                              (:tag m))
+                    let-name (if val-tag
+                               (vary-meta let-name update :tag (fn [t]
+                                                                 (if t t val-tag)))
+                               let-name)
+                    v (interpret ctx let-val)
+                    ctx (assoc-in ctx [:bindings let-name] v)]
+                (if-not rest-let-bindings
+                  ctx
+                  (recur ctx
+                         rest-let-bindings))))]
+    (when exprs
+      (loop [ctx ctx
+             exprs* exprs]
+        (let [e (first exprs*)
+              ret (interpret ctx e)
+              nexprs (next exprs*)]
+          (if (instance? Recur ret)
+            (let [recur-val (t/getVal ret)]
+              (recur (update ctx :bindings merge (zipmap names recur-val))
+                     exprs))
+            (if nexprs (recur ctx nexprs)
+                ret)))))))
+
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
     do (eval-do ctx expr)
@@ -544,7 +578,7 @@
                   (interpret ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
+    recur (fn-call ctx (comp t/->Recur vector) (rest expr))
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -559,7 +593,8 @@
     resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))
-    import (apply eval-import ctx (rest expr))))
+    import (apply eval-import ctx (rest expr))
+    loop* (eval-loop ctx expr)))
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
