@@ -21,7 +21,7 @@
   (let [min-var-args-arity (when var-arg-name fixed-arity)
         f (fn run-fn [& args]
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
-                  bindings (:bindings ctx)
+                  bindings (.get ^java.util.Map ctx :bindings)
                   bindings
                   (loop [args* (seq args)
                          params (seq params)
