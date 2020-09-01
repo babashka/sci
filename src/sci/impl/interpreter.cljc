@@ -531,37 +531,38 @@
 (def-fn-call)
 
 (defn eval-loop [ctx [_loop* bv & exprs]]
-  (let [names (take-nth 2 bv)
-        ctx (loop [ctx ctx
-                   let-bindings bv]
-              (let [let-name (first let-bindings)
-                    let-bindings (rest let-bindings)
-                    let-val (first let-bindings)
-                    rest-let-bindings (next let-bindings)
-                    val-tag (when-let [m (meta let-val)]
-                              (:tag m))
-                    let-name (if val-tag
-                               (vary-meta let-name update :tag (fn [t]
-                                                                 (if t t val-tag)))
-                               let-name)
-                    v (interpret ctx let-val)
-                    ctx (assoc-in ctx [:bindings let-name] v)]
-                (if-not rest-let-bindings
-                  ctx
-                  (recur ctx
-                         rest-let-bindings))))]
+  (let [params (take-nth 2 bv)
+        args (take-nth 2 (rest bv))]
     (when exprs
-      (loop [ctx ctx
-             exprs* exprs]
-        (let [e (first exprs*)
-              ret (interpret ctx e)
-              nexprs (next exprs*)]
-          (if (instance? Recur ret)
+      (loop [[& args] args]
+        (let [bindings (:bindings ctx)
+                  bindings
+                  (loop [args* (seq args)
+                         params (seq params)
+                         ret bindings]
+                    (if params
+                      (let [fp (first params)]
+                        (if (= '& fp)
+                          (assoc ret (second params) args*)
+                          (do
+                            #_(when-not args*
+                              (throw-arity fn-name macro? args))
+                            (recur (next args*) (next params)
+                                   (assoc ret fp (first args*))))))
+                      (do
+                        #_(when args*
+                          (throw-arity fn-name macro? args))
+                        ret)))
+                  ctx (assoc ctx :bindings bindings)
+              ret (if (= 1 (count exprs))
+                    (interpret ctx (first exprs))
+                    (eval-do* ctx exprs))
+                  ;; m (meta ret)
+              recur? (instance? Recur ret)]
+          (if recur?
             (let [recur-val (t/getVal ret)]
-              (recur (update ctx :bindings merge (zipmap names recur-val))
-                     exprs))
-            (if nexprs (recur ctx nexprs)
-                ret)))))))
+              (recur recur-val))
+            ret))))))
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
