@@ -95,7 +95,8 @@
            :features
            :load-fn
            :uberscript ;; used by babashka, not public!
-           :readers]}]
+           :readers
+           :invoke-callback]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -112,8 +113,7 @@
                     :readers readers
 
                     ::ctx true
-                    :uberscript uberscript}
-                   (normalize-classes (merge default-classes classes))
-                   (when iterate-max
-                     {:iterate-max-counter (atom iterate-max)}))]
+                    :uberscript uberscript
+                    :invoke-callback invoke-callback}
+                   (normalize-classes (merge default-classes classes)))]
     ctx))

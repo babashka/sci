@@ -21,21 +21,15 @@
   (let [min-var-args-arity (when var-arg-name fixed-arity)
 
         interpret-body
-        (let [iterate-counter (.get ^java.util.Map ctx :iterate-max-counter)]
-          (if iterate-counter
-            (let [increase-count (fn []
-                                   (when (zero? (swap! iterate-counter dec))
-                                     (throw (ex-info "Maximum number of iterations reached"
-                                                     {:type :sci.error/iterated-beyond-max
-                                                      :iterate-max (:iterate-max ctx)
-                                                      :last-expression (:expression ctx)}))))]
-              (if (= 1 (count body))
-                (fn [ctx]
-                  (increase-count)
-                  (interpret ctx (first body)))
-                (fn [ctx]
-                  (increase-count)
-                  (eval-do* ctx body))))
+        (let [invoke-fn (.get ^java.util.Map ctx :invoke-callback)]
+          (if invoke-fn
+            (if (= 1 (count body))
+              (fn [ctx]
+                (invoke-fn)
+                (interpret ctx (first body)))
+              (fn [ctx]
+                (invoke-fn)
+                (eval-do* ctx body)))
             (if (= 1 (count body))
               (fn [ctx] (interpret ctx (first body)))
               (fn [ctx] (eval-do* ctx body)))))
