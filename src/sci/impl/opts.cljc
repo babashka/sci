@@ -86,6 +86,7 @@
   [{:keys [:bindings :env
            :allow :deny
            :realize-max
+           :iterate-max
            :preset ;; used by malli
            :aliases
            :namespaces
@@ -100,14 +101,19 @@
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
+        iterate-max (or iterate-max (:iterate-max preset))
         ctx (merge {:env env
                     :bindings {}
                     :allow (process-permissions (:allow preset) allow)
                     :deny (process-permissions (:deny preset) deny)
                     :realize-max (or realize-max (:realize-max preset))
+                    :iterate-max iterate-max
                     :features features
                     :readers readers
+
                     ::ctx true
                     :uberscript uberscript}
-                   (normalize-classes (merge default-classes classes)))]
+                   (normalize-classes (merge default-classes classes))
+                   (when iterate-max
+                     {:iterate-max-counter (atom iterate-max)}))]
     ctx))
