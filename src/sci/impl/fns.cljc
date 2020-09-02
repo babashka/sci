@@ -19,16 +19,15 @@
    {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
-
         interpret-body
         (let [invoke-fn (.get ^java.util.Map ctx :invoke-callback)]
           (if invoke-fn
             (if (= 1 (count body))
               (fn [ctx]
-                (invoke-fn)
+                (invoke-fn nil)
                 (interpret ctx (first body)))
               (fn [ctx]
-                (invoke-fn)
+                (invoke-fn nil)
                 (eval-do* ctx body)))
             (if (= 1 (count body))
               (fn [ctx] (interpret ctx (first body)))

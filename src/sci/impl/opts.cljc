@@ -28,7 +28,11 @@
 (def presets
   {:termination-safe
    {:deny '[loop recur trampoline resolve]
-    :realize-max 100}})
+    :realize-max 100
+    :invoke-callback (let [cnt (atom 100)]
+                       (fn [_] (when (zero? (swap! cnt dec))
+                                 (throw (ex-info "Max iterations reached"
+                                                 {:type :sci/error})))))}})
 
 (defn process-permissions [& permissions]
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
