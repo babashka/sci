@@ -23,29 +23,22 @@
         interpret-body
         (let [iterate-counter (get ctx :iterate-max-counter)]
           (if iterate-counter
-            (let [iteration-checker (fn []
-                                      (when (zero? (swap! iterate-counter dec))
-                                        (throw (ex-info "Maximum number of iterations reached"
-                                                        {:type :sci.error/iterated-beyond-max
-                                                         :iterate-max (:iterate-max ctx)
-                                                         :last-expression (:expression ctx)}))))]
+            (let [increase-count (fn []
+                                   (when (zero? (swap! iterate-counter dec))
+                                     (throw (ex-info "Maximum number of iterations reached"
+                                                     {:type :sci.error/iterated-beyond-max
+                                                      :iterate-max (:iterate-max ctx)
+                                                      :last-expression (:expression ctx)}))))]
               (if (= 1 (count body))
-                (let [body-part1 (first body)]
-                  (fn [ctx]
-                    (iteration-checker)
-                    (interpret ctx body-part1)))
-
                 (fn [ctx]
-                  (iteration-checker)
+                  (increase-count)
+                  (interpret ctx (first body)))
+                (fn [ctx]
+                  (increase-count)
                   (eval-do* ctx body))))
-
-
             (if (= 1 (count body))
-              (let [body-part1 (first body)]
-                (fn [ctx] (interpret ctx body-part1)))
-
+              (fn [ctx] (interpret ctx (first body)))
               (fn [ctx] (eval-do* ctx body)))))
-
         f (fn run-fn [& args]
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                   bindings (.get ^java.util.Map ctx :bindings)
