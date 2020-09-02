@@ -23,6 +23,8 @@
   (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
                         #"iteration"
                         (tu/eval*  "(loop [i 1000] (if (zero? i) :done (recur (dec i))))" {:invoke-callback (max-iterate-fn 100)})))
+  (is (thrown? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+               (tu/eval* "((fn a [n] (if (#{0 1} n) 1 (+ (a (- n 2)) (a (- n 1)))))  30)" {:invoke-callback (max-iterate-fn 10000)})))
 
   (is (= :done (tu/eval*  "(loop [i 10] (if (zero? i) :done (recur (dec i))))" {:invoke-callback (max-iterate-fn 100)})))
   (is (= :done (tu/eval*  "(loop [i 1000] (if (zero? i) :done (recur (dec i))))" {})))
