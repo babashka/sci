@@ -21,7 +21,7 @@
   (let [min-var-args-arity (when var-arg-name fixed-arity)
 
         interpret-body
-        (let [iterate-counter (get ctx :iterate-max-counter)]
+        (let [iterate-counter (.get ^java.util.Map ctx :iterate-max-counter)]
           (if iterate-counter
             (let [increase-count (fn []
                                    (when (zero? (swap! iterate-counter dec))
