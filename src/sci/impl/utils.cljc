@@ -184,6 +184,8 @@
 (def eval-resolve-state (volatile! nil))
 (def eval-refer-state (volatile! nil))
 (def eval-macroexpand-state (volatile! nil))
+(def interpret-state (volatile! nil))
+(def eval-do*-state (volatile! nil))
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns

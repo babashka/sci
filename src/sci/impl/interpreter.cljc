@@ -491,6 +491,8 @@
         (recur exprs)
         ret))))
 
+(vreset! utils/eval-do*-state eval-do*)
+
 (defn eval-do
   [ctx expr]
   (when-let [exprs (next expr)]
@@ -639,6 +641,8 @@
       (if (isa? (some-> e ex-data :type) :sci/error)
         (throw e)
         (rethrow-with-location-of-node ctx e expr)))))
+
+(vreset! utils/interpret-state interpret)
 
 (defn do? [expr]
   (and (list? expr)

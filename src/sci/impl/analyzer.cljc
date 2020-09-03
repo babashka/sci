@@ -14,7 +14,8 @@
      rethrow-with-location-of-node
      merge-meta kw-identical? strip-core-ns set-namespace!
      macro?]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.impl.fns :refer [eval-fn]])
   #?(:clj (:import [sci.impl Reflector])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -98,6 +99,8 @@
                  v (if t (vary-meta v
                                     assoc :tag t)
                        v)]
+             (when-let [closure (:closure ctx)]
+               (vreset! closure true))
              [k v]))
          (when-let
              [[k _ :as kv]
@@ -223,6 +226,8 @@
                  [body])
         ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
                 ctx)
+        closure (volatile! nil)
+        ctx (assoc ctx :closure closure)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
@@ -247,12 +252,15 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         arities (:bodies analyzed-bodies)
-        arglists (:arglists analyzed-bodies)]
-    (with-meta #:sci.impl{:fn-bodies arities
-                          :fn-name fn-name
-                          :arglists arglists
-                          :fn true}
-      {:sci.impl/op :fn})))
+        arglists (:arglists analyzed-bodies)
+        f (with-meta #:sci.impl{:fn-bodies arities
+                                :fn-name fn-name
+                                :arglists arglists
+                                :fn true}
+            {:sci.impl/op :fn})]
+    (if @closure
+      f
+      (eval-fn ctx @utils/interpret-state @utils/eval-do*-state f))))
 
 (defn expand-let*
   [ctx destructured-let-bindings exprs]

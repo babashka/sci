@@ -72,6 +72,7 @@
 
 (defn eval-fn [ctx interpret eval-do* {:sci.impl/keys [fn-bodies fn-name
                                                        var] :as f}]
+  ;; (prn "eval" fn-name)
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
         ctx (if (and (not var)
