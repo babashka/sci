@@ -590,7 +590,13 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"not.*resolve.*union"
-       (eval* "(use '[clojure.set :only [difference]]) (union #{1} #{2})"))))
+       (eval* "(use '[clojure.set :only [difference]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"already refers to"
+       (eval* "
+(ns foo (:require [clojure.string :refer [split]]))
+(declare split)"))))
 
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))

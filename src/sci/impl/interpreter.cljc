@@ -217,6 +217,7 @@
         cnn (vars/current-ns-name)
         namespaces (get env :namespaces)
         use? (:sci.impl/use ctx)
+        ctx (dissoc ctx :sci.impl/use)
         uberscript (:uberscript ctx)
         reload* (or reload uberscript)]
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib-name))]
