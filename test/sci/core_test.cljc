@@ -577,7 +577,13 @@
                        {:load-fn (fn [{:keys [:namespace]}]
                                    (when (= 'foo.bar namespace)
                                      {:source "(ns foo.bar) (def x :success)"
-                                      :file "foo/bar.clj"}))}))))))
+                                      :file "foo/bar.clj"}))})))))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"already refers to"
+       (eval* "
+(ns foo (:require [clojure.string :refer [split]]))
+(declare split)"))))
 
 (deftest use-test
   (is (= #{1 2} (eval* "(ns foo (:use clojure.set)) (union #{1} #{2})")))
@@ -595,7 +601,7 @@
        #?(:clj Exception :cljs js/Error)
        #"already refers to"
        (eval* "
-(ns foo (:require [clojure.string :refer [split]]))
+(ns foo (:use clojure.string))
 (declare split)"))))
 
 (deftest misc-namespace-test
