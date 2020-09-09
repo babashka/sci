@@ -11,6 +11,7 @@
    [clojure.tools.reader.reader-types :as r]
    #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
+   [sci.impl.deref :refer [deref* deref-protocol]]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
@@ -708,7 +709,7 @@
                  :sci.impl/op :needs-ctx})
    'delay (macrofy delay*)
    #?@(:clj ['deliver (copy-core-var deliver)])
-   'deref (copy-core-var deref)
+   'deref (copy-core-var deref*)
    'derive (with-meta hierarchies/derive* {:sci.impl/op :needs-ctx})
    'descendants (with-meta hierarchies/descendants* {:sci.impl/op :needs-ctx})
    'dissoc (copy-core-var dissoc)
@@ -1316,7 +1317,8 @@
    'clojure.repl clojure-repl
    'clojure.edn {:obj clojure-edn-namespace
                  'read (copy-var edn/read clojure-edn-namespace)
-                 'read-string (copy-var edn/read-string clojure-edn-namespace)}})
+                 'read-string (copy-var edn/read-string clojure-edn-namespace)}
+   #?(:clj 'clojure.lang :cljs 'cljs.core) deref-protocol})
 
 (def aliases
   '{str clojure.string
