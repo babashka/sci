@@ -11,15 +11,18 @@
 
 (def deref-protocol
   #?(:clj
-     {'IDeref (new-var
-               'clojure.lang.IDeref
-               {:methods #{'deref}
-                :ns (vars/->SciNamespace 'clojure.lang nil)})}
+     (new-var
+      'clojure.lang.IDeref
+      {:class clojure.lang.IDeref
+       :methods #{'deref}
+       :ns (vars/->SciNamespace 'clojure.lang nil)})
      :cljs
-     {'IDeref (new-var
-               'cljs.core.IDeref
-               {:methods #{'-deref}
-                :ns (vars/->SciNamespace 'cljs.core nil)})}))
+     (new-var
+      'cljs.core.IDeref
+      {:methods #{'-deref}
+       :ns (vars/->SciNamespace 'cljs.core nil)})))
+
+;; TODO: add deref as multimethod
 
 (defn deref*
   ([ref]

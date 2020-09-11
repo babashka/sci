@@ -79,7 +79,9 @@
              (when (when call? (get macros sym))
                [sym sym])
              (when-let [c (interop/resolve-class ctx sym)]
-               [sym c])))))))
+               [sym c])
+             (when-let [x (records/resolve-record-class ctx sym)]
+               [sym x])))))))
 
 (defn tag [_ctx expr]
   (when-let [m (meta expr)]

@@ -550,6 +550,11 @@
 
 ;;;; End binding vars
 
+(def clojure-lang
+  {:obj (vars/->SciNamespace 'clojure.lang nil)
+   ;; IDeref as protocol instead of class
+   'IDeref deref-protocol})
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -615,6 +620,10 @@
    'protocol-type-impl types/type-impl
    'satisfies? protocols/satisfies?
    ;; end protocols
+   ;; IDeref as protocol
+   'deref (copy-core-var deref*)
+   #?@(:cljs [IDeref deref-protocol])
+   ;; end IDeref
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
@@ -709,7 +718,6 @@
                  :sci.impl/op :needs-ctx})
    'delay (macrofy delay*)
    #?@(:clj ['deliver (copy-core-var deliver)])
-   'deref (copy-core-var deref*)
    'derive (with-meta hierarchies/derive* {:sci.impl/op :needs-ctx})
    'descendants (with-meta hierarchies/descendants* {:sci.impl/op :needs-ctx})
    'dissoc (copy-core-var dissoc)
@@ -1276,7 +1284,8 @@
    'macroexpand-all macroexpand-all})
 
 (def namespaces
-  {'clojure.core clojure-core
+  {#?@(:clj ['clojure.lang clojure-lang])
+   'clojure.core clojure-core
    'clojure.string {:obj clojure-string-namespace
                     'blank? (copy-var str/blank? clojure-string-namespace)
                     'capitalize (copy-var str/capitalize clojure-string-namespace)
@@ -1317,8 +1326,7 @@
    'clojure.repl clojure-repl
    'clojure.edn {:obj clojure-edn-namespace
                  'read (copy-var edn/read clojure-edn-namespace)
-                 'read-string (copy-var edn/read-string clojure-edn-namespace)}
-   #?(:clj 'clojure.lang :cljs 'cljs.core) deref-protocol})
+                 'read-string (copy-var edn/read-string clojure-edn-namespace)}})
 
 (def aliases
   '{str clojure.string
