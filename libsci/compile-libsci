@@ -13,10 +13,8 @@ export PATH=$GRAALVM_HOME/bin:$PATH
 SCI_VERSION=$(cat resources/SCI_VERSION)
 
 SCI_JAR=target/sci-$SCI_VERSION-standalone.jar
-SVM_JAR=$GRAALVM_HOME/jre/lib/svm/builder/svm.jar
-
-lein with-profiles +clojure-1.10.2-alpha1,+libsci do clean, uberjar
-$GRAALVM_HOME/bin/javac -cp $SCI_JAR:$SVM_JAR libsci/src/sci/impl/LibSci.java
+lein with-profiles +clojure-1.10.2-alpha1,+libsci,+native-image do clean, uberjar
+$GRAALVM_HOME/bin/javac -cp $SCI_JAR libsci/src/sci/impl/LibSci.java
 
 $GRAALVM_HOME/bin/native-image \
   -jar $SCI_JAR \
