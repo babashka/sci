@@ -27,3 +27,11 @@
                      :cljs "(defrecord Foo [x] IDeref (deref [this] x))
                             @(->Foo :value)"))
            :value))))
+
+#?(:clj
+   (deftest instance-test
+     (is (true? (eval* "(instance? clojure.lang.IDeref (atom 0))")))))
+
+#?(:cljs
+   (deftest satisfies-test
+     (is (true? (eval* "(satisfies? IDeref (atom 0))")))))

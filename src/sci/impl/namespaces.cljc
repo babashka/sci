@@ -550,12 +550,13 @@
 
 ;;;; End binding vars
 
-(def clojure-lang
-  {:obj (vars/->SciNamespace 'clojure.lang nil)
-   ;; IDeref as protocol instead of class
-   'IDeref deref/deref-protocol
-   'deref deref/deref  ;; protocol method
-   })
+#?(:clj
+   (def clojure-lang
+     {:obj (vars/->SciNamespace 'clojure.lang nil)
+      ;; IDeref as protocol instead of class
+      'IDeref deref/deref-protocol
+      'deref deref/deref  ;; protocol method
+      }))
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -623,9 +624,10 @@
    'satisfies? protocols/satisfies?
    ;; end protocols
    ;; IDeref as protocol
-   'deref deref/deref
-   #?@(:cljs ['IDeref deref/deref-protocol])
-   ;; end IDeref
+   'deref #?(:clj deref/deref :cljs deref/-deref)
+   #?@(:cljs ['-deref deref/-deref
+              'IDeref deref/deref-protocol])
+   ;; end IDeref as protocol
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)

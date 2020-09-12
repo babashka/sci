@@ -25,8 +25,9 @@
       (type x)))
 
 (defn instance-impl [clazz x]
-  (if (and (symbol? clazz)
+  (cond (and (symbol? clazz)
            (let [m (meta clazz)]
              (:sci.impl/record m)))
-    (= clazz (some-> x meta :sci.impl/type))
-    (instance? clazz x)))
+        (= clazz (some-> x meta :sci.impl/type))
+        #?@(:clj [(map? clazz) (instance? (:class clazz) x)])
+        :else (instance? clazz x)))
