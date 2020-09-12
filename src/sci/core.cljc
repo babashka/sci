@@ -217,13 +217,13 @@
 (defn reader
   #_"Returns indexing-push-back-reader from string or reader."
   [x]
-  (parser/indexing-push-back-reader x))
+  (parser/reader x))
 
 (defn parse-next
   #_"Parses next form from reader"
   ([ctx reader] (parse-next ctx reader {}))
   ([ctx reader opts]
-   (let [v (parser/parse-next ctx reader opts)]
+   (let [v (parser/parse-next ctx reader)]
      (if (utils/kw-identical? :edamame.impl.parser/eof v)
        (or (get opts :eof)
            ::eof)

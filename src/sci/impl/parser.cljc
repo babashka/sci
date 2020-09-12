@@ -6,6 +6,7 @@
    [edamame.impl.parser :as parser]
    [sci.impl.analyzer :as ana]
    [sci.impl.interop :as interop]
+   [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -52,7 +53,7 @@
 (defn parse-next
   ([r]
    (parser/parse-next opts r))
-  ([ctx r opts]
+  ([ctx r]
    (let [features (:features ctx)
          readers (:readers ctx)
          readers (if (vars/var? readers) @readers readers)
@@ -83,13 +84,20 @@
                   )]
      ret)))
 
-(defn indexing-push-back-reader [x]
-  (r/indexing-push-back-reader (r/push-back-reader x)))
+(defn reader [x]
+  #?(:clj (r/indexing-push-back-reader (r/push-back-reader x))
+     :cljs (let [string-reader (r/string-reader x)
+                 buf-len 1
+                 pushback-reader (r/PushbackReader. string-reader
+                                                    (object-array buf-len)
+                                                    buf-len buf-len)]
+             (r/indexing-push-back-reader pushback-reader))))
 
 (defn parse-string
   ([ctx s]
-   (let [r (indexing-push-back-reader s)]
-     (parse-next ctx r {}))))
+   (let [r (reader s)
+         v (parse-next ctx r)]
+     (if (utils/kw-identical? :edamame.impl.parser/eof v) nil v))))
 
 ;;;; Scratch
 
