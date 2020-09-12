@@ -229,7 +229,10 @@
            ::eof)
        v))))
 
-(defn eval [ctx form]
+(defn eval
+  #_"Evaluates form (as produced by `parse-string` or `parse-next`) in the context of `ctx` (as produced with
+  `init`)"
+  [ctx form]
   (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
     (vars/with-bindings {vars/current-ns @vars/current-ns}
       (i/eval-form ctx form))))
