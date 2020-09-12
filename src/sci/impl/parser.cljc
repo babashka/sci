@@ -93,6 +93,12 @@
                                                     buf-len buf-len)]
              (r/indexing-push-back-reader pushback-reader))))
 
+(defn get-line-number [reader]
+  (r/get-line-number reader))
+
+(defn get-column-number [reader]
+  (r/get-column-number reader))
+
 (defn parse-string
   ([ctx s]
    (let [r (reader s)

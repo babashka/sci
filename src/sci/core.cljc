@@ -207,20 +207,25 @@
   ([sym meta]
    (vars/->SciNamespace sym meta)))
 
-;; Undocumented, incubating API
 (defn parse-string
-  #_"Parses string `s` in the context of `ctx` (as produced with
+  "Parses string `s` in the context of `ctx` (as produced with
   `init`)."
   ([ctx s]
    (parser/parse-string ctx s)))
 
 (defn reader
-  #_"Returns indexing-push-back-reader from string or reader."
+  "Returns indexing-push-back-reader from string or reader."
   [x]
   (parser/reader x))
 
+(defn get-line-number [reader]
+  (parser/get-line-number reader))
+
+(defn get-column-number [reader]
+  (parser/get-column-number reader))
+
 (defn parse-next
-  #_"Parses next form from reader"
+  "Parses next form from reader"
   ([ctx reader] (parse-next ctx reader {}))
   ([ctx reader opts]
    (let [v (parser/parse-next ctx reader)]
@@ -229,13 +234,14 @@
            ::eof)
        v))))
 
-(defn eval
-  #_"Evaluates form (as produced by `parse-string` or `parse-next`) in the context of `ctx` (as produced with
-  `init`)"
+(defn eval-form
+  "Evaluates form (as produced by `parse-string` or `parse-next`) in the
+  context of `ctx` (as produced with `init`). To allow namespace
+  switches, establish root binding of `sci/ns` with `sci/binding` or
+  `sci/with-bindings.`"
   [ctx form]
   (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
-    (vars/with-bindings {vars/current-ns @vars/current-ns}
-      (i/eval-form ctx form))))
+    (i/eval-form ctx form)))
 
 ;;;; Scratch
 
