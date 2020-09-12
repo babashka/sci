@@ -18,13 +18,13 @@
   (testing "record implemenation"
     (is (= (eval* #?(:clj  "(defrecord Foo [x] clojure.lang.IDeref (deref [this] x))
                             @(->Foo :value)"
-                     :cljs "(defrecord Foo [x] cljs.core/IDeref (deref [this] x))
+                     :cljs "(defrecord Foo [x] cljs.core/IDeref (-deref [this] x))
                             @(->Foo :value)"))
            :value))
     (is (= (eval* #?(:clj  "(import 'clojure.lang.IDeref)
                             (defrecord Foo [x] IDeref (deref [this] x))
                             @(->Foo :value)"
-                     :cljs "(defrecord Foo [x] IDeref (deref [this] x))
+                     :cljs "(defrecord Foo [x] IDeref (-deref [this] x))
                             @(->Foo :value)"))
            :value))))
 

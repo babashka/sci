@@ -624,7 +624,7 @@
    'satisfies? protocols/satisfies?
    ;; end protocols
    ;; IDeref as protocol
-   'deref #?(:clj deref/deref :cljs deref/-deref)
+   'deref deref/deref*
    #?@(:cljs ['-deref deref/-deref
               'IDeref deref/deref-protocol])
    ;; end IDeref as protocol

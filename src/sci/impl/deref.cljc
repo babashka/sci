@@ -16,14 +16,16 @@
   (let [methods (types/getMethods ref)]
     ((get methods #?(:clj 'deref :cljs '-deref)) ref)))
 
-;; All other implementations redirect to core deref
-;; For clojure.core this is a multi-arity definition (promise, future)
-(defmethod #?(:clj deref :cljs -deref) :default #?(:clj  [ref & args]
-                                                   :cljs [ref])
-  #?(:clj(if args
-           (apply clojure.core/deref ref args)
-           (clojure.core/deref ref))
-     :cljs (cljs.core/deref ref)))
+(defmethod #?(:clj deref :cljs -deref) :default [ref]
+  (clojure.core/deref ref))
+
+(defn deref*
+  ([x]
+   #?(:clj (deref x)
+      :cljs (-deref x)))
+  #?(:clj
+     ([x & args]
+      (apply clojure.core/deref x args))))
 
 (def deref-protocol
   #?(:clj
