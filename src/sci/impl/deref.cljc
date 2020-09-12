@@ -20,9 +20,9 @@
 ;; For clojure.core this is a multi-arity definition (promise, future)
 (defmethod #?(:clj deref :cljs -deref) :default #?(:clj  [ref & args]
                                                    :cljs [ref])
-  #?(:clj (if args
-            (clojure.core/deref ref)
-            (apply clojure.core/deref ref args))
+  #?(:clj(if args
+           (apply clojure.core/deref ref args)
+           (clojure.core/deref ref))
      :cljs (cljs.core/deref ref)))
 
 (def deref-protocol
