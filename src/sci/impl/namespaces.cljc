@@ -11,7 +11,7 @@
    [clojure.tools.reader.reader-types :as r]
    #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
-   [sci.impl.deref :refer [deref* deref-protocol]]
+   [sci.impl.deref :as deref]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
@@ -553,7 +553,9 @@
 (def clojure-lang
   {:obj (vars/->SciNamespace 'clojure.lang nil)
    ;; IDeref as protocol instead of class
-   'IDeref deref-protocol})
+   'IDeref deref/deref-protocol
+   'deref deref/deref  ;; protocol method
+   })
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -621,8 +623,8 @@
    'satisfies? protocols/satisfies?
    ;; end protocols
    ;; IDeref as protocol
-   'deref (copy-core-var deref*)
-   #?@(:cljs [IDeref deref-protocol])
+   'deref deref/deref
+   #?@(:cljs [IDeref deref/deref-protocol])
    ;; end IDeref
    '.. (macrofy double-dot)
    '= (copy-core-var =)

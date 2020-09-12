@@ -16,10 +16,10 @@
                         :cljs "(import 'cljs.core.IDeref)
                              @(reify IDeref (-deref [_] :value))"))
            :value)))
-  #_(testing "record implemenation"
+  (testing "record implemenation"
     (is (= (eval* #?(:clj  "#_(import 'clojure.lang.IDeref)
                             (defrecord Foo [x] clojure.lang.IDeref (deref [this] x))
-                            #_(->Foo :value)"
+                            @(->Foo :value)"
                      :cljs "(import 'cljs.core.IDeref)
                             (defrecord Foo [x] IDeref (deref [this] x))
                             @(->Foo :value)"))

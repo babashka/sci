@@ -1,4 +1,5 @@
 (ns sci.impl.deref
+  (:refer-clojure :exclude [deref])
   (:require [sci.impl.types :as types]
             [sci.impl.vars :as vars]))
 
@@ -15,22 +16,21 @@
       'clojure.lang.IDeref
       {:class clojure.lang.IDeref
        :methods #{'deref}
-       :ns (vars/->SciNamespace 'clojure.lang nil)})
+       :ns (vars/->SciNamespace 'clojure.lang nil)}
+      {:ns (vars/->SciNamespace 'clojure.lang nil)})
      :cljs
      (new-var
       'cljs.core.IDeref
       {:methods #{'-deref}
-       :ns (vars/->SciNamespace 'cljs.core nil)})))
+       :ns (vars/->SciNamespace 'cljs.core nil)}
+      {:ns (vars/->SciNamespace 'cljs.core nil)})))
 
-;; TODO: add deref as multimethod
+(defmulti deref types/type-impl)
 
-(defn deref*
-  ([ref]
-   (case (types/type-impl ref)
-     :sci.impl.protocols/reified
-     (let [methods (types/getMethods ref)]
-       ((get methods #?(:clj 'deref :cljs '-deref)) ref))
-     (deref ref)))
-  #?(:clj
-     ([ref timeout-ms timeout-val]
-      (deref ref timeout-ms timeout-val))))
+(defmethod deref :sci.impl.protocols/reified [ref]
+  (let [methods (types/getMethods ref)]
+    ((get methods 'deref) ref)))
+
+(defmethod deref :default [ref]
+  (clojure.core/deref ref))
+

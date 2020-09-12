@@ -58,6 +58,6 @@
   ([ctx package class]
    (let [namespace package]
      (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace class])]
-       (if (vars/var? sci-var)
+       sci-var #_(if (vars/var? sci-var)
          @sci-var
          sci-var)))))
