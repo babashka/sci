@@ -215,7 +215,7 @@
    (parser/parse-string ctx s)))
 
 (defn reader
-  #_"Returns indexing-push-back-reader from string or stream."
+  #_"Returns indexing-push-back-reader from string or reader."
   [x]
   (parser/indexing-push-back-reader x))
 
