@@ -29,7 +29,8 @@
 
 (defmethod deref :sci.impl.protocols/reified [ref]
   (let [methods (types/getMethods ref)]
-    ((get methods 'deref) ref)))
+    ((get methods #?(:clj 'deref
+                     :cljs '-deref)) ref)))
 
 ;; All other implementations redirect to core deref
 ;; For clojure.core this is a multi-arity definition (promise, future)

@@ -624,7 +624,7 @@
    ;; end protocols
    ;; IDeref as protocol
    'deref deref/deref
-   #?@(:cljs [IDeref deref/deref-protocol])
+   #?@(:cljs ['IDeref deref/deref-protocol])
    ;; end IDeref
    '.. (macrofy double-dot)
    '= (copy-core-var =)

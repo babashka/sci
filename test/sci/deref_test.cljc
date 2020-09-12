@@ -10,11 +10,10 @@
     (is (= (eval* #?(:clj  "@(reify clojure.lang.IDeref (deref [_] :value))"
                      :cljs "@(reify cljs.core/IDeref (-deref [_] :value))"))
            :value)))
-  (testing "with import"
+  (testing "with import / unqualified"
     (is (= (eval* #?(:clj  "(import 'clojure.lang.IDeref)
                             @(reify IDeref (deref [_] :value))"
-                        :cljs "(import 'cljs.core.IDeref)
-                             @(reify IDeref (-deref [_] :value))"))
+                        :cljs "@(reify IDeref (-deref [_] :value))"))
            :value)))
   (testing "record implemenation"
     (is (= (eval* #?(:clj  "(defrecord Foo [x] clojure.lang.IDeref (deref [this] x))
