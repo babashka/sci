@@ -12,8 +12,9 @@
         protocol-impls
         (mapcat (fn [[protocol-name & impls]]
                   (map (fn [impl]
-                         (let [protocol-var (@utils/eval-resolve-state ctx protocol-name)
-                               protocol-ns (-> protocol-var deref :ns)
+                         (let [protocol (@utils/eval-resolve-state ctx protocol-name)
+                               protocol (if (vars/var? protocol) @protocol protocol)
+                               protocol-ns (:ns protocol)
                                pns (str (vars/getName protocol-ns))
                                fq-meth-name #(symbol pns %)
                                args (second impl)
@@ -58,6 +59,6 @@
   ([ctx package class]
    (let [namespace package]
      (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace class])]
-       sci-var #_(if (vars/var? sci-var)
+       (if (vars/var? sci-var)
          @sci-var
          sci-var)))))

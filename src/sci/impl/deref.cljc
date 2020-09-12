@@ -31,6 +31,7 @@
   (let [methods (types/getMethods ref)]
     ((get methods 'deref) ref)))
 
-(defmethod deref :default [ref]
-  (clojure.core/deref ref))
-
+;; All other implementations redirect to core deref
+;; For clojure.core this is a multi-arity definition (promise, future)
+(defmethod deref :default [ref & args]
+  (apply clojure.core/deref ref args))
