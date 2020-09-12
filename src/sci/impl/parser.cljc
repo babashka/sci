@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [read-string])
   (:require
+   [clojure.tools.reader.reader-types :as r]
    [edamame.impl.parser :as parser]
    [sci.impl.analyzer :as ana]
    [sci.impl.interop :as interop]
@@ -51,7 +52,7 @@
 (defn parse-next
   ([r]
    (parser/parse-next opts r))
-  ([ctx r]
+  ([ctx r opts]
    (let [features (:features ctx)
          readers (:readers ctx)
          readers (if (vars/var? readers) @readers readers)
@@ -80,8 +81,15 @@
                                            :file @vars/current-file)
                                     e)))
                   )]
-     ;; (prn "ret" ret)
      ret)))
+
+(defn indexing-push-back-reader [x]
+  (r/indexing-push-back-reader (r/push-back-reader x)))
+
+(defn parse-string
+  ([ctx s]
+   (let [r (indexing-push-back-reader s)]
+     (parse-next ctx r {}))))
 
 ;;;; Scratch
 
