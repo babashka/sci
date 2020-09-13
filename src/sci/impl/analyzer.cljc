@@ -80,6 +80,8 @@
                [sym sym])
              (when-let [c (interop/resolve-class ctx sym)]
                [sym c])
+             ;; resolves protocol referenced as class
+             ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
              (when-let [x (records/resolve-record-class ctx sym)]
                [sym x])))))))
 
