@@ -2,9 +2,11 @@
   {:no-doc true}
   (:refer-clojure :exclude [read-string])
   (:require
+   [clojure.tools.reader.reader-types :as r]
    [edamame.impl.parser :as parser]
    [sci.impl.analyzer :as ana]
    [sci.impl.interop :as interop]
+   [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -80,8 +82,28 @@
                                            :file @vars/current-file)
                                     e)))
                   )]
-     ;; (prn "ret" ret)
      ret)))
+
+(defn reader [x]
+  #?(:clj (r/indexing-push-back-reader (r/push-back-reader x))
+     :cljs (let [string-reader (r/string-reader x)
+                 buf-len 1
+                 pushback-reader (r/PushbackReader. string-reader
+                                                    (object-array buf-len)
+                                                    buf-len buf-len)]
+             (r/indexing-push-back-reader pushback-reader))))
+
+(defn get-line-number [reader]
+  (r/get-line-number reader))
+
+(defn get-column-number [reader]
+  (r/get-column-number reader))
+
+(defn parse-string
+  ([ctx s]
+   (let [r (reader s)
+         v (parse-next ctx r)]
+     (if (utils/kw-identical? :edamame.impl.parser/eof v) nil v))))
 
 ;;;; Scratch
 
