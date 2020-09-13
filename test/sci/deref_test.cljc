@@ -30,7 +30,9 @@
 
 #?(:clj
    (deftest instance-test
-     (is (true? (eval* "(instance? clojure.lang.IDeref (atom 0))")))))
+     (is (true? (eval* "(instance? clojure.lang.IDeref (atom 0))")))
+     (is (true? (eval* "(defrecord Foo [x] clojure.lang.IDeref (deref [this] x))
+                        (instance? clojure.lang.IDeref (->Foo 1))")))))
 
 #?(:cljs
    (deftest satisfies-test

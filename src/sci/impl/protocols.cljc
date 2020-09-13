@@ -114,6 +114,22 @@
 (defn satisfies? [protocol obj]
   (boolean (some #(get-method % (types/type-impl obj)) (:methods protocol))))
 
+(defn instance-impl [clazz x]
+  (cond
+    ;; fast path for Clojure when using normal clazz
+    #?@(:clj [(class? clazz) (instance? clazz x)])
+    ;; records are currenrly represented as a symbol with metadata
+    (and (symbol? clazz) (let [m (meta clazz)] (:sci.impl/record m)))
+    (= clazz (some-> x meta :sci.impl/type))
+    ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
+    #?@(:clj [(map? clazz)
+              (when-let [c (:class clazz)]
+                ;; this is a protocol which is an interface on the JVM
+                (or (satisfies? clazz x)
+                    (instance? c x)))])
+    ;; could we have a fast path for CLJS too? please let me know!
+    :else (instance? clazz x)))
+
 (defn extends?
   "Returns true if atype extends protocol"
   [protocol atype]
