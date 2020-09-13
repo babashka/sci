@@ -33,8 +33,7 @@
            (sci/with-bindings {sci/ns @last-ns}
              (loop []
                (let [input @stdin
-                     lines (str/split-lines input)
-                     reader (sci/reader @stdin)
+                     reader (sci/reader input)
                      ;; read the next form from stdin
                      next-form (try (sci/parse-next ctx reader)
                                     (catch :default e
@@ -50,6 +49,7 @@
                          ;; else, only ignore the input we already processed
                          (let [last-line (sci/get-line-number reader)
                                last-col (sci/get-column-number reader)
+                               lines (str/split-lines input)
                                remaining-lines (subs (str/join (drop (dec last-line) lines))
                                                      last-col)]
                            (reset! stdin remaining-lines)))
@@ -60,10 +60,12 @@
                          ;; eval the form and print the result
                          (let [res (try (sci/eval-form ctx next-form)
                                         (catch :default e
-                                          (handle-error ctx stdin last-error e)))
+                                          (handle-error ctx stdin last-error e)
+                                          ::err))
                                ns (sci/eval-string* ctx "*ns*")]
                            (reset! last-ns ns)
-                           (prn res)))
+                           (when-not (= ::err res)
+                             (prn res))))
                        (prompt ctx)
                        (when-not (str/blank? @stdin)
                          (recur)))))))))))
@@ -71,6 +73,6 @@
 (set! *main-cli-fn* -main)
 
 ;; compile:
-;; clojure -A:test -Sdeps '{:deps {org.clojure/clojurescript {:mvn/version "1.10.597"}}}' -m cljs.main -t node -c sci.examples.repl
+;; clojure -A:examples -Sdeps '{:deps {org.clojure/clojurescript {:mvn/version "1.10.597"}}}' -m cljs.main -t node -c sci.examples.repl
 ;; run:
 ;; rlwrap node out/main.js
