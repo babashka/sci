@@ -11,7 +11,7 @@
    [clojure.tools.reader.reader-types :as r]
    #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
-   [sci.impl.deref :as deref]
+   [sci.impl.core-protocols :as core-protocols]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
@@ -554,8 +554,12 @@
    (def clojure-lang
      {:obj (vars/->SciNamespace 'clojure.lang nil)
       ;; IDeref as protocol instead of class
-      'IDeref deref/deref-protocol
-      'deref deref/deref  ;; protocol method
+      'IDeref core-protocols/deref-protocol
+      'deref core-protocols/deref
+      ;; IAtom as protocol instead of class
+      'IAtom core-protocols/swap-protocol
+      'swap core-protocols/swap
+      'reset core-protocols/reset
       }))
 
 (def clojure-core
@@ -624,10 +628,15 @@
    'satisfies? protocols/satisfies?
    ;; end protocols
    ;; IDeref as protocol
-   'deref deref/deref*
-   #?@(:cljs ['-deref deref/-deref
-              'IDeref deref/deref-protocol])
+   'deref core-protocols/deref*
+   #?@(:cljs ['-deref core-protocols/-deref
+              'IDeref core-protocols/deref-protocol])
    ;; end IDeref as protocol
+   ;; IAtom / ISwap as protocol
+   'swap! core-protocols/swap!*
+   #?@(:cljs ['ISwap core-protocols/swap-protocol
+              '-swap! core-protocols/-swap!
+              '-reset! core-protocols/-reset!])
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
@@ -907,7 +916,7 @@
    'reduce-kv (copy-core-var reduce-kv)
    'reduced (copy-core-var reduced)
    'reduced? (copy-core-var reduced?)
-   'reset! (copy-core-var reset!)
+   'reset! core-protocols/reset!*
    'reset-vals! (copy-core-var reset-vals!)
    'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
    'resolve (with-meta sci-resolve {:sci.impl/op :needs-ctx})
@@ -962,7 +971,6 @@
    'sequence (copy-core-var sequence)
    'seqable? (copy-core-var seqable?)
    'shorts (copy-core-var shorts)
-   'swap! (copy-core-var swap!)
    'swap-vals! (copy-core-var swap-vals!)
    'tagged-literal (copy-core-var tagged-literal)
    'tagged-literal? (copy-core-var tagged-literal?)

@@ -467,7 +467,7 @@
                   (if (interop/resolve-class ctx fq-class-name)
                     (let [cnn (vars/current-ns-name)]
                       (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name))
-                    (if-let [rec (records/resolve-record-class ctx package class)]
+                    (if-let [rec (records/resolve-record-or-protocol-class ctx package class)]
                       (let [cnn (vars/current-ns-name)]
                         (swap! env assoc-in [:namespaces cnn class] rec))
                       (throw (new #?(:clj Exception :cljs js/Error)
