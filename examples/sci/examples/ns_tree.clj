@@ -64,4 +64,4 @@
     (pprint/pprint @results)))
 
 ;; run:
-;; rlwrap clojure -A:examples -m sci.examples.ns-tree src sci.core
+;; clojure -A:examples -m sci.examples.ns-tree src sci.core
