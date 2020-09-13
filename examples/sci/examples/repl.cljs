@@ -23,7 +23,7 @@
         ;; therefore we use an atom to keep track of the latest ns
         last-ns (atom @sci/ns)
         ;; same for the latest error
-        last-error (sci/new-var '*e nil (sci/create-ns 'clojure.core))
+        last-error (sci/new-var '*e nil {:ns (sci/create-ns 'clojure.core)})
         ctx (sci/init {:namespaces {'clojure.core {'*e last-error}}})]
     (prompt ctx)
     (.setEncoding js/process.stdin "utf8")

@@ -1,7 +1,7 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
-                            ns create-ns eval])
+                            ns create-ns set!])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
@@ -9,7 +9,8 @@
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.impl.types :as t])
   #?(:cljs (:require-macros
             [sci.core :refer [with-bindings with-out-str copy-var]])))
 
@@ -28,6 +29,11 @@
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true) false)))
+
+(defn set!
+  "Establish thread local binding of dynamic var"
+  [dynamic-var v]
+  (t/setVal dynamic-var v))
 
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well

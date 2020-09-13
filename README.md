@@ -430,31 +430,30 @@ Another option for loading code is to provide an implementation of
 ;;=> :foo
 ```
 
-## Positional metadata
+## REPL
 
-Sci includes positional metadata on every parsed Clojure element:
+Implementing a REPL can be done using the following functions:
+
+- `sci/reader`: returns reader for parsing source code, either from a string or `io/reader`
+- `sci/parse-next`: returns next form from reader
+- `sci/eval-form`: evaluates form returned by `parse-next`.
+
+See [examples](examples/sci/examples) for examples for both Clojure and ClojureScript.
+Run instructions are included at the bottom of each example.
+
+To include an nREPL server in your sci-based project, you can use
+[babashka.nrepl](https://github.com/babashka/babashka.nrepl).
+
+## Location metadata
+
+Sci includes location metadata on forms that can carry it:
 
 ```
 (sci/eval-string "(meta [1 2 3])")
 ;;=> {:line 1, :column 7, :end-line 1, :end-column 14}
 ```
 
-This positional metadata is used by sci for error reporting.
-
-## Feature parity
-
-Currently the following special forms/macros are supported: `def`, `fn`,
-function literals (`#(inc %)`), `defn`, `quote`, `do`,`if`, `if-let`, `if-not`,
-`if-some` `when`, `when-first`, `when-let`, `when-not`, `when-some`, `cond`,
-`let`, `letfn`, `and`, `or`, `->`, `->>`, `as->`, `comment`, `loop`,
-`lazy-seq`, `for`, `doseq`, `case`, `try/catch/finally`, `declare`, `cond->`,
-`cond->>`, `some->`, `require`, `import`, `in-ns`, `ns`, `binding`,
-`with-out-str`, `with-in-str`, `future`. Sci also supports user defined macros.
-
-More examples of what is currently possible can be found at
-[babashka](https://github.com/borkdude/babashka).
-
-If you miss something, feel free to post an issue.
+This metadata is used by sci for error reporting.
 
 ## GraalVM
 
@@ -504,6 +503,10 @@ keywords it expects strings. Instead of kebab-case, use camelCase.
 ## Use as native shared library
 
 To use sci as a native shared library from e.g. C, C++, Rust, read this [tutorial](doc/libsci.md).
+
+## Limitations
+
+Currently sci doesn't support `deftype` and `definterface`.
 
 ## Test
 

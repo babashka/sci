@@ -1,32 +1,42 @@
 (ns sci.examples.repl
   (:require [sci.core :as sci]))
 
-(let [;; we are going to read Clojure expressions from stdin
-      reader (sci/reader *in*)
-      ctx (sci/init {})]
-  ;; establish a thread-local binding for sci/ns to allow namespace switches
-  (sci/with-bindings {sci/ns @sci/ns}
-    (loop []
-      ;; fetch the current namespace name for printig a prompt
-      (let [ns-name (sci/eval-string* ctx "(ns-name *ns*)")]
-        (print (str ns-name "> "))
-        (flush))
-      (let [;; read the next form from stdin
-            next-form (sci/parse-next ctx reader)]
-        ;; if we did not reach end of file (the user pressed ctrl-d)
-        (when-not (= ::sci/eof next-form)
-          ;; eval the form and print the result
-          (prn (sci/eval-form ctx next-form))
-          ;; repeat!
-          (recur))))))
+(defn prompt [ctx]
+  ;; fetch the current namespace name for printig a prompt
+  (let [ns-name (sci/eval-string* ctx "(ns-name *ns*)")]
+    (print (str ns-name "> "))
+    (flush)))
 
-;; user> (+ 1 2 3)
-;; 6
-;; user> (ns foo)
-;; nil
-;; foo> (defn my-fn [x] (inc x))
-;; #'foo/my-fn
-;; foo> (my-fn 10)
-;; 11
-;; foo> ^D
+(defn handle-error [_ctx last-error e]
+  (binding [*out* *err*] (println (ex-message e)))
+  (sci/set! last-error e))
 
+(defn -main []
+  (let [;; we are going to read Clojure expressions from stdin
+        reader (sci/reader *in*)
+        last-error (sci/new-dynamic-var '*e nil {:ns (sci/create-ns 'clojure.core)})
+        ctx (sci/init {:namespaces {'clojure.core {'*e last-error}}})]
+    ;; establish a thread-local bindings to allow set!
+    (sci/with-bindings {sci/ns @sci/ns
+                        last-error @last-error}
+      (loop []
+        (prompt ctx)
+        (let [;; read the next form from stdin
+              next-form (try (sci/parse-next ctx reader)
+                             (catch Throwable e
+                               (handle-error ctx last-error e)
+                               ::err))]
+          (when-not (= ::sci/eof next-form)
+            ;; eval the form if it's not an error and print the result
+            (when-not (= ::err next-form)
+              (let [res (try (sci/eval-form ctx next-form)
+                             (catch Throwable e
+                               (handle-error ctx last-error e)
+                               ::err))]
+                (when-not (= ::err res)
+                  (prn res))))
+            ;; repeat!
+            (recur)))))))
+
+;; run:
+;; rlwrap clojure -A:examples -m sci.examples.repl
