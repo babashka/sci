@@ -112,3 +112,11 @@
                              :cljs js/Error)
                           #"No implementation of method: :foo of protocol: #'user/Foo found for"
                           (tu/eval* prog {})))))
+
+(deftest multi-arity-test
+  (let [prog "
+(defprotocol IFruit (subtotal [item] [item subtotal]))
+(defrecord Apple [price] IFruit (subtotal [_] price) (subtotal [_ discount] (- price discount)))
+[(subtotal (->Apple 100)) (subtotal (->Apple 100) 5)]
+"]
+    (is (= [100 95] (tu/eval* prog {})))))
