@@ -11,24 +11,27 @@
         protocol-impls (utils/split-when symbol? protocol-impls)
         protocol-impls
         (mapcat (fn [[protocol-name & impls]]
-                  (map (fn [impl]
-                         (let [protocol (@utils/eval-resolve-state ctx protocol-name)
-                               protocol (if (vars/var? protocol) @protocol protocol)
-                               protocol-ns (:ns protocol)
-                               pns (str (vars/getName protocol-ns))
-                               fq-meth-name #(symbol pns %)
-                               args (second impl)
-                               this (first args)
-                               bindings (vec (mapcat (fn [field]
-                                                       [field (list (keyword field) this)])
-                                                     fields))]
-                           `(defmethod ~(fq-meth-name (str (first impl))) '~record-name ~(second impl)
-                              (let ~bindings
-                                ~@(nnext impl)))))
-                       impls))
+                  (let [impls (group-by first impls)
+                        protocol (@utils/eval-resolve-state ctx protocol-name)
+                        protocol (if (vars/var? protocol) @protocol protocol)
+                        protocol-ns (:ns protocol)
+                        pns (str (vars/getName protocol-ns))
+                        fq-meth-name #(symbol pns %)]
+                    (map (fn [[method-name bodies]]
+                           (let [bodies (map rest bodies)
+                                 bodies (mapv (fn [impl]
+                                                (let [args (first impl)
+                                                      this (first args)
+                                                      bindings (vec (mapcat (fn [field]
+                                                                              [field (list (keyword field) this)])
+                                                                            fields))]
+                                                  `(~args
+                                                    (let ~bindings
+                                                      ~@(next impl))))) bodies)]
+                             `(defmethod ~(fq-meth-name (str method-name)) '~record-name ~@bodies)))
+                         impls)))
                 protocol-impls)]
     `(do
-       ;; (prn '~record-name)
        (defn ~factory-fn-sym [& args#]
          (vary-meta (zipmap ~keys args#)
                     assoc
