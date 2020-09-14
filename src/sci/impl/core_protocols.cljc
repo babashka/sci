@@ -61,6 +61,7 @@
 
 (defmulti #?(:clj swap :cljs -swap!) types/type-impl)
 (defmulti #?(:clj reset :cljs -reset!) types/type-impl)
+#?(:clj (defmulti compareAndSet types/type-impl))
 
 (defmethod #?(:clj swap :cljs -swap!) :sci.impl.protocols/reified
   ([ref f]
@@ -80,12 +81,21 @@
   (let [methods (types/getMethods ref)]
     ((get methods #?(:clj 'reset :cljs '-reset!)) ref v)))
 
+#?(:clj
+   (defmethod compareAndSet :sci.impl.protocols/reified [ref old new]
+     (let [methods (types/getMethods ref)]
+       ((get methods 'compareAndSet) ref old new))))
+
 (defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
   ;; TODO: optimize arities
   (apply clojure.core/swap! ref f args))
 
 (defmethod #?(:clj reset :cljs -reset!) :default [ref v]
   (reset! ref v))
+
+#?(:clj
+   (defmethod compareAndSet :default [ref old new]
+     (compare-and-set! ref old new)))
 
 (defn swap!* [ref f & args]
   ;; TODO: optimize arities - maybe test first how much this matters at all
@@ -97,12 +107,16 @@
 (defn reset!* [ref v]
   (#?(:clj reset :cljs -reset!) ref v))
 
+#?(:clj
+   (defn compare-and-set!* [ref old new]
+     (compareAndSet ref old new)))
+
 (def swap-protocol
   #?(:clj
      (vars/new-var
       'clojure.lang.IAtom
       {:class clojure.lang.IAtom
-       :methods #{swap, reset}
+       :methods #{swap, reset, compareAndSet}
        :ns clj-lang-ns}
       {:ns clj-lang-ns})
      :cljs

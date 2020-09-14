@@ -560,6 +560,7 @@
       'IAtom core-protocols/swap-protocol
       'swap core-protocols/swap
       'reset core-protocols/reset
+      'compareAndSet core-protocols/compareAndSet
       }))
 
 (def clojure-core
@@ -634,6 +635,7 @@
    ;; end IDeref as protocol
    ;; IAtom / ISwap as protocol
    'swap! core-protocols/swap!*
+   'compare-and-set! core-protocols/compare-and-set!*
    #?@(:cljs ['ISwap core-protocols/swap-protocol
               '-swap! core-protocols/-swap!
               '-reset! core-protocols/-reset!])

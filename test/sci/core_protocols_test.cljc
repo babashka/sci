@@ -44,6 +44,30 @@
                               (reset! (->Foo 1) 2)"))))
        :cljs ::TODO)))
 
+;; TODO: CLJS
+#?(:clj
+   (deftest multi-arity-swap-test
+     (let [prog "
+(defrecord Example []
+  clojure.lang.IDeref
+  (deref [this] :deref)
+  clojure.lang.IAtom
+  (reset [this new-value] :reset)
+  (swap  [this f]          :swap1)
+  (swap  [this f a]        :swap2)
+  (swap  [this f a b]      :swap3)
+  (swap  [this f a b args] :swap4)
+  (compareAndSet [this oldv newv] :compare-and-set))
+[@(->Example)
+ (reset! (->Example) 1)
+ (swap! (->Example) inc)
+ (swap! (->Example) + 1)
+ (swap! (->Example) + 1 2)
+ (swap! (->Example) + 1 2 3)
+ (compare-and-set! (->Example) 1 2)]"]
+       (is (= [:deref :reset :swap1 :swap2 :swap3 :swap4 :compare-and-set]
+              (eval* prog))))))
+
 #?(:clj
    (deftest instance-test
      (is (true? (eval* "(instance? clojure.lang.IDeref (atom 0))")))
