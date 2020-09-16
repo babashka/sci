@@ -120,3 +120,19 @@
 [(subtotal (->Apple 100)) (subtotal (->Apple 100) 5)]
 "]
     (is (= [100 95] (tu/eval* prog {})))))
+
+(deftest no-methods-test
+  (let [prog "(ns foo)
+(defprotocol Foo)
+(ns bar)
+(import 'foo.Foo)
+(instance? Foo (reify Foo))
+"] (is (true? (tu/eval* prog {})))))
+
+(deftest import-test
+  (let [prog "(ns foo-bar)
+(defprotocol Foo)
+(ns bar)
+(import 'foo_bar.Foo)
+(instance? Foo (reify Foo))
+"] (is (true? (tu/eval* prog {})))))

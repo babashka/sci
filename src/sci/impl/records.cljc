@@ -63,7 +63,7 @@
                      (vars/current-ns-name))]
      (resolve-record-or-protocol-class ctx namespace (symbol class-name))))
   ([ctx package class]
-   (let [namespace package]
+   (let [namespace (-> package str (str/replace "_" "-") symbol)]
      (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace class])]
        (if (vars/var? sci-var)
          @sci-var

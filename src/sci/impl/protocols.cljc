@@ -112,7 +112,11 @@
     `(clojure.core/-reified ~interface ~meths)))
 
 (defn satisfies? [protocol obj]
-  (boolean (some #(get-method % (types/type-impl obj)) (:methods protocol))))
+  (if (instance? sci.impl.types.IReified obj)
+    (if-let [obj-type (types/getInterface obj)]
+      (= protocol obj-type)
+      false)
+    (boolean (some #(get-method % (types/type-impl obj)) (:methods protocol)))))
 
 (defn instance-impl [clazz x]
   (cond
@@ -123,10 +127,11 @@
     (= clazz (some-> x meta :sci.impl/type))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
-              (when-let [c (:class clazz)]
+              (if-let [c (:class clazz)]
                 ;; this is a protocol which is an interface on the JVM
                 (or (satisfies? clazz x)
-                    (instance? c x)))])
+                    (instance? c x))
+                (satisfies? clazz x))])
     ;; could we have a fast path for CLJS too? please let me know!
     :else (instance? clazz x)))
 
