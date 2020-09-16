@@ -44,7 +44,6 @@
                               (reset! (->Foo 1) 2)"))))
        :cljs ::TODO)))
 
-;; TODO: CLJS
 #?(:clj
    (deftest multi-arity-swap-test
      (let [prog "
@@ -66,6 +65,40 @@
  (swap! (->Example) + 1 2 3)
  (compare-and-set! (->Example) 1 2)]"]
        (is (= [:deref :reset :swap1 :swap2 :swap3 :swap4 :compare-and-set]
+              (eval* prog))))))
+
+#?(:cljs
+   (deftest multi-arity-swap-test
+     (let [prog "
+(defrecord Example []
+  IDeref
+  (-deref [this] :deref)
+  IReset
+  (-reset! [this new-value] :reset)
+  ISwap
+  (-swap!  [this f]          :swap1)
+  (-swap!  [this f a]        :swap2)
+  (-swap!  [this f a b]      :swap3)
+  (-swap!  [this f a b args] :swap4))
+[@(->Example)
+ (reset! (->Example) 1)
+ (swap! (->Example) inc)
+ (swap! (->Example) + 1)
+ (swap! (->Example) + 1 2)
+ (swap! (->Example) + 1 2 3)]"]
+       (is (= [:deref :reset :swap1 :swap2 :swap3 :swap4]
+              (eval* prog))))))
+
+#?(:clj
+   (deftest iatom2-test
+     (let [prog "
+(defrecord Example [x]
+  clojure.lang.IAtom2
+  (swapVals [this f] [:swap-vals (f x)])
+  (resetVals [this y] [:reset-vals x y]))
+[(reset-vals! (->Example 1) 2)
+ (swap-vals! (->Example 1) inc)]"]
+       (is (= [[:reset-vals 1 2] [:swap-vals 2]]
               (eval* prog))))))
 
 #?(:clj

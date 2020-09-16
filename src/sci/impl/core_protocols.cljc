@@ -53,7 +53,7 @@
 ;; (defmethod foo :default [_ & _] "DEFAULT VALUE DISPACHED")
 
 ;; ;; Like a standar multi-arity function
-;; (defmethod foo :bar 
+;; (defmethod foo :bar
 ;;   ([_ _] "ONE ARGUMENT")
 ;;   ([_ _ _] "TWO ARGUMENTs")
 ;;   ([_ _ _ _] "THREE ARGUMENTs")
@@ -62,6 +62,10 @@
 (defmulti #?(:clj swap :cljs -swap!) types/type-impl)
 (defmulti #?(:clj reset :cljs -reset!) types/type-impl)
 #?(:clj (defmulti compareAndSet types/type-impl))
+#?(:clj (defmulti swapVals types/type-impl))
+#?(:clj (defmulti resetVals types/type-impl))
+
+;;;; Protocol methods
 
 (defmethod #?(:clj swap :cljs -swap!) :sci.impl.protocols/reified
   ([ref f]
@@ -86,6 +90,28 @@
      (let [methods (types/getMethods ref)]
        ((get methods 'compareAndSet) ref old new))))
 
+#?(:clj
+   (defmethod swapVals :sci.impl.protocols/reified
+     ([ref f]
+      (let [methods (types/getMethods ref)]
+        ((get methods 'swapVals) ref f)))
+     ([ref f a1]
+      (let [methods (types/getMethods ref)]
+        ((get methods 'swapVals) ref f a1)))
+     ([ref f a1 a2]
+      (let [methods (types/getMethods ref)]
+        ((get methods 'swapVals) ref f a1 a2)))
+     ([ref f a1 a2 & args]
+      (let [methods (types/getMethods ref)]
+        (apply (get methods 'swapVals) ref f a1 a2 args)))))
+
+#?(:clj
+   (defmethod resetVals :sci.impl.protocols/reified [ref v]
+     (let [methods (types/getMethods ref)]
+       ((get methods 'resetVals) ref v))))
+
+;;;; Defaults
+
 (defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
   ;; TODO: optimize arities
   (apply clojure.core/swap! ref f args))
@@ -96,6 +122,16 @@
 #?(:clj
    (defmethod compareAndSet :default [ref old new]
      (compare-and-set! ref old new)))
+
+#?(:clj
+   (defmethod swapVals :default [ref & args]
+     (apply swap-vals! ref args)))
+
+#?(:clj
+   (defmethod resetVals :default [ref v]
+     (reset-vals! ref v)))
+
+;;;; Re-routing
 
 (defn swap!* [ref f & args]
   ;; TODO: optimize arities - maybe test first how much this matters at all
@@ -111,6 +147,16 @@
    (defn compare-and-set!* [ref old new]
      (compareAndSet ref old new)))
 
+#?(:clj
+   (defn swap-vals!* [ref f & args]
+     (apply swapVals ref f args)))
+
+#?(:clj
+   (defn reset-vals!* [ref v]
+     (resetVals ref v)))
+
+;;;; Protocol vars
+
 (def swap-protocol
   #?(:clj
      (vars/new-var
@@ -120,11 +166,27 @@
        :ns clj-lang-ns}
       {:ns clj-lang-ns})
      :cljs
-     ;; TODO: IReset
      (vars/new-var
       'cljs.core.ISwap
-      {:methods #{-swap!, -reset!}
+      {:methods #{-swap!}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
+
+#?(:cljs
+   (def reset-protocol
+     (vars/new-var
+      'cljs.core.IReset
+      {:methods #{-reset!}
+       :ns cljs-core-ns}
+      {:ns cljs-core-ns})))
+
+#?(:clj
+   (def iatom2-protocol
+     (vars/new-var
+      'clojure.lang.IAtom2
+      {:class clojure.lang.IAtom2
+       :methods #{swap, reset, compareAndSet, swapVals, resetVals}
+       :ns clj-lang-ns}
+      {:ns clj-lang-ns})))
 
 ;;;; end IAtom

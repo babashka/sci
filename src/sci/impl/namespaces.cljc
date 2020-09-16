@@ -561,6 +561,9 @@
       'swap core-protocols/swap
       'reset core-protocols/reset
       'compareAndSet core-protocols/compareAndSet
+      'IAtom2 core-protocols/iatom2-protocol
+      'resetVals core-protocols/resetVals
+      'swapVals core-protocols/swapVals
       }))
 
 (def clojure-core
@@ -635,10 +638,15 @@
    ;; end IDeref as protocol
    ;; IAtom / ISwap as protocol
    'swap! core-protocols/swap!*
-   'compare-and-set! core-protocols/compare-and-set!*
-   #?@(:cljs ['ISwap core-protocols/swap-protocol
+   'compare-and-set! #?(:clj core-protocols/compare-and-set!*
+                        :cljs (copy-core-var compare-and-set!))
+   #?@(:cljs ['IReset core-protocols/reset-protocol
+              'ISwap core-protocols/swap-protocol
               '-swap! core-protocols/-swap!
               '-reset! core-protocols/-reset!])
+   ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
+   #?@(:clj ['swap-vals! core-protocols/swap-vals!*
+             'reset-vals! core-protocols/reset-vals!*])
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
@@ -919,7 +927,6 @@
    'reduced (copy-core-var reduced)
    'reduced? (copy-core-var reduced?)
    'reset! core-protocols/reset!*
-   'reset-vals! (copy-core-var reset-vals!)
    'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
    'resolve (with-meta sci-resolve {:sci.impl/op :needs-ctx})
    'reversible? (copy-core-var reversible?)
@@ -973,7 +980,6 @@
    'sequence (copy-core-var sequence)
    'seqable? (copy-core-var seqable?)
    'shorts (copy-core-var shorts)
-   'swap-vals! (copy-core-var swap-vals!)
    'tagged-literal (copy-core-var tagged-literal)
    'tagged-literal? (copy-core-var tagged-literal?)
    'take (copy-core-var take)
