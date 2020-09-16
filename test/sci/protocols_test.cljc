@@ -117,9 +117,15 @@
   (let [prog "
 (defprotocol IFruit (subtotal [item] [item subtotal]))
 (defrecord Apple [price] IFruit (subtotal [_] price) (subtotal [_ discount] (- price discount)))
-[(subtotal (->Apple 100)) (subtotal (->Apple 100) 5)]
-"]
-    (is (= [100 95] (tu/eval* prog {})))))
+(extend-type String IFruit (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))
+[(subtotal (->Apple 100)) (subtotal (->Apple 100) 5) (subtotal \"foo\") (subtotal \"foo\" 2)]
+"
+        prog #?(:clj prog
+                :cljs (-> prog
+                          (str/replace "String" "js/String")))]
+    (is (= [100 95 3 1] (tu/eval* prog #?(:clj {}
+                                          :cljs {:classes {:allow :all
+                                                           'js #js {:String js/String}}}))))))
 
 #?(:clj
    (deftest import-test
