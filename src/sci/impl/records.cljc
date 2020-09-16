@@ -12,8 +12,9 @@
         protocol-impls
         (mapcat (fn [[protocol-name & impls]]
                   (let [impls (group-by first impls)
-                        protocol-var (@utils/eval-resolve-state ctx protocol-name)
-                        protocol-ns (-> protocol-var deref :ns)
+                        protocol (@utils/eval-resolve-state ctx protocol-name)
+                        protocol (if (vars/var? protocol) @protocol protocol)
+                        protocol-ns (:ns protocol)
                         pns (str (vars/getName protocol-ns))
                         fq-meth-name #(symbol pns %)]
                     (map (fn [[method-name bodies]]
@@ -47,7 +48,10 @@
      (some-> x meta :sci.impl/record))
    (clojure.core/record? x)))
 
-(defn resolve-record-class
+(defn resolve-record-or-protocol-class
+  "A record class is represented by a symbol with metadata (currently). This is only an implementation detail.
+   A protocol is represented by a map with :ns, :methods and optionally :class. This is also an implementation detail."
+  ;; TODO: we should probably use munging here for namespaces with hyphens in them.
   ([ctx sym]
    (let [sym-str (str sym)
          last-dot (str/last-index-of sym-str ".")
@@ -57,10 +61,15 @@
          namespace (if last-dot
                      (symbol (subs sym-str 0 last-dot))
                      (vars/current-ns-name))]
-     (resolve-record-class ctx namespace (symbol class-name))))
+     (resolve-record-or-protocol-class ctx namespace (symbol class-name))))
   ([ctx package class]
-   (let [namespace package]
+   (let [namespace (-> package str (str/replace "_" "-") symbol)]
      (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace class])]
        (if (vars/var? sci-var)
          @sci-var
          sci-var)))))
+
+(defn resolve-record-class
+  [ctx class-sym]
+  (when-let [x (resolve-record-or-protocol-class ctx class-sym)]
+    (when (symbol? x) x)))

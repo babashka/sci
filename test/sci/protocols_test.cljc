@@ -1,6 +1,6 @@
 (ns sci.protocols-test
   (:require #?(:cljs [clojure.string :as str])
-            [clojure.test :refer [deftest is]]
+            [clojure.test :refer [deftest is testing]]
             [sci.test-utils :as tu]))
 
 (deftest protocol-test
@@ -120,3 +120,21 @@
 [(subtotal (->Apple 100)) (subtotal (->Apple 100) 5)]
 "]
     (is (= [100 95] (tu/eval* prog {})))))
+
+#?(:clj
+   (deftest import-test
+     (testing "namespace with hyphen"
+       (let [prog "
+(ns foo-bar)
+(defprotocol Foo)
+(ns bar)
+(import 'foo_bar.Foo)
+(instance? Foo (reify Foo))
+"] (is (true? (tu/eval* prog {})))))))
+
+(deftest satisfies-test
+  (testing "No methods"
+    (let [prog "
+(defprotocol Foo)
+(satisfies? Foo (reify Foo))
+"] (is (true? (tu/eval* prog {}))))))

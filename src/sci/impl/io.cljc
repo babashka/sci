@@ -55,7 +55,8 @@
            (binding [*print-length* @print-length
                      *print-level* @print-level
                      *print-meta* @print-meta]
-             (.append @out (apply cljs.core/pr-str objs)))))
+             (.append @out (apply cljs.core/pr-str objs))
+             nil)))
 
 #?(:clj
    (defn flush
@@ -105,7 +106,8 @@
      (binding [*print-length* @print-length
                *print-level* @print-level
                *print-meta* @print-meta]
-       (.append @out (apply cljs.core/prn-str objs)))))
+       (.append @out (apply cljs.core/prn-str objs))
+       nil)))
 
 #?(:clj
    (defn prn-str
@@ -134,7 +136,8 @@
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level]
-       (.append @out (apply cljs.core/print-str objs)))))
+       (.append @out (apply cljs.core/print-str objs))
+       nil)))
 
 #?(:clj
    (defn print-str
@@ -164,7 +167,8 @@
      (binding [*print-length* @print-length
                *print-level* @print-level
                *print-meta* @print-meta]
-       (.append @out (apply println-str objs)))))
+       (.append @out (apply println-str objs))
+       nil)))
 
 #?(:clj
    (defn printf
