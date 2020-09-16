@@ -79,7 +79,11 @@
              (when (when call? (get macros sym))
                [sym sym])
              (when-let [c (interop/resolve-class ctx sym)]
-               [sym c])))))))
+               [sym c])
+             ;; resolves record or protocol referenced as class
+             ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
+             (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+               [sym x])))))))
 
 (defn tag [_ctx expr]
   (when-let [m (meta expr)]
@@ -562,10 +566,7 @@
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
-  (let [;; TODO:
-        ;; here it strips the namespace, which is correct in the case of
-        ;; js/Error. but not in clj
-        constructor-name (name constructor-sym)
+  (let [constructor-name (name constructor-sym)
         class-sym (with-meta (symbol (subs constructor-name 0
                                            (dec (count constructor-name))))
                     (meta constructor-sym))]

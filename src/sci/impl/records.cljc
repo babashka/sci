@@ -11,23 +11,27 @@
         protocol-impls (utils/split-when symbol? protocol-impls)
         protocol-impls
         (mapcat (fn [[protocol-name & impls]]
-                  (map (fn [impl]
-                         (let [protocol-var (@utils/eval-resolve-state ctx protocol-name)
-                               protocol-ns (-> protocol-var deref :ns)
-                               pns (str (vars/getName protocol-ns))
-                               fq-meth-name #(symbol pns %)
-                               args (second impl)
-                               this (first args)
-                               bindings (vec (mapcat (fn [field]
-                                                       [field (list (keyword field) this)])
-                                                     fields))]
-                           `(defmethod ~(fq-meth-name (str (first impl))) '~record-name ~(second impl)
-                              (let ~bindings
-                                ~@(nnext impl)))))
-                       impls))
+                  (let [impls (group-by first impls)
+                        protocol (@utils/eval-resolve-state ctx protocol-name)
+                        protocol (if (vars/var? protocol) @protocol protocol)
+                        protocol-ns (:ns protocol)
+                        pns (str (vars/getName protocol-ns))
+                        fq-meth-name #(symbol pns %)]
+                    (map (fn [[method-name bodies]]
+                           (let [bodies (map rest bodies)
+                                 bodies (mapv (fn [impl]
+                                                (let [args (first impl)
+                                                      this (first args)
+                                                      bindings (vec (mapcat (fn [field]
+                                                                              [field (list (keyword field) this)])
+                                                                            fields))]
+                                                  `(~args
+                                                    (let ~bindings
+                                                      ~@(next impl))))) bodies)]
+                             `(defmethod ~(fq-meth-name (str method-name)) '~record-name ~@bodies)))
+                         impls)))
                 protocol-impls)]
     `(do
-       ;; (prn '~record-name)
        (defn ~factory-fn-sym [& args#]
          (vary-meta (zipmap ~keys args#)
                     assoc
@@ -44,7 +48,10 @@
      (some-> x meta :sci.impl/record))
    (clojure.core/record? x)))
 
-(defn resolve-record-class
+(defn resolve-record-or-protocol-class
+  "A record class is represented by a symbol with metadata (currently). This is only an implementation detail.
+   A protocol is represented by a map with :ns, :methods and optionally :class. This is also an implementation detail."
+  ;; TODO: we should probably use munging here for namespaces with hyphens in them.
   ([ctx sym]
    (let [sym-str (str sym)
          last-dot (str/last-index-of sym-str ".")
@@ -54,10 +61,15 @@
          namespace (if last-dot
                      (symbol (subs sym-str 0 last-dot))
                      (vars/current-ns-name))]
-     (resolve-record-class ctx namespace (symbol class-name))))
+     (resolve-record-or-protocol-class ctx namespace (symbol class-name))))
   ([ctx package class]
    (let [namespace package]
      (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace class])]
        (if (vars/var? sci-var)
          @sci-var
          sci-var)))))
+
+(defn resolve-record-class
+  [ctx class-sym]
+  (when-let [x (resolve-record-or-protocol-class ctx class-sym)]
+    (when (symbol? x) x)))
