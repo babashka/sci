@@ -112,7 +112,8 @@
     `(clojure.core/-reified ~interface ~meths)))
 
 (defn satisfies? [protocol obj]
-  (if (instance? sci.impl.types.IReified obj)
+  (if #?(:clj (instance? sci.impl.types.IReified obj)
+         :cljs (clojure.core/satisfies? types/IReified obj))
     (if-let [obj-type (types/getInterface obj)]
       (= protocol obj-type)
       false)
