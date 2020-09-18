@@ -230,7 +230,7 @@ $ libsci/target/from-rust "(require '[cheshire.core :as json]) (json/generate-st
 
 To use the shared library from Python via ctypes, do the following from the directory
 containing the shared object:
-```
+``` python
 $ python
 Python 3.8.5 (default, Sep  5 2020, 10:50:12)
 [GCC 10.2.0] on linux
