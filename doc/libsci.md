@@ -4,6 +4,9 @@ To use sci as a shared library from e.g. C++, follow along with this
 tutorial. We illustrate what is happening when you run the script
 `libsci/compile-libsci` and `libsci/compile-cpp`.
 
+There are also instructions at the end for using the shared library from
+Python using ctypes.
+
 ## Prerequisites
 
 If you want to run this script yourself, prepare as follows:
@@ -222,6 +225,36 @@ follows:
 $ libsci/target/from-rust "(require '[cheshire.core :as json]) (json/generate-string (range 10))"
 [0,1,2,3,4,5,6,7,8,9]
 ```
+
+### Using libsci from Python
+
+To use the shared library from Python via ctypes, do the following from the directory
+containing the shared object:
+```
+$ python
+Python 3.8.5 (default, Sep  5 2020, 10:50:12)
+[GCC 10.2.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from ctypes import *
+>>> dll = CDLL("./libsci.so")
+>>> isolate = c_void_p()
+>>> isolatethread = c_void_p()
+>>> dll.graal_create_isolate(None, byref(isolate), byref(isolatethread))
+0
+>>> dll.eval_string.restype = c_char_p
+>>> result = dll.eval_string(isolatethread, c_char_p(bytes("(+ 1 8)", "utf8")))
+>>> result
+b'9'
+```
+
+The above instructions are for a Linux system.
+
+For macos, the file extension of the shared library should be different, probably `.dylib`.
+
+For Windows, the file extension of the shared library should be different, probably `.dll`.
+Also it may be necessary to use `WinDLL` instead of `CDLL`.
+
+N.B. Testing has only been done on Linux.
 
 ## References
 
