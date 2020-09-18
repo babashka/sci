@@ -38,7 +38,13 @@
                       {:bindings {'*x* x}})))))
   (testing "dynamic binding of false works"
     (is (false? (sci/eval-string
-                 "(def ^:dynamic x nil) (binding [x false] x)")))))
+                 "(def ^:dynamic x nil) (binding [x false] x)"))))
+  (testing
+      (let [foo (sci/new-dynamic-var 'foo 1)]
+        (sci/with-bindings {foo @foo}
+          (is (= 1 (sci/eval-string "*foo*" {:bindings {'*foo* foo}})))
+          (sci/set! foo 2)
+          (is (= 2 (sci/eval-string "*foo*" {:bindings {'*foo* foo}})))))))
 
 (deftest redefine-var-test
   (is (= 11 (eval* "

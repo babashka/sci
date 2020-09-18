@@ -1,13 +1,16 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
-                            ns create-ns])
+                            ns create-ns set!])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
    [sci.impl.opts :as opts]
-   [sci.impl.vars :as vars])
+   [sci.impl.parser :as parser]
+   [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]
+   [sci.impl.types :as t])
   #?(:cljs (:require-macros
             [sci.core :refer [with-bindings with-out-str copy-var]])))
 
@@ -26,6 +29,11 @@
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true) false)))
+
+(defn set!
+  "Establish thread local binding of dynamic var"
+  [dynamic-var v]
+  (t/setVal dynamic-var v))
 
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well
@@ -204,6 +212,42 @@
   ([sym] (create-ns sym nil))
   ([sym meta]
    (vars/->SciNamespace sym meta)))
+
+(defn parse-string
+  "Parses string `s` in the context of `ctx` (as produced with
+  `init`)."
+  ([ctx s]
+   (parser/parse-string ctx s)))
+
+(defn reader
+  "Returns indexing-push-back-reader from string or reader."
+  [x]
+  (parser/reader x))
+
+(defn get-line-number [reader]
+  (parser/get-line-number reader))
+
+(defn get-column-number [reader]
+  (parser/get-column-number reader))
+
+(defn parse-next
+  "Parses next form from reader"
+  ([ctx reader] (parse-next ctx reader {}))
+  ([ctx reader opts]
+   (let [v (parser/parse-next ctx reader)]
+     (if (utils/kw-identical? :edamame.impl.parser/eof v)
+       (or (get opts :eof)
+           ::eof)
+       v))))
+
+(defn eval-form
+  "Evaluates form (as produced by `parse-string` or `parse-next`) in the
+  context of `ctx` (as produced with `init`). To allow namespace
+  switches, establish root binding of `sci/ns` with `sci/binding` or
+  `sci/with-bindings.`"
+  [ctx form]
+  (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
+    (i/eval-form ctx form)))
 
 ;;;; Scratch
 

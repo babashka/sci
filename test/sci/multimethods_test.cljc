@@ -31,3 +31,24 @@
 (defmethod bar [::shape ::rect] [x y] :shape-rect)
 (prefer-method bar [::rect ::shape] [::shape ::rect])
 (bar ::rect ::rect)"))))
+
+(deftest multi-arity-test
+  (is (= [:default :one :two :three :more]
+         (eval* "
+(defmulti foo (fn [x & _] x))
+
+(defmethod foo :default [_ & _] :default)
+
+;; Like a standar multi-arity function
+(defmethod foo :bar
+  ([_ _] :one)
+  ([_ _ _] :two)
+  ([_ _ _ _] :three)
+  ([_ _ _ _ & more] :more))
+
+[(foo :baz 1)
+ (foo :bar 1)
+ (foo :bar 1 2)
+ (foo :bar 1 2 3)
+ (foo :bar 1 2 3 4)]
+"))))

@@ -79,7 +79,11 @@
              (when (when call? (get macros sym))
                [sym sym])
              (when-let [c (interop/resolve-class ctx sym)]
-               [sym c])))))))
+               [sym c])
+             ;; resolves record or protocol referenced as class
+             ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
+             (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+               [sym x])))))))
 
 (defn tag [_ctx expr]
   (when-let [m (meta expr)]
@@ -453,17 +457,29 @@
         :finally finally}}
       {:sci.impl/op :try})))
 
-(defn expand-declare [ctx [_declare & names :as _expr]]
+(defn expand-declare [ctx [_declare & names :as expr]]
   (swap! (:env ctx)
          (fn [env]
            (let [cnn (vars/current-ns-name)]
              (update-in env [:namespaces cnn]
                         (fn [current-ns]
                           (reduce (fn [acc name]
-                                    (if (contains? acc name)
-                                      ;; declare does not override an existing
-                                      ;; var
-                                      acc
+                                    (if-let [x (.get ^java.util.Map acc name)]
+                                      (if-let [prev-ns (some-> x meta :ns)]
+                                        (let [current-ns-name (vars/current-ns-name)]
+                                          (if-not (= (vars/getName prev-ns)
+                                                     current-ns-name)
+                                            (throw-error-with-location
+                                             (str name " already refers to "
+                                                  x " in namespace "
+                                                  current-ns-name)
+                                             expr)
+                                            ;; when the previous bound thing
+                                            ;; didn't have an ns, just assume
+                                            ;; things are ok to redefine
+                                            acc))
+                                        ;; declare does not override an existing var
+                                        acc)
                                       (assoc acc name
                                              (doto (vars/->SciVar nil (symbol (str cnn)
                                                                               (str name))
@@ -550,10 +566,7 @@
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
-  (let [;; TODO:
-        ;; here it strips the namespace, which is correct in the case of
-        ;; js/Error. but not in clj
-        constructor-name (name constructor-sym)
+  (let [constructor-name (name constructor-sym)
         class-sym (with-meta (symbol (subs constructor-name 0
                                            (dec (count constructor-name))))
                     (meta constructor-sym))]

@@ -1,6 +1,6 @@
 (ns sci.protocols-test
   (:require #?(:cljs [clojure.string :as str])
-            [clojure.test :refer [deftest is]]
+            [clojure.test :refer [deftest is testing]]
             [sci.test-utils :as tu]))
 
 (deftest protocol-test
@@ -112,3 +112,35 @@
                              :cljs js/Error)
                           #"No implementation of method: :foo of protocol: #'user/Foo found for"
                           (tu/eval* prog {})))))
+
+(deftest multi-arity-test
+  (let [prog "
+(defprotocol IFruit (subtotal [item] [item subtotal]))
+(defrecord Apple [price] IFruit (subtotal [_] price) (subtotal [_ discount] (- price discount)))
+(extend-type String IFruit (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))
+[(subtotal (->Apple 100)) (subtotal (->Apple 100) 5) (subtotal \"foo\") (subtotal \"foo\" 2)]
+"
+        prog #?(:clj prog
+                :cljs (-> prog
+                          (str/replace "String" "js/String")))]
+    (is (= [100 95 3 1] (tu/eval* prog #?(:clj {}
+                                          :cljs {:classes {:allow :all
+                                                           'js #js {:String js/String}}}))))))
+
+#?(:clj
+   (deftest import-test
+     (testing "namespace with hyphen"
+       (let [prog "
+(ns foo-bar)
+(defprotocol Foo)
+(ns bar)
+(import 'foo_bar.Foo)
+(instance? Foo (reify Foo))
+"] (is (true? (tu/eval* prog {})))))))
+
+(deftest satisfies-test
+  (testing "No methods"
+    (let [prog "
+(defprotocol Foo)
+(satisfies? Foo (reify Foo))
+"] (is (true? (tu/eval* prog {}))))))

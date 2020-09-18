@@ -210,13 +210,12 @@
     env))
 
 (defn handle-require-libspec
-  [ctx libspec]
+  [ctx libspec use?]
   (let [{:keys [:lib-name :reload] :as parsed-libspec} (parse-libspec libspec)
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
         namespaces (get env :namespaces)
-        use? (:sci.impl/use ctx)
         uberscript (:uberscript ctx)
         reload* (or reload uberscript)]
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib-name))]
@@ -246,9 +245,8 @@
         (throw (new #?(:clj Exception :cljs js/Error)
                     (str "Could not find namespace " lib-name ".")))))))
 
-(defn eval-require
-  [ctx & args]
-  #_(prn "eval require" args)
+(defn eval-require*
+  [ctx args use?]
   (loop [libspecs []
          current-libspec nil
          args args]
@@ -271,13 +269,17 @@
                  (next args))))
       (let [libspecs (cond-> libspecs
                        current-libspec (conj current-libspec))]
-        (run! #(handle-require-libspec ctx %) libspecs)))))
+        (run! #(handle-require-libspec ctx % use?) libspecs)))))
+
+(defn eval-require
+  [ctx & args]
+  (eval-require* ctx args false))
 
 (vreset! utils/eval-require-state eval-require)
 
 (defn eval-use
   [ctx & args]
-  (apply eval-require (assoc ctx :sci.impl/use true) args))
+  (eval-require* ctx args true))
 
 (vreset! utils/eval-use-state eval-use)
 
@@ -465,7 +467,7 @@
                   (if (interop/resolve-class ctx fq-class-name)
                     (let [cnn (vars/current-ns-name)]
                       (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name))
-                    (if-let [rec (records/resolve-record-class ctx package class)]
+                    (if-let [rec (records/resolve-record-or-protocol-class ctx package class)]
                       (let [cnn (vars/current-ns-name)]
                         (swap! env assoc-in [:namespaces cnn class] rec))
                       (throw (new #?(:clj Exception :cljs js/Error)

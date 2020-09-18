@@ -11,6 +11,7 @@
    [clojure.tools.reader.reader-types :as r]
    #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
+   [sci.impl.core-protocols :as core-protocols]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
@@ -549,6 +550,22 @@
 
 ;;;; End binding vars
 
+#?(:clj
+   (def clojure-lang
+     {:obj (vars/->SciNamespace 'clojure.lang nil)
+      ;; IDeref as protocol instead of class
+      'IDeref core-protocols/deref-protocol
+      'deref core-protocols/deref
+      ;; IAtom as protocol instead of class
+      'IAtom core-protocols/swap-protocol
+      'swap core-protocols/swap
+      'reset core-protocols/reset
+      'compareAndSet core-protocols/compareAndSet
+      'IAtom2 core-protocols/iatom2-protocol
+      'resetVals core-protocols/resetVals
+      'swapVals core-protocols/swapVals
+      }))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -614,6 +631,22 @@
    'protocol-type-impl types/type-impl
    'satisfies? protocols/satisfies?
    ;; end protocols
+   ;; IDeref as protocol
+   'deref core-protocols/deref*
+   #?@(:cljs ['-deref core-protocols/-deref
+              'IDeref core-protocols/deref-protocol])
+   ;; end IDeref as protocol
+   ;; IAtom / ISwap as protocol
+   'swap! core-protocols/swap!*
+   'compare-and-set! #?(:clj core-protocols/compare-and-set!*
+                        :cljs (copy-core-var compare-and-set!))
+   #?@(:cljs ['IReset core-protocols/reset-protocol
+              'ISwap core-protocols/swap-protocol
+              '-swap! core-protocols/-swap!
+              '-reset! core-protocols/-reset!])
+   ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
+   #?@(:clj ['swap-vals! core-protocols/swap-vals!*
+             'reset-vals! core-protocols/reset-vals!*])
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
@@ -708,7 +741,6 @@
                  :sci.impl/op :needs-ctx})
    'delay (macrofy delay*)
    #?@(:clj ['deliver (copy-core-var deliver)])
-   'deref (copy-core-var deref)
    'derive (with-meta hierarchies/derive* {:sci.impl/op :needs-ctx})
    'descendants (with-meta hierarchies/descendants* {:sci.impl/op :needs-ctx})
    'dissoc (copy-core-var dissoc)
@@ -773,7 +805,7 @@
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
    'inst? (copy-core-var inst?)
-   'instance? types/instance-impl
+   'instance? protocols/instance-impl
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
    'intern (with-meta sci-intern {:sci.impl/op :needs-ctx})
@@ -894,8 +926,7 @@
    'reduce-kv (copy-core-var reduce-kv)
    'reduced (copy-core-var reduced)
    'reduced? (copy-core-var reduced?)
-   'reset! (copy-core-var reset!)
-   'reset-vals! (copy-core-var reset-vals!)
+   'reset! core-protocols/reset!*
    'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
    'resolve (with-meta sci-resolve {:sci.impl/op :needs-ctx})
    'reversible? (copy-core-var reversible?)
@@ -949,8 +980,6 @@
    'sequence (copy-core-var sequence)
    'seqable? (copy-core-var seqable?)
    'shorts (copy-core-var shorts)
-   'swap! (copy-core-var swap!)
-   'swap-vals! (copy-core-var swap-vals!)
    'tagged-literal (copy-core-var tagged-literal)
    'tagged-literal? (copy-core-var tagged-literal?)
    'take (copy-core-var take)
@@ -1275,7 +1304,8 @@
    'macroexpand-all macroexpand-all})
 
 (def namespaces
-  {'clojure.core clojure-core
+  {#?@(:clj ['clojure.lang clojure-lang])
+   'clojure.core clojure-core
    'clojure.string {:obj clojure-string-namespace
                     'blank? (copy-var str/blank? clojure-string-namespace)
                     'capitalize (copy-var str/capitalize clojure-string-namespace)

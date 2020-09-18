@@ -23,10 +23,3 @@
         :sci.impl.protocols/reified)
       (some-> x meta :sci.impl/type)
       (type x)))
-
-(defn instance-impl [clazz x]
-  (if (and (symbol? clazz)
-           (let [m (meta clazz)]
-             (:sci.impl/record m)))
-    (= clazz (some-> x meta :sci.impl/type))
-    (instance? clazz x)))
