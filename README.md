@@ -24,9 +24,6 @@
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
-[More](#Usage) on how to use sci from Clojure.
-Use from [JavaScript](#use-from-javaScript).
-
 ## Why
 
 You want to evaluate code from user input, or use Clojure for a DSL inside your
@@ -72,15 +69,15 @@ documentation.
 
 ## Usage
 
-Currently the only API function is `sci.core/eval-string` which takes a string
-to evaluate and an optional options map.
+The main API function is `sci.core/eval-string` which takes a string to evaluate
+and an optional options map.
 
 In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
 
-By default `sci` only enables access to the pure non-side-effecting functions in
-Clojure.  More functions can be enabled, at your own risk, by using `:bindings`.
-Normally you would use sci's version of `println` but here, for the purposes of
+By default `sci` only enables access to most of the Clojure core functions.
+More functions can be enabled, at your own risk, by using `:bindings`.  Normally
+you would use sci's version of `println` but here, for the purposes of
 demonstration, we use use Clojure's version of `println` instead:
 
 ``` clojure
