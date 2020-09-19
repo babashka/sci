@@ -14,35 +14,50 @@
   t/IBox
   (getVal [this] val))
 
+
+(defn fast-second [xs]
+  (some-> ^clojure.lang.ISeq xs
+          ^clojure.lang.ISeq (.next)
+          (.first)))
+
 (defn parse-fn-args+body
-  [ctx interpret eval-do*
+  [^clojure.lang.Associative ctx interpret eval-do*
    {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
+        ;;lifted out, probably minor, but on repeat invocations it'll
+        ;;add up...
+        return (if (= 1 (count body))
+                 (let [x (first body)]
+                   #(interpret % x)
+                   #(eval-do* % body)))
+        ;;lift out of the function body in case of
+        ;;recur...
+        init-params (seq params) ;;should be able to unfold this.....
         f (fn run-fn [& args]
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                   bindings (.get ^java.util.Map ctx :bindings)
                   bindings
-                  (loop [args* (seq args)
-                         params (seq params)
-                         ret bindings]
+                  (loop [^clojure.lang.ISeq args* (seq args) ;;seems avoidable...
+                         ^clojure.lang.ISeq params init-params
+                         ^clojure.lang.Associative ret bindings]
                     (if params
-                      (let [fp (first params)]
-                        (if (= '& fp)
-                          (assoc ret (second params) args*)
+                      (let [fp (.first params)]
+                        (if (identical? #_= '& fp) ;;should be faster
+                          (.assoc ret (fast-second #_second params) args*)
                           (do
                             (when-not args*
                               (throw-arity fn-name macro? args))
-                            (recur (next args*) (next params)
-                                   (assoc ret fp (first args*))))))
+                            (recur (.next args*) (.next params)
+                                   (.assoc ret fp (.first args*))))))
                       (do
                         (when args*
                           (throw-arity fn-name macro? args))
                         ret)))
-                  ctx (assoc ctx :bindings bindings)
-                  ret (if (= 1 (count body))
-                        (interpret ctx (first body))
-                        (eval-do* ctx body))
+
+                  ctx (.assoc ctx :bindings bindings)
+                  ;;Doesn't need to be in here does it?
+                  ret (return ctx)
                   ;; m (meta ret)
                   recur? (instance? Recur ret)]
               (if recur?
