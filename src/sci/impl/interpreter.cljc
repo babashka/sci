@@ -641,10 +641,10 @@
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(interpret ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx f args]
+         ;; (prn ~'f)
          (fast-case ~'(count args)
            ~@cases)))))
 
-#_
 (def-fn-call)
 
 (defn ^clojure.lang.ISeq arg-vals [ctx ^clojure.lang.ISeq coll]
@@ -657,7 +657,7 @@
   #_(apply f (map #(interpret ctx %) args))
   (.applyTo ^clojure.lang.IFn f ^clojure.lang.ISeq (map #(interpret ctx %) args)))
 
-(defn fn-call [ctx f args]
+#_(defn fn-call [ctx f args]
   (.applyTo ^clojure.lang.IFn f (arg-vals ctx  args)))
 
 (defn eval-special-call [ctx f-sym expr]
