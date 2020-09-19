@@ -251,12 +251,21 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         arities (:bodies analyzed-bodies)
-        arglists (:arglists analyzed-bodies)]
-    (with-meta #:sci.impl{:fn-bodies arities
-                          :fn-name fn-name
-                          :arglists arglists
-                          :fn true}
-      {:sci.impl/op :fn})))
+        arglists (:arglists analyzed-bodies)
+        f (with-meta #:sci.impl{:fn-bodies arities
+                                :fn-name fn-name
+                                :arglists arglists
+                                :fn true}
+            {:sci.impl/op :fn})
+        ]
+    (if (and (= 1 (count arglists))
+             (empty? (first arglists))
+             (not macro?))
+      (do
+        (prn fn-expr)
+        (@utils/eval-fn ctx @utils/interpret @utils/eval-do* f))
+      f)
+    ))
 
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
@@ -327,7 +336,7 @@
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
         meta-map (analyze ctx (merge (meta fn-name) (meta expr) meta-map))
-        fn-body (with-meta (cons 'fn body)
+        fn-body (with-meta (list* 'fn fn-name body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
         arglists (seq (:sci.impl/arglists f))
@@ -338,10 +347,12 @@
                   (cond-> meta-map
                     docstring (assoc :doc docstring)
                     macro? (assoc :macro true)))
-        f (assoc f
-                 :sci/macro macro?
-                 :sci.impl/fn-name fn-name
-                 :sci.impl/var true)]
+        f (if (map? f)
+            (assoc f
+                   :sci/macro macro?
+                   :sci.impl/fn-name fn-name
+                   :sci.impl/var true)
+            f)]
     (mark-eval-call (list 'def fn-name f))))
 
 (defn expand-comment
@@ -369,7 +380,7 @@
   [ctx expr]
   (let [body (rest expr)]
     (mark-eval-call
-     (list 'lazy-seq
+     (list 'lazy-seq ;; TODO: make fully qualified to avoid conflicts
            (analyze ctx
                     ;; expand-fn will take care of the analysis of the body
                     (list 'fn [] (cons 'do body)))))))
