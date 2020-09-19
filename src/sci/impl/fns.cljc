@@ -2,6 +2,8 @@
   {:no-doc true}
   (:require [sci.impl.types :as t]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (defn throw-arity [fn-name macro? args]
   (throw (new #?(:clj Exception
                  :cljs js/Error)
@@ -15,7 +17,7 @@
   (getVal [this] val))
 
 (defn parse-fn-args+body
-  [ctx interpret eval-do*
+  [^clojure.lang.Associative ctx interpret eval-do*
    {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
@@ -44,7 +46,8 @@
                         (when args*
                           (throw-arity fn-name macro? args))
                         ret)))
-                  ctx (assoc ctx :bindings bindings)
+                  ctx (#?(:clj .assoc
+                          :cljs -assoc) ctx :bindings bindings)
                   ret (return ctx)
                   ;; m (meta ret)
                   recur? (instance? Recur ret)]
