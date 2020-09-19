@@ -23,6 +23,118 @@
 
 (declare interpret fn-call)
 
+;;We know we have seqs already.
+(defn fast-first [expr]
+  (when expr
+    (cond (instance? clojure.lang.ISeq expr)
+          (.first ^clojure.lang.ISeq expr)
+          (instance? clojure.lang.Indexed expr)
+          (.nth ^clojure.lang.Indexed expr 0))))
+
+(defn fast-rest [expr]
+  (when expr
+    (cond (instance? clojure.lang.ISeq expr)
+          (.next ^clojure.lang.ISeq expr)
+          :else
+          (.next (.seq ^clojure.lang.ISeq expr)))))
+
+(defmacro case-identical?
+  "Like clojure.core/case, except instead of a lookup map, we
+   use `condp` and `identical?` in an unfolding macroexpansion
+   to allow fast case lookups for smaller cases where we may
+   beat the o(1) cost of hashing the clojure.core/case incurs
+   via its lookup map.  Some workloads are substantially (~3x)
+   faster using linear lookup and `identical?` checks.
+
+   Caller should be aware of the differences between `identical?`
+   and `=` or other structural hashing comparisons.  `identical?`
+   is appropriate for object (e.g. pointer) equality between
+   instances, and is more restrictive than structural equality
+   per `clojure.core/=`; objects may be = but not `identical?`,
+   where `indentical?` objects are almost certainly `=`."
+  [e & clauses]
+  (let [ge      (with-meta (gensym) {:tag Object})
+        default (if (odd? (count clauses))
+                  (or (last clauses) ::nil)
+                  `(throw (IllegalArgumentException. (str "No matching clause: " ~ge))))
+        conj-flat   (fn [acc [k v]]
+                      (conj acc k v))]
+    (if (> 2 (count clauses))
+      `(let [~ge ~e] ~default)
+      (let [pairs     (->> (partition 2 clauses)
+                           (reduce (fn [acc [l r]]
+                                     (if (seq? l)
+                                       (reduce conj acc (for [x l] [x r]))
+                                       (conj acc [l r])))  []))
+            dupes    (->> pairs
+                          (map first)
+                          frequencies
+                          (filter (fn [[k v]]
+                                    (> v 1)))
+                          (map first))
+            args     (reduce conj-flat [] pairs)]
+        (when (seq dupes)
+          (throw (ex-info (str "Duplicate case-identical? test constants: " (vec dupes)) {:dupes dupes})))
+        `(let [~ge ~e]
+           (condp identical? ~ge
+             ~@(if default (conj args (case default ::nil nil default)) args)))))))
+
+(defmacro fast-case
+   "Drop-in replacement for clojure.core/case that attempts to optimize
+    identical? case comparison (e.g. keywords).
+    Takes an expression, and a set of clauses.
+
+    Each clause can take the form of either:
+
+    test-constant result-expr
+
+    (test-constant1 ... test-constantN)  result-expr
+
+    The test-constants are not evaluated. They must be compile-time
+    literals, and need not be quoted.  If the expression is equal to a
+    test-constant, the corresponding result-expr is returned. A single
+    default expression can follow the clauses, and its value will be
+    returned if no clause matches. If no default expression is provided
+    and no clause matches, an IllegalArgumentException is thrown.
+
+    Unlike cond and condp, fast-case does a constant-time dispatch for
+    ints and non-keyword constants; the clauses are not considered
+    sequentially.
+
+    If all test cases are keywords, then fast-case will leverage an
+    optimized path for `identical?` checks, where we balance the
+    performance of a linear comparison of entries by object
+    identity with the cost of an associative lookup and hashing
+    of the case objects.  This can yield signficant savings
+    for cases that are all keywords, and when there may be
+    benefit for short-circuiting operations (e.g. the most
+    likely case is first).
+
+    All manner of constant expressions are acceptable in case,
+    including numbers, strings,  symbols, keywords, and (Clojure)
+    composites thereof. Note that since lists are used to group
+    multiple constants that map to the same expression, a vector
+    can be used to match a list if needed. The  test-constants
+    need not be all of the same type."
+  [e & clauses]
+  (let [ge (with-meta (gensym) {:tag Object})
+        default (if (odd? (count clauses))
+                  (last clauses)
+                  `(throw (IllegalArgumentException. (str "No matching clause: " ~ge))))
+        conj-flat   (fn [acc [k v]]
+                      (conj acc k v))]
+    (if (> 2 (count clauses))
+      `(let [~ge ~e] ~default)
+      (let [pairs (->> (partition 2 clauses)
+                       (reduce (fn [acc [l r]]
+                                 (if (seq? l)
+                                   (reduce conj acc (for [x l] [x r]))
+                                   (conj acc [l r])))  []))]
+        (if (and (every? keyword? (map first pairs))
+                 (<= (count pairs) 20))
+          `(case-identical? ~e ~@clauses)
+          `(clojure.core/case ~e ~@clauses))))))
+
 #?(:clj (set! *warn-on-reflection* true))
 
 (def #?(:clj ^:const macros :cljs macros)
@@ -38,7 +150,7 @@
   (let [args (seq args)]
     (loop [args args]
       (if args
-        (let [x (first args)
+        (let [x (fast-first args)
               xs (next args)
               v (interpret ctx x)]
           (if v
@@ -52,7 +164,7 @@
   (let [args (seq args)]
     (loop [args args]
       (when args
-        (let [x (first args)
+        (let [x (fast-first args)
               xs (next args)
               v (interpret ctx x)]
           (if v v
@@ -64,9 +176,9 @@
   [ctx let-bindings & exprs]
   (let [ctx (loop [ctx ctx
                    let-bindings let-bindings]
-              (let [let-name (first let-bindings)
-                    let-bindings (rest let-bindings)
-                    let-val (first let-bindings)
+              (let [let-name (fast-first let-bindings)
+                    let-bindings (fast-rest let-bindings)
+                    let-val (fast-first let-bindings)
                     rest-let-bindings (next let-bindings)
                     val-tag (when-let [m (meta let-val)]
                               (:tag m))
@@ -82,7 +194,7 @@
                          rest-let-bindings))))]
     (when exprs
       (loop [exprs exprs]
-        (let [e (first exprs)
+        (let [e (fast-first exprs)
               ret (interpret ctx e)
               nexprs (next exprs)]
           (if nexprs (recur nexprs)
@@ -91,11 +203,11 @@
 (defn eval-if
   [ctx expr]
   ;; NOTE: not using destructuring for small perf gain
-  (let [cond (first expr)
-        expr (rest expr)
-        then (first expr)
-        expr (rest expr)
-        else (first expr)]
+  (let [cond (fast-first expr)
+        expr (fast-rest expr)
+        then (fast-first expr)
+        expr (fast-rest expr)
+        else (fast-first expr)]
     (if (interpret ctx cond)
       (interpret ctx then)
       (interpret ctx else))))
@@ -147,7 +259,7 @@
       (loop [ret {:lib-name lib-name}
              [opt-name fst-opt & rst-opts] opts]
         (if-not opt-name ret
-                (case opt-name
+                (fast-case opt-name
                   :as (recur (assoc ret :as fst-opt)
                              rst-opts)
                   (:reload :reload-all :verbose) (recur
@@ -251,7 +363,7 @@
          current-libspec nil
          args args]
     (if args
-      (let [ret (interpret ctx (first args))]
+      (let [ret (interpret ctx (fast-first args))]
         (cond
           (symbol? ret)
           (recur (cond-> libspecs
@@ -324,9 +436,9 @@
 ;;;; Interop
 
 (defn eval-static-method-invocation [ctx expr]
-  (interop/invoke-static-method (first expr)
+  (interop/invoke-static-method (fast-first expr)
                                 ;; eval args!
-                                (map #(interpret ctx %) (rest expr))))
+                                (map #(interpret ctx %) (fast-rest expr))))
 
 (defn eval-constructor-invocation [ctx [_new #?(:clj class :cljs constructor) args]]
   (let [args (map #(interpret ctx %) args)] ;; eval args!
@@ -375,7 +487,7 @@
     (loop [exprs exprs]
       (when exprs
         (let [[k v] exprs]
-          (case k
+          (fast-case k
             :exclude
             (swap! (:env ctx)
                    (fn [env]
@@ -409,7 +521,7 @@
 (defn macroexpand-1 [ctx expr]
   (let [original-expr expr]
     (if (seq? expr)
-      (let [op (first expr)]
+      (let [op (fast-first expr)]
         (if (symbol? op)
           (cond (get ana/special-syms op) expr
                 (contains? #{'for} op) (ana/analyze (assoc ctx :sci.impl/macroexpanding true)
@@ -423,7 +535,7 @@
                     (let [f (if (kw-identical? :needs-ctx (some-> f meta :sci.impl/op))
                               (partial f ctx)
                               f)]
-                      (apply f original-expr (:bindings ctx) (rest expr)))
+                      (apply f original-expr (:bindings ctx) (fast-rest expr)))
                     expr)))
           expr))
       expr)))
@@ -444,7 +556,7 @@
 
 (defn eval-import [ctx & import-symbols-or-lists]
   ;;(prn import-symbols-or-lists)
-  (let [specs (map #(if (and (seq? %) (= 'quote (first %))) (second %) %)
+  (let [specs (map #(if (and (seq? %) (= 'quote (fast-first %))) (second %) %)
                    import-symbols-or-lists)
         env (:env ctx)]
     (run! (fn [spec]
@@ -458,8 +570,8 @@
                              [(symbol (subs s (inc last-dot) (count s)))]]
                             [nil [spec]])]
                       package+class-name)
-                    (let [p (first spec)
-                          cs (rest spec)]
+                    (let [p (fast-first spec)
+                          cs (fast-rest spec)]
                       [p cs]))]
               (doseq [class classes]
                 (let [fq-class-name (symbol (if package (str package "." class)
@@ -501,13 +613,13 @@
 (macros/deftime
   ;; This macro generates a function of the following form for 20 arities:
   #_(defn fn-call [ctx f args]
-      (case (count args)
+      (fast-case (count args)
         0 (f)
-        1 (let [arg (interpret ctx (first args))]
+        1 (let [arg (interpret ctx (fast-first args))]
             (f arg))
-        2 (let [arg1 (interpret ctx (first args))
-                args (rest args)
-                arg2 (interpret ctx (first args))]
+        2 (let [arg1 (interpret ctx (fast-first args))
+                args (fast-rest args)
+                arg2 (interpret ctx (fast-first args))]
             (f arg1 arg2))
         ,,,
         (let [args (mapv #(interpret ctx %) args)]
@@ -518,8 +630,8 @@
                     [i (let [arg-syms (map (fn [_] (gensym "arg")) (range i))
                              args-sym 'args ;; (gensym "args")
                              let-syms (interleave arg-syms (repeat args-sym))
-                             let-vals (interleave (repeat `(interpret ~'ctx (first ~args-sym)))
-                                                  (repeat `(rest ~args-sym)))
+                             let-vals (interleave (repeat `(interpret ~'ctx (fast-first ~args-sym)))
+                                                  (repeat `(fast-rest ~args-sym)))
                              let-bindings (vec (interleave let-syms let-vals))]
                          `(let ~let-bindings
                             (~'f ~@arg-syms)))]) (range 20))
@@ -529,18 +641,32 @@
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(interpret ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx f args]
-         (case ~'(count args)
+         (fast-case ~'(count args)
            ~@cases)))))
 
+#_
 (def-fn-call)
 
+(defn ^clojure.lang.ISeq arg-vals [ctx ^clojure.lang.ISeq coll]
+  (lazy-seq
+   (when-let [x (when coll (.first coll))]
+     (.cons ^clojure.lang.ISeq (arg-vals ctx (.next coll))
+            (interpret ctx x)))))
+
+#_(defn fn-call [ctx f args]
+  #_(apply f (map #(interpret ctx %) args))
+  (.applyTo ^clojure.lang.IFn f ^clojure.lang.ISeq (map #(interpret ctx %) args)))
+
+(defn fn-call [ctx f args]
+  (.applyTo ^clojure.lang.IFn f (arg-vals ctx  args)))
+
 (defn eval-special-call [ctx f-sym expr]
-  (case (utils/strip-core-ns f-sym)
+  (fast-case (utils/strip-core-ns f-sym)
     do (eval-do ctx expr)
-    if (eval-if ctx (rest expr))
-    and (eval-and ctx (rest expr))
-    or (eval-or ctx (rest expr))
-    let (apply eval-let ctx (rest expr))
+    if (eval-if ctx (fast-rest expr))
+    and (eval-and ctx (fast-rest expr))
+    or (eval-or ctx (fast-rest expr))
+    let (apply eval-let ctx (fast-rest expr))
     def (eval-def ctx expr)
     lazy-seq (new #?(:clj clojure.lang.LazySeq
                      :cljs cljs.core/LazySeq)
@@ -549,7 +675,7 @@
                   (interpret ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
+    recur (fn-call ctx (comp fns/->Recur vector) (fast-rest expr))
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -558,16 +684,16 @@
     throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
-    refer (apply eval-refer ctx (rest expr))
-    require (apply eval-require ctx (rest expr))
-    use (apply eval-use ctx (rest expr))
+    refer (apply eval-refer ctx (fast-rest expr))
+    require (apply eval-require ctx (fast-rest expr))
+    use (apply eval-use ctx (fast-rest expr))
     resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))
-    import (apply eval-import ctx (rest expr))))
+    import (apply eval-import ctx (fast-rest expr))))
 
 (defn eval-call [ctx expr]
-  (try (let [f (first expr)
+  (try (let [f (fast-first expr)
              m (meta f)
              op (when m (.get ^java.util.Map m :sci.impl/op))]
          (cond
@@ -579,7 +705,7 @@
            (let [f (if op (interpret ctx f)
                        f)]
              (if (ifn? f)
-               (fn-call ctx f (rest expr))
+               (fn-call ctx f (fast-rest expr))
                (throw (new #?(:clj Exception :cljs js/Error)
                            (str "Cannot call " (pr-str f) " as a function.")))))))
        (catch #?(:clj Throwable :cljs js/Error) e
@@ -612,13 +738,13 @@
                 ;; TODO: moving this up increased performance for #246. We can
                 ;; probably optimize it further by not using separate keywords for
                 ;; one :sci.impl/op keyword on which we can use a case expression
-                (case op
+                (fast-case op
                   :call (eval-call ctx expr)
                   :try (eval-try ctx expr)
                   :fn (fns/eval-fn ctx interpret eval-do* expr)
                   :static-access (interop/get-static-field expr)
                   :var-value (nth expr 0)
-                  :deref! (let [v (first expr)
+                  :deref! (let [v (fast-first expr)
                                 v (if (vars/var? v) @v v)
                                 v (force v)]
                             v)
@@ -647,21 +773,21 @@
 
 (defn do? [expr]
   (and (list? expr)
-       (= 'do (first expr))))
+       (= 'do (fast-first expr))))
 
 (defn eval-form [ctx form]
   (if (list? form)
-    (if (= 'do (first form))
-      (loop [exprs (rest form)
+    (if (= 'do (fast-first form))
+      (loop [exprs (fast-rest form)
              ret nil]
         (if (seq exprs)
           (recur
-           (rest exprs)
-           (eval-form ctx (first exprs)))
+           (fast-rest exprs)
+           (eval-form ctx (fast-first exprs)))
           ret))
       (when (or (not (:uberscript ctx))
-                (= 'ns (first form))
-                (= 'require (first form)))
+                (= 'ns (fast-first form))
+                (= 'require (fast-first form)))
         (let [analyzed (ana/analyze ctx form)
               ret (interpret ctx analyzed)]
           ret)))

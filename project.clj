@@ -16,7 +16,8 @@
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :clojure-1.10.2-alpha1 {:dependencies [[org.clojure/clojure "1.10.2-alpha1"]]}
-             :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
+             :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]
+                                  [criterium "0.4.5"]]}
              :test {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
                     :dependencies [[clj-commons/conch "0.9.2"]
                                    [criterium "0.4.5"]
