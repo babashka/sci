@@ -102,6 +102,10 @@
                  v (if t (vary-meta v
                                     assoc :tag t)
                        v)]
+             (when-let [closure (:closure ctx)]
+               ;; (prn ::closure! k)
+               (vreset! closure true) ;; TODO: unless the binding comes from the function args
+               )
              [k v]))
          (when-let
              [[k _ :as kv]
@@ -174,7 +178,7 @@
          :body [`(let ~lets
                    ~@body)]}))))
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro? closure?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -206,12 +210,14 @@
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
         ctx (update ctx :bindings merge (zipmap params
                                                 (repeat nil)))
-        body (analyze-children ctx body)]
+        closure (or (:closure ctx) closure?)
+        body (analyze-children (assoc ctx :closure closure) body)]
     #:sci.impl{:body body
                :params params
                :fixed-arity fixed-arity
                :var-arg-name var-arg-name
-               :fn-name fn-name}))
+               :fn-name fn-name
+               :closure @closure}))
 
 (defn expand-fn [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
@@ -230,7 +236,8 @@
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
-                                 body (expand-fn-args+body ctx fn-name body macro?)
+                                 closure? (volatile! false)
+                                 body (expand-fn-args+body ctx fn-name body macro? closure?)
                                  body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:sci.impl/var-arg-name body)
                                  fixed-arity (:sci.impl/fixed-arity body)
@@ -245,8 +252,10 @@
                                         :max-fixed (max (:sci.impl/fixed-arity body)
                                                         max-fixed))
                                  (update :bodies conj body)
-                                 (update :arglists conj arglist))))
-                         {:bodies []
+                                 (update :arglists conj arglist)
+                                 (update :closure (fn [v] (or v (:sci.impl/closure body)))))))
+                         {:closure false
+                          :bodies []
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
@@ -258,11 +267,12 @@
                                 :fn true}
             {:sci.impl/op :fn})
         ]
-    (if (and (= 1 (count arglists))
-             (empty? (first arglists))
-             (not macro?))
+    (if (and ;;(= 1 (count arglists))
+             ;;(empty? (first arglists))
+             (not macro?)
+             (not (:closure analyzed-bodies)))
       (do
-        (prn fn-expr)
+        ;; (prn fn-expr)
         (@utils/eval-fn ctx @utils/interpret @utils/eval-do* f))
       f)
     ))
