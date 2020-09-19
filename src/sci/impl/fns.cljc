@@ -16,12 +16,15 @@
   t/IBox
   (getVal [this] val))
 
+#?(:clj (set! *unchecked-math* :warn-on-boxed))
+
 (defn parse-fn-args+body
   [^clojure.lang.Associative ctx interpret eval-do*
-   {:sci.impl/keys [fixed-arity var-arg-name params body] :as _m}
+   {:sci.impl/keys [fixed-arity var-arg-name ^clojure.lang.Indexed params body] :as _m}
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
         body-count (count body)
+        param-count (count params)
         return (if (= 1 body-count)
                  (let [fst (first body)]
                    #(interpret % fst))
@@ -29,21 +32,27 @@
         f (fn run-fn [& args]
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                   bindings (.get ^java.util.Map ctx :bindings)
+                  arg-count (count args)
+                  ;;max-idx (dec arg-count)
+                  args ^clojure.lang.Indexed (vec args)
                   bindings
-                  (loop [args* (seq args)
-                         params (seq params)
+                  (loop [idx 0
                          ret bindings]
-                    (if params
-                      (let [fp (first params)]
+                    (if (< idx param-count)
+                      (let [fp (try (.nth params idx)
+                                    (catch Exception _
+                                      (throw-arity fn-name macro? args)))]
                         (if (= '& fp)
-                          (assoc ret (second params) args*)
-                          (do
-                            (when-not args*
-                              (throw-arity fn-name macro? args))
-                            (recur (next args*) (next params)
-                                   (assoc ret fp (first args*))))))
+                          (assoc ret (try (.nth params (inc idx))
+                                          (catch Exception _e
+                                            (throw-arity fn-name macro? args)))
+                                 (subvec args idx))
+                          (recur (inc idx)
+                                 (assoc ret fp (try (.nth args idx)
+                                                    (catch Exception _e
+                                                      (throw-arity fn-name macro? args)))))))
                       (do
-                        (when args*
+                        (when (> arg-count idx)
                           (throw-arity fn-name macro? args))
                         ret)))
                   ctx (#?(:clj .assoc
@@ -73,7 +82,7 @@
           (let [{:sci.impl/keys [fixed-arity min-var-args-arity]} (meta f)]
             (when (or (= arity fixed-arity )
                       (and min-var-args-arity
-                           (>= arity min-var-args-arity)))
+                           (>= ^long arity ^long min-var-args-arity)))
               f))) arities))
 
 (defn eval-fn [ctx interpret eval-do* {:sci.impl/keys [fn-bodies fn-name
