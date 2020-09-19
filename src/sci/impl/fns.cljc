@@ -20,6 +20,10 @@
    fn-name macro? with-meta?]
   (let [min-var-args-arity (when var-arg-name fixed-arity)
         body-count (count body)
+        return (if (= 1 body-count)
+                 (let [fst (first body)]
+                   #(interpret % fst))
+                 #(eval-do* % body))
         f (fn run-fn [& args]
             (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                   bindings (.get ^java.util.Map ctx :bindings)
@@ -41,9 +45,7 @@
                           (throw-arity fn-name macro? args))
                         ret)))
                   ctx (assoc ctx :bindings bindings)
-                  ret (if (= 1 body-count)
-                        (interpret ctx (first body))
-                        (eval-do* ctx body))
+                  ret (return ctx)
                   ;; m (meta ret)
                   recur? (instance? Recur ret)]
               (if recur?
