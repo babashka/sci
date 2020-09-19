@@ -27,7 +27,7 @@
                        :aot :all
                        :main sci.impl.main}
              :native-image {:dependencies [[borkdude/sci.impl.reflector "0.0.1-jdk11"]
-                                           [borkdude/clj-reflector-graal-java11-fix "0.0.1-graalvm-20.1.0"]]}
+                                           [borkdude/clj-reflector-graal-java11-fix "0.0.1-graalvm-20.2.0"]]}
              :libsci {:dependencies [[cheshire "5.10.0"]]
                       :source-paths ["src" "libsci/src"]}}
   ;; for testing only

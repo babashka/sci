@@ -525,6 +525,9 @@
                             (~'f ~@arg-syms)))]) (range 20))
           cases (concat cases ['(let [args (mapv #(interpret ctx %) args)]
                                   (apply f args))])]
+      ;; Normal apply:
+      #_`(defn ~'fn-call ~'[ctx f args]
+           (apply ~'f (map #(interpret ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx f args]
          (case ~'(count args)
            ~@cases)))))
