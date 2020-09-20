@@ -23,3 +23,16 @@
         :sci.impl.protocols/reified)
       (some-> x meta :sci.impl/type)
       (type x)))
+
+(defprotocol IInterpret
+  (-interpret [this ctx]))
+
+(deftype InvokeOp [op expr]
+  IInterpret
+  (-interpret [this ctx]
+    (op ctx expr)))
+
+(deftype Constant [expr]
+  IInterpret
+  (-interpret [this ctx]
+    expr))

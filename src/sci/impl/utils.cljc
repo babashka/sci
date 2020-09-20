@@ -187,6 +187,7 @@
 (def interpret (volatile! nil))
 (def eval-do* (volatile! nil))
 (def eval-fn (volatile! nil))
+(def fn-call (volatile! nil))
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns
