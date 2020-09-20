@@ -207,6 +207,8 @@
               use? (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
               :else the-current-ns)
         env (assoc-in env [:namespaces current-ns] the-current-ns)]
+    (when-let [on-loaded (some-> the-loaded-ns :obj meta :sci.impl/required-fn)]
+      (on-loaded {}))
     env))
 
 (defn handle-require-libspec
