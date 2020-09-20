@@ -27,12 +27,10 @@
 (defprotocol IInterpret
   (-interpret [this ctx]))
 
-(deftype InvokeOp [op expr]
-  IInterpret
-  (-interpret [this ctx]
-    (op ctx expr)))
-
 (deftype Constant [expr]
   IInterpret
   (-interpret [this ctx]
-    expr))
+    expr)
+  Object
+  (toString [this]
+    (str expr)))

@@ -110,6 +110,15 @@
         (throw e))
       (throw e))))
 
+(deftype InvokeOp [op expr]
+  t/IInterpret
+  (-interpret [this ctx]
+    (try
+      (op ctx expr)
+      (catch #?(:clj Throwable :cljs js/Error) e
+        ;; TODO: this isn't working since expr isn't really an expr
+        (rethrow-with-location-of-node ctx e expr)))))
+
 (defn vary-meta*
   "Only adds metadata to obj if d is not nil and if obj already has meta"
   [obj f & args]

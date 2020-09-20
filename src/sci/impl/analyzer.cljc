@@ -710,7 +710,7 @@
                                    (analyze ctx v))]
                     expanded)
                   (if (vars/var? f)
-                    (types/->InvokeOp (fn [ctx children]
+                    (utils/->InvokeOp (fn [ctx children]
                                         (@utils/fn-call ctx f children))
                                       (analyze-children ctx (rest expr)))
                     (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
@@ -726,7 +726,8 @@
 (defn analyze
   [ctx expr]
   ;; (prn "ana" expr)
-  (let [ret (cond (constant? expr) (types/->Constant expr) ;; constants do not carry metadata
+  (let [ret (cond (keyword? expr) expr
+                  (constant? expr) (types/->Constant expr) ;; constants do not carry metadata
                   (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                    (cond (constant? v) v
                                          ;; (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
