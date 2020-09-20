@@ -369,7 +369,7 @@
   [ctx expr]
   (let [body (rest expr)]
     (mark-eval-call
-     (list 'lazy-seq
+     (list `lazy-seq
            (analyze ctx
                     ;; expand-fn will take care of the analysis of the body
                     (list 'fn [] (cons 'do body)))))))

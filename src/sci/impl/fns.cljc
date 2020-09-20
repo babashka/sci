@@ -1,6 +1,7 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.types :as t]))
+  (:require [sci.impl.types :as t]
+            [sci.impl.utils :as utils]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -106,6 +107,8 @@
             f)]
     (reset! self-ref f)
     f))
+
+(vreset! utils/eval-fn eval-fn)
 
 ;;;; Scratch
 
