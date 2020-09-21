@@ -22,3 +22,8 @@ pom.xml.asc
 target
 libsci/sci-rs/target
 tmp
+sci.exe
+sci.exp
+sci.lib
+sci.pdb
+sci.stripped.pdb
