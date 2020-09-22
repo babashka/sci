@@ -70,6 +70,16 @@
   (is (eval* "(defn bar []) (ns-unmap *ns* 'bar) (nil? (resolve 'bar))"))
   (is (eval* "(defn- baz []) (ns-unmap *ns* 'baz) (nil? (resolve 'baz))")))
 
+(deftest find-var-test
+  (is (eval* "(= #'clojure.core/map (find-var 'clojure.core/map))"))
+  (is (eval* "(nil? (find-var 'clojure.core/no-such-symbol))"))
+  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+                        #"No such namespace: no.such.namespace"
+                        (eval* "(find-var 'no.such.namespace/var)")))
+  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+                        #"Not a qualified symbol: no-namespace"
+                        (eval* "(find-var 'no-namespace)"))))
+
 (deftest find-ns-test
   (is (true? (eval* "(ns foo) (some? (find-ns 'foo))")))
   (is (nil? (eval* "(find-ns 'foo)"))))

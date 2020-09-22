@@ -2,7 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [ex-message ex-cause eval read
                             read-string require
-                            use load-string])
+                            use load-string
+                            find-var])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -514,6 +515,19 @@
                     :cljs js/Error)
                  (str "Not a qualified symbol: " sym))))))
 
+(defn sci-find-var [sci-ctx sym]
+  (if (qualified-symbol? sym)
+    (let [nsname (-> sym namespace symbol)
+          sym' (-> sym name symbol)]
+      (if-let [namespace (-> sci-ctx :env deref :namespaces (get nsname))]
+        (get namespace sym')
+        (throw (new #?(:clj IllegalArgumentException
+                       :cljs js/Error)
+                    (str "No such namespace: " nsname)))))
+    (throw (new #?(:clj IllegalArgumentException
+                   :cljs js/Error)
+                (str "Not a qualified symbol: " sym)))))
+
 ;;;; End require + resolve
 
 ;;;; Binding vars
@@ -772,6 +786,7 @@
    'ex-message (copy-core-var ex-message)
    'ex-cause (copy-core-var ex-cause)
    'find-ns (with-meta sci-find-ns {:sci.impl/op :needs-ctx})
+   'find-var (with-meta sci-find-var {:sci.impl/op :needs-ctx})
    'first (copy-core-var first)
    'float? (copy-core-var float?)
    'floats (copy-core-var floats)
