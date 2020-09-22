@@ -651,12 +651,8 @@
 
 (vreset! utils/interpret interpret)
 
-(defn do? [expr]
-  (and (list? expr)
-       (= 'do (first expr))))
-
 (defn eval-form [ctx form]
-  (if (list? form)
+  (if (seq? form)
     (if (= 'do (first form))
       (loop [exprs (rest form)
              ret nil]
@@ -668,8 +664,10 @@
       (when (or (not (:uberscript ctx))
                 (= 'ns (first form))
                 (= 'require (first form)))
-        (let [analyzed (ana/analyze ctx form)
-              ret (interpret ctx analyzed)]
+        (let [analyzed (ana/analyze ctx form true)
+              ret (if (instance? sci.impl.types.EvalForm analyzed)
+                    (eval-form ctx (t/getVal analyzed))
+                    (interpret ctx analyzed))]
           ret)))
     (let [analyzed (ana/analyze ctx form)
           ret (interpret ctx analyzed)]

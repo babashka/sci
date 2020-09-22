@@ -632,7 +632,7 @@
 
 ;;;; End vars
 
-(defn analyze-call [ctx expr]
+(defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
     (if (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
@@ -689,8 +689,6 @@
                 var (analyze-var ctx expr)
                 set! (analyze-set! ctx expr)
                 import (mark-eval-call expr) ;; don't analyze children
-                ;; macroexpand-1 (macroexpand-1 ctx expr)
-                ;; macroexpand (macroexpand ctx expr)
                 ;; else:
                 (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
               :else
@@ -705,9 +703,12 @@
                                    (rest expr))
                             (apply f expr
                                    (:bindings ctx) (rest expr)))
-                        expanded (if (:sci.impl/macroexpanding ctx)
-                                   v
-                                   (analyze ctx v))]
+                        expanded (cond (:sci.impl/macroexpanding ctx) v
+                                       (and top-level? (seq? v) (= 'do (first v)))
+                                       ;; hand back control to eval-form for
+                                       ;; interleaved analysis and eval
+                                       (types/->EvalForm v)
+                                       :else (analyze ctx v))]
                     expanded)
                   (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
                 (catch #?(:clj Exception :cljs js/Error) e
@@ -720,33 +721,34 @@
         ret))))
 
 (defn analyze
-  [ctx expr]
-  ;; (prn "ana" expr)
-  (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
-                  (symbol? expr) (let [v (resolve-symbol ctx expr false)]
-                                   (cond (constant? v) v
-                                         ;; (fn? v) (utils/vary-meta* v dissoc :sci.impl/op)
-                                         (vars/var? v) (if (:const (meta v))
-                                                         @v (types/->EvalVar v))
-                                         :else (merge-meta v (meta expr))))
-                  :else
-                  (merge-meta
-                   (cond
-                     (record? expr) expr ;; don't evaluate records
-                     (map? expr)
-                     (-> (zipmap (analyze-children ctx (keys expr))
-                                 (analyze-children ctx (vals expr)))
-                         mark-eval)
-                     (or (vector? expr) (set? expr))
-                     (-> (into (empty expr) (analyze-children ctx expr))
-                         mark-eval)
-                     (and (seq? expr) (seq expr))
-                     (analyze-call ctx expr)
-                     :else expr)
-                   (select-keys (meta expr)
-                                [:line :column :tag])))]
-    ;; (prn "ana" expr '-> ret 'm-> (meta ret))
-    ret))
+  ([ctx expr]
+   (analyze ctx expr false))
+  ([ctx expr top-level?]
+   ;; (prn "ana" expr)
+   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
+                   (symbol? expr) (let [v (resolve-symbol ctx expr false)]
+                                    (cond (constant? v) v
+                                          (vars/var? v) (if (:const (meta v))
+                                                          @v (types/->EvalVar v))
+                                          :else (merge-meta v (meta expr))))
+                   :else
+                   (merge-meta
+                    (cond
+                      (record? expr) expr ;; don't evaluate records
+                      (map? expr)
+                      (-> (zipmap (analyze-children ctx (keys expr))
+                                  (analyze-children ctx (vals expr)))
+                          mark-eval)
+                      (or (vector? expr) (set? expr))
+                      (-> (into (empty expr) (analyze-children ctx expr))
+                          mark-eval)
+                      (and (seq? expr) (seq expr))
+                      (analyze-call ctx expr top-level?)
+                      :else expr)
+                    (select-keys (meta expr)
+                                 [:line :column :tag])))]
+     ;; (prn "ana" expr '-> ret 'm-> (meta ret))
+     ret)))
 
 ;;;; Scratch
 
