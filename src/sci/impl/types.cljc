@@ -23,3 +23,8 @@
         :sci.impl.protocols/reified)
       (some-> x meta :sci.impl/type)
       (type x)))
+
+;; returned from analyzer when macroexpansion needs interleaved eval
+(deftype EvalForm [form]
+  IBox
+  (getVal [this] form))

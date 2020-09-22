@@ -110,4 +110,10 @@
 (let [a 6 b 2
       rect (Rectangle. a b)]
   (foo/area rect))"]
-    (is (= 12 (tu/eval* prog {})))))
+    (is (= 12 (tu/eval* prog {}))))
+  (testing "constructor can be used in protocol impls"
+    (is (= {:x 1}
+           (tu/eval*
+            "(defprotocol IFoo (foo [this]))
+             (defrecord Foo [x] IFoo (foo [this] (Foo. x)))
+             (foo (Foo. 1))" {})))))
