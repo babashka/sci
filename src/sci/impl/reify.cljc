@@ -13,7 +13,7 @@
   #?(:clj (if (class? interface)
             (let [class-name (symbol (.getName ^Class interface))]
               (if-let [factory (get-in ctx [:reify class-name])]
-                (:object (factory {:class interface :methods meths}))
+                (:obj (factory {:class interface :methods meths}))
                 (throw (ex-info (str "No reify factory for: " class-name)
                                 {:class class}))))
             (t/->Reified interface meths))

@@ -84,9 +84,9 @@
 (def default-reify
   #?(:clj {'java.lang.Object
            (fn [{:keys [:methods]}]
-             {:object (reify Object
-                        (toString [this]
-                          ((get methods 'toString) this)))})}
+             {:obj (reify Object
+                     (toString [this]
+                       ((get methods 'toString) this)))})}
      :cljs {}))
 
 (defn init
