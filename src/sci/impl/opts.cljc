@@ -81,6 +81,14 @@
       {:public-class (:public-class classes)
        :class->opts (persistent! class->opts)})))
 
+(def default-reify
+  #?(:clj {'java.lang.Object
+           (fn [{:keys [:methods]}]
+             {:object (reify Object
+                        (toString [this]
+                          ((get methods 'toString) this)))})}
+     :cljs {}))
+
 (defn init
   "Initializes options"
   [{:keys [:bindings :env
@@ -110,6 +118,6 @@
                     :readers readers
                     ::ctx true
                     :uberscript uberscript
-                    :reify reify}
+                    :reify (merge default-reify reify)}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
