@@ -20,6 +20,7 @@
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
    [sci.impl.records :as records]
+   [sci.impl.reify :as reify]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
@@ -638,8 +639,9 @@
                       {:sci/macro true
                        :sci.impl/op :needs-ctx})
    '-reified-methods #(types/getMethods %)
-   '-reified types/->Reified
-   'reify (with-meta protocols/reify
+   'reify* (with-meta reify/reify*
+             {:sci.impl/op :needs-ctx})
+   'reify (with-meta reify/reify
             {:sci/macro true
              :sci.impl/op :needs-ctx})
    'protocol-type-impl types/type-impl

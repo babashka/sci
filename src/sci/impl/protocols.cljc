@@ -105,12 +105,6 @@
                                    ~type ~(second meth) ~@(nnext meth)))
                               meths)))) proto+meths))))
 
-(defn reify [_ _ _ctx interface & meths]
-  (let [meths (into {} (map (fn [meth]
-                              `['~(first meth) (fn ~(second meth) ~@(nnext meth))])
-                            meths))]
-    `(clojure.core/-reified ~interface ~meths)))
-
 (defn satisfies? [protocol obj]
   (if #?(:clj (instance? sci.impl.types.IReified obj)
          :cljs (clojure.core/satisfies? types/IReified obj))

@@ -94,7 +94,8 @@
            :features
            :load-fn
            :uberscript ;; used by babashka, not public!
-           :readers]}]
+           :readers
+           :reify]}]
   (let [preset (get presets preset)
         env (or env (atom {}))
         imports (merge default-imports imports)
@@ -108,6 +109,7 @@
                     :features features
                     :readers readers
                     ::ctx true
-                    :uberscript uberscript}
+                    :uberscript uberscript
+                    :reify reify}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
