@@ -328,6 +328,9 @@
   ([_ _ x form] `(. ~x ~form))
   ([_ _ x form & more] `(.. (. ~x ~form) ~@more)))
 
+(defn lazy-cat* [_ _ & colls]
+  `(concat ~@(map #(list `lazy-seq %) colls)))
+
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
@@ -847,6 +850,7 @@
    'keyword (copy-core-var keyword)
    'keyword? (copy-core-var keyword?)
    'last (copy-core-var last)
+   'lazy-cat (macrofy lazy-cat*)
    'letfn (macrofy letfn*)
    'load-string (with-meta load-string {:sci.impl/op :needs-ctx})
    'long (copy-core-var long)
