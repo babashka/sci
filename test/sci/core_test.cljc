@@ -1072,6 +1072,13 @@
     (is (= '(/ 100 (inc 9))
            (eval* "(macroexpand '(->> 9 inc (/ 100)))")))))
 
+(deftest bound-test
+  (is (false? (eval* "(def x) (bound? #'x)")))
+  (is (true?  (eval* "(def x 1) (bound? #'x)")))
+  (is (false? (eval* "(def ^:dynamic x) (bound? #'x)")))
+  (is (true?  (eval* "(def ^:dynamic x) (binding [x 1] (bound? #'x))")))
+  (is (false? (eval* "(def ^:dynamic x) (binding [x 1]) (bound? #'x)"))))
+
 ;;;; Scratch
 
 (comment

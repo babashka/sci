@@ -334,7 +334,7 @@
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
 
-;;;; Namespaces
+;;;; Namespaces / vars
 
 (defn sci-ns-name [^sci.impl.vars.SciNamespace ns]
   (vars/getName ns))
@@ -450,6 +450,13 @@
                new-var (vars/->SciVar val var-name (meta var-sym) false)]
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var)))))
+
+(defn sci-bound?
+  [sci-var]
+  ;; see https://github.com/clojure/clojure/blob/cbb3fdf787a00d3c1443794b97ed7fe4bef8e888/src/jvm/clojure/lang/Var.java#L190
+  (or (vars/hasRoot sci-var)
+      (some? (vars/get-thread-binding sci-var))
+      false))
 
 ;;;; End namespaces
 
@@ -1072,7 +1079,7 @@
              '-' (copy-core-var -')
              '*' (copy-core-var *')
              'boolean-array (copy-core-var boolean-array)
-             'bound? (copy-core-var bound?)
+             'bound? (copy-core-var sci-bound?)
              'byte-array (copy-core-var byte-array)
              'bigint (copy-core-var bigint)
              'bytes? (copy-core-var bytes?)
