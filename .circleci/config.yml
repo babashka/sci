@@ -35,7 +35,7 @@ jobs:
   node:
     docker:
       # specify the version you desire here
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster-node
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
