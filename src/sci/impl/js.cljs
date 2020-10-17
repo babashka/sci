@@ -29,9 +29,6 @@
         allow (mapv symbol allow)
         deny (get cljs :deny)
         deny (mapv symbol deny)
-        realize-max (get cljs :realizeMax)
-        preset (when-let [v (get cljs :preset)]
-                 (keyword v))
         classes (get cljs :classes)
         classes (obj->clj classes symbol)
         allow-all-classes (get classes 'allow)
@@ -41,8 +38,6 @@
      :namespaces namespaces
      :allow allow
      :deny deny
-     :preset preset
-     :realize-max realize-max
      :classes classes
      :env env}))
 

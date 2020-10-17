@@ -167,15 +167,6 @@
   - `:deny`: a seqable of disallowed symbols, e.g.: `[loop quote
   recur]`.
 
-  - `:realize-max`: integer; when provided, program may realize a
-  maximum number of elements from sequences, e.g. `(vec (range))` will
-  throw for any number. This also applies to sequences returned from
-  the expression to the caller.
-
-  - `:preset`: a pretermined set of options. Currently only
-  `:termination-safe` is supported, which will set `:realize-max` to
-  `100` and disallows the symbols `loop`, `recur` and `trampoline`.
-
   - `:features`: when provided a non-empty set of keywords, sci will process reader conditionals using these features (e.g. #{:bb}).
 
   - `:env`: an atom with a map in which state from the

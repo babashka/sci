@@ -638,12 +638,7 @@
                     ret)]
         ;; for debugging:
         ;; (prn expr (meta expr) '-> ret)
-        ret
-        #_(if-let [n (.get ^java.util.Map ctx :realize-max)]
-          (max-or-throw ret (assoc ctx
-                                   :expression expr)
-                        n)
-          ret)))
+        ret))
     (catch #?(:clj Throwable :cljs js/Error) e
       (if (isa? (some-> e ex-data :type) :sci/error)
         (throw e)

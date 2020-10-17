@@ -12,8 +12,4 @@
   (is (thrown-with-msg?
        js/Error #"allowed"
        (js-api/evalString "(loop)"
-                          #js {:deny ["loop"]})))
-  (is (thrown-with-msg?
-       js/Error #"allowed"
-       (js-api/evalString "(loop)"
-                          #js {:preset "termination-safe"}))))
+                          #js {:deny ["loop"]}))))
