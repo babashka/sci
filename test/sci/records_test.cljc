@@ -5,9 +5,10 @@
 (deftest protocol-test
   (let [prog "
 (defrecord Foo [a b])
-(let [r (->Foo 1 2)]
-  [(:a r) (:b r)])"]
-    (is (= [1 2] (tu/eval* prog {}))))
+(let [r1 (->Foo 1 2)
+      r2 (map->Foo {:a 1 :b 2})]
+  [(:a r1) (:b r1) (:a r2) (:b r2)])"]
+    (is (= [1 2 1 2] (tu/eval* prog {}))))
   (testing "protocols"
     (let [prog "
 (ns foo)

@@ -6,7 +6,9 @@
             [sci.impl.vars :as vars]))
 
 (defn defrecord [_ _ ctx record-name fields & protocol-impls]
-  (let [factory-fn-sym (symbol (str "->" record-name))
+  (let [factory-fn-str (str "->" record-name)
+        factory-fn-sym (symbol factory-fn-str)
+        map-factory-sym (symbol (str "map" factory-fn-str))
         keys (mapv keyword fields)
         protocol-impls (utils/split-when symbol? protocol-impls)
         protocol-impls
@@ -32,6 +34,16 @@
                          impls)))
                 protocol-impls)]
     `(do
+       (defn ~factory-fn-sym [& args#]
+         (vary-meta (zipmap ~keys args#)
+                    assoc
+                    :sci.impl/record true
+                    :sci.impl/type '~record-name))
+       (defn ~map-factory-sym [m#]
+         (vary-meta m#
+                    assoc
+                    :sci.impl/record true
+                    :sci.impl/type '~record-name))
        (defn ~factory-fn-sym [& args#]
          (vary-meta (zipmap ~keys args#)
                     assoc
