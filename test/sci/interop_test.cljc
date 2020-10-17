@@ -47,6 +47,7 @@
 
 #?(:clj
    (deftest import-test
+     (is (true? (eval* "(class? (import clojure.lang.ExceptionInfo))")))
      (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
      (is (thrown-with-msg? Exception #"resolve"
                            (eval* "(import foo.bar.Baz)")))
