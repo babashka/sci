@@ -462,27 +462,27 @@ See
 and
 [clj-reflector-graal-java11-fix](https://github.com/borkdude/clj-reflector-graal-java11-fix).
 
-## Use from JavaScript
+<!-- ## Use from JavaScript -->
 
-Sci is available on NPM:
+<!-- Sci is available on NPM: -->
 
-``` shell
-$ npm install @borkdude/sci
-```
+<!-- ``` shell -->
+<!-- $ npm install @borkdude/sci -->
+<!-- ``` -->
 
-The JavaScript API consists of two functions, `evalString` to evaluate Clojure
-expressions and `toJS` to convert Clojure data structures back to JavaScript.
+<!-- The JavaScript API consists of two functions, `evalString` to evaluate Clojure -->
+<!-- expressions and `toJS` to convert Clojure data structures back to JavaScript. -->
 
-``` javascript
-> const { evalString, toJS } = require('@borkdude/sci');
-> x = evalString("(assoc {:a 1} :b 2)")
-> toJS(x)
-{ a: 1, b: 2 }
-```
+<!-- ``` javascript -->
+<!-- > const { evalString, toJS } = require('@borkdude/sci'); -->
+<!-- > x = evalString("(assoc {:a 1} :b 2)") -->
+<!-- > toJS(x) -->
+<!-- { a: 1, b: 2 } -->
+<!-- ``` -->
 
-The function `evalString` takes an optional second argument to pass
-options. Read [here](#Usage) how to use those options. Instead of symbols and
-keywords it expects strings. Instead of kebab-case, use camelCase.
+<!-- The function `evalString` takes an optional second argument to pass -->
+<!-- options. Read [here](#Usage) how to use those options. Instead of symbols and -->
+<!-- keywords it expects strings. Instead of kebab-case, use camelCase. -->
 
 ## Use as native shared library
 
@@ -508,12 +508,13 @@ For running individual tests, see the scripts in `script/test`.
 ## Thanks
 
 - [adgoji](https://www.adgoji.com/) for financial support.
+- [Clojurists Together](https://www.clojuriststogether.org/) for financial support.
 - [Lee Read](https://github.com/lread/) for the logo.
 - [contributors](https://github.com/borkdude/sci/graphs/contributors) and other users posting issues with bug reports and ideas
 
 ## License
 
-Copyright © 2019 Michiel Borkent
+Copyright © 2019-2020 Michiel Borkent
 
 Distributed under the Eclipse Public License 1.0. This project contains code
 from Clojure and ClojureScript which are also licensed under the EPL 1.0. See
