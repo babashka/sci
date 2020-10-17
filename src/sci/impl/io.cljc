@@ -28,6 +28,8 @@
 
 (def print-level (vars/dynamic-var '*print-level* nil))
 
+(def print-namespace-maps (vars/dynamic-var '*print-namespace-maps* true))
+
 #?(:clj (defn pr-on
           {:private true
            :static true}
@@ -42,7 +44,8 @@
           ([x]
            (binding [*print-length* @print-length
                      *print-level* @print-level
-                     *print-meta* @print-meta]
+                     *print-meta* @print-meta
+                     *print-namespace-maps* @print-namespace-maps]
              (pr-on x @out)))
           ([x & more]
            (pr x)
@@ -54,7 +57,8 @@
            [& objs]
            (binding [*print-length* @print-length
                      *print-level* @print-level
-                     *print-meta* @print-meta]
+                     *print-meta* @print-meta
+                     *print-namespace-maps* @print-namespace-maps]
              (.append @out (apply cljs.core/pr-str objs))
              nil)))
 
@@ -90,7 +94,8 @@
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level
-               *print-meta* @print-meta]
+               *print-meta* @print-meta
+               *print-namespace-maps* @print-namespace-maps]
        (apply cljs.core/pr-str objs))))
 
 #?(:clj
@@ -105,7 +110,8 @@
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level
-               *print-meta* @print-meta]
+               *print-meta* @print-meta
+               *print-namespace-maps* @print-namespace-maps]
        (.append @out (apply cljs.core/prn-str objs))
        nil)))
 
@@ -123,7 +129,8 @@
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level
-               *print-meta* @print-meta]
+               *print-meta* @print-meta
+               *print-namespace-maps* @print-namespace-maps]
        (apply cljs.core/prn-str objs))))
 
 #?(:clj
@@ -135,7 +142,8 @@
    (defn print
      [& objs]
      (binding [*print-length* @print-length
-               *print-level* @print-level]
+               *print-level* @print-level
+               *print-namespace-maps* @print-namespace-maps]
        (.append @out (apply cljs.core/print-str objs))
        nil)))
 
@@ -153,7 +161,8 @@
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level
-               *print-meta* @print-meta]
+               *print-meta* @print-meta
+               *print-namespace-maps* @print-namespace-maps]
        (apply cljs.core/print-str objs))))
 
 #?(:clj
@@ -166,7 +175,8 @@
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level
-               *print-meta* @print-meta]
+               *print-meta* @print-meta
+               *print-namespace-maps* @print-namespace-maps]
        (.append @out (apply println-str objs))
        nil)))
 

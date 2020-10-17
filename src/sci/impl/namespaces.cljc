@@ -602,6 +602,7 @@
    '*print-length* io/print-length
    '*print-level* io/print-level
    '*print-meta* io/print-meta
+   '*print-namespace-maps* io/print-namespace-maps
    'newline io/newline
    'flush io/flush
    'pr io/pr

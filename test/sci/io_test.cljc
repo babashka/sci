@@ -63,3 +63,9 @@
                     (edn/read-string)
                     meta
                     :a)))))
+
+(deftest print-namespace-maps-test
+  (when-not tu/native?
+    (is (str/includes?
+         (sci/with-out-str (eval* "(binding [*print-namespace-maps* false] (println {:foo/bar 1}))"))
+         "{:foo/bar 1}"))))
