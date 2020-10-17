@@ -8,7 +8,6 @@
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
-   [sci.impl.max-or-throw :refer [max-or-throw]]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
    [sci.impl.records :as records]
@@ -639,7 +638,8 @@
                     ret)]
         ;; for debugging:
         ;; (prn expr (meta expr) '-> ret)
-        (if-let [n (.get ^java.util.Map ctx :realize-max)]
+        ret
+        #_(if-let [n (.get ^java.util.Map ctx :realize-max)]
           (max-or-throw ret (assoc ctx
                                    :expression expr)
                         n)

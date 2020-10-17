@@ -319,16 +319,6 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"allowed"
-                        (tu/eval* "(clojure.core/loop [] (recur))" {:preset :termination-safe})))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"allowed"
-                        (tu/eval* "(eval '(loop [] (recur)))" {:preset :termination-safe})))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                        #"allowed"
-                        (tu/eval* "(resolve 'trampoline)" {:preset :termination-safe})))
-
   (testing "for/doseq/dotimes use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
     (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
@@ -351,24 +341,6 @@
   (testing "users cannot hack around sci.impl/needs-ctx"
     (is (= [1 2] (eval* "(def f (with-meta (fn [ctx x] [ctx x]) {:sci.impl/needs-ctx true})) (f 1 2)")))))
 
-(deftest realize-max-test
-  (when-not tu/native?
-    (let [d (try (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})
-                 (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) e
-                   (ex-data e)))]
-      (is (= :sci.error/realized-beyond-max (:type d)))))
-  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
-                        #"realized"
-                        (tu/eval* "(reduce (fn [_ _]) (range 1000))" {:realize-max 100})))
-  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
-                        #"realized"
-                        (doall (tu/eval* "(repeat 1)" {:realize-max 100}))))
-  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
-                        #"realized"
-                        (doall (tu/eval* "(repeat 1)" {:preset :termination-safe}))))
-  (is (= (range 10) (tu/eval* "(range 10)" {:realize-max 100})))
-  (is (= (map #(* % %) (range 99)) (tu/eval* "(map #(* % %) (range 99))" {:realize-max 100}))))
-
 (deftest idempotent-eval-test
   (is (= '(foo/f1 foo/f2)
          (eval* "(map #(let [[ns v] %] (symbol (str ns) (str v))) '[[foo f1] [foo f2]])")))
@@ -382,9 +354,6 @@
     (is (thrown-with-data?
          {:line 1 :column 11}
          (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
-    (is (thrown-with-data?
-         {:line 1 :column 18}
-         (tu/eval* "(+ 1 2 3 4) (vec (range))" {:realize-max 100})))
     (is (thrown-with-data?
          {:line 1 :column 19}
          (eval* "(+ 1 2 3 4 5) (do x)")))

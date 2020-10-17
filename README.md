@@ -35,7 +35,9 @@ This library works with:
 - Clojure compiled with GraalVM native
 - ClojureScript, even when compiled with `:advanced`, and (as a consequence) JavaScript
 
-It is used in:
+## Projects using sci
+
+Sci is used in:
 
 - [Babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
@@ -49,6 +51,7 @@ It is used in:
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
+- [Prose](https://github.com/JeremS/prose). Alternate syntax for Clojure, similar to what Pollen brings to Racket.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
 ## Status
@@ -112,22 +115,6 @@ Providing a list of disallowed symbols has the opposite effect:
 ``` clojure
 user=> (sci/eval-string "(inc 1)" {:deny '[inc]})
 ExceptionInfo inc is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
-```
-
-Preventing forever lasting evaluation of infinite sequences can be achieved with
-`:realize-max`:
-
-``` clojure
-user=> (sci/eval-string "(vec (range))" {:realize-max 10})
-ExceptionInfo Maximum number of elements realized: 10 [at line 1, column 1]  clojure.core/ex-info (core.clj:4739)
-```
-
-The preset `:termination-safe`, which is currently `{:deny '[loop recur
-trampoline] :realize-max 100}`, is helpful for making expressions terminate:
-
-``` clojure
-user=> (sci/eval-string "(loop [] (recur))" {:preset :termination-safe})
-ExceptionInfo loop is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
 ```
 
 Providing a macro as a binding can be done by providing a normal function that:

@@ -25,11 +25,6 @@
                         :imports imports
                         :load-fn load-fn)))))
 
-(def presets
-  {:termination-safe
-   {:deny '[loop recur trampoline resolve]
-    :realize-max 100}})
-
 (defn process-permissions [& permissions]
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
 
@@ -93,8 +88,6 @@
   "Initializes options"
   [{:keys [:bindings :env
            :allow :deny
-           :realize-max
-           :preset ;; used by malli
            :aliases
            :namespaces
            :classes
@@ -104,16 +97,14 @@
            :uberscript ;; used by babashka, not public!
            :readers
            :reify]}]
-  (let [preset (get presets preset)
-        env (or env (atom {}))
+  (let [env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
         ctx (merge {:env env
                     :bindings {}
-                    :allow (process-permissions (:allow preset) allow)
-                    :deny (process-permissions (:deny preset) deny)
-                    :realize-max (or realize-max (:realize-max preset))
+                    :allow (process-permissions allow)
+                    :deny (process-permissions deny)
                     :features features
                     :readers readers
                     ::ctx true

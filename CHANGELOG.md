@@ -2,6 +2,12 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+### >= 0.1.0 (unreleased)
+
+- Removed `:realize-max` and `:preset :termination-safe`. In the light of
+  [#348](https://github.com/borkdude/sci/issues/348) it would be misleading to
+  claim that sci can guarantee termination within reasonable time.
+
 ## v0.1.0 (2020-06-16)
 
 Thank to [@jeroenvandijk](https://github.com/jeroenvandijk), [@jjttjj](https://github.com/jjttjj), [@justone](https://github.com/justone), [@sogaiu](https://github.com/sogaiu) and [@armincerf](https://github.com/armincerf) for
@@ -84,6 +90,12 @@ Details about releases prior to v0.1.0 can be found
 [here](https://github.com/borkdude/sci/releases).
 
 ## Breaking changes
+
+### >= 0.1.0
+
+- Removed `:realize-max` and `:preset :termination-safe`. In the light of
+  [#348](https://github.com/borkdude/sci/issues/348) it would be misleading to
+  claim that sci can guarantee termination within reasonable time.
 
 ### v0.0.12
 
