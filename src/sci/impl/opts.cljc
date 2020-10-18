@@ -77,11 +77,11 @@
        :class->opts (persistent! class->opts)})))
 
 (def default-reify
-  #?(:clj {'java.lang.Object
-           (fn [{:keys [:methods]}]
-             {:obj (reify Object
-                     (toString [this]
-                       ((get methods 'toString) this)))})}
+  #?(:clj {'#{java.lang.Object}
+           (fn [methods]
+             (reify Object
+               (toString [this]
+                 ((get-in methods '[java.lang.Object toString]) this))))}
      :cljs {}))
 
 (defn init
