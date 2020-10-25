@@ -24,8 +24,7 @@
 (def special-syms '#{try finally do if new recur quote catch throw def . var set!})
 
 ;; Built-in macros.
-
-(def macros '#{do if and or as-> quote quote* let fn fn* def defn
+(def macros '#{do if and or as-> let fn fn* def defn
                comment loop lazy-seq for doseq case try defmacro
                declare expand-dot* expand-constructor new . import in-ns ns var
                set! resolve macroexpand-1 macroexpand})
@@ -667,7 +666,6 @@
                                   ret)
                 ;; TODO: implement as normal macro in namespaces.cljc
                 as-> (expand-as-> ctx expr)
-                quote (do nil (second expr))
                 ;; TODO: implement as normal macro in namespaces.cljc
                 comment (expand-comment ctx expr)
                 loop (expand-loop ctx expr)
@@ -688,7 +686,7 @@
                 ns (analyze-ns-form ctx expr)
                 var (analyze-var ctx expr)
                 set! (analyze-set! ctx expr)
-                import (mark-eval-call expr) ;; don't analyze children
+                (import quote) (mark-eval-call expr) ;; don't analyze children
                 ;; else:
                 (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
               :else

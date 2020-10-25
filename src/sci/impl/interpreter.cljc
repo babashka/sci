@@ -572,7 +572,8 @@
     resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))
-    import (apply eval-import ctx (rest expr))))
+    import (apply eval-import ctx (rest expr))
+    quote (second expr)))
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)

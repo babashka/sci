@@ -1048,6 +1048,9 @@
   (is (true?  (eval* "(def ^:dynamic x) (binding [x 1] (bound? #'x))")))
   (is (false? (eval* "(def ^:dynamic x) (binding [x 1]) (bound? #'x)"))))
 
+(deftest call-quoted-symbol-test
+  (is (= 1 (eval* "('a {'a 1})"))))
+
 ;;;; Scratch
 
 (comment
