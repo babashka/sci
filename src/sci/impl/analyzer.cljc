@@ -32,10 +32,11 @@
 (defn throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
 
-(defn check-permission! [{:keys [:allow :deny]} check-sym sym]
+(defn check-permission! [{:keys [:allow :deny]} check-sym sym v]
   (when-not (kw-identical? :allow (-> sym meta :line))
     (let [check-sym (strip-core-ns check-sym)]
-      (when-not (if allow (contains? allow check-sym)
+      (when-not (if allow (or (and (vars/var? v) (not (:sci.impl/built-in (meta v))))
+                              (contains? allow check-sym))
                     true)
         (throw-error-with-location (str sym " is not allowed!") sym))
       (when (if deny (contains? deny check-sym)
@@ -103,12 +104,12 @@
                        v)]
              [k v]))
          (when-let
-             [[k _ :as kv]
+             [[k v :as kv]
               (or
                (lookup* ctx sym call?)
                #_(when (= 'recur sym)
                    [sym sym]))]
-           (check-permission! ctx k sym)
+           (check-permission! ctx k sym v)
            kv))]
     ;; (prn 'lookup sym '-> res)
     (if-let [m (and (not (:sci.impl/prevent-deref ctx))
@@ -637,7 +638,7 @@
       (let [;; in call position Clojure prioritizes special symbols over
             ;; bindings
             special-sym (get special-syms f)
-            _ (when special-sym (check-permission! ctx special-sym f))
+            _ (when special-sym (check-permission! ctx special-sym f nil))
             f (or special-sym
                   (resolve-symbol ctx f true))
             #_#_f (if (and (vars/var? f)
