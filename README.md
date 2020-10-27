@@ -52,6 +52,7 @@ Sci is used in:
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [Prose](https://github.com/JeremS/prose). Alternate syntax for Clojure, similar to what Pollen brings to Racket.
+- [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
 ## Status
