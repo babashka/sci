@@ -11,7 +11,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def opts
+(def default-opts
   (parser/normalize-opts
    {:all true
     :read-eval false
@@ -52,8 +52,10 @@
 
 (defn parse-next
   ([r]
-   (parser/parse-next opts r))
+   (parser/parse-next default-opts r))
   ([ctx r]
+   (parse-next ctx r nil))
+  ([ctx r opts]
    (let [features (:features ctx)
          readers (:readers ctx)
          readers (if (vars/var? readers) @readers readers)
@@ -64,12 +66,13 @@
          aliases (:aliases the-current-ns)
          auto-resolve (assoc aliases
                              :current current-ns)
-         parse-opts (assoc opts
-                           :read-cond :allow
-                           :features features
-                           :auto-resolve auto-resolve
-                           :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
-                           :readers readers)
+         parse-opts (cond-> (assoc default-opts
+                                   :read-cond :allow
+                                   :features features
+                                   :auto-resolve auto-resolve
+                                   :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
+                                   :readers readers)
+                      opts (merge opts))
          ret (try (parser/parse-next parse-opts
                                      r)
                   (catch #?(:clj clojure.lang.ExceptionInfo
@@ -80,8 +83,7 @@
                                            :type :sci.error/parse
                                            :phase "parse"
                                            :file @vars/current-file)
-                                    e)))
-                  )]
+                                    e))))]
      ret)))
 
 (defn reader [x]
