@@ -47,8 +47,8 @@
                         (when args*
                           (throw-arity fn-name macro? args))
                         ret)))
-                  ctx (#?(:clj .assoc
-                          :cljs -assoc) ctx :bindings bindings)
+                  ctx #?(:clj (.assoc ctx :bindings bindings)
+                         :cljs (-assoc ctx :bindings bindings))
                   ret (return ctx)
                   ;; m (meta ret)
                   recur? (instance? Recur ret)]
