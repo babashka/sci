@@ -122,7 +122,9 @@
   (is (= 1 (eval* nil "((fn [{:keys [:a]}] a) {:a 1})")))
   (is (= 1 (eval* nil "((fn [{:person/keys [id]}] id) {:person/id 1})")))
   (is (= 1 (eval* nil "((fn [{:syms [a]}] a) '{a 1})")))
-  (is (= 1 (eval* nil "((fn [{:strs [a]}] a) '{\"a\" 1})"))))
+  (is (= 1 (eval* nil "((fn [{:strs [a]}] a) '{\"a\" 1})")))
+  (testing "default destructuring with false"
+    (is (false? (eval* '(let [{:keys [:a] :or {a false}} {:b 1}] a))))))
 
 (defn test-difference
   ([var-name expr-string max-attempts]

@@ -96,8 +96,8 @@
                                  bk (if-not (meta bk)
                                       (list 'quote bk)
                                       bk)
-                                 bv (if-let [default (get defaults local)]
-                                      (mark-eval-call (list get gmap bk default))
+                                 bv (if-let [entry (find defaults local)]
+                                      (mark-eval-call (list get gmap bk (val entry)))
                                       (mark-eval-call (list get gmap bk)))]
                              (recur
                               (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
