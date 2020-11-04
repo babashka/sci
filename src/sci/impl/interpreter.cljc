@@ -244,11 +244,13 @@
               (throw (new #?(:clj Exception :cljs js/Error)
                           (str "Could not find namespace: " lib-name ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
+
                     (str "Could not find namespace " lib-name ".")))))))
 
 (defn eval-require*
   [ctx args use?]
   (loop [libspecs []
+         prefix nil
          current-libspec nil
          args args]
     (if args
@@ -257,17 +259,24 @@
           (symbol? ret)
           (recur (cond-> libspecs
                    current-libspec (conj current-libspec))
+                 prefix
                  [ret]
                  (next args))
           (keyword? ret)
           (recur (conj libspecs (conj current-libspec ret))
+                 prefix
                  nil
                  (next args))
           :else
-          (recur (cond-> libspecs
-                   current-libspec (conj current-libspec))
-                 ret
-                 (next args))))
+          (let [[x & xs] ret]
+            ;; TODO
+            #_(if (seqable? xs)
+              (recur ))
+            (recur (cond-> libspecs
+                     current-libspec (conj current-libspec))
+                   prefix
+                   ret
+                   (next args)))))
       (let [libspecs (cond-> libspecs
                        current-libspec (conj current-libspec))]
         (run! #(handle-require-libspec ctx % use?) libspecs)))))
