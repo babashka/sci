@@ -3,16 +3,19 @@
   (:refer-clojure :exclude [defmulti defmethod])
   (:require [sci.impl.hierarchies :refer [global-hierarchy]]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (defn ^:private check-valid-options
   "Throws an exception if the given option map contains keys not listed
   as valid, else returns nil."
   [options & valid-keys]
   (when (seq (apply disj (apply hash-set (keys options)) valid-keys))
-    (throw
-     (new #?(:clj IllegalArgumentException :cljs js/Error)
-          (apply str "Only these options are valid: "
-                 (first valid-keys)
-                 (map #(str ", " %) (rest valid-keys)))))))
+    (let [message (apply str "Only these options are valid: "
+                         (first valid-keys)
+                         (map #(str ", " %) (rest valid-keys)))]
+      (throw     
+       #?(:clj (IllegalArgumentException. ^String message)
+          :cljs (js/Error. ^string message))))))
 
 (defn defmulti
   "Creates a new multimethod with the associated dispatch function.
