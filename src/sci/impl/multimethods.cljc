@@ -3,6 +3,8 @@
   (:refer-clojure :exclude [defmulti defmethod])
   (:require [sci.impl.hierarchies :refer [global-hierarchy]]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (defn ^:private check-valid-options
   "Throws an exception if the given option map contains keys not listed
   as valid, else returns nil."
