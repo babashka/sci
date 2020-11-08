@@ -247,10 +247,50 @@
 
                     (str "Could not find namespace " lib-name ".")))))))
 
+(defn- prependss
+  "Prepends a symbol or a seq to coll"
+  [x coll]
+  (if (symbol? x)
+    (cons x coll)
+    (concat x coll)))
+
+
+(defn- libspec?
+  "Returns true if x is a libspec"
+  [x]
+  (or (symbol? x)
+      (and (vector? x)
+           (or
+            (nil? (second x))
+            (keyword? (second x))))))
+
+(defn- load-libs
+  "Loads libs, interpreting libspecs, prefix lists, and flags for
+  forwarding to load-lib"
+  [& args]
+  (let [flags (filter keyword? args)
+        opts (interleave flags (repeat true))
+        args (filter (complement keyword?) args)]
+                                        ; check for unsupported options
+    (let [supported #{:as :reload :reload-all :require :use :verbose :refer}
+          unsupported (seq (remove supported flags))]
+      nil #_(throw-if unsupported
+                (apply str "Unsupported option(s) supplied: "
+                       (interpose \, unsupported))))
+                                        ; check a load target was specified
+    nil #_(throw-if (not (seq args)) "Nothing specified to load")
+    (doseq [arg args]
+      (if (libspec? arg)
+        (apply load-lib nil (prependss arg opts))
+        (let [[prefix & args] arg]
+          nil #_(throw-if (nil? prefix) "prefix cannot be nil")
+          (doseq [arg args]
+            (apply load-lib prefix (prependss arg opts))))))))
+
+
 (defn eval-require*
   [ctx args use?]
   (loop [libspecs []
-         prefix nil
          current-libspec nil
          args args]
     (if args
@@ -259,22 +299,19 @@
           (symbol? ret)
           (recur (cond-> libspecs
                    current-libspec (conj current-libspec))
-                 prefix
                  [ret]
                  (next args))
           (keyword? ret)
           (recur (conj libspecs (conj current-libspec ret))
-                 prefix
                  nil
                  (next args))
           :else
           (let [[x & xs] ret]
-            ;; TODO
+            ;; T
             #_(if (seqable? xs)
               (recur ))
             (recur (cond-> libspecs
                      current-libspec (conj current-libspec))
-                   prefix
                    ret
                    (next args)))))
       (let [libspecs (cond-> libspecs
