@@ -247,6 +247,10 @@
 
                     (str "Could not find namespace " lib-name ".")))))))
 
+
+(defn load-lib [prefix lib & options]
+  (prn prefix lib options))
+
 (defn- prependss
   "Prepends a symbol or a seq to coll"
   [x coll]
@@ -290,6 +294,9 @@
 
 (defn eval-require*
   [ctx args use?]
+  (let [args (if use? (list* :require :use args)
+                 (cons :require args))]
+    (apply load-libs :require args))
   (loop [libspecs []
          current-libspec nil
          args args]
