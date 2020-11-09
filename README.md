@@ -51,6 +51,7 @@ Sci is used in:
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
+- [PGMig](https://github.com/leafclick/pgmig). Fast Standalone PostgreSQL Migration Runner.
 - [Prose](https://github.com/JeremS/prose). Alternate syntax for Clojure, similar to what Pollen brings to Racket.
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
