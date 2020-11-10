@@ -139,25 +139,6 @@
       (str "Could not resolve symbol: " sym "\nks:" (keys (:bindings ctx)))
       sym))))
 
-(defn parse-libspec [libspec]
-  (cond
-    (sequential? libspec)
-    (let [[lib-name & opts] libspec]
-      (loop [ret {:lib-name lib-name}
-             [opt-name fst-opt & rst-opts] opts]
-        (if-not opt-name ret
-                (case opt-name
-                  :as (recur (assoc ret :as fst-opt)
-                             rst-opts)
-                  (:reload :reload-all :verbose) (recur
-                                                  (assoc ret :reload true)
-                                                  (cons fst-opt rst-opts))
-                  (:refer :rename :exclude :only) (recur (assoc ret opt-name fst-opt)
-                                                         rst-opts)))))
-    (symbol? libspec) {:lib-name libspec}
-    :else (throw (new #?(:clj Exception :cljs js/Error)
-                      (str "Invalid libspec: " libspec)))))
-
 (declare eval-string*)
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
@@ -172,8 +153,8 @@
             the-loaded-ns)))
 
 (defn handle-require-libspec-env
-  [ctx env use? current-ns the-loaded-ns lib-name
-   {:keys [:as :refer :rename :exclude :only] :as _parsed-libspec}]
+  [ctx env current-ns the-loaded-ns lib-name
+   {:keys [:as :refer :rename :exclude :only :use] :as _parsed-libspec}]
   (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                            the-current-ns)
@@ -187,7 +168,7 @@
         the-current-ns
         (cond refer
               (cond (or (kw-identical? :all refer)
-                        use?)
+                        use)
                     (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym nil)
                     (sequential? refer)
                     (reduce (fn [ns sym]
@@ -203,7 +184,7 @@
                             refer)
                     :else (throw (new #?(:clj Exception :cljs js/Error)
                                       (str ":refer value must be a sequential collection of symbols"))))
-              use? (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
+              use (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
               :else the-current-ns)
         env (assoc-in env [:namespaces current-ns] the-current-ns)]
     (when-let [on-loaded (some-> the-loaded-ns :obj meta :sci.impl/required-fn)]
@@ -211,18 +192,18 @@
     env))
 
 (defn handle-require-libspec
-  [ctx libspec use?]
-  (let [{:keys [:lib-name :reload] :as parsed-libspec} (parse-libspec libspec)
+  [ctx lib opts]
+  (let [{:keys [:reload]} opts
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
         namespaces (get env :namespaces)
         uberscript (:uberscript ctx)
         reload* (or reload uberscript)]
-    (if-let [the-loaded-ns (when-not reload* (get namespaces lib-name))]
-      (reset! env* (handle-require-libspec-env ctx env use? cnn the-loaded-ns lib-name parsed-libspec))
+    (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
+      (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))
       (if-let [load-fn (:load-fn env)]
-        (if-let [{:keys [:file :source]} (load-fn {:namespace lib-name
+        (if-let [{:keys [:file :source]} (load-fn {:namespace lib
                                                    :reload reload})]
           (do
             (try (vars/with-bindings
@@ -230,57 +211,88 @@
                     vars/current-file file}
                    (eval-string* (assoc ctx :bindings {}) source))
                  (catch #?(:clj Exception :cljs js/Error) e
-                   (swap! env* update :namespaces dissoc lib-name)
+                   (swap! env* update :namespaces dissoc lib)
                    (throw e)))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
-                                the-loaded-ns (get namespaces lib-name)]
-                            (handle-require-libspec-env ctx env use? cnn
+                                the-loaded-ns (get namespaces lib)]
+                            (handle-require-libspec-env ctx env cnn
                                                         the-loaded-ns
-                                                        lib-name parsed-libspec)))))
+                                                        lib opts)))))
           (or (when reload*
-                (when-let [the-loaded-ns (get namespaces lib-name)]
-                  (reset! env* (handle-require-libspec-env ctx env use? cnn the-loaded-ns lib-name parsed-libspec))))
+                (when-let [the-loaded-ns (get namespaces lib)]
+                  (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
               (throw (new #?(:clj Exception :cljs js/Error)
-                          (str "Could not find namespace: " lib-name ".")))))
+                          (str "Could not find namespace: " lib ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
-                    (str "Could not find namespace " lib-name ".")))))))
 
-(defn eval-require*
-  [ctx args use?]
-  (loop [libspecs []
-         current-libspec nil
-         args args]
-    (if args
-      (let [ret (interpret ctx (first args))]
-        (cond
-          (symbol? ret)
-          (recur (cond-> libspecs
-                   current-libspec (conj current-libspec))
-                 [ret]
-                 (next args))
-          (keyword? ret)
-          (recur (conj libspecs (conj current-libspec ret))
-                 nil
-                 (next args))
-          :else
-          (recur (cond-> libspecs
-                   current-libspec (conj current-libspec))
-                 ret
-                 (next args))))
-      (let [libspecs (cond-> libspecs
-                       current-libspec (conj current-libspec))]
-        (run! #(handle-require-libspec ctx % use?) libspecs)))))
+                    (str "Could not find namespace " lib ".")))))))
+
+(defn load-lib [ctx prefix lib & options]
+  (when (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
+                                                :cljs \.))))
+    (throw-error-with-location (str "Found lib name '" (name lib) "' containing period with prefix '"
+                                    prefix "'.  lib names inside prefix lists must not contain periods")
+                               lib))
+  (let [lib (if prefix (symbol (str prefix \. lib)) lib)
+        opts (apply hash-map options)]
+    (handle-require-libspec ctx lib opts)))
+
+(defn- prependss
+  "Prepends a symbol or a seq to coll"
+  [x coll]
+  (if (symbol? x)
+    (cons x coll)
+    (concat x coll)))
+
+(defn- libspec?
+  "Returns true if x is a libspec"
+  [x]
+  (or (symbol? x)
+      (and (vector? x)
+           (or
+            (nil? (second x))
+            (keyword? (second x))))))
+
+(defn- load-libs
+  "Loads libs, interpreting libspecs, prefix lists, and flags for
+  forwarding to load-lib"
+  [ctx kw args]
+  (let [args* (cons kw args)
+        flags (filter keyword? args*)
+        opts (interleave flags (repeat true))
+        args* (filter (complement keyword?) args*)]
+    ;; check for unsupported options
+    (let [supported #{:as :reload :reload-all :require :use :verbose :refer}
+          unsupported (seq (remove supported flags))]
+      (when unsupported
+        (throw-error-with-location (apply str "Unsupported option(s) supplied: "
+                                          (interpose \, unsupported))
+                                   ;; best effort location
+                                   args)))
+    ;; check a load target was specified
+    (when-not (seq args*)
+      (throw-error-with-location "Nothing specified to load"
+                                 args))
+    (doseq [arg args*]
+      (if (libspec? arg)
+        (apply load-lib ctx nil (prependss arg opts))
+        (let [[prefix & args*] arg]
+          (when (nil? prefix)
+            (throw-error-with-location "prefix cannot be nil"
+                                       args))
+          (doseq [arg args*]
+            (apply load-lib ctx prefix (prependss arg opts))))))))
 
 (defn eval-require
   [ctx & args]
-  (eval-require* ctx args false))
+  (load-libs ctx :require args))
 
 (vreset! utils/eval-require-state eval-require)
 
 (defn eval-use
   [ctx & args]
-  (eval-require* ctx args true))
+  (load-libs ctx :use args))
 
 (vreset! utils/eval-use-state eval-use)
 
@@ -567,8 +579,10 @@
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
     refer (apply eval-refer ctx (rest expr))
-    require (apply eval-require ctx (rest expr))
-    use (apply eval-use ctx (rest expr))
+    require (apply eval-require ctx (with-meta (rest expr)
+                                      (meta expr)))
+    use (apply eval-use ctx (with-meta (rest expr)
+                              (meta expr)))
     resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))

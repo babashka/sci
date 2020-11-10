@@ -1,7 +1,7 @@
 (ns sci.namespaces-test
   (:require
    [clojure.set :as set]
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -92,3 +92,18 @@
        #?(:clj Exception :cljs js/Error)
        #"symbol"
        (eval* "(ns)"))))
+
+(deftest nested-libspecs-test
+  (is (= #{1 2 3 4} (eval* "(require '[clojure [set :refer [union]]]) (union #{1 2 3} #{2 3 4})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"lib names inside prefix lists must not contain periods"
+       (eval* "(ns clojure.core.protocols) (ns foo) (require '[clojure [core.protocols]])")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"Unsupported option\(s\) supplied: :foo"
+       (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))
+  (testing "error message contains location"
+    (is (thrown-with-data?
+         {:line 1 :column 9}
+         (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))))
