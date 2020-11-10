@@ -62,7 +62,7 @@
         `(do ~@(map (fn [[type & meths]]
                       `(do
                          ~@(map (fn [meth]
-                                  `(defmethod ~(fq-meth-name (str (first meth)))
+                                  `(defmethod ~(fq-meth-name (name (first meth)))
                                      ~type
                                      ~(second meth) ~@(nnext meth)))
                                 meths)))
@@ -101,7 +101,7 @@
                         fq-meth-name #(symbol pns %)]
                     `(do
                        ~@(map (fn [meth]
-                                `(defmethod ~(fq-meth-name (str (first meth)))
+                                `(defmethod ~(fq-meth-name (name (first meth)))
                                    ~type ~(second meth) ~@(nnext meth)))
                               meths)))) proto+meths))))
 

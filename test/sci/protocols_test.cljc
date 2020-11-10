@@ -91,7 +91,40 @@
                           (str/replace "String" "js/String")))]
     (is (true? (tu/eval* prog #?(:clj {}
                                  :cljs {:classes {:allow :all
-                                                  'js #js {:String js/String}}}))))))
+                                                  'js #js {:String js/String}}})))))
+  (testing "Aliases are allowed and ignored"
+    (let [prog "
+(ns foo) (defprotocol Foo (foo [this]))
+(ns bar (:require [foo :as f]))
+
+(extend-type String
+  f/Foo
+  (f/foo [this] (subs this 0 1)))
+
+(= \"f\" (f/foo \"foo\"))
+"
+          prog #?(:clj prog
+                  :cljs (-> prog
+                            (str/replace "String" "js/String")))]
+      (is (true? (tu/eval* prog #?(:clj {}
+                                   :cljs {:classes {:allow :all
+                                                    'js #js {:String js/String}}})))))
+    (let [prog "
+(ns foo) (defprotocol Foo (foo [this]))
+(ns bar (:require [foo :as f]))
+
+(extend-protocol f/Foo
+  String
+  (f/foo [this] (subs this 0 1)))
+
+(= \"f\" (f/foo \"foo\"))
+"
+          prog #?(:clj prog
+                  :cljs (-> prog
+                            (str/replace "String" "js/String")))]
+      (is (true? (tu/eval* prog #?(:clj {}
+                                   :cljs {:classes {:allow :all
+                                                    'js #js {:String js/String}}})))))))
 
 (deftest extend-via-metadata-test
   (let [prog "
