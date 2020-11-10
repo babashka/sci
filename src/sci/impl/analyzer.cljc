@@ -600,18 +600,22 @@
     (loop [exprs exprs
            ret []]
       (if exprs
-        (let [[k & args] (first exprs)]
+        (let [[k & args :as expr] (first exprs)]
           (case k
             (:require :use)
             (recur (next exprs)
                    (conj ret
                          (mark-eval-call
-                          (list* (symbol (name k)) args))))
-            :import (recur (next exprs) (conj ret (mark-eval-call (list* 'import args))))
+                          (with-meta (list* (symbol (name k)) args)
+                            (meta expr)))))
+            :import (recur (next exprs) (conj ret (mark-eval-call
+                                                   (with-meta (list* 'import args)
+                                                     (meta expr)))))
             :refer-clojure (recur (next exprs)
                                   (conj ret
                                         (mark-eval-call
-                                         (list* 'refer 'clojure.core args))))
+                                         (with-meta (list* 'refer 'clojure.core args)
+                                           (meta expr)))))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
         (mark-eval-call (list* 'do ret))))))

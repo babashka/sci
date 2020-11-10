@@ -139,25 +139,6 @@
       (str "Could not resolve symbol: " sym "\nks:" (keys (:bindings ctx)))
       sym))))
 
-#_(defn- parse-libspec [libspec]
-  (cond
-    (sequential? libspec)
-    (let [[lib-name & opts] libspec]
-      (loop [ret {:lib-name lib-name}
-             [opt-name fst-opt & rst-opts] opts]
-        (if-not opt-name ret
-                (case opt-name
-                  :as (recur (assoc ret :as fst-opt)
-                             rst-opts)
-                  (:reload :reload-all :verbose) (recur
-                                                  (assoc ret :reload true)
-                                                  (cons fst-opt rst-opts))
-                  (:refer :rename :exclude :only) (recur (assoc ret opt-name fst-opt)
-                                                         rst-opts)))))
-    (symbol? libspec) {:lib-name libspec}
-    :else (throw (new #?(:clj Exception :cljs js/Error)
-                      (str "Invalid libspec: " libspec)))))
-
 (declare eval-string*)
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
@@ -276,7 +257,7 @@
 (defn- load-libs
   "Loads libs, interpreting libspecs, prefix lists, and flags for
   forwarding to load-lib"
-  [ctx kw & args]
+  [ctx kw args]
   (let [args* (cons kw args)
         flags (filter keyword? args*)
         opts (interleave flags (repeat true))
@@ -287,28 +268,31 @@
       (when unsupported
         (throw-error-with-location (apply str "Unsupported option(s) supplied: "
                                           (interpose \, unsupported))
-                                   ;; best effort
-                                   (some #(when (:line (meta %))
-                                            %) args))))
+                                   ;; best effort location
+                                   args)))
     ;; check a load target was specified
-    nil #_(throw-if (not (seq args)) "Nothing specified to load")
+    (when-not (seq args*)
+      (throw-error-with-location "Nothing specified to load"
+                                 args))
     (doseq [arg args*]
       (if (libspec? arg)
         (apply load-lib ctx nil (prependss arg opts))
-        (let [[prefix & args] arg]
-          nil #_(throw-if (nil? prefix) "prefix cannot be nil")
-          (doseq [arg args]
+        (let [[prefix & args*] arg]
+          (when (nil? prefix)
+            (throw-error-with-location "prefix cannot be nil"
+                                       args))
+          (doseq [arg args*]
             (apply load-lib ctx prefix (prependss arg opts))))))))
 
 (defn eval-require
   [ctx & args]
-  (apply load-libs ctx :require args))
+  (load-libs ctx :require args))
 
 (vreset! utils/eval-require-state eval-require)
 
 (defn eval-use
   [ctx & args]
-  (apply load-libs ctx :use args))
+  (load-libs ctx :use args))
 
 (vreset! utils/eval-use-state eval-use)
 
@@ -595,8 +579,10 @@
     in-ns (eval-in-ns ctx expr)
     set! (eval-set! ctx expr)
     refer (apply eval-refer ctx (rest expr))
-    require (apply eval-require ctx (rest expr))
-    use (apply eval-use ctx (rest expr))
+    require (apply eval-require ctx (with-meta (rest expr)
+                                      (meta expr)))
+    use (apply eval-use ctx (with-meta (rest expr)
+                              (meta expr)))
     resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))

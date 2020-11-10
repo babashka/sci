@@ -1,7 +1,7 @@
 (ns sci.namespaces-test
   (:require
    [clojure.set :as set]
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -101,4 +101,8 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"Unsupported option\(s\) supplied: :foo"
-       (eval* "(ns foo (:require [clojure.core] [dude] :foo))"))))
+       (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))
+  (testing "error message contains location"
+    (is (thrown-with-data?
+         {:line 1 :column 9}
+         (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))))
