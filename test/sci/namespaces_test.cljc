@@ -94,6 +94,7 @@
        (eval* "(ns)"))))
 
 (deftest nested-libspecs-test
+  (is (= #{1 2 3 4} (eval* "(require '[clojure [set :refer [union]]]) (union #{1 2 3} #{2 3 4})")))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"lib names inside prefix lists must not contain periods"
