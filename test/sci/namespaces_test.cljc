@@ -97,4 +97,8 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"lib names inside prefix lists must not contain periods"
-       (eval* "(ns clojure.core.protocols) (ns foo) (require '[clojure [core.protocols]])"))))
+       (eval* "(ns clojure.core.protocols) (ns foo) (require '[clojure [core.protocols]])")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"Unsupported option\(s\) supplied: :foo"
+       (eval* "(ns foo (:require [clojure.core] [dude] :foo))"))))

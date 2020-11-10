@@ -247,18 +247,12 @@
 
                     (str "Could not find namespace " lib ".")))))))
 
-(defn- throw-if
-  "Throws a CompilerException with a message if pred is true"
-  [pred msg expr]
-  (when pred
-    (throw-error-with-location msg expr)))
-
 (defn load-lib [ctx prefix lib & options]
-  (throw-if (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
-                                                      :cljs \.))))
-            (str "Found lib name '" (name lib) "' containing period with prefix '"
-                 prefix "'.  lib names inside prefix lists must not contain periods")
-            lib)
+  (when (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
+                                                :cljs \.))))
+    (throw-error-with-location (str "Found lib name '" (name lib) "' containing period with prefix '"
+                                    prefix "'.  lib names inside prefix lists must not contain periods")
+                               lib))
   (let [lib (if prefix (symbol (str prefix \. lib)) lib)
         opts (apply hash-map options)]
     (handle-require-libspec ctx lib opts)))
@@ -282,59 +276,29 @@
 (defn- load-libs
   "Loads libs, interpreting libspecs, prefix lists, and flags for
   forwarding to load-lib"
-  [ctx & args]
-  (let [flags (filter keyword? args)
+  [ctx kw & args]
+  (let [args* (cons kw args)
+        flags (filter keyword? args*)
         opts (interleave flags (repeat true))
-        args (filter (complement keyword?) args)]
-                                        ; check for unsupported options
+        args* (filter (complement keyword?) args*)]
+    ;; check for unsupported options
     (let [supported #{:as :reload :reload-all :require :use :verbose :refer}
           unsupported (seq (remove supported flags))]
-      nil #_(throw-if unsupported
-                (apply str "Unsupported option(s) supplied: "
-                       (interpose \, unsupported))))
-                                        ; check a load target was specified
+      (when unsupported
+        (throw-error-with-location (apply str "Unsupported option(s) supplied: "
+                                          (interpose \, unsupported))
+                                   ;; best effort
+                                   (some #(when (:line (meta %))
+                                            %) args))))
+    ;; check a load target was specified
     nil #_(throw-if (not (seq args)) "Nothing specified to load")
-    (doseq [arg args]
+    (doseq [arg args*]
       (if (libspec? arg)
         (apply load-lib ctx nil (prependss arg opts))
         (let [[prefix & args] arg]
           nil #_(throw-if (nil? prefix) "prefix cannot be nil")
           (doseq [arg args]
             (apply load-lib ctx prefix (prependss arg opts))))))))
-
-
-#_(defn eval-require*
-  [ctx args use?]
-  (let [args (if use? (list* :require :use args)
-                 (cons :require args))]
-    (apply load-libs :require args))
-  (loop [libspecs []
-         current-libspec nil
-         args args]
-    (if args
-      (let [ret (interpret ctx (first args))]
-        (cond
-          (symbol? ret)
-          (recur (cond-> libspecs
-                   current-libspec (conj current-libspec))
-                 [ret]
-                 (next args))
-          (keyword? ret)
-          (recur (conj libspecs (conj current-libspec ret))
-                 nil
-                 (next args))
-          :else
-          (let [[x & xs] ret]
-            ;; T
-            #_(if (seqable? xs)
-              (recur ))
-            (recur (cond-> libspecs
-                     current-libspec (conj current-libspec))
-                   ret
-                   (next args)))))
-      (let [libspecs (cond-> libspecs
-                       current-libspec (conj current-libspec))]
-        (run! #(handle-require-libspec ctx % use?) libspecs)))))
 
 (defn eval-require
   [ctx & args]
