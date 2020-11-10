@@ -213,7 +213,6 @@
 (defn handle-require-libspec
   [ctx lib opts]
   (let [{:keys [:reload]} opts
-        ;;{:keys [:lib-name :reload] :as parsed-libspec} (parse-libspec libspec)
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
@@ -248,11 +247,18 @@
 
                     (str "Could not find namespace " lib ".")))))))
 
+(defn- throw-if
+  "Throws a CompilerException with a message if pred is true"
+  [pred msg expr]
+  (when pred
+    (throw-error-with-location msg expr)))
 
 (defn load-lib [ctx prefix lib & options]
-  #_(throw-if (and prefix (pos? (.indexOf (name lib) (int \.))))
-            "Found lib name '%s' containing period with prefix '%s'.  lib names inside prefix lists must not contain periods"
-            (name lib) prefix)
+  (throw-if (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
+                                                      :cljs \.))))
+            (str "Found lib name '" (name lib) "' containing period with prefix '"
+                 prefix "'.  lib names inside prefix lists must not contain periods")
+            lib)
   (let [lib (if prefix (symbol (str prefix \. lib)) lib)
         opts (apply hash-map options)]
     (handle-require-libspec ctx lib opts)))

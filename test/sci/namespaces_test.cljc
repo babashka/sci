@@ -92,3 +92,9 @@
        #?(:clj Exception :cljs js/Error)
        #"symbol"
        (eval* "(ns)"))))
+
+(deftest nested-libspecs-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"lib names inside prefix lists must not contain periods"
+       (eval* "(ns clojure.core.protocols) (ns foo) (require '[clojure [core.protocols]])"))))
