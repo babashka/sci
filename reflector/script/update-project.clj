@@ -1,10 +1,9 @@
 #!/bin/sh
 
 #_(
-exec "clojure" "-Sdeps" "{:deps,{selmer,{:mvn/version,\"1.12.17\"}}}"
+exec clojure "-Sdeps" "{:deps,{selmer,{:mvn/version,\"1.12.17\"}}}" "$0" "$@"
 )
 
-(println :hello)
 (require '[selmer.parser :as p])
 (require '[clojure.java.io :as io])
 
