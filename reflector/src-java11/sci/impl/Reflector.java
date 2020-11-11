@@ -53,6 +53,7 @@ public class Reflector{
     }
 
     private static Method tryFindMethod(Class c, Method m) {
+        System.out.println("tryFind: " +c.getName());
         if(c == null) return null;
         try {
             return c.getMethod(m.getName(), m.getParameterTypes());
@@ -77,6 +78,7 @@ public class Reflector{
     }
 
     public static Object invokeInstanceMethod(Object target, String methodName, Object[] args) {
+        System.out.println("instance");
         Class c = target.getClass();
         List methods = getMethods(c, args.length, methodName, false).stream()
             .map(method -> toAccessibleSuperMethod(method, target))
@@ -109,9 +111,12 @@ public class Reflector{
             {
                 throw new IllegalArgumentException(noMethodReport(methodName,target,args));
             }
-        else if(methods.size() == 1)
+
+        Method fst = (Method)methods.get(0);
+        System.out.println(fst.getName());
+        if (methods.size() == 1 && fst.getName() == methodName)
             {
-                m = (Method) methods.get(0);
+                m = fst;
                 boxedArgs = boxArgs(m.getParameterTypes(), args);
             }
         else //overloaded w/same arity
@@ -133,8 +138,10 @@ public class Reflector{
                     }
                 m = foundm;
             }
-        if(m == null)
+        if(m == null) {
+            System.out.println("Null!");
             throw new IllegalArgumentException(noMethodReport(methodName,target,args));
+        }
 
         if(!Modifier.isPublic(m.getDeclaringClass().getModifiers()) || !canAccess(m, target))
             {

@@ -34,7 +34,8 @@
       [#_([obj method args]
         (invoke-instance-method obj nil method args))
        ([obj target-class method args]
-        (if-not target-class
+        (prn :targ target-class)
+        (if-not true #_target-class
           (Reflector/invokeInstanceMethod obj method (object-array args))
           (let [methods (Reflector/getMethods target-class (count args) method false)]
             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
