@@ -1,5 +1,10 @@
-#!/usr/bin/env clojure -Sdeps {:deps,{selmer,{:mvn/version,"1.12.17"}}}
+#!/bin/sh
 
+#_(
+exec "clojure" "-Sdeps" "{:deps,{selmer,{:mvn/version,\"1.12.17\"}}}"
+)
+
+(println :hello)
 (require '[selmer.parser :as p])
 (require '[clojure.java.io :as io])
 
@@ -18,9 +23,3 @@
                          (p/render (slurp (io/file "project.clj.template"))
                                    {:version version
                                     :java-source-path java-source-path})))
-
-
-;; [[org.clojure/clojurescript "1.10.520"] ;; for extraction tests
-;;  [clj-commons/conch "0.9.2"]
-;;  [jonase/eastwood "0.3.6"]
-;;  [borkdude/missing.test.assertions "0.0.1"]]
