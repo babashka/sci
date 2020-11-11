@@ -27,3 +27,6 @@ sci.exp
 sci.lib
 sci.pdb
 sci.stripped.pdb
+.classpath
+.project
+.settings
