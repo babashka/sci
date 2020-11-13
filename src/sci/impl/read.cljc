@@ -15,12 +15,12 @@
   ([sci-ctx stream eof-error? eof-value]
    (read sci-ctx stream eof-error? eof-value false))
   ([sci-ctx stream _eof-error? eof-value _recursive?]
-   (let [v (parser/parse-next sci-ctx (parser/reader stream) {:eof eof-value})]
+   (let [v (parser/parse-next sci-ctx stream {:eof eof-value})]
      (if (utils/kw-identical? :edamame.impl.parser/eof v)
        eof-value
        v)))
   ([sci-ctx _opts stream]
-   (parser/parse-next sci-ctx (parser/reader stream))))
+   (parser/parse-next sci-ctx stream)))
 
 (defn read-string
   ([sci-ctx s]
