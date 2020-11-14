@@ -1,13 +1,14 @@
 (ns sci.impl.read
-  (:refer-clojure :exclude [eval load-string read read-string])
-  (:require [clojure.tools.reader.reader-types :as r]
+  (:refer-clojure :exclude [eval load-string read read-string read+string])
+  (:require #?(:clj [clojure.string :as str])
+            [clojure.tools.reader.reader-types :as r]
             [sci.impl.io :as io]
             [sci.impl.parser :as parser]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
 (defn read
-  "Added for compatibility. Does not support the options from the original yet."
+  "Added for compatibility. Does not support all of the options from the original yet."
   ([sci-ctx]
    (read sci-ctx @io/in))
   ([sci-ctx stream]
