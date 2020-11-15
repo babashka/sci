@@ -608,16 +608,6 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
-(defn fix-meta [v old-meta]
-  (if (and #?(:clj (instance? clojure.lang.IObj v)
-              :cljs (implements? IWithMeta v))
-           (meta v))
-    (vary-meta v (fn [m]
-                   (-> m
-                       (dissoc :sci.impl/op)
-                       (assoc :line (:line old-meta)))))
-    v))
-
 (defn interpret
   [ctx expr]
   (try
