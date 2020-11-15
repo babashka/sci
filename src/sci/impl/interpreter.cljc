@@ -653,9 +653,7 @@
                                                               (map #(interpret ctx %)
                                                                    expr))
                         :else (throw (new #?(:clj Exception :cljs js/Error)
-                                          (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))
-            ret (if m (fix-meta ret m)
-                    ret)]
+                                          (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
         ;; for debugging:
         ;; (prn expr (meta expr) '-> ret)
         ret))

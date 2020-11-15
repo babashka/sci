@@ -33,15 +33,16 @@
   (utils/throw-error-with-location msg node {:phase "analysis"}))
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym v]
-  (when-not (kw-identical? :allow (-> sym meta :line))
-    (let [check-sym (strip-core-ns check-sym)]
-      (when-not (if allow (or (and (vars/var? v) (not (:sci.impl/built-in (meta v))))
-                              (contains? allow check-sym))
-                    true)
-        (throw-error-with-location (str sym " is not allowed!") sym))
-      (when (if deny (contains? deny check-sym)
-                false)
-        (throw-error-with-location (str sym " is not allowed!") sym)))))
+  (or (identical? utils/allowed-loop sym)
+      (identical? utils/allowed-recur sym)
+      (let [check-sym (strip-core-ns check-sym)]
+        (when-not (if allow (or (and (vars/var? v) (not (:sci.impl/built-in (meta v))))
+                                (contains? allow check-sym))
+                      true)
+          (throw-error-with-location (str sym " is not allowed!") sym))
+        (when (if deny (contains? deny check-sym)
+                  false)
+          (throw-error-with-location (str sym " is not allowed!") sym)))))
 
 (defn lookup* [{:keys [:env] :as ctx} sym call?]
   (let [sym-ns (some-> (namespace sym) symbol)
