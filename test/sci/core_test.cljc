@@ -326,7 +326,6 @@
     (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
     (is (nil? (tu/eval* "(dotimes [i 3] i)" {:deny '[loop recur]})))
     (testing "users should not be able to hack around this by messing with metadata"
-      (is (int? (:line (eval* "(def x (with-meta (symbol \"y\") {:line :allow})) (meta x)"))))
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
                             (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:line :allow}))
@@ -1054,6 +1053,10 @@
 
 (deftest call-quoted-symbol-test
   (is (= 1 (eval* "('a {'a 1})"))))
+
+(deftest meta-test
+  (testing "Metadata can be changed by user, even if it conflicts with sci's metadata"
+    (is (= {:column 14 :line 2} (eval* "(meta (with-meta [] {:line 2 :column 14}))")))))
 
 ;;;; Scratch
 

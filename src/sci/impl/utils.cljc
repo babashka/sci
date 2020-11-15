@@ -134,8 +134,8 @@
     ("clojure.core" "cljs.core") (symbol (name sym))
     sym))
 
-(def allowed-loop (with-meta (symbol "loop") {:line :allow}))
-(def allowed-recur (with-meta (symbol "recur") {:line :allow}))
+(def allowed-loop (symbol "loop"))
+(def allowed-recur (symbol "recur"))
 
 (defn walk*
   [inner form]
