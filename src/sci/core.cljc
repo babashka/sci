@@ -211,7 +211,8 @@
    (parser/parse-string ctx s)))
 
 (defn reader
-  "Returns indexing-push-back-reader from string or reader."
+  "Coerces x into indexing pushback-reader to be used with
+  parse-next. Accepts: string or java.io.Reader."
   [x]
   (parser/reader x))
 

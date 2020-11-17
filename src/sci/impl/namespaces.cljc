@@ -9,7 +9,6 @@
       :cljs [cljs.reader :as edn])
    [clojure.set :as set]
    [clojure.string :as str]
-   [clojure.tools.reader.reader-types :as r]
    #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
    [sci.impl.core-protocols :as core-protocols]
@@ -17,8 +16,8 @@
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
-   [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
+   [sci.impl.read :refer [eval load-string read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
@@ -457,40 +456,6 @@
   (or (vars/hasRoot sci-var)
       (some? (vars/get-thread-binding sci-var))
       false))
-
-;;;; End namespaces
-
-;;;; Eval and read-string
-
-(defn read
-  "Added for compatibility. Does not support the options from the original yet."
-  ([sci-ctx]
-   (read sci-ctx @io/in))
-  ([sci-ctx stream]
-   (read sci-ctx stream true nil))
-  ([sci-ctx stream eof-error? eof-value]
-   (read sci-ctx stream eof-error? eof-value false))
-  ([sci-ctx stream _eof-error? _eof-value _recursive?]
-   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?))
-  ([sci-ctx _opts stream]
-   (parser/parse-next sci-ctx stream #_(boolean eof-error?) #_eof-value #_recursive?)))
-
-(defn read-string
-  ([sci-ctx s]
-   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-     (parser/parse-next sci-ctx reader))))
-
-(defn eval [sci-ctx form]
-  (@utils/eval-form-state sci-ctx form))
-
-(defn load-string [sci-ctx s]
-  (vars/with-bindings {vars/current-ns @vars/current-ns}
-    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-      (loop [ret nil]
-        (let [x (parser/parse-next sci-ctx reader)]
-          (if (utils/kw-identical? :edamame.impl.parser/eof x)
-            ret
-            (recur (eval sci-ctx x))))))))
 
 ;;;; End eval and read-string
 
