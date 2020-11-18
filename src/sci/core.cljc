@@ -1,16 +1,17 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
-                            ns create-ns set!])
+                            ns create-ns set! *1 *2 *3 *e])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
+   [sci.impl.namespaces :as namespaces]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
+   [sci.impl.types :as t]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
-   [sci.impl.types :as t])
+   [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
             [sci.core :refer [with-bindings with-out-str copy-var]])))
 
@@ -92,6 +93,13 @@
 (def file "Sci var that represents sci's `clojure.core/*file*`" vars/current-file)
 (def print-length "Sci var that represents sci's `clojure.core/*print-length*`" sio/print-length)
 (def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
+(def *1 namespaces/*1)
+(def *2 namespaces/*2)
+(def *3 namespaces/*3)
+(def *e namespaces/*e)
+
+;; REPL variables
+
 
 (macros/deftime
   (defmacro with-in-str

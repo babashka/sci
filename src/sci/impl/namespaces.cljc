@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [ex-message ex-cause eval read
                             read-string require
                             use load-string
-                            find-var])
+                            find-var *1 *2 *3 *e])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -556,6 +556,18 @@
       'swapVals core-protocols/swapVals
       }))
 
+(def *1 (vars/->SciVar nil '*1 {:ns clojure-core-ns
+                                :dynamic true} false))
+
+(def *2 (vars/->SciVar nil '*2 {:ns clojure-core-ns
+                                :dynamic true} false))
+
+(def *3 (vars/->SciVar nil '*3 {:ns clojure-core-ns
+                                :dynamic true} false))
+
+(def *e (vars/->SciVar nil '*e {:ns clojure-core-ns
+                                :dynamic true} false))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -586,6 +598,12 @@
                             {:sci/macro true})
              'read-line io/read-line])
    ;; end io
+   ;; REPL variables
+   '*1 *1
+   '*2 *2
+   '*3 *3
+   '*e *e
+   ;; end REPL variables
    ;; multimethods
    'defmulti (with-meta mm/defmulti
                {:sci/macro true
