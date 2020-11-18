@@ -749,9 +749,9 @@
                       (and (seq? expr) (seq expr))
                       (analyze-call ctx expr top-level?)
                       :else expr)
-                    (select-keys (meta expr)
+                    (meta expr) #_(select-keys (do (prn (meta expr)) (meta expr))
                                  [:line :column :tag])))]
-     ;; (prn "ana" expr '-> ret 'm-> (meta ret))
+     ;;(prn "ana" expr '-> ret 'm-> (meta ret))
      ret)))
 
 ;;;; Scratch

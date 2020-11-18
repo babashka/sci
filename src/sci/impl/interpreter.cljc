@@ -608,6 +608,9 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
+(defn clean-meta [m]
+  (dissoc m :sci.impl/op))
+
 (defn interpret
   [ctx expr]
   (try
@@ -637,15 +640,18 @@
                             v)
                   :resolve-sym (resolve-symbol ctx expr)
                   :needs-ctx (partial expr ctx)
-                  (cond (map? expr) (zipmap (map #(interpret ctx %) (keys expr))
-                                            (map #(interpret ctx %) (vals expr)))
-                        (or (vector? expr) (set? expr)) (into (empty expr)
-                                                              (map #(interpret ctx %)
-                                                                   expr))
+                  (cond (map? expr) (with-meta (zipmap (map #(interpret ctx %) (keys expr))
+                                                       (map #(interpret ctx %) (vals expr)))
+                                      (clean-meta m))
+                        (or (vector? expr) (set? expr))
+                        (with-meta (into (empty expr)
+                                         (map #(interpret ctx %)
+                                              expr))
+                          (clean-meta m))
                         :else (throw (new #?(:clj Exception :cljs js/Error)
                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
         ;; for debugging:
-        ;; (prn expr (meta expr) '-> ret)
+        ;; (prn :interpret expr (meta expr) '-> ret (meta ret))
         ret))
     (catch #?(:clj Throwable :cljs js/Error) e
       (if (isa? (some-> e ex-data :type) :sci/error)
