@@ -1233,7 +1233,7 @@
       (if (instance? Throwable e-or-depth)
         (pst ctx e-or-depth 12)
         (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
-          (pst ctx (root-cause e) e-or-depth))))
+          (pst ctx (root-cause @e) e-or-depth))))
      ([_ctx ^Throwable e depth]
       (vars/with-bindings {io/out @io/err}
         (io/println (str (-> e class .getSimpleName) " "
