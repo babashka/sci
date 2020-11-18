@@ -61,6 +61,8 @@
     (or (:sci/macro m)
         (:macro m))))
 
+(def needs-ctx (symbol "needs-ctx"))
+
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (let [m (meta node)
         f (when (seqable? node) (first node))
@@ -72,7 +74,7 @@
                 ;; anonymous function
                 (kw-identical? :fn op)
                 ;; special thing like require
-                (kw-identical? :needs-ctx op)))
+                (identical? needs-ctx op)))
       (swap! (:env ctx) update-in [:callstack (:id ctx)]
              (fn [vt]
                (if vt

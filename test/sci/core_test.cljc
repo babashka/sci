@@ -340,7 +340,8 @@
                             #"allowed"
                             (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]})))))
   (testing "users cannot hack around sci.impl/needs-ctx"
-    (is (= [1 2] (eval* "(def f (with-meta (fn [ctx x] [ctx x]) {:sci.impl/needs-ctx true})) (f 1 2)"))))
+    (is (thrown? #?(:clj Exception :cljs js/Error)
+                 (eval* "(defn ^{:sci.impl/op 'needs-ctx} foo [& args] (count args)) (foo 1)"))))
   (testing "vars introduced by users are allowed"
     (is (= [2 3] (tu/eval* "(def x 2) (def y 3) [x y]" {:allow '[def]}))) 2))
 

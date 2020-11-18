@@ -698,8 +698,8 @@
               :else
               (try
                 (if (macro? f)
-                  (let [needs-ctx? (kw-identical? :needs-ctx
-                                                  (:sci.impl/op (meta f)))
+                  (let [needs-ctx? (identical? utils/needs-ctx
+                                               (:sci.impl/op (meta f)))
                         v (if needs-ctx?
                             (apply f expr
                                    (:bindings ctx)

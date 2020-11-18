@@ -433,7 +433,7 @@
                                  (vars/isMacro f))
                           @f f)]
                   (if (macro? f)
-                    (let [f (if (kw-identical? :needs-ctx (some-> f meta :sci.impl/op))
+                    (let [f (if (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
                               (partial f ctx)
                               f)]
                       (apply f original-expr (:bindings ctx) (rest expr)))
@@ -639,7 +639,12 @@
                                 v (force v)]
                             v)
                   :resolve-sym (resolve-symbol ctx expr)
-                  :needs-ctx (partial expr ctx)
+                  needs-ctx (if (identical? op utils/needs-ctx)
+                              (partial expr ctx)
+                              ;; this should never happen, or if it does, it's
+                              ;; someone trying to hack
+                              (throw (new #?(:clj Exception :cljs js/Error)
+                                          (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
                   (cond (map? expr) (with-meta (zipmap (map #(interpret ctx %) (keys expr))
                                                        (map #(interpret ctx %) (vals expr)))
                                       (clean-meta m))

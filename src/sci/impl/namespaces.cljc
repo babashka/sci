@@ -21,7 +21,7 @@
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils]
+   [sci.impl.utils :as utils :refer [needs-ctx]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
@@ -589,7 +589,7 @@
    ;; multimethods
    'defmulti (with-meta mm/defmulti
                {:sci/macro true
-                :sci.impl/op :needs-ctx})
+                :sci.impl/op needs-ctx})
    'defmethod (macrofy mm/defmethod)
    'get-method (copy-core-var get-method)
    'methods (copy-core-var methods)
@@ -604,22 +604,22 @@
    ;; protocols
    'defprotocol (with-meta protocols/defprotocol
                   {:sci/macro true
-                   :sci.impl/op :needs-ctx})
+                   :sci.impl/op needs-ctx})
    'extend (with-meta protocols/extend
-             {:sci.impl/op :needs-ctx})
+             {:sci.impl/op needs-ctx})
    'extends? protocols/extends?
    'extend-type (with-meta protocols/extend-type
                   {:sci/macro true
-                   :sci.impl/op :needs-ctx})
+                   :sci.impl/op needs-ctx})
    'extend-protocol (with-meta protocols/extend-protocol
                       {:sci/macro true
-                       :sci.impl/op :needs-ctx})
+                       :sci.impl/op needs-ctx})
    '-reified-methods #(types/getMethods %)
    'reify* (with-meta reify/reify*
-             {:sci.impl/op :needs-ctx})
+             {:sci.impl/op needs-ctx})
    'reify (with-meta reify/reify
             {:sci/macro true
-             :sci.impl/op :needs-ctx})
+             :sci.impl/op needs-ctx})
    'protocol-type-impl types/type-impl
    'satisfies? protocols/satisfies?
    ;; end protocols
@@ -655,11 +655,11 @@
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)
    'aget (copy-core-var aget)
-   'alias (with-meta sci-alias {:sci.impl/op :needs-ctx})
-   'all-ns (with-meta sci-all-ns {:sci.impl/op :needs-ctx})
+   'alias (with-meta sci-alias {:sci.impl/op needs-ctx})
+   'all-ns (with-meta sci-all-ns {:sci.impl/op needs-ctx})
    'alter-meta! (copy-core-var alter-meta!)
    'alter-var-root (copy-core-var vars/alter-var-root)
-   'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op :needs-ctx})
+   'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op needs-ctx})
    'aset (copy-core-var aset)
    'alength (copy-core-var alength)
    'any? (copy-core-var any?)
@@ -731,11 +731,11 @@
    'defonce (macrofy defonce*)
    'defrecord (with-meta records/defrecord
                 {:sci/macro true
-                 :sci.impl/op :needs-ctx})
+                 :sci.impl/op needs-ctx})
    'delay (macrofy delay*)
    #?@(:clj ['deliver (copy-core-var deliver)])
-   'derive (with-meta hierarchies/derive* {:sci.impl/op :needs-ctx})
-   'descendants (with-meta hierarchies/descendants* {:sci.impl/op :needs-ctx})
+   'derive (with-meta hierarchies/derive* {:sci.impl/op needs-ctx})
+   'descendants (with-meta hierarchies/descendants* {:sci.impl/op needs-ctx})
    'dissoc (copy-core-var dissoc)
    'distinct (copy-core-var distinct)
    'distinct? (copy-core-var distinct?)
@@ -755,7 +755,7 @@
    'empty (copy-core-var empty)
    'empty? (copy-core-var empty?)
    #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
-   'eval (with-meta eval {:sci.impl/op :needs-ctx})
+   'eval (with-meta eval {:sci.impl/op needs-ctx})
    'even? (copy-core-var even?)
    'every? (copy-core-var every?)
    'every-pred (copy-core-var every-pred)
@@ -764,8 +764,8 @@
    'ex-info (copy-core-var ex-info)
    'ex-message (copy-core-var ex-message)
    'ex-cause (copy-core-var ex-cause)
-   'find-ns (with-meta sci-find-ns {:sci.impl/op :needs-ctx})
-   'find-var (with-meta sci-find-var {:sci.impl/op :needs-ctx})
+   'find-ns (with-meta sci-find-ns {:sci.impl/op needs-ctx})
+   'find-var (with-meta sci-find-var {:sci.impl/op needs-ctx})
    'first (copy-core-var first)
    'float? (copy-core-var float?)
    'floats (copy-core-var floats)
@@ -802,7 +802,7 @@
    'instance? protocols/instance-impl
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
-   'intern (with-meta sci-intern {:sci.impl/op :needs-ctx})
+   'intern (with-meta sci-intern {:sci.impl/op needs-ctx})
    'into (copy-core-var into)
    'iterate (copy-core-var iterate)
    #?@(:clj ['iterator-seq (copy-core-var iterator-seq)])
@@ -813,7 +813,7 @@
    'integer? (copy-core-var integer?)
    'ints (copy-core-var ints)
    'into-array (copy-core-var into-array)
-   'isa? (with-meta hierarchies/isa?* {:sci.impl/op :needs-ctx})
+   'isa? (with-meta hierarchies/isa?* {:sci.impl/op needs-ctx})
    #?@(:cljs ['js->clj (copy-core-var js->clj)])
    #?@(:cljs ['js-obj (copy-core-var js-obj)])
    'juxt (copy-core-var juxt)
@@ -826,7 +826,7 @@
    'last (copy-core-var last)
    'lazy-cat (macrofy lazy-cat*)
    'letfn (macrofy letfn*)
-   'load-string (with-meta load-string {:sci.impl/op :needs-ctx})
+   'load-string (with-meta load-string {:sci.impl/op needs-ctx})
    'long (copy-core-var long)
    'list (copy-core-var list)
    'list? (copy-core-var list?)
@@ -864,23 +864,23 @@
    'nthrest (copy-core-var nthrest)
    'nil? (copy-core-var nil?)
    'nat-int? (copy-core-var nat-int?)
-   'ns-resolve (with-meta sci-ns-resolve {:sci.impl/op :needs-ctx})
+   'ns-resolve (with-meta sci-ns-resolve {:sci.impl/op needs-ctx})
    'number? (copy-core-var number?)
    'not-empty (copy-core-var not-empty)
    'not-any? (copy-core-var not-any?)
    'next (copy-core-var next)
    'nnext (copy-core-var nnext)
-   'ns-aliases (with-meta sci-ns-aliases {:sci.impl/op :needs-ctx})
-   'ns-imports (with-meta sci-ns-imports {:sci.impl/op :needs-ctx})
-   'ns-interns (with-meta sci-ns-interns {:sci.impl/op :needs-ctx})
-   'ns-publics (with-meta sci-ns-publics {:sci.impl/op :needs-ctx})
-   'ns-refers (with-meta sci-ns-refers {:sci.impl/op :needs-ctx})
-   'ns-map (with-meta sci-ns-map {:sci.impl/op :needs-ctx})
-   'ns-unmap (with-meta sci-ns-unmap {:sci.impl/op :needs-ctx})
+   'ns-aliases (with-meta sci-ns-aliases {:sci.impl/op needs-ctx})
+   'ns-imports (with-meta sci-ns-imports {:sci.impl/op needs-ctx})
+   'ns-interns (with-meta sci-ns-interns {:sci.impl/op needs-ctx})
+   'ns-publics (with-meta sci-ns-publics {:sci.impl/op needs-ctx})
+   'ns-refers (with-meta sci-ns-refers {:sci.impl/op needs-ctx})
+   'ns-map (with-meta sci-ns-map {:sci.impl/op needs-ctx})
+   'ns-unmap (with-meta sci-ns-unmap {:sci.impl/op needs-ctx})
    'ns-name sci-ns-name
    'odd? (copy-core-var odd?)
    'object-array (copy-core-var object-array)
-   'parents (with-meta hierarchies/parents* {:sci.impl/op :needs-ctx})
+   'parents (with-meta hierarchies/parents* {:sci.impl/op needs-ctx})
    'peek (copy-core-var peek)
    'pop (copy-core-var pop)
    'pop-thread-bindings vars/pop-thread-bindings
@@ -898,7 +898,7 @@
    'qualified-keyword? (copy-core-var qualified-keyword?)
    'quot (copy-core-var quot)
    're-seq (copy-core-var re-seq)
-   'refer (with-meta sci-refer {:sci.impl/op :needs-ctx})
+   'refer (with-meta sci-refer {:sci.impl/op needs-ctx})
    're-find (copy-core-var re-find)
    #?@(:clj ['re-groups (copy-core-var re-groups)])
    're-pattern (copy-core-var re-pattern)
@@ -907,8 +907,8 @@
    'realized? (copy-core-var realized?)
    'rem (copy-core-var rem)
    'remove (copy-core-var remove)
-   'remove-ns (with-meta sci-remove-ns {:sci.impl/op :needs-ctx})
-   'require (with-meta require {:sci.impl/op :needs-ctx})
+   'remove-ns (with-meta sci-remove-ns {:sci.impl/op needs-ctx})
+   'require (with-meta require {:sci.impl/op needs-ctx})
    'reset-meta! (copy-core-var reset-meta!)
    'rest (copy-core-var rest)
    'repeatedly (copy-core-var repeatedly)
@@ -923,18 +923,18 @@
    'reduced? (copy-core-var reduced?)
    'reset! core-protocols/reset!*
    'reset-thread-binding-frame-impl vars/reset-thread-binding-frame
-   'resolve (with-meta sci-resolve {:sci.impl/op :needs-ctx})
+   'resolve (with-meta sci-resolve {:sci.impl/op needs-ctx})
    'reversible? (copy-core-var reversible?)
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
    'rand (copy-core-var rand)
-   'read (with-meta read {:sci.impl/op :needs-ctx})
-   'read-string (with-meta read-string {:sci.impl/op :needs-ctx})
+   'read (with-meta read {:sci.impl/op needs-ctx})
+   'read-string (with-meta read-string {:sci.impl/op needs-ctx})
    'replace (copy-core-var replace)
    'rseq (copy-core-var rseq)
    'random-sample (copy-core-var random-sample)
    'repeat (copy-core-var repeat)
-   'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op :needs-ctx})
+   'requiring-resolve (with-meta sci-requiring-resolve {:sci.impl/op needs-ctx})
    'run! (copy-core-var run!)
    'set? (copy-core-var set?)
    'sequential? (copy-core-var sequential?)
@@ -981,7 +981,7 @@
    'take-last (copy-core-var take-last)
    'take-nth (copy-core-var take-nth)
    'take-while (copy-core-var take-while)
-   'the-ns (with-meta sci-the-ns {:sci.impl/op :needs-ctx})
+   'the-ns (with-meta sci-the-ns {:sci.impl/op needs-ctx})
    'trampoline (copy-core-var trampoline)
    'transduce (copy-core-var transduce)
    'transient (copy-core-var transient)
@@ -1015,10 +1015,10 @@
    'unchecked-char (copy-core-var unchecked-char)
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
-   'underive (with-meta hierarchies/underive* {:sci.impl/op :needs-ctx})
+   'underive (with-meta hierarchies/underive* {:sci.impl/op needs-ctx})
    'unquote (doto (vars/->SciVar nil 'clojure.core/unquote nil false)
               (vars/unbind))
-   'use (with-meta use {:sci.impl/op :needs-ctx})
+   'use (with-meta use {:sci.impl/op needs-ctx})
    'val (copy-core-var val)
    'vals (copy-core-var vals)
    'var? sci.impl.vars/var?
@@ -1236,15 +1236,15 @@
 
 (def clojure-repl
   {:obj (vars/->SciNamespace 'clojure.repl nil)
-   'dir-fn (with-meta dir-fn {:sci.impl/op :needs-ctx})
+   'dir-fn (with-meta dir-fn {:sci.impl/op needs-ctx})
    'dir (macrofy dir)
    'print-doc (with-meta print-doc {:private true})
    'doc (macrofy doc)
-   'find-doc (with-meta find-doc {:sci.impl/op :needs-ctx})
-   'apropos (with-meta apropos {:sci.impl/op :needs-ctx})
+   'find-doc (with-meta find-doc {:sci.impl/op needs-ctx})
+   'apropos (with-meta apropos {:sci.impl/op needs-ctx})
    'source (macrofy source)
-   'source-fn (with-meta source-fn {:sci.impl/op :needs-ctx})
-   #?@(:clj ['pst (with-meta pst {:sci.impl/op :needs-ctx})
+   'source-fn (with-meta source-fn {:sci.impl/op needs-ctx})
+   #?@(:clj ['pst (with-meta pst {:sci.impl/op needs-ctx})
              'stack-element-str stack-element-str
              'demunge demunge])})
 
@@ -1280,7 +1280,7 @@
                  'macroexpand-all
                  {:ns clojure-walk-namespace
                   :name 'macroexpand-all
-                  :sci.impl/op :needs-ctx
+                  :sci.impl/op needs-ctx
                   :doc "Recursively performs all possible macroexpansions in form."}
                  false))
 
