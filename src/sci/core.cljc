@@ -91,6 +91,7 @@
 (def ns "Sci var that represents sci's `clojure.core/*ns*`" vars/current-ns)
 (def file "Sci var that represents sci's `clojure.core/*file*`" vars/current-file)
 (def print-length "Sci var that represents sci's `clojure.core/*print-length*`" sio/print-length)
+(def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
 
 (macros/deftime
   (defmacro with-in-str
