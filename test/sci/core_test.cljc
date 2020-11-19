@@ -261,7 +261,8 @@
   ;; in call position Clojure prioritizes special symbols over bindings
   (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
   (is (= 1 (eval* "((symbol \"recur\") {'recur 1})")))
-  (is (= [true false] (eval* "(mapv (comp some? resolve) '[inc x])"))))
+  (is (= [true false] (eval* "(mapv (comp some? resolve) '[inc x])")))
+  (is (= [1 nil] (eval* "(def a 1) [@(resolve 'a) (resolve '{a 1} 'a)]"))))
 
 (deftest ns-resolve-test
   (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))

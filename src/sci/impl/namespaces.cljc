@@ -467,18 +467,22 @@
 (defn use [sci-ctx & args]
   (apply @utils/eval-use-state sci-ctx args))
 
-(defn sci-resolve [sci-ctx sym]
-  (@utils/eval-resolve-state sci-ctx sym))
+(defn sci-resolve
+  ([sci-ctx sym]
+   (@utils/eval-resolve-state sci-ctx sym))
+  ([sci-ctx env sym]
+   (@utils/eval-resolve-state sci-ctx env sym)))
 
 (defn sci-refer [sci-ctx & args]
   (apply @utils/eval-refer-state sci-ctx args))
 
 (defn sci-ns-resolve
-  ([sci-ctx ns sym] (sci-ns-resolve sci-ctx ns nil sym))
+  ([sci-ctx ns sym]
+   (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
+     (sci-resolve sci-ctx sym)))
   ([sci-ctx ns env sym]
-   (when-not (contains? env sym)
-     (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
-       (sci-resolve sci-ctx sym)))))
+   (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
+     (sci-resolve sci-ctx env sym))))
 
 (defn sci-requiring-resolve
   ([sci-ctx sym]

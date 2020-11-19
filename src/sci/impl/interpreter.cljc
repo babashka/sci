@@ -409,9 +409,14 @@
 
 (declare eval-form)
 
-(defn eval-resolve [ctx sym]
-  (let [sym (interpret ctx sym)]
-    (second (ana/lookup ctx sym false))))
+(defn eval-resolve
+  ([ctx sym]
+   (let [sym (interpret ctx sym)]
+     (second (ana/lookup ctx sym false))))
+  ([ctx env sym]
+   (when-not (contains? env sym)
+     (let [sym (interpret ctx sym)]
+       (second (ana/lookup ctx sym false))))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
 
@@ -583,7 +588,8 @@
                                       (meta expr)))
     use (apply eval-use ctx (with-meta (rest expr)
                               (meta expr)))
-    resolve (eval-resolve ctx (second expr))
+    ;; resolve works as a function so this should not be necessary
+    ;; resolve (eval-resolve ctx (second expr))
     macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
     macroexpand (macroexpand ctx (interpret ctx (second expr)))
     import (apply eval-import ctx (rest expr))
