@@ -804,6 +804,7 @@
    'fn? (copy-core-var fn?)
    'get (copy-core-var get)
    'get-thread-binding-frame-impl vars/get-thread-binding-frame
+   #?@(:clj ['get-thread-bindings (copy-var vars/get-thread-bindings clojure-core-ns)])
    'get-in (copy-core-var get-in)
    'group-by (copy-core-var group-by)
    'gensym (copy-core-var gensym)
