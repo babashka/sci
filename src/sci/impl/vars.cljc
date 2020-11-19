@@ -6,7 +6,9 @@
                             pop-thread-bindings
                             with-bindings
                             thread-bound?
-                            alter-var-root])
+                            alter-var-root
+                            var-get
+                            var-set])
   (:require [sci.impl.macros :as macros]
             [sci.impl.types :as t]
             [sci.impl.unrestrict :refer [*unrestricted*]])
@@ -355,6 +357,12 @@
    (do (defmethod print-method sci.impl.vars.IVar [o ^java.io.Writer w]
          (.write w (str "#'" (toSymbol o))))
        (prefer-method print-method sci.impl.vars.IVar clojure.lang.IDeref)))
+
+(defn var-get [v]
+  (deref v))
+
+(defn var-set [v val]
+  (t/setVal v val))
 
 (defn var? [x]
   (instance? sci.impl.vars.SciVar x))

@@ -193,3 +193,13 @@
           "[(with-redefs [*x* (fn [] 11)] (*x*)) (*x*)]" {:bindings {'*x* x}}))))
   (binding [*unrestricted* true]
     (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))))
+
+(deftest var-get-set-test
+  (is (= "10\n11\n"
+         (sci/with-out-str
+           (sci/eval-string "
+(def ^:dynamic x)
+(binding [x 10]
+  (prn (var-get #'x))
+  (var-set #'x 11)
+  (prn (var-get #'x)))")))))

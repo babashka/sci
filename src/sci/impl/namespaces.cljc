@@ -1044,7 +1044,9 @@
    'use (with-meta use {:sci.impl/op needs-ctx})
    'val (copy-core-var val)
    'vals (copy-core-var vals)
-   'var? sci.impl.vars/var?
+   'var? (copy-var vars/var? clojure-core-ns)
+   'var-get (copy-var vars/var-get clojure-core-ns)
+   'var-set (copy-var vars/var-set clojure-core-ns)
    'vary-meta (copy-core-var vary-meta)
    'vec (copy-core-var vec)
    'vector (copy-core-var vector)
