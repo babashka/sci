@@ -269,7 +269,7 @@
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))]
-    (mark-eval-call `(~'let ~new-let-bindings ~@(analyze-children ctx exprs)))))
+    (mark-eval-call ctx `(~'let ~new-let-bindings ~@(analyze-children ctx exprs)))))
 
 (defn expand-let
   "The let macro from clojure.core"
@@ -313,7 +313,7 @@
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
-        (mark-eval-call (list 'def var-name init))))))
+        (mark-eval-call ctx (list 'def var-name init))))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
   (when-not (simple-symbol? fn-name)
@@ -349,7 +349,7 @@
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
                  :sci.impl/var true)]
-    (mark-eval-call (list 'def fn-name f))))
+    (mark-eval-call ctx (list 'def fn-name f))))
 
 (defn expand-comment
   "The comment macro from clojure.core."
@@ -375,7 +375,7 @@
 (defn expand-lazy-seq
   [ctx expr]
   (let [body (rest expr)]
-    (mark-eval-call
+    (mark-eval-call ctx
      (list `lazy-seq
            (analyze ctx
                     ;; expand-fn will take care of the analysis of the body
@@ -385,7 +385,7 @@
   [ctx [_if & exprs :as expr]]
   (case (count exprs)
     (0 1) (throw-error-with-location "Too few arguments to if" expr)
-    (2 3) (mark-eval-call `(~'if ~@(analyze-children ctx exprs)))
+    (2 3) (mark-eval-call ctx `(~'if ~@(analyze-children ctx exprs)))
     (throw-error-with-location "Too many arguments to if" expr)))
 
 (defn expand-case
@@ -417,12 +417,12 @@
                           cases
                           (assoc-new ret-map k v))))
                      ret-map))
-        ret (mark-eval-call (list 'case
+        ret (mark-eval-call ctx (list 'case
                                   {:case-map case-map
                                    :case-val v
                                    :case-default default}
                                   default))]
-    (mark-eval-call ret)))
+    (mark-eval-call ctx ret)))
 
 (defn expand-try
   [ctx [_try & body]]
@@ -536,14 +536,14 @@
                                         (catch IllegalArgumentException _ nil))]
                             (with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access})
-                            (mark-eval-call
+                            (mark-eval-call ctx
                              `(~(with-meta [instance-expr method-expr]
                                   {:sci.impl/op :static-access}) ~@args))))
-                        (mark-eval-call
+                        (mark-eval-call ctx
                          `(~(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access}) ~@args)))
-                      (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))
-               :cljs (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))]
+                      (mark-eval-call ctx `(~'. ~instance-expr ~method-expr ~args)))
+               :cljs (mark-eval-call ctx `(~'. ~instance-expr ~method-expr ~args)))]
     res))
 
 (defn expand-dot**
@@ -566,10 +566,10 @@
   (if-let [#?(:clj {:keys [:class] :as _opts}
               :cljs {:keys [:constructor] :as _opts}) (interop/resolve-class-opts ctx class-sym)]
     (let [args (analyze-children ctx args)] ;; analyze args!
-      (mark-eval-call (list 'new #?(:clj class :cljs constructor) args)))
+      (mark-eval-call ctx (list 'new #?(:clj class :cljs constructor) args)))
     (if-let [record (records/resolve-record-class ctx class-sym)]
       (let [args (analyze-children ctx args)]
-        (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args)))
+        (mark-eval-call ctx (list* (:sci.impl.record/constructor (meta record)) args)))
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
@@ -612,20 +612,20 @@
             (:require :use)
             (recur (next exprs)
                    (conj ret
-                         (mark-eval-call
+                         (mark-eval-call ctx
                           (with-meta (list* (symbol (name k)) args)
                             (meta expr)))))
-            :import (recur (next exprs) (conj ret (mark-eval-call
+            :import (recur (next exprs) (conj ret (mark-eval-call ctx
                                                    (with-meta (list* 'import args)
                                                      (meta expr)))))
             :refer-clojure (recur (next exprs)
                                   (conj ret
-                                        (mark-eval-call
+                                        (mark-eval-call ctx
                                          (with-meta (list* 'refer 'clojure.core args)
                                            (meta expr)))))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
-        (mark-eval-call (list* 'do ret))))))
+        (mark-eval-call ctx (list* 'do ret))))))
 
 ;;;; End namespaces
 
@@ -639,7 +639,7 @@
   (let [obj (analyze ctx obj)
         v (analyze ctx v)
         obj (types/getVal obj)]
-    (mark-eval-call (list 'set! obj v))))
+    (mark-eval-call ctx (list 'set! obj v))))
 
 ;;;; End vars
 
@@ -668,7 +668,7 @@
                 ;; analysis/interpretation unit so we hand this over to the
                 ;; interpreter again, which will invoke analysis + evaluation on
                 ;; every sub expression
-                do (mark-eval-call (cons 'do
+                do (mark-eval-call ctx (cons 'do
                                          (analyze-children ctx (rest expr))))
                 let (expand-let ctx expr)
                 (fn fn*) (expand-fn ctx expr false)
@@ -698,9 +698,9 @@
                 ns (analyze-ns-form ctx expr)
                 var (analyze-var ctx expr)
                 set! (analyze-set! ctx expr)
-                (import quote) (mark-eval-call expr) ;; don't analyze children
+                (import quote) (mark-eval-call ctx expr) ;; don't analyze children
                 ;; else:
-                (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                (mark-eval-call ctx (cons f (analyze-children ctx (rest expr)))))
               :else
               (try
                 (if (macro? f)
@@ -720,14 +720,14 @@
                                        (types/->EvalForm v)
                                        :else (analyze ctx v))]
                     expanded)
-                  (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                  (mark-eval-call ctx (cons f (analyze-children ctx (rest expr)))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting
-                                                 (mark-eval-call
+                                                 (mark-eval-call ctx
                                                   (with-meta (cons f (rest expr))
                                                     (meta expr))))))))
-      (let [ret (mark-eval-call (analyze-children ctx expr))]
+      (let [ret (mark-eval-call ctx (analyze-children ctx expr))]
         ret))))
 
 (defn analyze
@@ -735,7 +735,10 @@
    (analyze ctx expr false))
   ([ctx expr top-level?]
    ;; (prn "ana" expr)
-   (let [m-without-loc (not-empty (utils/without-loc (meta expr)))
+   (let [m (meta expr)
+         m-without-loc (some-> m utils/without-loc not-empty)
+         loc (when m (:sci.impl/loc m))
+         ctx (if loc (assoc ctx :loc loc) ctx)
          #_#_expr (if m-without-loc
                 (with-meta expr m-without-loc)
                 expr)
@@ -744,8 +747,11 @@
                                     (cond (constant? v) v
                                           (vars/var? v) (if (:const (meta v))
                                                           @v (types/->EvalVar v))
-                                          :else (with-meta v
-                                                  (not-empty (utils/without-loc (meta expr))))))
+                                          ;; do we care about the original metadata in this case?
+                                          :else v #_(if (and (utils/iobj? v) m-without-loc)
+                                                  (merge-meta v
+                                                    (not-empty (utils/without-loc (meta expr))))
+                                                  v)))
                    :else
                    (cond
                      (record? expr) expr ;; don't evaluate records

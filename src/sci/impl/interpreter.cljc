@@ -600,6 +600,7 @@
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
              m (meta f)
+             ;;_ (prn :f expr '-> (meta expr))
              op (when m (.get ^java.util.Map m :sci.impl/op))]
          (cond
            (and (symbol? f) (not op))

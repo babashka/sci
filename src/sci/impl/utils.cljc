@@ -28,14 +28,17 @@
   ([prefix] (mark-resolve-sym (gensym prefix))))
 
 (defn mark-eval-call
-  [expr]
-  (vary-meta
-   expr
-   (fn [m]
-     (assoc m
-            :sci.impl/op :call
-            :ns @vars/current-ns
-            :file @vars/current-file))))
+  ([expr] (mark-eval-call nil expr))
+  ([ctx expr]
+   ;; (prn expr '-> (some? ctx))
+   (vary-meta
+    expr
+    (fn [m]
+      (assoc m
+             :sci.impl/loc (:loc ctx)
+             :sci.impl/op :call
+             :ns @vars/current-ns
+             :file @vars/current-file)))))
 
 (defn mark-eval
   [expr]
@@ -122,11 +125,14 @@
     (apply vary-meta obj f args)
     obj))
 
+(defn iobj? [obj]
+  #?(:clj (instance? clojure.lang.IObj obj)
+     :cljs (implements? IWithMeta obj)))
+
 (defn merge-meta
   "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
   [obj d]
-  (if (and d #?(:clj (instance? clojure.lang.IObj obj)
-                :cljs (implements? IWithMeta obj)))
+  (if (and d (iobj? obj))
     (if-let [m (meta obj)]
       (with-meta obj (merge m d))
       #_(let [loc (:sci.impl/loc d)]
