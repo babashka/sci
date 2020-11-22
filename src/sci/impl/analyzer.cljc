@@ -67,10 +67,12 @@
                        #?(:clj
                           (if call?
                             {::static-access true}
-                            {:sci.impl/op :static-access
+                            {:sci.impl/loc (:loc ctx)
+                             :sci.impl/op :static-access
                              :file @vars/current-file
                              :ns @vars/current-ns})
-                          :cljs {:sci.impl/op :static-access}))]))
+                          :cljs {:sci.impl/loc (:loc ctx)
+                                 :sci.impl/op :static-access}))]))
           :else
           ;; no sym-ns, this could be a symbol from clojure.core
           (when-not (contains?
