@@ -106,8 +106,6 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
-        ;; _ (prn :m m)
-        ;; m (dissoc m :sci.impl/loc)
         m (interpret ctx m)
         cnn (vars/getName (:ns m))
         assoc-in-env
@@ -643,8 +641,13 @@
                 (case op
                   :call (eval-call ctx expr)
                   :try (eval-try ctx expr)
-                  :fn (with-meta (fns/eval-fn ctx interpret eval-do* expr)
-                        (clean-meta m))
+                  :fn (let [f (fns/eval-fn ctx interpret eval-do* expr)
+                            fm (meta f)
+                            cm (clean-meta m)]
+                        (with-meta f
+                          (if fm
+                            (merge fm cm)
+                            cm)))
                   :static-access (interop/get-static-field expr)
                   :var-value (nth expr 0)
                   :deref! (let [v (first expr)
