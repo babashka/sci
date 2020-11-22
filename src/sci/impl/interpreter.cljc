@@ -615,7 +615,10 @@
          (rethrow-with-location-of-node ctx e expr))))
 
 (defn clean-meta [m]
-  (dissoc m :sci.impl/op))
+  (-> (dissoc m
+              :sci.impl/op
+              :sci.impl/loc)
+      not-empty))
 
 (defn interpret
   [ctx expr]
@@ -702,7 +705,7 @@
       (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
         (loop [ret nil]
           (let [expr (p/parse-next ctx reader)]
-            (if (utils/kw-identical? :edamame.impl.parser/eof expr) ret
+            (if (utils/kw-identical? :edamame.core/eof expr) ret
                 (let [ret (eval-form ctx expr)]
                   (recur ret)))))))))
 

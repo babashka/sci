@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [read-string])
   (:require
    [clojure.tools.reader.reader-types :as r]
-   [edamame.impl.parser :as parser]
+   [edamame.core :as parser]
    [sci.impl.analyzer :as ana]
    [sci.impl.interop :as interop]
    [sci.impl.utils :as utils]
@@ -15,10 +15,17 @@
   (parser/normalize-opts
    {:all true
     :read-eval false
+    :location-key :sci.impl/loc
     :row-key :line
     :col-key :column
     :end-row-key :end-line
-    :end-col-key :end-column}))
+    :end-col-key :end-column
+    :read-cond :allow
+    :postprocess (fn [m]
+                   (let [obj (:obj m)]
+                     (if (parser/iobj? obj)
+                       (vary-meta obj assoc :sci.impl/loc (:loc m))
+                       obj)))}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
@@ -67,14 +74,12 @@
          auto-resolve (assoc aliases
                              :current current-ns)
          parse-opts (cond-> (assoc default-opts
-                                   :read-cond :allow
                                    :features features
                                    :auto-resolve auto-resolve
                                    :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
                                    :readers readers)
                       opts (merge opts))
-         ret (try (parser/parse-next parse-opts
-                                     r)
+         ret (try (parser/parse-next r parse-opts)
                   (catch #?(:clj clojure.lang.ExceptionInfo
                             :cljs cljs.core/ExceptionInfo) e
                     (throw (ex-info #?(:clj (.getMessage e)
@@ -105,7 +110,7 @@
   ([ctx s]
    (let [r (reader s)
          v (parse-next ctx r)]
-     (if (utils/kw-identical? :edamame.impl.parser/eof v) nil v))))
+     (if (utils/kw-identical? :edamame.core/eof v) nil v))))
 
 ;;;; Scratch
 

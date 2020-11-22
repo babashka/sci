@@ -2,7 +2,6 @@
   "Only used for testing"
   {:no-doc true}
   (:require
-   [clojure.tools.reader.reader-types :as r]
    [sci.core :as sci :refer [eval-string]]
    #?(:clj [sci.addons :as addons])
    #?(:clj [clojure.edn :as edn]
@@ -21,7 +20,7 @@
                               #?@(:clj [sci/err *err*])}
             (if n
               (let [ctx (opts/init ctx)
-                    reader (r/indexing-push-back-reader (r/string-push-back-reader form))
+                    reader (p/reader form)
                     form (p/parse-next ctx reader)
                     form (ana/analyze ctx form)]
                 (loop [i 0]

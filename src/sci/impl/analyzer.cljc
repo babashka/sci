@@ -12,7 +12,7 @@
    [sci.impl.utils :as utils :refer
     [mark-resolve-sym mark-eval mark-eval-call constant?
      rethrow-with-location-of-node
-     merge-meta kw-identical? strip-core-ns set-namespace!
+     merge-meta strip-core-ns set-namespace!
      macro?]]
    [sci.impl.vars :as vars])
   #?(:clj (:import [sci.impl Reflector])))

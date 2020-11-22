@@ -1,7 +1,6 @@
 (ns sci.impl.read
   (:refer-clojure :exclude [eval load-string read read-string read+string])
-  (:require #?(:clj [clojure.string :as str])
-            [clojure.tools.reader.reader-types :as r]
+  (:require [clojure.tools.reader.reader-types :as r]
             [sci.impl.io :as io]
             [sci.impl.parser :as parser]
             [sci.impl.utils :as utils]
@@ -17,7 +16,7 @@
    (read sci-ctx stream eof-error? eof-value false))
   ([sci-ctx stream _eof-error? eof-value _recursive?]
    (let [v (parser/parse-next sci-ctx stream {:eof eof-value})]
-     (if (utils/kw-identical? :edamame.impl.parser/eof v)
+     (if (utils/kw-identical? :edamame.core/eof v)
        eof-value
        v)))
   ([sci-ctx _opts stream]
@@ -36,6 +35,6 @@
     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
         (let [x (parser/parse-next sci-ctx reader)]
-          (if (utils/kw-identical? :edamame.impl.parser/eof x)
+          (if (utils/kw-identical? :edamame.core/eof x)
             ret
             (recur (eval sci-ctx x))))))))
