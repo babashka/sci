@@ -1055,13 +1055,14 @@
 (deftest call-quoted-symbol-test
   (is (= 1 (eval* "('a {'a 1})"))))
 
-(deftest meta-test
+(deftest reader-meta-test
   (testing "Metadata can be changed by user, even if it conflicts with sci's metadata"
     (is (= {:column 14 :line 2} (eval* "(meta (with-meta [] {:line 2 :column 14}))"))))
   (testing "Reader metadata is preserved"
     (is (true? (eval* "(:foo (meta ^:foo #{1 2 3}))")))
     (is (true? (eval* "(:foo (meta ^:foo [1 2 3]))")))
-    (is (true? (eval* "(:foo (meta ^:foo {:a 1}))")))))
+    (is (true? (eval* "(:foo (meta ^:foo {:a 1}))")))
+    (is (true? (eval* "(:foo (meta ^:foo (fn [])))")))))
 
 ;;;; Scratch
 
