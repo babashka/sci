@@ -13,6 +13,7 @@
                           )
              (catch #?(:clj Exception
                        :cljs js/Error) e
+               ;; (prn (ex-data e))
                (map #(-> %
                          (select-keys [:ns :name :line :column])
                          (update :ns sci-ns-name))

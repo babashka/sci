@@ -14,6 +14,7 @@
 
 (defn expr->data [expr]
   (let [m (meta expr)
+        m (merge m (:sci.impl/loc m))
         f (when (seqable? expr) (first expr))
         fm (some-> f meta)
         fm (if (symbol? f)
