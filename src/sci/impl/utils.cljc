@@ -50,8 +50,11 @@
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
-   (let [{:keys [:line :column :file]
-          :or {file @vars/current-file}} (:sci.impl/loc (meta iobj))]
+   (let [m (meta iobj)
+         {:keys [:line :column :file]
+          :or {file @vars/current-file}}
+         (assoc (:sci.impl/loc m)
+                :file (:file m))]
      (throw (ex-info msg (merge {:type :sci/error
                                  :line line
                                  :column column
@@ -93,7 +96,8 @@
                 {:keys [:line :column :file]
                  :or {line (:line ctx)
                       column (:column ctx)}}
-                (:sci.impl/loc (meta node))]
+                (assoc (:sci.impl/loc m)
+                       :file (:file m))]
             (if (and line column)
               (let [m ex-msg
                     new-exception
