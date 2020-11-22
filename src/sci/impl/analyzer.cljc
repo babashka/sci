@@ -327,9 +327,15 @@
                     (when (string? ds) ds))
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
-        meta-map (analyze ctx (merge (meta fn-name) (meta expr) meta-map))
+        mexpr (meta expr)
+        mexpr* (utils/without-loc mexpr)
+        mfn-name (utils/without-loc (meta fn-name))
+        loc (:sci.impl/loc mexpr)
+        meta-map (assoc (analyze ctx (merge mfn-name mexpr* meta-map))
+                        :line (:line loc)
+                        :column (:column loc))
         fn-body (with-meta (cons 'fn body)
-                  (meta expr))
+                  mexpr)
         f (expand-fn ctx fn-body macro?)
         arglists (seq (:sci.impl/arglists f))
         meta-map (assoc meta-map
@@ -484,7 +490,7 @@
                                       (assoc acc name
                                              (doto (vars/->SciVar nil (symbol (str cnn)
                                                                               (str name))
-                                                                  (assoc (meta name)
+                                                                  (assoc (utils/without-loc (meta name))
                                                                          :name name
                                                                          :ns @vars/current-ns
                                                                          :file @vars/current-file)
@@ -729,27 +735,40 @@
    (analyze ctx expr false))
   ([ctx expr top-level?]
    ;; (prn "ana" expr)
-   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
+   (let [m-without-loc (not-empty (utils/without-loc (meta expr)))
+         #_#_expr (if m-without-loc
+                (with-meta expr m-without-loc)
+                expr)
+         ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                     (cond (constant? v) v
                                           (vars/var? v) (if (:const (meta v))
                                                           @v (types/->EvalVar v))
-                                          :else (merge-meta v (meta expr))))
+                                          :else (with-meta v
+                                                  (not-empty (utils/without-loc (meta expr))))))
                    :else
-                   (merge-meta
-                    (cond
-                      (record? expr) expr ;; don't evaluate records
-                      (map? expr)
-                      (-> (zipmap (analyze-children ctx (keys expr))
-                                  (analyze-children ctx (vals expr)))
-                          mark-eval)
-                      (or (vector? expr) (set? expr))
-                      (-> (into (empty expr) (analyze-children ctx expr))
-                          mark-eval)
-                      (and (seq? expr) (seq expr))
-                      (analyze-call ctx expr top-level?)
-                      :else expr)
-                    (meta expr)))]
+                   (cond
+                     (record? expr) expr ;; don't evaluate records
+                     (map? expr)
+                     (let [analyzed-map (zipmap (analyze-children ctx (keys expr))
+                                                (analyze-children ctx (vals expr)))
+                           analyzed-map (if m-without-loc
+                                          (with-meta analyzed-map m-without-loc)
+                                          analyzed-map)]
+                       ;; TODO: move to EvalNode or something not metadata based
+                       (mark-eval analyzed-map))
+                     (or (vector? expr) (set? expr))
+                     (let [analyzed (into (empty expr) (analyze-children ctx expr))
+                           analyzed (if m-without-loc
+                                      (with-meta analyzed m-without-loc)
+                                      analyzed)]
+                       (mark-eval analyzed))
+                     (and (seq? expr) (seq expr))
+                     (let [analyzed (analyze-call ctx expr top-level?)]
+                       (if m-without-loc
+                         (vary-meta analyzed merge m-without-loc)
+                         analyzed))
+                     :else expr))]
      ;;(prn "ana" expr '-> ret 'm-> (meta ret))
      ret)))
 

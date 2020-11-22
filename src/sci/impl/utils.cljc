@@ -129,8 +129,16 @@
                 :cljs (implements? IWithMeta obj)))
     (if-let [m (meta obj)]
       (with-meta obj (merge m d))
+      #_(let [loc (:sci.impl/loc d)]
+        (with-meta obj (merge m (-> d (dissoc :sci.impl/loc)
+                                    (assoc :line (:line loc)
+                                           :column (:column loc))))))
       obj)
     obj))
+
+(defn without-loc [m]
+  (when m
+    (dissoc m :sci.impl/loc)))
 
 (defn strip-core-ns [sym]
   (case (namespace sym)

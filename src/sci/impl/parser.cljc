@@ -20,12 +20,7 @@
     :col-key :column
     :end-row-key :end-line
     :end-col-key :end-column
-    :read-cond :allow
-    :postprocess (fn [m]
-                   (let [obj (:obj m)]
-                     (if (parser/iobj? obj)
-                       (vary-meta obj assoc :sci.impl/loc (:loc m))
-                       obj)))}))
+    :read-cond :allow}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)

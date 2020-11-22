@@ -241,8 +241,7 @@
   (every? (fn [k]
             (= (get m1 k) (get m2 k)))
           (keys m1)))
-
-(submap? {:line 2, :column 1, :end-line 3, :end-column 13} (meta #'foo))")))))
+(submap? {:line 2, :column 1} (meta #'foo))")))))
 
 (deftest resolve-test
   (is (thrown-with-msg?

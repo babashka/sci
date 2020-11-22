@@ -106,6 +106,8 @@
         init (if docstring ?init ?docstring)
         init (interpret ctx init)
         m (meta var-name)
+        ;; _ (prn :m m)
+        ;; m (dissoc m :sci.impl/loc)
         m (interpret ctx m)
         cnn (vars/getName (:ns m))
         assoc-in-env
