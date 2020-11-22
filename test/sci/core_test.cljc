@@ -1061,7 +1061,7 @@
     (is (true? (eval* "(:foo (meta ^:foo #{1 2 3}))")))
     (is (true? (eval* "(:foo (meta ^:foo [1 2 3]))")))
     (is (true? (eval* "(:foo (meta ^:foo {:a 1}))")))
-    (is (true? (eval* "(:foo (meta ^:foo (fn [])))")))))
+    (is (true? (eval* "(= {:foo true} (meta ^:foo (fn [])))")))))
 
 ;;;; Scratch
 
