@@ -313,6 +313,7 @@
             m (meta var-name)
             m (analyze ctx m)
             m (assoc m :ns @vars/current-ns)
+            ;; we need to include :end-line for clojure.repl/source
             m (into m (:sci.impl/loc (meta expr)))
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
