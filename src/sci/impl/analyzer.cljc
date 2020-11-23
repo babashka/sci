@@ -745,6 +745,7 @@
    (let [m (meta expr)
          m-without-loc (some-> m utils/without-loc not-empty)
          loc (when m (:sci.impl/loc m))
+         ;; _ (when loc (prn :loc loc expr))
          ctx (if loc (assoc ctx :loc loc) ctx)
          #_#_expr (if m-without-loc
                 (with-meta expr m-without-loc)
@@ -778,7 +779,7 @@
                          (vary-meta analyzed merge m-without-loc)
                          analyzed))
                      :else expr))]
-     ;;(prn "ana" expr '-> ret 'm-> (meta ret))
+     ;; (prn "ana" expr '-> ret 'm-> (meta ret))
      ret)))
 
 ;;;; Scratch

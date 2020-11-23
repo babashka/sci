@@ -13,26 +13,30 @@
   #?(:clj (:gen-class)))
 
 (defn ^:skip-aot main [& [form ctx n]]
-  (let [n (when n (Integer. n))
-        ctx (edn/read-string ctx)
-        ctx (-> ctx #?(:clj (addons/future)))
-        v (sci/with-bindings {sci/out *out*
-                              #?@(:clj [sci/err *err*])}
-            (if n
-              (let [ctx (opts/init ctx)
-                    reader (p/reader form)
-                    form (p/parse-next ctx reader)
-                    form (ana/analyze ctx form)]
-                (loop [i 0]
-                  (let [ret (i/interpret ctx form)]
-                    (if (< i n)
-                      (recur (inc i))
-                      ret))))
-              (eval-string
-               form
-               (-> ctx
-                   #?(:clj (addons/future))))))]
-    (when (some? v) (prn v))))
+  (try
+    (let [n (when n (Integer. n))
+          ctx (edn/read-string ctx)
+          ctx (-> ctx #?(:clj (addons/future)))
+          v (sci/with-bindings {sci/out *out*
+                                #?@(:clj [sci/err *err*])}
+              (if n
+                (let [ctx (opts/init ctx)
+                      reader (p/reader form)
+                      form (p/parse-next ctx reader)
+                      form (ana/analyze ctx form)]
+                  (loop [i 0]
+                    (let [ret (i/interpret ctx form)]
+                      (if (< i n)
+                        (recur (inc i))
+                        ret))))
+                (eval-string
+                 form
+                 (-> ctx
+                     #?(:clj (addons/future))))))]
+      (when (some? v) (prn v)))
+    (catch Throwable e
+      (prn (type e) (ex-data e))
+      (throw e))))
 
 ;; for testing only
 (defn -main [& args]

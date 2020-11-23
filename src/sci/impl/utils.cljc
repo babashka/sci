@@ -94,7 +94,7 @@
           (let [ex-msg #?(:clj (or (.getMessage e))
                           :cljs (.-message e))
                 {:keys [:line :column :file]
-                 :or {line (:line ctx)
+                 :or {line (:line ctx) ;; TODO: we didn't cover this yet
                       column (:column ctx)}}
                 (assoc (:sci.impl/loc m)
                        :file (:file m))]
