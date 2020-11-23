@@ -313,6 +313,7 @@
             m (meta var-name)
             m (analyze ctx m)
             m (assoc m :ns @vars/current-ns)
+            m (into m (:sci.impl/loc (meta expr)))
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
         (mark-eval-call ctx (list 'def var-name init))))))
@@ -333,9 +334,8 @@
         mexpr* (utils/without-loc mexpr)
         mfn-name (utils/without-loc (meta fn-name))
         loc (:sci.impl/loc mexpr)
-        meta-map (assoc (analyze ctx (merge mfn-name mexpr* meta-map))
-                        :line (:line loc)
-                        :column (:column loc))
+        meta-map (into (analyze ctx (merge mfn-name mexpr* meta-map))
+                       loc) ;; we need to include :end-line for clojure.repl/source
         fn-body (with-meta (cons 'fn body)
                   mexpr)
         f (expand-fn ctx fn-body macro?)
