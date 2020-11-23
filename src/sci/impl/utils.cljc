@@ -51,10 +51,9 @@
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
    (let [m (meta iobj)
-         {:keys [:line :column :file]
-          :or {file @vars/current-file}}
-         (assoc (:sci.impl/loc m)
-                :file (:file m))]
+         {:keys [:line :column]}
+         (:sci.impl/loc m)
+         file (or (:file m) @vars/current-file)]
      (throw (ex-info msg (merge {:type :sci/error
                                  :line line
                                  :column column
@@ -93,11 +92,15 @@
           (throw e)
           (let [ex-msg #?(:clj (or (.getMessage e))
                           :cljs (.-message e))
-                {:keys [:line :column :file]
-                 :or {line (:line ctx) ;; TODO: we didn't cover this yet
-                      column (:column ctx)}}
-                (assoc (:sci.impl/loc m)
-                       :file (:file m))]
+                {:keys [:line :column]}
+                (:sci.impl/loc m)
+                file (or (:file m) @vars/current-file)
+                ;; {:keys [:line :column :file]
+                ;;  :or {line (:line ctx) ;; TODO: we didn't cover this yet
+                ;;       column (:column ctx)}}
+                ;; (assoc (:sci.impl/loc m)
+                ;;        :file (:file m))
+                ]
             (if (and line column)
               (let [m ex-msg
                     new-exception
