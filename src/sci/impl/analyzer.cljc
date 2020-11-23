@@ -508,13 +508,12 @@
 (defn expand-dot [ctx [_dot instance-expr method-expr & args :as _expr]]
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
+        mbefore (meta instance-expr)
+        tag (when mbefore (:tag mbefore)) ;; tag on the literal expression
         instance-expr (analyze ctx instance-expr)
-        minstance-expr (meta instance-expr)
-        tag (when minstance-expr (:tag minstance-expr))
-        instance-expr (if tag
-                        (utils/vary-meta* instance-expr
-                                          assoc :tag tag)
-                        instance-expr)
+        tag (or tag (when-let [minstance-expr (meta instance-expr)]
+                      ;; tag via local binding
+                      (:tag minstance-expr)))
         instance-expr (if tag
                         (utils/vary-meta*
                          instance-expr
