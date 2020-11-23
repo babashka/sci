@@ -509,16 +509,22 @@
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
-        instance-expr (utils/vary-meta*
-                       instance-expr
-                       (fn [m]
-                         (if-let [t (:tag m)]
-                           (let [clazz (or (interop/resolve-class ctx t)
-                                           (records/resolve-record-class ctx t)
+        minstance-expr (meta instance-expr)
+        tag (when minstance-expr (:tag minstance-expr))
+        instance-expr (if tag
+                        (utils/vary-meta* instance-expr
+                                          assoc :tag tag)
+                        instance-expr)
+        instance-expr (if tag
+                        (utils/vary-meta*
+                         instance-expr
+                         (fn [m]
+                           (let [clazz (or (interop/resolve-class ctx tag)
+                                           (records/resolve-record-class ctx tag)
                                            (throw-error-with-location
-                                            (str "Unable to resolve classname: " t) t))]
-                             (assoc m :tag-class clazz))
-                           m)))
+                                            (str "Unable to resolve classname: " tag) tag))]
+                             (assoc m :tag-class clazz))))
+                        instance-expr)
         method-expr (name method-expr)
         args (when args (analyze-children ctx args))
         res #?(:clj (if (class? instance-expr)
@@ -737,7 +743,6 @@
   ([ctx expr]
    (analyze ctx expr false))
   ([ctx expr top-level?]
-   ;; (prn "ana" expr)
    (let [m (meta expr)
          m-without-loc (some-> m utils/without-loc not-empty)
          loc (when m (:sci.impl/loc m))
@@ -750,11 +755,7 @@
                                     (cond (constant? v) v
                                           (vars/var? v) (if (:const (meta v))
                                                           @v (types/->EvalVar v))
-                                          ;; do we care about the original metadata in this case?
-                                          :else v #_(if (and (utils/iobj? v) m-without-loc)
-                                                  (merge-meta v
-                                                    (not-empty (utils/without-loc (meta expr))))
-                                                  v)))
+                                          :else v))
                    :else
                    (cond
                      (record? expr) expr ;; don't evaluate records
