@@ -728,13 +728,14 @@
   ([ctx expr]
    (analyze ctx expr false))
   ([ctx expr top-level?]
-   ;; (prn "ana" expr)
-   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
+   (let [m (meta expr)
+         m (when m (analyze ctx m)) ;; TODO: can we make this faster by skipping over standard metadata?
+         ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                     (cond (constant? v) v
                                           (vars/var? v) (if (:const (meta v))
                                                           @v (types/->EvalVar v))
-                                          :else (merge-meta v (meta expr))))
+                                          :else (merge-meta v m)))
                    :else
                    (merge-meta
                     (cond
@@ -749,7 +750,7 @@
                       (and (seq? expr) (seq expr))
                       (analyze-call ctx expr top-level?)
                       :else expr)
-                    (meta expr)))]
+                    m))]
      ;;(prn "ana" expr '-> ret 'm-> (meta ret))
      ret)))
 
