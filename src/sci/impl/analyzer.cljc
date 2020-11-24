@@ -729,7 +729,9 @@
    (analyze ctx expr false))
   ([ctx expr top-level?]
    (let [m (meta expr)
-         m (when m (analyze ctx m)) ;; TODO: can we make this faster by skipping over standard metadata?
+         m (when (and m (> (count m) 4))
+             ;; (prn :analyzing m (meta (analyze ctx m)))
+             (analyze ctx m)) ;; TODO: can we make this faster by skipping over standard metadata?
          ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                     (cond (constant? v) v
