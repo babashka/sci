@@ -11,7 +11,8 @@
                             var-set])
   (:require [sci.impl.macros :as macros]
             [sci.impl.types :as t]
-            [sci.impl.unrestrict :refer [*unrestricted*]])
+            [sci.impl.unrestrict :refer [*unrestricted*]]
+            [sci.lang])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
                                                    with-writeable-namespace
                                                    with-writeable-var]])))
@@ -239,6 +240,9 @@
                     :cljs ^:mutable meta)
                  #?(:clj ^:volatile-mutable thread-bound
                     :cljs ^:mutable thread-bound)]
+  #?(:clj
+     ;; marker interface, clj only for now
+     sci.lang.IVar)
   HasName
   (getName [this]
     sym)

@@ -4,7 +4,8 @@
    #?(:cljs [goog.string])
    [sci.impl.namespaces :as namespaces]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [sci.lang]))
 
 (defn init-env! [env bindings aliases namespaces imports load-fn]
   (swap! env (fn [env]
@@ -42,7 +43,8 @@
            'java.lang.Number Number
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException
-           'java.lang.Object Object}
+           'java.lang.Object Object
+           'sci.lang.IVar sci.lang.IVar}
      :cljs {'Error {:class js/Error :constructor (fn
                                                    ([msg] (js/Error. msg))
                                                    ([msg filename] (js/Error. msg filename))
