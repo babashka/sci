@@ -1062,8 +1062,10 @@
     (is (true? (eval* "(:foo (meta ^:foo #{1 2 3}))")))
     (is (true? (eval* "(:foo (meta ^:foo [1 2 3]))")))
     (is (true? (eval* "(:foo (meta ^:foo {:a 1}))"))))
-  (testing "Reader metadata is evaluated"
-    (is (true? (eval* "(symbol? (:foo (meta ^{:foo 'bar} [])))")))))
+  (testing "Reader metadata is evaluated on colls"
+    (is (true? (eval* "(symbol? (:foo (meta ^{:foo 'bar} {})))")))
+    (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} [])))")))
+    (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} #{})))")))))
 
 ;;;; Scratch
 
@@ -1072,3 +1074,4 @@
   (test-difference "foo" "[10 10]" 0 10)
   (test-difference "rand" #(rand) 0 10)
   )
+ 

@@ -614,8 +614,14 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
-(defn handle-meta [_ctx m]
-  (dissoc m :sci.impl/op))
+(defn handle-meta [ctx m]
+  ;; Sometimes metadata needs eval. In this case the metadata has metadata.
+  (-> (if-let [mm (meta m)]
+        (if (when mm (.get ^java.util.Map mm :sci.impl/op))
+          (interpret ctx m)
+          m)
+        m)
+      (dissoc :sci.impl/op)))
 
 (defn interpret
   [ctx expr]

@@ -647,8 +647,8 @@
             f (or special-sym
                   (resolve-symbol ctx f true))
             #_#_f (if (and (vars/var? f)
-                       (vars/isMacro f))
-                f f)
+                           (vars/isMacro f))
+                    f f)
             f-meta (meta f)
             eval? (and f-meta (:sci.impl/op f-meta))]
         (cond (and f-meta (::static-access f-meta))
@@ -729,39 +729,43 @@
    (analyze ctx expr false))
   ([ctx expr top-level?]
    (let [m (meta expr)
-         eval-meta? (and m (> (count m) 4))
-         m (if eval-meta?
-             ;; (prn :analyzing m (meta (analyze ctx m)))
-             (analyze ctx m)
-             m) ;; TODO: can we make this faster by skipping over standard metadata?
          ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                     (cond (constant? v) v
                                           (vars/var? v) (if (:const (meta v))
                                                           @v (types/->EvalVar v))
                                           :else (merge-meta v m)))
+                   ;; don't evaluate records
+                   (record? expr) expr
+                   (map? expr)
+                   (let [;; TODO: if all keys and vals are constants, then we
+                         ;; don't need to mark this as eval
+                         analyzed-map (zipmap (analyze-children ctx (keys expr))
+                                              (analyze-children ctx (vals expr)))
+                         ;; metadata has more than the 4 location keys
+                         meta-needs-eval? (> (count m) 4)
+                         m (if meta-needs-eval? (->> m (analyze ctx) mark-eval)
+                               m)
+                         analyzed-map (with-meta analyzed-map
+                                        (assoc m :sci.impl/op :eval))]
+                     analyzed-map)
+                   (or (vector? expr) (set? expr))
+                   (let [analyzed-coll (-> (into (empty expr) (analyze-children ctx expr))
+                                           mark-eval)
+                         meta-needs-eval? (> (count m) 4)
+                         m (if meta-needs-eval? (->> m (analyze ctx) mark-eval)
+                               m)
+                         analyzed-coll (with-meta analyzed-coll
+                                        (assoc m :sci.impl/op :eval))]
+                     analyzed-coll)
                    :else
                    (merge-meta
                     (cond
-                      (record? expr) expr ;; don't evaluate records
-                      (map? expr)
-                      (-> (zipmap (analyze-children ctx (keys expr))
-                                  (analyze-children ctx (vals expr)))
-                          mark-eval)
-                      (or (vector? expr) (set? expr))
-                      (-> (into (empty expr) (analyze-children ctx expr))
-                          mark-eval)
                       (and (seq? expr) (seq expr))
                       (analyze-call ctx expr top-level?)
                       :else expr)
                     m))]
-     ;;(prn "ana" expr '-> ret 'm-> (meta ret))
-     (if (and eval-meta? (utils/iobj? ret))
-       ;; TODO: ret could evaluate to something non-iobj
-       (mark-eval-call
-        (list with-meta ret
-              m))
-       ret))))
+     ret)))
 
 ;;;; Scratch
 
