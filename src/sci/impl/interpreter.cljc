@@ -560,7 +560,6 @@
 (def-fn-call)
 
 (defn eval-special-call [ctx f-sym expr]
-  (prn :expr expr f-sym (meta expr))
   (case (utils/strip-core-ns f-sym)
     do (eval-do ctx expr)
     if (eval-if ctx (rest expr))
@@ -615,15 +614,11 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
-(defn handle-meta [ctx m]
-  (prn (count m))
-  (if (> (count m) 4)
-    (interpret ctx m)
-    (dissoc m :sci.impl/op)))
+(defn handle-meta [_ctx m]
+  (dissoc m :sci.impl/op))
 
 (defn interpret
   [ctx expr]
-  (prn :expr expr)
   (try
     (if (instance? sci.impl.types.EvalVar expr)
       (let [v (t/getVal expr)]
@@ -632,7 +627,6 @@
           (throw (new #?(:clj IllegalStateException :cljs js/Error)
                       (str "Can't take value of a macro: " v "")))))
       (let [m (meta expr)
-            _ (prn :mexpr expr '-> m)
             op (when m (.get ^java.util.Map m :sci.impl/op))
             ret
             (if
