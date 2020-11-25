@@ -112,12 +112,15 @@
         (throw e))
       (throw e))))
 
+(defn iobj? [obj]
+  (and #?(:clj (instance? clojure.lang.IObj obj)
+          :cljs (implements? IWithMeta obj))
+       (meta obj)))
+
 (defn vary-meta*
   "Only adds metadata to obj if d is not nil and if obj already has meta"
   [obj f & args]
-  (if (and #?(:clj (instance? clojure.lang.IObj obj)
-              :cljs (implements? IWithMeta obj))
-           (meta obj))
+  (if (iobj? obj)
     (apply vary-meta obj f args)
     obj))
 

@@ -614,8 +614,14 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
-(defn clean-meta [m]
-  (dissoc m :sci.impl/op))
+(defn handle-meta [ctx m]
+  ;; Sometimes metadata needs eval. In this case the metadata has metadata.
+  (-> (if-let [mm (meta m)]
+        (if (when mm (.get ^java.util.Map mm :sci.impl/op))
+          (interpret ctx m)
+          m)
+        m)
+      (dissoc :sci.impl/op)))
 
 (defn interpret
   [ctx expr]
@@ -653,12 +659,12 @@
                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
                   (cond (map? expr) (with-meta (zipmap (map #(interpret ctx %) (keys expr))
                                                        (map #(interpret ctx %) (vals expr)))
-                                      (clean-meta m))
+                                      (handle-meta ctx m))
                         (or (vector? expr) (set? expr))
                         (with-meta (into (empty expr)
                                          (map #(interpret ctx %)
                                               expr))
-                          (clean-meta m))
+                          (handle-meta ctx m))
                         :else (throw (new #?(:clj Exception :cljs js/Error)
                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
         ;; for debugging:

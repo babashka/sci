@@ -647,8 +647,8 @@
             f (or special-sym
                   (resolve-symbol ctx f true))
             #_#_f (if (and (vars/var? f)
-                       (vars/isMacro f))
-                f f)
+                           (vars/isMacro f))
+                    f f)
             f-meta (meta f)
             eval? (and f-meta (:sci.impl/op f-meta))]
         (cond (and f-meta (::static-access f-meta))
@@ -724,33 +724,63 @@
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
 
+(defn analyzed-meta [ctx m]
+  (let [meta-needs-eval? (> (count m) 4)
+        m (if meta-needs-eval? (mark-eval (analyze ctx m))
+              m)]
+    m))
+
+(def constant-colls false)
+
 (defn analyze
   ([ctx expr]
    (analyze ctx expr false))
   ([ctx expr top-level?]
-   ;; (prn "ana" expr)
-   (let [ret (cond (constant? expr) expr ;; constants do not carry metadata
+   (let [m (meta expr)
+         ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                     (cond (constant? v) v
                                           (vars/var? v) (if (:const (meta v))
                                                           @v (types/->EvalVar v))
-                                          :else (merge-meta v (meta expr))))
+                                          :else (merge-meta v m)))
+                   ;; don't evaluate records, this check needs to go before map?
+                   ;; since a record is also a map
+                   (record? expr) expr
+                   (map? expr)
+                   (let [ks (keys expr)
+                         vs (vals expr)
+                         constant-map? (and constant-colls
+                                            (every? constant? ks)
+                                            (every? constant? vs))
+                         analyzed-map (if constant-map?
+                                        expr
+                                        (zipmap (analyze-children ctx ks)
+                                                (analyze-children ctx vs)))
+                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (if (and constant-map?
+                                                (identical? m analyzed-meta))
+                                         analyzed-meta
+                                         (assoc analyzed-meta :sci.impl/op :eval))]
+                     (with-meta analyzed-map analyzed-meta))
+                   (or (vector? expr) (set? expr))
+                   (let [constant-coll? (and constant-colls
+                                             (every? constant? expr))
+                         analyzed-coll (if constant-coll?
+                                         expr
+                                         (into (empty expr) (analyze-children ctx expr)))
+                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (if (and constant-coll?
+                                                (identical? m analyzed-meta))
+                                         analyzed-meta
+                                         (assoc analyzed-meta :sci.impl/op :eval))]
+                     (with-meta analyzed-coll analyzed-meta))
                    :else
                    (merge-meta
                     (cond
-                      (record? expr) expr ;; don't evaluate records
-                      (map? expr)
-                      (-> (zipmap (analyze-children ctx (keys expr))
-                                  (analyze-children ctx (vals expr)))
-                          mark-eval)
-                      (or (vector? expr) (set? expr))
-                      (-> (into (empty expr) (analyze-children ctx expr))
-                          mark-eval)
                       (and (seq? expr) (seq expr))
                       (analyze-call ctx expr top-level?)
                       :else expr)
-                    (meta expr)))]
-     ;;(prn "ana" expr '-> ret 'm-> (meta ret))
+                    m))]
      ret)))
 
 ;;;; Scratch
