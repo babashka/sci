@@ -38,7 +38,7 @@
      (is (= 32 (eval* "(. Integer SIZE)")))
      (testing "calling static field on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
-                             (eval* "System/PrintStream"))))))
+                             (eval* "clojure.lang.Var/rev"))))))
 
 #?(:clj
    (deftest constructor-test
@@ -73,7 +73,7 @@
                         (parse-int \"123\")")))
      (testing "calling static methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
-                             (eval* "(System/exit 0)"))))))
+                             (eval* "(clojure.lang.Var/find 'clojure.core/int)"))))))
 
 (deftest syntax-test
   (when-not tu/native?
