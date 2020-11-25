@@ -730,7 +730,7 @@
               m)]
     m))
 
-(def constant-colls false)
+(def ^:const constant-colls false)
 
 (defn analyze
   ([ctx expr]
