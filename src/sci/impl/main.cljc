@@ -33,15 +33,15 @@
         v (sci/with-bindings {sci/out *out*
                               #?@(:clj [sci/err *err*])}
             (if n
-              (let [ctx (opts/init ctx)
-                    reader (r/indexing-push-back-reader (r/string-push-back-reader form))
-                    form (p/parse-next ctx reader)
-                    form (ana/analyze ctx form)]
-                (loop [i 0]
-                  (let [ret (i/interpret ctx form)]
-                    (if (< i n)
-                      (recur (inc i))
-                      ret))))
+              (time (let [ctx (opts/init ctx)
+                          reader (r/indexing-push-back-reader (r/string-push-back-reader form))
+                          form (p/parse-next ctx reader)]
+                      (loop [i 0]
+                        (let [form (ana/analyze ctx form)
+                              ret (i/interpret ctx form)]
+                          (if (< i n)
+                            (recur (inc i))
+                            ret)))))
               (eval-string
                form
                (-> ctx

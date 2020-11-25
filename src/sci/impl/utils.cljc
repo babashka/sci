@@ -130,7 +130,11 @@
   (if (and d #?(:clj (instance? clojure.lang.IObj obj)
                 :cljs (implements? IWithMeta obj)))
     (if-let [m (meta obj)]
-      (with-meta obj (merge m d))
+      (do
+        nil
+        ;; this should not happen, turn on for debugging
+        #_(when (identical? m d) (prn :identical obj d m))
+        (with-meta obj (merge m d)))
       obj)
     obj))
 

@@ -1,21 +1,20 @@
 (ns sci.impl.destructure
   "Destructure function, adapted from Clojure and ClojureScript."
   {:no-doc true}
-  (:refer-clojure :exclude [destructure])
-  (:require [sci.impl.utils :refer [gensym* mark-eval-call]]))
+  (:refer-clojure :exclude [destructure]))
 
 (defn destructure* [bindings]
   (let [bents (partition 2 bindings)
         pb (fn pb [bvec b v]
              (let [pvec
                    (fn [bvec b val]
-                     (let [gvec (gensym* "vec__")
-                           gseq (gensym* "seq__")
-                           gfirst (gensym* "first__")
+                     (let [gvec (gensym "vec__")
+                           gseq (gensym "seq__")
+                           gfirst (gensym "first__")
                            has-rest (some #{'&} b)]
                        (loop [ret (let [ret (conj bvec gvec val)]
                                     (if has-rest
-                                      (conj ret gseq (mark-eval-call (list seq gvec)))
+                                      (conj ret gseq (list seq gvec))
                                       ret))
                               n 0
                               bs b
@@ -33,26 +32,25 @@
                                                  :cljs (new js/Error "Unsupported binding form, only :as can follow & parameter")))
                                        (recur (pb (if has-rest
                                                     (conj ret
-                                                          gfirst (mark-eval-call `(~first ~gseq))
-                                                          gseq (mark-eval-call `(~next ~gseq)))
+                                                          gfirst `(~first ~gseq)
+                                                          gseq `(~next ~gseq))
                                                     ret)
                                                   firstb
                                                   (if has-rest
                                                     gfirst
-                                                    (mark-eval-call (list nth gvec n nil))))
+                                                    (list nth gvec n nil)))
                                               (inc n)
                                               (next bs)
                                               seen-rest?))))
                            ret))))
                    pmap
                    (fn [bvec b v]
-                     (let [gmap (gensym* "map__")
+                     (let [gmap (gensym "map__")
                            defaults (:or b)]
                        (loop [ret (-> bvec (conj gmap) (conj v)
-                                      (conj gmap) (conj (mark-eval-call
-                                                         `(if ~(mark-eval-call `(~seq? ~gmap))
-                                                            ~(mark-eval-call `(~apply ~hash-map ~gmap))
-                                                            ~gmap)))
+                                      (conj gmap) (conj (list 'if (list seq? gmap)
+                                                              (list apply hash-map gmap)
+                                                              gmap))
                                       ((fn [ret]
                                          (if (:as b)
                                            (conj ret (:as b) gmap)
@@ -97,8 +95,8 @@
                                       (list 'quote bk)
                                       bk)
                                  bv (if-let [entry (find defaults local)]
-                                      (mark-eval-call (list get gmap bk (val entry)))
-                                      (mark-eval-call (list get gmap bk)))]
+                                      (list get gmap bk (val entry))
+                                      (list get gmap bk))]
                              (recur
                               (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
                                 (-> ret (conj local bv))

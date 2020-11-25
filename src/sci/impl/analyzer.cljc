@@ -743,6 +743,7 @@
   ([ctx expr]
    (analyze ctx expr false))
   ([ctx expr top-level?]
+   ;; (prn :ana expr)
    (let [m (meta expr)
          ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve-symbol ctx expr false)]
@@ -781,13 +782,12 @@
                                          analyzed-meta
                                          (assoc analyzed-meta :sci.impl/op :eval))]
                      (with-meta analyzed-coll analyzed-meta))
+                   (seq? expr) (if (seq expr)
+                                 (merge-meta (analyze-call ctx expr top-level?) m)
+                                 ;; the empty list
+                                 expr)
                    :else
-                   (merge-meta
-                    (cond
-                      (and (seq? expr) (seq expr))
-                      (analyze-call ctx expr top-level?)
-                      :else expr)
-                    m))]
+                   expr)]
      ret)))
 
 ;;;; Scratch
