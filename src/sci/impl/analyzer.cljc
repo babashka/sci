@@ -730,7 +730,7 @@
               m)]
     m))
 
-(def ^:const constant-colls false)
+(def ^:const constant-colls true) ;; see GH #452
 
 (defn analyze
   ([ctx expr]

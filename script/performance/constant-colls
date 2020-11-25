@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-
-# This example is faster when collections are constants so they don't have to be interpreted
-clojure -M -m sci.impl.main "(defn f [] {:a 1 :b 2}) (time (dotimes [i 10000] (keys (f))))"

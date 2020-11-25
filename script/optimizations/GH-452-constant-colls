@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# This example is faster when collections are constants so they don't have to be interpreted
+# See analyzer.cljc: (def ^:const constant-colls false)
+# The difference with the following test case:
+
+clojure -M -m sci.impl.main "(defn f [] {:a 1 :b 2}) (time (dotimes [i 10000] (keys (f))))"
+
+#"Elapsed time: 124.122823 msecs"
+# vs
+# "Elapsed time: 87.166387 msecs"
+
+# Even in the following test the optimization seems to help:
+clojure -M -e "(require '[sci.core :as sci])
+(def rdr (sci/reader \"{:a 1 :b 2}\"))
+(def ctx (sci/init {}))
+(def form (sci/parse-next ctx rdr))
+(time (dotimes [i 10000] (sci/eval-form ctx form)))"
+
+#"Elapsed time: 93.984008 msecs"
+#"Elapsed time: 35.299411 msecs"
+
+# In the next example I don't see a significant regression:
+clojure -M -e "(require '[sci.core :as sci])
+(def ctx (sci/init {}))
+(def rdr (sci/reader \"{:a 1 :b (+ 1 2 3)}\"))
+(def form (sci/parse-next ctx rdr))
+(time (dotimes [i 10000] (sci/eval-form ctx form)))"
