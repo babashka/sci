@@ -1065,7 +1065,11 @@
   (testing "Reader metadata is evaluated on colls"
     (is (true? (eval* "(symbol? (:foo (meta ^{:foo 'bar} {})))")))
     (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} [])))")))
-    (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} #{})))")))))
+    (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} #{})))"))))
+  (testing "Reader metadata is evaluated on fns"
+    (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} (fn []))))")))
+    (testing "Fns don't have :line and :column metadata"
+      (is (true? (eval* "(nil? (:line (meta ^{:foo (+ 1 2 3)} (fn []))))"))))))
 
 ;;;; Scratch
 

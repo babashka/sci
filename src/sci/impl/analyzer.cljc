@@ -154,6 +154,13 @@
 
 (declare analyze analyze-call)
 
+(defn analyzed-meta [ctx m]
+  (let [meta-needs-eval? (> (count m) 4)
+        m (if meta-needs-eval? (mark-eval (analyze ctx m))
+              m)]
+    ;; (prn :>> (:foo m) (meta (:foo m)))
+    m))
+
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
@@ -252,11 +259,17 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         arities (:bodies analyzed-bodies)
-        arglists (:arglists analyzed-bodies)]
+        arglists (:arglists analyzed-bodies)
+        fn-meta (meta fn-expr)
+        ana-fn-meta (analyzed-meta ctx fn-meta)
+        fn-meta (when-not (identical? fn-meta ana-fn-meta)
+                  ;; fn-meta contains more than only location info
+                  (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))]
     (with-meta #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
                           :arglists arglists
-                          :fn true}
+                          :fn true
+                          :fn-meta fn-meta}
       {:sci.impl/op :fn})))
 
 (defn expand-let*
@@ -723,12 +736,6 @@
                                                     (meta expr))))))))
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
-
-(defn analyzed-meta [ctx m]
-  (let [meta-needs-eval? (> (count m) 4)
-        m (if meta-needs-eval? (mark-eval (analyze ctx m))
-              m)]
-    m))
 
 (def ^:const constant-colls true) ;; see GH #452
 

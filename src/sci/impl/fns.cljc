@@ -101,8 +101,7 @@
                                                        arg-count)]
                                   (str "Cannot call " fn-name " with " actual-count " arguments")))))))))
         f (if macro?
-            (vary-meta
-             f
+            (vary-meta f
              #(assoc % :sci/macro macro?))
             f)]
     (reset! self-ref f)

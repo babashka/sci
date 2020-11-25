@@ -625,6 +625,7 @@
 
 (defn interpret
   [ctx expr]
+  ;; (prn expr (meta expr))
   (try
     (if (instance? sci.impl.types.EvalVar expr)
       (let [v (t/getVal expr)]
@@ -643,7 +644,12 @@
                 (case op
                   :call (eval-call ctx expr)
                   :try (eval-try ctx expr)
-                  :fn (fns/eval-fn ctx interpret eval-do* expr)
+                  :fn (let [fn-meta (:sci.impl/fn-meta expr)
+                            the-fn (fns/eval-fn ctx interpret eval-do* expr)
+                            fn-meta (when fn-meta (handle-meta ctx fn-meta))]
+                        (if fn-meta
+                          (vary-meta the-fn merge fn-meta)
+                          the-fn))
                   :static-access (interop/get-static-field expr)
                   :var-value (nth expr 0)
                   :deref! (let [v (first expr)
