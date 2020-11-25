@@ -552,6 +552,23 @@
 
 ;;;; End binding vars
 
+;;;; Patch for symbol to make it work with sci vars
+
+(defn symbol*
+  "Returns a Symbol with the given namespace and name. Arity-1 works
+  on strings, keywords, and vars."
+  ([name]
+   (if (vars/var? name) (let [m (meta name)
+                              ns (:ns m)
+                              nm (:name m)]
+                          (when (and ns nm)
+                            (symbol (str (sci-ns-name ns))
+                                    (str (clojure.core/name nm)))))
+       (symbol name)))
+  ([ns name] (symbol ns name)))
+
+;;;;
+
 #?(:clj
    (def clojure-lang
      {:obj (vars/->SciNamespace 'clojure.lang nil)
@@ -988,7 +1005,7 @@
    'sort-by (copy-core-var sort-by)
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])
-   'symbol (copy-core-var symbol)
+   'symbol (copy-var symbol* clojure-core-ns)
    'symbol? (copy-core-var symbol?)
    'special-symbol? (copy-core-var special-symbol?)
    'subvec (copy-core-var subvec)

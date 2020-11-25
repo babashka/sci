@@ -1071,6 +1071,9 @@
     (testing "Fns don't have :line and :column metadata"
       (is (true? (eval* "(nil? (:line (meta ^{:foo (+ 1 2 3)} (fn []))))"))))))
 
+(deftest symbol-on-var-test
+  (is (= 'user/x (eval* "(def x 1) (symbol #'x)"))))
+
 ;;;; Scratch
 
 (comment
