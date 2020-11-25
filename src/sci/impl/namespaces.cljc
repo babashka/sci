@@ -412,9 +412,17 @@
   (swap! (:env ctx)
          (fn [env]
            (let [sci-ns (sci-the-ns ctx sci-ns)
-                 name (sci-ns-name sci-ns)
-                 m (get-in env [:namespaces name])]
-             (assoc-in env [:namespaces name] (dissoc m sym)))))
+                 name (sci-ns-name sci-ns)]
+             (update-in env [:namespaces name]
+                        (fn [the-ns-map]
+                          (cond (contains? the-ns-map sym)
+                                (dissoc the-ns-map sym)
+                                (or
+                                 (contains? (:imports env) sym)
+                                 (contains? (:imports the-ns-map) sym))
+                                ;; nil marks the imported class as unmapped
+                                (update the-ns-map :imports assoc sym nil)
+                                :else the-ns-map))))))
   nil)
 
 (defn sci-all-ns [ctx]

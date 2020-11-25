@@ -104,11 +104,13 @@
                              (get class->opts sym)))
                        (let [env @env]
                          (or
-                          (when-let [v (get-in env [:imports sym])]
-                            (get class->opts v))
-                          (let [cnn (vars/current-ns-name)]
-                            (when-let [v (get-in env [:namespaces cnn :imports sym])]
-                              (get class->opts v))))))]
+                          (let [cnn (vars/current-ns-name)
+                                imports (get-in env [:namespaces cnn :imports])]
+                            (if-let [[_ v] (find imports sym)]
+                              ;; finding a nil v means the object was unmapped
+                              (get class->opts v)
+                              (when-let [v (get-in env [:imports sym])]
+                                (get class->opts v)))))))]
     class-opts))
 
 (defn resolve-class [ctx sym]

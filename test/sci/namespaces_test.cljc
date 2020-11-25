@@ -68,7 +68,13 @@
 (deftest ns-unmap-test
   (is (eval* "(def foo 1) (ns-unmap *ns* 'foo) (nil? (resolve 'foo))"))
   (is (eval* "(defn bar []) (ns-unmap *ns* 'bar) (nil? (resolve 'bar))"))
-  (is (eval* "(defn- baz []) (ns-unmap *ns* 'baz) (nil? (resolve 'baz))")))
+  (is (eval* "(defn- baz []) (ns-unmap *ns* 'baz) (nil? (resolve 'baz))"))
+  #?(:clj (is (= [false true] (eval* "
+(ns-unmap *ns* 'Object)
+(def o1 (resolve 'Object))
+(import '[java.lang Object])
+(def o2 (resolve 'Object))
+[(some? o1) (some? o2)]")))))
 
 (deftest find-var-test
   (is (eval* "(= #'clojure.core/map (find-var 'clojure.core/map))"))
