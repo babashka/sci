@@ -118,3 +118,7 @@
      (is (str/includes?
           (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
           "EPL"))))
+
+#?(:cljs
+   (deftest js-reader-test
+     (is (= (js->clj #js [1 2 3]) (js->clj (tu/eval* "#js [1 2 3]" {}))))))
