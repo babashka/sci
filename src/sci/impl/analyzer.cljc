@@ -724,6 +724,14 @@
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
 
+(defn analyzed-meta [ctx m]
+  (let [meta-needs-eval? (> (count m) 4)
+        m (if meta-needs-eval? (mark-eval (analyze ctx m))
+              m)]
+    m))
+
+(def constant-colls false)
+
 (defn analyze
   ([ctx expr]
    (analyze ctx expr false))
@@ -735,29 +743,37 @@
                                           (vars/var? v) (if (:const (meta v))
                                                           @v (types/->EvalVar v))
                                           :else (merge-meta v m)))
-                   ;; don't evaluate records
+                   ;; don't evaluate records, this check needs to go before map?
+                   ;; since a record is also a map
                    (record? expr) expr
                    (map? expr)
-                   (let [;; TODO: if all keys and vals are constants, then we
-                         ;; don't need to mark this as eval
-                         analyzed-map (zipmap (analyze-children ctx (keys expr))
-                                              (analyze-children ctx (vals expr)))
-                         ;; metadata has more than the 4 location keys
-                         meta-needs-eval? (> (count m) 4)
-                         m (if meta-needs-eval? (->> m (analyze ctx) mark-eval)
-                               m)
-                         analyzed-map (with-meta analyzed-map
-                                        (assoc m :sci.impl/op :eval))]
-                     analyzed-map)
+                   (let [ks (keys expr)
+                         vs (vals expr)
+                         constant-map? (and constant-colls
+                                            (every? constant? ks)
+                                            (every? constant? vs))
+                         analyzed-map (if constant-map?
+                                        expr
+                                        (zipmap (analyze-children ctx ks)
+                                                (analyze-children ctx vs)))
+                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (if (and constant-map?
+                                                (identical? m analyzed-meta))
+                                         analyzed-meta
+                                         (assoc analyzed-meta :sci.impl/op :eval))]
+                     (with-meta analyzed-map analyzed-meta))
                    (or (vector? expr) (set? expr))
-                   (let [analyzed-coll (-> (into (empty expr) (analyze-children ctx expr))
-                                           mark-eval)
-                         meta-needs-eval? (> (count m) 4)
-                         m (if meta-needs-eval? (->> m (analyze ctx) mark-eval)
-                               m)
-                         analyzed-coll (with-meta analyzed-coll
-                                        (assoc m :sci.impl/op :eval))]
-                     analyzed-coll)
+                   (let [constant-coll? (and constant-colls
+                                             (every? constant? expr))
+                         analyzed-coll (if constant-coll?
+                                         expr
+                                         (into (empty expr) (analyze-children ctx expr)))
+                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (if (and constant-coll?
+                                                (identical? m analyzed-meta))
+                                         analyzed-meta
+                                         (assoc analyzed-meta :sci.impl/op :eval))]
+                     (with-meta analyzed-coll analyzed-meta))
                    :else
                    (merge-meta
                     (cond

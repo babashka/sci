@@ -13,10 +13,23 @@
    [sci.impl.parser :as p])
   #?(:clj (:gen-class)))
 
+#?(:clj
+   (defn time*
+     "Evaluates expr and prints the time it took.  Returns the value of
+  expr."
+     [_ _ expr]
+     `(let [start# (. System (nanoTime))
+            ret# ~expr]
+        (prn (str "Elapsed time: " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+        ret#)))
+
 (defn ^:skip-aot main [& [form ctx n]]
   (let [n (when n (Integer. n))
         ctx (edn/read-string ctx)
         ctx (-> ctx #?(:clj (addons/future)))
+        #?@(:clj [ctx (assoc-in ctx [:namespaces 'clojure.core 'time] (with-meta time* {:sci/macro true}))])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.System] System)])
+        #?@(:clj [ctx (assoc-in ctx [:imports] {'System 'java.lang.System})])
         v (sci/with-bindings {sci/out *out*
                               #?@(:clj [sci/err *err*])}
             (if n
