@@ -95,7 +95,11 @@
      (is (= "42"
             (tu/eval* "(js/console.log \"42\")"
                       {:classes {:allow :all
-                                 'js #js {:console #js {:log identity}}}})))))
+                                 'js #js {:console #js {:log identity}}}})))
+     (is (str/starts-with? (tu/eval* "(.toString js/Math.PI)"
+                                     {:classes {:allow :all
+                                                'js goog.global}})
+                          "3.14"))))
 
 #?(:cljs
    (deftest field-access-test

@@ -75,16 +75,14 @@
      :cljs (if-let [method (gobj/get class method-name)]
              (.apply method class (js-object-array args))
              (let [method-name (str method-name)
-                   [field sub-method-name] (clojure.string/split method-name #"\.")]
+                   field (get-static-field [class method-name])]
                (cond
-                 sub-method-name
-                 (invoke-instance-method (get-static-field [class field]) nil sub-method-name args)
-
+                 (not field)
+                 (throw (js/Error. (str "Could not find static method " method-name)))
                  (clojure.string/ends-with? method-name ".")
-                 (invoke-js-constructor (get-static-field [class field]) args)
-
+                 (invoke-js-constructor field args)
                  :else
-                 (throw (js/Error. (str "Could not find static method " method-name))))))))
+                 (apply (get-static-field [class method-name]) args))))))
 
 (defn fully-qualify-class [{:keys [:env :class->opts]} sym]
   (or #?(:clj (when (contains? class->opts sym) sym)
