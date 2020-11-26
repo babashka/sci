@@ -102,7 +102,9 @@
      (is (= "NL" (tu/eval* "goog/LOCALE" {:classes {:allow :all
                                                     'goog #js {:LOCALE "NL"}}})))
      (is (= "NL" (tu/eval* "(. js/goog -LOCALE)" {:classes {:allow :all
-                                                            'js #js {:goog #js {:LOCALE "NL"}}}})))))
+                                                            'js #js {:goog #js {:LOCALE "NL"}}}})))
+     (is (true? (tu/eval* "(some? js/goog.object)" {:classes {:allow :all
+                                                              'js goog.global}})))))
 
 #?(:cljs
    (deftest constructor-test

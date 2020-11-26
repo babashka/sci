@@ -3,7 +3,8 @@
   #?(:clj (:import [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobj])
             [sci.impl.vars :as vars]
-            #?(:cljs [clojure.string])))
+            #?(:cljs [clojure.string])
+            [clojure.string :as str]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -42,7 +43,9 @@
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [[class field-name-sym]])
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
-     :cljs (gobj/get class field-name-sym)))
+     :cljs (if (str/includes? (str field-name-sym) ".")
+             (apply gobj/getValueByKeys class (str/split (str field-name-sym) #"\."))
+             (gobj/get class field-name-sym))))
 
 #?(:cljs
    (defn invoke-js-constructor [constructor args]
