@@ -104,7 +104,9 @@
      (is (= "NL" (tu/eval* "(. js/goog -LOCALE)" {:classes {:allow :all
                                                             'js #js {:goog #js {:LOCALE "NL"}}}})))
      (is (true? (tu/eval* "(some? js/goog.LOCALE)" {:classes {:allow :all
-                                                              'js #js {:goog #js {:LOCALE "NL"}}}})))))
+                                                              'js #js {:goog #js {:LOCALE "NL"}}}})))
+     (is (true? (tu/eval* "(some? js/Number.POSITIVE_INFINITY)" {:classes {:allow :all
+                                                                           'js goog.global}})))))
 
 #?(:cljs
    (deftest constructor-test
