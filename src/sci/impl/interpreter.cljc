@@ -651,7 +651,6 @@
                           (vary-meta the-fn merge fn-meta)
                           the-fn))
                   :static-access (interop/get-static-field expr)
-                  :var-value (nth expr 0)
                   :deref! (let [v (first expr)
                                 v (if (vars/var? v) @v v)
                                 v (force v)]
