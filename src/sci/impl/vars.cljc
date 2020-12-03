@@ -358,9 +358,10 @@
               (apply @this args))))
 
 #?(:clj
-   (do (defmethod print-method sci.impl.vars.IVar [o ^java.io.Writer w]
-         (.write w (str "#'" (toSymbol o))))
-       (prefer-method print-method sci.impl.vars.IVar clojure.lang.IDeref)))
+   ;; Use public interface for print-method so it can be overriden in bb itself
+   (do (defmethod print-method sci.lang.IVar [o ^java.io.Writer w]
+         (.write w (str "#'" (toSymbol ^sci.impl.vars.IVar o))))
+       (prefer-method print-method sci.lang.IVar clojure.lang.IDeref)))
 
 (defn var-get [v]
   (deref v))
