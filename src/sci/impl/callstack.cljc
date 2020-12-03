@@ -1,4 +1,5 @@
 (ns sci.impl.callstack
+  {:no-doc true}
   (:require [clojure.string :as str]
             [sci.impl.vars :as vars]))
 

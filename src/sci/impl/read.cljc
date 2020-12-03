@@ -1,7 +1,7 @@
 (ns sci.impl.read
+  {:no-doc true}
   (:refer-clojure :exclude [eval load-string read read-string read+string])
-  (:require #?(:clj [clojure.string :as str])
-            [clojure.tools.reader.reader-types :as r]
+  (:require [clojure.tools.reader.reader-types :as r]
             [sci.impl.io :as io]
             [sci.impl.parser :as parser]
             [sci.impl.utils :as utils]

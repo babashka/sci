@@ -1,4 +1,5 @@
 (ns sci.impl.core-protocols
+  {:no-doc true}
   (:refer-clojure :exclude [deref -deref -swap! -reset!])
   (:require [sci.impl.types :as types]
             [sci.impl.vars :as vars]))

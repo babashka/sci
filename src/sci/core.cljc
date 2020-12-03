@@ -92,6 +92,7 @@
 (def ns "Sci var that represents sci's `clojure.core/*ns*`" vars/current-ns)
 (def file "Sci var that represents sci's `clojure.core/*file*`" vars/current-file)
 (def print-length "Sci var that represents sci's `clojure.core/*print-length*`" sio/print-length)
+(def print-level "Sci var that represents sci's `clojure.core/*print-level*`" sio/print-level)
 (def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
 (def *1 namespaces/*1)
 (def *2 namespaces/*2)

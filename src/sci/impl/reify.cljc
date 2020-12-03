@@ -1,4 +1,5 @@
 (ns sci.impl.reify
+  {:no-doc true}
   (:refer-clojure :exclude [reify])
   (:require [sci.impl.types :as t]
             [sci.impl.utils :refer [split-when]]))
