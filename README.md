@@ -56,9 +56,11 @@ Sci is used in:
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
+Are you using sci in your company or personal projects? Let us know [here](https://github.com/borkdude/babashka/issues/254).
+
 ## Status
 
-Experimental. Breaking changes are expected to happen at this phase.
+Experimental. Breaking changes are expected to happen at this phase. They will be documented in the [CHANGELOG.md](CHANGELOG.md).
 
 ## Installation
 
