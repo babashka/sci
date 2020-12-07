@@ -24,6 +24,8 @@
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
+For usage with GraalVM `native-image` check [here](#graalvm).
+
 ## Why
 
 You want to evaluate code from user input, or use Clojure for a DSL inside your
@@ -56,11 +58,12 @@ Sci is used in:
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
-Are you using sci in your company or personal projects? Let us know [here](https://github.com/borkdude/babashka/issues/254).
+Are you using sci in your company or projects? Let us know [here](https://github.com/borkdude/babashka/issues/254).
 
 ## Status
 
-Experimental. Breaking changes are expected to happen at this phase. They will be documented in the [CHANGELOG.md](CHANGELOG.md).
+Experimental. Breaking changes are expected to happen at this phase. They will
+be documented in the [CHANGELOG.md](CHANGELOG.md).
 
 ## Installation
 
@@ -445,13 +448,14 @@ This metadata is used by sci for error reporting.
 
 ## GraalVM
 
-### Random numbers
+For general information about Clojure and GraalVM, check out
+[clj-graal-docs](https://github.com/lread/clj-graal-docs) and
+[graalvm-clojure](https://github.com/BrunoBonacci/graalvm-clojure/).
 
-To make the `rand-*` functions behave well when compiling to a GraalVM native binary, use this setting:
+### Clojure version
 
-``` clojure
---initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder
-```
+To build native images with GraalVM it is recommended to use clojure
+`1.10.2-alpha4` or later.
 
 ### Java 11
 
@@ -465,6 +469,17 @@ See
 [clj-graal-docs](https://github.com/lread/clj-graal-docs#jdk11-and-clojurelangreflector)
 and
 [clj-reflector-graal-java11-fix](https://github.com/borkdude/clj-reflector-graal-java11-fix).
+
+### Random numbers
+
+For GraalVM < 20.3.0:
+
+To make the `rand-*` functions behave well when compiling to a GraalVM native binary, use this setting:
+
+``` clojure
+--initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder
+```
+
 
 <!-- ## Use from JavaScript -->
 
