@@ -46,6 +46,14 @@
           (sci/set! foo 2)
           (is (= 2 (sci/eval-string "*foo*" {:bindings {'*foo* foo}})))))))
 
+(deftest binding-syntax-test
+  (testing "no vector binding"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector"
+                          (eval* "(def ^:dynamic x 1) (binding #{x 1})"))))
+  (testing "not even bindings"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"even"
+                          (eval* "(def ^:dynamic x 1) (binding [x])")))))
+
 (deftest redefine-var-test
   (is (= 11 (eval* "
 (def x 10)

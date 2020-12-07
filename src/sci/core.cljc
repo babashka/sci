@@ -83,6 +83,7 @@
   dynamic vars to values."
     [bindings & body]
     (assert (vector? bindings))
+    (assert (even? (count bindings)))
     `(with-bindings ~(apply hash-map bindings)
        (do ~@body))))
 

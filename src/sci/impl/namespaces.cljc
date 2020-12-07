@@ -530,6 +530,28 @@
        (finally
          (clojure.core/pop-thread-bindings)))))
 
+(defn sci-binding
+  [form _ bindings & body]
+  (when-not (vector? bindings)
+    (utils/throw-error-with-location (str "binding requires a vector for its bindings")
+                               form))
+  (when-not (even? (count bindings))
+    (utils/throw-error-with-location (str "binding requires an even number of forms in binding vector")
+                               form))
+  (let [var-ize (fn [var-vals]
+                  (loop [ret [] vvs (seq var-vals)]
+                    (if vvs
+                      (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
+                              (next (next vvs)))
+                      (seq ret))))]
+    `(let []
+       ;; important: outside try
+       (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
+       (try
+         ~@body
+         (finally
+           (clojure.core/pop-thread-bindings))))))
+
 (defn sci-with-redefs-fn
   [binding-map func]
   (let [root-bind (fn [m]
@@ -719,7 +741,7 @@
    'associative? (copy-core-var associative?)
    'atom (copy-core-var atom)
    #?@(:clj ['bean (copy-core-var bean)])
-   'binding (with-meta vars/binding {:sci/macro true})
+   'binding (with-meta sci-binding {:sci/macro true})
    'binding-conveyor-fn vars/binding-conveyor-fn
    'bit-and-not (copy-core-var bit-and-not)
    'bit-set (copy-core-var bit-set)

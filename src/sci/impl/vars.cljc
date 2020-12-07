@@ -381,24 +381,14 @@
    (let [meta (assoc meta :dynamic true)]
      (SciVar. init-val name meta false))))
 
-(defn binding
-  [_ _ bindings & body]
-  #_(assert-args
-     (vector? bindings) "a vector for its binding"
-     (even? (count bindings)) "an even number of forms in binding vector")
-  (let [var-ize (fn [var-vals]
-                  (loop [ret [] vvs (seq var-vals)]
-                    (if vvs
-                      (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
-                              (next (next vvs)))
-                      (seq ret))))]
-    `(let []
-       ;; important: outside try
-       (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
-       (try
-         ~@body
-         (finally
-           (clojure.core/pop-thread-bindings))))))
+(def current-file (dynamic-var '*file* nil))
+
+(def user-ns (->SciNamespace 'user nil))
+
+(def current-ns (dynamic-var '*ns* user-ns))
+
+(defn current-ns-name []
+  (getName @current-ns))
 
 (macros/deftime
   (defmacro with-bindings
@@ -411,15 +401,6 @@
          (do ~@body)
          (finally
            (vars/pop-thread-bindings))))))
-
-(def current-file (dynamic-var '*file* nil))
-
-(def user-ns (->SciNamespace 'user nil))
-
-(def current-ns (dynamic-var '*ns* user-ns))
-
-(defn current-ns-name []
-  (getName @current-ns))
 
 (defn alter-var-root [v f & args]
   #?(:clj
