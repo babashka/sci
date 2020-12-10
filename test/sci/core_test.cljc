@@ -389,6 +389,18 @@
                              (let [d (ex-data ex)]
                                d))))))
 
+(deftest disable-arity-checks-test
+  (is (= 1 (sci/eval-string "(defn foo [] 1) (foo)"
+                            {:disable-arity-checks true})))
+  (is (= [1 nil nil] (sci/eval-string "(defn foo [a b c] [a b c]) (foo 1)"
+                                      {:disable-arity-checks true})))
+  (is (= [1 nil] (sci/eval-string "(defn foo ([x y] [x y])) (foo 1)"
+                                  {:disable-arity-checks true})))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"Cannot call foo with 1 arguments"
+               (sci/eval-string "(defn foo ([]) ([x y])) (foo 1)"
+                                {:disable-arity-checks true}))))
+
 (deftest macro-test
   (when-not tu/native?
     (is (= [1 1]

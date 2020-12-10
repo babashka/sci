@@ -163,13 +163,11 @@
 
   The map `opts` may contain the following:
 
-  - `:bindings`: a map of symbols to values, e.g.: `{'x 1}`. The
-  symbols will acts as names bound to the corresponding values in the
-  expressions.
-
   - `:namespaces`: a map of symbols to namespaces, where a namespace
   is a map with symbols to values, e.g.: `{'foo.bar {'x 1}}`. These
   namespaces can be used with `require`.
+
+  - `:bindings`: `:bindings x` is the same as `:namespaces {'user x}`.
 
   - `:allow`: a seqable of allowed symbols. All symbols, even those
   brought in via `:bindings` or `:namespaces` have to be explicitly
@@ -183,7 +181,9 @@
   - `:env`: an atom with a map in which state from the
   evaluation (defined namespaced and vars) will be persisted for
   re-use over multiple calls.
-  "
+
+  - `:disable-arity-checks`: disables arity checks for single-arity
+  functions."
   ([s] (eval-string s nil))
   ([s opts]
    (i/eval-string s opts)))
