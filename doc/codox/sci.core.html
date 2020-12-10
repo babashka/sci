@@ -12,13 +12,11 @@ switches, establish root binding of `sci/ns` with `sci/binding` or
 
 The map `opts` may contain the following:
 
-- `:bindings`: a map of symbols to values, e.g.: `{'x 1}`. The
-symbols will acts as names bound to the corresponding values in the
-expressions.
-
 - `:namespaces`: a map of symbols to namespaces, where a namespace
 is a map with symbols to values, e.g.: `{'foo.bar {'x 1}}`. These
 namespaces can be used with `require`.
+
+- `:bindings`: `:bindings x` is the same as `:namespaces {'user x}`.
 
 - `:allow`: a seqable of allowed symbols. All symbols, even those
 brought in via `:bindings` or `:namespaces` have to be explicitly
@@ -32,7 +30,9 @@ recur]`.
 - `:env`: an atom with a map in which state from the
 evaluation (defined namespaced and vars) will be persisted for
 re-use over multiple calls.
-</pre></div></div><div class="public anchor" id="var-eval-string*"><h3>eval-string*</h3><div class="usage"><code>(eval-string* ctx s)</code></div><div class="doc"><pre class="plaintext">Evaluates string `s` in the context of `ctx` (as produced with
+
+- `:disable-arity-checks`: disables arity checks for single-arity
+functions.</pre></div></div><div class="public anchor" id="var-eval-string*"><h3>eval-string*</h3><div class="usage"><code>(eval-string* ctx s)</code></div><div class="doc"><pre class="plaintext">Evaluates string `s` in the context of `ctx` (as produced with
 `init`).</pre></div></div><div class="public anchor" id="var-file"><h3>file</h3><div class="usage"></div><div class="doc"><pre class="plaintext">Sci var that represents sci's `clojure.core/*file*`
 </pre></div></div><div class="public anchor" id="var-fork"><h3>fork</h3><div class="usage"><code>(fork ctx)</code></div><div class="doc"><pre class="plaintext">Forks a context (as produced with `init`) into a new context. Any new
 vars created in the new context won't be visible in the original
