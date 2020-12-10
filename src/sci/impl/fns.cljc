@@ -5,17 +5,18 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn throw-arity [fn-name macro? args]
-  (throw (new #?(:clj Exception
-                 :cljs js/Error)
-              (let [actual-count (if macro? (- (count args) 2)
-                                     (count args))]
-                (str "Cannot call " fn-name " with " actual-count " arguments")))))
+(defn throw-arity [ctx fn-name macro? args]
+  (when-not (:disable-arity-checks ctx)
+    (throw (new #?(:clj Exception
+                   :cljs js/Error)
+                (let [actual-count (if macro? (- (count args) 2)
+                                       (count args))]
+                  (str "Cannot call " fn-name " with " actual-count " arguments"))))))
 
 (deftype Recur #?(:clj [val]
                   :cljs [val])
   t/IBox
-  (getVal [this] val))
+  (getVal [_] val))
 
 (defn parse-fn-args+body
   [^clojure.lang.Associative ctx interpret eval-do*
@@ -40,12 +41,12 @@
                           (assoc ret (second params) args*)
                           (do
                             (when-not args*
-                              (throw-arity fn-name macro? args))
+                              (throw-arity ctx fn-name macro? args))
                             (recur (next args*) (next params)
                                    (assoc ret fp (first args*))))))
                       (do
                         (when args*
-                          (throw-arity fn-name macro? args))
+                          (throw-arity ctx fn-name macro? args))
                         ret)))
                   ctx #?(:clj (.assoc ctx :bindings bindings)
                          :cljs (-assoc ctx :bindings bindings))

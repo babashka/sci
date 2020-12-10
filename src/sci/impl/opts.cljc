@@ -98,7 +98,8 @@
            :load-fn
            :uberscript ;; used by babashka, not public!
            :readers
-           :reify]}]
+           :reify
+           :disable-arity-checks]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
@@ -111,6 +112,7 @@
                     :readers readers
                     ::ctx true
                     :uberscript uberscript
-                    :reify (merge default-reify reify)}
+                    :reify (merge default-reify reify)
+                    :disable-arity-checks disable-arity-checks}
                    (normalize-classes (merge default-classes classes)))]
     ctx))
