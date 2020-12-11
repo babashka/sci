@@ -79,6 +79,13 @@
         (recur threaded (next forms)))
       x)))
 
+(defn as->*
+  [_ _ expr name & forms]
+  `(let [~name ~expr
+         ~@(interleave (repeat name) (butlast forms))]
+     ~(if (empty? forms)
+        name
+        (last forms))))
 (defn dotimes*
   [_ _ bindings & body]
   (assert (vector? bindings))
@@ -721,6 +728,7 @@
    '== (copy-core-var ==)
    '-> (macrofy ->*)
    '->> (macrofy ->>*)
+   'as-> (macrofy as->*)
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)
    'aget (copy-core-var aget)
