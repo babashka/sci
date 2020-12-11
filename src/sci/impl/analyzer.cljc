@@ -348,10 +348,6 @@
                  :sci.impl/var true)]
     (mark-eval-call (list 'def fn-name f))))
 
-(defn expand-comment
-  "The comment macro from clojure.core."
-  [_ctx & _body])
-
 (defn expand-loop
   [ctx expr]
   (let [bv (second expr)
@@ -674,7 +670,6 @@
                 (defn defmacro) (let [ret (expand-defn ctx expr)]
                                   ret)
                 ;; TODO: implement as normal macro in namespaces.cljc
-                comment (expand-comment ctx expr)
                 loop (expand-loop ctx expr)
                 lazy-seq (expand-lazy-seq ctx expr)
                 for (let [res (expand-for ctx expr)]

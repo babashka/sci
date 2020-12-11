@@ -86,6 +86,10 @@
      ~(if (empty? forms)
         name
         (last forms))))
+
+(defn comment*
+  [_ _ & _body])
+
 (defn dotimes*
   [_ _ bindings & body]
   (assert (vector? bindings))
@@ -729,6 +733,7 @@
    '-> (macrofy ->*)
    '->> (macrofy ->>*)
    'as-> (macrofy as->*)
+   'comment (macrofy comment*)
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)
    'aget (copy-core-var aget)
