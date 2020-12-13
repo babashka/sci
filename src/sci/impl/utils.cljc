@@ -9,7 +9,7 @@
 (derive :sci.error/parse :sci/error)
 
 (defn constant? [x]
-  (or (number? x) (string? x) (keyword? x)))
+  (or (number? x) (string? x) (keyword? x) (boolean? x)))
 
 (defn mark-resolve-sym
   [sym]
