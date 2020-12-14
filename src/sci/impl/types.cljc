@@ -37,7 +37,7 @@
   (-interpret? [this]))
 
 (extend-protocol IInterpret
-  Object
+  #?(:clj Object :cljs default)
   (-interpret? [this] false)
   nil
   (-interpret? [this] false))
