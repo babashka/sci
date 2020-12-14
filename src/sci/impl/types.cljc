@@ -28,3 +28,16 @@
 (deftype EvalForm [form]
   IBox
   (getVal [this] form))
+
+;; new way of interpreting: we don't walk the AST, the AST walks itself
+
+(defprotocol IInterpret
+  (-interpret [this ctx])
+  ;; this is faster than satisfies? (according to bsless!)
+  (-interpret? [this]))
+
+(extend-protocol IInterpret
+  Object
+  (-interpret? [this] false)
+  nil
+  (-interpret? [this] false))
