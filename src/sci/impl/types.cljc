@@ -29,4 +29,10 @@
   IBox
   (getVal [this] form))
 
+(defprotocol IInterpret
+  (-interpret [this ctx])
+  ;; this is faster than satisfies? (according to bsless!)
+  (-interpret? [this])
+  (-expr [this])
+  (-tag [this]))
 

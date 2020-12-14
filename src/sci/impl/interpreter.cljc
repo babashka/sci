@@ -7,12 +7,12 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
+   [sci.impl.interpreter-types :as it]
    [sci.impl.macros :as macros]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
    [sci.impl.records :as records]
    [sci.impl.types :as t]
-   [sci.impl.interpreter-types :as it]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
@@ -613,14 +613,18 @@
            (kw-identical? op :static-access)
            (eval-static-method-invocation ctx expr)
            :else
-           (let [f (if op (interpret ctx f)
-                       f)]
+           (let [f (cond op
+                     (interpret ctx f)
+                     (t/-interpret? f) (t/-interpret f ctx)
+                     :else f)]
              (if (ifn? f)
                (fn-call ctx f (rest expr))
                (throw (new #?(:clj Exception :cljs js/Error)
                            (str "Cannot call " (pr-str f) " as a function.")))))))
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
+
+(vreset! utils/eval-call eval-call)
 
 (defn handle-meta [ctx m]
   ;; Sometimes metadata needs eval. In this case the metadata has metadata.
@@ -675,19 +679,21 @@
     ;; (prn :interpret expr (meta expr) '-> ret (meta ret))
     ret))
 
-(extend-protocol it/IInterpret
+(extend-protocol t/IInterpret
   #?(:clj Object :cljs default)
   (-interpret [this ctx]
     (interpret* ctx this))
+  (-interpret? [this] false)
   nil
   (-interpret [this ctx]
-    (interpret* ctx this)))
+    (interpret* ctx this))
+  (-interpret? [this] false))
 
 (defn interpret
   [ctx expr]
   ;; (prn expr (meta expr))
   (try
-    (it/-interpret expr ctx)
+    (t/-interpret expr ctx)
     (catch #?(:clj Throwable :cljs js/Error) e
       (if (isa? (some-> e ex-data :type) :sci/error)
         (throw e)

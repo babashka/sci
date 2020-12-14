@@ -7,7 +7,7 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
-   [sci.impl.interpreter-types #?@(:cljs [:as it])]
+   [sci.impl.interpreter-types :as it]
    [sci.impl.records :as records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
@@ -720,7 +720,7 @@
                                                  (mark-eval-call
                                                   (with-meta (cons f (rest expr))
                                                     (meta expr))))))))
-      (let [ret (mark-eval-call (analyze-children ctx expr))]
+      (let [ret (it/->eval-call (analyze-children ctx expr))]
         ret))))
 
 (def ^:const constant-colls true) ;; see GH #452
@@ -740,8 +740,7 @@
                                             (if (vars/isMacro v)
                                               (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                                           (str "Can't take value of a macro: " v "")))
-                                              #?(:clj (EvalVarExpr. v))
-                                              #?(:cljs (it/EvalVarExpr. v))))
+                                              (it/->eval-var v)))
                                           :else (merge-meta v m)))
                    ;; don't evaluate records, this check needs to go before map?
                    ;; since a record is also a map

@@ -64,10 +64,18 @@
 (def needs-ctx (symbol "needs-ctx"))
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
-  (let [m (meta node)
-        f (when (seqable? node) (first node))
+  (let [interpret? (t/-interpret? node)
+        node* (if interpret?
+                (t/-expr node)
+                node)
+        m (meta node*)
+        f (when (seqable? node*) (first node*))
+        _ (prn :f f)
         fm (some-> f meta)
-        op (when fm (.get ^java.util.Map m :sci.impl/op))]
+        op (when fm (if interpret?
+                      (t/-tag node)
+                      (.get ^java.util.Map m :sci.impl/op)))
+        node node*]
     (when (not (or
                 ;; special call like def
                 (and (symbol? f) (not op))
@@ -196,10 +204,11 @@
 (def interpret (volatile! nil))
 (def eval-do* (volatile! nil))
 (def eval-fn (volatile! nil))
+(def eval-call (volatile! nil))
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns
-  a truthy value. E.g. `(split-when odd? [1 2 3 4 5]) => ((1 2) (3 4) (5))`"
+  a truthy value. E.g70. `(split-when odd? [1 2 3 4 5]) => ((1 2) (3 4) (5))`"
   [pred coll]
   (lazy-seq
    (when-let [s (seq coll)]
