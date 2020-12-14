@@ -1086,6 +1086,11 @@
 (deftest symbol-on-var-test
   (is (= 'user/x (eval* "(def x 1) (symbol #'x)"))))
 
+(deftest macro-val-error-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs :default) #"value of a macro"
+       (eval* "(defmacro foo []) foo"))))
+
 ;;;; Scratch
 
 (comment

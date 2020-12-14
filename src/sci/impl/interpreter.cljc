@@ -636,10 +636,7 @@
   (try
     (if (instance? sci.impl.types.EvalVar expr)
       (let [v (t/getVal expr)]
-        (if-not (vars/isMacro v)
-          (deref v)
-          (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                      (str "Can't take value of a macro: " v "")))))
+        (deref v))
       (let [m (meta expr)
             op (when m (.get ^java.util.Map m :sci.impl/op))
             ret
