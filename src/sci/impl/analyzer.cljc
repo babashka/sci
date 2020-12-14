@@ -733,7 +733,11 @@
                                     (cond (constant? v) v
                                           (vars/var? v)
                                           (if (:const (meta v))
-                                            @v (types/->EvalVar v))
+                                            @v
+                                            (if (vars/isMacro v)
+                                              (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                                          (str "Can't take value of a macro: " v "")))
+                                              (types/->EvalVar v)))
                                           :else (merge-meta v m)))
                    ;; don't evaluate records, this check needs to go before map?
                    ;; since a record is also a map
