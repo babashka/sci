@@ -631,57 +631,63 @@
         m)
       (dissoc :sci.impl/op)))
 
+(defn interpret* [ctx expr]
+  (let [m (meta expr)
+        op (when m (.get ^java.util.Map m :sci.impl/op))
+        ret
+        (if
+            (not op) expr
+            ;; TODO: moving this up increased performance for #246. We can
+            ;; probably optimize it further by not using separate keywords for
+            ;; one :sci.impl/op keyword on which we can use a case expression
+            (case op
+              :call (eval-call ctx expr)
+              :try (eval-try ctx expr)
+              :fn (let [fn-meta (:sci.impl/fn-meta expr)
+                        the-fn (fns/eval-fn ctx interpret eval-do* expr)
+                        fn-meta (when fn-meta (handle-meta ctx fn-meta))]
+                    (if fn-meta
+                      (vary-meta the-fn merge fn-meta)
+                      the-fn))
+              :static-access (interop/get-static-field expr)
+              :deref! (let [v (first expr)
+                            v (if (vars/var? v) @v v)
+                            v (force v)]
+                        v)
+              :resolve-sym (resolve-symbol ctx expr)
+              needs-ctx (if (identical? op utils/needs-ctx)
+                          (partial expr ctx)
+                          ;; this should never happen, or if it does, it's
+                          ;; someone trying to hack
+                          (throw (new #?(:clj Exception :cljs js/Error)
+                                      (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+              (cond (map? expr) (with-meta (zipmap (map #(interpret ctx %) (keys expr))
+                                                   (map #(interpret ctx %) (vals expr)))
+                                  (handle-meta ctx m))
+                    (or (vector? expr) (set? expr))
+                    (with-meta (into (empty expr)
+                                     (map #(interpret ctx %)
+                                          expr))
+                      (handle-meta ctx m))
+                    :else (throw (new #?(:clj Exception :cljs js/Error)
+                                      (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
+    ;; for debugging:
+    ;; (prn :interpret expr (meta expr) '-> ret (meta ret))
+    ret))
+
+(extend-protocol it/IInterpret
+  #?(:clj Object :cljs default)
+  (-interpret [this ctx]
+    (interpret* ctx this))
+  nil
+  (-interpret [this ctx]
+    (interpret* ctx this)))
+
 (defn interpret
   [ctx expr]
   ;; (prn expr (meta expr))
   (try
-    (cond #_(instance? sci.impl.types.EvalVar expr)
-          #_(let [v (t/getVal expr)]
-            (deref v))
-          (it/-interpret? expr) (it/-interpret expr ctx)
-          :else
-          (let [m (meta expr)
-                op (when m (.get ^java.util.Map m :sci.impl/op))
-                ret
-                (if
-                    (not op) expr
-                    ;; TODO: moving this up increased performance for #246. We can
-                    ;; probably optimize it further by not using separate keywords for
-                    ;; one :sci.impl/op keyword on which we can use a case expression
-                    (case op
-                      :call (eval-call ctx expr)
-                      :try (eval-try ctx expr)
-                      :fn (let [fn-meta (:sci.impl/fn-meta expr)
-                                the-fn (fns/eval-fn ctx interpret eval-do* expr)
-                                fn-meta (when fn-meta (handle-meta ctx fn-meta))]
-                            (if fn-meta
-                              (vary-meta the-fn merge fn-meta)
-                              the-fn))
-                      :static-access (interop/get-static-field expr)
-                      :deref! (let [v (first expr)
-                                    v (if (vars/var? v) @v v)
-                                    v (force v)]
-                                v)
-                      :resolve-sym (resolve-symbol ctx expr)
-                      needs-ctx (if (identical? op utils/needs-ctx)
-                                  (partial expr ctx)
-                                  ;; this should never happen, or if it does, it's
-                                  ;; someone trying to hack
-                                  (throw (new #?(:clj Exception :cljs js/Error)
-                                              (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
-                      (cond (map? expr) (with-meta (zipmap (map #(interpret ctx %) (keys expr))
-                                                           (map #(interpret ctx %) (vals expr)))
-                                          (handle-meta ctx m))
-                            (or (vector? expr) (set? expr))
-                            (with-meta (into (empty expr)
-                                             (map #(interpret ctx %)
-                                                  expr))
-                              (handle-meta ctx m))
-                            :else (throw (new #?(:clj Exception :cljs js/Error)
-                                              (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
-            ;; for debugging:
-            ;; (prn :interpret expr (meta expr) '-> ret (meta ret))
-            ret))
+    (it/-interpret expr ctx)
     (catch #?(:clj Throwable :cljs js/Error) e
       (if (isa? (some-> e ex-data :type) :sci/error)
         (throw e)

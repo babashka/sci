@@ -8,12 +8,6 @@
   ;; this is faster than satisfies? (according to bsless!)
   (-interpret? [this]))
 
-(extend-protocol IInterpret
-  #?(:clj Object :cljs default)
-  (-interpret? [this] false)
-  nil
-  (-interpret? [this] false))
-
 (deftype EvalVarExpr [v]
   IInterpret
   (-interpret? [this] true)
