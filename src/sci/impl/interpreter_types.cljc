@@ -1,5 +1,5 @@
 (ns sci.impl.interpreter-types
-  (:require [sci.impl.vars :as vars]))
+  #_(:require [sci.impl.vars :as vars]))
 
 ;; new way of interpreting: we don't walk the AST, the AST walks itself
 
@@ -18,9 +18,4 @@
   IInterpret
   (-interpret? [this] true)
   (-interpret [this ctx]
-    ;; TODO: we can already do this in the analyzer, but let's not refactor too
-    ;; much in one go
-    (if-not (vars/isMacro v)
-      (deref v)
-      (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                  (str "Can't take value of a macro: " v ""))))))
+    (deref v)))

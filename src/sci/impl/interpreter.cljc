@@ -635,8 +635,8 @@
   [ctx expr]
   ;; (prn expr (meta expr))
   (try
-    (cond (instance? sci.impl.types.EvalVar expr)
-          (let [v (t/getVal expr)]
+    (cond #_(instance? sci.impl.types.EvalVar expr)
+          #_(let [v (t/getVal expr)]
             (deref v))
           (it/-interpret? expr) (it/-interpret expr ctx)
           :else

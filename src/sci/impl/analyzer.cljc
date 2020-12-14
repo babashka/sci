@@ -7,6 +7,7 @@
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
+   [sci.impl.interpreter-types #?@(:cljs [:as it])]
    [sci.impl.records :as records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
@@ -15,7 +16,8 @@
      merge-meta strip-core-ns set-namespace!
      macro?]]
    [sci.impl.vars :as vars])
-  #?(:clj (:import [sci.impl Reflector])))
+  #?(:clj (:import [sci.impl Reflector]
+                   [sci.impl.interpreter_types EvalVarExpr])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -631,7 +633,8 @@
 (defn analyze-set! [ctx [_ obj v]]
   (let [obj (analyze ctx obj)
         v (analyze ctx v)
-        obj (types/getVal obj)]
+        obj #?(:clj (.-v ^EvalVarExpr obj)
+               :cljs (.-v obj))]
     (mark-eval-call (list 'set! obj v))))
 
 ;;;; End vars
@@ -737,7 +740,8 @@
                                             (if (vars/isMacro v)
                                               (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                                           (str "Can't take value of a macro: " v "")))
-                                              (types/->EvalVar v)))
+                                              #?(:clj (EvalVarExpr. v))
+                                              #?(:cljs (it/EvalVarExpr. v))))
                                           :else (merge-meta v m)))
                    ;; don't evaluate records, this check needs to go before map?
                    ;; since a record is also a map
