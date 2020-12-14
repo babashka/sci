@@ -731,8 +731,9 @@
          ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve-symbol ctx expr false)]
                                     (cond (constant? v) v
-                                          (vars/var? v) (if (:const (meta v))
-                                                          @v (types/->EvalVar v))
+                                          (vars/var? v)
+                                          (if (:const (meta v))
+                                            @v (types/->EvalVar v))
                                           :else (merge-meta v m)))
                    ;; don't evaluate records, this check needs to go before map?
                    ;; since a record is also a map

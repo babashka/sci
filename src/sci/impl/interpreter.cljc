@@ -12,6 +12,7 @@
    [sci.impl.parser :as p]
    [sci.impl.records :as records]
    [sci.impl.types :as t]
+   [sci.impl.interpreter-types :as it]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
@@ -640,7 +641,7 @@
               (deref v)
               (throw (new #?(:clj IllegalStateException :cljs js/Error)
                           (str "Can't take value of a macro: " v "")))))
-          (t/-interpret? expr) (t/-interpret expr ctx)
+          (it/-interpret? expr) (it/-interpret expr ctx)
           :else
           (let [m (meta expr)
                 op (when m (.get ^java.util.Map m :sci.impl/op))
