@@ -50,7 +50,10 @@
         sym)))
     )
   (-expr [_] sym)
-  (-tag [_] :resolve-symbol))
+  (-tag [_] :resolve-symbol)
+  #?(:clj clojure.lang.IMeta :cljs IMeta)
+  #?(:clj (meta [_] (meta sym))
+     :cljs (-meta [_] (meta sym))))
 
 (defn ->resolve-symbol [sym]
   (ResolveSymbol. sym))

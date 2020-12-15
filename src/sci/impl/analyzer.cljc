@@ -693,7 +693,7 @@
                 set! (analyze-set! ctx expr)
                 (import quote) (mark-eval-call expr) ;; don't analyze children
                 ;; else:
-                (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                (it/->eval-call (cons f (analyze-children ctx (rest expr)))))
               :else
               (try
                 (if (macro? f)

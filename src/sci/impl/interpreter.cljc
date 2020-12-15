@@ -7,7 +7,7 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
-   [sci.impl.interpreter-types :as it]
+   #_[sci.impl.interpreter-types :as it]
    [sci.impl.macros :as macros]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
@@ -360,7 +360,9 @@
 
 (defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx}
                                        [_dot instance-expr method-str args :as _expr]]
-  (let [instance-meta (meta instance-expr)
+  (let [_ (prn :expr instance-expr
+               :meta (meta instance-expr))
+        instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (interpret ctx instance-expr)]
     (if (map? instance-expr*) ;; a sci record
