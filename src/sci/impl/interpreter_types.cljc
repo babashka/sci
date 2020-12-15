@@ -23,5 +23,8 @@
   (-expr [this] v)
   (-tag [this] :call))
 
+(deftype EvalConstant [v]
+  )
+
 (defn ->eval-call [v]
   (EvalCall. v))
