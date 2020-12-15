@@ -264,7 +264,6 @@
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
         ana-fn-meta (analyzed-meta ctx fn-meta)
-        ;; _ (prn fn-meta ana-fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))]
@@ -732,10 +731,10 @@
   ([ctx expr top-level?]
    ;; (prn :ana expr)
    (let [m (meta expr)
-         ret (cond (constant? expr) (it/->eval-constant expr) ;; constants do not carry metadata
+         ret (cond (constant? expr) expr #_(it/->eval-constant expr) ;; constants do not carry metadata
                    (symbol? expr)
                    (let [v (resolve-symbol ctx expr false)]
-                     (cond (constant? v) (it/->eval-constant v)
+                     (cond (constant? v) v #_(it/->eval-constant v)
                            (vars/var? v)
                            (if (:const (meta v))
                              @v
