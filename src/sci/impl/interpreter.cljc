@@ -691,7 +691,7 @@
 
 (defn interpret
   [ctx expr]
-  ;; (prn expr (meta expr))
+  ;; (prn :interpret (:bindings ctx))
   (try
     (t/-interpret expr ctx)
     (catch #?(:clj Throwable :cljs js/Error) e

@@ -264,6 +264,7 @@
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
         ana-fn-meta (analyzed-meta ctx fn-meta)
+        ;; _ (prn fn-meta ana-fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))]
@@ -731,17 +732,18 @@
   ([ctx expr top-level?]
    ;; (prn :ana expr)
    (let [m (meta expr)
-         ret (cond (constant? expr) expr ;; constants do not carry metadata
-                   (symbol? expr) (let [v (resolve-symbol ctx expr false)]
-                                    (cond (constant? v) v
-                                          (vars/var? v)
-                                          (if (:const (meta v))
-                                            @v
-                                            (if (vars/isMacro v)
-                                              (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                                          (str "Can't take value of a macro: " v "")))
-                                              (it/->eval-var v)))
-                                          :else (merge-meta v m)))
+         ret (cond (constant? expr) (it/->eval-constant expr) ;; constants do not carry metadata
+                   (symbol? expr)
+                   (let [v (resolve-symbol ctx expr false)]
+                     (cond (constant? v) (it/->eval-constant v)
+                           (vars/var? v)
+                           (if (:const (meta v))
+                             @v
+                             (if (vars/isMacro v)
+                               (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                           (str "Can't take value of a macro: " v "")))
+                               (it/->eval-var v)))
+                           :else (merge-meta v m)))
                    ;; don't evaluate records, this check needs to go before map?
                    ;; since a record is also a map
                    (record? expr) expr
@@ -778,7 +780,7 @@
                                  ;; the empty list
                                  expr)
                    :else
-                   expr)]
+                   expr #_(it/->eval-constant expr))]
      ret)))
 
 ;;;; Scratch
