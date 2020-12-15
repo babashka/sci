@@ -100,7 +100,7 @@
                     (find bindings sym)]
            ;; never inline a binding at macro time!
            (let [t (tag ctx v)
-                 v (mark-resolve-sym k)
+                 v (it/->resolve-symbol k)
                  ;; pass along tag of expression!
                  v (if t (vary-meta v
                                     assoc :tag t)
