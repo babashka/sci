@@ -70,11 +70,11 @@
                 node)
         m (meta node*)
         f (when (seqable? node*) (first node*))
-        _ (prn :f f)
         fm (some-> f meta)
         op (when fm (if interpret?
                       (t/-tag node)
-                      (.get ^java.util.Map m :sci.impl/op)))
+                      ;; TODO: this is probably wrong?
+                      (when m (.get ^java.util.Map m :sci.impl/op))))
         node node*]
     (when (not (or
                 ;; special call like def
