@@ -5,7 +5,7 @@
    #?(:clj [clojure.string :as str])
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
-   [sci.impl.evaluator]
+   [sci.impl.evaluator :as eval]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
    [sci.impl.records :as records]
@@ -193,8 +193,12 @@
              [(update ctx :bindings assoc binding-name v)
               (conj new-let-bindings binding-name v)]))
          [ctx []]
-         (partition 2 destructured-let-bindings))]
-    (mark-eval-call `(~'let ~new-let-bindings ~@(analyze-children ctx exprs)))))
+         (partition 2 destructured-let-bindings))
+        body (analyze-children ctx exprs)]
+    (with-meta
+      (fn [ctx]
+        (eval/eval-let ctx new-let-bindings body))
+      {:sci.impl/op utils/evaluate})))
 
 (defn expand-let
   "The let macro from clojure.core"

@@ -58,7 +58,7 @@
 
 (defn eval-let
   "The let macro from clojure.core"
-  [ctx let-bindings & exprs]
+  [ctx let-bindings exprs]
   (let [ctx (loop [ctx ctx
                    let-bindings let-bindings]
               (let [let-name (first let-bindings)
@@ -594,7 +594,6 @@
 
 (defn eval
   [ctx expr]
-  ;; (prn expr (meta expr))
   (try
     (if (instance? sci.impl.types.EvalVar expr)
       (let [v (t/getVal expr)]
@@ -628,6 +627,10 @@
                               ;; someone trying to hack
                               (throw (new #?(:clj Exception :cljs js/Error)
                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+                  eval (if (identical? op utils/evaluate)
+                         (expr ctx)
+                         (throw (new #?(:clj Exception :cljs js/Error)
+                                     (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
                   (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
                                                        (map #(eval ctx %) (vals expr)))
                                       (handle-meta ctx m))
