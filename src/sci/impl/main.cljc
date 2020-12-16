@@ -38,7 +38,7 @@
                           form (p/parse-next ctx reader)]
                       (loop [i 0]
                         (let [form (ana/analyze ctx form)
-                              ret (eval/interpret ctx form)]
+                              ret (eval/eval ctx form)]
                           (if (< i n)
                             (recur (inc i))
                             ret)))))

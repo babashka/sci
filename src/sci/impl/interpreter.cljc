@@ -29,10 +29,10 @@
         (let [analyzed (ana/analyze ctx form true)
               ret (if (instance? sci.impl.types.EvalForm analyzed)
                     (eval-form ctx (t/getVal analyzed))
-                    (eval/interpret ctx analyzed))]
+                    (eval/eval ctx analyzed))]
           ret)))
     (let [analyzed (ana/analyze ctx form)
-          ret (eval/interpret ctx analyzed)]
+          ret (eval/eval ctx analyzed)]
       ret)))
 
 (vreset! utils/eval-form-state eval-form)
