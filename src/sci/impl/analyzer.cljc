@@ -565,9 +565,6 @@
             _ (when special-sym (resolve/check-permission! ctx special-sym f nil))
             f (or special-sym
                   (resolve/resolve-symbol ctx f true))
-            #_#_f (if (and (vars/var? f)
-                           (vars/isMacro f))
-                    f f)
             f-meta (meta f)
             eval? (and f-meta (:sci.impl/op f-meta))]
         (cond (and f-meta (::static-access f-meta))
@@ -637,8 +634,14 @@
                                                  (mark-eval-call
                                                   (with-meta (cons f (rest expr))
                                                     (meta expr))))))))
-      (let [ret (mark-eval-call (analyze-children ctx expr))]
-        ret))))
+      (let [children (analyze-children ctx expr)
+            f (first children)]
+        (if (fn? f) #_(vars/var? f)
+          (with-meta
+            (fn [ctx]
+              (eval/fn-call ctx f (rest children)))
+            {:sci.impl/op utils/evaluate})
+          (mark-eval-call children))))))
 
 (def ^:const constant-colls true) ;; see GH #452
 

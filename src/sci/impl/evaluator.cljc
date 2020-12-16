@@ -580,6 +580,7 @@
 
 (defn eval
   [ctx expr]
+  ;; (prn :expr expr)
   (try
     (if (instance? sci.impl.types.EvalVar expr)
       (let [v (t/getVal expr)]
