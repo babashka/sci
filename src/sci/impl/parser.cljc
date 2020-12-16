@@ -30,7 +30,13 @@
         the-current-ns (get namespaces current-ns)
         aliases (:aliases the-current-ns)
         ret (if-not sym-ns
-              (or (when (or (get (get namespaces 'clojure.core) sym)
+              (or (when (or (and (contains? (get namespaces 'clojure.core) sym)
+                                 ;; only valid when the symbol isn't excluded
+                                 (not (some-> the-current-ns
+                                              :refer
+                                              (get 'clojure.core)
+                                              :exclude
+                                              (contains? sym ))))
                             (contains? utils/ana-macros sym))
                     (symbol "clojure.core" sym-name-str))
                   (interop/fully-qualify-class ctx sym)
