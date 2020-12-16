@@ -582,9 +582,8 @@
   [ctx expr]
   ;; (prn :expr expr)
   (try
-    (if (instance? sci.impl.types.EvalVar expr)
-      (let [v (t/getVal expr)]
-        (deref v))
+    (if (instance? sci.impl.types.Eval expr)
+      (t/-eval expr ctx)
       (let [m (meta expr)
             op (when m (.get ^java.util.Map m :sci.impl/op))
             ret

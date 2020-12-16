@@ -308,6 +308,7 @@
                      (with-writeable-var this meta
                        (locking (set! meta m)))))
   #?(:clj clojure.lang.IRef) ;; added for multi-methods
+  #?(:clj clojure.lang.Fn :cljs Fn)
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [this]
     (@this))

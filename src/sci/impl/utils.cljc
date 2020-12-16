@@ -65,10 +65,17 @@
 (def evaluate (symbol "eval"))
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
-  (let [m (meta node)
+  (let [original-node node
+        eval? (instance? sci.impl.types.Eval original-node)
+        node (if eval?
+               (t/getVal node)
+               node)
+        m (meta node)
         f (when (seqable? node) (first node))
         fm (some-> f meta)
-        op (when fm (.get ^java.util.Map m :sci.impl/op))]
+        op (if eval?
+             (t/-op original-node)
+             (when fm (.get ^java.util.Map m :sci.impl/op)))]
     (when (not (or
                 ;; special call like def
                 (and (symbol? f) (not op))

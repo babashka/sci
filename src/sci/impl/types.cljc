@@ -5,10 +5,6 @@
   (setVal [_this _v])
   (getVal [_this]))
 
-(deftype EvalVar [v]
-  IBox
-  (getVal [this] v))
-
 (defprotocol IReified
   (getInterface [_])
   (getMethods [_]))
@@ -28,3 +24,21 @@
 (deftype EvalForm [form]
   IBox
   (getVal [this] form))
+
+(defprotocol IEval
+  (-eval [this ctx]))
+
+(defprotocol IOp
+  (-op [this]))
+
+(deftype Eval [f x op]
+  IEval
+  (-eval [_ ctx]
+    (f ctx))
+  IBox
+  (getVal [_] x)
+  IOp
+  (-op [_] op))
+
+(defn ->eval [f x op]
+  (Eval. f x op))

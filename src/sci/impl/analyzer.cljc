@@ -610,23 +610,38 @@
                 (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
               :else
               (try
-                (if (macro? f)
+                (if (fn? f)
                   (let [needs-ctx? (identical? utils/needs-ctx
-                                               (:sci.impl/op (meta f)))
-                        v (if needs-ctx?
-                            (apply f expr
-                                   (:bindings ctx)
-                                   ctx
-                                   (rest expr))
-                            (apply f expr
-                                   (:bindings ctx) (rest expr)))
-                        expanded (cond (:sci.impl/macroexpanding ctx) v
-                                       (and top-level? (seq? v) (= 'do (first v)))
-                                       ;; hand back control to eval-form for
-                                       ;; interleaved analysis and eval
-                                       (types/->EvalForm v)
-                                       :else (analyze ctx v))]
-                    expanded)
+                                               (:sci.impl/op (meta f)))]
+                    (if (macro? f)
+                      (let [v (if needs-ctx?
+                                (apply f expr
+                                       (:bindings ctx)
+                                       ctx
+                                       (rest expr))
+                                (apply f expr
+                                       (:bindings ctx) (rest expr)))
+                            expanded (cond (:sci.impl/macroexpanding ctx) v
+                                           (and top-level? (seq? v) (= 'do (first v)))
+                                           ;; hand back control to eval-form for
+                                           ;; interleaved analysis and eval
+                                           (types/->EvalForm v)
+                                           :else (analyze ctx v))]
+                        expanded)
+                      (let [children (analyze-children ctx (rest expr))]
+                        (if needs-ctx?
+                          (types/->eval (fn [ctx]
+                                          ;; TODO: unroll loop
+                                          (eval/fn-call ctx (partial f ctx) children))
+                                        (with-meta (cons f children)
+                                          (meta expr))
+                                        utils/needs-ctx)
+                          (types/->eval (fn [ctx]
+                                          ;; TODO: unroll loop
+                                          (eval/fn-call ctx f children))
+                                        (with-meta (cons f children)
+                                          (meta expr))
+                                        :call)))))
                   (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
@@ -634,14 +649,8 @@
                                                  (mark-eval-call
                                                   (with-meta (cons f (rest expr))
                                                     (meta expr))))))))
-      (let [children (analyze-children ctx expr)
-            f (first children)]
-        (if (fn? f) #_(vars/var? f)
-          (with-meta
-            (fn [ctx]
-              (eval/fn-call ctx f (rest children)))
-            {:sci.impl/op utils/evaluate})
-          (mark-eval-call children))))))
+      (let [children (analyze-children ctx expr)]
+        (mark-eval-call children)))))
 
 (def ^:const constant-colls true) ;; see GH #452
 
@@ -660,7 +669,7 @@
                                             (if (vars/isMacro v)
                                               (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                                           (str "Can't take value of a macro: " v "")))
-                                              (types/->EvalVar v)))
+                                              (types/->eval (fn [_] (deref v)) v :deref-var)))
                                           :else (merge-meta v m)))
                    ;; don't evaluate records, this check needs to go before map?
                    ;; since a record is also a map
