@@ -1,6 +1,5 @@
 (ns sci.impl.evaluator
   {:no-doc true}
-  (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
    [clojure.string :as str]
    [sci.impl.fns :as fns]
@@ -24,7 +23,8 @@
 (def #?(:clj ^:const macros :cljs macros)
   '#{do if and or quote let fn def defn
      lazy-seq try syntax-quote case . in-ns set!
-     #_#_macroexpand-1 macroexpand require})
+     ;; TODO: make normal function
+     require})
 
 ;;;; Evaluation
 

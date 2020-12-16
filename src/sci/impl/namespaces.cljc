@@ -602,6 +602,14 @@
 
 ;;;;
 
+;;;; Macroexpand
+
+(defn macroexpand* [ctx expr]
+  (@utils/macroexpand* ctx expr))
+
+(defn macroexpand-1* [ctx expr]
+  (@utils/macroexpand-1* ctx expr))
+
 #?(:clj
    (def clojure-lang
      {:obj (vars/->SciNamespace 'clojure.lang nil)
@@ -916,8 +924,8 @@
    'longs (copy-core-var longs)
    'list* (copy-core-var list*)
    'long-array (copy-core-var long-array)
-   'macroexpand (with-meta @utils/macroexpand* {:sci.impl/op needs-ctx})
-   'macroexpand-1 (with-meta @utils/macroexpand-1* {:sci.impl/op needs-ctx})
+   'macroexpand (with-meta macroexpand* {:sci.impl/op needs-ctx})
+   'macroexpand-1 (with-meta macroexpand-1* {:sci.impl/op needs-ctx})
    'make-array (copy-core-var make-array)
    'make-hierarchy (copy-core-var make-hierarchy)
    'map (copy-core-var map)
