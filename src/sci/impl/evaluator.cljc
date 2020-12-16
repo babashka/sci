@@ -3,17 +3,17 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
    [clojure.string :as str]
-   [sci.impl.analyzer :as ana]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
+   [sci.impl.resolve :as resolve]
    [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
                                      kw-identical?
-                                     macro?]]
+                                ]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call]])))
 
@@ -24,7 +24,7 @@
 (def #?(:clj ^:const macros :cljs macros)
   '#{do if and or quote let fn def defn
      lazy-seq try syntax-quote case . in-ns set!
-     macroexpand-1 macroexpand require})
+     #_#_macroexpand-1 macroexpand require})
 
 ;;;; Evaluation
 
@@ -416,51 +416,15 @@
 (defn eval-resolve
   ([ctx sym]
    (let [sym (interpret ctx sym)]
-     (second (ana/lookup ctx sym false))))
+     (second (resolve/lookup ctx sym false))))
   ([ctx env sym]
    (when-not (contains? env sym)
      (let [sym (interpret ctx sym)]
-       (second (ana/lookup ctx sym false))))))
+       (second (resolve/lookup ctx sym false))))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
 
 ;;;; End namespaces
-
-;;;; Macros
-
-(defn macroexpand-1 [ctx expr]
-  (let [original-expr expr]
-    (if (seq? expr)
-      (let [op (first expr)]
-        (if (symbol? op)
-          (cond (get ana/special-syms op) expr
-                (contains? #{'for} op) (ana/analyze (assoc ctx :sci.impl/macroexpanding true)
-                                                    expr)
-                :else
-                (let [f (ana/resolve-symbol ctx op true)
-                      f (if (and (vars/var? f)
-                                 (vars/isMacro f))
-                          @f f)]
-                  (if (macro? f)
-                    (let [f (if (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
-                              (partial f ctx)
-                              f)]
-                      (apply f original-expr (:bindings ctx) (rest expr)))
-                    expr)))
-          expr))
-      expr)))
-
-(defn macroexpand
-  [ctx form]
-  (let [ex (macroexpand-1 ctx form)]
-    (if (identical? ex form)
-      form
-      (macroexpand ctx ex))))
-
-(vreset! utils/eval-macroexpand-state macroexpand)
-
-;;;; End macros
-
 
 ;;;; Import
 
@@ -594,8 +558,8 @@
                               (meta expr)))
     ;; resolve works as a function so this should not be necessary
     ;; resolve (eval-resolve ctx (second expr))
-    macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
-    macroexpand (macroexpand ctx (interpret ctx (second expr)))
+    ;;macroexpand-1 (macroexpand-1 ctx (interpret ctx (second expr)))
+    ;; macroexpand (macroexpand ctx (interpret ctx (second expr)))
     import (apply eval-import ctx (rest expr))
     quote (second expr)))
 

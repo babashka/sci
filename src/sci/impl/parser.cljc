@@ -4,7 +4,6 @@
   (:require
    [clojure.tools.reader.reader-types :as r]
    [edamame.impl.parser :as parser]
-   [sci.impl.analyzer :as ana]
    [sci.impl.interop :as interop]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
@@ -32,7 +31,7 @@
         aliases (:aliases the-current-ns)
         ret (if-not sym-ns
               (or (when (or (get (get namespaces 'clojure.core) sym)
-                            (contains? ana/macros sym))
+                            (contains? utils/ana-macros sym))
                     (symbol "clojure.core" sym-name-str))
                   (interop/fully-qualify-class ctx sym)
                   (when-let [v (get the-current-ns sym)]
