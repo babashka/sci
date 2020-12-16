@@ -1095,6 +1095,9 @@
          #?(:clj Exception :cljs :default) #"value of a macro"
          (eval* "(defmacro foo []) (defn bar []foo )")))))
 
+(deftest var-isnt-fn
+  (is (false? (eval* "(fn? #'inc)"))))
+
 ;;;; Scratch
 
 (comment
