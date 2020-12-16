@@ -65,12 +65,6 @@
                     let-bindings (rest let-bindings)
                     let-val (first let-bindings)
                     rest-let-bindings (next let-bindings)
-                    val-tag (when-let [m (meta let-val)]
-                              (:tag m))
-                    let-name (if val-tag
-                               (vary-meta let-name update :tag (fn [t]
-                                                                 (if t t val-tag)))
-                               let-name)
                     v (eval ctx let-val)
                     ctx (assoc-in ctx [:bindings let-name] v)]
                 (if-not rest-let-bindings
