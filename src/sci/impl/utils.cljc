@@ -192,10 +192,12 @@
 (def eval-use-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
 (def eval-refer-state (volatile! nil))
-(def eval-macroexpand-state (volatile! nil))
+(def macroexpand* (volatile! nil))
+(def macroexpand-1* (volatile! nil))
 (def interpret (volatile! nil))
 (def eval-do* (volatile! nil))
 (def eval-fn (volatile! nil))
+(def eval-string* (volatile! nil))
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns
@@ -207,3 +209,9 @@
            f (complement pred)
            run (cons fst (take-while #(f %) (next s)))]
        (cons run (split-when pred (lazy-seq (drop (count run) s))))))))
+
+(def ana-macros
+  '#{do if and or let fn fn* def defn
+     comment loop lazy-seq for doseq case try defmacro
+     declare expand-dot* expand-constructor new . import in-ns ns var
+     set! resolve #_#_macroexpand-1 macroexpand})

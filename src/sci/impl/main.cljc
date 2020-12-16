@@ -8,7 +8,7 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [sci.impl.analyzer :as ana]
-   [sci.impl.interpreter :as i]
+   [sci.impl.evaluator :as eval]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p])
   #?(:clj (:gen-class)))
@@ -38,7 +38,7 @@
                           form (p/parse-next ctx reader)]
                       (loop [i 0]
                         (let [form (ana/analyze ctx form)
-                              ret (i/interpret ctx form)]
+                              ret (eval/interpret ctx form)]
                           (if (< i n)
                             (recur (inc i))
                             ret)))))
