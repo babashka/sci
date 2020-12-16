@@ -480,6 +480,16 @@
   (when-let [exprs (next expr)]
     (eval-do* ctx exprs)))
 
+#_(
+   ;; TODO: what if we rewrite the below to:
+   (defn fn-call
+     ([ctx f x]
+      (f (eval ctx x)))
+     ([ctx f x y]
+      (f (eval ctx x) (eval ctx y)))
+     ...)
+   )
+
 (macros/deftime
   ;; This macro generates a function of the following form for 20 arities:
   #_(defn fn-call [ctx f args]
@@ -494,6 +504,25 @@
         ,,,
         (let [args (mapv #(eval ctx %) args)]
           (apply f args))))
+  #_(defmacro def-fn-call []
+    (let [cases
+          (map (fn [i]
+                 (let [arg-syms (map (fn [_] (gensym "arg")) (range i))]
+                   `([~'ctx ~'f ~@arg-syms]
+                     (~'f ~@(map (fn [arg]
+                                   `(eval ~'ctx ~arg)) arg-syms))))) (range 18))
+          cases (concat cases
+                        [(let [arg-syms (map (fn [_] (gensym "arg")) (range 18))]
+                           `([~'ctx ~'f ~@arg-syms ~'& ~'xs]
+                             (apply ~'f ~@(map (fn [arg]
+                                                 `(eval ~'ctx ~arg)) arg-syms)
+                                    (map #(eval ~'ctx %) ~'xs))))])]
+      ;; Normal apply:
+      #_`(defn ~'fn-call ~'[ctx f args]
+           (apply ~'f (map #(eval ~'ctx %) ~'args)))
+      `(defn ~'fn-call
+         ~@cases)))
+
   (defmacro def-fn-call []
     (let [cases
           (mapcat (fn [i]
@@ -514,6 +543,8 @@
          (case ~'(count args)
            ~@cases)))))
 
+#_(require '[clojure.pprint :as pprint])
+#_(pprint/pprint (macroexpand '(def-fn-call)))
 (def-fn-call)
 
 (defn eval-special-call [ctx f-sym expr]
