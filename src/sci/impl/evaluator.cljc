@@ -22,7 +22,7 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def #?(:clj ^:const macros :cljs macros)
-  '#{do if and or quote let fn def defn
+  '#{do and or quote fn def defn
      lazy-seq try syntax-quote case . in-ns set!
      ;; TODO: make normal function
      require})
@@ -86,16 +86,10 @@
               ret))))))
 
 (defn eval-if
-  [ctx expr]
-  ;; NOTE: not using destructuring for small perf gain
-  (let [cond (first expr)
-        expr (rest expr)
-        then (first expr)
-        expr (rest expr)
-        else (first expr)]
-    (if (eval ctx cond)
-      (eval ctx then)
-      (eval ctx else))))
+  [ctx cond then else]
+  (if (eval ctx cond)
+    (eval ctx then)
+    (eval ctx else)))
 
 ;; user> (time (dotimes [i 1000000] (let [expr '(1 2 3) cond (first expr) expr (rest expr) then (first expr) expr (rest expr) else (first expr)] [cond then else])))
 ;; "Elapsed time: 119.671576 msecs"
@@ -531,10 +525,8 @@
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
     do (eval-do ctx expr)
-    if (eval-if ctx (rest expr))
     and (eval-and ctx (rest expr))
     or (eval-or ctx (rest expr))
-    let (apply eval-let ctx (rest expr))
     def (eval-def ctx expr)
     lazy-seq (new #?(:clj clojure.lang.LazySeq
                      :cljs cljs.core/LazySeq)
