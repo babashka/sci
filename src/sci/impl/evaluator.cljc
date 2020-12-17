@@ -58,7 +58,7 @@
 
 (defn eval-do*
   [ctx exprs]
-  (loop [exprs exprs]
+  (loop [exprs (seq exprs)]
     (let [e (first exprs)
           ret (eval ctx e)
           nexprs (next exprs)]
@@ -88,36 +88,15 @@
                   (recur ctx
                          rest-let-bindings))))]
     (when exprs
-      (eval-do* ctx exprs)
-      #_(loop [exprs exprs]
-        (let [e (first exprs)
-              ret (eval ctx e)
-              nexprs (next exprs)]
-          (if nexprs (recur nexprs)
-              ret))))))
+      (eval-do* ctx exprs))))
 
-#_(defn eval-let-1
+(defn eval-let-1
   "The let macro from clojure.core"
   [ctx sym val exprs]
-  (let [ctx (loop [ctx ctx
-                   let-bindings let-bindings]
-              (let [let-name (first let-bindings)
-                    let-bindings (rest let-bindings)
-                    let-val (first let-bindings)
-                    rest-let-bindings (next let-bindings)
-                    v (eval ctx let-val)
-                    ctx (assoc-in ctx [:bindings let-name] v)]
-                (if-not rest-let-bindings
-                  ctx
-                  (recur ctx
-                         rest-let-bindings))))]
+  (let [ctx (let [v (eval ctx val)]
+              (assoc-in ctx [:bindings sym] v))]
     (when exprs
-      (loop [exprs exprs]
-        (let [e (first exprs)
-              ret (eval ctx e)
-              nexprs (next exprs)]
-          (if nexprs (recur nexprs)
-              ret))))))
+      (eval ctx exprs) #_(eval-do* ctx exprs))))
 
 (defn eval-if
   [ctx cond then else]

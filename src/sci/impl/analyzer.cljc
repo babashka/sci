@@ -184,7 +184,28 @@
                           :fn-meta fn-meta}
       {:sci.impl/op :fn})))
 
+(declare expand-let*)
+
+(defn expand-let-1
+  [ctx sym val rest-bindings body]
+  (let [v (analyze ctx val)
+        ctx (update ctx :bindings assoc sym v)
+        analyzed-body (expand-let* ctx rest-bindings body)]
+    (with-meta
+      (fn [ctx]
+        (eval/eval-let-1 ctx sym v
+                         analyzed-body))
+      {:sci.impl/op utils/evaluate})))
+
 (defn expand-let*
+  [ctx destructured-let-bindings exprs]
+  (if-let [[k v] (first destructured-let-bindings)]
+    (let [analyzed
+          (expand-let-1 ctx k v (rest destructured-let-bindings) exprs)]
+      analyzed)
+    (analyze ctx `(do ~@exprs))))
+
+#_(defn expand-let*
   [ctx destructured-let-bindings exprs]
   (let [[ctx new-let-bindings]
         (reduce
@@ -207,7 +228,7 @@
   "The let macro from clojure.core"
   [ctx [_let let-bindings  & exprs]]
   (let [let-bindings (destructure let-bindings)]
-    (expand-let* ctx let-bindings exprs)))
+    (expand-let* ctx (partition 2 let-bindings) exprs)))
 
 (declare expand-declare)
 
