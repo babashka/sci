@@ -634,10 +634,10 @@
                         analyzed (mark-eval-call (cons f (analyze-children ctx (rest expr))))]
                     (if (vars/var? f)
                         (let [children (analyze-children ctx (rest expr))
-                              arg-count (count children)]
+                              arg-count (count children)
+                              needs-ctx? (identical? utils/needs-ctx eval?)]
                           (case arg-count
-                            1 (let [needs-ctx? (identical? utils/needs-ctx eval?)
-                                    arg (first children)]
+                            1 (let [arg (first children)]
                                 (with-meta
                                   (if needs-ctx?
                                     (fn [ctx]
