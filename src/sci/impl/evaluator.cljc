@@ -56,9 +56,49 @@
               (if xs (recur xs)
                   v)))))))
 
+(defn eval-do*
+  [ctx exprs]
+  (loop [exprs exprs]
+    (let [e (first exprs)
+          ret (eval ctx e)
+          nexprs (next exprs)]
+      (if nexprs (recur nexprs)
+          ret))))
+
+(vreset! utils/eval-do* eval-do*)
+
+(defn eval-do
+  [ctx expr]
+  (when-let [exprs (next expr)]
+    (eval-do* ctx exprs)))
+
 (defn eval-let
   "The let macro from clojure.core"
   [ctx let-bindings exprs]
+  (let [ctx (loop [ctx ctx
+                   let-bindings let-bindings]
+              (let [let-name (first let-bindings)
+                    let-bindings (rest let-bindings)
+                    let-val (first let-bindings)
+                    rest-let-bindings (next let-bindings)
+                    v (eval ctx let-val)
+                    ctx (assoc-in ctx [:bindings let-name] v)]
+                (if-not rest-let-bindings
+                  ctx
+                  (recur ctx
+                         rest-let-bindings))))]
+    (when exprs
+      (eval-do* ctx exprs)
+      #_(loop [exprs exprs]
+        (let [e (first exprs)
+              ret (eval ctx e)
+              nexprs (next exprs)]
+          (if nexprs (recur nexprs)
+              ret))))))
+
+#_(defn eval-let-1
+  "The let macro from clojure.core"
+  [ctx sym val exprs]
   (let [ctx (loop [ctx ctx
                    let-bindings let-bindings]
               (let [let-name (first let-bindings)
@@ -464,21 +504,6 @@
       (throw (ex-info (str "Cannot set " obj " to " v) {:obj obj :v v})))))
 
 (declare eval-string)
-
-(defn eval-do*
-  [ctx exprs]
-  (loop [[expr & exprs] exprs]
-    (let [ret (eval ctx expr)]
-      (if-let [exprs (seq exprs)]
-        (recur exprs)
-        ret))))
-
-(vreset! utils/eval-do* eval-do*)
-
-(defn eval-do
-  [ctx expr]
-  (when-let [exprs (next expr)]
-    (eval-do* ctx exprs)))
 
 (macros/deftime
   ;; This macro generates a function of the following form for 20 arities:

@@ -195,6 +195,9 @@
          [ctx []]
          (partition 2 destructured-let-bindings))
         body (analyze-children ctx exprs)]
+    ;; TODO: maybe we can optimize here by emitting a closure for each binding
+    ;; pair and nest them
+    ;; (fn [ctx] (eval/eval-let-1 ctx symbol value body))
     (with-meta
       (fn [ctx]
         (eval/eval-let ctx new-let-bindings body))
