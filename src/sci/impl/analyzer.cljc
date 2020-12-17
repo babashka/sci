@@ -630,17 +630,28 @@
                                        (types/->EvalForm v)
                                        :else (analyze ctx v))]
                     expanded)
-                  (if (vars/var? f)
-                    (let [children (analyze-children ctx (rest expr))
-                          arg-count (count children)]
-                      (case arg-count
-                        1 (let [arg (first children)]
-                            (with-meta
-                              (fn [ctx]
-                                (f (eval/eval ctx arg)))
-                              {:sci.impl/op utils/evaluate}))
-                        (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
-                    (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
+                  (let [;; we always need this result for backward compatibility with error reporting
+                        analyzed (mark-eval-call (cons f (analyze-children ctx (rest expr))))]
+                    (if (vars/var? f)
+                        (let [children (analyze-children ctx (rest expr))
+                              arg-count (count children)]
+                          (case arg-count
+                            1 (let [needs-ctx? (identical? utils/needs-ctx eval?)
+                                    arg (first children)]
+                                (with-meta
+                                  (if needs-ctx?
+                                    (fn [ctx]
+                                      (try
+                                        (f ctx (eval/eval ctx arg))
+                                        (catch #?(:clj Throwable :cljs js/Error) e
+                                          (rethrow-with-location-of-node ctx e analyzed))))
+                                    (fn [ctx]
+                                      (try (f (eval/eval ctx arg))
+                                           (catch #?(:clj Throwable :cljs js/Error) e
+                                             (rethrow-with-location-of-node ctx e analyzed)))))
+                                  {:sci.impl/op utils/evaluate}))
+                            analyzed))
+                        analyzed)))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting
