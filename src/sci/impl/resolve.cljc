@@ -51,18 +51,23 @@
                           :cljs {:sci.impl/op :static-access}))]))
           :else
           ;; no sym-ns, this could be a symbol from clojure.core
-          (when-not (contains?
-                     (get-in the-current-ns [:refer 'clojure.core :exclude]) sym-name)
-            (or
-             (some-> env :namespaces (get 'clojure.core) (find sym-name))
-             (when (when call? (get ana-macros sym))
-               [sym sym])
-             (when-let [c (interop/resolve-class ctx sym)]
-               [sym c])
-             ;; resolves record or protocol referenced as class
-             ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
-             (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
-               [sym x])))))))
+          (or
+           (let [kv (some-> env :namespaces (get 'clojure.core) (find sym-name))]
+             ;; only valid when the symbol isn't excluded
+             (when-not (some-> the-current-ns
+                               :refer
+                               (get 'clojure.core)
+                               :exclude
+                               (contains? sym-name))
+               kv))
+           (when (when call? (get ana-macros sym))
+             [sym sym])
+           (when-let [c (interop/resolve-class ctx sym)]
+             [sym c])
+           ;; resolves record or protocol referenced as class
+           ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
+           (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+             [sym x]))))))
 
 (defn tag [_ctx expr]
   (when-let [m (meta expr)]

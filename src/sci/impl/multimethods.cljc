@@ -13,7 +13,7 @@
     (let [message (apply str "Only these options are valid: "
                          (first valid-keys)
                          (map #(str ", " %) (rest valid-keys)))]
-      (throw     
+      (throw
        #?(:clj (IllegalArgumentException. ^String message)
           :cljs (js/Error. ^string message))))))
 
