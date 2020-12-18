@@ -123,10 +123,9 @@
     (get-in env [:namespaces cnn var-name])))
 
 (defmacro resolve-symbol [ctx sym]
-  `(let [^java.util.Map bindings#
+  `(.get ^java.util.Map
          (.get ~(with-meta ctx
-                  {:tag 'java.util.Map}) :bindings)]
-     (.get bindings# ~sym)))
+                  {:tag 'java.util.Map}) :bindings) ~sym))
 
 (declare eval-string*)
 
