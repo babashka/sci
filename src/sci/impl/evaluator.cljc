@@ -122,15 +122,11 @@
     ;; return var instead of init-val
     (get-in env [:namespaces cnn var-name])))
 
-(defn resolve-symbol [ctx sym]
-  (let [^java.util.Map bindings (.get ^java.util.Map ctx :bindings)]
-    (#?@(:clj [if (.containsKey bindings sym) (.get bindings sym)]
-         :cljs [if-let [v (find bindings sym)] (second v)])
-     ;; TODO: check if symbol is in macros and then emit an error: cannot take
-     ;; the value of a macro
-     (throw-error-with-location
-      (str "Could not resolve symbol: " sym "\nks:" (keys (:bindings ctx)))
-      sym))))
+(defmacro resolve-symbol [ctx sym]
+  `(let [^java.util.Map bindings#
+         (.get ~(with-meta ctx
+                  {:tag 'java.util.Map}) :bindings)]
+     (.get bindings# ~sym)))
 
 (declare eval-string*)
 
