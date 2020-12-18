@@ -148,6 +148,7 @@
 (defn handle-require-libspec-env
   [ctx env current-ns the-loaded-ns lib-name
    {:keys [:as :refer :rename :exclude :only :use] :as _parsed-libspec}]
+  ;;(prn :lib-name lib-name)
   (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
         the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                            the-current-ns)
@@ -193,6 +194,7 @@
         namespaces (get env :namespaces)
         uberscript (:uberscript ctx)
         reload* (or reload uberscript)]
+    ;; (prn :lib lib reload*)
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
       (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))
       (if-let [load-fn (:load-fn env)]
@@ -219,7 +221,8 @@
                           (str "Could not find namespace: " lib ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
 
-                    (str "Could not find namespace " lib ".")))))))
+                    (str "Could not find namespace " lib ".")))))
+    #_(prn :done-req lib)))
 
 (defn load-lib [ctx prefix lib & options]
   (when (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
@@ -229,7 +232,8 @@
                                lib))
   (let [lib (if prefix (symbol (str prefix \. lib)) lib)
         opts (apply hash-map options)]
-    (handle-require-libspec ctx lib opts)))
+    (handle-require-libspec ctx lib opts))
+  #_(prn :done-load-lib lib))
 
 (defn- prependss
   "Prepends a symbol or a seq to coll"
@@ -275,11 +279,13 @@
             (throw-error-with-location "prefix cannot be nil"
                                        args))
           (doseq [arg args*]
-            (apply load-lib ctx prefix (prependss arg opts))))))))
+            (apply load-lib ctx prefix (prependss arg opts))))))
+    #_(prn :done-load-libs)))
 
 (defn eval-require
   [ctx & args]
-  (load-libs ctx :require args))
+  (load-libs ctx :require args)
+  #_(prn :done-eval-req args))
 
 (vreset! utils/eval-require-state eval-require)
 
@@ -580,6 +586,7 @@
 
 (defn eval
   [ctx expr]
+  ;;(prn :expr expr)
   (try
     (if (instance? sci.impl.types.EvalVar expr)
       (let [v (t/getVal expr)]
