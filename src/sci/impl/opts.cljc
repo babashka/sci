@@ -86,6 +86,14 @@
                  ((get-in methods '[java.lang.Object toString]) this))))}
      :cljs {}))
 
+#?(:clj (defrecord Ctx [bindings env namespaces]))
+
+(defn ->ctx [bindings env namespaces]
+  #?(:cljs {:bindings bindings
+            :env env
+            :namespaces namespaces}
+     :clj (->Ctx bindings env namespaces)))
+
 (defn init
   "Initializes options"
   [{:keys [:bindings :env
@@ -104,15 +112,15 @@
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
-        ctx (merge {:env env
-                    :bindings {}
-                    :allow (process-permissions allow)
-                    :deny (process-permissions deny)
-                    :features features
-                    :readers readers
-                    ::ctx true
-                    :uberscript uberscript
-                    :reify (merge default-reify reify)
-                    :disable-arity-checks disable-arity-checks}
-                   (normalize-classes (merge default-classes classes)))]
+        classes (normalize-classes (merge default-classes classes))
+        ctx (assoc (->ctx {} env namespaces)
+                   :allow (process-permissions allow)
+                   :deny (process-permissions deny)
+                   :features features
+                   :readers readers
+                   :uberscript uberscript
+                   :reify (merge default-reify reify)
+                   :disable-arity-checks disable-arity-checks
+                   :public-class (:public-class classes)
+                   :class->opts (:class->opts classes))]
     ctx))
