@@ -68,9 +68,10 @@
          (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                ~'bindings (.get ~(with-meta 'ctx {:tag 'java.util.Map}) :bindings)
                ~@assocs
-               ctx# (? :clj (.assoc ~(with-meta 'ctx {:tag 'clojure.lang.Associative})
-                                    :bindings ~'bindings)
-                            :cljs (~'-assoc ~'ctx :bindings ~'bindings))
+               ctx# (?
+                     :clj (.assoc ~(with-meta 'ctx {:tag 'clojure.lang.Associative})
+                                  :bindings ~'bindings)
+                     :cljs (~'-assoc ~'ctx :bindings ~'bindings))
                ret# (~'return ctx#)
                ;; m (meta ret)
                recur?# (instance? Recur ret#)]
