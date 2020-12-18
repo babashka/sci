@@ -15,7 +15,7 @@
                                      kw-identical?
                                 ]]
    [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call]])))
+  #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
 
 (declare eval fn-call)
 
