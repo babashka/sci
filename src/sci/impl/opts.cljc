@@ -86,7 +86,13 @@
                  ((get-in methods '[java.lang.Object toString]) this))))}
      :cljs {}))
 
-(defrecord Ctx [bindings env namespaces])
+#?(:clj (defrecord Ctx [bindings env namespaces]))
+
+(defn ->ctx [bindings env namespaces]
+  #?(:cljs {:bindings bindings
+            :env env
+            :namespaces namespaces}
+     :clj (->Ctx bindings env namespaces)))
 
 (defn init
   "Initializes options"
@@ -107,7 +113,7 @@
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
         classes (normalize-classes (merge default-classes classes))
-        ctx (assoc (->Ctx {} env namespaces)
+        ctx (assoc (->ctx {} env namespaces)
                    :allow (process-permissions allow)
                    :deny (process-permissions deny)
                    :features features
