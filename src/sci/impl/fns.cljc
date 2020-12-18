@@ -14,7 +14,7 @@
                    :cljs js/Error)
                 (let [actual-count (if macro? (- (count args) 2)
                                        (count args))]
-                  (str "Cannot call " fn-name " with " actual-count " arguments"))))))
+                  (str "Wrong number of args (" actual-count ") passed to: " fn-name))))))
 
 (deftype Recur #?(:clj [val]
                   :cljs [val])
@@ -62,7 +62,7 @@
                     rnge)]
     `(let ~let-vec
        (fn ~'run-fn ~fn-params
-         (? :cljs (when-not (:disable-arity-checks ~'ctx)
+         (? :cljs (when-not (.get ~'ctx :disable-arity-checks)
                     (when-not (= ~n (.-length (~'js-arguments)))
                       (throw-arity ~'ctx ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))))
          (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
