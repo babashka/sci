@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
-   [sci.impl.faster :refer [get-2 deref-1]]
+   [sci.impl.faster :as faster :refer [get-2 deref-1]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
@@ -67,7 +67,9 @@
                     let-val (first let-bindings)
                     rest-let-bindings (next let-bindings)
                     v (eval ctx let-val)
-                    ctx (assoc-in ctx [:bindings let-name] v)]
+                    bindings (faster/get-2 ctx :bindings)
+                    bindings (faster/assoc-2 bindings let-name v)
+                    ctx (faster/assoc-2 ctx :bindings bindings)]
                 (if-not rest-let-bindings
                   ctx
                   (recur ctx
