@@ -28,3 +28,5 @@
 (deftype EvalForm [form]
   IBox
   (getVal [this] form))
+
+(defrecord Call [f args])
