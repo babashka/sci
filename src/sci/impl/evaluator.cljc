@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
+   [sci.impl.faster :refer [get-2]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
@@ -548,7 +549,7 @@
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
              m (meta f)
-             op (when m (.get ^java.util.Map m :sci.impl/op))]
+             op (when m (get-2 m :sci.impl/op))]
          (cond
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
@@ -567,7 +568,7 @@
 (defn handle-meta [ctx m]
   ;; Sometimes metadata needs eval. In this case the metadata has metadata.
   (-> (if-let [mm (meta m)]
-        (if (when mm (.get ^java.util.Map mm :sci.impl/op))
+        (if (when mm (get-2 mm :sci.impl/op))
           (eval ctx m)
           m)
         m)
@@ -580,7 +581,7 @@
       (let [v (t/getVal expr)]
         (deref v))
       (let [m (meta expr)
-            op (when m (.get ^java.util.Map m :sci.impl/op))
+            op (when m (get-2 m :sci.impl/op))
             ret
             (if
                 (not op) expr
