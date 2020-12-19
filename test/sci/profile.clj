@@ -3,7 +3,7 @@
 
 (comment)
 
-;; clojure -A:profile "(prn (loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val)))" "nil" "100"
+;; clojure -J-Dclojure.compiler.direct-linking=true -M:profile "(prn (loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val)))" "nil" "10"
 
 (require '[clj-async-profiler.core :as prof])
 

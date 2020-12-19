@@ -31,7 +31,8 @@
 (defn mark-eval-call
   [expr]
   (vary-meta
-   expr
+   ;; ensure vec!
+   (vec expr)
    (fn [m]
      (assoc m
             :sci.impl/op :call

@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
-   [sci.impl.faster :refer [get-2]]
+   [sci.impl.faster :refer [get-2 nth-2]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
@@ -493,6 +493,25 @@
   (defmacro def-fn-call []
     (let [cases
           (mapcat (fn [i]
+                    [i (let [args-sym 'args ;; (gensym "args")
+                             let-bindings (mapcat (fn [i] [(gensym "arg") `(eval ~'ctx (nth-2 ~args-sym ~i))]) (range i))
+                             arg-syms (take-nth 2 let-bindings)
+                             let-bindings (vec let-bindings)]
+                         `(let ~let-bindings
+                            (~'f ~@arg-syms)))]) (range 20))
+          cases (concat cases ['(let [args (mapv #(eval ctx %) args)]
+                                  (apply f args))])]
+      ;; Normal apply:
+      #_`(defn ~'fn-call ~'[ctx f args]
+           (apply ~'f (map #(eval ~'ctx %) ~'args)))
+      `(defn ~'fn-call ~'[ctx f args]
+         ;; (prn (indexed? ~'args))
+         (case ~'(count args)
+           ~@cases))))
+
+  (defmacro def-fn-call-old []
+    (let [cases
+          (mapcat (fn [i]
                     [i (let [arg-syms (map (fn [_] (gensym "arg")) (range i))
                              args-sym 'args ;; (gensym "args")
                              let-syms (interleave arg-syms (repeat args-sym))
@@ -507,8 +526,12 @@
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(eval ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx f args]
+         ;;(prn (indexed? ~'args))
          (case ~'(count args)
            ~@cases)))))
+
+;; (require '[clojure.pprint :as pprint])
+;; (pprint/pprint (macroexpand '(def-fn-call)))
 
 (def-fn-call)
 
@@ -525,7 +548,8 @@
                   (eval ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
+    ;; TODO: calling vec may be expensive
+    recur (fn-call ctx (comp fns/->Recur vector) (subvec expr 1))
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -559,7 +583,9 @@
            (let [f (if op (eval ctx f)
                        f)]
              (if (ifn? f)
-               (fn-call ctx f (rest expr))
+               ;; TODO: calling vec may be expensive, preferrably we'd make a structure of f + args as vec
+               (do
+                 (fn-call ctx f (subvec expr 1)))
                (throw (new #?(:clj Exception :cljs js/Error)
                            (str "Cannot call " (pr-str f) " as a function.")))))))
        (catch #?(:clj Throwable :cljs js/Error) e
