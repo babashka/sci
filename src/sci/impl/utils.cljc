@@ -1,7 +1,8 @@
 (ns sci.impl.utils
   {:no-doc true}
   (:require [sci.impl.types :as t]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -90,7 +91,11 @@
                           :cljs (.-message e))
                 {:keys [:line :column :file]
                  :or {line (:line ctx)
-                      column (:column ctx)}} (meta node)]
+                      column (:column ctx)}} (meta node)
+                ex-msg (if (and ex-msg (:name fm))
+                         (str/replace ex-msg #"(sci\.impl\.)?fns/parse-fn-args\+body/run-fn--\d+"
+                                      (str (:name fm)))
+                         ex-msg)]
             (if (and line column)
               (let [m ex-msg
                     new-exception
