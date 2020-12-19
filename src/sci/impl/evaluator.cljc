@@ -490,7 +490,7 @@
         ,,,
         (let [args (mapv #(eval ctx %) args)]
           (apply f args))))
-  (defmacro def-fn-call []
+  #_(defmacro def-fn-call []
     (let [cases
           (mapcat (fn [i]
                     [i (let [args-sym 'args ;; (gensym "args")
@@ -509,7 +509,7 @@
          (case ~'(count args)
            ~@cases))))
 
-  (defmacro def-fn-call-old []
+  (defmacro def-fn-call []
     (let [cases
           (mapcat (fn [i]
                     [i (let [arg-syms (map (fn [_] (gensym "arg")) (range i))
@@ -562,7 +562,7 @@
     ;; TODO: calling vec may be expensive
     recur (if (instance? sci.impl.types.Call expr)
             (fn-call2 ctx (comp fns/->Recur vector) expr)
-            (fn-call ctx (comp fns/->Recur vector) (subvec expr 1)))
+            (fn-call ctx (comp fns/->Recur vector) (rest expr)))
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -601,7 +601,7 @@
              (if call2? (fn-call2 ctx f expr)
                (if (ifn? f)
                  ;; TODO: calling vec may be expensive, preferrably we'd make a structure of f + args as vec
-                 (fn-call ctx f (subvec expr 1))
+                 (fn-call ctx f (rest expr))
                  (throw (new #?(:clj Exception :cljs js/Error)
                              (str "Cannot call " (pr-str f) " as a function."))))))))
        (catch #?(:clj Throwable :cljs js/Error) e
