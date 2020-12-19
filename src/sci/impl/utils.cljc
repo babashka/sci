@@ -93,7 +93,7 @@
                  :or {line (:line ctx)
                       column (:column ctx)}} (meta node)
                 ex-msg (if (and ex-msg (:name fm))
-                         (str/replace ex-msg #"(sci\.impl\.)?fns/parse-fn-args\+body/run-fn--\d+"
+                         (str/replace ex-msg #"(sci\.impl\.)?fns/fun/[a-zA-Z0-9-]+--\d+"
                                       (str (:name fm)))
                          ex-msg)]
             (if (and line column)

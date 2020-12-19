@@ -58,7 +58,7 @@
                        `(nth-2 ~'recur-val ~n))
                      rnge)]
      `(let ~let-vec
-        (fn ~'run-fn ~fn-params
+        (fn ~(symbol (str "arity-" n)) ~fn-params
           ~@(? :cljs
                (when-not disable-arity-checks
                  `[(when-not (= ~n (.-length (~'js-arguments)))
@@ -80,7 +80,7 @@
     (pprint/pprint (macroexpand '(gen-run-fn 2))))
 
 (defmacro gen-fn-varargs []
-  '(fn run-fn [& args]
+  '(fn varargs [& args]
      (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
            bindings (.get ^java.util.Map ctx :bindings)
            bindings
@@ -114,7 +114,7 @@
              (recur recur-val)))
          ret))))
 
-(defn parse-fn-args+body
+(defn fun
   [^clojure.lang.Associative ctx interpret eval-do*
    {:sci.impl/keys [fixed-arity var-arg-name
                     #_:clj-kondo/ignore params body] :as _m}
@@ -131,7 +131,7 @@
         f (if-not (or var-arg-name
                       #?(:clj disable-arity-checks?))
             (case (int fixed-arity)
-              0 (fn run-fn []
+              0 (fn arity-0 []
                   (let [ret (return ctx)
                         ;; m (meta ret)
                         recur? (instance? Recur ret)]
@@ -242,8 +242,8 @@
               ctx)
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
-            (parse-fn-args+body ctx interpret eval-do* (first fn-bodies) fn-name macro? false)
-            (let [arities (map #(parse-fn-args+body ctx interpret eval-do* % fn-name macro? true) fn-bodies)]
+            (fun ctx interpret eval-do* (first fn-bodies) fn-name macro? false)
+            (let [arities (map #(fun ctx interpret eval-do* % fn-name macro? true) fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]

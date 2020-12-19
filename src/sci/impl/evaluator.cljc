@@ -633,8 +633,3 @@
 
 (vreset! utils/eval* eval)
 
-;;;; Scratch
-
-(comment
-  (eval-string "((fn f [x] (if (< x 3) (recur (inc x)) x)) 0)")
-  )
