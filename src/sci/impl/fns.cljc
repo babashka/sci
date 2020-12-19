@@ -1,10 +1,11 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.types :as t]
-            [sci.impl.utils :as utils]
-            [sci.impl.macros :as macros :refer [?]])
-  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-run-fn
-                                                  gen-run-fn*]])))
+  (:require [sci.impl.faster :refer [nth-2 assoc-2 get-2]]
+            [sci.impl.macros :as macros :refer [?]]
+            [sci.impl.types :as t]
+            [sci.impl.utils :as utils])
+  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
+                                                  gen-fn-varargs]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -21,7 +22,7 @@
   t/IBox
   (getVal [_] val))
 
-;; gen-run-fn expands into something like:
+;; gen-run-fn expands into something like but using nth for better performance:
 
 #_(let [p1 (first params)
         p2 (second params)]
@@ -40,85 +41,78 @@
             (recur (first recur-val) (second recur-val)))
           ret))))
 
-(defmacro gen-run-fn [n]
-  (let [locals (repeatedly n gensym)
-        fn-params (vec (repeatedly n gensym))
-        rnge (range n)
-        nths (map (fn [n]
-                    (? :clj `(.nth ~(with-meta 'params {:tag 'clojure.lang.Indexed}) ~n)
-                            :cljs (list '-nth 'params n)))
-                  rnge)
-        let-vec (vec (mapcat (fn [local ith]
-                               [local ith]) locals nths))
-        assocs (mapcat (fn [local fn-param]
-                         `[~'bindings ~(? :clj `(.assoc ~(with-meta 'bindings
-                                                           {:tag 'clojure.lang.Associative})
-                                                       ~local ~fn-param)
-                                               :cljs `(~'-assoc ~'bindings ~local ~fn-param))])
-                       locals fn-params)
-        recurs (map (fn [n]
-                      (? :clj `(.nth ~(with-meta 'recur-val {:tag 'clojure.lang.Indexed}) ~n)
-                              :cljs `(~'-nth ~'recur-val ~n)))
-                    rnge)]
-    `(let ~let-vec
-       (fn ~'run-fn ~fn-params
-         (? :cljs (when-not (.get ~'ctx :disable-arity-checks)
-                    (when-not (= ~n (.-length (~'js-arguments)))
-                      (throw-arity ~'ctx ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))))
-         (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
-               ~'bindings (.get ~(with-meta 'ctx {:tag 'java.util.Map}) :bindings)
-               ~@assocs
-               ctx# (?
-                     :clj (.assoc ~(with-meta 'ctx {:tag 'clojure.lang.Associative})
-                                  :bindings ~'bindings)
-                     :cljs (~'-assoc ~'ctx :bindings ~'bindings))
-               ret# (~'return ctx#)
-               ;; m (meta ret)
-               recur?# (instance? Recur ret#)]
-           (if recur?#
-             (let [~'recur-val (t/getVal ret#)]
-               (recur ~@recurs))
-             ret#))))))
+(defmacro gen-fn
+  ([n]
+   `(gen-fn ~n false))
+  ([n disable-arity-checks]
+   (let [locals (repeatedly n gensym)
+         fn-params (vec (repeatedly n gensym))
+         rnge (range n)
+         nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
+         let-vec (vec (mapcat (fn [local ith]
+                                [local ith]) locals nths))
+         assocs (mapcat (fn [local fn-param]
+                          `[~'bindings (assoc-2 ~'bindings ~local ~fn-param)])
+                        locals fn-params)
+         recurs (map (fn [n]
+                       `(nth-2 ~'recur-val ~n))
+                     rnge)]
+     `(let ~let-vec
+        (fn ~'run-fn ~fn-params
+          ~@(? :cljs
+               (when-not disable-arity-checks
+                 `[(when-not (= ~n (.-length (~'js-arguments)))
+                     (throw-arity ~'ctx ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))]))
+          (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
+                ~'bindings (get-2 ~'ctx :bindings)
+                ~@assocs
+                ctx# (assoc-2 ~'ctx :bindings ~'bindings)
+                ret# (~'return ctx#)
+                ;; m (meta ret)
+                recur?# (instance? Recur ret#)]
+            (if recur?#
+              (let [~'recur-val (t/getVal ret#)]
+                (recur ~@recurs))
+              ret#)))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
     (pprint/pprint (macroexpand '(gen-run-fn 2))))
 
-(defmacro gen-run-fn* []
+(defmacro gen-fn-varargs []
   '(fn run-fn [& args]
-                (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
-                      bindings (.get ^java.util.Map ctx :bindings)
-                      bindings
-                      (loop [args* (seq args)
-                             params (seq params)
-                             ret bindings]
-                        (if params
-                          (let [fp (first params)]
-                            (if (= '& fp)
-                              (assoc ret (second params) args*)
-                              (do
-                                (when-not args*
-                                  (throw-arity ctx fn-name macro? args))
-                                (recur (next args*) (next params)
-                                       (assoc ret fp (first args*))))))
-                          (do
-                            (when args*
-                              (throw-arity ctx fn-name macro? args))
-                            ret)))
-                      ctx (? :clj (.assoc ctx :bindings bindings)
-                                  :cljs (-assoc ctx :bindings bindings))
-                      ret (return ctx)
-                      ;; m (meta ret)
-                      recur? (instance? Recur ret)]
-                  (if recur?
-                    (let [recur-val (t/getVal ret)]
-                      (if min-var-args-arity
-                        (let [[fixed-args [rest-args]]
-                              [(subvec recur-val 0 min-var-args-arity)
-                               (subvec recur-val min-var-args-arity)]]
-                          (recur (into fixed-args rest-args)))
-                        (recur recur-val)))
-                    ret))))
+     (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
+           bindings (.get ^java.util.Map ctx :bindings)
+           bindings
+           (loop [args* (seq args)
+                  params (seq params)
+                  ret bindings]
+             (if params
+               (let [fp (first params)]
+                 (if (= '& fp)
+                   (assoc ret (second params) args*)
+                   (do
+                     (when-not args*
+                       (throw-arity ctx fn-name macro? args))
+                     (recur (next args*) (next params)
+                            (assoc ret fp (first args*))))))
+               (do
+                 (when args*
+                   (throw-arity ctx fn-name macro? args))
+                 ret)))
+           ctx (assoc-2 ctx :bindings bindings)
+           ret (return ctx)
+           ;; m (meta ret)
+           recur? (instance? Recur ret)]
+       (if recur?
+         (let [recur-val (t/getVal ret)]
+           (if min-var-args-arity
+             (let [[fixed-args [rest-args]]
+                   [(subvec recur-val 0 min-var-args-arity)
+                    (subvec recur-val min-var-args-arity)]]
+               (recur (into fixed-args rest-args)))
+             (recur recur-val)))
+         ret))))
 
 (defn parse-fn-args+body
   [^clojure.lang.Associative ctx interpret eval-do*
@@ -127,41 +121,99 @@
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?
    with-meta?]
-  (let [min-var-args-arity (when var-arg-name fixed-arity)
+  (let [disable-arity-checks? (get-2 ctx :disable-arity-checks)
+        min-var-args-arity (when var-arg-name fixed-arity)
         body-count (count body)
         return (if (= 1 body-count)
                  (let [fst (first body)]
                    #(interpret % fst))
                  #(eval-do* % body))
         f (if-not (or var-arg-name
-                      #?(:clj (:disable-arity-checks ctx)))
+                      #?(:clj disable-arity-checks?))
             (case (int fixed-arity)
               0 (fn run-fn []
                   (let [ret (return ctx)
                         ;; m (meta ret)
                         recur? (instance? Recur ret)]
                     (if recur? (recur) ret)))
-              1 (gen-run-fn 1)
-              2 (gen-run-fn 2)
-              3 (gen-run-fn 3)
-              4 (gen-run-fn 4)
-              5 (gen-run-fn 5)
-              6 (gen-run-fn 6)
-              7 (gen-run-fn 7)
-              8 (gen-run-fn 8)
-              9 (gen-run-fn 9)
-              10 (gen-run-fn 10)
-              11 (gen-run-fn 11)
-              12 (gen-run-fn 11)
-              13 (gen-run-fn 11)
-              14 (gen-run-fn 11)
-              15 (gen-run-fn 11)
-              16 (gen-run-fn 11)
-              17 (gen-run-fn 17)
-              18 (gen-run-fn 18)
-              19 (gen-run-fn 19)
-              (gen-run-fn*))
-            (gen-run-fn*))]
+              1 #?(:clj (gen-fn 1)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 1 true)
+                           (gen-fn 1 false)))
+              2 #?(:clj (gen-fn 2)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 2 true)
+                           (gen-fn 2 false)))
+              3 #?(:clj (gen-fn 3)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 3 true)
+                           (gen-fn 3 false)))
+              4 #?(:clj (gen-fn 4)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 4 true)
+                           (gen-fn 4 false)))
+              5 #?(:clj (gen-fn 5)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 5 true)
+                           (gen-fn 5 false)))
+              6 #?(:clj (gen-fn 6)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 6 true)
+                           (gen-fn 6 false)))
+              7 #?(:clj (gen-fn 7)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 7 true)
+                           (gen-fn 7 false)))
+              8 #?(:clj (gen-fn 8)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 8 true)
+                           (gen-fn 8 false)))
+              9 #?(:clj (gen-fn 9)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 9 true)
+                           (gen-fn 9 false)))
+              10 #?(:clj (gen-fn 10)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 10 true)
+                            (gen-fn 10 false)))
+              11 #?(:clj (gen-fn 11)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 11 true)
+                            (gen-fn 11 false)))
+              12 #?(:clj (gen-fn 12)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 12 true)
+                            (gen-fn 12 false)))
+              13 #?(:clj (gen-fn 13)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 13 true)
+                            (gen-fn 13 false)))
+              14 #?(:clj (gen-fn 14)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 15 true)
+                            (gen-fn 15 false)))
+              15 #?(:clj (gen-fn 3)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 15 true)
+                            (gen-fn 15 false)))
+              16 #?(:clj (gen-fn 16)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 16 true)
+                            (gen-fn 16 false)))
+              17 #?(:clj (gen-fn 17)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 17 true)
+                            (gen-fn 17 false)))
+              18 #?(:clj (gen-fn 18)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 18 true)
+                            (gen-fn 18 false)))
+              19 #?(:clj (gen-fn 19)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 19 true)
+                            (gen-fn 19 false)))
+              (gen-fn-varargs))
+            (gen-fn-varargs))]
     (if with-meta?
       (with-meta
         f
