@@ -535,6 +535,17 @@
 
 (def-fn-call)
 
+(defn fn-call2 [ctx f call]
+  ;; (prn :call call)
+  (cond
+    (instance? sci.impl.types.Call1 call)
+    (let [x (get-2 call :x)]
+      (f (eval ctx x)))
+    (instance? sci.impl.types.Call2 call)
+        (let [x (get-2 call :x)
+              y (get-2 call :y)]
+          (f (eval ctx x) (eval ctx y)))))
+
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
     do (eval-do ctx expr)
@@ -549,7 +560,9 @@
                   #?@(:clj []
                       :cljs [nil nil]))
     ;; TODO: calling vec may be expensive
-    recur (fn-call ctx (comp fns/->Recur vector) (subvec expr 1))
+    recur (if (instance? sci.impl.types.Call expr)
+            (fn-call2 ctx (comp fns/->Recur vector) expr)
+            (fn-call ctx (comp fns/->Recur vector) (subvec expr 1)))
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -571,7 +584,10 @@
     quote (second expr)))
 
 (defn eval-call [ctx expr]
-  (try (let [f (nth-2 expr 0)
+  (try (let [call2? (instance? sci.impl.types.Call expr)
+             f (if call2?
+                 (get-2 expr :f)
+                 (first expr))
              m (meta f)
              op (when m (get-2 m :sci.impl/op))]
          (cond
@@ -582,12 +598,12 @@
            :else
            (let [f (if op (eval ctx f)
                        f)]
-             (if (ifn? f)
-               ;; TODO: calling vec may be expensive, preferrably we'd make a structure of f + args as vec
-               (do
-                 (fn-call ctx f (subvec expr 1)))
-               (throw (new #?(:clj Exception :cljs js/Error)
-                           (str "Cannot call " (pr-str f) " as a function.")))))))
+             (if call2? (fn-call2 ctx f expr)
+               (if (ifn? f)
+                 ;; TODO: calling vec may be expensive, preferrably we'd make a structure of f + args as vec
+                 (fn-call ctx f (subvec expr 1))
+                 (throw (new #?(:clj Exception :cljs js/Error)
+                             (str "Cannot call " (pr-str f) " as a function."))))))))
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 

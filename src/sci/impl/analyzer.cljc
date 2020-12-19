@@ -610,7 +610,7 @@
                 set! (analyze-set! ctx expr)
                 (import quote) (mark-eval-call expr) ;; don't analyze children
                 ;; else:
-                (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                (utils/mark-eval-call2 f (analyze-children ctx (rest expr))))
               :else
               (try
                 (if (macro? f)
@@ -630,7 +630,7 @@
                                        (types/->EvalForm v)
                                        :else (analyze ctx v))]
                     expanded)
-                  (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                  (utils/mark-eval-call2 f (analyze-children ctx (rest expr))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting

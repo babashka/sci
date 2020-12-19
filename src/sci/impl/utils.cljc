@@ -39,6 +39,20 @@
             :ns @vars/current-ns
             :file @vars/current-file))))
 
+(defn mark-eval-call2
+  [f args]
+  (vary-meta
+   ;; ensure vec!
+   (case (count args)
+     1 (t/->Call1 f (first args))
+     2 (t/->Call2 f (first args) (second args))
+     (cons f args))
+   (fn [m]
+     (assoc m
+            :sci.impl/op :call
+            :ns @vars/current-ns
+            :file @vars/current-file))))
+
 (defn mark-eval
   [expr]
   (vary-meta

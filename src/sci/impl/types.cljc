@@ -29,4 +29,10 @@
   IBox
   (getVal [this] form))
 
-(defrecord Call [f args])
+(defprotocol Call)
+
+(defrecord Call1 [f x]
+  Call)
+
+(defrecord Call2 [f x y]
+  Call)
