@@ -571,7 +571,7 @@
     quote (second expr)))
 
 (defn eval-call [ctx expr]
-  (try (let [f (first expr)
+  (try (let [f (nth-2 expr 0)
              m (meta f)
              op (when m (get-2 m :sci.impl/op))]
          (cond
