@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
-   [sci.impl.faster :refer [get-2]]
+   [sci.impl.faster :refer [get-2 deref-1]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
@@ -579,7 +579,7 @@
   (try
     (if (instance? sci.impl.types.EvalVar expr)
       (let [v (t/getVal expr)]
-        (deref v))
+        (deref-1 v))
       (let [m (meta expr)
             op (when m (get-2 m :sci.impl/op))
             ret

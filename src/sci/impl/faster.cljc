@@ -19,3 +19,10 @@
   (?
    :clj `(.get ~(with-meta m {:tag 'java.util.Map}) ~k)
    :cljs `(.get ~m ~k)))
+
+(defmacro deref-1
+  [ref]
+  (?
+   :clj `(.deref ~(with-meta ref
+                    {:tag 'clojure.lang.IDeref}))
+   :cljs `(~'-deref ~ref)))
