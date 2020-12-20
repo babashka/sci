@@ -271,14 +271,13 @@
 
 (defn letfn* [_ _ fnspecs & body]
   (let [syms (map first fnspecs)]
-    `(clojure.core/with-local-vars
-       ~(vec (interleave syms (repeat nil)))
+    `(let ~(vec (interleave syms (repeat '(clojure.core/-new-var))))
        ~@(map (fn [sym fn-spec]
-                `(clojure.core/var-set ~sym (fn ~sym ~@(rest fn-spec)))) syms fnspecs)
-       (let ~(vec (interleave syms
-                              (map (fn [sym]
-                                     `(clojure.core/var-get ~sym))
-                                   syms)))
+                `(clojure.core/alter-var-root ~sym (constantly (fn ~sym ~@(rest fn-spec)))))
+              syms fnspecs)
+       (let ~(vec (interleave syms (map (fn [sym]
+                                          `(clojure.core/var-get ~sym))
+                                        syms)))
          ~@body))))
 
 (defn with-local-vars* [form _ name-vals-vec & body]
@@ -739,7 +738,10 @@
              'reset-vals! core-protocols/reset-vals!*])
    ;; private
    'has-root-impl (copy-core-var has-root-impl)
+   ;; used in with-local-vars
    '-new-dynamic-var #(vars/new-var (gensym) nil {:dynamic true})
+   ;; used in let-fn
+   '-new-var #(vars/new-var (gensym) nil)
    ;; end private
    '.. (macrofy double-dot)
    '= (copy-core-var =)

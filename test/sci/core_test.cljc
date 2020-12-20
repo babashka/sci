@@ -822,7 +822,14 @@
   (is (= 2 (eval* "(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1))")))
   (is (= 3 (eval* "(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1 2))")))
   (is (= 11 (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))] (f 10))")))
-  (is (nil? (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))])"))))
+  (is (nil? (eval* "(letfn [(f [x] (g x)) (g [x] (inc x))])")))
+  (testing "letfn fn can be evaluated outside of body of letfn"
+    (is (= 3 (eval* "
+(let [f (letfn
+        [(f [x] (g x))
+         (g [x] (+ x 2))]
+          f)]
+   (f 1))")))))
 
 (deftest core-delay-test
   (is (= 1 (eval* "@(delay 1)"))))
