@@ -275,9 +275,10 @@
        ~(vec (interleave syms (repeat nil)))
        ~@(map (fn [sym fn-spec]
                 `(clojure.core/var-set ~sym (fn ~sym ~@(rest fn-spec)))) syms fnspecs)
-       (let ~(vec (interleave syms (map (fn [sym]
-                                          (list 'var-get sym))
-                                        syms)))
+       (let ~(vec (interleave syms
+                              (map (fn [sym]
+                                     `(clojure.core/var-get ~sym))
+                                   syms)))
          ~@body))))
 
 (defn with-local-vars* [form _ name-vals-vec & body]
