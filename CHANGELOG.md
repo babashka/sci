@@ -2,7 +2,7 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-### 0.1.1-alpha.11
+### 0.2.0
 
 Thanks for contributing to this release:
 
