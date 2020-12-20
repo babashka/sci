@@ -577,7 +577,7 @@ To benchmark an expression within GraalVM `native-image`, run `script/compile` a
 ``` clojure
 $ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val))"
 1000000
-./sci    0.92s  user 0.08s system 99% cpu 1.053 total
+./sci    0.92s  user 0.08s system 99% cpu 1.003 total
 ```
 
 ## Thanks
