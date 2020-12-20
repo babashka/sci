@@ -63,7 +63,7 @@ Thanks for contributing to this release:
 - Fix for reader conditional parsing borkdude/edamame#65
 - Dotted field access for JS interop [#450](https://github.com/borkdude/babashka/issues/450)
 - Syntax checks for binding [#458](https://github.com/borkdude/babashka/issues/458)
-- Add `boolean?` to constant check [#465](https://github.com/borkdude/babashka/issues/465)
+- Add `boolean?` to constant check [#465](https://github.com/borkdude/babashka/issues/465) ([@kwrooijen](https://github.com/kwrooijen))
 - Check macro var value at analysis time [#467](https://github.com/borkdude/babashka/issues/467)
 - Excluded clojure var still gets resolved to in syntax quote [#466](https://github.com/borkdude/babashka/issues/466)
 
