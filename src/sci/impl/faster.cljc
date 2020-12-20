@@ -1,4 +1,5 @@
 (ns sci.impl.faster
+  {:no-doc true}
   (:require [sci.impl.macros :refer [?]])
   #?(:cljs (:require-macros [sci.impl.faster :refer [nth-2 assoc-3 get-2]])))
 

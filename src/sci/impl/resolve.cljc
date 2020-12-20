@@ -1,4 +1,5 @@
 (ns sci.impl.resolve
+  {:no-doc true}
   (:require [clojure.string :as str]
             ;; [sci.impl.evaluator :as eval]
             ;; [sci.impl.faster :as faster]
