@@ -21,7 +21,8 @@ Thanks for contributing to this release:
 - Add API functions for parsing code and evaluating forms: `sci.core/reader`,
   `sci.core/parse-string`, `sci.core/parse-next`, `sci.core/eval-form` [#404](https://github.com/borkdude/babashka/issues/404)
 - Support implementing `IDeref`, `IAtom`, `IAtom2` (and CLJS equivalents) [#401](https://github.com/borkdude/babashka/issues/401)
-- Add API dynamic vars: `print-meta`, `print-level`
+- Add API vars `print-meta`, `print-level` which can be used with
+  `sci.core/binding` to control the dynamic var equivalent in sci programs
 - Support calling `symbol` on a var [#453](https://github.com/borkdude/babashka/issues/453)
 - `:disable-arity-checks` option: when used, sci behaves similar as CLJS/JS [#460](https://github.com/borkdude/babashka/issues/460)
 
