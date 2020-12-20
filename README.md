@@ -524,6 +524,54 @@ To run all tests:
 
 For running individual tests, see the scripts in `script/test`.
 
+## Dev
+
+### Benchmarking
+
+Use `clojure -M:bench` to benchmark the various phases of sci:
+
+``` clojure
+$ clojure -M:bench --complete --sexpr "(defn foo [] (+ 1 2 3))" --quick
+BENCHMARKING EXPRESSION: (defn foo [] (+ 1 2 3))
+PARSE:
+-> (defn foo [] (+ 1 2 3))
+Evaluation count : 628914 in 6 samples of 104819 calls.
+             Execution time mean : 1,117522 µs
+    Execution time std-deviation : 213,316076 ns
+   Execution time lower quantile : 958,507608 ns ( 2,5%)
+   Execution time upper quantile : 1,393908 µs (97,5%)
+                   Overhead used : 6,410630 ns
+ANALYSIS:
+Evaluation count : 67542 in 6 samples of 11257 calls.
+             Execution time mean : 9,713838 µs
+    Execution time std-deviation : 1,780903 µs
+   Execution time lower quantile : 8,490514 µs ( 2,5%)
+   Execution time upper quantile : 12,010341 µs (97,5%)
+                   Overhead used : 6,410630 ns
+EVALUATION:
+-> #'user/foo
+Evaluation count : 387720 in 6 samples of 64620 calls.
+             Execution time mean : 1,737658 µs
+    Execution time std-deviation : 219,211847 ns
+   Execution time lower quantile : 1,534890 µs ( 2,5%)
+   Execution time upper quantile : 2,016125 µs (97,5%)
+                   Overhead used : 6,410630 ns
+```
+
+Use `--parse`, `--evaluate` and/or `--analyze` to bench individual phases
+(`--complete` will bench all of them). Leaving out `--quick` will run
+`criterium/bench` instead of `criterium/quick-bench`.
+
+#### GraalVM native-image
+
+To benchmark an expression withina GraalVM `native-image`, run `script/compile` and then run:
+
+``` clojure
+$ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val))"
+1000000
+./sci    0.92s  user 0.08s system 99% cpu 1.053 total
+```
+
 ## Thanks
 
 - [adgoji](https://www.adgoji.com/) for financial support.
