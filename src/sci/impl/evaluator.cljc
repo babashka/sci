@@ -8,13 +8,12 @@
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
-   [sci.impl.resolve :as resolve]
    [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
                                      kw-identical?
-                                ]]
+                                     ]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
 
@@ -221,7 +220,7 @@
 
 (defn load-lib [ctx prefix lib & options]
   (when (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
-                                                :cljs \.))))
+                                                  :cljs \.))))
     (throw-error-with-location (str "Found lib name '" (name lib) "' containing period with prefix '"
                                     prefix "'.  lib names inside prefix lists must not contain periods")
                                lib))
@@ -312,8 +311,8 @@
                            (reduced
                             [::try-result
                              (eval (assoc-in ctx [:bindings (:binding c)]
-                                                  e)
-                                        (:body c))]))))
+                                             e)
+                                   (:body c))]))))
                      nil
                      catches)]
           r
@@ -403,11 +402,11 @@
 (defn eval-resolve
   ([ctx sym]
    (let [sym (eval ctx sym)]
-     (second (resolve/lookup ctx sym false))))
+     (second (@utils/lookup ctx sym false))))
   ([ctx env sym]
    (when-not (contains? env sym)
      (let [sym (eval ctx sym)]
-       (second (resolve/lookup ctx sym false))))))
+       (second (@utils/lookup ctx sym false))))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
 
@@ -634,4 +633,3 @@
         (rethrow-with-location-of-node ctx e expr)))))
 
 (vreset! utils/eval* eval)
-

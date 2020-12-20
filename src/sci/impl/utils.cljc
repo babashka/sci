@@ -1,8 +1,8 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:require [sci.impl.types :as t]
-            [sci.impl.vars :as vars]
-            [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [sci.impl.types :as t]
+            [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -12,21 +12,10 @@
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x) (boolean? x)))
 
-(defn mark-resolve-sym
-  [sym]
-  (vary-meta
-   sym
-   (fn [m]
-     (assoc m :sci.impl/op :resolve-sym))))
-
 (defn eval? [x]
   (some-> x meta :sci.impl/op))
 
 (def kw-identical? #?(:clj identical? :cljs keyword-identical?))
-
-(defn gensym*
-  ([] (mark-resolve-sym (gensym)))
-  ([prefix] (mark-resolve-sym (gensym prefix))))
 
 (defn mark-eval-call
   [expr]
@@ -204,6 +193,7 @@
 (def eval-do* (volatile! nil))
 (def eval-fn (volatile! nil))
 (def eval-string* (volatile! nil))
+(def lookup (volatile! nil))
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns

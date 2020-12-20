@@ -1,14 +1,22 @@
 (ns sci.impl.resolve
   (:require [clojure.string :as str]
+            ;; [sci.impl.evaluator :as eval]
+            #_[sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
-            [sci.impl.utils :as utils :refer [mark-resolve-sym
-                                              strip-core-ns
+            [sci.impl.utils :as utils :refer [strip-core-ns
                                               ana-macros]]
             [sci.impl.vars :as vars]))
 
 (defn throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
+
+(defn mark-resolve-sym
+  [sym]
+  (vary-meta
+   sym
+   (fn [m]
+     (assoc m :sci.impl/op :resolve-sym))))
 
 (defn check-permission! [{:keys [:allow :deny]} check-sym sym v]
   (or (identical? utils/allowed-loop sym)
@@ -105,6 +113,9 @@
              {:sci.impl/op :deref!})]
         kv)
       kv)))
+
+;; workaround for evaluator also needing this function
+(vreset! utils/lookup lookup)
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false))
