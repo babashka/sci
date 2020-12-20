@@ -271,7 +271,8 @@
 
 (defn letfn* [_ _ fnspecs & body]
   (let [syms (map first fnspecs)]
-    `(with-local-vars ~(vec (interleave syms (repeat nil)))
+    `(clojure.core/with-local-vars
+       ~(vec (interleave syms (repeat nil)))
        ~@(map (fn [sym fn-spec]
                 `(clojure.core/var-set ~sym (fn ~sym ~@(rest fn-spec)))) syms fnspecs)
        (let ~(vec (interleave syms (map (fn [sym]
