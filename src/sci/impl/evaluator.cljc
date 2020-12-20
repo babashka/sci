@@ -67,8 +67,8 @@
                     rest-let-bindings (next let-bindings)
                     v (eval ctx let-val)
                     bindings (faster/get-2 ctx :bindings)
-                    bindings (faster/assoc-2 bindings let-name v)
-                    ctx (faster/assoc-2 ctx :bindings bindings)]
+                    bindings (faster/assoc-3 bindings let-name v)
+                    ctx (faster/assoc-3 ctx :bindings bindings)]
                 (if-not rest-let-bindings
                   ctx
                   (recur ctx

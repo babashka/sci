@@ -1,6 +1,6 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.faster :refer [nth-2 assoc-2 get-2]]
+  (:require [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
             [sci.impl.utils :as utils])
@@ -52,7 +52,7 @@
          let-vec (vec (mapcat (fn [local ith]
                                 [local ith]) locals nths))
          assocs (mapcat (fn [local fn-param]
-                          `[~'bindings (assoc-2 ~'bindings ~local ~fn-param)])
+                          `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
                         locals fn-params)
          recurs (map (fn [n]
                        `(nth-2 ~'recur-val ~n))
@@ -66,7 +66,7 @@
           (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                 ~'bindings (get-2 ~'ctx :bindings)
                 ~@assocs
-                ctx# (assoc-2 ~'ctx :bindings ~'bindings)
+                ctx# (assoc-3 ~'ctx :bindings ~'bindings)
                 ret# (~'return ctx#)
                 ;; m (meta ret)
                 recur?# (instance? Recur ret#)]
@@ -95,12 +95,12 @@
                      (when-not args*
                        (throw-arity ctx fn-name macro? args))
                      (recur (next args*) (next params)
-                            (assoc ret fp (first args*))))))
+                            (assoc-3 ret fp (first args*))))))
                (do
                  (when args*
                    (throw-arity ctx fn-name macro? args))
                  ret)))
-           ctx (assoc-2 ctx :bindings bindings)
+           ctx (assoc-3 ctx :bindings bindings)
            ret (return ctx)
            ;; m (meta ret)
            recur? (instance? Recur ret)]

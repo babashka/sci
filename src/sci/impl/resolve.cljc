@@ -1,7 +1,7 @@
 (ns sci.impl.resolve
   (:require [clojure.string :as str]
             ;; [sci.impl.evaluator :as eval]
-            #_[sci.impl.faster :as faster]
+            ;; [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
             [sci.impl.utils :as utils :refer [strip-core-ns
