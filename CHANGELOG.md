@@ -2,9 +2,11 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-### >= 0.1.0 (unreleased)
+### 0.1.1-alpha.11
 
-[@lread](https://github.com/lread), [@patrick-galvin](https://github.com/patrick-galvin), [@SevereOverfl0w](https://github.com/SevereOverfl0w), [@djblue](https://github.com/djblue), [@kwrooijen](https://github.com/kwrooijen), [@sogaiu](https://github.com/sogaiu), [@joinr](https://github.com/joinr), [@RickMoynihan](https://github.com/RickMoynihan), @galdober
+Thanks for contributing to this release:
+
+[@lread](https://github.com/lread), [@patrick-galvin](https://github.com/patrick-galvin), [@SevereOverfl0w](https://github.com/SevereOverfl0w), [@djblue](https://github.com/djblue), [@kwrooijen](https://github.com/kwrooijen), [@sogaiu](https://github.com/sogaiu), [@joinr](https://github.com/joinr), [@RickMoynihan](https://github.com/RickMoynihan), [@galdober](https://github.com/galdober)
 
 ## Breaking changes
 
