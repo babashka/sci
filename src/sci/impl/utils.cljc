@@ -66,7 +66,7 @@
                 (kw-identical? :fn op)
                 ;; special thing like require
                 (identical? needs-ctx op)))
-      (swap! (:env ctx) update-in [:callstack (:id ctx)]
+      (swap! (:env ctx) update-in [:sci.impl/callstack (:id ctx)]
              (fn [vt]
                (if vt
                  (do (vswap! vt conj node)
@@ -93,7 +93,7 @@
                                 :line line
                                 :column column
                                 :message m
-                                :callstack (delay (when-let [v (get-in @(:env ctx) [:callstack (:id ctx)])]
+                                :sci.impl/callstack (delay (when-let [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
                                                     @v))
                                 :file file
                                 :locals (:bindings ctx)}

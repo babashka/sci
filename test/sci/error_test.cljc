@@ -16,7 +16,7 @@
                (map #(-> %
                          (select-keys [:ns :name :line :column])
                          (update :ns sci-ns-name))
-                    (cs/stacktrace (:callstack (ex-data e))))))]
+                    (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
     (is (= '({:ns clojure.core, :name subs}
              {:ns user, :name bar, :line 2, :column 14}
              {:ns user, :name bar, :line 2, :column 1}
