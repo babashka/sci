@@ -24,7 +24,10 @@ Thanks for contributing to this release:
 - Add API vars `print-meta`, `print-level` which can be used with
   `sci.core/binding` to control the dynamic var equivalent in sci programs
 - Support calling `symbol` on a var [#453](https://github.com/borkdude/babashka/issues/453)
-- `:disable-arity-checks` option: when used, sci behaves similar as CLJS/JS [#460](https://github.com/borkdude/babashka/issues/460)
+- `:disable-arity-checks` option: when used, sci behaves similar as CLJS/JS by
+  not checking the provided number of arguments and allowing less or more for
+  single and fixed arity functions
+  [#460](https://github.com/borkdude/babashka/issues/460)
 
 ## Enhancements / fixes
 
