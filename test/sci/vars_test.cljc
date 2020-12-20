@@ -211,3 +211,16 @@
   (prn (var-get #'x))
   (var-set #'x 11)
   (prn (var-get #'x)))")))))
+
+(deftest with-local-vars-test
+  (is (= 2 (eval* "(with-local-vars [x 1] (+ 1 (var-get x)))")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"even"
+       (sci/eval-string
+        "(with-local-vars [x] (+ 1 (var-get x)))")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"vector"
+       (sci/eval-string
+        "(with-local-vars #{x 1} (+ 1 (var-get x)))"))))

@@ -284,6 +284,19 @@
            nil ;; if body is empty, we return nil and not the result of vswaps.
            ~@body))))
 
+(defn with-local-vars* [form _ name-vals-vec & body]
+  (when-not (vector? name-vals-vec)
+    (utils/throw-error-with-location (str "with-local-vars requires a vector for its bindings")
+                                     form))
+  (when-not (even? (count name-vals-vec))
+    (utils/throw-error-with-location (str "with-local-vars requires an even number of forms in binding vector")
+                                     form))
+  `(let [~@(interleave (take-nth 2 name-vals-vec)
+                       (repeat '(clojure.core/-new-dynamic-var)))]
+     (clojure.core/push-thread-bindings (hash-map ~@name-vals-vec))
+     (try
+       ~@body
+       (finally (clojure.core/pop-thread-bindings)))))
 
 (defn vswap!*
   [vol f & args]
@@ -727,6 +740,10 @@
    ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
    #?@(:clj ['swap-vals! core-protocols/swap-vals!*
              'reset-vals! core-protocols/reset-vals!*])
+   ;; private
+   'has-root-impl (copy-core-var has-root-impl)
+   '-new-dynamic-var #(vars/new-var (gensym) nil {:dynamic true})
+   ;; end private
    '.. (macrofy double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
@@ -876,7 +893,6 @@
    'get-in (copy-core-var get-in)
    'group-by (copy-core-var group-by)
    'gensym (copy-core-var gensym)
-   'has-root-impl (copy-core-var has-root-impl)
    'hash (copy-core-var hash)
    'hash-map (copy-core-var hash-map)
    'hash-set (copy-core-var hash-set)
@@ -1131,6 +1147,7 @@
    'when-not (macrofy when-not*)
    'while (macrofy while*)
    'with-bindings (macrofy sci-with-bindings)
+   'with-local-vars (macrofy with-local-vars*)
    'with-meta (copy-core-var with-meta)
    'with-open (macrofy with-open*)
    'with-redefs-fn sci-with-redefs-fn
