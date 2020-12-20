@@ -10,7 +10,7 @@
                               (format " [#%s](https://github.com/borkdude/babashka/issues/%s)"
                                       issue issue)))
       replaced (str/replace replaced
-                            #"@(\w+)([, .\)])"
+                            #"@(\w+)([, .\)]|$)"
                             (fn [[_ name after]]
                               (format "[@%s](https://github.com/%s)%s"
                                       name name after)))]

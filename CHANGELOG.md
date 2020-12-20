@@ -4,9 +4,62 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ### >= 0.1.0 (unreleased)
 
+[@lread](https://github.com/lread), [@patrick-galvin](https://github.com/patrick-galvin), [@SevereOverfl0w](https://github.com/SevereOverfl0w), [@djblue](https://github.com/djblue), [@kwrooijen](https://github.com/kwrooijen), [@sogaiu](https://github.com/sogaiu), [@joinr](https://github.com/joinr), [@RickMoynihan](https://github.com/RickMoynihan), @galdober
+
+## Breaking changes
+
 - Removed `:realize-max` and `:preset :termination-safe`. In the light of
   [#348](https://github.com/borkdude/sci/issues/348) it would be misleading to
   claim that sci can guarantee termination within reasonable time.
+
+## New
+
+- Add `class?`, `iterator-seq`, `remove-watch`, `realized?`, `clojure.walk/macroexpand-all`, `find-var`, `lazy-cat`, `bound?`, `*print-namespace-maps*`, `get-thread-bindings`, `var-get`, `var-set`, `with-local-vars`
+- Add `fork` API function [#369](https://github.com/borkdude/babashka/issues/369)
+- Add API functions for parsing code and evaluating forms: `sci.core/reader`,
+  `sci.core/parse-string`, `sci.core/parse-next`, `sci.core/eval-form` [#404](https://github.com/borkdude/babashka/issues/404)
+- Support implementing `IDeref`, `IAtom`, `IAtom2` (and CLJS equivalents) [#401](https://github.com/borkdude/babashka/issues/401)
+- Add API dynamic vars: `print-meta`, `print-level`
+- Support calling `symbol` on a var [#453](https://github.com/borkdude/babashka/issues/453)
+- `:disable-arity-checks` option: when used, sci behaves similar as CLJS/JS [#460](https://github.com/borkdude/babashka/issues/460)
+
+## Enhancements / fixes
+
+- Alter-var-root uses thread-bound value to update [#359](https://github.com/borkdude/babashka/issues/359)
+- Eval metadata on var created with defn [#371](https://github.com/borkdude/babashka/issues/371)
+- Metadata fn on var f fails if referring to f [#363](https://github.com/borkdude/babashka/issues/363)
+- Fix missing protocol methods [#367](https://github.com/borkdude/babashka/issues/367) ([@patrick-galvin](https://github.com/patrick-galvin))
+- Support multiple methods of protocol on defrecord
+- Allow re-binding of core vars with clojure.core/with-redefs [#375](https://github.com/borkdude/babashka/issues/375)
+- Fix false dynamic binding [#379](https://github.com/borkdude/babashka/issues/379)
+- Don't eval record returned from reader function [#386](https://github.com/borkdude/babashka/issues/386)
+- Implement `->` and `as->` as normal macros [#390](https://github.com/borkdude/babashka/issues/390), [#462](https://github.com/borkdude/babashka/issues/462) ([@kwrooijen](https://github.com/kwrooijen))
+- `defn` should not introduce local for name in body [#384](https://github.com/borkdude/babashka/issues/384)
+- Fix wrong arity in error message when calling macro [#392](https://github.com/borkdude/babashka/issues/392)
+- Throw when trying to redefine referred var [#398](https://github.com/borkdude/babashka/issues/398)
+- Fix for `use` [120175f](https://github.com/borkdude/sci/commit/120175f2efc0328e88a832e792db342a70558806)
+- Fix importing protocol classes from namespaces with hyphens [#410](https://github.com/borkdude/babashka/issues/410)
+- Performance enhancements [#415](https://github.com/borkdude/babashka/issues/415), [#452](https://github.com/borkdude/babashka/issues/452), [#468](https://github.com/borkdude/babashka/issues/468), [#470](https://github.com/borkdude/babashka/issues/470), [#472](https://github.com/borkdude/babashka/issues/472), [#473](https://github.com/borkdude/babashka/issues/473), [#475](https://github.com/borkdude/babashka/issues/475), [#478](https://github.com/borkdude/babashka/issues/478), [#480](https://github.com/borkdude/babashka/issues/480)
+- Support top-level do emitted from macro [#421](https://github.com/borkdude/babashka/issues/421)
+- Support map constructor for maps [#431](https://github.com/borkdude/babashka/issues/431)
+- Partial support for multiple reified classes [323a257](https://github.com/borkdude/sci/commit/323a2574ec4d59a0544a829c1fa529fcbc110140)
+- Fix calling literal symbol borkdude/babashka#622
+- Allow user-defined vars when def is allowed [#434](https://github.com/borkdude/babashka/issues/434)
+- Fix default destructuring with false [#436](https://github.com/borkdude/babashka/issues/436)
+- Fix reflection warning in multimethods code [#437](https://github.com/borkdude/babashka/issues/437) ([@galdober](https://github.com/galdober))
+- Support nested libspecs [#399](https://github.com/borkdude/babashka/issues/399)
+- Aliases in protocol functions should work [#440](https://github.com/borkdude/babashka/issues/440)
+- Allow users to override :line metadata [#443](https://github.com/borkdude/babashka/issues/443)
+- Support second arg (env) in `resolve`
+- Preserve and eval reader meta on coll literals and functions [#447](https://github.com/borkdude/babashka/issues/447), [#448](https://github.com/borkdude/babashka/issues/448)
+- Fix #js object reading [#449](https://github.com/borkdude/babashka/issues/449)
+- Support unmap for imported classes [#432](https://github.com/borkdude/babashka/issues/432)
+- Fix for reader conditional parsing borkdude/edamame#65
+- Dotted field access for JS interop [#450](https://github.com/borkdude/babashka/issues/450)
+- Syntax checks for binding [#458](https://github.com/borkdude/babashka/issues/458)
+- Add `boolean?` to constant check [#465](https://github.com/borkdude/babashka/issues/465)
+- Check macro var value at analysis time [#467](https://github.com/borkdude/babashka/issues/467)
+- Excluded clojure var still gets resolved to in syntax quote [#466](https://github.com/borkdude/babashka/issues/466)
 
 ## v0.1.0 (2020-06-16)
 
