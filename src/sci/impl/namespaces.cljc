@@ -270,19 +270,14 @@
              :cljs ::TODO)))
 
 (defn letfn* [_ _ fnspecs & body]
-  (let [syms (map first fnspecs)
-        state-sym (gensym "state")
-        fns (map (fn [sym]
-                   `(fn [& args#]
-                      (apply (get (deref ~state-sym) '~sym) args#))) syms)]
-    `(let [~state-sym (volatile! {})
-           ~@(interleave syms fns)
-           ~@(mapcat (fn [sym fnspec]
-                       [sym `(fn ~sym ~@(rest fnspec))]) syms fnspecs)]
-       (do ~@(map (fn [sym]
-                    `(vswap! ~state-sym assoc '~sym ~sym)) syms)
-           nil ;; if body is empty, we return nil and not the result of vswaps.
-           ~@body))))
+  (let [syms (map first fnspecs)]
+    `(with-local-vars ~(vec (interleave syms (repeat nil)))
+       ~@(map (fn [sym fn-spec]
+                `(clojure.core/var-set ~sym (fn ~sym ~@(rest fn-spec)))) syms fnspecs)
+       (let ~(vec (interleave syms (map (fn [sym]
+                                          (list 'var-get sym))
+                                        syms)))
+         ~@body))))
 
 (defn with-local-vars* [form _ name-vals-vec & body]
   (when-not (vector? name-vals-vec)
