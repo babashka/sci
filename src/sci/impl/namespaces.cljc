@@ -45,18 +45,15 @@
             name# (:name m#)
             name-sym# (symbol (str ns-name#) (str name#))
             val# ~sym]
-        (vars/->SciVar val# name-sym# {:doc (:doc m#)
-                                       :name name#
-                                       :arglists (:arglists m#)
-                                       :sci.impl/inlined (when (and (identical? clojure-core-ns ns#)
-                                                                    (contains? inlined-vars name#))
-                                                           (with-meta val#
-                                                             ;; for error messages:
-                                                             {:name name#
-                                                              :ns ns#
-                                                              :sci.impl/built-in true}))
-                                       :ns ns#
-                                       :sci.impl/built-in true}
+        (vars/->SciVar val# name-sym# (cond->
+                                        {:doc (:doc m#)
+                                         :name name#
+                                         :arglists (:arglists m#)
+                                         :ns ns#
+                                         :sci.impl/built-in true}
+                                        (and (identical? clojure-core-ns ns#)
+                                             (contains? inlined-vars name#))
+                                        (assoc :sci.impl/inlined val#))
                        false))))
   (defmacro copy-core-var
     ([sym]

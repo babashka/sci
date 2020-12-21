@@ -57,7 +57,7 @@
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (let [m (meta node)
         f (when (seqable? node) (first node))
-        fm (some-> f meta)
+        fm (or (:sci.impl/f-meta node) (some-> f meta))
         op (when fm (.get ^java.util.Map m :sci.impl/op))
         special? (or
                   ;; special call like def
