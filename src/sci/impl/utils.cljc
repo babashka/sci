@@ -58,14 +58,15 @@
   (let [m (meta node)
         f (when (seqable? node) (first node))
         fm (some-> f meta)
-        op (when fm (.get ^java.util.Map m :sci.impl/op))]
-    (when (not (or
-                ;; special call like def
-                (and (symbol? f) (not op))
-                ;; anonymous function
-                (kw-identical? :fn op)
-                ;; special thing like require
-                (identical? needs-ctx op)))
+        op (when fm (.get ^java.util.Map m :sci.impl/op))
+        special? (or
+                  ;; special call like def
+                  (and (symbol? f) (not op))
+                  ;; anonymous function
+                  (kw-identical? :fn op)
+                  ;; special thing like require
+                  (identical? needs-ctx op))]
+    (when (not special?)
       (swap! (:env ctx) update-in [:sci.impl/callstack (:id ctx)]
              (fn [vt]
                (if vt

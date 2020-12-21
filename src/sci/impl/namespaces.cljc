@@ -43,12 +43,18 @@
             m# (-> (var ~sym) meta)
             ns-name# (vars/getName ns#)
             name# (:name m#)
-            name-sym# (symbol (str ns-name#) (str name#))]
-        (vars/->SciVar ~sym name-sym# {:doc (:doc m#)
+            name-sym# (symbol (str ns-name#) (str name#))
+            val# ~sym]
+        (vars/->SciVar val# name-sym# {:doc (:doc m#)
                                        :name name#
                                        :arglists (:arglists m#)
-                                       :sci.impl/inlined (and (identical? clojure-core-ns ns#)
-                                                              (contains? inlined-vars name#))
+                                       :sci.impl/inlined (when (and (identical? clojure-core-ns ns#)
+                                                                    (contains? inlined-vars name#))
+                                                           (with-meta val#
+                                                             ;; for error messages:
+                                                             {:name name#
+                                                              :ns ns#
+                                                              :sci.impl/built-in true}))
                                        :ns ns#
                                        :sci.impl/built-in true}
                        false))))
