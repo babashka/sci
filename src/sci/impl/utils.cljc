@@ -18,14 +18,23 @@
 (def kw-identical? #?(:clj identical? :cljs keyword-identical?))
 
 (defn mark-eval-call
-  [expr]
-  (vary-meta
-   expr
-   (fn [m]
-     (assoc m
-            :sci.impl/op :call
-            :ns @vars/current-ns
-            :file @vars/current-file))))
+  ([expr]
+   (vary-meta
+    expr
+    (fn [m]
+      (-> m
+          (assoc :sci.impl/op :call)
+          (assoc :ns @vars/current-ns)
+          (assoc :file @vars/current-file)))))
+  ([expr extra-key extra-val]
+   (vary-meta
+    expr
+    (fn [m]
+      (-> m
+          (assoc :sci.impl/op :call)
+          (assoc :ns @vars/current-ns)
+          (assoc :file @vars/current-file)
+          (assoc extra-key extra-val))))))
 
 (defn mark-eval
   [expr]
@@ -57,15 +66,16 @@
 (defn rethrow-with-location-of-node [ctx ^Throwable e node]
   (let [m (meta node)
         f (when (seqable? node) (first node))
-        fm (some-> f meta)
-        op (when fm (.get ^java.util.Map m :sci.impl/op))]
-    (when (not (or
-                ;; special call like def
-                (and (symbol? f) (not op))
-                ;; anonymous function
-                (kw-identical? :fn op)
-                ;; special thing like require
-                (identical? needs-ctx op)))
+        fm (or (:sci.impl/f-meta node) (some-> f meta))
+        op (when fm (.get ^java.util.Map m :sci.impl/op))
+        special? (or
+                  ;; special call like def
+                  (and (symbol? f) (not op))
+                  ;; anonymous function
+                  (kw-identical? :fn op)
+                  ;; special thing like require
+                  (identical? needs-ctx op))]
+    (when (not special?)
       (swap! (:env ctx) update-in [:sci.impl/callstack (:id ctx)]
              (fn [vt]
                (if vt

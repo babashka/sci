@@ -16,15 +16,16 @@
 (defn expr->data [expr]
   (let [m (meta expr)
         f (when (seqable? expr) (first expr))
-        fm (some-> f meta)
-        fm (if (symbol? f)
-             (assoc fm
-                    :local-name f
-                    :local true
-                    :ns (:ns m)
-                    :macro (or (:sci/macro fm)
-                               (:macro fm)))
-             fm)]
+        fm (or (:sci.impl/f-meta m)
+               (some-> f meta))
+        fm (or (if (symbol? f)
+                 (assoc fm
+                        :local-name f
+                        :local true
+                        :ns (:ns m)
+                        :macro (or (:sci/macro fm)
+                                   (:macro fm)))
+                 fm))]
     (filter not-empty [(select m) (select fm)])))
 
 (defn stacktrace [callstack]

@@ -29,6 +29,12 @@
 
 (def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
 
+;; The following is produced with:
+;; (def inlined (filter (comp :inline meta) (vals (ns-publics 'clojure.core))))
+;; (map (comp :name meta) inlined)
+(def inlined-vars
+  '#{+' unchecked-remainder-int unchecked-subtract-int dec' short-array bit-shift-right aget = boolean bit-shift-left aclone dec < char unchecked-long unchecked-negate unchecked-inc-int floats pos? boolean-array alength bit-xor unsigned-bit-shift-right neg? unchecked-float num reduced? booleans int-array inc' <= -' * min get long double bit-and-not unchecked-add-int short quot unchecked-double longs unchecked-multiply-int int > unchecked-int unchecked-multiply unchecked-dec double-array float - byte-array zero? unchecked-dec-int rem nth nil? bit-and *' unchecked-add identical? unchecked-divide-int unchecked-subtract / bit-or >= long-array object-array doubles unchecked-byte unchecked-short float-array inc + aset chars ints bit-not byte max == count char-array compare shorts unchecked-negate-int unchecked-inc unchecked-char bytes})
+
 (macros/deftime
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
   (defmacro copy-var
@@ -37,12 +43,17 @@
             m# (-> (var ~sym) meta)
             ns-name# (vars/getName ns#)
             name# (:name m#)
-            name-sym# (symbol (str ns-name#) (str name#))]
-        (vars/->SciVar ~sym name-sym# {:doc (:doc m#)
-                                       :name name#
-                                       :arglists (:arglists m#)
-                                       :ns ns#
-                                       :sci.impl/built-in true}
+            name-sym# (symbol (str ns-name#) (str name#))
+            val# ~sym]
+        (vars/->SciVar val# name-sym# (cond->
+                                        {:doc (:doc m#)
+                                         :name name#
+                                         :arglists (:arglists m#)
+                                         :ns ns#
+                                         :sci.impl/built-in true}
+                                        (and (identical? clojure-core-ns ns#)
+                                             (contains? inlined-vars name#))
+                                        (assoc :sci.impl/inlined val#))
                        false))))
   (defmacro copy-core-var
     ([sym]

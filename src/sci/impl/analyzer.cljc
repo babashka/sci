@@ -630,7 +630,10 @@
                                        (types/->EvalForm v)
                                        :else (analyze ctx v))]
                     expanded)
-                  (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                  (if-let [f (:sci.impl/inlined f-meta)]
+                    (mark-eval-call (cons f (analyze-children ctx (rest expr)))
+                                    :sci.impl/f-meta f-meta)
+                    (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting
