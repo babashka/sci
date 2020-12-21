@@ -18,14 +18,23 @@
 (def kw-identical? #?(:clj identical? :cljs keyword-identical?))
 
 (defn mark-eval-call
-  [expr]
-  (vary-meta
-   expr
-   (fn [m]
-     (assoc m
-            :sci.impl/op :call
-            :ns @vars/current-ns
-            :file @vars/current-file))))
+  ([expr]
+   (vary-meta
+    expr
+    (fn [m]
+      (-> m
+          (assoc :sci.impl/op :call)
+          (assoc :ns @vars/current-ns)
+          (assoc :file @vars/current-file)))))
+  ([expr extra-key extra-val]
+   (vary-meta
+    expr
+    (fn [m]
+      (-> m
+          (assoc :sci.impl/op :call)
+          (assoc :ns @vars/current-ns)
+          (assoc :file @vars/current-file)
+          (assoc extra-key extra-val))))))
 
 (defn mark-eval
   [expr]
