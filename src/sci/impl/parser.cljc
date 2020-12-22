@@ -17,7 +17,8 @@
     :row-key :line
     :col-key :column
     :end-row-key :end-line
-    :end-col-key :end-column}))
+    :end-col-key :end-column
+    :read-cond :allow}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
@@ -72,7 +73,6 @@
          auto-resolve (assoc aliases
                              :current current-ns)
          parse-opts (cond-> (assoc default-opts
-                                   :read-cond :allow
                                    :features features
                                    :auto-resolve auto-resolve
                                    :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
