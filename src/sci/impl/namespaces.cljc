@@ -16,9 +16,9 @@
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
-   [sci.impl.protocols :as protocols]
    [sci.impl.parser :as parser]
-   [sci.impl.read :refer [eval load-string read read-string]]
+   [sci.impl.protocols :as protocols]
+   [sci.impl.read :as read :refer [eval load-string read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
@@ -1295,20 +1295,20 @@
   Example: (source-fn 'filter)"
   [ctx x]
   (when-let [v (sci-resolve ctx x)]
-    (let [{:keys [:file :line :end-line :ns]} (meta v)]
-      (when (and file line end-line)
-        (when-let [source (or #?(:clj (let [f (jio/file file)]
-                                        (when (.exists f) (slurp f))))
-                              (when-let [load-fn (:load-fn ctx)]
+    (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
+      (when (and line ns)
+        (when-let [source (or #?(:clj (when file
+                                        (let [f (jio/file file)]
+                                          (when (.exists f) (slurp f)))))
+                              (when-let [load-fn (:load-fn @(:env ctx))]
                                 (:source (load-fn {:namespace (sci-ns-name ns)}))))]
           ;; use parser instead of this blunt method.
           (let [lines (str/split source #"\n")
                 line (dec line)
-                end-line (dec end-line)
-                lines (take (- end-line (dec line))
-                            (drop line
-                                  lines))]
-            (str/join "\n" lines)))))))
+                start (str/join "\n" (drop line lines))
+                reader (read/source-logging-reader start)
+                res (parser/parse-next ctx reader {:source true})]
+            (:source (meta res))))))))
 
 (defn source
   "Prints the source code for the given symbol, if it can find it.

@@ -39,3 +39,14 @@
           (if (utils/kw-identical? :edamame.impl.parser/eof x)
             ret
             (recur (eval sci-ctx x))))))))
+
+;; used by source-fn
+(defn source-logging-reader
+  [x]
+  #?(:clj (r/source-logging-push-back-reader (r/push-back-reader x))
+     :cljs (let [string-reader (r/string-reader x)
+                 buf-len 1
+                 pushback-reader (r/PushbackReader. string-reader
+                                                    (object-array buf-len)
+                                                    buf-len buf-len)]
+             (r/source-logging-push-back-reader pushback-reader))))
