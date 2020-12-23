@@ -1302,7 +1302,6 @@
                                           (when (.exists f) (slurp f)))))
                               (when-let [load-fn (:load-fn @(:env ctx))]
                                 (:source (load-fn {:namespace (sci-ns-name ns)}))))]
-          ;; use parser instead of this blunt method.
           (let [lines (str/split source #"\n")
                 line (dec line)
                 start (str/join "\n" (drop line lines))
