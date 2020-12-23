@@ -66,13 +66,6 @@
 
 ;;;; End macros
 
-(defn analyzed-meta [ctx m]
-  (let [meta-needs-eval? (> (count m) 4)
-        m (if meta-needs-eval? (mark-eval (analyze ctx m))
-              m)]
-    ;; (prn :>> (:foo m) (meta (:foo m)))
-    m))
-
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
@@ -133,6 +126,13 @@
                :var-arg-name var-arg-name
                :fn-name fn-name}))
 
+(defn analyzed-fn-meta [ctx m]
+  (let [;; seq expr has location info with 4 keys
+        meta-needs-eval? (> (count m) 4)
+        m (if meta-needs-eval? (mark-eval (analyze ctx m))
+              m)]
+    m))
+
 (defn expand-fn [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
@@ -173,7 +173,7 @@
         arities (:bodies analyzed-bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
-        ana-fn-meta (analyzed-meta ctx fn-meta)
+        ana-fn-meta (analyzed-fn-meta ctx fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))]
@@ -673,26 +673,32 @@
                                             (every? constant? vs))
                          analyzed-map (if constant-map?
                                         expr
+                                        ;; potential place for optimization
                                         (zipmap (analyze-children ctx ks)
                                                 (analyze-children ctx vs)))
-                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (when m (analyze ctx m))
                          analyzed-meta (if (and constant-map?
+                                                ;; meta was also a constant-map
                                                 (identical? m analyzed-meta))
                                          analyzed-meta
                                          (assoc analyzed-meta :sci.impl/op :eval))]
-                     (with-meta analyzed-map analyzed-meta))
+                     (if analyzed-meta
+                       (with-meta analyzed-map analyzed-meta)
+                       analyzed-map))
                    (or (vector? expr) (set? expr))
                    (let [constant-coll? (and constant-colls
                                              (every? constant? expr))
                          analyzed-coll (if constant-coll?
                                          expr
                                          (into (empty expr) (analyze-children ctx expr)))
-                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (when m (analyze ctx m))
                          analyzed-meta (if (and constant-coll?
                                                 (identical? m analyzed-meta))
                                          analyzed-meta
                                          (assoc analyzed-meta :sci.impl/op :eval))]
-                     (with-meta analyzed-coll analyzed-meta))
+                     (if analyzed-meta
+                       (with-meta analyzed-coll analyzed-meta)
+                       analyzed-coll))
                    (seq? expr) (if (seq expr)
                                  (merge-meta (analyze-call ctx expr top-level?) m)
                                  ;; the empty list

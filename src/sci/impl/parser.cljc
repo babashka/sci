@@ -18,7 +18,22 @@
     :col-key :column
     :end-row-key :end-line
     :end-col-key :end-column
-    :read-cond :allow}))
+    :read-cond :allow
+    :location? (fn [obj]
+                 (or
+                  ;; for fine-grained error messages during analysis we also add
+                  ;; locations to symbols. This adds about 10% to parse/analysis
+                  ;; time.
+
+                  ;; $ tmp/bb-only-seq-and-sym-locs tmp/meander.clj
+                  ;; "Elapsed time: 120.448655 msecs"
+
+                  ;; $ tmp/bb-only-seq-locs tmp/meander.clj
+                  ;; "Elapsed time: 110.869661 msecs"
+
+                  (symbol? obj)
+                  ;; same as clojure
+                  (seq? obj)))}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
