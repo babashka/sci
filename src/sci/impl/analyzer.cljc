@@ -66,8 +66,10 @@
 
 ;;;; End macros
 
-(defn analyzed-meta [ctx m]
-  (let [meta-needs-eval? (> (count m) 4)
+(defn analyzed-meta [ctx e m]
+  (let [meta-needs-eval? (if (seq? e)
+                           (> (count m) 4)
+                           m)
         m (if meta-needs-eval? (mark-eval (analyze ctx m))
               m)]
     ;; (prn :>> (:foo m) (meta (:foo m)))
@@ -173,7 +175,7 @@
         arities (:bodies analyzed-bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
-        ana-fn-meta (analyzed-meta ctx fn-meta)
+        ana-fn-meta (analyzed-meta ctx fn-expr fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))]
@@ -675,7 +677,7 @@
                                         expr
                                         (zipmap (analyze-children ctx ks)
                                                 (analyze-children ctx vs)))
-                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (analyzed-meta ctx expr m)
                          analyzed-meta (if (and constant-map?
                                                 (identical? m analyzed-meta))
                                          analyzed-meta
@@ -687,7 +689,7 @@
                          analyzed-coll (if constant-coll?
                                          expr
                                          (into (empty expr) (analyze-children ctx expr)))
-                         analyzed-meta (analyzed-meta ctx m)
+                         analyzed-meta (analyzed-meta ctx expr m)
                          analyzed-meta (if (and constant-coll?
                                                 (identical? m analyzed-meta))
                                          analyzed-meta

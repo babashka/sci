@@ -18,7 +18,10 @@
     :col-key :column
     :end-row-key :end-line
     :end-col-key :end-column
-    :read-cond :allow}))
+    :read-cond :allow
+    :location? (fn [obj]
+                 (or (list? obj)
+                     (symbol? obj)))}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
