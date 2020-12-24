@@ -95,7 +95,7 @@
    (throw-reader ctx reader msg nil))
   ([ctx #?(:cljs ^:not-native reader :default reader) msg data]
    (throw-reader ctx reader msg data nil))
-  ([ctx #?(:cljs ^:not-native reader :default reader) msg data loc]
+  ([_ctx #?(:cljs ^:not-native reader :default reader) msg data loc]
    (let [c (:column loc (r/get-column-number reader))
          l (:line loc (r/get-line-number reader))]
      (throw
@@ -203,15 +203,15 @@
         (if (kw-identical? k ::expected-delimiter)
           match
           (let [next-is-match? (and (non-match? match)
-                            (or (contains? features k)
-                                (kw-identical? k :default)))]
+                                    (or (contains? features k)
+                                        (kw-identical? k :default)))]
             (if next-is-match?
               (let [match (parse-next ctx reader)
                     ctx (assoc ctx ::suppress true)]
                 (loop []
                   (let [next-val (parse-next ctx reader)]
                     (when-not (kw-identical? ::expected-delimiter
-                                          next-val)
+                                             next-val)
                       (if (kw-identical? ::eof next-val)
                         (let [delimiter (::expected-delimiter ctx)
                               {:keys [:line :column :char]} (::opened-delimiter ctx)]
@@ -299,44 +299,20 @@
   (let [c (r/peek-char reader)]
     (case c
       nil (throw-reader ctx reader (str "Unexpected EOF."))
-      \" (if-let [v (:regex ctx)]
-           (let [pat (read-regex-pattern ctx reader)]
-             (if (ifn? v)
-               (v pat)
-               (re-pattern pat)))
-           (throw-reader
-            ctx reader
-            (str "Regex not allowed. Use the `:regex` option")))
-      \( (if-let [v (:fn ctx)]
-           (let [fn-expr (parse-next ctx reader)]
-             (if (ifn? v)
-               (v fn-expr)
-               (read-fn fn-expr)))
-           (throw-reader
-            ctx reader
-            (str "Function literal not allowed. Use the `:fn` option")))
-      \' (if-let [v (:var ctx)]
-           (do
-             (r/read-char reader) ;; ignore quote
-             (let [next-val (parse-next ctx reader)]
-               (when (kw-identical? ::eof next-val)
-                 (throw-eof-while-reading ctx reader))
-               (if (ifn? v)
-                 (v next-val)
-                 (list 'var next-val))))
-           (throw-reader
-            ctx reader
-            (str "Var literal not allowed. Use the `:var` option")))
-      \= (if-let [v (:read-eval ctx)]
-           (do
-             (r/read-char reader) ;; ignore =
-             (let [next-val (parse-next ctx reader)]
-               (if (ifn? v)
-                 (v next-val)
-                 (list 'read-eval next-val))))
-           (throw-reader
-            ctx reader
-            (str "Read-eval not allowed. Use the `:read-eval` option")))
+      \" (let [pat (read-regex-pattern ctx reader)]
+           (re-pattern pat))
+      \( (let [fn-expr (parse-next ctx reader)]
+           (read-fn fn-expr))
+      \' (do
+           (r/read-char reader) ;; ignore quote
+           (let [next-val (parse-next ctx reader)]
+             (when (kw-identical? ::eof next-val)
+               (throw-eof-while-reading ctx reader))
+             (list 'var next-val)))
+      \= (do
+           (r/read-char reader) ;; ignore =
+           (let [next-val (parse-next ctx reader)]
+             (list 'read-eval next-val)))
       \{ (parse-set ctx reader)
       \_ (do
            (r/read-char reader) ;; read _
@@ -375,9 +351,7 @@
                            :cljs (@*tag-table* sym)))]
               (if f (f data)
                   (throw (new #?(:clj Exception :cljs js/Error)
-                              (str "No reader function for tag " sym)))))
-            #_(do (r/unread reader \#)
-                  (edn-read ctx reader))))))))
+                              (str "No reader function for tag " sym)))))))))))
 
 (defn throw-odd-map
   [ctx #?(:cljs ^not-native reader :default reader) loc elements]
@@ -424,23 +398,6 @@
               (keyword (str kns) token-name))))
         (keyword token)))))
 
-(defn desugar-meta
-  "Resolves syntactical sugar in metadata" ;; could be combined with some other desugar?
-  ([f]
-   (cond
-     (keyword? f) {f true}
-     (symbol? f)  {:tag f}
-     (string? f)  {:tag f}
-     :else        f))
-  ([f postprocess]
-   (cond
-     (keyword? f) {(postprocess f) (postprocess true)}
-     (symbol? f)  {(postprocess :tag) (postprocess f)}
-     (string? f)  {(postprocess :tag) (postprocess f)}
-     :else        f)))
-
-;; NOTE: I tried optimizing for the :all option by dispatching to a function
-;; that doesn't do any checking, but saw no significant speedup.
 (defn dispatch
   [ctx #?(:cljs ^not-native reader :default reader) c]
   (let [sharp? (= \# c)]
@@ -449,68 +406,32 @@
                  (parse-sharp ctx reader))
         (case c
           nil ::eof
-          \@ (if-let [v (:deref ctx)]
-               (do
-                 (r/read-char reader) ;; skip @
+          \@ (do (r/read-char reader) ;; skip @
                  (let [next-val (parse-next ctx reader)]
-                   (if (ifn? v)
-                     (v next-val)
-                     (list 'clojure.core/deref next-val))))
-               (throw-reader
-                ctx reader
-                (str "Deref not allowed. Use the `:deref` option")))
-          \' (if-let [v (:quote ctx)]
-               (do
-                 (r/read-char reader) ;; skip '
-                 (let [next-val (parse-next ctx reader)]
-                   (when (kw-identical? ::eof next-val)
-                     (throw-eof-while-reading ctx reader))
-                   (if (ifn? v)
-                     (v next-val)
-                     (list 'quote next-val))))
-               ;; quote is allowed in normal EDN
-               (edn-read ctx reader))
-          \` (if-let [v (:syntax-quote ctx)]
-               (do
-                 (r/read-char reader) ;; skip `
-                 (let [next-val (parse-next ctx reader)]
-                   (if (fn? v)
-                     (v next-val)
-                     (let [gensyms (atom {})
-                           ctx (assoc ctx :gensyms gensyms)
-                           ret (syntax-quote ctx reader next-val)]
-                       ret))))
-               (throw-reader
-                ctx reader
-                (str "Syntax quote not allowed. Use the `:syntax-quote` option")))
-          \~
-          (if-let [v (and (:syntax-quote ctx)
-                          (or (:unquote ctx)
-                              true))]
-            (do
-              (r/read-char reader) ;; skip `
-              (let [nc (r/peek-char reader)]
-                (if (identical? nc \@)
-                  (if-let [v (and
-                              (:syntax-quote ctx)
-                              (or (:unquote-splicing ctx)
-                                  true))]
-                    (do
-                      (r/read-char reader) ;; ignore @
-                      (let [next-val (parse-next ctx reader)]
-                        (if (ifn? v)
-                          (v next-val)
-                          (list 'clojure.core/unquote-splicing next-val))))
-                    (throw-reader
-                     ctx reader
-                     (str "Syntax unquote splice not allowed. Use the `:syntax-quote` option")))
-                  (let [next-val (parse-next ctx reader)]
-                    (if (ifn? v)
-                      (v next-val)
-                      (list 'clojure.core/unquote next-val))))))
-            (throw-reader
-             ctx reader
-             (str "Syntax unquote not allowed. Use the `:syntax-unquote` option")))
+                   (list 'clojure.core/deref next-val)))
+          \' (do
+               (r/read-char reader) ;; skip '
+               (let [next-val (parse-next ctx reader)]
+                 (when (kw-identical? ::eof next-val)
+                   (throw-eof-while-reading ctx reader))
+                 (list 'quote next-val)))
+          \` (do
+               (r/read-char reader) ;; skip `
+               (let [next-val (parse-next ctx reader)
+                     gensyms (atom {})
+                     ctx (assoc ctx :gensyms gensyms)
+                     ret (syntax-quote ctx reader next-val)]
+                 ret))
+          \~ (do
+               (r/read-char reader) ;; skip `
+               (let [nc (r/peek-char reader)]
+                 (if (identical? nc \@)
+                   (do
+                     (r/read-char reader) ;; ignore @
+                     (let [next-val (parse-next ctx reader)]
+                       (list 'clojure.core/unquote-splicing next-val)))
+                   (let [next-val (parse-next ctx reader)]
+                     (list 'clojure.core/unquote next-val)))))
           \( (parse-list ctx reader)
           \[ (parse-to-delimiter ctx reader \])
           \{ (parse-map ctx reader)
@@ -542,6 +463,15 @@
                  val-val))
           \: (parse-keyword ctx reader)
           (edn-read ctx reader)))))
+
+(defn desugar-meta
+  "Resolves syntactical sugar in metadata" ;; could be combined with some other desugar?
+  ([f]
+   (cond
+     (keyword? f) {f true}
+     (symbol? f)  {:tag f}
+     (string? f)  {:tag f}
+     :else        f)))
 
 (defn iobj? [obj]
   #?(:clj
@@ -577,7 +507,7 @@
                  obj (if desugar (desugar-meta obj) obj)
                  obj (cond loc? (vary-meta obj
                                            #(cond-> %
-                                             ;; Note: using 3-arity of assoc, because faster
+                                              ;; Note: using 3-arity of assoc, because faster
                                               loc? (-> (assoc :line line)
                                                        (assoc :column column))
                                               src (assoc :source src)))
@@ -591,50 +521,8 @@
   (r/indexing-push-back-reader
    (r/string-push-back-reader s)))
 
-(defrecord Options [dispatch deref syntax-quote unquote
-                    unquote-splicing quote fn var
-                    read-eval regex
-                    postprocess location?])
-
-(defn normalize-opts [opts]
-  (let [opts (if-let [dispatch (:dispatch opts)]
-               (into (dissoc opts :dispatch)
-                     [(when-let [v (get-in dispatch [\@])]
-                        [:deref v])
-                      (when-let [v (get-in dispatch [\`])]
-                        [:syntax-quote v])
-                      (when-let [v (get-in dispatch [\~])]
-                        (if (fn? v)
-                          [:unquote v]
-                          (when-let [v (:default v)]
-                            [:unquote v])))
-                      (when-let [v (get-in dispatch [\~ \@])]
-                        [:unquote-splicing v])
-                      (when-let [v (get-in dispatch [\'])]
-                        [:quote v])
-                      (when-let [v (get-in dispatch [\# \(])]
-                        [:fn v])
-                      (when-let [v (get-in dispatch [\# \'])]
-                        [:var v])
-                      (when-let [v (get-in dispatch [\# \=])]
-                        [:read-eval v])
-                      (when-let [v (get-in dispatch [\# \"])]
-                        [:regex v])])
-               opts)
-        opts (if (:all opts)
-               (merge {:deref true
-                       :fn true
-                       :quote true
-                       :read-eval true
-                       :regex true
-                       :syntax-quote true
-                       :var true} opts)
-               opts)]
-    (map->Options opts)))
-
 (defn parse-string [s opts]
-  (let [opts (normalize-opts opts)
-        src? (:source opts)
+  (let [src? (:source opts)
         r (if src? (r/source-logging-push-back-reader s)
               (string-reader s))
         ctx (assoc opts ::expected-delimiter nil)
@@ -642,8 +530,7 @@
     (if (kw-identical? ::eof v) nil v)))
 
 (defn parse-string-all [s opts]
-  (let [opts (normalize-opts opts)
-        ^Closeable r (string-reader s)
+  (let [^Closeable r (string-reader s)
         ctx (assoc opts ::expected-delimiter nil)]
     (loop [ret (transient [])]
       (let [next-val (parse-next ctx r)]
