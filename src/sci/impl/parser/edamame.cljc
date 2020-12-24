@@ -566,47 +566,20 @@
          (recur ctx reader desugar)
          (if (kw-identical? ::expected-delimiter obj)
            obj
-           (let [postprocess (:postprocess ctx)
-                 location? (:location? ctx)
-                 end-location? (:end-location? ctx)
-                 iobj?? (iobj? obj)
+           (let [iobj?? (iobj? obj)
                  src (when log?
                        (.trim (subs (buf) offset)))
                  loc? (or (and iobj??
-                               (or (not location?)
-                                   (location? obj)))
-                          postprocess)
-                 end-loc? (or (and iobj??
-                                   (or (not end-location?)
-                                       (location? obj)))
-                              postprocess)
-                 end-loc (when end-loc?
-                           (location reader))
+                               (or (symbol? obj)
+                                   (seq? obj))))
                  line (when loc? (:line loc))
-                 end-line (when end-loc? (:line end-loc))
                  column (when loc? (:column loc))
-                 end-column (when end-loc? (:column end-loc))
-                 postprocess-fn (when postprocess
-                                  #(postprocess (cond->
-                                                    {:obj %
-                                                     :loc (cond-> {}
-                                                            loc? (-> (assoc :line line)
-                                                                     (assoc :column column))
-                                                            end-loc? (-> (assoc :end-line end-line)
-                                                                         (assoc :end-column end-column)))}
-                                                  src (assoc :source src))))
-                 obj (if desugar
-                       (if postprocess-fn
-                         (desugar-meta obj postprocess-fn)
-                         (desugar-meta obj)) obj)
-                 obj (cond postprocess (postprocess-fn obj)
-                           loc? (vary-meta obj
+                 obj (if desugar (desugar-meta obj) obj)
+                 obj (cond loc? (vary-meta obj
                                            #(cond-> %
                                              ;; Note: using 3-arity of assoc, because faster
                                               loc? (-> (assoc :line line)
                                                        (assoc :column column))
-                                              end-loc? (-> (assoc :end-line end-line)
-                                                           (assoc :end-column end-column))
                                               src (assoc :source src)))
                            :else obj)]
              obj))))
