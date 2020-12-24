@@ -3,37 +3,18 @@
   (:refer-clojure :exclude [read-string])
   (:require
    [clojure.tools.reader.reader-types :as r]
-   [edamame.impl.parser :as parser]
    [sci.impl.interop :as interop]
+   [sci.impl.parser.edamame :as parser]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
+(def ^:const eof :sci.impl.parser.edamame/eof)
+
 (def default-opts
-  (parser/normalize-opts
-   {:all true
-    :read-eval false
-    :row-key :line
-    :col-key :column
-    :end-row-key :end-line
-    :end-col-key :end-column
-    :read-cond :allow
-    :location? (fn [obj]
-                 (or
-                  ;; for fine-grained error messages during analysis we also add
-                  ;; locations to symbols. This adds about 10% to parse/analysis
-                  ;; time.
-
-                  ;; $ tmp/bb-only-seq-and-sym-locs tmp/meander.clj
-                  ;; "Elapsed time: 120.448655 msecs"
-
-                  ;; $ tmp/bb-only-seq-locs tmp/meander.clj
-                  ;; "Elapsed time: 110.869661 msecs"
-
-                  (symbol? obj)
-                  ;; same as clojure
-                  (seq? obj)))}))
+  {:read-eval false
+   :read-cond :allow})
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
@@ -85,8 +66,7 @@
          current-ns (vars/current-ns-name)
          the-current-ns (get-in env-val [:namespaces current-ns])
          aliases (:aliases the-current-ns)
-         auto-resolve (assoc aliases
-                             :current current-ns)
+         auto-resolve (assoc aliases :current current-ns)
          parse-opts (cond-> (assoc default-opts
                                    :features features
                                    :auto-resolve auto-resolve
@@ -125,7 +105,7 @@
   ([ctx s]
    (let [r (reader s)
          v (parse-next ctx r)]
-     (if (utils/kw-identical? :edamame.impl.parser/eof v) nil v))))
+     (if (utils/kw-identical? eof v) nil v))))
 
 ;;;; Scratch
 

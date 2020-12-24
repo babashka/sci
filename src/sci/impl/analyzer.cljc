@@ -127,8 +127,8 @@
                :fn-name fn-name}))
 
 (defn analyzed-fn-meta [ctx m]
-  (let [;; seq expr has location info with 4 keys
-        meta-needs-eval? (> (count m) 4)
+  (let [;; seq expr has location info with 2 keys
+        meta-needs-eval? (> (count m) 2)
         m (if meta-needs-eval? (mark-eval (analyze ctx m))
               m)]
     m))

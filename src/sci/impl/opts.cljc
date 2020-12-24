@@ -7,6 +7,9 @@
    [sci.impl.vars :as vars]
    [sci.lang]))
 
+#?(:clj
+   (defrecord Env [namespaces imports load-fn]))
+
 (defn init-env! [env bindings aliases namespaces imports load-fn]
   (swap! env (fn [env]
                (let [namespaces (merge-with merge
@@ -21,10 +24,15 @@
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc 'global-hierarchy
                                             (vars/->SciVar (make-hierarchy) 'global-hierarchy nil false)))]
-                 (assoc env
-                        :namespaces namespaces
-                        :imports imports
-                        :load-fn load-fn)))))
+                 (if-not env
+                   #?(:clj (->Env namespaces imports load-fn)
+                      :cljs {:namespaces namespaces
+                             :imports imports
+                             :load-fn load-fn})
+                   (assoc env
+                          :namespaces namespaces
+                          :imports imports
+                          :load-fn load-fn))))))
 
 (defn process-permissions [& permissions]
   (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
@@ -86,13 +94,15 @@
                  ((get-in methods '[java.lang.Object toString]) this))))}
      :cljs {}))
 
-#?(:clj (defrecord Ctx [bindings env namespaces]))
+#?(:clj (defrecord Ctx [bindings env
+                        features readers]))
 
-(defn ->ctx [bindings env namespaces]
+(defn ->ctx [bindings env features readers]
   #?(:cljs {:bindings bindings
             :env env
-            :namespaces namespaces}
-     :clj (->Ctx bindings env namespaces)))
+            :features features
+            :readers readers}
+     :clj (->Ctx bindings env features readers)))
 
 (defn init
   "Initializes options"
@@ -113,11 +123,9 @@
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
         classes (normalize-classes (merge default-classes classes))
-        ctx (assoc (->ctx {} env namespaces)
+        ctx (assoc (->ctx {} env features readers)
                    :allow (process-permissions allow)
                    :deny (process-permissions deny)
-                   :features features
-                   :readers readers
                    :uberscript uberscript
                    :reify (merge default-reify reify)
                    :disable-arity-checks disable-arity-checks
