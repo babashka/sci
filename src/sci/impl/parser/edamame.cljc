@@ -25,8 +25,9 @@
 
 ;;;; tools.reader
 
-;; This is used for reading tokens (numbers, strings and symbols). We might inline this
-;; later, but for now we're falling back on the EDN reader.
+;; This is used for reading tokens (numbers, strings, symbols, chars,
+;; ##Inf). We're falling back on the EDN reader to handle this. Tried inlining
+;; it, but saw no significant performance gain.
 (defn edn-read [ctx #?(:cljs ^not-native reader :default reader)]
   (let [tools-reader-opts (:tools.reader/opts ctx)]
     (edn/read tools-reader-opts reader)))
