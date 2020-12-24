@@ -97,7 +97,7 @@
                 expr (p/parse-next ctx reader)
                 #?@(:clj [t1 (System/nanoTime)
                           _ (update-stats ctx :parse (- t1 t0))])]
-            (if (utils/kw-identical? :edamame.impl.parser/eof expr)
+            (if (utils/kw-identical? p/eof expr)
               (do
                 (print-stats)
                 ret)
@@ -110,7 +110,7 @@
       (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
         (loop [ret nil]
           (let [expr (p/parse-next ctx reader)]
-            (if (utils/kw-identical? :edamame.impl.parser/eof expr)
+            (if (utils/kw-identical? p/eof expr)
               ret
               (let [ret (eval-form ctx expr)]
                 (recur ret)))))))))

@@ -3,12 +3,14 @@
   (:refer-clojure :exclude [read-string])
   (:require
    [clojure.tools.reader.reader-types :as r]
-   [edamame.impl.parser :as parser]
    [sci.impl.interop :as interop]
+   [sci.impl.parser.edamame :as parser]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
+
+(def ^:const eof :sci.impl.parser.edamame/eof)
 
 (def default-opts
   (parser/normalize-opts
@@ -16,8 +18,6 @@
     :read-eval false
     :row-key :line
     :col-key :column
-    :end-row-key :end-line
-    :end-col-key :end-column
     :read-cond :allow
     :location? (fn [obj]
                  (or
@@ -125,7 +125,7 @@
   ([ctx s]
    (let [r (reader s)
          v (parse-next ctx r)]
-     (if (utils/kw-identical? :edamame.impl.parser/eof v) nil v))))
+     (if (utils/kw-identical? eof v) nil v))))
 
 ;;;; Scratch
 

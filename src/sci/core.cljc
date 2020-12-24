@@ -238,7 +238,7 @@
   ([ctx reader] (parse-next ctx reader {}))
   ([ctx reader opts]
    (let [v (parser/parse-next ctx reader opts)]
-     (if (utils/kw-identical? :edamame.impl.parser/eof v)
+     (if (utils/kw-identical? parser/eof v)
        (or (get opts :eof)
            ::eof)
        v))))
