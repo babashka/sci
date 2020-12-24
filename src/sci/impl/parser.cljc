@@ -3,8 +3,8 @@
   (:refer-clojure :exclude [read-string])
   (:require
    [clojure.tools.reader.reader-types :as r]
+   [edamame.impl.parser :as edamame]
    [sci.impl.interop :as interop]
-   [sci.impl.parser.edamame :as parser]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
@@ -13,8 +13,28 @@
 (def ^:const eof :sci.impl.parser.edamame/eof)
 
 (def default-opts
-  {:read-eval false
-   :read-cond :allow})
+  (edamame/normalize-opts
+   {:all true
+    :read-eval false
+    :row-key :line
+    :col-key :column
+    :read-cond :allow
+    :location? (fn [obj]
+                 (or
+                  ;; for fine-grained error messages during analysis we also add
+                  ;; locations to symbols. This adds about 10% to parse/analysis
+                  ;; time.
+
+                  ;; $ tmp/bb-only-seq-and-sym-locs tmp/meander.clj
+                  ;; "Elapsed time: 120.448655 msecs"
+
+                  ;; $ tmp/bb-only-seq-locs tmp/meander.clj
+                  ;; "Elapsed time: 110.869661 msecs"
+
+                  (symbol? obj)
+                  ;; same as clojure
+                  (seq? obj)))
+    :end-location false}))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
@@ -53,8 +73,6 @@
     ret))
 
 (defn parse-next
-  ([r]
-   (parser/parse-next default-opts r))
   ([ctx r]
    (parse-next ctx r nil))
   ([ctx r opts]
@@ -73,8 +91,10 @@
                                    :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
                                    :readers readers)
                       opts (merge opts))
-         ret (try (parser/parse-next parse-opts
-                                     r)
+         ret (try (let [v (edamame/parse-next parse-opts r)]
+                    (if (utils/kw-identical? v :edamame.impl.parser/eof)
+                      eof
+                      v))
                   (catch #?(:clj clojure.lang.ExceptionInfo
                             :cljs cljs.core/ExceptionInfo) e
                     (throw (ex-info #?(:clj (.getMessage e)

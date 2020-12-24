@@ -129,6 +129,7 @@
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
         meta-needs-eval? (> (count m) 2)
+        ;; TODO: users might have parsed using :end-line still
         m (if meta-needs-eval? (mark-eval (analyze ctx m))
               m)]
     m))
