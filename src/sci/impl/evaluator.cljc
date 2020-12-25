@@ -98,14 +98,7 @@
   [ctx var-name init]
   (let [init (eval ctx init)
         m (meta var-name)
-        mks (keys m)
-        m (if (some #(not
-                      (contains? #{:line :column :ns :file :doc
-                                   :arglists :macro :dynamic
-                                   :const :private :sci.impl/op} %))
-                    mks)
-            (eval ctx m)
-            m)
+        m (eval ctx m) ;; m is marked with eval op in analyzer only when necessary
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
