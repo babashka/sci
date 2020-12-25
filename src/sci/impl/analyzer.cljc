@@ -235,7 +235,7 @@
             var-name (with-meta var-name m)]
         (with-meta
           (fn [ctx]
-            (eval/eval-def2 ctx var-name init))
+            (eval/eval-def ctx var-name init))
           {:sci.impl/op utils/evaluate})))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
@@ -268,7 +268,7 @@
                  :sci.impl/var true)]
     (with-meta
       (fn [ctx]
-        (eval/eval-def2 ctx fn-name f))
+        (eval/eval-def ctx fn-name f))
       {:sci.impl/op utils/evaluate})))
 
 (defn expand-loop

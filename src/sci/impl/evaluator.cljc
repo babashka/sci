@@ -95,34 +95,6 @@
 ;; nil
 
 (defn eval-def
-  [ctx [_def var-name init]]
-  #_(prn "def" var-name (vars/getName (:ns (meta var-name))))
-  #_(let [init (eval ctx init)
-        m (meta var-name)
-        m (eval ctx m)
-        cnn (vars/getName (:ns m))
-        assoc-in-env
-        (fn [env]
-          (let [the-current-ns (get-in env [:namespaces cnn])
-                prev (get the-current-ns var-name)
-                prev (if-not (vars/var? prev)
-                       (vars/->SciVar prev (symbol (str cnn) (str var-name))
-                                      (meta prev)
-                                      false)
-                       prev)
-                v (if (kw-identical? :sci.impl/var.unbound init)
-                    (doto prev
-                      (alter-meta! merge m))
-                    (do (vars/bindRoot prev init)
-                        (alter-meta! prev merge m)
-                        prev))
-                the-current-ns (assoc the-current-ns var-name v)]
-            (assoc-in env [:namespaces cnn] the-current-ns)))
-        env (swap! (:env ctx) assoc-in-env)]
-    ;; return var instead of init-val
-    (get-in env [:namespaces cnn var-name])))
-
-(defn eval-def2
   [ctx var-name init]
   (let [init (eval ctx init)
         m (meta var-name)
@@ -550,7 +522,6 @@
     do (eval-do ctx expr)
     and (eval-and ctx (rest expr))
     or (eval-or ctx (rest expr))
-    def (eval-def ctx expr)
     lazy-seq (new #?(:clj clojure.lang.LazySeq
                      :cljs cljs.core/LazySeq)
                   #?@(:clj []
