@@ -95,11 +95,9 @@
 ;; nil
 
 (defn eval-def
-  [ctx [_def var-name ?docstring ?init]]
+  [ctx [_def var-name init]]
   #_(prn "def" var-name (vars/getName (:ns (meta var-name))))
-  (let [docstring (when ?init ?docstring)
-        init (if docstring ?init ?docstring)
-        init (eval ctx init)
+  #_(let [init (eval ctx init)
         m (meta var-name)
         m (eval ctx m)
         cnn (vars/getName (:ns m))
@@ -123,6 +121,40 @@
         env (swap! (:env ctx) assoc-in-env)]
     ;; return var instead of init-val
     (get-in env [:namespaces cnn var-name])))
+
+(defn eval-def2
+  [ctx var-name init]
+  (let [init (eval ctx init)
+        m (meta var-name)
+        mks (keys m)
+        m (if (some #(not
+                      (contains? #{:line :column :ns :file :doc
+                                   :arglists :macro :dynamic
+                                   :const :private :sci.impl/op} %))
+                    mks)
+            (eval ctx m)
+            m)
+        cnn (vars/getName (:ns m))
+        assoc-in-env
+        (fn [env]
+          (let [the-current-ns (get (get env :namespaces) cnn)
+                prev (get the-current-ns var-name)
+                prev (if-not (vars/var? prev)
+                       (vars/->SciVar prev (symbol (str cnn) (str var-name))
+                                      (meta prev)
+                                      false)
+                       prev)
+                v (if (kw-identical? :sci.impl/var.unbound init)
+                    (doto prev
+                      (alter-meta! merge m))
+                    (do (vars/bindRoot prev init)
+                        (alter-meta! prev merge m)
+                        prev))
+                the-current-ns (assoc the-current-ns var-name v)]
+            (assoc-in env [:namespaces cnn] the-current-ns)))
+        env (swap! (:env ctx) assoc-in-env)]
+    ;; return var
+    (get (get (get env :namespaces) cnn) var-name)))
 
 (defmacro resolve-symbol [ctx sym]
   `(.get ^java.util.Map
