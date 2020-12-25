@@ -229,7 +229,13 @@
                    :sci.impl/var.unbound
                    (analyze ctx init))
             m (meta var-name)
-            m (analyze ctx m)
+            mks (keys m)
+            m (if (some
+                   #(not
+                     (contains? #{:line :column :dynamic :private :const :doc} %))
+                   mks)
+                (analyze ctx m)
+                m)
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
