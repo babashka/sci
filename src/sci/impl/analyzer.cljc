@@ -233,7 +233,10 @@
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
-        (mark-eval-call (list 'def var-name init))))))
+        (with-meta
+          (fn [ctx]
+            (eval/eval-def2 ctx var-name init))
+          {:sci.impl/op utils/evaluate})))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
   (when-not (simple-symbol? fn-name)
@@ -263,7 +266,10 @@
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
                  :sci.impl/var true)]
-    (mark-eval-call (list 'def fn-name f))))
+    (with-meta
+      (fn [ctx]
+        (eval/eval-def2 ctx fn-name f))
+      {:sci.impl/op utils/evaluate})))
 
 (defn expand-loop
   [ctx expr]
