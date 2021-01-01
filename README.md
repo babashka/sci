@@ -40,7 +40,7 @@ This library works with:
 
 Sci is used in:
 
-- [Babashka](https://github.com/borkdude/babashka). A Clojure scripting tool that plays well with Bash.
+- [Babashka](https://github.com/babashka/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Chlorine](https://github.com/mauricioszabo/atom-chlorine). Socket-REPL and nREPL package for Atom editor.
@@ -57,7 +57,7 @@ Sci is used in:
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 
-Are you using sci in your company or projects? Let us know [here](https://github.com/borkdude/babashka/issues/254).
+Are you using sci in your company or projects? Let us know [here](https://github.com/babashka/babashka/issues/254).
 
 ## Status
 
