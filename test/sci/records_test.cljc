@@ -118,3 +118,11 @@
             "(defprotocol IFoo (foo [this]))
              (defrecord Foo [x] IFoo (foo [this] (Foo. x)))
              (foo (Foo. 1))" {})))))
+
+
+(deftest type-name-test
+  (let [prog "
+(ns foo)
+(defrecord R [bar])
+(-> \"bar\" ->R meta :sci.impl/type str)"]
+    (is (= "foo.R" (tu/eval* prog {})))))
