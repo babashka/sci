@@ -10,6 +10,7 @@
         factory-fn-sym (symbol factory-fn-str)
         map-factory-sym (symbol (str "map" factory-fn-str))
         keys (mapv keyword fields)
+        rec-type (symbol (str (vars/current-ns-name)) (str record-name))
         protocol-impls (utils/split-when symbol? protocol-impls)
         protocol-impls
         (mapcat (fn [[protocol-name & impls]]
@@ -30,7 +31,7 @@
                                                   `(~args
                                                     (let ~bindings
                                                       ~@(next impl))))) bodies)]
-                             `(defmethod ~(fq-meth-name (str method-name)) '~record-name ~@bodies)))
+                             `(defmethod ~(fq-meth-name (str method-name)) '~rec-type ~@bodies)))
                          impls)))
                 protocol-impls)]
     `(do
@@ -38,12 +39,12 @@
          (vary-meta m#
                     assoc
                     :sci.impl/record true
-                    :sci.impl/type '~record-name))
+                    :sci.impl/type '~rec-type))
        (defn ~factory-fn-sym [& args#]
          (vary-meta (zipmap ~keys args#)
                     assoc
                     :sci.impl/record true
-                    :sci.impl/type '~record-name))
+                    :sci.impl/type '~rec-type))
        (def ~record-name (with-meta '~record-name
                            {:sci.impl/record true
                             :sci.impl.record/constructor ~factory-fn-sym}))
