@@ -39,7 +39,7 @@
 (extends? Area Rectangle)"]
     (is (true? (tu/eval* prog {})))))
 
-(deftest multiplefunctions-test
+(deftest multiple-functions-test
   (let [prog "
 (defprotocol Area (get-area [this])
                   (get-perimeter [this]))
