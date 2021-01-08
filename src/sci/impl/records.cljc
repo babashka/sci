@@ -34,11 +34,6 @@
                          impls)))
                 protocol-impls)]
     `(do
-       (defn ~factory-fn-sym [& args#]
-         (vary-meta (zipmap ~keys args#)
-                    assoc
-                    :sci.impl/record true
-                    :sci.impl/type (symbol ~(str (vars/current-ns-name)) '~record-name)))
        (defn ~map-factory-sym [m#]
          (vary-meta m#
                     assoc
