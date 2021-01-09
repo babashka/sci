@@ -7,7 +7,7 @@
 
 (deftype EvalVar [v]
   IBox
-  (getVal [this] v))
+  (getVal [_this] v))
 
 (defprotocol IReified
   (getInterface [_])

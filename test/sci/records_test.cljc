@@ -118,3 +118,8 @@
             "(defprotocol IFoo (foo [this]))
              (defrecord Foo [x] IFoo (foo [this] (Foo. x)))
              (foo (Foo. 1))" {})))))
+
+(deftest namespace-test
+  (let [prog "
+(ns foo) (defrecord Foo []) (ns bar (:import [foo Foo])) Foo"]
+    (is (= 'foo/Foo (tu/eval* prog {})))))
