@@ -117,11 +117,12 @@
   (cond
     ;; fast path for Clojure when using normal clazz
     #?@(:clj [(class? clazz) (instance? clazz x)])
-    ;; records are currenrly represented as a symbol with metadata
-    (and (symbol? clazz) (let [m (meta clazz)] (:sci.impl/record m)))
-    ;; TODO: symbol should be fully qualified really and we probably need the context for that
-    ;; or should we do that in the analyzer? but instance isn't a macro, so it should happen just in time
-    (= (symbol (str (vars/current-ns-name)) (str clazz)) (some-> x meta :sci.impl/type))
+    ;; records are currently represented as a symbol with metadata
+    (symbol? clazz)
+    (let [m (meta clazz)]
+      (and m (:sci.impl/record m))
+      (= (some-> clazz meta :sci.impl/type)
+         (some-> x meta :sci.impl/type)))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]

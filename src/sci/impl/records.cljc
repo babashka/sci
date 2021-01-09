@@ -46,7 +46,8 @@
                     :sci.impl/record true
                     :sci.impl/type '~rec-type))
        (def ~record-name (with-meta '~record-name
-                           {:sci.impl/record true
+                           {:sci.impl/type '~rec-type
+                            :sci.impl/record true
                             :sci.impl.record/constructor ~factory-fn-sym}))
        ~@protocol-impls)))
 
