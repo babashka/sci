@@ -120,9 +120,11 @@
     ;; records are currently represented as a symbol with metadata
     (symbol? clazz)
     (let [m (meta clazz)]
-      (and m (:sci.impl/record m))
-      (= (some-> clazz meta :sci.impl/type)
-         (some-> x meta :sci.impl/type)))
+      (if (and m (:sci.impl/record m))
+        (= (some-> clazz meta :sci.impl/type)
+           (some-> x meta :sci.impl/type))
+        ;; fallback, which throws on symbols
+        (instance? clazz x)))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]
