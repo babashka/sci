@@ -2,6 +2,10 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+### Unreleased
+
+- defrecord `type` improvements [#492](https://github.com/borkdude/sci/issues/492)
+
 ### v0.2.0
 
 Thanks for contributing to this release:
