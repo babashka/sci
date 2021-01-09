@@ -10,7 +10,8 @@
    [sci.impl.analyzer :as ana]
    [sci.impl.evaluator :as eval]
    [sci.impl.opts :as opts]
-   [sci.impl.parser :as p])
+   [sci.impl.parser :as p]
+   #?(:clj [clojure.java.io :as io]))
   #?(:clj (:gen-class)))
 
 #?(:clj
@@ -42,10 +43,14 @@
                           (if (< i n)
                             (recur (inc i))
                             ret)))))
-              (eval-string
-               form
-               (-> ctx
-                   #?(:clj (addons/future))))))]
+              (let [_ nil ;; clj-kondo
+                    #?@(:clj [f (io/file form)])
+                    #?@(:clj [form (if (.exists f)
+                                     (slurp f) form)])]
+                (eval-string
+                 form
+                 (-> ctx
+                     #?(:clj (addons/future)))))))]
     (when (some? v) (prn v))))
 
 ;; for testing only

@@ -71,29 +71,37 @@
     expansion))
 
 (defn extend [ctx atype & proto+mmaps]
-  (doseq [[proto mmap] (partition 2 proto+mmaps)
-          :let [proto-ns (:ns proto)
-                pns (vars/getName proto-ns)]]
-    #_(when-not (protocol? proto)
-        (throw (new #?(:clj IllegalArgumentException
-                       :cljs js/Error)
-                    (str proto " is not a protocol"))))
-    #_(when (implements? proto atype)
-        (throw (new #?(:clj IllegalArgumentException
-                       :cljs js/Error)
-                    (str atype " already directly implements " (:on-interface proto) " for protocol:"
-                         (:var proto)))))
-    (doseq [[fn-name f] mmap]
-      (let [fn-sym (symbol (name fn-name))
-            env @(:env ctx)
-            multi-method-var (get-in env [:namespaces pns fn-sym])
-            multi-method @multi-method-var]
-        (mms/multi-fn-add-method-impl multi-method atype f))
-      )
-    #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
+  (let [atype (if (symbol? atype)
+                ;; this is a sci record
+                (-> atype meta :sci.impl/type)
+                atype)]
+    (doseq [[proto mmap] (partition 2 proto+mmaps)
+            :let [proto-ns (:ns proto)
+                  pns (vars/getName proto-ns)]]
+      #_(when-not (protocol? proto)
+          (throw (new #?(:clj IllegalArgumentException
+                         :cljs js/Error)
+                      (str proto " is not a protocol"))))
+      #_(when (implements? proto atype)
+          (throw (new #?(:clj IllegalArgumentException
+                         :cljs js/Error)
+                      (str atype " already directly implements " (:on-interface proto) " for protocol:"
+                           (:var proto)))))
+      (doseq [[fn-name f] mmap]
+        (let [fn-sym (symbol (name fn-name))
+              env @(:env ctx)
+              multi-method-var (get-in env [:namespaces pns fn-sym])
+              multi-method @multi-method-var]
+          (mms/multi-fn-add-method-impl multi-method atype f))
+        )
+      #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap)))))
 
-(defn extend-type [_ _ ctx type & proto+meths]
-  (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
+(defn extend-type [_ _ ctx atype & proto+meths]
+  (let [atype atype #_(if (symbol? atype)
+                ;; this is a sci record
+                (-> atype meta :sci.impl/type)
+                atype)
+        proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map (fn [[proto & meths]]
                   (let [protocol-var (@utils/eval-resolve-state ctx proto)
                         protocol-ns (-> protocol-var deref :ns)
@@ -102,7 +110,7 @@
                     `(do
                        ~@(map (fn [meth]
                                 `(defmethod ~(fq-meth-name (name (first meth)))
-                                   ~type ~(second meth) ~@(nnext meth)))
+                                   ~atype ~(second meth) ~@(nnext meth)))
                               meths)))) proto+meths))))
 
 (defn satisfies? [protocol obj]
