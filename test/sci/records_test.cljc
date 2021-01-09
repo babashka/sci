@@ -123,3 +123,11 @@
   (let [prog "
 (ns foo) (defrecord Foo []) (ns bar (:import [foo Foo])) Foo"]
     (is (= 'foo/Foo (tu/eval* prog {})))))
+
+(deftest derive-test
+  (let [prog "
+(ns foo) (defrecord Foo []) (derive Foo ::bar) (isa? (type (Foo.)) ::bar)"]
+    (is (true? (tu/eval* prog {}))))
+  (let [prog "
+(ns foo) (defrecord Foo []) (derive Foo ::bar) (isa? (type {}) ::bar)"]
+    (is (false? (tu/eval* prog {})))))

@@ -1106,7 +1106,10 @@
    'transduce (copy-core-var transduce)
    'transient (copy-core-var transient)
    'tree-seq (copy-core-var tree-seq)
-   'type (copy-core-var type)
+   'type #?(:clj (copy-core-var type)
+            :cljs (vars/new-var 'type (fn [x]
+                                        (or (get (meta x) :type)
+                                            (type x)))))
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
    'update (copy-core-var update)
