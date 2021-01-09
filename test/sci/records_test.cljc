@@ -29,7 +29,7 @@
   [(f/foo a) (f/foo b) (f/graph a) (satisfies? f/Graph a)])"]
       (is (= [0 3 {:from 1, :to 2} true] (tu/eval* prog {}))))))
 
-(deftest extends-test
+(deftest extends?-test
   (let [prog "
 (defprotocol Area (get-area [this]))
 (defrecord Rectangle [width height]
@@ -39,7 +39,7 @@
 (extends? Area Rectangle)"]
     (is (true? (tu/eval* prog {})))))
 
-(deftest multiplefunctions-test
+(deftest multiple-functions-test
   (let [prog "
 (defprotocol Area (get-area [this])
                   (get-perimeter [this]))
@@ -118,3 +118,24 @@
             "(defprotocol IFoo (foo [this]))
              (defrecord Foo [x] IFoo (foo [this] (Foo. x)))
              (foo (Foo. 1))" {})))))
+
+(deftest namespace-test
+  (let [prog "
+(ns foo) (defrecord Foo []) (ns bar (:import [foo Foo])) Foo"]
+    (is (= 'foo/Foo (tu/eval* prog {})))))
+
+(deftest type-test
+  (let [prog "
+(ns foo) (defrecord Foo []) (= foo.Foo (type (->Foo)))"]
+    (is (true? (tu/eval* prog {}))))
+  (let [prog "
+(ns foo) (defrecord Foo []) (= 'foo/Foo (type (->Foo)))"]
+    (is (true? (tu/eval* prog {})))))
+
+(deftest derive-test
+  (let [prog "
+(ns foo) (defrecord Foo []) (derive Foo ::bar) (isa? (type (Foo.)) ::bar)"]
+    (is (true? (tu/eval* prog {}))))
+  (let [prog "
+(ns foo) (defrecord Foo []) (derive Foo ::bar) (isa? (type {}) ::bar)"]
+    (is (false? (tu/eval* prog {})))))

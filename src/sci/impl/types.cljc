@@ -7,7 +7,7 @@
 
 (deftype EvalVar [v]
   IBox
-  (getVal [this] v))
+  (getVal [_this] v))
 
 (defprotocol IReified
   (getInterface [_])
@@ -21,10 +21,11 @@
 (defn type-impl [x & _xs]
   (or (when (instance? sci.impl.types.Reified x)
         :sci.impl.protocols/reified)
-      (some-> x meta :sci.impl/type)
-      (type x)))
+      (some-> x meta :type)
+      #?(:clj (class x) ;; no need to check for metadata anymore
+         :cljs (type x))))
 
 ;; returned from analyzer when macroexpansion needs interleaved eval
 (deftype EvalForm [form]
   IBox
-  (getVal [this] form))
+  (getVal [_this] form))

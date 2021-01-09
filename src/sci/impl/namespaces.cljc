@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [ex-message ex-cause eval read
                             read-string require
                             use load-string
-                            find-var *1 *2 *3 *e])
+                            find-var *1 *2 *3 *e #?(:cljs type)])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -631,6 +631,9 @@
 (defn macroexpand-1* [ctx expr]
   (@utils/macroexpand-1* ctx expr))
 
+
+;;;;
+
 #?(:clj
    (def clojure-lang
      {:obj (vars/->SciNamespace 'clojure.lang nil)
@@ -647,6 +650,8 @@
       'swapVals core-protocols/swapVals
       }))
 
+;;;; REPL vars
+
 (def *1 (vars/->SciVar nil '*1 {:ns clojure-core-ns
                                 :dynamic true} false))
 
@@ -658,6 +663,13 @@
 
 (def *e (vars/->SciVar nil '*e {:ns clojure-core-ns
                                 :dynamic true} false))
+
+;;;; Patch for CLJS type
+
+#?(:cljs
+   (defn type [x]
+     (or (get (meta x) :type)
+         (cljs.core/type x))))
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -1106,7 +1118,8 @@
    'transduce (copy-core-var transduce)
    'transient (copy-core-var transient)
    'tree-seq (copy-core-var tree-seq)
-   'type (copy-core-var type)
+   'type #?(:clj (copy-core-var type)
+            :cljs (copy-var type clojure-core-ns))
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
    'update (copy-core-var update)

@@ -92,7 +92,7 @@
       )
     #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
 
-(defn extend-type [_ _ ctx type & proto+meths]
+(defn extend-type [_ _ ctx atype & proto+meths]
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map (fn [[proto & meths]]
                   (let [protocol-var (@utils/eval-resolve-state ctx proto)
@@ -102,7 +102,7 @@
                     `(do
                        ~@(map (fn [meth]
                                 `(defmethod ~(fq-meth-name (name (first meth)))
-                                   ~type ~(second meth) ~@(nnext meth)))
+                                   ~atype ~(second meth) ~@(nnext meth)))
                               meths)))) proto+meths))))
 
 (defn satisfies? [protocol obj]
@@ -117,9 +117,9 @@
   (cond
     ;; fast path for Clojure when using normal clazz
     #?@(:clj [(class? clazz) (instance? clazz x)])
-    ;; records are currenrly represented as a symbol with metadata
-    (and (symbol? clazz) (let [m (meta clazz)] (:sci.impl/record m)))
-    (= clazz (some-> x meta :sci.impl/type))
+    ;; records are currently represented as a symbol with metadata
+    (and (symbol? clazz) (some-> clazz meta :sci.impl/record))
+    (= clazz (-> x meta :type))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]
