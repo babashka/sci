@@ -39,11 +39,14 @@
          (vary-meta m#
                     assoc
                     :sci.impl/record true
-                    :sci.impl/type '~rec-type))
+                    :sci.impl/type '~rec-type
+                    :type '~rec-type
+                    ))
        (defn ~factory-fn-sym [& args#]
          (vary-meta (zipmap ~keys args#)
                     assoc
                     :sci.impl/record true
+                    :type '~rec-type
                     :sci.impl/type '~rec-type))
        (def ~record-name (with-meta '~rec-type
                            {:sci.impl/type '~rec-type
