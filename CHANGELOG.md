@@ -2,23 +2,28 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-### Unreleased
+## Unreleased
+
+### New
+
+### Enhancements / fixes
 
 - defrecord `type` improvements [#492](https://github.com/borkdude/sci/issues/492)
+- deref vars at analysis time that have :inline metadata in clojure [#483](https://github.com/borkdude/sci/issues/483)
 
-### v0.2.0
+## v0.2.0
 
 Thanks for contributing to this release:
 
 [@lread](https://github.com/lread), [@patrick-galvin](https://github.com/patrick-galvin), [@SevereOverfl0w](https://github.com/SevereOverfl0w), [@djblue](https://github.com/djblue), [@kwrooijen](https://github.com/kwrooijen), [@sogaiu](https://github.com/sogaiu), [@joinr](https://github.com/joinr), [@RickMoynihan](https://github.com/RickMoynihan), [@galdober](https://github.com/galdober)
 
-## Breaking changes
+### Breaking changes
 
 - Removed `:realize-max` and `:preset :termination-safe`. In the light of
   [#348](https://github.com/borkdude/sci/issues/348) it would be misleading to
   claim that sci can guarantee termination within reasonable time.
 
-## New
+### New
 
 - Add `class?`, `iterator-seq`, `remove-watch`, `realized?`, `clojure.walk/macroexpand-all`, `find-var`, `lazy-cat`, `bound?`, `*print-namespace-maps*`, `get-thread-bindings`, `var-get`, `var-set`, `with-local-vars`
 - Add `fork` API function [#369](https://github.com/babashka/babashka/issues/369)
@@ -33,7 +38,7 @@ Thanks for contributing to this release:
   single and fixed arity functions
   [#460](https://github.com/babashka/babashka/issues/460)
 
-## Enhancements / fixes
+### Enhancements / fixes
 
 - Alter-var-root uses thread-bound value to update [#359](https://github.com/babashka/babashka/issues/359)
 - Eval metadata on var created with defn [#371](https://github.com/babashka/babashka/issues/371)
