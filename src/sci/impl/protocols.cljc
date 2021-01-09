@@ -71,37 +71,29 @@
     expansion))
 
 (defn extend [ctx atype & proto+mmaps]
-  (let [atype (if (symbol? atype)
-                ;; this is a sci record
-                (-> atype meta :sci.impl/type)
-                atype)]
-    (doseq [[proto mmap] (partition 2 proto+mmaps)
-            :let [proto-ns (:ns proto)
-                  pns (vars/getName proto-ns)]]
-      #_(when-not (protocol? proto)
-          (throw (new #?(:clj IllegalArgumentException
-                         :cljs js/Error)
-                      (str proto " is not a protocol"))))
-      #_(when (implements? proto atype)
-          (throw (new #?(:clj IllegalArgumentException
-                         :cljs js/Error)
-                      (str atype " already directly implements " (:on-interface proto) " for protocol:"
-                           (:var proto)))))
-      (doseq [[fn-name f] mmap]
-        (let [fn-sym (symbol (name fn-name))
-              env @(:env ctx)
-              multi-method-var (get-in env [:namespaces pns fn-sym])
-              multi-method @multi-method-var]
-          (mms/multi-fn-add-method-impl multi-method atype f))
-        )
-      #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap)))))
+  (doseq [[proto mmap] (partition 2 proto+mmaps)
+          :let [proto-ns (:ns proto)
+                pns (vars/getName proto-ns)]]
+    #_(when-not (protocol? proto)
+        (throw (new #?(:clj IllegalArgumentException
+                       :cljs js/Error)
+                    (str proto " is not a protocol"))))
+    #_(when (implements? proto atype)
+        (throw (new #?(:clj IllegalArgumentException
+                       :cljs js/Error)
+                    (str atype " already directly implements " (:on-interface proto) " for protocol:"
+                         (:var proto)))))
+    (doseq [[fn-name f] mmap]
+      (let [fn-sym (symbol (name fn-name))
+            env @(:env ctx)
+            multi-method-var (get-in env [:namespaces pns fn-sym])
+            multi-method @multi-method-var]
+        (mms/multi-fn-add-method-impl multi-method atype f))
+      )
+    #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
 
 (defn extend-type [_ _ ctx atype & proto+meths]
-  (let [atype atype #_(if (symbol? atype)
-                ;; this is a sci record
-                (-> atype meta :sci.impl/type)
-                atype)
-        proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
+  (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map (fn [[proto & meths]]
                   (let [protocol-var (@utils/eval-resolve-state ctx proto)
                         protocol-ns (-> protocol-var deref :ns)
@@ -126,13 +118,8 @@
     ;; fast path for Clojure when using normal clazz
     #?@(:clj [(class? clazz) (instance? clazz x)])
     ;; records are currently represented as a symbol with metadata
-    (symbol? clazz)
-    (let [m (meta clazz)]
-      (if (and m (:sci.impl/record m))
-        (= (some-> clazz meta :sci.impl/type)
-           (some-> x meta :sci.impl/type))
-        ;; fallback, which throws on symbols
-        (instance? clazz x)))
+    (and (symbol? clazz) (some-> clazz meta :sci.impl/record))
+    (= clazz (some-> x meta :sci.impl/type))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]

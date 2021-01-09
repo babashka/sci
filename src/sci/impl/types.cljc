@@ -27,4 +27,4 @@
 ;; returned from analyzer when macroexpansion needs interleaved eval
 (deftype EvalForm [form]
   IBox
-  (getVal [this] form))
+  (getVal [_this] form))

@@ -29,7 +29,7 @@
   [(f/foo a) (f/foo b) (f/graph a) (satisfies? f/Graph a)])"]
       (is (= [0 3 {:from 1, :to 2} true] (tu/eval* prog {}))))))
 
-(deftest extends-test
+(deftest extends?-test
   (let [prog "
 (defprotocol Area (get-area [this]))
 (defrecord Rectangle [width height]
