@@ -119,7 +119,7 @@
     #?@(:clj [(class? clazz) (instance? clazz x)])
     ;; records are currently represented as a symbol with metadata
     (and (symbol? clazz) (some-> clazz meta :sci.impl/record))
-    (= clazz (some-> x meta :sci.impl/type))
+    (= clazz (some-> x meta :type))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]
