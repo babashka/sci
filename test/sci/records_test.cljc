@@ -126,6 +126,9 @@
 
 (deftest type-test
   (let [prog "
+(ns foo) (defrecord Foo []) (= foo.Foo (type (->Foo)))"]
+    (is (true? (tu/eval* prog {}))))
+  (let [prog "
 (ns foo) (defrecord Foo []) (= 'foo/Foo (type (->Foo)))"]
     (is (true? (tu/eval* prog {})))))
 
