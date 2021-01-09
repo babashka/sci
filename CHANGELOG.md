@@ -8,8 +8,9 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ### Enhancements / fixes
 
-- defrecord `type` improvements [#492](https://github.com/borkdude/sci/issues/492)
-- deref vars at analysis time that have :inline metadata in clojure [#483](https://github.com/borkdude/sci/issues/483)
+- Improvements for using `type` on `defrecord` [#492](https://github.com/borkdude/sci/issues/492)
+- Deref vars at analysis time that have `:inline` metadata in Clojure [#483](https://github.com/borkdude/sci/issues/483)
+- Keep only location metadata for seqs and symbols [#488](https://github.com/babashka/babashka/issues/488)
 
 ## v0.2.0
 
