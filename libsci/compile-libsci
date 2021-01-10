@@ -13,7 +13,7 @@ export PATH=$GRAALVM_HOME/bin:$PATH
 SCI_VERSION=$(cat resources/SCI_VERSION)
 
 SCI_JAR=target/sci-$SCI_VERSION-standalone.jar
-lein with-profiles +clojure-1.10.2-alpha1,+libsci,+native-image do clean, uberjar
+lein with-profiles +clojure-1.10.2-rc1,+libsci,+native-image do clean, uberjar
 $GRAALVM_HOME/bin/javac -cp $SCI_JAR libsci/src/sci/impl/LibSci.java
 
 $GRAALVM_HOME/bin/native-image \
@@ -26,7 +26,6 @@ $GRAALVM_HOME/bin/native-image \
   -J-Dclojure.compiler.direct-linking=true \
   "-H:IncludeResources=SCI_VERSION" \
   -H:ReflectionConfigurationFiles=reflection.json \
-  --initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder \
   --initialize-at-build-time  \
   -H:Log=registerResource: \
   --verbose \
