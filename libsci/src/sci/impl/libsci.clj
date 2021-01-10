@@ -6,7 +6,10 @@
 
 (defn -evalString [s]
   (sci/binding [sci/out *out*] ;; this enables println etc.
-    (str (sci/eval-string
-          s
-          ;; this brings cheshire.core into sci
-          {:namespaces {'cheshire.core {'generate-string cheshire/generate-string}}}))))
+    (str (try (sci/eval-string
+              s
+              ;; this brings cheshire.core into sci
+              {:namespaces {'cheshire.core {'generate-string cheshire/generate-string}}})
+              (catch Exception e
+                {:error (str (type e))
+                 :message (.getMessage e)})))))
