@@ -210,7 +210,10 @@
   (is (= 2 (eval* '(do (def foo) (def foo "docstring" 2) foo))))
   (is (= 1 (eval* "(try (def x 1) x)")))
   (is (= 1 (eval* "(try (defn x [] 1) (x))")))
-  (is (= 1 (eval* "(try (let [] (def x 1) x))"))))
+  (is (= 1 (eval* "(try (let [] (def x 1) x))")))
+  (testing "conditionally defining vars doesn't add their metadata yet"
+    (is (true? (eval* "(when true (def ^{:test (fn [])} y 1)) (fn? (:test (meta #'y)))")))
+    (is (false? (eval* "(when false (def ^{:test (fn [])} y 1)) (fn? (:test (meta #'y)))")))))
 
 (deftest defn-test
   (is (= 2 (eval* "(do (defn foo \"increment c\" [x] (inc x)) (foo 1))")))
