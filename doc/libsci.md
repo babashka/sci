@@ -1,5 +1,13 @@
 # Libsci
 
+Table of contents:
+- [Libsci](#libsci)
+  - [Prerequisites](#prerequisites)
+  - [Walkthrough](#walkthrough)
+    - [Using libsci from Rust](#using-libsci-from-rust)
+    - [Using libsci from Python](#using-libsci-from-python)
+  - [References](#references)
+
 To use sci as a shared library from e.g. C++, follow along with this
 tutorial. We illustrate what is happening when you run the script
 `libsci/compile-libsci` and `libsci/compile-cpp`.
