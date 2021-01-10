@@ -435,10 +435,9 @@
                                       (assoc acc name
                                              (doto (vars/->SciVar nil (symbol (str cnn)
                                                                               (str name))
-                                                                  (assoc (meta name)
-                                                                         :name name
-                                                                         :ns @vars/current-ns
-                                                                         :file @vars/current-file)
+                                                                  {:name name
+                                                                   :ns @vars/current-ns
+                                                                   :file @vars/current-file}
                                                                   false)
                                                (vars/unbind)))))
                                   current-ns
