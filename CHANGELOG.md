@@ -11,6 +11,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Improvements for using `type` on `defrecord` [#492](https://github.com/borkdude/sci/issues/492)
 - Deref vars at analysis time that have `:inline` metadata in Clojure [#483](https://github.com/borkdude/sci/issues/483)
 - Keep only location metadata for seqs and symbols [#488](https://github.com/babashka/babashka/issues/488)
+- conditionally defined vars should not have metadata #496
 
 ## v0.2.0
 
