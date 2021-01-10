@@ -212,7 +212,6 @@
   (is (= 1 (eval* "(try (defn x [] 1) (x))")))
   (is (= 1 (eval* "(try (let [] (def x 1) x))")))
   (testing "conditionally defining vars doesn't add their metadata yet"
-    (prn (eval* "(when false (def ^{:test (fn [])} y 1)) (meta #'y)"))
     (is (not (:test (eval* "(when false (def ^{:test (fn [])} y 1)) (meta #'y)"))))))
 
 (deftest defn-test
