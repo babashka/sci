@@ -4,6 +4,8 @@ Table of contents:
 - [Libsci](#libsci)
   - [Prerequisites](#prerequisites)
   - [Walkthrough](#walkthrough)
+    - [Compiling sci as shared library](#compiling-sci-as-shared-library)
+    - [Using libsci from C++](#using-libsci-from-c)
     - [Using libsci from Rust](#using-libsci-from-rust)
     - [Using libsci from Python](#using-libsci-from-python)
   - [References](#references)
@@ -26,6 +28,8 @@ If you want to run this script yourself, prepare as follows:
 - You should have `g++` available to compile C++ code.
 
 ## Walkthrough
+
+### Compiling sci as shared library
 
 In `libsci/src` we have the following Clojure file:
 
@@ -91,6 +95,8 @@ $ $GRAALVM_HOME/bin/native-image \
 
 This begets the files `graal_isolate_dynamic.h`, `graal_isolate.h`, `libsci.h`,
 `libsci.dylib` (on linux `libsci.so`) and `libsci_dynamic.h`. We move all these files to `libsci/target`.
+
+### Using libsci from C++
 
 Let's use the library from a C++ program now. Here's the code:
 
