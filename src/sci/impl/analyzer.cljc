@@ -1,6 +1,5 @@
 (ns sci.impl.analyzer
-  {:no-doc true
-   :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [(sci.impl.analyzer/ctx-fn [ctx])]}}}}
+  {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:clj [clojure.string :as str])
@@ -18,8 +17,7 @@
      merge-meta set-namespace!
      macro? ana-macros]]
    [sci.impl.vars :as vars])
-  #?(:clj (:import [sci.impl Reflector]))
-  #?(:cljs (:require-macros [sci.impl.analyzer :refer [ctx-fn]])))
+  #?(:clj (:import [sci.impl Reflector])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -68,10 +66,9 @@
 
 ;;;; End macros
 
-(defmacro ctx-fn [ctx-bind & body]
-  `(with-meta (fn [~ctx-bind]
-                ~@body)
-     {:sci.impl/op utils/evaluate}))
+(defn ctx-fn [f]
+  (with-meta f
+    {:sci.impl/op utils/evaluate}))
 
 (defn return-do [analyzed-exprs]
   (case (count analyzed-exprs)
@@ -79,30 +76,34 @@
     1 (first analyzed-exprs)
     2 (let [a (first analyzed-exprs)
             b (second analyzed-exprs)]
-        (ctx-fn ctx
-                (eval/eval ctx a)
-                (eval/eval ctx b)))
+        (ctx-fn
+         (fn [ctx]
+           (eval/eval ctx a)
+           (eval/eval ctx b))))
     3 (let [a (first analyzed-exprs)
             b (second analyzed-exprs)
             c (nth analyzed-exprs 2)]
-        (ctx-fn ctx
-                (eval/eval ctx a)
-                (eval/eval ctx b)
-                (eval/eval ctx c)))
+        (ctx-fn
+         (fn [ctx]
+           (eval/eval ctx a)
+           (eval/eval ctx b)
+           (eval/eval ctx c))))
     4 (let [a (first analyzed-exprs)
             b (second analyzed-exprs)
             c (nth analyzed-exprs 2)
             d (nth analyzed-exprs 3)]
-        (ctx-fn ctx
-                (eval/eval ctx a)
-                (eval/eval ctx b)
-                (eval/eval ctx c)
-                (eval/eval ctx d)))
+        (ctx-fn
+         (fn [ctx]
+           (eval/eval ctx a)
+           (eval/eval ctx b)
+           (eval/eval ctx c)
+           (eval/eval ctx d))))
     ;; fallback
     (do
       nil ;; (prn :count (count analyzed-exprs))
-      (ctx-fn ctx
-              (eval/eval-do ctx analyzed-exprs)))))
+      (ctx-fn
+       (fn [ctx]
+         (eval/eval-do ctx analyzed-exprs))))))
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
