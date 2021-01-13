@@ -29,6 +29,9 @@
 
 ;;;; Evaluation
 
+;; TODO: we can optimize this by unrolling this at analysis time for various arities
+;; (eval-and-2 ctx expr1 expr2)
+;; (eval-and-3 ctx expr1 expr2 expr3)
 (defn eval-and
   "The and macro from clojure.core."
   [ctx args]
@@ -43,6 +46,7 @@
                 (recur xs) v)) v))
         true))))
 
+;; TODO: see above
 (defn eval-or
   "The or macro from clojure.core."
   [ctx args]
