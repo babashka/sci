@@ -112,7 +112,9 @@
   (testing "cannot call x as a function"
     (doseq [example ['(1 2 3) '("foo" 2 3) '(nil 1 2 3)]]
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
-                            (eval* nil example))))))
+                            (eval* nil example)))))
+  (testing "EvalFn as function"
+    (is (= 1 (eval* nil '((get {:foo identity} :foo) 1))))))
 
 (deftest destructure-test
   (is (= 1 (eval* nil "(let [{:keys [a]} {:a 1}] a)")))

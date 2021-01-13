@@ -545,16 +545,18 @@
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
-             m (meta f)
-             op (when m (get-2 m :sci.impl/op))]
+             eval? (instance? sci.impl.types.EvalFn f)
+             op (when-not eval?
+                  (some-> (meta f) (get-2 :sci.impl/op)))]
          (cond
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
            (kw-identical? op :static-access)
            (eval-static-method-invocation ctx expr)
            :else
-           (let [f (if op (eval ctx f)
-                       f)]
+           (let [f (if (or op eval?)
+                     (eval ctx f)
+                     f)]
              (if (ifn? f)
                (fn-call ctx f (rest expr))
                (throw (new #?(:clj Exception :cljs js/Error)
