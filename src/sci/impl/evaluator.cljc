@@ -504,7 +504,7 @@
            (apply ~'f (map #(eval ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx f args]
          ;; TODO: can we prevent hitting this at all, by analyzing more efficiently?
-         ;; (prn :count ~'(count args))
+         ;; (prn :count ~'f ~'(count args) ~'args)
          (case ~'(count args)
            ~@cases)))))
 
@@ -522,7 +522,7 @@
                   (eval ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
+    ;; recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop

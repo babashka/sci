@@ -6,6 +6,7 @@
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.evaluator :as eval]
+   [sci.impl.fns :as fns]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
    [sci.impl.records :as records]
@@ -180,6 +181,23 @@
       (ctx-fn
        (fn [ctx]
          (eval/eval-and ctx analyzed-exprs))))))
+
+(defn return-recur [analyzed-exprs]
+  (ctx-fn
+   (case (count analyzed-exprs)
+     0 (fn [_ctx]
+         (fns/->Recur []))
+     1 (let [a (first analyzed-exprs)]
+         (fn [ctx]
+           (fns/->Recur [(eval/eval ctx a)])))
+     2 (let [a (first analyzed-exprs)
+             b (second analyzed-exprs)]
+         (fn [ctx]
+           (fns/->Recur [(eval/eval ctx a)
+                         (eval/eval ctx b)])))
+     ;; else:
+     (fn [ctx]
+       (eval/fn-call ctx (comp fns/->Recur vector) analyzed-exprs)))))
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
@@ -702,6 +720,34 @@
 
 ;;;; End vars
 
+(defn unrolled-call [_ctx f f-meta analyzed-children]
+  (vary-meta
+   (case (count analyzed-children)
+     0 (ctx-fn
+        (fn [_ctx]
+          (f)))
+     1 (let [a (first analyzed-children)]
+         (ctx-fn
+          (fn [ctx]
+            (f (eval/eval ctx a)))))
+     2 (let [a (first analyzed-children)
+             b (second analyzed-children)]
+         (ctx-fn
+          (fn [ctx]
+            (f (eval/eval ctx a) (eval/eval ctx b)))))
+     3 (let [a (first analyzed-children)
+             b (second analyzed-children)
+             c (nth analyzed-children 2)]
+         (ctx-fn
+          (fn [ctx]
+            (f (eval/eval ctx a)
+               (eval/eval ctx b)
+               (eval/eval ctx c)))))
+     (ctx-fn
+      (fn [ctx]
+        (eval/fn-call ctx f analyzed-children))))
+   assoc :sci.impl/f-meta f-meta))
+
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
     (if (symbol? f)
@@ -756,6 +802,7 @@
                 ;; else
                 or (return-or (analyze-children ctx (rest expr)))
                 and (return-and (analyze-children ctx (rest expr)))
+                recur (return-recur (analyze-children ctx (rest expr)))
                 (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
               :else
               (try
@@ -777,36 +824,10 @@
                                        :else (analyze ctx v))]
                     expanded)
                   (if-let [f (:sci.impl/inlined f-meta)]
-                    (let [children (analyze-children ctx (rest expr))]
-                      (vary-meta
-                       (case (count children)
-                         0 (ctx-fn
-                            (fn [_ctx]
-                              (f)))
-                         1 (let [a (first children)]
-                             (ctx-fn
-                              (fn [ctx]
-                                (f (eval/eval ctx a)))))
-                         2 (let [a (first children)
-                                 b (second children)]
-                             (ctx-fn
-                              (fn [ctx]
-                                (f (eval/eval ctx a) (eval/eval ctx b)))))
-                         3 (let [a (first children)
-                                 b (second children)
-                                 c (nth children 2)]
-                             (ctx-fn
-                              (fn [ctx]
-                                (f (eval/eval ctx a)
-                                   (eval/eval ctx b)
-                                   (eval/eval ctx c)))))
-                         (ctx-fn
-                          (fn [ctx]
-                            (eval/fn-call ctx f children))))
-                       assoc :sci.impl/f-meta f-meta))
-                    #_(mark-eval-call (cons f (analyze-children ctx (rest expr)))
-                                    :sci.impl/f-meta f-meta)
-                    (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
+                    (unrolled-call ctx f f-meta (analyze-children ctx (rest expr)))
+                    (mark-eval-call (cons f (analyze-children ctx (rest expr)))) #_(if-not (:sci.impl/op f-meta)
+                      (unrolled-call ctx f f-meta (analyze-children ctx (rest expr)))
+                      )))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting
