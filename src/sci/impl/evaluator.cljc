@@ -463,20 +463,19 @@
 
 (declare eval-string)
 
-(defn eval-do*
-  [ctx exprs]
-  (loop [[expr & exprs] exprs]
-    (let [ret (eval ctx expr)]
-      (if-let [exprs (seq exprs)]
-        (recur exprs)
-        ret))))
-
-(vreset! utils/eval-do* eval-do*)
-
 (defn eval-do
-  [ctx expr]
-  (when-let [exprs (next expr)]
-    (eval-do* ctx exprs)))
+  ;; TODO: unroll loop
+  [ctx exprs]
+  (let [exprs (seq exprs)]
+    ;; (prn (count exprs))
+    (loop [exprs exprs]
+      (when exprs
+        (let [ret (eval ctx (first exprs))]
+          (if-let [exprs (next exprs)]
+            (recur exprs)
+            ret))))))
+
+(vreset! utils/eval-do* eval-do)
 
 (macros/deftime
   ;; This macro generates a function of the following form for 20 arities:
@@ -516,7 +515,7 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    do (eval-do ctx expr)
+    ;; do (eval-do ctx expr)
     and (eval-and ctx (rest expr))
     or (eval-or ctx (rest expr))
     lazy-seq (new #?(:clj clojure.lang.LazySeq
@@ -593,7 +592,7 @@
                   :call (eval-call ctx expr)
                   :try (eval-try ctx expr)
                   :fn (let [fn-meta (:sci.impl/fn-meta expr)
-                            the-fn (fns/eval-fn ctx eval eval-do* expr)
+                            the-fn (fns/eval-fn ctx eval eval-do expr)
                             fn-meta (when fn-meta (handle-meta ctx fn-meta))]
                         (if fn-meta
                           (vary-meta the-fn merge fn-meta)

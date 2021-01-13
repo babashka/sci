@@ -1,5 +1,6 @@
 (ns sci.impl.analyzer
-  {:no-doc true}
+  {:no-doc true
+   :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [(sci.impl.analyzer/ctx-fn [ctx])]}}}}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:clj [clojure.string :as str])
@@ -369,12 +370,48 @@
                                   default))]
     (mark-eval-call ret)))
 
+(defmacro ctx-fn [ctx-bind & body]
+  `(with-meta (fn [~ctx-bind]
+                ~@body)
+     {:sci.impl/op utils/evaluate}))
+
+(defn return-do [analyzed-exprs]
+  (case (count analyzed-exprs)
+    0 nil
+    1 (first analyzed-exprs)
+    2 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)]
+        (ctx-fn ctx
+                (eval/eval ctx a)
+                (eval/eval ctx b)))
+    3 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)]
+        (ctx-fn ctx
+                (eval/eval ctx a)
+                (eval/eval ctx b)
+                (eval/eval ctx c)))
+    4 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)
+            d (nth analyzed-exprs 3)]
+        (ctx-fn ctx
+                (eval/eval ctx a)
+                (eval/eval ctx b)
+                (eval/eval ctx c)
+                (eval/eval ctx d)))
+    ;; fallback
+    (do
+      nil ;; (prn :count (count analyzed-exprs))
+      (ctx-fn ctx
+              (eval/eval-do ctx analyzed-exprs)))))
+
 (defn expand-try
   [ctx [_try & body]]
   (let [[body-exprs
          catches
          finally]
-        (loop [exprs #_[expr & exprs :as all-exprs] (seq body)
+        (loop [exprs (seq body)
                body-exprs []
                catch-exprs []
                finally-expr nil]
@@ -569,7 +606,7 @@
                                            (meta expr)))))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
-        (mark-eval-call (list* 'do ret))))))
+        (return-do ret)))))
 
 ;;;; End namespaces
 
@@ -596,9 +633,6 @@
             _ (when special-sym (resolve/check-permission! ctx special-sym f nil))
             f (or special-sym
                   (resolve/resolve-symbol ctx f true))
-            #_#_f (if (and (vars/var? f)
-                           (vars/isMacro f))
-                    f f)
             f-meta (meta f)
             eval? (and f-meta (:sci.impl/op f-meta))]
         (cond (and f-meta (::static-access f-meta))
@@ -612,8 +646,7 @@
                 ;; analysis/interpretation unit so we hand this over to the
                 ;; interpreter again, which will invoke analysis + evaluation on
                 ;; every sub expression
-                do (mark-eval-call (cons 'do
-                                         (analyze-children ctx (rest expr))))
+                do (return-do (analyze-children ctx (rest expr)))
                 let (expand-let ctx expr)
                 (fn fn*) (expand-fn ctx expr false)
                 def (expand-def ctx expr)
@@ -640,7 +673,9 @@
                 var (analyze-var ctx expr)
                 set! (analyze-set! ctx expr)
                 (import quote) (mark-eval-call expr) ;; don't analyze children
-                ;; else:
+                ;; TODO: analyze if recur occurs in tail position, see #498
+                ;; recur (mark-eval-call (cons f (analyze-children ctx (rest expr))))
+                ;; else
                 (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
               :else
               (try
