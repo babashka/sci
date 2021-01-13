@@ -77,5 +77,11 @@
     "allPublicMethods":true,
     "allPublicFields": true,
     "allPublicConstructors": true
+  },
+  {
+    "name":"java.lang.System",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
   }
 ]
