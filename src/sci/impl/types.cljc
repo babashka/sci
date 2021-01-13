@@ -32,7 +32,7 @@
 
 (declare ->EvalFn)
 
-(deftype EvalFn [f m]
+(deftype EvalFn [f m expr]
   ;; f = (fn [ctx] ...)
   ;; m = meta
   IBox
@@ -41,5 +41,7 @@
   (meta [_this] m)
   clojure.lang.IObj
   (withMeta [_this m]
-    (->EvalFn f m)))
-
+    (->EvalFn f m expr))
+  Object
+  (toString [_this]
+    (str expr)))
