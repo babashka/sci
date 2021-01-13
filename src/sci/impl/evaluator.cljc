@@ -503,6 +503,8 @@
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(eval ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx f args]
+         ;; TODO: can we prevent hitting this at all, by analyzing more efficiently?
+         ;; (prn :count ~'(count args))
          (case ~'(count args)
            ~@cases)))))
 

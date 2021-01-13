@@ -777,7 +777,34 @@
                                        :else (analyze ctx v))]
                     expanded)
                   (if-let [f (:sci.impl/inlined f-meta)]
-                    (mark-eval-call (cons f (analyze-children ctx (rest expr)))
+                    (let [children (analyze-children ctx (rest expr))]
+                      (vary-meta
+                       (case (count children)
+                         0 (ctx-fn
+                            (fn [_ctx]
+                              (f)))
+                         1 (let [a (first children)]
+                             (ctx-fn
+                              (fn [ctx]
+                                (f (eval/eval ctx a)))))
+                         2 (let [a (first children)
+                                 b (second children)]
+                             (ctx-fn
+                              (fn [ctx]
+                                (f (eval/eval ctx a) (eval/eval ctx b)))))
+                         3 (let [a (first children)
+                                 b (second children)
+                                 c (nth children 2)]
+                             (ctx-fn
+                              (fn [ctx]
+                                (f (eval/eval ctx a)
+                                   (eval/eval ctx b)
+                                   (eval/eval ctx c)))))
+                         (ctx-fn
+                          (fn [ctx]
+                            (eval/fn-call ctx f children))))
+                       assoc :sci.impl/f-meta f-meta))
+                    #_(mark-eval-call (cons f (analyze-children ctx (rest expr)))
                                     :sci.impl/f-meta f-meta)
                     (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
                 (catch #?(:clj Exception :cljs js/Error) e
