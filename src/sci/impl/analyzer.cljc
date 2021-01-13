@@ -68,7 +68,8 @@
 ;;;; End macros
 
 (defn ctx-fn [f]
-  (with-meta f
+  (types/->EvalFn f nil)
+  #_(with-meta f
     {:sci.impl/op utils/evaluate}))
 
 (defn return-do [analyzed-exprs]

@@ -29,3 +29,17 @@
 (deftype EvalForm [form]
   IBox
   (getVal [_this] form))
+
+(declare ->EvalFn)
+
+(deftype EvalFn [f m]
+  ;; f = (fn [ctx] ...)
+  ;; m = meta
+  IBox
+  (getVal [_this] f)
+  clojure.lang.IMeta
+  (meta [_this] m)
+  clojure.lang.IObj
+  (withMeta [_this m]
+    (->EvalFn f m)))
+
