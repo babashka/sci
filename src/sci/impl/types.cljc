@@ -36,7 +36,7 @@
   (sexpr [this]))
 
 (extend-protocol Sexpr
-  Object (sexpr [this] this))
+  #?(:clj Object :cljs default) (sexpr [this] this))
 
 (deftype EvalFn [f m expr]
   ;; f = (fn [ctx] ...)
