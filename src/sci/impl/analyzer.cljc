@@ -195,6 +195,22 @@
          (fn [ctx]
            (fns/->Recur [(eval/eval ctx a)
                          (eval/eval ctx b)])))
+     3 (let [a (first analyzed-exprs)
+             b (second analyzed-exprs)
+             c (nth analyzed-exprs 2)]
+         (fn [ctx]
+           (fns/->Recur [(eval/eval ctx a)
+                         (eval/eval ctx b)
+                         (eval/eval ctx c)])))
+     4 (let [a (first analyzed-exprs)
+             b (second analyzed-exprs)
+             c (nth analyzed-exprs 2)
+             d (nth analyzed-exprs 3)]
+         (fn [ctx]
+           (fns/->Recur [(eval/eval ctx a)
+                         (eval/eval ctx b)
+                         (eval/eval ctx c)
+                         (eval/eval ctx d)])))
      ;; else:
      (fn [ctx]
        (eval/fn-call ctx (comp fns/->Recur vector) analyzed-exprs)))))
