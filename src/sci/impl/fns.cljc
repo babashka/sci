@@ -67,7 +67,7 @@
                 ~'bindings (get-2 ~'ctx :bindings)
                 ~@assocs
                 ctx# (assoc-3 ~'ctx :bindings ~'bindings)
-                ret# (~'return ctx#)
+                ret# (~'interpret ctx# ~'body)
                 ;; m (meta ret)
                 recur?# (instance? Recur ret#)]
             (if recur?#
@@ -101,7 +101,7 @@
                    (throw-arity ctx fn-name macro? args))
                  ret)))
            ctx (assoc-3 ctx :bindings bindings)
-           ret (return ctx)
+           ret (interpret ctx body)
            ;; m (meta ret)
            recur? (instance? Recur ret)]
        (if recur?
@@ -115,7 +115,7 @@
          ret))))
 
 (defn fun
-  [^clojure.lang.Associative ctx interpret eval-do*
+  [^clojure.lang.Associative ctx interpret
    {:sci.impl/keys [fixed-arity var-arg-name
                     #_:clj-kondo/ignore params body] :as _m}
    #_:clj-kondo/ignore fn-name
@@ -123,16 +123,12 @@
    with-meta?]
   (let [disable-arity-checks? (get-2 ctx :disable-arity-checks)
         min-var-args-arity (when var-arg-name fixed-arity)
-        body-count (count body)
-        return (if (= 1 body-count)
-                 (let [fst (first body)]
-                   #(interpret % fst))
-                 #(eval-do* % body))
+        ;; body-count (count body)
         f (if-not (or var-arg-name
                       #?(:clj disable-arity-checks?))
             (case (int fixed-arity)
               0 (fn arity-0 []
-                  (let [ret (return ctx)
+                  (let [ret (interpret ctx body)
                         ;; m (meta ret)
                         recur? (instance? Recur ret)]
                     (if recur? (recur) ret)))
@@ -230,8 +226,8 @@
                            (>= arity min-var-args-arity)))
               f))) arities))
 
-(defn eval-fn [ctx interpret eval-do* {:sci.impl/keys [fn-bodies fn-name
-                                                       var] :as f}]
+(defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name
+                                              var] :as f}]
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
         ctx (if (and (not var)
@@ -242,8 +238,8 @@
               ctx)
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
-            (fun ctx interpret eval-do* (first fn-bodies) fn-name macro? false)
-            (let [arities (map #(fun ctx interpret eval-do* % fn-name macro? true) fn-bodies)]
+            (fun ctx interpret (first fn-bodies) fn-name macro? false)
+            (let [arities (map #(fun ctx interpret % fn-name macro? true) fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]

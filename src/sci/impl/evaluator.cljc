@@ -464,10 +464,9 @@
 (declare eval-string)
 
 (defn eval-do
-  ;; TODO: unroll loop
+  "Note: various arities of do have already been unrolled in the analyzer."
   [ctx exprs]
   (let [exprs (seq exprs)]
-    ;; (prn (count exprs))
     (loop [exprs exprs]
       (when exprs
         (let [ret (eval ctx (first exprs))]
@@ -592,7 +591,7 @@
                   :call (eval-call ctx expr)
                   :try (eval-try ctx expr)
                   :fn (let [fn-meta (:sci.impl/fn-meta expr)
-                            the-fn (fns/eval-fn ctx eval eval-do expr)
+                            the-fn (fns/eval-fn ctx eval expr)
                             fn-meta (when fn-meta (handle-meta ctx fn-meta))]
                         (if fn-meta
                           (vary-meta the-fn merge fn-meta)

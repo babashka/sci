@@ -67,6 +67,42 @@
 
 ;;;; End macros
 
+(defmacro ctx-fn [ctx-bind & body]
+  `(with-meta (fn [~ctx-bind]
+                ~@body)
+     {:sci.impl/op utils/evaluate}))
+
+(defn return-do [analyzed-exprs]
+  (case (count analyzed-exprs)
+    0 nil
+    1 (first analyzed-exprs)
+    2 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)]
+        (ctx-fn ctx
+                (eval/eval ctx a)
+                (eval/eval ctx b)))
+    3 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)]
+        (ctx-fn ctx
+                (eval/eval ctx a)
+                (eval/eval ctx b)
+                (eval/eval ctx c)))
+    4 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)
+            d (nth analyzed-exprs 3)]
+        (ctx-fn ctx
+                (eval/eval ctx a)
+                (eval/eval ctx b)
+                (eval/eval ctx c)
+                (eval/eval ctx d)))
+    ;; fallback
+    (do
+      nil ;; (prn :count (count analyzed-exprs))
+      (ctx-fn ctx
+              (eval/eval-do ctx analyzed-exprs)))))
+
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
@@ -120,7 +156,7 @@
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
         ctx (update ctx :bindings merge (zipmap params
                                                 (repeat nil)))
-        body (analyze-children ctx body)]
+        body (return-do (analyze-children ctx body))]
     #:sci.impl{:body body
                :params params
                :fixed-arity fixed-arity
@@ -369,42 +405,6 @@
                                    :case-default default}
                                   default))]
     (mark-eval-call ret)))
-
-(defmacro ctx-fn [ctx-bind & body]
-  `(with-meta (fn [~ctx-bind]
-                ~@body)
-     {:sci.impl/op utils/evaluate}))
-
-(defn return-do [analyzed-exprs]
-  (case (count analyzed-exprs)
-    0 nil
-    1 (first analyzed-exprs)
-    2 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)]
-        (ctx-fn ctx
-                (eval/eval ctx a)
-                (eval/eval ctx b)))
-    3 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
-            c (nth analyzed-exprs 2)]
-        (ctx-fn ctx
-                (eval/eval ctx a)
-                (eval/eval ctx b)
-                (eval/eval ctx c)))
-    4 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
-            c (nth analyzed-exprs 2)
-            d (nth analyzed-exprs 3)]
-        (ctx-fn ctx
-                (eval/eval ctx a)
-                (eval/eval ctx b)
-                (eval/eval ctx c)
-                (eval/eval ctx d)))
-    ;; fallback
-    (do
-      nil ;; (prn :count (count analyzed-exprs))
-      (ctx-fn ctx
-              (eval/eval-do ctx analyzed-exprs)))))
 
 (defn expand-try
   [ctx [_try & body]]
