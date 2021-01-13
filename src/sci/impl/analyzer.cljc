@@ -18,7 +18,8 @@
      merge-meta set-namespace!
      macro? ana-macros]]
    [sci.impl.vars :as vars])
-  #?(:clj (:import [sci.impl Reflector])))
+  #?(:clj (:import [sci.impl Reflector]))
+  #?(:cljs (:require-macros [sci.impl.analyzer :refer [ctx-fn]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
