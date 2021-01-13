@@ -37,10 +37,14 @@
   ;; m = meta
   IBox
   (getVal [_this] f)
-  clojure.lang.IMeta
-  (meta [_this] m)
-  clojure.lang.IObj
-  (withMeta [_this m]
+  #?(:clj clojure.lang.IMeta
+     :cljs IMeta)
+  (#?(:clj meta
+      :cljs -meta) [_this] m)
+  #?(:clj clojure.lang.IObj
+     :cljs IWithMeta)
+  (#?(:clj withMeta
+      :cljs -with-meta) [_this m]
     (->EvalFn f m expr))
   Object
   (toString [_this]
