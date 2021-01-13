@@ -359,10 +359,10 @@
          [ctx []]
          (partition 2 destructured-let-bindings))
         body (analyze-children ctx exprs)]
-    (with-meta
+    (ctx-fn
       (fn [ctx]
         (eval/eval-let ctx new-let-bindings body))
-      {:sci.impl/op utils/evaluate})))
+      nil)))
 
 (defn expand-let
   "The let macro from clojure.core"
