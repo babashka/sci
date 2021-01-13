@@ -68,9 +68,7 @@
 ;;;; End macros
 
 (defn ctx-fn [f expr]
-  (types/->EvalFn f nil expr)
-  #_(with-meta f
-      {:sci.impl/op utils/evaluate}))
+  (types/->EvalFn f nil expr))
 
 (defn return-do [expr analyzed-exprs]
   (case (count analyzed-exprs)
@@ -454,10 +452,10 @@
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
                  :sci.impl/var true)]
-    (with-meta
-      (fn [ctx]
-        (eval/eval-def ctx fn-name f))
-      {:sci.impl/op utils/evaluate})))
+    (ctx-fn
+     (fn [ctx]
+       (eval/eval-def ctx fn-name f))
+     expr)))
 
 (defn expand-loop
   [ctx expr]
@@ -490,7 +488,7 @@
   (case (count exprs)
     (0 1) (throw-error-with-location "Too few arguments to if" expr)
     (2 3) (let [[cond then else] (analyze-children ctx exprs)]
-            (with-meta
+            (with-meta ;; TODO, migrate to ctx-fn, this one is still needed
               (fn [ctx]
                 (eval/eval-if ctx cond then else))
               {:sci.impl/op utils/evaluate}))
