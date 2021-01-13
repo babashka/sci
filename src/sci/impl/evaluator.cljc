@@ -503,6 +503,8 @@
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(eval ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx f args]
+         ;; TODO: can we prevent hitting this at all, by analyzing more efficiently?
+         ;; (prn :count ~'f ~'(count args) ~'args)
          (case ~'(count args)
            ~@cases)))))
 
@@ -520,7 +522,7 @@
                   (eval ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
+    ;; recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
     case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
@@ -543,16 +545,18 @@
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
-             m (meta f)
-             op (when m (get-2 m :sci.impl/op))]
+             eval? (instance? sci.impl.types.EvalFn f)
+             op (when-not eval?
+                  (some-> (meta f) (get-2 :sci.impl/op)))]
          (cond
            (and (symbol? f) (not op))
            (eval-special-call ctx f expr)
            (kw-identical? op :static-access)
            (eval-static-method-invocation ctx expr)
            :else
-           (let [f (if op (eval ctx f)
-                       f)]
+           (let [f (if (or op eval?)
+                     (eval ctx f)
+                     f)]
              (if (ifn? f)
                (fn-call ctx f (rest expr))
                (throw (new #?(:clj Exception :cljs js/Error)
@@ -572,55 +576,59 @@
 (defn eval
   [ctx expr]
   (try
-    (if (instance? sci.impl.types.EvalVar expr)
-      (let [v (t/getVal expr)]
-        (deref-1 v))
-      (let [m (meta expr)
-            op (when m (get-2 m :sci.impl/op))
-            ret
-            (if
-                (not op) expr
-                ;; TODO: moving this up increased performance for #246. We can
-                ;; probably optimize it further by not using separate keywords for
-                ;; one :sci.impl/op keyword on which we can use a case expression
-                (case op
-                  :call (eval-call ctx expr)
-                  :try (eval-try ctx expr)
-                  :fn (let [fn-meta (:sci.impl/fn-meta expr)
-                            the-fn (fns/eval-fn ctx eval expr)
-                            fn-meta (when fn-meta (handle-meta ctx fn-meta))]
-                        (if fn-meta
-                          (vary-meta the-fn merge fn-meta)
-                          the-fn))
-                  :static-access (interop/get-static-field expr)
-                  :deref! (let [v (first expr)
-                                v (if (vars/var? v) @v v)
-                                v (force v)]
-                            v)
-                  :resolve-sym (resolve-symbol ctx expr)
-                  needs-ctx (if (identical? op utils/needs-ctx)
-                              (partial expr ctx)
-                              ;; this should never happen, or if it does, it's
-                              ;; someone trying to hack
-                              (throw (new #?(:clj Exception :cljs js/Error)
-                                          (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
-                  eval (if (identical? op utils/evaluate)
-                         (expr ctx)
-                         (throw (new #?(:clj Exception :cljs js/Error)
-                                     (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
-                  (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
-                                                       (map #(eval ctx %) (vals expr)))
-                                      (handle-meta ctx m))
-                        (or (vector? expr) (set? expr))
-                        (with-meta (into (empty expr)
-                                         (map #(eval ctx %)
-                                              expr))
-                          (handle-meta ctx m))
-                        :else (throw (new #?(:clj Exception :cljs js/Error)
-                                          (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
-        ;; for debugging:
-        ;; (prn :eval expr (meta expr) '-> ret (meta ret))
-        ret))
+    (cond (instance? sci.impl.types.EvalFn expr)
+          (let [f (t/getVal expr)]
+            (f ctx))
+          (instance? sci.impl.types.EvalVar expr)
+          (let [v (t/getVal expr)]
+            (deref-1 v))
+          :else
+          (let [m (meta expr)
+                op (when m (get-2 m :sci.impl/op))
+                ret
+                (if
+                    (not op) expr
+                    ;; TODO: moving this up increased performance for #246. We can
+                    ;; probably optimize it further by not using separate keywords for
+                    ;; one :sci.impl/op keyword on which we can use a case expression
+                    (case op
+                      :call (eval-call ctx expr)
+                      :try (eval-try ctx expr)
+                      :fn (let [fn-meta (:sci.impl/fn-meta expr)
+                                the-fn (fns/eval-fn ctx eval expr)
+                                fn-meta (when fn-meta (handle-meta ctx fn-meta))]
+                            (if fn-meta
+                              (vary-meta the-fn merge fn-meta)
+                              the-fn))
+                      :static-access (interop/get-static-field expr)
+                      :deref! (let [v (first expr)
+                                    v (if (vars/var? v) @v v)
+                                    v (force v)]
+                                v)
+                      :resolve-sym (resolve-symbol ctx expr)
+                      needs-ctx (if (identical? op utils/needs-ctx)
+                                  (partial expr ctx)
+                                  ;; this should never happen, or if it does, it's
+                                  ;; someone trying to hack
+                                  (throw (new #?(:clj Exception :cljs js/Error)
+                                              (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+                      eval (if (identical? op utils/evaluate)
+                             (expr ctx)
+                             (throw (new #?(:clj Exception :cljs js/Error)
+                                         (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+                      (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
+                                                           (map #(eval ctx %) (vals expr)))
+                                          (handle-meta ctx m))
+                            (or (vector? expr) (set? expr))
+                            (with-meta (into (empty expr)
+                                             (map #(eval ctx %)
+                                                  expr))
+                              (handle-meta ctx m))
+                            :else (throw (new #?(:clj Exception :cljs js/Error)
+                                              (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
+            ;; for debugging:
+            ;; (prn :eval expr (meta expr) '-> ret (meta ret))
+            ret))
     (catch #?(:clj Throwable :cljs js/Error) e
       (if (isa? (some-> e ex-data :type) :sci/error)
         (throw e)

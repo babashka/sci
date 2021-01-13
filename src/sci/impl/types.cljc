@@ -29,3 +29,31 @@
 (deftype EvalForm [form]
   IBox
   (getVal [_this] form))
+
+(declare ->EvalFn)
+
+(defprotocol Sexpr
+  (sexpr [this]))
+
+(extend-protocol Sexpr
+  #?(:clj Object :cljs default) (sexpr [this] this))
+
+(deftype EvalFn [f m expr]
+  ;; f = (fn [ctx] ...)
+  ;; m = meta
+  IBox
+  (getVal [_this] f)
+  #?(:clj clojure.lang.IMeta
+     :cljs IMeta)
+  (#?(:clj meta
+      :cljs -meta) [_this] (meta expr))
+  #?(:clj clojure.lang.IObj
+     :cljs IWithMeta)
+  (#?(:clj withMeta
+      :cljs -with-meta) [_this m]
+    (->EvalFn f m (with-meta expr m)))
+  Sexpr
+  (sexpr [_] expr)
+  Object
+  (toString [_this]
+    (str expr)))
