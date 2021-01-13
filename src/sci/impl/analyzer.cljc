@@ -70,7 +70,7 @@
 (defn ctx-fn [f expr]
   (types/->EvalFn f nil expr)
   #_(with-meta f
-    {:sci.impl/op utils/evaluate}))
+      {:sci.impl/op utils/evaluate}))
 
 (defn return-do [expr analyzed-exprs]
   (case (count analyzed-exprs)
@@ -751,29 +751,30 @@
 ;;;; End vars
 
 (defn unrolled-call [_ctx expr f f-meta analyzed-children]
-  (vary-meta
-   (ctx-fn
-    (case (count analyzed-children)
-      0 (fn [_ctx]
-          (f))
-      1 (let [a (first analyzed-children)]
-          (fn [ctx]
-            (f (eval/eval ctx a))))
-      2 (let [a (first analyzed-children)
-              b (second analyzed-children)]
-          (fn [ctx]
-            (f (eval/eval ctx a) (eval/eval ctx b))))
-      3 (let [a (first analyzed-children)
-              b (second analyzed-children)
-              c (nth analyzed-children 2)]
-          (fn [ctx]
-            (f (eval/eval ctx a)
-               (eval/eval ctx b)
-               (eval/eval ctx c))))
-      (fn [ctx]
-        (eval/fn-call ctx f analyzed-children)))
-    expr)
-   assoc :sci.impl/f-meta f-meta))
+  (mark-eval-call ;; for error messages
+   (vary-meta
+    (ctx-fn
+     (case (count analyzed-children)
+       0 (fn [_ctx]
+           (f))
+       1 (let [a (first analyzed-children)]
+           (fn [ctx]
+             (f (eval/eval ctx a))))
+       2 (let [a (first analyzed-children)
+               b (second analyzed-children)]
+           (fn [ctx]
+             (f (eval/eval ctx a) (eval/eval ctx b))))
+       3 (let [a (first analyzed-children)
+               b (second analyzed-children)
+               c (nth analyzed-children 2)]
+           (fn [ctx]
+             (f (eval/eval ctx a)
+                (eval/eval ctx b)
+                (eval/eval ctx c))))
+       (fn [ctx]
+         (eval/fn-call ctx f analyzed-children)))
+     expr)
+    assoc :sci.impl/f-meta f-meta)))
 
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
@@ -851,10 +852,10 @@
                                        :else (analyze ctx v))]
                     expanded)
                   (if-let [f (:sci.impl/inlined f-meta)]
-                    (unrolled-call ctx expr f f-meta (analyze-children ctx (rest expr)))
-                    (mark-eval-call (cons f (analyze-children ctx (rest expr)))) #_(if-not (:sci.impl/op f-meta)
-                      (unrolled-call ctx f f-meta (analyze-children ctx (rest expr)))
-                      )))
+                    (mark-eval-call (cons f (analyze-children ctx (rest expr)))
+                                    :sci.impl/f-meta f-meta)
+                    #_(unrolled-call ctx expr f f-meta (analyze-children ctx (rest expr)))
+                    (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting

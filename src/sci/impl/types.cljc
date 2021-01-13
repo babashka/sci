@@ -32,6 +32,12 @@
 
 (declare ->EvalFn)
 
+(defprotocol Sexpr
+  (sexpr [this]))
+
+(extend-protocol Sexpr
+  Object (sexpr [this] this))
+
 (deftype EvalFn [f m expr]
   ;; f = (fn [ctx] ...)
   ;; m = meta
@@ -40,12 +46,14 @@
   #?(:clj clojure.lang.IMeta
      :cljs IMeta)
   (#?(:clj meta
-      :cljs -meta) [_this] m)
+      :cljs -meta) [_this] (meta expr))
   #?(:clj clojure.lang.IObj
      :cljs IWithMeta)
   (#?(:clj withMeta
       :cljs -with-meta) [_this m]
-    (->EvalFn f m expr))
+    (->EvalFn f m (with-meta expr m)))
+  Sexpr
+  (sexpr [_] expr)
   Object
   (toString [_this]
     (str expr)))
