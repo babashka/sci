@@ -408,10 +408,10 @@
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
-        (with-meta
+        (ctx-fn
           (fn [ctx]
             (eval/eval-def ctx var-name init))
-          {:sci.impl/op utils/evaluate})))))
+          expr)))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
   (when-not (simple-symbol? fn-name)
