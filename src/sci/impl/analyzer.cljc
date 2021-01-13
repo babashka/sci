@@ -39,7 +39,7 @@
         (if (symbol? op)
           (cond (get special-syms op) expr
                 (contains? #{'for} op) (analyze (assoc ctx :sci.impl/macroexpanding true)
-                                                    expr)
+                                                expr)
                 :else
                 (let [f (resolve/resolve-symbol ctx op true)
                       f (if (and (vars/var? f)
@@ -104,6 +104,82 @@
       (ctx-fn
        (fn [ctx]
          (eval/eval-do ctx analyzed-exprs))))))
+
+(defn return-or [analyzed-exprs]
+  (case (count analyzed-exprs)
+    0 nil
+    1 (first analyzed-exprs)
+    2 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)]
+        (ctx-fn
+         (fn [ctx]
+           (or
+            (eval/eval ctx a)
+            (eval/eval ctx b)))))
+    3 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)]
+        (ctx-fn
+         (fn [ctx]
+           (or
+            (eval/eval ctx a)
+            (eval/eval ctx b)
+            (eval/eval ctx c)))))
+    4 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)
+            d (nth analyzed-exprs 3)]
+        (ctx-fn
+         (fn [ctx]
+           (or
+            (eval/eval ctx a)
+            (eval/eval ctx b)
+            (eval/eval ctx c)
+            (eval/eval ctx d)))))
+    ;; fallback
+    (do
+      nil ;; (prn :count (count analyzed-exprs))
+      (ctx-fn
+       (fn [ctx]
+         (eval/eval-or ctx analyzed-exprs))))))
+
+(defn return-and [analyzed-exprs]
+  (case (count analyzed-exprs)
+    0 nil
+    1 (first analyzed-exprs)
+    2 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)]
+        (ctx-fn
+         (fn [ctx]
+           (and
+            (eval/eval ctx a)
+            (eval/eval ctx b)))))
+    3 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)]
+        (ctx-fn
+         (fn [ctx]
+           (and
+            (eval/eval ctx a)
+            (eval/eval ctx b)
+            (eval/eval ctx c)))))
+    4 (let [a (first analyzed-exprs)
+            b (second analyzed-exprs)
+            c (nth analyzed-exprs 2)
+            d (nth analyzed-exprs 3)]
+        (ctx-fn
+         (fn [ctx]
+           (and
+            (eval/eval ctx a)
+            (eval/eval ctx b)
+            (eval/eval ctx c)
+            (eval/eval ctx d)))))
+    ;; fallback
+    (do
+      nil ;; (prn :count (count analyzed-exprs))
+      (ctx-fn
+       (fn [ctx]
+         (eval/eval-and ctx analyzed-exprs))))))
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
@@ -678,6 +754,8 @@
                 ;; TODO: analyze if recur occurs in tail position, see #498
                 ;; recur (mark-eval-call (cons f (analyze-children ctx (rest expr))))
                 ;; else
+                or (return-or (analyze-children ctx (rest expr)))
+                and (return-and (analyze-children ctx (rest expr)))
                 (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
               :else
               (try
