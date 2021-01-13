@@ -115,7 +115,7 @@
          ret))))
 
 (defn fun
-  [^clojure.lang.Associative ctx interpret
+  [#?(:clj ^clojure.lang.Associative ctx :cljs ctx) interpret
    {:sci.impl/keys [fixed-arity var-arg-name
                     #_:clj-kondo/ignore params body] :as _m}
    #_:clj-kondo/ignore fn-name
