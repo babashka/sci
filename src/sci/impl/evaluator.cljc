@@ -36,11 +36,11 @@
     (loop [args args]
       (if args
         (let [x (first args)
-              xs (next args)
               v (eval ctx x)]
           (if v
-            (if xs
-              (recur xs) v) v))
+            (let [xs (next args)]
+              (if xs
+                (recur xs) v)) v))
         true))))
 
 (defn eval-or
@@ -50,11 +50,11 @@
     (loop [args args]
       (when args
         (let [x (first args)
-              xs (next args)
               v (eval ctx x)]
           (if v v
-              (if xs (recur xs)
-                  v)))))))
+              (let [xs (next args)]
+                (if xs (recur xs)
+                    v))))))))
 
 (defn eval-let
   "The let macro from clojure.core"
