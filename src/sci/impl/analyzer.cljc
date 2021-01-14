@@ -16,7 +16,7 @@
     [mark-eval mark-eval-call constant?
      rethrow-with-location-of-node
      merge-meta set-namespace!
-     macro? ana-macros]]
+     macro? ana-macros kw-identical?]]
    [sci.impl.vars :as vars])
   #?(:clj (:import [sci.impl Reflector])))
 
@@ -751,44 +751,72 @@
 
 (defn unrolled-call
   ([ctx expr f analyzed-children]
-   (unrolled-call ctx expr f analyzed-children false))
-  ([_ctx expr f analyzed-children needs-ctx]
+   (unrolled-call ctx expr f analyzed-children nil))
+  ([_ctx expr f analyzed-children op]
    (ctx-fn
     (case (count analyzed-children)
-      0 (if needs-ctx
+      0 (cond
+          (identical? op utils/needs-ctx)
           (fn [ctx]
             (f ctx))
+          (kw-identical? op :resolve-sym)
+          (fn [ctx]
+            ((eval/resolve-symbol ctx f)))
+          :else
           (fn [_ctx]
             (f)))
       1 (let [a (first analyzed-children)]
-          (if needs-ctx
+          (cond
+            (identical? op utils/needs-ctx)
             (fn [ctx]
               (f ctx (eval/eval ctx a)))
+            (kw-identical? op :resolve-sym)
+            (fn [ctx]
+              ((eval/resolve-symbol ctx f) (eval/eval ctx a)))
+            :else
             (fn [ctx]
               (f (eval/eval ctx a)))))
       2 (let [a (first analyzed-children)
               b (second analyzed-children)]
-          (if needs-ctx
+          (cond
+            (identical? op utils/needs-ctx)
             (fn [ctx]
               (f ctx (eval/eval ctx a) (eval/eval ctx b)))
+            (kw-identical? op :resolve-sym)
+            (fn [ctx]
+              ((eval/resolve-symbol ctx f) (eval/eval ctx a) (eval/eval ctx b)))
+            :else
             (fn [ctx]
               (f (eval/eval ctx a) (eval/eval ctx b)))))
       3 (let [a (first analyzed-children)
               b (second analyzed-children)
               c (nth analyzed-children 2)]
-          (if needs-ctx
+          (cond
+            (identical? op utils/needs-ctx)
             (fn [ctx]
               (f ctx
                  (eval/eval ctx a)
                  (eval/eval ctx b)
                  (eval/eval ctx c)))
+            (kw-identical? op :resolve-sym)
+            (fn [ctx]
+              ((eval/resolve-symbol ctx f)
+               (eval/eval ctx a)
+               (eval/eval ctx b)
+               (eval/eval ctx c)))
+            :else
             (fn [ctx]
               (f (eval/eval ctx a)
                  (eval/eval ctx b)
                  (eval/eval ctx c)))))
-      (if needs-ctx
+      (cond
+        (identical? op utils/needs-ctx)
         (fn [ctx]
           (eval/fn-call ctx f (cons ctx analyzed-children)))
+        (kw-identical? op :resolve-sym)
+        (fn [ctx]
+          (eval/fn-call ctx (eval/resolve-symbol ctx f) analyzed-children))
+        :else
         (fn [ctx]
           (eval/fn-call ctx f analyzed-children))))
     expr)))
@@ -875,13 +903,23 @@
                                                    :sci.impl/f-meta f-meta)
                                    f (analyze-children ctx (rest expr)))
                     (if-let [op (:sci.impl/op (meta f))]
-                      (if (identical? utils/needs-ctx op)
+                      (cond
+                        (identical? utils/needs-ctx op)
                         (unrolled-call ctx
                                        ;; for backwards compatibility with error reporting
                                        (mark-eval-call (cons f (rest expr))
                                                        :sci.impl/f-meta f-meta)
                                        f (analyze-children ctx (rest expr))
-                                       true)
+                                       op)
+
+                        (kw-identical? :resolve-sym op)
+                        (unrolled-call ctx
+                                       ;; for backwards compatibility with error reporting
+                                       (mark-eval-call (cons f (rest expr))
+                                                       :sci.impl/f-meta f-meta)
+                                       f (analyze-children ctx (rest expr))
+                                       op)
+                        :else
                         (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
                       (mark-eval-call (cons f (analyze-children ctx (rest expr)))))))
                 (catch #?(:clj Exception :cljs js/Error) e
