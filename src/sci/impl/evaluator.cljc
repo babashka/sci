@@ -577,10 +577,10 @@
   [ctx expr]
   (try
     (cond (instance? sci.impl.types.EvalFn expr)
-          (let [f (t/getVal expr)]
+          (let [f (.-f ^sci.impl.types.EvalFn expr)]
             (f ctx))
           (instance? sci.impl.types.EvalVar expr)
-          (let [v (t/getVal expr)]
+          (let [v (.-v ^sci.impl.types.EvalVar expr)]
             (deref-1 v))
           :else
           (let [m (meta expr)
