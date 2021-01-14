@@ -788,7 +788,7 @@
                  (eval/eval ctx c)))))
       (if needs-ctx
         (fn [ctx]
-          (eval/fn-call ctx f ctx analyzed-children))
+          (eval/fn-call ctx f (cons ctx analyzed-children)))
         (fn [ctx]
           (eval/fn-call ctx f analyzed-children))))
     expr)))
