@@ -612,10 +612,6 @@
                                   ;; someone trying to hack
                                   (throw (new #?(:clj Exception :cljs js/Error)
                                               (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
-                      eval (if (identical? op utils/evaluate)
-                             (expr ctx)
-                             (throw (new #?(:clj Exception :cljs js/Error)
-                                         (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
                       (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
                                                            (map #(eval ctx %) (vals expr)))
                                           (handle-meta ctx m))

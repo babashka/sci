@@ -61,7 +61,6 @@
         (:macro m))))
 
 (def needs-ctx (symbol "needs-ctx"))
-(def evaluate (symbol "eval"))
 
 (defn rethrow-with-location-of-node [ctx ^Throwable e raw-node]
   (let [node (t/sexpr raw-node)

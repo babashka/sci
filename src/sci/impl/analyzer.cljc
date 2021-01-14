@@ -488,10 +488,11 @@
   (case (count exprs)
     (0 1) (throw-error-with-location "Too few arguments to if" expr)
     (2 3) (let [[cond then else] (analyze-children ctx exprs)]
-            (with-meta ;; TODO, migrate to ctx-fn, this one is still needed
+            (ctx-fn
               (fn [ctx]
                 (eval/eval-if ctx cond then else))
-              {:sci.impl/op utils/evaluate}))
+              ;; backward compatibility with stacktrace
+              (with-meta expr {:sci.impl/op :call})))
     (throw-error-with-location "Too many arguments to if" expr)))
 
 (defn expand-case
