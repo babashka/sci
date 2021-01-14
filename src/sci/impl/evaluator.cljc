@@ -606,6 +606,7 @@
                                     v (force v)]
                                 v)
                       :resolve-sym (resolve-symbol ctx expr)
+                      ;; needed for when a needs-ctx fn is passed as hof
                       needs-ctx (if (identical? op utils/needs-ctx)
                                   (partial expr ctx)
                                   ;; this should never happen, or if it does, it's
