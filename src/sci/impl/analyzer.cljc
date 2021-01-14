@@ -853,7 +853,14 @@
                                    (mark-eval-call (cons f (rest expr))
                                                    :sci.impl/f-meta f-meta)
                                    f (analyze-children ctx (rest expr)))
-                    (mark-eval-call (cons f (analyze-children ctx (rest expr))))))
+                    (if (:sci.impl/op (meta f))
+                      ;; fallback
+                      (mark-eval-call (cons f (analyze-children ctx (rest expr))))
+                      (unrolled-call ctx
+                                     ;; for backwards compatibility with error reporting
+                                     (mark-eval-call (cons f (rest expr)))
+                                     f (analyze-children ctx (rest expr))))
+                    #_(mark-eval-call (cons f (analyze-children ctx (rest expr))))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting
