@@ -749,77 +749,82 @@
 
 ;;;; End vars
 
+(defn unrolled-binding-call
+  ;; TODO: macro to unroll more
+  [_ctx expr f analyzed-children]
+  (ctx-fn
+   (case (count analyzed-children)
+     0 (fn [ctx]
+         ((eval/resolve-symbol ctx f)))
+     1 (let [a (first analyzed-children)]
+         (fn [ctx]
+           ((eval/resolve-symbol ctx f) (eval/eval ctx a))))
+     2 (let [a (first analyzed-children)
+             b (second analyzed-children)]
+         (fn [ctx]
+           ((eval/resolve-symbol ctx f) (eval/eval ctx a) (eval/eval ctx b))))
+     3 (let [a (first analyzed-children)
+             b (second analyzed-children)
+             c (nth analyzed-children 2)]
+         (fn [ctx]
+           ((eval/resolve-symbol ctx f)
+            (eval/eval ctx a)
+            (eval/eval ctx b)
+            (eval/eval ctx c))))
+     (fn [ctx]
+       (eval/fn-call ctx (eval/resolve-symbol ctx f) analyzed-children)))
+   expr))
+
+(defn unrolled-ctx-call
+  ;; TODO: macro to unroll mode
+  [_ctx expr f analyzed-children]
+  (ctx-fn
+   (case (count analyzed-children)
+     0 (fn [ctx]
+         (f ctx))
+     1 (let [a (first analyzed-children)]
+         (fn [ctx]
+           (f ctx (eval/eval ctx a))))
+     2 (let [a (first analyzed-children)
+             b (second analyzed-children)]
+         (fn [ctx]
+           (f ctx (eval/eval ctx a) (eval/eval ctx b))))
+     3 (let [a (first analyzed-children)
+             b (second analyzed-children)
+             c (nth analyzed-children 2)]
+         (fn [ctx]
+           (f ctx
+              (eval/eval ctx a)
+              (eval/eval ctx b)
+              (eval/eval ctx c))))
+     (fn [ctx]
+       (eval/fn-call ctx f (cons ctx analyzed-children))))
+   expr))
+
 (defn unrolled-call
-  ([ctx expr f analyzed-children]
-   (unrolled-call ctx expr f analyzed-children nil))
-  ([_ctx expr f analyzed-children op]
-   (ctx-fn
-    (case (count analyzed-children)
-      0 (cond
-          (identical? op utils/needs-ctx)
-          (fn [ctx]
-            (f ctx))
-          (kw-identical? op :resolve-sym)
-          (fn [ctx]
-            ((eval/resolve-symbol ctx f)))
-          :else
-          (fn [_ctx]
-            (f)))
-      1 (let [a (first analyzed-children)]
-          (cond
-            (identical? op utils/needs-ctx)
-            (fn [ctx]
-              (f ctx (eval/eval ctx a)))
-            (kw-identical? op :resolve-sym)
-            (fn [ctx]
-              ((eval/resolve-symbol ctx f) (eval/eval ctx a)))
-            :else
-            (fn [ctx]
-              (f (eval/eval ctx a)))))
-      2 (let [a (first analyzed-children)
-              b (second analyzed-children)]
-          (cond
-            (identical? op utils/needs-ctx)
-            (fn [ctx]
-              (f ctx (eval/eval ctx a) (eval/eval ctx b)))
-            (kw-identical? op :resolve-sym)
-            (fn [ctx]
-              ((eval/resolve-symbol ctx f) (eval/eval ctx a) (eval/eval ctx b)))
-            :else
-            (fn [ctx]
-              (f (eval/eval ctx a) (eval/eval ctx b)))))
-      3 (let [a (first analyzed-children)
-              b (second analyzed-children)
-              c (nth analyzed-children 2)]
-          (cond
-            (identical? op utils/needs-ctx)
-            (fn [ctx]
-              (f ctx
-                 (eval/eval ctx a)
-                 (eval/eval ctx b)
-                 (eval/eval ctx c)))
-            (kw-identical? op :resolve-sym)
-            (fn [ctx]
-              ((eval/resolve-symbol ctx f)
-               (eval/eval ctx a)
-               (eval/eval ctx b)
-               (eval/eval ctx c)))
-            :else
-            (fn [ctx]
-              (f (eval/eval ctx a)
-                 (eval/eval ctx b)
-                 (eval/eval ctx c)))))
-      (cond
-        (identical? op utils/needs-ctx)
-        (fn [ctx]
-          (eval/fn-call ctx f (cons ctx analyzed-children)))
-        (kw-identical? op :resolve-sym)
-        (fn [ctx]
-          (eval/fn-call ctx (eval/resolve-symbol ctx f) analyzed-children))
-        :else
-        (fn [ctx]
-          (eval/fn-call ctx f analyzed-children))))
-    expr)))
+  ;; TODO: macro to unroll more
+  [_ctx expr f analyzed-children]
+  (ctx-fn
+   (case (count analyzed-children)
+     0 (fn [_ctx]
+         (f))
+     1 (let [a (first analyzed-children)]
+         (fn [ctx]
+           (f (eval/eval ctx a))))
+     2 (let [a (first analyzed-children)
+             b (second analyzed-children)]
+         (fn [ctx]
+           (f (eval/eval ctx a) (eval/eval ctx b))))
+     3 (let [a (first analyzed-children)
+             b (second analyzed-children)
+             c (nth analyzed-children 2)]
+         (fn [ctx]
+           (f (eval/eval ctx a)
+              (eval/eval ctx b)
+              (eval/eval ctx c))))
+     (fn [ctx]
+       (eval/fn-call ctx f analyzed-children)))
+   expr))
 
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
@@ -905,20 +910,17 @@
                     (if-let [op (:sci.impl/op (meta f))]
                       (cond
                         (identical? utils/needs-ctx op)
-                        (unrolled-call ctx
+                        (unrolled-ctx-call ctx
                                        ;; for backwards compatibility with error reporting
                                        (mark-eval-call (cons f (rest expr))
                                                        :sci.impl/f-meta f-meta)
-                                       f (analyze-children ctx (rest expr))
-                                       op)
-
+                                       f (analyze-children ctx (rest expr)))
                         (kw-identical? :resolve-sym op)
-                        (unrolled-call ctx
+                        (unrolled-binding-call ctx
                                        ;; for backwards compatibility with error reporting
                                        (mark-eval-call (cons f (rest expr))
                                                        :sci.impl/f-meta f-meta)
-                                       f (analyze-children ctx (rest expr))
-                                       op)
+                                       f (analyze-children ctx (rest expr)))
                         :else
                         (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
                       (mark-eval-call (cons f (analyze-children ctx (rest expr)))))))
