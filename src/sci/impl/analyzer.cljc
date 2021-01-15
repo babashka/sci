@@ -73,16 +73,16 @@
 (defn return-do [expr analyzed-exprs]
   (case (count analyzed-exprs)
     0 nil
-    1 (first analyzed-exprs)
-    2 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)]
+    1 (nth analyzed-exprs 0)
+    2 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)]
         (ctx-fn
          (fn [ctx]
            (eval/eval ctx a)
            (eval/eval ctx b))
          expr))
-    3 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    3 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)]
         (ctx-fn
          (fn [ctx]
@@ -90,8 +90,8 @@
            (eval/eval ctx b)
            (eval/eval ctx c))
          expr))
-    4 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    4 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)
             d (nth analyzed-exprs 3)]
         (ctx-fn
@@ -112,17 +112,17 @@
 (defn return-or [expr analyzed-exprs]
   (case (count analyzed-exprs)
     0 nil
-    1 (first analyzed-exprs)
-    2 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)]
+    1 (nth analyzed-exprs 0)
+    2 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)]
         (ctx-fn
          (fn [ctx]
            (or
             (eval/eval ctx a)
             (eval/eval ctx b)))
          expr))
-    3 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    3 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)]
         (ctx-fn
          (fn [ctx]
@@ -131,8 +131,8 @@
             (eval/eval ctx b)
             (eval/eval ctx c)))
          expr))
-    4 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    4 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)
             d (nth analyzed-exprs 3)]
         (ctx-fn
@@ -154,17 +154,17 @@
 (defn return-and [expr analyzed-exprs]
   (case (count analyzed-exprs)
     0 nil
-    1 (first analyzed-exprs)
-    2 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)]
+    1 (nth analyzed-exprs 0)
+    2 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)]
         (ctx-fn
          (fn [ctx]
            (and
             (eval/eval ctx a)
             (eval/eval ctx b)))
          expr))
-    3 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    3 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)]
         (ctx-fn
          (fn [ctx]
@@ -173,8 +173,8 @@
             (eval/eval ctx b)
             (eval/eval ctx c)))
          expr))
-    4 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    4 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)
             d (nth analyzed-exprs 3)]
         (ctx-fn
@@ -198,23 +198,23 @@
    (case (count analyzed-exprs)
      0 (fn [_ctx]
          (fns/->Recur []))
-     1 (let [a (first analyzed-exprs)]
+     1 (let [a (nth analyzed-exprs 0)]
          (fn [ctx]
            (fns/->Recur [(eval/eval ctx a)])))
-     2 (let [a (first analyzed-exprs)
-             b (second analyzed-exprs)]
+     2 (let [a (nth analyzed-exprs 0)
+             b (nth analyzed-exprs 1)]
          (fn [ctx]
            (fns/->Recur [(eval/eval ctx a)
                          (eval/eval ctx b)])))
-     3 (let [a (first analyzed-exprs)
-             b (second analyzed-exprs)
+     3 (let [a (nth analyzed-exprs 0)
+             b (nth analyzed-exprs 1)
              c (nth analyzed-exprs 2)]
          (fn [ctx]
            (fns/->Recur [(eval/eval ctx a)
                          (eval/eval ctx b)
                          (eval/eval ctx c)])))
-     4 (let [a (first analyzed-exprs)
-             b (second analyzed-exprs)
+     4 (let [a (nth analyzed-exprs 0)
+             b (nth analyzed-exprs 1)
              c (nth analyzed-exprs 2)
              d (nth analyzed-exprs 3)]
          (fn [ctx]
@@ -756,15 +756,15 @@
    (case (count analyzed-children)
      0 (fn [ctx]
          ((eval/resolve-symbol ctx f)))
-     1 (let [a (first analyzed-children)]
+     1 (let [a (nth analyzed-children 0)]
          (fn [ctx]
            ((eval/resolve-symbol ctx f) (eval/eval ctx a))))
-     2 (let [a (first analyzed-children)
-             b (second analyzed-children)]
+     2 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)]
          (fn [ctx]
            ((eval/resolve-symbol ctx f) (eval/eval ctx a) (eval/eval ctx b))))
-     3 (let [a (first analyzed-children)
-             b (second analyzed-children)
+     3 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)
              c (nth analyzed-children 2)]
          (fn [ctx]
            ((eval/resolve-symbol ctx f)
@@ -782,15 +782,15 @@
    (case (count analyzed-children)
      0 (fn [ctx]
          (f ctx))
-     1 (let [a (first analyzed-children)]
+     1 (let [a (nth analyzed-children 0)]
          (fn [ctx]
            (f ctx (eval/eval ctx a))))
-     2 (let [a (first analyzed-children)
-             b (second analyzed-children)]
+     2 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)]
          (fn [ctx]
            (f ctx (eval/eval ctx a) (eval/eval ctx b))))
-     3 (let [a (first analyzed-children)
-             b (second analyzed-children)
+     3 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)
              c (nth analyzed-children 2)]
          (fn [ctx]
            (f ctx
@@ -808,15 +808,15 @@
    (case (count analyzed-children)
      0 (fn [_ctx]
          (f))
-     1 (let [a (first analyzed-children)]
+     1 (let [a (nth analyzed-children 0)]
          (fn [ctx]
            (f (eval/eval ctx a))))
-     2 (let [a (first analyzed-children)
-             b (second analyzed-children)]
+     2 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)]
          (fn [ctx]
            (f (eval/eval ctx a) (eval/eval ctx b))))
-     3 (let [a (first analyzed-children)
-             b (second analyzed-children)
+     3 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)
              c (nth analyzed-children 2)]
          (fn [ctx]
            (f (eval/eval ctx a)
