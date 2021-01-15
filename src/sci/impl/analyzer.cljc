@@ -16,7 +16,7 @@
     [mark-eval mark-eval-call constant?
      rethrow-with-location-of-node
      merge-meta set-namespace!
-     macro? ana-macros]]
+     macro? ana-macros kw-identical?]]
    [sci.impl.vars :as vars])
   #?(:clj (:import [sci.impl Reflector])))
 
@@ -73,16 +73,16 @@
 (defn return-do [expr analyzed-exprs]
   (case (count analyzed-exprs)
     0 nil
-    1 (first analyzed-exprs)
-    2 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)]
+    1 (nth analyzed-exprs 0)
+    2 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)]
         (ctx-fn
          (fn [ctx]
            (eval/eval ctx a)
            (eval/eval ctx b))
          expr))
-    3 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    3 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)]
         (ctx-fn
          (fn [ctx]
@@ -90,8 +90,8 @@
            (eval/eval ctx b)
            (eval/eval ctx c))
          expr))
-    4 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    4 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)
             d (nth analyzed-exprs 3)]
         (ctx-fn
@@ -112,17 +112,17 @@
 (defn return-or [expr analyzed-exprs]
   (case (count analyzed-exprs)
     0 nil
-    1 (first analyzed-exprs)
-    2 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)]
+    1 (nth analyzed-exprs 0)
+    2 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)]
         (ctx-fn
          (fn [ctx]
            (or
             (eval/eval ctx a)
             (eval/eval ctx b)))
          expr))
-    3 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    3 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)]
         (ctx-fn
          (fn [ctx]
@@ -131,8 +131,8 @@
             (eval/eval ctx b)
             (eval/eval ctx c)))
          expr))
-    4 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    4 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)
             d (nth analyzed-exprs 3)]
         (ctx-fn
@@ -154,17 +154,17 @@
 (defn return-and [expr analyzed-exprs]
   (case (count analyzed-exprs)
     0 nil
-    1 (first analyzed-exprs)
-    2 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)]
+    1 (nth analyzed-exprs 0)
+    2 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)]
         (ctx-fn
          (fn [ctx]
            (and
             (eval/eval ctx a)
             (eval/eval ctx b)))
          expr))
-    3 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    3 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)]
         (ctx-fn
          (fn [ctx]
@@ -173,8 +173,8 @@
             (eval/eval ctx b)
             (eval/eval ctx c)))
          expr))
-    4 (let [a (first analyzed-exprs)
-            b (second analyzed-exprs)
+    4 (let [a (nth analyzed-exprs 0)
+            b (nth analyzed-exprs 1)
             c (nth analyzed-exprs 2)
             d (nth analyzed-exprs 3)]
         (ctx-fn
@@ -198,23 +198,23 @@
    (case (count analyzed-exprs)
      0 (fn [_ctx]
          (fns/->Recur []))
-     1 (let [a (first analyzed-exprs)]
+     1 (let [a (nth analyzed-exprs 0)]
          (fn [ctx]
            (fns/->Recur [(eval/eval ctx a)])))
-     2 (let [a (first analyzed-exprs)
-             b (second analyzed-exprs)]
+     2 (let [a (nth analyzed-exprs 0)
+             b (nth analyzed-exprs 1)]
          (fn [ctx]
            (fns/->Recur [(eval/eval ctx a)
                          (eval/eval ctx b)])))
-     3 (let [a (first analyzed-exprs)
-             b (second analyzed-exprs)
+     3 (let [a (nth analyzed-exprs 0)
+             b (nth analyzed-exprs 1)
              c (nth analyzed-exprs 2)]
          (fn [ctx]
            (fns/->Recur [(eval/eval ctx a)
                          (eval/eval ctx b)
                          (eval/eval ctx c)])))
-     4 (let [a (first analyzed-exprs)
-             b (second analyzed-exprs)
+     4 (let [a (nth analyzed-exprs 0)
+             b (nth analyzed-exprs 1)
              c (nth analyzed-exprs 2)
              d (nth analyzed-exprs 3)]
          (fn [ctx]
@@ -749,49 +749,82 @@
 
 ;;;; End vars
 
+(defn unrolled-binding-call
+  ;; TODO: macro to unroll more
+  [_ctx expr f analyzed-children]
+  (ctx-fn
+   (case (count analyzed-children)
+     0 (fn [ctx]
+         ((eval/resolve-symbol ctx f)))
+     1 (let [a (nth analyzed-children 0)]
+         (fn [ctx]
+           ((eval/resolve-symbol ctx f) (eval/eval ctx a))))
+     2 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)]
+         (fn [ctx]
+           ((eval/resolve-symbol ctx f) (eval/eval ctx a) (eval/eval ctx b))))
+     3 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)
+             c (nth analyzed-children 2)]
+         (fn [ctx]
+           ((eval/resolve-symbol ctx f)
+            (eval/eval ctx a)
+            (eval/eval ctx b)
+            (eval/eval ctx c))))
+     (fn [ctx]
+       (eval/fn-call ctx (eval/resolve-symbol ctx f) analyzed-children)))
+   expr))
+
+(defn unrolled-ctx-call
+  ;; TODO: macro to unroll mode
+  [_ctx expr f analyzed-children]
+  (ctx-fn
+   (case (count analyzed-children)
+     0 (fn [ctx]
+         (f ctx))
+     1 (let [a (nth analyzed-children 0)]
+         (fn [ctx]
+           (f ctx (eval/eval ctx a))))
+     2 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)]
+         (fn [ctx]
+           (f ctx (eval/eval ctx a) (eval/eval ctx b))))
+     3 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)
+             c (nth analyzed-children 2)]
+         (fn [ctx]
+           (f ctx
+              (eval/eval ctx a)
+              (eval/eval ctx b)
+              (eval/eval ctx c))))
+     (fn [ctx]
+       (eval/fn-call ctx f (cons ctx analyzed-children))))
+   expr))
+
 (defn unrolled-call
-  ([ctx expr f analyzed-children]
-   (unrolled-call ctx expr f analyzed-children false))
-  ([_ctx expr f analyzed-children needs-ctx]
-   (ctx-fn
-    (case (count analyzed-children)
-      0 (if needs-ctx
-          (fn [ctx]
-            (f ctx))
-          (fn [_ctx]
-            (f)))
-      1 (let [a (first analyzed-children)]
-          (if needs-ctx
-            (fn [ctx]
-              (f ctx (eval/eval ctx a)))
-            (fn [ctx]
-              (f (eval/eval ctx a)))))
-      2 (let [a (first analyzed-children)
-              b (second analyzed-children)]
-          (if needs-ctx
-            (fn [ctx]
-              (f ctx (eval/eval ctx a) (eval/eval ctx b)))
-            (fn [ctx]
-              (f (eval/eval ctx a) (eval/eval ctx b)))))
-      3 (let [a (first analyzed-children)
-              b (second analyzed-children)
-              c (nth analyzed-children 2)]
-          (if needs-ctx
-            (fn [ctx]
-              (f ctx
-                 (eval/eval ctx a)
-                 (eval/eval ctx b)
-                 (eval/eval ctx c)))
-            (fn [ctx]
-              (f (eval/eval ctx a)
-                 (eval/eval ctx b)
-                 (eval/eval ctx c)))))
-      (if needs-ctx
-        (fn [ctx]
-          (eval/fn-call ctx f (cons ctx analyzed-children)))
-        (fn [ctx]
-          (eval/fn-call ctx f analyzed-children))))
-    expr)))
+  ;; TODO: macro to unroll more
+  [_ctx expr f analyzed-children]
+  (ctx-fn
+   (case (count analyzed-children)
+     0 (fn [_ctx]
+         (f))
+     1 (let [a (nth analyzed-children 0)]
+         (fn [ctx]
+           (f (eval/eval ctx a))))
+     2 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)]
+         (fn [ctx]
+           (f (eval/eval ctx a) (eval/eval ctx b))))
+     3 (let [a (nth analyzed-children 0)
+             b (nth analyzed-children 1)
+             c (nth analyzed-children 2)]
+         (fn [ctx]
+           (f (eval/eval ctx a)
+              (eval/eval ctx b)
+              (eval/eval ctx c))))
+     (fn [ctx]
+       (eval/fn-call ctx f analyzed-children)))
+   expr))
 
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
@@ -875,13 +908,20 @@
                                                    :sci.impl/f-meta f-meta)
                                    f (analyze-children ctx (rest expr)))
                     (if-let [op (:sci.impl/op (meta f))]
-                      (if (identical? utils/needs-ctx op)
-                        (unrolled-call ctx
+                      (cond
+                        (identical? utils/needs-ctx op)
+                        (unrolled-ctx-call ctx
+                                           ;; no need to pass metadata for backwards compatibility
+                                           ;; since we weren't reporting needs-ctx-fns anyway
+                                           expr
+                                           f (analyze-children ctx (rest expr)))
+                        (kw-identical? :resolve-sym op)
+                        (unrolled-binding-call ctx
                                        ;; for backwards compatibility with error reporting
                                        (mark-eval-call (cons f (rest expr))
                                                        :sci.impl/f-meta f-meta)
-                                       f (analyze-children ctx (rest expr))
-                                       true)
+                                       f (analyze-children ctx (rest expr)))
+                        :else
                         (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
                       (mark-eval-call (cons f (analyze-children ctx (rest expr)))))))
                 (catch #?(:clj Exception :cljs js/Error) e
