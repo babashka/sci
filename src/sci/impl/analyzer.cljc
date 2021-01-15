@@ -911,10 +911,10 @@
                       (cond
                         (identical? utils/needs-ctx op)
                         (unrolled-ctx-call ctx
-                                       ;; for backwards compatibility with error reporting
-                                       (mark-eval-call (cons f (rest expr))
-                                                       :sci.impl/f-meta f-meta)
-                                       f (analyze-children ctx (rest expr)))
+                                           ;; no need to pass metadata for backwards compatibility
+                                           ;; since we weren't reporting needs-ctx-fns anyway
+                                           expr
+                                           f (analyze-children ctx (rest expr)))
                         (kw-identical? :resolve-sym op)
                         (unrolled-binding-call ctx
                                        ;; for backwards compatibility with error reporting
