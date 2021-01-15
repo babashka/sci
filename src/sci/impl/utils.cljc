@@ -71,7 +71,6 @@
             (:sci.impl/f-meta node)
             (some-> f meta))
         op (when fm (.get ^java.util.Map m :sci.impl/op))
-        _ (prn f :op op)
         special? (or
                   ;; special call like def
                   (and (symbol? f) (not op))
@@ -80,6 +79,7 @@
                   ;; special thing like require
                   (identical? needs-ctx op))]
     (when (not special?)
+      ;; (prn :not-special node)
       (swap! (:env ctx) update-in [:sci.impl/callstack (:id ctx)]
              (fn [vt]
                (if vt
@@ -89,7 +89,9 @@
     (if-not *in-try*
       (let [d (ex-data e)]
         (if (isa? (:type d) :sci/error)
-          (throw e)
+          (do
+            nil ;; (prn :already-sci)
+            (throw e))
           (let [ex-msg #?(:clj (.getMessage e)
                           :cljs (.-message e))
                 {:keys [:line :column :file]
@@ -99,6 +101,7 @@
                          (str/replace ex-msg #"(sci\.impl\.)?fns/fun/[a-zA-Z0-9-]+--\d+"
                                       (str (:name fm)))
                          ex-msg)]
+            ;; (prn :line line :col column)
             (if (and line column)
               (let [m ex-msg
                     new-exception
