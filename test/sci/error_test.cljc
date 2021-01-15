@@ -17,6 +17,8 @@
                          (select-keys [:ns :name :line :column])
                          (update :ns sci-ns-name))
                     (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
+    (doseq [st stacktrace]
+      (prn st))
     (is (= '({:ns clojure.core, :name subs}
              {:ns user, :name bar, :line 2, :column 14}
              {:ns user, :name bar, :line 2, :column 1}

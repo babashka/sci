@@ -66,9 +66,12 @@
   (let [node (t/sexpr raw-node)
         m (meta node)
         f (when (seqable? node) (first node))
-        fm (or (:sci.impl/f-meta node)
-               (some-> f meta))
+        fm (or
+            ;; TODO: is this first case still used?
+            (:sci.impl/f-meta node)
+            (some-> f meta))
         op (when fm (.get ^java.util.Map m :sci.impl/op))
+        _ (prn f :op op)
         special? (or
                   ;; special call like def
                   (and (symbol? f) (not op))
@@ -87,7 +90,7 @@
       (let [d (ex-data e)]
         (if (isa? (:type d) :sci/error)
           (throw e)
-          (let [ex-msg #?(:clj (or (.getMessage e))
+          (let [ex-msg #?(:clj (.getMessage e)
                           :cljs (.-message e))
                 {:keys [:line :column :file]
                  :or {line (:line ctx)
