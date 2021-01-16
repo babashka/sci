@@ -16,7 +16,7 @@
     [mark-eval mark-eval-call constant?
      rethrow-with-location-of-node
      merge-meta set-namespace!
-     macro? ana-macros kw-identical?]]
+     macro? ana-macros kw-identical? ctx-fn]]
    [sci.impl.vars :as vars])
   #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
@@ -75,9 +75,6 @@
 (vreset! utils/macroexpand-1* macroexpand-1)
 
 ;;;; End macros
-
-(defn ctx-fn [f expr]
-  (types/->EvalFn f nil expr))
 
 (defmacro gen-return-do
   []

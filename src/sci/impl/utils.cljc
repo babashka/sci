@@ -240,3 +240,6 @@
      comment loop lazy-seq for doseq case try defmacro
      declare expand-dot* expand-constructor new . import in-ns ns var
      set! resolve #_#_macroexpand-1 macroexpand})
+
+(defn ctx-fn [f expr]
+  (t/->EvalFn f nil expr))
