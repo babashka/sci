@@ -109,89 +109,69 @@
 (declare return-do) ;; for clj-kondo
 (gen-return-do)
 
-(defn return-or [expr analyzed-exprs]
-  (case (count analyzed-exprs)
-    0 nil
-    1 (nth analyzed-exprs 0)
-    2 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)]
-        (ctx-fn
-         (fn [ctx]
-           (or
-            (eval/eval ctx a)
-            (eval/eval ctx b)))
-         expr))
-    3 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)]
-        (ctx-fn
-         (fn [ctx]
-           (or
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)))
-         expr))
-    4 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)
-            d (nth analyzed-exprs 3)]
-        (ctx-fn
-         (fn [ctx]
-           (or
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)
-            (eval/eval ctx d)))
-         expr))
-    ;; fallback
-    (do
-      nil ;; (prn :count (count analyzed-exprs))
-      (ctx-fn
-       (fn [ctx]
-         (eval/eval-or ctx analyzed-exprs))
-       expr))))
+(defmacro gen-return-or
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 2 4))]
+    `(defn ~'return-or
+       ~'[expr analyzed-children]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 nil]
+            [1 `(nth ~'analyzed-children 0)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx]
+                               (or
+                                ~@(map (fn [j]
+                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                       (range i))))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx]
+                 (eval/eval-or ~'ctx ~'analyzed-children))
+               ~'expr)])))))
 
-(defn return-and [expr analyzed-exprs]
-  (case (count analyzed-exprs)
-    0 nil
-    1 (nth analyzed-exprs 0)
-    2 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)]
-        (ctx-fn
-         (fn [ctx]
-           (and
-            (eval/eval ctx a)
-            (eval/eval ctx b)))
-         expr))
-    3 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)]
-        (ctx-fn
-         (fn [ctx]
-           (and
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)))
-         expr))
-    4 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)
-            d (nth analyzed-exprs 3)]
-        (ctx-fn
-         (fn [ctx]
-           (and
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)
-            (eval/eval ctx d)))
-         expr))
-    ;; fallback
-    (do
-      nil ;; (prn :count (count analyzed-exprs))
-      (ctx-fn
-       (fn [ctx]
-         (eval/eval-and ctx analyzed-exprs))
-       expr))))
+(declare return-or) ;; for clj-kondo
+(gen-return-or)
+
+(defmacro gen-return-and
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 2 4))]
+    `(defn ~'return-and
+       ~'[expr analyzed-children]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 nil]
+            [1 `(nth ~'analyzed-children 0)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx]
+                               (and
+                                ~@(map (fn [j]
+                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                       (range i))))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx]
+                 (eval/eval-and ~'ctx ~'analyzed-children))
+               ~'expr)])))))
+
+(declare return-and) ;; for clj-kondo
+(gen-return-and)
 
 (defn return-recur [expr analyzed-exprs]
   (ctx-fn
