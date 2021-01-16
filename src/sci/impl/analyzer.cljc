@@ -928,8 +928,7 @@
                                        ;; for backwards compatibility with error reporting
                                        (mark-eval-call (cons f children)
                                                        :sci.impl/f-meta f-meta)
-                                       f children))
-                      #_(mark-eval-call (cons f (analyze-children ctx (rest expr)))))))
+                                       f children)))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting
