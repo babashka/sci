@@ -77,10 +77,12 @@
                   ;; anonymous function
                   (kw-identical? :fn op)
                   ;; special thing like require
-                  (identical? needs-ctx op))]
+                  (identical? needs-ctx op))
+        env (:env ctx)
+        id (:id ctx)]
     (when (not special?)
       ;; (prn :not-special node)
-      (swap! (:env ctx) update-in [:sci.impl/callstack (:id ctx)]
+      (swap! env update-in [:sci.impl/callstack id]
              (fn [vt]
                (if vt
                  (do (vswap! vt conj node)
@@ -88,24 +90,31 @@
                  (volatile! (list node))))))
     (if-not *in-try*
       (let [d (ex-data e)]
-        (if (isa? (:type d) :sci/error)
+        (if false #_(isa? (:type d) :sci/error)
           (do
             nil ;; (prn :already-sci)
             (throw e))
-          (let [ex-msg #?(:clj (.getMessage e)
+          (let [d (ex-data e)
+                e (if (isa? (:type d) :sci/error)
+                    (ex-cause e)
+                    e)
+                ex-msg #?(:clj (.getMessage e)
                           :cljs (.-message e))
                 {:keys [:line :column :file]
                  :or {line (:line ctx)
-                      column (:column ctx)}} (meta node)
+                      column (:column ctx)}}
+                (or (some-> env deref
+                            :sci.impl/callstack (get id)
+                            deref last meta)
+                    (meta node))
                 ex-msg (if (and ex-msg (:name fm))
                          (str/replace ex-msg #"(sci\.impl\.)?fns/fun/[a-zA-Z0-9-]+--\d+"
                                       (str (:name fm)))
                          ex-msg)]
-            ;; (prn :line line :col column)
             (if (and line column)
               (let [m ex-msg
                     new-exception
-                    (let [d (ex-data e)
+                    (let [
                           base {:type :sci/error
                                 :line line
                                 :column column
@@ -113,7 +122,8 @@
                                 :sci.impl/callstack (delay (when-let [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
                                                     @v))
                                 :file file
-                                :locals (:bindings ctx)}
+                                :locals (or (:locals d)
+                                            (:bindings ctx))}
                           phase (:phase ctx)
                           base (if phase
                                  (assoc base :phase phase)
