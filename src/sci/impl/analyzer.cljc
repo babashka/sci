@@ -18,7 +18,16 @@
      merge-meta set-namespace!
      macro? ana-macros kw-identical?]]
    [sci.impl.vars :as vars])
-  #?(:clj (:import [sci.impl Reflector])))
+  #?(:clj (:import [sci.impl Reflector]))
+  #?(:cljs
+     (:require-macros
+      [sci.impl.analyzer :refer [gen-return-do
+                                 gen-return-or
+                                 gen-return-and
+                                 gen-return-recur
+                                 gen-return-binding-call
+                                 gen-return-needs-ctx-call
+                                 gen-return-call]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -70,162 +79,144 @@
 (defn ctx-fn [f expr]
   (types/->EvalFn f nil expr))
 
-(defn return-do [expr analyzed-exprs]
-  (case (count analyzed-exprs)
-    0 nil
-    1 (nth analyzed-exprs 0)
-    2 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)]
-        (ctx-fn
-         (fn [ctx]
-           (eval/eval ctx a)
-           (eval/eval ctx b))
-         expr))
-    3 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)]
-        (ctx-fn
-         (fn [ctx]
-           (eval/eval ctx a)
-           (eval/eval ctx b)
-           (eval/eval ctx c))
-         expr))
-    4 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)
-            d (nth analyzed-exprs 3)]
-        (ctx-fn
-         (fn [ctx]
-           (eval/eval ctx a)
-           (eval/eval ctx b)
-           (eval/eval ctx c)
-           (eval/eval ctx d))
-         expr))
-    ;; fallback
-    (do
-      nil ;; (prn :count (count analyzed-exprs))
-      (ctx-fn
-       (fn [ctx]
-         (eval/eval-do ctx analyzed-exprs))
-       expr))))
+(defmacro gen-return-do
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 2 4))]
+    `(defn ~'return-do
+       ~'[expr analyzed-children]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 nil]
+            [1 `(nth ~'analyzed-children 0)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx]
+                               ~@(map (fn [j]
+                                        `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                      (range i)))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx]
+                 (eval/eval-do ~'ctx ~'analyzed-children))
+               ~'expr)])))))
 
-(defn return-or [expr analyzed-exprs]
-  (case (count analyzed-exprs)
-    0 nil
-    1 (nth analyzed-exprs 0)
-    2 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)]
-        (ctx-fn
-         (fn [ctx]
-           (or
-            (eval/eval ctx a)
-            (eval/eval ctx b)))
-         expr))
-    3 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)]
-        (ctx-fn
-         (fn [ctx]
-           (or
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)))
-         expr))
-    4 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)
-            d (nth analyzed-exprs 3)]
-        (ctx-fn
-         (fn [ctx]
-           (or
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)
-            (eval/eval ctx d)))
-         expr))
-    ;; fallback
-    (do
-      nil ;; (prn :count (count analyzed-exprs))
-      (ctx-fn
-       (fn [ctx]
-         (eval/eval-or ctx analyzed-exprs))
-       expr))))
+;; (require '[clojure.pprint :refer [pprint]])
+;; (pprint (clojure.core/macroexpand '(gen-return-do)))
 
-(defn return-and [expr analyzed-exprs]
-  (case (count analyzed-exprs)
-    0 nil
-    1 (nth analyzed-exprs 0)
-    2 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)]
-        (ctx-fn
-         (fn [ctx]
-           (and
-            (eval/eval ctx a)
-            (eval/eval ctx b)))
-         expr))
-    3 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)]
-        (ctx-fn
-         (fn [ctx]
-           (and
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)))
-         expr))
-    4 (let [a (nth analyzed-exprs 0)
-            b (nth analyzed-exprs 1)
-            c (nth analyzed-exprs 2)
-            d (nth analyzed-exprs 3)]
-        (ctx-fn
-         (fn [ctx]
-           (and
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c)
-            (eval/eval ctx d)))
-         expr))
-    ;; fallback
-    (do
-      nil ;; (prn :count (count analyzed-exprs))
-      (ctx-fn
-       (fn [ctx]
-         (eval/eval-and ctx analyzed-exprs))
-       expr))))
+(declare return-do) ;; for clj-kondo
+(gen-return-do)
 
-(defn return-recur [expr analyzed-exprs]
-  (ctx-fn
-   (case (count analyzed-exprs)
-     0 (fn [_ctx]
-         (fns/->Recur []))
-     1 (let [a (nth analyzed-exprs 0)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)])))
-     2 (let [a (nth analyzed-exprs 0)
-             b (nth analyzed-exprs 1)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)
-                         (eval/eval ctx b)])))
-     3 (let [a (nth analyzed-exprs 0)
-             b (nth analyzed-exprs 1)
-             c (nth analyzed-exprs 2)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)
-                         (eval/eval ctx b)
-                         (eval/eval ctx c)])))
-     4 (let [a (nth analyzed-exprs 0)
-             b (nth analyzed-exprs 1)
-             c (nth analyzed-exprs 2)
-             d (nth analyzed-exprs 3)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)
-                         (eval/eval ctx b)
-                         (eval/eval ctx c)
-                         (eval/eval ctx d)])))
-     ;; else:
-     (fn [ctx]
-       (eval/fn-call ctx (comp fns/->Recur vector) analyzed-exprs)))
-   expr))
+(defmacro gen-return-or
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 2 20))]
+    `(defn ~'return-or
+       ~'[expr analyzed-children]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 nil]
+            [1 `(nth ~'analyzed-children 0)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx]
+                               (or
+                                ~@(map (fn [j]
+                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                       (range i))))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx]
+                 (eval/eval-or ~'ctx ~'analyzed-children))
+               ~'expr)])))))
+
+(declare return-or) ;; for clj-kondo
+(gen-return-or)
+
+(defmacro gen-return-and
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 2 20))]
+    `(defn ~'return-and
+       ~'[expr analyzed-children]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 nil]
+            [1 `(nth ~'analyzed-children 0)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx]
+                               (and
+                                ~@(map (fn [j]
+                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                       (range i))))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx]
+                 (eval/eval-and ~'ctx ~'analyzed-children))
+               ~'expr)])))))
+
+(declare return-and) ;; for clj-kondo
+(gen-return-and)
+
+(def ^:const recur-0 (fns/->Recur []))
+
+(defmacro gen-return-recur
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 1 20))]
+    `(defn ~'return-recur
+       ~'[expr analyzed-children]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 `(ctx-fn
+                 (fn [~'_]
+                   recur-0)
+                ~'expr)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx]
+                               (and
+                                (fns/->Recur
+                                 [~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                         (range i))])))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx]
+                 (eval/fn-call ~'ctx (comp fns/->Recur vector) ~'analyzed-children))
+               ~'expr)])))))
+
+;; (require 'clojure.pprint)
+;; (clojure.pprint/pprint
+;;  (clojure.core/macroexpand '(gen-return-recur)))
+
+(declare return-recur) ;; for clj-kondo
+(gen-return-recur)
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
@@ -749,86 +740,93 @@
 
 ;;;; End vars
 
-(defn unrolled-binding-call
-  ;; TODO: macro to unroll more
-  [_ctx expr f analyzed-children]
-  (ctx-fn
-   (case (count analyzed-children)
-     0 (fn [ctx]
-         ((eval/resolve-symbol ctx f)))
-     1 (let [a (nth analyzed-children 0)]
-         (fn [ctx]
-           ((eval/resolve-symbol ctx f) (eval/eval ctx a))))
-     2 (let [a (nth analyzed-children 0)
-             b (nth analyzed-children 1)]
-         (fn [ctx]
-           ((eval/resolve-symbol ctx f) (eval/eval ctx a) (eval/eval ctx b))))
-     3 (let [a (nth analyzed-children 0)
-             b (nth analyzed-children 1)
-             c (nth analyzed-children 2)]
-         (fn [ctx]
-           ((eval/resolve-symbol ctx f)
-            (eval/eval ctx a)
-            (eval/eval ctx b)
-            (eval/eval ctx c))))
-     (fn [ctx]
-       (eval/fn-call ctx (eval/resolve-symbol ctx f) analyzed-children)))
-   expr))
+(defmacro gen-return-binding-call
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 20))]
+    `(defn ~'return-binding-call
+       ~'[_ctx expr f analyzed-children]
+       (ctx-fn
+        (case (count ~'analyzed-children)
+          ~@(concat
+             (mapcat (fn [[i binds]]
+                       [i `(let ~binds
+                             (fn [~'ctx]
+                               ((eval/resolve-symbol ~'ctx ~'f)
+                                ~@(map (fn [j]
+                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                       (range i)))))])
+                     let-bindings)
+             `[(fn [~'ctx]
+                 (eval/fn-call ~'ctx (eval/resolve-symbol ~'ctx ~'f) ~'analyzed-children))]))
+        ~'expr))))
 
-(defn unrolled-ctx-call
-  ;; TODO: macro to unroll mode
-  [_ctx expr f analyzed-children]
-  (ctx-fn
-   (case (count analyzed-children)
-     0 (fn [ctx]
-         (f ctx))
-     1 (let [a (nth analyzed-children 0)]
-         (fn [ctx]
-           (f ctx (eval/eval ctx a))))
-     2 (let [a (nth analyzed-children 0)
-             b (nth analyzed-children 1)]
-         (fn [ctx]
-           (f ctx (eval/eval ctx a) (eval/eval ctx b))))
-     3 (let [a (nth analyzed-children 0)
-             b (nth analyzed-children 1)
-             c (nth analyzed-children 2)]
-         (fn [ctx]
-           (f ctx
-              (eval/eval ctx a)
-              (eval/eval ctx b)
-              (eval/eval ctx c))))
-     (fn [ctx]
-       (eval/fn-call ctx f (cons ctx analyzed-children))))
-   expr))
+(declare return-binding-call) ;; for clj-kondo
+(gen-return-binding-call)
 
-(defn unrolled-call
-  ;; TODO: macro to unroll more
-  [_ctx expr f analyzed-children]
-  (ctx-fn
-   (case (count analyzed-children)
-     0 (fn [_ctx]
-         (f))
-     1 (let [a (nth analyzed-children 0)]
-         (fn [ctx]
-           (f (eval/eval ctx a))))
-     2 (let [a (nth analyzed-children 0)
-             b (nth analyzed-children 1)]
-         (fn [ctx]
-           (f (eval/eval ctx a) (eval/eval ctx b))))
-     3 (let [a (nth analyzed-children 0)
-             b (nth analyzed-children 1)
-             c (nth analyzed-children 2)]
-         (fn [ctx]
-           (f (eval/eval ctx a)
-              (eval/eval ctx b)
-              (eval/eval ctx c))))
-     (fn [ctx]
-       (eval/fn-call ctx f analyzed-children)))
-   expr))
+(defmacro gen-return-needs-ctx-call
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 20))]
+    `(defn ~'return-needs-ctx-call
+       ~'[_ctx expr f analyzed-children]
+       (ctx-fn
+        (case (count ~'analyzed-children)
+          ~@(concat
+             (mapcat (fn [[i binds]]
+                       [i `(let ~binds
+                             (fn [~'ctx]
+                               (~'f ~'ctx
+                                ~@(map (fn [j]
+                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                       (range i)))))])
+                     let-bindings)
+             `[(fn [~'ctx]
+                 (eval/fn-call ~'ctx ~'f (cons ~'ctx ~'analyzed-children)))]))
+        ~'expr))))
+
+(declare return-needs-ctx-call) ;; for clj-kondo
+(gen-return-needs-ctx-call)
+
+(defmacro gen-return-call
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 20))]
+    `(defn ~'return-call
+       ~'[_ctx expr f analyzed-children]
+       (ctx-fn
+        (case (count ~'analyzed-children)
+          ~@(concat
+             (mapcat (fn [[i binds]]
+                       [i `(let ~binds
+                             (fn [~'ctx]
+                               (~'f
+                                ~@(map (fn [j]
+                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                       (range i)))))])
+                     let-bindings)
+             `[(fn [~'ctx]
+                 (eval/fn-call ~'ctx ~'f ~'analyzed-children))]))
+        ~'expr))))
+
+(declare return-call) ;; for clj-kondo
+(gen-return-call)
 
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
-    (if (symbol? f)
+    (cond (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
             ;; bindings
             special-sym (get special-syms f)
@@ -902,7 +900,7 @@
                                        :else (analyze ctx v))]
                     expanded)
                   (if-let [f (:sci.impl/inlined f-meta)]
-                    (unrolled-call ctx
+                    (return-call ctx
                                    ;; for backwards compatibility with error reporting
                                    (mark-eval-call (cons f (rest expr))
                                                    :sci.impl/f-meta f-meta)
@@ -910,26 +908,50 @@
                     (if-let [op (:sci.impl/op (meta f))]
                       (cond
                         (identical? utils/needs-ctx op)
-                        (unrolled-ctx-call ctx
+                        (return-needs-ctx-call ctx
                                            ;; no need to pass metadata for backwards compatibility
                                            ;; since we weren't reporting needs-ctx-fns anyway
                                            expr
                                            f (analyze-children ctx (rest expr)))
                         (kw-identical? :resolve-sym op)
-                        (unrolled-binding-call ctx
+                        (return-binding-call ctx
                                        ;; for backwards compatibility with error reporting
                                        (mark-eval-call (cons f (rest expr))
                                                        :sci.impl/f-meta f-meta)
                                        f (analyze-children ctx (rest expr)))
                         :else
                         (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
-                      (mark-eval-call (cons f (analyze-children ctx (rest expr)))))))
+                      (let [children (analyze-children ctx (rest expr))]
+                        (return-call ctx
+                                       ;; for backwards compatibility with error reporting
+                                       (mark-eval-call (cons f children)
+                                                       :sci.impl/f-meta f-meta)
+                                       f children)))))
                 (catch #?(:clj Exception :cljs js/Error) e
                   (rethrow-with-location-of-node ctx e
                                                  ;; adding metadata for error reporting
                                                  (mark-eval-call
                                                   (with-meta (cons f (rest expr))
                                                     (meta expr))))))))
+      (keyword? f)
+      (let [children (analyze-children ctx (rest expr))]
+        (case (count children)
+          1 (let [arg (nth children 0)]
+              (ctx-fn
+               (fn [ctx]
+                 ;; (prn :f f :arg (eval/eval ctx arg))
+                 (f (eval/eval ctx arg)))
+               expr))
+          2 (let [arg0 (nth children 0)
+                  arg1 (nth children 1)]
+              (ctx-fn (fn [ctx]
+                        (f (eval/eval ctx arg0)
+                           (eval/eval ctx arg1)))
+                      expr))
+          (mark-eval-call (cons f children))))
+      ;; (fn? f)
+      ;; TODO: how is this state reached? Maybe via a user-defined macro.
+      :else
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
 
