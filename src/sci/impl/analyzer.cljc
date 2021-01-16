@@ -949,6 +949,8 @@
                            (eval/eval ctx arg1)))
                       expr))
           (mark-eval-call (cons f children))))
+      ;; (fn? f)
+      ;; TODO: how is this state reached? Maybe via a user-defined macro.
       :else
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
