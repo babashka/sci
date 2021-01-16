@@ -62,6 +62,15 @@
 
 (def needs-ctx (symbol "needs-ctx"))
 
+#?(:clj
+   (defn- -ex-cause
+     "Returns the cause of ex if ex is a Throwable.
+  Otherwise returns nil."
+     {:added "1.10"}
+     ^Throwable [ex]
+     (when (instance? Throwable ex)
+       (.getCause ^Throwable ex))))
+
 (defn rethrow-with-location-of-node [ctx ^Throwable e raw-node]
   (let [node (t/sexpr raw-node)
         m (meta node)
@@ -96,7 +105,8 @@
             (throw e))
           (let [d (ex-data e)
                 e (if (isa? (:type d) :sci/error)
-                    (ex-cause e)
+                    #?(:clj (or (-ex-cause e) e)
+                       :cljs e)
                     e)
                 ex-msg #?(:clj (.getMessage e)
                           :cljs (.-message e))
