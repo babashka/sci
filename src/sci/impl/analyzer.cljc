@@ -826,7 +826,7 @@
 
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
-    (if (symbol? f)
+    (cond (symbol? f)
       (let [;; in call position Clojure prioritizes special symbols over
             ;; bindings
             special-sym (get special-syms f)
@@ -933,6 +933,23 @@
                                                  (mark-eval-call
                                                   (with-meta (cons f (rest expr))
                                                     (meta expr))))))))
+      (keyword? f)
+      (let [children (analyze-children ctx (rest expr))]
+        (case (count children)
+          1 (let [arg (nth children 0)]
+              (ctx-fn
+               (fn [ctx]
+                 ;; (prn :f f :arg (eval/eval ctx arg))
+                 (f (eval/eval ctx arg)))
+               expr))
+          2 (let [arg0 (nth children 0)
+                  arg1 (nth children 1)]
+              (ctx-fn (fn [ctx]
+                        (f (eval/eval ctx arg0)
+                           (eval/eval ctx arg1)))
+                      expr))
+          (mark-eval-call (cons f children))))
+      :else
       (let [ret (mark-eval-call (analyze-children ctx expr))]
         ret))))
 
