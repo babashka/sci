@@ -627,8 +627,6 @@
             ;; (prn :eval expr (meta expr) '-> ret (meta ret))
             ret))
     (catch #?(:clj Throwable :cljs js/Error) e
-      (if false #_(isa? (some-> e ex-data :type) :sci/error)
-        (throw e)
-        (rethrow-with-location-of-node ctx e expr)))))
+      (rethrow-with-location-of-node ctx e expr))))
 
 (vreset! utils/eval* eval)

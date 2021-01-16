@@ -87,7 +87,6 @@
         env (:env ctx)
         id (:id ctx)]
     (when (not special?)
-      ;; (prn :not-special node)
       (swap! env update-in [:sci.impl/callstack id]
              (fn [vt]
                (if vt
@@ -121,8 +120,10 @@
                                 :line line
                                 :column column
                                 :message m
-                                :sci.impl/callstack (delay (when-let [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
-                                                             @v))
+                                :sci.impl/callstack
+                                (delay (when-let
+                                           [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
+                                         @v))
                                 :file file
                                 :locals (or (:locals d)
                                             (:bindings ctx))}
