@@ -18,7 +18,12 @@
      merge-meta set-namespace!
      macro? ana-macros kw-identical?]]
    [sci.impl.vars :as vars])
-  #?(:clj (:import [sci.impl Reflector])))
+  #?(:clj (:import [sci.impl Reflector]))
+  #?(:cljs
+     (:require-macros
+      [sci.impl.analyzer :refer [gen-return-binding-call
+                                 gen-return-needs-ctx-call
+                                 gen-return-call]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -799,7 +804,7 @@
                                        (range i)))))])
                      let-bindings)
              `[(fn [~'ctx]
-                 (eval/fn-call ~'ctx ~'f ~'ctx ~'analyzed-children))]))
+                 (eval/fn-call ~'ctx ~'f (cons ~'ctx ~'analyzed-children)))]))
         ~'expr))))
 
 (declare return-needs-ctx-call) ;; for clj-kondo
