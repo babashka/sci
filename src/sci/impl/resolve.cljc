@@ -1,12 +1,13 @@
 (ns sci.impl.resolve
   {:no-doc true}
   (:require [clojure.string :as str]
-            ;; [sci.impl.evaluator :as eval]
-            ;; [sci.impl.faster :as faster]
+            [sci.impl.evaluator :as eval]
+            [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
             [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros]]
+                                              ana-macros
+                                              ctx-fn]]
             [sci.impl.vars :as vars]))
 
 (defn throw-error-with-location [msg node]
@@ -31,9 +32,10 @@
                   false)
           (throw-error-with-location (str sym " is not allowed!") sym)))))
 
-(defn lookup* [{:keys [:env] :as ctx} sym call?]
+(defn lookup* [ctx sym call?]
   (let [sym-ns (some-> (namespace sym) symbol)
         sym-name (symbol (name sym))
+        env (faster/get-2 ctx :env)
         env @env
         cnn (vars/current-ns-name)
         the-current-ns (-> env :namespaces cnn)
@@ -82,8 +84,9 @@
   (when-let [m (meta expr)]
     (:tag m)))
 
-(defn lookup [{:keys [:bindings] :as ctx} sym call?]
-  (let [[k v :as kv]
+(defn lookup [ctx sym call?]
+  (let [bindings (faster/get-2 ctx :bindings)
+        [k v :as kv]
         (or
          ;; bindings are not checked for permissions
          (when-let [[k v]
@@ -92,16 +95,19 @@
            (let [t (tag ctx v)
                  v (mark-resolve-sym k)
                  ;; pass along tag of expression!
-                 v (if t (vary-meta v
-                                    assoc :tag t)
-                       v)]
+                 v (if t
+                     ;; when v has a tag, let's handle it the old way for now
+                     (vary-meta v assoc :tag t)
+                     (if call? ;; resolve-symbol is already handled in the call case
+                       v
+                       (ctx-fn
+                        (fn [ctx]
+                          (eval/resolve-symbol ctx v))
+                        v)))]
              [k v]))
          (when-let
              [[k v :as kv]
-              (or
-               (lookup* ctx sym call?)
-               #_(when (= 'recur sym)
-                   [sym sym]))]
+              (lookup* ctx sym call?)]
            (check-permission! ctx k sym v)
            kv))]
     ;; (prn 'lookup sym '-> res)

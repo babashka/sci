@@ -168,8 +168,9 @@
      (when-not tu/native?
        (is (= :delivered (tu/eval* "(let [x (promise)]
                                       (future (deliver x :delivered))
-                                      (deref x 1 :failed))"
-                                   (addons/future {}))))
+                                      (deref x))"
+                                   (-> (addons/future {})
+                                       (assoc-in [:classes 'java.lang.Thread] Thread)))))
        (is (= :failed (tu/eval* "(let [x (promise)]
                                    (deref x 1 :failed))"
                                 (addons/future {})))))))
