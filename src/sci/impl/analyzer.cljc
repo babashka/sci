@@ -106,6 +106,7 @@
 ;; (require '[clojure.pprint :refer [pprint]])
 ;; (pprint (clojure.core/macroexpand '(gen-return-do)))
 
+(declare return-do) ;; for clj-kondo
 (gen-return-do)
 
 (defn return-or [expr analyzed-exprs]
@@ -826,7 +827,7 @@
                                        (range i)))))])
                      let-bindings)
              `[(fn [~'ctx]
-                 (eval/fn-call ~'f ~'ctx ~'analyzed-children))]))
+                 (eval/fn-call ~'ctx ~'f ~'analyzed-children))]))
         ~'expr))))
 
 (declare return-call) ;; for clj-kondo
