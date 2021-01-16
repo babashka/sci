@@ -75,10 +75,7 @@
   (let [node (t/sexpr raw-node)
         m (meta node)
         f (when (seqable? node) (first node))
-        fm (or
-            ;; TODO: is this first case still used?
-            (:sci.impl/f-meta node)
-            (some-> f meta))
+        fm (some-> f meta)
         op (when fm (.get ^java.util.Map m :sci.impl/op))
         special? (or
                   ;; special call like def
@@ -98,12 +95,7 @@
                      vt)
                  (volatile! (list node))))))
     (if-not *in-try*
-      (let [d (ex-data e)]
-        (if false #_(isa? (:type d) :sci/error)
-          (do
-            nil ;; (prn :already-sci)
-            (throw e))
-          (let [d (ex-data e)
+      (let [d (ex-data e)
                 e (if (isa? (:type d) :sci/error)
                     #?(:clj (or (-ex-cause e) e)
                        :cljs e)
@@ -130,7 +122,7 @@
                                 :column column
                                 :message m
                                 :sci.impl/callstack (delay (when-let [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
-                                                    @v))
+                                                             @v))
                                 :file file
                                 :locals (or (:locals d)
                                             (:bindings ctx))}
@@ -140,8 +132,7 @@
                                  base)]
                       (ex-info m (merge base d) e))]
                 (throw new-exception))
-              (throw e))))
-        (throw e))
+              (throw e)))
       (throw e))))
 
 (defn iobj? [obj]
