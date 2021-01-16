@@ -21,7 +21,11 @@
   #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
-      [sci.impl.analyzer :refer [gen-return-binding-call
+      [sci.impl.analyzer :refer [gen-return-do
+                                 gen-return-or
+                                 gen-return-and
+                                 gen-return-recur
+                                 gen-return-binding-call
                                  gen-return-needs-ctx-call
                                  gen-return-call]])))
 
@@ -116,7 +120,7 @@
                                               [(symbol (str "arg" j))
                                                `(nth ~'analyzed-children ~j)])
                                             (range i)))])
-                          (range 2 4))]
+                          (range 2 20))]
     `(defn ~'return-or
        ~'[expr analyzed-children]
        (case (count ~'analyzed-children)
@@ -148,7 +152,7 @@
                                               [(symbol (str "arg" j))
                                                `(nth ~'analyzed-children ~j)])
                                             (range i)))])
-                          (range 2 4))]
+                          (range 2 20))]
     `(defn ~'return-and
        ~'[expr analyzed-children]
        (case (count ~'analyzed-children)
@@ -173,39 +177,46 @@
 (declare return-and) ;; for clj-kondo
 (gen-return-and)
 
-(defn return-recur [expr analyzed-exprs]
-  (ctx-fn
-   (case (count analyzed-exprs)
-     0 (fn [_ctx]
-         (fns/->Recur []))
-     1 (let [a (nth analyzed-exprs 0)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)])))
-     2 (let [a (nth analyzed-exprs 0)
-             b (nth analyzed-exprs 1)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)
-                         (eval/eval ctx b)])))
-     3 (let [a (nth analyzed-exprs 0)
-             b (nth analyzed-exprs 1)
-             c (nth analyzed-exprs 2)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)
-                         (eval/eval ctx b)
-                         (eval/eval ctx c)])))
-     4 (let [a (nth analyzed-exprs 0)
-             b (nth analyzed-exprs 1)
-             c (nth analyzed-exprs 2)
-             d (nth analyzed-exprs 3)]
-         (fn [ctx]
-           (fns/->Recur [(eval/eval ctx a)
-                         (eval/eval ctx b)
-                         (eval/eval ctx c)
-                         (eval/eval ctx d)])))
-     ;; else:
-     (fn [ctx]
-       (eval/fn-call ctx (comp fns/->Recur vector) analyzed-exprs)))
-   expr))
+(def ^:const recur-0 (fns/->Recur []))
+
+(defmacro gen-return-recur
+  []
+  (let [let-bindings (map (fn [i]
+                            [i (vec (mapcat (fn [j]
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
+                          (range 1 20))]
+    `(defn ~'return-recur
+       ~'[expr analyzed-children]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 `(ctx-fn
+                 (fn [~'_]
+                   recur-0)
+                ~'expr)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx]
+                               (and
+                                (fns/->Recur
+                                 [~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                         (range i))])))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx]
+                 (eval/fn-call ~'ctx (comp fns/->Recur vector) ~'analyzed-children))
+               ~'expr)])))))
+
+;; (require 'clojure.pprint)
+;; (clojure.pprint/pprint
+;;  (clojure.core/macroexpand '(gen-return-recur)))
+
+(declare return-recur) ;; for clj-kondo
+(gen-return-recur)
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
