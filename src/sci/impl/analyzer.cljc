@@ -805,6 +805,7 @@
     `(defn ~'return-call
        ~'[_ctx expr f analyzed-children]
        (let [~all-evals-sym (every? #(instance? sci.impl.types.EvalFn %) ~'analyzed-children)
+             ;; _# (prn ~all-evals-sym)
              ~'analyzed-children (if ~all-evals-sym
                                    (mapv #(.-f ^sci.impl.types.EvalFn %) ~'analyzed-children)
                                    ~'analyzed-children)]
