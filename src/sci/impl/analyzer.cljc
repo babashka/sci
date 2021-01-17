@@ -800,23 +800,34 @@
                                               [(symbol (str "arg" j))
                                                `(nth ~'analyzed-children ~j)])
                                             (range i)))])
-                          (range 20))]
+                          (range 20))
+        all-evals-sym (gensym "all-evals")]
     `(defn ~'return-call
        ~'[_ctx expr f analyzed-children]
-       (ctx-fn
-        (case (count ~'analyzed-children)
-          ~@(concat
-             (mapcat (fn [[i binds]]
-                       [i `(let ~binds
-                             (fn [~'ctx]
-                               (~'f
-                                ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
-                                       (range i)))))])
-                     let-bindings)
-             `[(fn [~'ctx]
-                 (eval/fn-call ~'ctx ~'f ~'analyzed-children))]))
-        ~'expr))))
+       (let [~all-evals-sym (every? #(instance? sci.impl.types.EvalFn %) ~'analyzed-children)
+             ~'analyzed-children (if ~all-evals-sym
+                                   (mapv #(.-f ^sci.impl.types.EvalFn %) ~'analyzed-children)
+                                   ~'analyzed-children)]
+         (ctx-fn
+          (case (count ~'analyzed-children)
+            ~@(concat
+               (mapcat (fn [[i binds]]
+                         [i `(let ~binds
+                               (if ~all-evals-sym
+                                 (fn [~'ctx]
+                                   (~'f
+                                    ~@(map (fn [j]
+                                             `(~(symbol (str "arg" j)) ~'ctx))
+                                           (range i))))
+                                 (fn [~'ctx]
+                                   (~'f
+                                    ~@(map (fn [j]
+                                             `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                           (range i))))))])
+                       let-bindings)
+               `[(fn [~'ctx]
+                   (eval/fn-call ~'ctx ~'f ~'analyzed-children))]))
+          ~'expr)))))
 
 (declare return-call) ;; for clj-kondo
 (gen-return-call)
