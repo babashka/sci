@@ -342,7 +342,8 @@
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (eval ctx instance-expr)]
-    (if (map? instance-expr*) ;; a sci record
+    (if (and (map? instance-expr*)
+             (:sci.impl/record (meta instance-expr*))) ;; a sci record
       (get instance-expr* (keyword (subs method-str 1)))
       (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
             instance-class-name #?(:clj (.getName ^Class instance-class)

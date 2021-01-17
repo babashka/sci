@@ -28,7 +28,13 @@
 (ns foo (:import [clojure.lang ExceptionInfo]))
 (defn foo [e] (.getMessage ^ExceptionInfo e))
 (ns bar (:require [foo]))
-(foo/foo (ex-info \"message\" {}))"))))))
+(foo/foo (ex-info \"message\" {}))"))))
+     (testing "map interop"
+       (when-not tu/native?
+         (is (= #{:a} (tu/eval* "(.keySet {:a 1})"
+                                {:classes {'java.util.Map 'java.util.Map
+                                           :public-class (fn [o]
+                                                           (when (instance? java.util.Map o) java.util.Map))}})))))))
 
 #?(:clj
    (deftest static-fields
