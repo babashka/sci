@@ -791,7 +791,10 @@
    'alter-var-root (copy-core-var vars/alter-var-root)
    'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op needs-ctx})
    'aset (copy-core-var aset)
-   'alength (copy-core-var alength)
+   'alength #?(:clj (vars/->SciVar (fn [arr]
+                                     (java.lang.reflect.Array/getLength arr))
+                                   'alength nil false)
+               :cljs (copy-core-var alength))
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
    'array-map (copy-core-var array-map)
