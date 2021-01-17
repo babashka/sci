@@ -793,6 +793,10 @@
 (declare return-needs-ctx-call) ;; for clj-kondo
 (gen-return-needs-ctx-call)
 
+;; NOTE: there is a small perf win (about 3%) when checking if all
+;; analyzed-children are EvalFn and then using those fns directly. See
+;; inline-evals branch.
+
 (defmacro gen-return-call
   []
   (let [let-bindings (map (fn [i]
