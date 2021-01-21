@@ -990,7 +990,9 @@
                                             ;; potential place for optimization
                                             (not (:meta ctx))
                                             (let [children (into [] cat expr)]
-                                              (return-call ctx expr hash-map (analyze-children ctx children)))
+                                              (if (< (count children) 9)
+                                                (return-call ctx expr array-map (analyze-children ctx children))
+                                                (return-call ctx expr hash-map (analyze-children ctx children))))
                                             :else
                                             (zipmap (analyze-children ctx ks)
                                                 (analyze-children ctx vs)))
