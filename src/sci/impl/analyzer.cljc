@@ -279,7 +279,8 @@
   (let [;; seq expr has location info with 2 keys
         meta-needs-eval? (> (count m) 2)
         ;; TODO: users might have parsed using :end-line still
-        m (if meta-needs-eval? (mark-eval (analyze ctx m))
+        m (if meta-needs-eval? (mark-eval
+                                (analyze (assoc ctx :meta true) m))
               m)]
     m))
 
@@ -389,7 +390,7 @@
                 (do
                   #_(when-not (:test m)
                       (prn "WARNING: ANA def " k m))
-                  (analyze ctx m))
+                  (analyze (assoc ctx :meta true) m))
                 m)
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
@@ -423,7 +424,7 @@
                    #_:clj-kondo/ignore
                    (do
                      #_(prn "WARNING: ANA defn" k meta-map)
-                     (analyze ctx meta-map))
+                     (analyze (assoc ctx :meta true) meta-map))
                    meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
@@ -962,7 +963,7 @@
   ([ctx expr]
    (analyze ctx expr false))
   ([ctx expr top-level?]
-   ;; (prn :ana expr)
+   ;; (prn :ana expr (:meta ctx))
    (let [m (meta expr)
          ret (cond (constant? expr) expr ;; constants do not carry metadata
                    (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false)]
@@ -984,14 +985,16 @@
                          constant-map? (and constant-colls
                                             (every? constant? ks)
                                             (every? constant? vs))
-                         analyzed-map (if constant-map?
-                                        expr
-                                        ;; potential place for optimization
-                                        (let [children (into [] cat expr)]
-                                          (return-call ctx expr hash-map (analyze-children ctx children)))
-                                        #_(zipmap (analyze-children ctx ks)
+                         analyzed-map (cond constant-map?
+                                            expr
+                                            ;; potential place for optimization
+                                            (not (:meta ctx))
+                                            (let [children (into [] cat expr)]
+                                              (return-call ctx expr hash-map (analyze-children ctx children)))
+                                            :else
+                                            (zipmap (analyze-children ctx ks)
                                                 (analyze-children ctx vs)))
-                         analyzed-meta (when m (analyze ctx m))
+                         analyzed-meta (when m (analyze (assoc ctx :meta true) m))
                          analyzed-meta (if (and constant-map?
                                                 ;; meta was also a constant-map
                                                 (identical? m analyzed-meta))
@@ -1006,7 +1009,7 @@
                          analyzed-coll (if constant-coll?
                                          expr
                                          (into (empty expr) (analyze-children ctx expr)))
-                         analyzed-meta (when m (analyze ctx m))
+                         analyzed-meta (when m (analyze (assoc ctx :meta true) m))
                          analyzed-meta (if (and constant-coll?
                                                 (identical? m analyzed-meta))
                                          analyzed-meta
