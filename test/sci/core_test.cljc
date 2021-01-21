@@ -732,7 +732,8 @@
                                    {:classes {'java.util.regex.Pattern java.util.regex.Pattern}})))))
   #?(:clj (is (= 'java.lang.Exception (eval* "`Exception"))))
   (is (= 'foo/x (eval* "(ns foo) (def x) (ns bar (:require [foo :refer [x]])) `x")))
-  (is (= 'foo/inc (eval* "(ns foo (:refer-clojure :exclude [inc])) `inc"))))
+  (is (= 'foo/inc (eval* "(ns foo (:refer-clojure :exclude [inc])) `inc")))
+  (is (= 'foo/inc (eval* "(ns foo) (defn inc []) `inc"))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
