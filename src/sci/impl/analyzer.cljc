@@ -987,7 +987,9 @@
                          analyzed-map (if constant-map?
                                         expr
                                         ;; potential place for optimization
-                                        (zipmap (analyze-children ctx ks)
+                                        (return-call ctx expr hash-map (concat (analyze-children ctx ks)
+                                                                               (analyze-children ctx vs)))
+                                        #_(zipmap (analyze-children ctx ks)
                                                 (analyze-children ctx vs)))
                          analyzed-meta (when m (analyze ctx m))
                          analyzed-meta (if (and constant-map?
