@@ -38,7 +38,7 @@
 (defn- throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
 
-(declare analyze analyze-call)
+(declare analyze analyze-call return-call return-map)
 
 ;;;; Macros
 
@@ -959,6 +959,13 @@
 
 (def ^:const constant-colls true) ;; see GH #452
 
+(defn return-map [ctx the-map]
+  (let [children (into [] cat the-map)
+        analyzed-children (analyze-children ctx children)]
+    (if (< (count analyzed-children) 9)
+      (return-call ctx the-map array-map analyzed-children)
+      (return-call ctx the-map hash-map analyzed-children))))
+
 (defn analyze
   ([ctx expr]
    (analyze ctx expr false))
@@ -989,13 +996,10 @@
                                             expr
                                             ;; potential place for optimization
                                             (not (:meta ctx))
-                                            (let [children (into [] cat expr)]
-                                              (if (< (count children) 9)
-                                                (return-call ctx expr array-map (analyze-children ctx children))
-                                                (return-call ctx expr hash-map (analyze-children ctx children))))
+                                            (return-map ctx expr)
                                             :else
                                             (zipmap (analyze-children ctx ks)
-                                                (analyze-children ctx vs)))
+                                                    (analyze-children ctx vs)))
                          analyzed-meta (when m (analyze (assoc ctx :meta true) m))
                          analyzed-meta (if (and constant-map?
                                                 ;; meta was also a constant-map
