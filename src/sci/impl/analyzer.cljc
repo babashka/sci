@@ -1015,18 +1015,19 @@
                          analyzed-meta (when m (analyze (assoc ctx :meta true) m))
                          must-eval (or (not constant-coll?)
                                        (not (identical? m analyzed-meta)))
-                         analyzed-meta (if must-eval
-                                         (assoc analyzed-meta :sci.impl/op :eval)
-                                         analyzed-meta)
-                         analyzed-coll (if analyzed-meta
-                                         (with-meta
-                                           (into (empty expr) (analyze-children ctx expr))
-                                           analyzed-meta)
-                                         (return-call ctx expr
-                                                      (if (vector? expr)
-                                                        vector
-                                                        hash-set)
-                                                      (analyze-children ctx expr)))]
+                         analyzed-coll (if (not must-eval)
+                                         expr
+                                         (if m
+                                           (with-meta
+                                             (into (empty expr) (analyze-children ctx expr))
+                                             (assoc analyzed-meta :sci.impl/op :eval))
+                                           (do
+                                             nil ;; (prn :ret)
+                                             (return-call ctx expr
+                                                          (if (vector? expr)
+                                                            vector
+                                                            hash-set)
+                                                          (analyze-children ctx expr)))))]
                      analyzed-coll)
                    (seq? expr) (if (seq expr)
                                  (merge-meta (analyze-call ctx expr top-level?) m)
