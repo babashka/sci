@@ -1031,7 +1031,11 @@
        ;; since a record is also a map
        (record? expr) expr
        (map? expr) (analyze-map ctx expr m)
-       (vector? expr) (analyze-vec-or-set ctx vec vector expr m)
+       (vector? expr) (analyze-vec-or-set ctx
+                                          ;; relying on analyze-children to
+                                          ;; return a vector
+                                          identity
+                                          vector expr m)
        (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
        (seq? expr) (if (seq expr)
                      (merge-meta (analyze-call ctx expr top-level?) m)
