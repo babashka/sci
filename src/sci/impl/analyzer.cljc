@@ -993,7 +993,7 @@
 
 (defn analyze-vec-or-set
   "Returns analyzed vector or set"
-  [ctx f expr m]
+  [ctx f1 f2 expr m]
   (let [constant-coll?
         (and constant-colls
              (every? constant? expr))
@@ -1004,11 +1004,9 @@
                         expr
                         (if m
                           (with-meta
-                            (into (empty expr) (analyze-children ctx expr))
+                            (f1 (analyze-children ctx expr))
                             (assoc analyzed-meta :sci.impl/op :eval))
-                          (return-call ctx expr
-                                       f
-                                       (analyze-children ctx expr))))]
+                          (return-call ctx expr f2 (analyze-children ctx expr))))]
     analyzed-coll))
 
 (defn analyze
@@ -1033,8 +1031,8 @@
        ;; since a record is also a map
        (record? expr) expr
        (map? expr) (analyze-map ctx expr m)
-       (vector? expr) (analyze-vec-or-set ctx vector expr m)
-       (set? expr) (analyze-vec-or-set ctx hash-set expr m)
+       (vector? expr) (analyze-vec-or-set ctx vec vector expr m)
+       (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
        (seq? expr) (if (seq expr)
                      (merge-meta (analyze-call ctx expr top-level?) m)
                      ;; the empty list
