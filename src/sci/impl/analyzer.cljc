@@ -966,7 +966,32 @@
       (return-call ctx the-map array-map analyzed-children)
       (return-call ctx the-map hash-map analyzed-children))))
 
-(defn return-vec-or-set
+(defn analyze-map
+  [ctx expr m]
+  (let [ks (keys expr)
+        vs (vals expr)
+        constant-map? (and constant-colls
+                           (every? constant? ks)
+                           (every? constant? vs))
+        analyzed-map (cond constant-map?
+                           expr
+                           ;; potential place for optimization
+                           (not (:meta ctx))
+                           (return-map ctx expr)
+                           :else
+                           (zipmap (analyze-children ctx ks)
+                                   (analyze-children ctx vs)))
+        analyzed-meta (when m (analyze (assoc ctx :meta true) m))
+        analyzed-meta (if (and constant-map?
+                               ;; meta was also a constant-map
+                               (identical? m analyzed-meta))
+                        analyzed-meta
+                        (assoc analyzed-meta :sci.impl/op :eval))]
+    (if analyzed-meta
+      (with-meta analyzed-map analyzed-meta)
+      analyzed-map)))
+
+(defn analyze-vec-or-set
   "Returns analyzed vector or set"
   [ctx f expr m]
   (let [constant-coll?
@@ -991,53 +1016,31 @@
    (analyze ctx expr false))
   ([ctx expr top-level?]
    ;; (prn :ana expr (:meta ctx))
-   (let [m (meta expr)
-         ret (cond (constant? expr) expr ;; constants do not carry metadata
-                   (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false)]
-                                    (cond (constant? v) v
-                                          (vars/var? v)
-                                          (if (:const (meta v))
-                                            @v
-                                            (if (vars/isMacro v)
-                                              (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                                          (str "Can't take value of a macro: " v "")))
-                                              (types/->EvalVar v)))
-                                          :else (merge-meta v m)))
-                   ;; don't evaluate records, this check needs to go before map?
-                   ;; since a record is also a map
-                   (record? expr) expr
-                   (map? expr)
-                   (let [ks (keys expr)
-                         vs (vals expr)
-                         constant-map? (and constant-colls
-                                            (every? constant? ks)
-                                            (every? constant? vs))
-                         analyzed-map (cond constant-map?
-                                            expr
-                                            ;; potential place for optimization
-                                            (not (:meta ctx))
-                                            (return-map ctx expr)
-                                            :else
-                                            (zipmap (analyze-children ctx ks)
-                                                    (analyze-children ctx vs)))
-                         analyzed-meta (when m (analyze (assoc ctx :meta true) m))
-                         analyzed-meta (if (and constant-map?
-                                                ;; meta was also a constant-map
-                                                (identical? m analyzed-meta))
-                                         analyzed-meta
-                                         (assoc analyzed-meta :sci.impl/op :eval))]
-                     (if analyzed-meta
-                       (with-meta analyzed-map analyzed-meta)
-                       analyzed-map))
-                   (vector? expr) (return-vec-or-set ctx vector expr m)
-                   (set? expr) (return-vec-or-set ctx hash-set expr m)
-                   (seq? expr) (if (seq expr)
-                                 (merge-meta (analyze-call ctx expr top-level?) m)
-                                 ;; the empty list
-                                 expr)
-                   :else
-                   expr)]
-     ret)))
+   (let [m (meta expr)]
+     (cond
+       (constant? expr) expr ;; constants do not carry metadata
+       (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false)]
+                        (cond (constant? v) v
+                              (vars/var? v)
+                              (if (:const (meta v))
+                                @v
+                                (if (vars/isMacro v)
+                                  (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                              (str "Can't take value of a macro: " v "")))
+                                  (types/->EvalVar v)))
+                              :else (merge-meta v m)))
+       ;; don't evaluate records, this check needs to go before map?
+       ;; since a record is also a map
+       (record? expr) expr
+       (map? expr) (analyze-map ctx expr m)
+       (vector? expr) (analyze-vec-or-set ctx vector expr m)
+       (set? expr) (analyze-vec-or-set ctx hash-set expr m)
+       (seq? expr) (if (seq expr)
+                     (merge-meta (analyze-call ctx expr top-level?) m)
+                     ;; the empty list
+                     expr)
+       :else
+       expr))))
 
 ;;;; Scratch
 
