@@ -1012,17 +1012,22 @@
                    (or (vector? expr) (set? expr))
                    (let [constant-coll? (and constant-colls
                                              (every? constant? expr))
-                         analyzed-coll (if constant-coll?
-                                         expr
-                                         (into (empty expr) (analyze-children ctx expr)))
                          analyzed-meta (when m (analyze (assoc ctx :meta true) m))
-                         analyzed-meta (if (and constant-coll?
-                                                (identical? m analyzed-meta))
-                                         analyzed-meta
-                                         (assoc analyzed-meta :sci.impl/op :eval))]
-                     (if analyzed-meta
-                       (with-meta analyzed-coll analyzed-meta)
-                       analyzed-coll))
+                         must-eval (or (not constant-coll?)
+                                       (not (identical? m analyzed-meta)))
+                         analyzed-meta (if must-eval
+                                         (assoc analyzed-meta :sci.impl/op :eval)
+                                         analyzed-meta)
+                         analyzed-coll (if analyzed-meta
+                                         (with-meta
+                                           (into (empty expr) (analyze-children ctx expr))
+                                           analyzed-meta)
+                                         (return-call ctx expr
+                                                      (if (vector? expr)
+                                                        vector
+                                                        hash-set)
+                                                      (analyze-children ctx expr)))]
+                     analyzed-coll)
                    (seq? expr) (if (seq expr)
                                  (merge-meta (analyze-call ctx expr top-level?) m)
                                  ;; the empty list
@@ -1034,4 +1039,5 @@
 ;;;; Scratch
 
 (comment
+  ;; _ctx expr f analyzed-children
   )
