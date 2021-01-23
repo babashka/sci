@@ -993,19 +993,24 @@
 
 (defn analyze-vec-or-set
   "Returns analyzed vector or set"
-  [ctx f1 f2 expr m]
+  [ctx _f1 f2 expr m]
   (let [constant-coll?
         (and constant-colls
              (every? constant? expr))
-        analyzed-meta (when m (analyze (assoc ctx :meta true) m))
+        analyzed-meta (when m (analyze ctx #_(assoc ctx :meta true) m))
         must-eval (or (not constant-coll?)
                       (not (identical? m analyzed-meta)))
         analyzed-coll (if (not must-eval)
                         expr
                         (if m
-                          (with-meta
-                            (f1 (analyze-children ctx expr))
-                            (assoc analyzed-meta :sci.impl/op :eval))
+                          ;; can we transform this into return-call?
+                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr))]
+                            (ctx-fn
+                             (fn [ctx]
+                               (let [md (eval/eval ctx analyzed-meta)
+                                     coll (eval/eval ctx ef)]
+                                 (with-meta coll md)))
+                             expr))
                           (return-call ctx expr f2 (analyze-children ctx expr))))]
     analyzed-coll))
 
