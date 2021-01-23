@@ -77,7 +77,8 @@
           m (meta node)
           f (when (seqable? node) (first node))
           fm (some-> f meta)
-          op (when fm (.get ^java.util.Map m :sci.impl/op))
+          op (when (and fm m)
+               (.get ^java.util.Map m :sci.impl/op))
           special? (or
                     ;; special call like def
                     (and (symbol? f) (not op))

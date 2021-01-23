@@ -565,7 +565,7 @@
        (catch #?(:clj Throwable :cljs js/Error) e
          (rethrow-with-location-of-node ctx e expr))))
 
-(defn handle-meta [ctx m]
+(defn- handle-meta [ctx m]
   ;; Sometimes metadata needs eval. In this case the metadata has metadata.
   (-> (if-let [mm (meta m)]
         (if (when mm (get-2 mm :sci.impl/op))
@@ -617,11 +617,6 @@
                       (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
                                                            (map #(eval ctx %) (vals expr)))
                                           (handle-meta ctx m))
-                            (or (vector? expr) (set? expr))
-                            (with-meta (into (empty expr)
-                                             (map #(eval ctx %)
-                                                  expr))
-                              (handle-meta ctx m))
                             :else (throw (new #?(:clj Exception :cljs js/Error)
                                               (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
             ;; for debugging:
