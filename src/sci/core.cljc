@@ -252,6 +252,15 @@
   (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
     (i/eval-form ctx form)))
 
+(defn eval-form-async
+  "Evaluates form (as produced by `parse-string` or `parse-next`) in the
+  context of `ctx` (as produced with `init`). To allow namespace
+  switches, establish root binding of `sci/ns` with `sci/binding` or
+  `sci/with-bindings.`"
+  [ctx form callback]
+  (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
+    (i/eval-form-async ctx form callback)))
+
 ;;;; Scratch
 
 (comment

@@ -6,6 +6,7 @@
    [sci.impl.faster :as faster :refer [get-2 deref-1]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
+   [sci.impl.load-async :as load-async]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.types :as t]
@@ -273,7 +274,9 @@
 
 (defn eval-require
   [ctx & args]
-  (load-libs ctx :require args))
+  (if-let [cb (:callback ctx)]
+    (load-async/eval-require ctx cb args)
+    (load-libs ctx :require args)))
 
 (vreset! utils/eval-require-state eval-require)
 
@@ -624,5 +627,59 @@
             ret))
     (catch #?(:clj Throwable :cljs js/Error) e
       (rethrow-with-location-of-node ctx e expr))))
+
+(defn eval-async
+  [ctx expr callback]
+  (let [ctx (assoc ctx :callback callback)]
+    (try
+      (let [ret
+            (cond (instance? sci.impl.types.EvalFn expr)
+                  (let [f (.-f ^sci.impl.types.EvalFn expr)]
+                    (f ctx))
+                  (instance? sci.impl.types.EvalVar expr)
+                  (let [v (.-v ^sci.impl.types.EvalVar expr)]
+                    (deref-1 v))
+                  :else
+                  (let [m (meta expr)
+                        op (when m (get-2 m :sci.impl/op))
+                        ret
+                        (if
+                            (not op) expr
+                            ;; TODO: moving this up increased performance for #246. We can
+                            ;; probably optimize it further by not using separate keywords for
+                            ;; one :sci.impl/op keyword on which we can use a case expression
+                            (case op
+                              :call (eval-call ctx expr)
+                              :try (eval-try ctx expr)
+                              :fn (let [fn-meta (:sci.impl/fn-meta expr)
+                                        the-fn (fns/eval-fn ctx eval expr)
+                                        fn-meta (when fn-meta (handle-meta ctx fn-meta))]
+                                    (if fn-meta
+                                      (vary-meta the-fn merge fn-meta)
+                                      the-fn))
+                              :static-access (interop/get-static-field expr)
+                              :deref! (let [v (first expr)
+                                            v (if (vars/var? v) @v v)
+                                            v (force v)]
+                                        v)
+                              :resolve-sym (resolve-symbol ctx expr)
+                              ;; needed for when a needs-ctx fn is passed as hof
+                              needs-ctx (if (identical? op utils/needs-ctx)
+                                          (partial expr ctx)
+                                          ;; this should never happen, or if it does, it's
+                                          ;; someone trying to hack
+                                          (throw (new #?(:clj Exception :cljs js/Error)
+                                                      (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+                              (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
+                                                                   (map #(eval ctx %) (vals expr)))
+                                                  (handle-meta ctx m))
+                                    :else (throw (new #?(:clj Exception :cljs js/Error)
+                                                      (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
+                    ;; for debugging:
+                    ;; (prn :eval expr (meta expr) '-> ret (meta ret))
+                    ret))]
+        (callback {:value ret}))
+      (catch #?(:clj Throwable :cljs js/Error) e
+        (rethrow-with-location-of-node ctx e expr)))))
 
 (vreset! utils/eval* eval)

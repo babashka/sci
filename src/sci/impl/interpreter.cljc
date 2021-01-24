@@ -81,6 +81,38 @@
           ret (eval/eval ctx analyzed)]
       ret)))
 
+(declare eval-form-async)
+
+(defn- eval-form-async*
+  [ctx form callback queue]
+  (if (seq queue)
+    (let [expr (first queue)]
+      (eval-form-async
+       ctx expr
+       (fn [val]
+         (if (:error val)
+           (callback val)
+           (if-let [next-queue (next queue)]
+             (eval-form-async* ctx nil callback next-queue)
+             ;; this was the last value from the queue, handing off to callback
+             (callback val))))))
+    (if (seq? form)
+      (if (= 'do (first form))
+        (eval-form-async* ctx nil callback (rest form))
+        (when (or (not (:uberscript ctx))
+                  (= 'ns (first form))
+                  (= 'require (first form)))
+          (let [analyzed (ana/analyze ctx form true)]
+            (if (instance? sci.impl.types.EvalForm analyzed)
+              (eval-form-async* ctx (t/getVal analyzed) callback queue)
+              (eval/eval-async ctx analyzed callback)))))
+      (let [analyzed (ana/analyze ctx form)]
+        (eval/eval-async ctx analyzed callback)))))
+
+(defn eval-form-async
+  [ctx form callback]
+  (eval-form-async* ctx form callback []))
+
 #?(:clj
    (when (System/getenv "SCI_STATS")
      (alter-var-root #'eval-form (constantly eval-form-stats))))
