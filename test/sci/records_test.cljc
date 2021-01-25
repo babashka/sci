@@ -29,6 +29,13 @@
   [(f/foo a) (f/foo b) (f/graph a) (satisfies? f/Graph a)])"]
       (is (= [0 3 {:from 1, :to 2} true] (tu/eval* prog {}))))))
 
+(deftest destructuring-protocol-fn-test
+  (let [prog "
+(defprotocol Foo (sayhello [_ name] \"print a name\"))
+(defrecord Greeter [state] Foo (sayhello [{:keys [state]} name] [state name]))
+(sayhello (Greeter. \"test\") \"john\")"]
+    (is (= ["test" "john"] (tu/eval* prog {})))))
+
 (deftest extends?-test
   (let [prog "
 (defprotocol Area (get-area [this]))

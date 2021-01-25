@@ -13,27 +13,33 @@
         rec-type (symbol (str (vars/current-ns-name)) (str record-name))
         protocol-impls (utils/split-when symbol? protocol-impls)
         protocol-impls
-        (mapcat (fn [[protocol-name & impls]]
-                  (let [impls (group-by first impls)
-                        protocol (@utils/eval-resolve-state ctx protocol-name)
-                        protocol (if (vars/var? protocol) @protocol protocol)
-                        protocol-ns (:ns protocol)
-                        pns (str (vars/getName protocol-ns))
-                        fq-meth-name #(symbol pns %)]
-                    (map (fn [[method-name bodies]]
-                           (let [bodies (map rest bodies)
-                                 bodies (mapv (fn [impl]
-                                                (let [args (first impl)
-                                                      this (first args)
-                                                      bindings (vec (mapcat (fn [field]
-                                                                              [field (list (keyword field) this)])
-                                                                            fields))]
-                                                  `(~args
-                                                    (let ~bindings
-                                                      ~@(next impl))))) bodies)]
-                             `(defmethod ~(fq-meth-name (str method-name)) '~rec-type ~@bodies)))
-                         impls)))
-                protocol-impls)]
+        (mapcat
+         (fn [[protocol-name & impls]]
+           (let [impls (group-by first impls)
+                 protocol (@utils/eval-resolve-state ctx protocol-name)
+                 protocol (if (vars/var? protocol) @protocol protocol)
+                 protocol-ns (:ns protocol)
+                 pns (str (vars/getName protocol-ns))
+                 fq-meth-name #(symbol pns %)]
+             (map (fn [[method-name bodies]]
+                    (let [bodies (map rest bodies)
+                          bodies (mapv (fn [impl]
+                                         (let [args (first impl)
+                                               body (rest impl)
+                                               destr (utils/maybe-destructured args body)
+                                               args (:params destr)
+                                               body (:body destr)
+                                               this (first args)
+                                               bindings
+                                               (vec (mapcat (fn [field]
+                                                              [field (list (keyword field) this)])
+                                                            fields))]
+                                           `(~args
+                                             (let ~bindings
+                                               ~@body)))) bodies)]
+                      `(defmethod ~(fq-meth-name (str method-name)) '~rec-type ~@bodies)))
+                  impls)))
+         protocol-impls)]
     `(do
        (defn ~map-factory-sym [m#]
          (vary-meta m#

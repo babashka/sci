@@ -16,7 +16,8 @@
     [mark-eval mark-eval-call constant?
      rethrow-with-location-of-node
      merge-meta set-namespace!
-     macro? ana-macros kw-identical? ctx-fn]]
+     macro? ana-macros kw-identical? ctx-fn
+     maybe-destructured]]
    [sci.impl.vars :as vars])
   #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
@@ -217,24 +218,6 @@
 
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
-
-(defn maybe-destructured
-  [params body]
-  (if (every? symbol? params)
-    {:params params
-     :body body}
-    (loop [params params
-           new-params (with-meta [] (meta params))
-           lets []]
-      (if params
-        (if (symbol? (first params))
-          (recur (next params) (conj new-params (first params)) lets)
-          (let [gparam (gensym "p__")]
-            (recur (next params) (conj new-params gparam)
-                   (-> lets (conj (first params)) (conj gparam)))))
-        {:params new-params
-         :body [`(let ~lets
-                   ~@body)]}))))
 
 (defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
   (when-not binding-vector

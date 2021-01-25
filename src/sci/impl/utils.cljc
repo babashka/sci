@@ -243,3 +243,21 @@
 
 (defn ctx-fn [f expr]
   (t/->EvalFn f nil expr))
+
+(defn maybe-destructured
+  [params body]
+  (if (every? symbol? params)
+    {:params params
+     :body body}
+    (loop [params params
+           new-params (with-meta [] (meta params))
+           lets []]
+      (if params
+        (if (symbol? (first params))
+          (recur (next params) (conj new-params (first params)) lets)
+          (let [gparam (gensym "p__")]
+            (recur (next params) (conj new-params gparam)
+                   (-> lets (conj (first params)) (conj gparam)))))
+        {:params new-params
+         :body [`(let ~lets
+                   ~@body)]}))))
