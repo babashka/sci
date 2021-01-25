@@ -81,19 +81,6 @@
           (if nexprs (recur nexprs)
               ret))))))
 
-(defn eval-if
-  [ctx cond then else]
-  (if (eval ctx cond)
-    (eval ctx then)
-    (eval ctx else)))
-
-;; user> (time (dotimes [i 1000000] (let [expr '(1 2 3) cond (first expr) expr (rest expr) then (first expr) expr (rest expr) else (first expr)] [cond then else])))
-;; "Elapsed time: 119.671576 msecs"
-;; nil
-;; user> (time (dotimes [i 1000000] (let [[cond then else] '(1 2 3)] [cond then else])))
-;; "Elapsed time: 744.034037 msecs"
-;; nil
-
 (defn eval-def
   [ctx var-name init]
   (let [init (eval ctx init)
