@@ -36,6 +36,18 @@
 (sayhello (Greeter. \"test\") \"john\")"]
     (is (= ["test" "john"] (tu/eval* prog {})))))
 
+(deftest shadow-record-field-protocol-fn-test
+  (let [prog "
+(defprotocol Foo (sayhello [_ name] \"print a name\"))
+(defrecord Greeter [x y] Foo (sayhello [_ x] x))
+(sayhello (Greeter. \"x\" \"y\") \"john\")"]
+    (is (= "john" (tu/eval* prog {}))))
+  (let [prog "
+(defprotocol Foo (sayhello [_ name] \"print a name\"))
+(defrecord Greeter [x y] Foo (sayhello [x _] x))
+(sayhello (Greeter. \"x\" \"y\") \"john\")"]
+    (is (= {:x "x" :y "y"} (tu/eval* prog {})))))
+
 (deftest extends?-test
   (let [prog "
 (defprotocol Area (get-area [this]))

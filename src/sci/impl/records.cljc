@@ -1,7 +1,8 @@
 (ns sci.impl.records
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
-  (:require [clojure.string :as str]
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
@@ -12,6 +13,7 @@
         keys (mapv keyword fields)
         rec-type (symbol (str (vars/current-ns-name)) (str record-name))
         protocol-impls (utils/split-when symbol? protocol-impls)
+        field-set (set fields)
         protocol-impls
         (mapcat
          (fn [[protocol-name & impls]]
@@ -33,7 +35,7 @@
                                                bindings
                                                (vec (mapcat (fn [field]
                                                               [field (list (keyword field) this)])
-                                                            fields))]
+                                                            (set/difference field-set (set args))))]
                                            `(~args
                                              (let ~bindings
                                                ~@body)))) bodies)]
