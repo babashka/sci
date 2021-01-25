@@ -1,8 +1,7 @@
 (ns sci.impl.records
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
-  (:require [clojure.set :as set]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
@@ -35,7 +34,7 @@
                                                bindings
                                                (vec (mapcat (fn [field]
                                                               [field (list (keyword field) this)])
-                                                            (set/difference field-set (set args))))]
+                                                            (reduce disj field-set args)))]
                                            `(~args
                                              (let ~bindings
                                                ~@body)))) bodies)]
