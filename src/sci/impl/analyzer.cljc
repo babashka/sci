@@ -456,34 +456,35 @@
                     (list 'fn [] (cons 'do body)))))))
 
 (defn return-if
-  [ctx [_if & exprs :as expr]]
-  (case (count exprs)
-    (0 1) (throw-error-with-location "Too few arguments to if" expr)
-    2 (let [children (analyze-children ctx exprs)
-            condition (nth children 0)
-            then (nth children 1)]
-        (cond (not condition) nil
-              (constant? condition) then
-              :else (ctx-fn
-                     (fn [ctx]
-                       (when (eval/eval ctx condition)
-                         (eval/eval ctx then)))
-                     ;; backward compatibility with stacktrace
-                     (with-meta expr {:sci.impl/op :call}))))
-    3 (let [children (analyze-children ctx exprs)
-            condition (nth children 0)
-            then (nth children 1)
-            else (nth children 2)]
-        (cond (not condition) nil
-              (constant? condition) then
-              :else (ctx-fn
-                     (fn [ctx]
-                       (if (eval/eval ctx condition)
-                         (eval/eval ctx then)
-                         (eval/eval ctx else)))
-                     ;; backward compatibility with stacktrace
-                     (with-meta expr {:sci.impl/op :call}))))
-    (throw-error-with-location "Too many arguments to if" expr)))
+  [ctx expr]
+  (let [exprs (rest expr)]
+    (case (count exprs)
+      (0 1) (throw-error-with-location "Too few arguments to if" expr)
+      2 (let [children (analyze-children ctx exprs)
+              condition (nth children 0)
+              then (nth children 1)]
+          (cond (not condition) nil
+                (constant? condition) then
+                :else (ctx-fn
+                       (fn [ctx]
+                         (when (eval/eval ctx condition)
+                           (eval/eval ctx then)))
+                       ;; backward compatibility with stacktrace
+                       (with-meta expr {:sci.impl/op :call}))))
+      3 (let [children (analyze-children ctx exprs)
+              condition (nth children 0)
+              then (nth children 1)
+              else (nth children 2)]
+          (cond (not condition) nil
+                (constant? condition) then
+                :else (ctx-fn
+                       (fn [ctx]
+                         (if (eval/eval ctx condition)
+                           (eval/eval ctx then)
+                           (eval/eval ctx else)))
+                       ;; backward compatibility with stacktrace
+                       (with-meta expr {:sci.impl/op :call}))))
+      (throw-error-with-location "Too many arguments to if" expr))))
 
 (defn expand-case
   [ctx expr]
