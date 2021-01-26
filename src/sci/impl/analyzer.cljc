@@ -455,17 +455,35 @@
                     ;; expand-fn will take care of the analysis of the body
                     (list 'fn [] (cons 'do body)))))))
 
-(defn expand-if
-  [ctx [_if & exprs :as expr]]
-  (case (count exprs)
-    (0 1) (throw-error-with-location "Too few arguments to if" expr)
-    (2 3) (let [[cond then else] (analyze-children ctx exprs)]
-            (ctx-fn
-             (fn [ctx]
-               (eval/eval-if ctx cond then else))
-             ;; backward compatibility with stacktrace
-             (with-meta expr {:sci.impl/op :call})))
-    (throw-error-with-location "Too many arguments to if" expr)))
+(defn return-if
+  [ctx expr]
+  (let [exprs (rest expr)
+        children (analyze-children ctx exprs)]
+    (case (count children)
+      (0 1) (throw-error-with-location "Too few arguments to if" expr)
+      2 (let [condition (nth children 0)
+              then (nth children 1)]
+          (cond (not condition) nil
+                (constant? condition) then
+                :else (ctx-fn
+                       (fn [ctx]
+                         (when (eval/eval ctx condition)
+                           (eval/eval ctx then)))
+                       ;; backward compatibility with stacktrace
+                       (with-meta expr {:sci.impl/op :call}))))
+      3 (let [condition (nth children 0)
+              then (nth children 1)
+              else (nth children 2)]
+          (cond (not condition) nil
+                (constant? condition) then
+                :else (ctx-fn
+                       (fn [ctx]
+                         (if (eval/eval ctx condition)
+                           (eval/eval ctx then)
+                           (eval/eval ctx else)))
+                       ;; backward compatibility with stacktrace
+                       (with-meta expr {:sci.impl/op :call}))))
+      (throw-error-with-location "Too many arguments to if" expr))))
 
 (defn expand-case
   [ctx expr]
@@ -846,7 +864,7 @@
                             res
                             (analyze ctx res)))
                     doseq (analyze ctx (expand-doseq ctx expr))
-                    if (expand-if ctx expr)
+                    if (return-if ctx expr)
                     case (expand-case ctx expr)
                     try (expand-try ctx expr)
                     declare (expand-declare ctx expr)
