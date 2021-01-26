@@ -457,11 +457,11 @@
 
 (defn return-if
   [ctx expr]
-  (let [exprs (rest expr)]
-    (case (count exprs)
+  (let [exprs (rest expr)
+        children (analyze-children ctx exprs)]
+    (case (count children)
       (0 1) (throw-error-with-location "Too few arguments to if" expr)
-      2 (let [children (analyze-children ctx exprs)
-              condition (nth children 0)
+      2 (let [condition (nth children 0)
               then (nth children 1)]
           (cond (not condition) nil
                 (constant? condition) then
@@ -471,8 +471,7 @@
                            (eval/eval ctx then)))
                        ;; backward compatibility with stacktrace
                        (with-meta expr {:sci.impl/op :call}))))
-      3 (let [children (analyze-children ctx exprs)
-              condition (nth children 0)
+      3 (let [condition (nth children 0)
               then (nth children 1)
               else (nth children 2)]
           (cond (not condition) nil
