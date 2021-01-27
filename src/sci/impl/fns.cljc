@@ -3,19 +3,20 @@
   (:require [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
-            [sci.impl.utils :as utils])
+            [sci.impl.utils :as utils]
+            [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
                                                   gen-fn-varargs]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn throw-arity [ctx fn-name macro? args]
+(defn throw-arity [ctx nsm fn-name macro? args]
   (when-not (:disable-arity-checks ctx)
     (throw (new #?(:clj Exception
                    :cljs js/Error)
                 (let [actual-count (if macro? (- (count args) 2)
                                        (count args))]
-                  (str "Wrong number of args (" actual-count ") passed to: " fn-name))))))
+                  (str "Wrong number of args (" actual-count ") passed to: " (str nsm "/" fn-name)))))))
 
 (deftype Recur #?(:clj [val]
                   :cljs [val])
@@ -62,7 +63,7 @@
           ~@(? :cljs
                (when-not disable-arity-checks
                  `[(when-not (= ~n (.-length (~'js-arguments)))
-                     (throw-arity ~'ctx ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))]))
+                     (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))]))
           (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
                 ~'bindings (get-2 ~'ctx :bindings)
                 ~@assocs
@@ -93,12 +94,12 @@
                    (assoc ret (second params) args*)
                    (do
                      (when-not args*
-                       (throw-arity ctx fn-name macro? args))
+                       (throw-arity ctx nsm fn-name macro? args))
                      (recur (next args*) (next params)
                             (assoc-3 ret fp (first args*))))))
                (do
                  (when args*
-                   (throw-arity ctx fn-name macro? args))
+                   (throw-arity ctx nsm fn-name macro? args))
                  ret)))
            ctx (assoc-3 ctx :bindings bindings)
            ret (interpret ctx body)
@@ -121,11 +122,13 @@
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?
    with-meta?]
-  (let [disable-arity-checks? (get-2 ctx :disable-arity-checks)
+  (let [nsm (vars/current-ns-name)
+        disable-arity-checks? (get-2 ctx :disable-arity-checks)
         min-var-args-arity (when var-arg-name fixed-arity)
         ;; body-count (count body)
-        f (if-not (or var-arg-name
-                      #?(:clj disable-arity-checks?))
+        f (if-not #?(:clj (or var-arg-name
+                              disable-arity-checks?)
+                     :cljs var-arg-name)
             (case (int fixed-arity)
               0 (fn arity-0 []
                   (let [ret (interpret ctx body)

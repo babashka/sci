@@ -368,26 +368,26 @@
          {:line 1 :column 19}
          (eval* "(+ 1 2 3 4 5) (do x)")))
     (tu/assert-submap {:type :sci/error, :line 1, :column 15,
-                       :message #"Wrong number of args \(1\) passed to: foo"}
+                       :message #"Wrong number of args \(1\) passed to: user/foo"}
                       (try (eval* "(defn foo []) (foo 1)")
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
     (tu/assert-submap {:type :sci/error, :line 1, :column 21,
-                       :message #"Wrong number of args \(0\) passed to: foo"}
+                       :message #"Wrong number of args \(0\) passed to: user/foo"}
                       (try (eval* "(defn foo [x & xs]) (foo)")
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
     (tu/assert-submap {:type :sci/error, :line 1, :column 93,
-                       :message #"Wrong number of args \(2\) passed to: bindings"}
+                       :message #"Wrong number of args \(2\) passed to: user/bindings"}
                       (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
                                        "(let [x 1] (bindings))"))
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
     (tu/assert-submap {:type :sci/error, :line 1, :column 25,
-                       :message #"Wrong number of args \(0\) passed to: foo"}
+                       :message #"Wrong number of args \(0\) passed to: user/foo"}
                       (try (eval* (str "(defmacro foo [x & xs]) "
                                        "(foo)"))
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex

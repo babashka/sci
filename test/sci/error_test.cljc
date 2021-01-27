@@ -35,3 +35,21 @@
                  (:locals (ex-data e))))
           ks (keys locals)]
       (is (= '[x] ks)))))
+
+(deftest arity-error-test
+  (testing "The name of the correct function is reported"
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+         #"Wrong number of args \(0\) passed to: foo/echo-msg"
+         (eval-string "
+(ns foo)
+
+(defn echo-msg [msg]
+  msg)
+
+(ns bar (:require foo))
+
+(defn main []
+  (foo/echo-msg))  ;; called with the wrong arity
+
+(main)")))))

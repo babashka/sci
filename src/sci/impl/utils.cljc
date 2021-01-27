@@ -100,8 +100,9 @@
                 #?(:clj (or (-ex-cause e) e)
                    :cljs e)
                 e)
-            ex-msg #?(:clj (.getMessage e)
-                      :cljs (.-message e))
+            ex-msg (or (:message d)
+                       #?(:clj (.getMessage e)
+                          :cljs (.-message e)))
             {:keys [:line :column :file]
              :or {line (:line ctx)
                   column (:column ctx)}}
@@ -111,16 +112,14 @@
                 (meta node))
             ex-msg (if (and ex-msg (:name fm))
                      (str/replace ex-msg #"(sci\.impl\.)?fns/fun/[a-zA-Z0-9-]+--\d+"
-                                  (str (:name fm)))
+                                  (str (:ns fm) "/" (:name fm)))
                      ex-msg)]
         (if (and line column)
-          (let [m ex-msg
-                new-exception
-                (let [
-                      base {:type :sci/error
+          (let [new-exception
+                (let [base {:type :sci/error
                             :line line
                             :column column
-                            :message m
+                            :message ex-msg
                             :sci.impl/callstack
                             (delay (when-let
                                        [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
@@ -132,7 +131,7 @@
                       base (if phase
                              (assoc base :phase phase)
                              base)]
-                  (ex-info m (merge base d) e))]
+                  (ex-info ex-msg (merge base d) e))]
             (throw new-exception))
           (throw e))))))
 
