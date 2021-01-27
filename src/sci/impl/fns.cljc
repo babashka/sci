@@ -122,7 +122,7 @@
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?
    with-meta?]
-  (let [nsm (vars/current-ns-name)
+  (let [#_:clj-kondo/ignore ns vars/current-ns
         disable-arity-checks? (get-2 ctx :disable-arity-checks)
         min-var-args-arity (when var-arg-name fixed-arity)
         ;; body-count (count body)
