@@ -2,6 +2,16 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+### Enhancements / fixes
+
+- Fix error reporting in case of arity error #518
+- Shadowing record field names in protocol functions #513
+- Fix destructuring in protocol method for record #512
+- Faster processing of maps, sets and vectors #482
+- Prioritize current namespace vars in syntax quote #509
+
 ## v0.2.1
 
 ### Enhancements / fixes
