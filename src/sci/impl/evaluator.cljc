@@ -12,8 +12,7 @@
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
-                                     kw-identical?
-                                     ]]
+                                     kw-identical?]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
 
@@ -116,15 +115,17 @@
 (declare eval-string*)
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
-  (let [only (when only (set only))]
-    (reduce (fn [ns [k v]]
-              (if (and (symbol? k) (include-sym? k)
-                       (or (not only)
-                           (contains? only k)))
-                (assoc ns (rename-sym k) v)
-                ns))
-            the-current-ns
-            the-loaded-ns)))
+  (let [referred (:refers the-current-ns)
+        only (when only (set only))
+        referred (reduce (fn [ns [k v]]
+                           (if (and (symbol? k) (include-sym? k)
+                                    (or (not only)
+                                        (contains? only k)))
+                             (assoc ns (rename-sym k) v)
+                             ns))
+                         referred
+                         the-loaded-ns)]
+    (assoc the-current-ns :refers referred)))
 
 (defn handle-require-libspec-env
   [ctx env current-ns the-loaded-ns lib-name
@@ -145,17 +146,19 @@
                         use)
                     (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym nil)
                     (sequential? refer)
-                    (reduce (fn [ns sym]
-                              (if (include-sym? sym)
-                                (assoc ns (rename-sym sym)
-                                       (if-let [[_k v] (find the-loaded-ns sym)]
-                                         v
-                                         (when-not (:uberscript ctx)
-                                           (throw (new #?(:clj Exception :cljs js/Error)
-                                                       (str sym " does not exist"))))))
-                                ns))
-                            the-current-ns
-                            refer)
+                    (let [referred (:refers the-current-ns)
+                          referred (reduce (fn [ns sym]
+                                             (if (include-sym? sym)
+                                               (assoc ns (rename-sym sym)
+                                                      (if-let [[_k v] (find the-loaded-ns sym)]
+                                                        v
+                                                        (when-not (:uberscript ctx)
+                                                          (throw (new #?(:clj Exception :cljs js/Error)
+                                                                      (str sym " does not exist"))))))
+                                               ns))
+                                           referred
+                                           refer)]
+                      (assoc the-current-ns :refers referred))
                     :else (throw (new #?(:clj Exception :cljs js/Error)
                                       (str ":refer value must be a sequential collection of symbols"))))
               use (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
@@ -288,17 +291,17 @@
         (eval ctx body))
       (catch #?(:clj Throwable :cljs js/Error) e
         (if-let
-            [[_ r]
-             (reduce (fn [_ c]
-                       (let [clazz (:class c)]
-                         (when (instance? clazz e)
-                           (reduced
-                            [::try-result
-                             (eval (assoc-in ctx [:bindings (:binding c)]
-                                             e)
-                                   (:body c))]))))
-                     nil
-                     catches)]
+         [[_ r]
+          (reduce (fn [_ c]
+                    (let [clazz (:class c)]
+                      (when (instance? clazz e)
+                        (reduced
+                         [::try-result
+                          (eval (assoc-in ctx [:bindings (:binding c)]
+                                          e)
+                                (:body c))]))))
+                  nil
+                  catches)]
           r
           (rethrow-with-location-of-node ctx e body)))
       (finally
@@ -575,37 +578,37 @@
                 op (when m (get-2 m :sci.impl/op))
                 ret
                 (if
-                    (not op) expr
+                 (not op) expr
                     ;; TODO: moving this up increased performance for #246. We can
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
-                    (case op
-                      :call (eval-call ctx expr)
-                      :try (eval-try ctx expr)
-                      :fn (let [fn-meta (:sci.impl/fn-meta expr)
-                                the-fn (fns/eval-fn ctx eval expr)
-                                fn-meta (when fn-meta (handle-meta ctx fn-meta))]
-                            (if fn-meta
-                              (vary-meta the-fn merge fn-meta)
-                              the-fn))
-                      :static-access (interop/get-static-field expr)
-                      :deref! (let [v (first expr)
-                                    v (if (vars/var? v) @v v)
-                                    v (force v)]
-                                v)
-                      :resolve-sym (resolve-symbol ctx expr)
+                 (case op
+                   :call (eval-call ctx expr)
+                   :try (eval-try ctx expr)
+                   :fn (let [fn-meta (:sci.impl/fn-meta expr)
+                             the-fn (fns/eval-fn ctx eval expr)
+                             fn-meta (when fn-meta (handle-meta ctx fn-meta))]
+                         (if fn-meta
+                           (vary-meta the-fn merge fn-meta)
+                           the-fn))
+                   :static-access (interop/get-static-field expr)
+                   :deref! (let [v (first expr)
+                                 v (if (vars/var? v) @v v)
+                                 v (force v)]
+                             v)
+                   :resolve-sym (resolve-symbol ctx expr)
                       ;; needed for when a needs-ctx fn is passed as hof
-                      needs-ctx (if (identical? op utils/needs-ctx)
-                                  (partial expr ctx)
+                   needs-ctx (if (identical? op utils/needs-ctx)
+                               (partial expr ctx)
                                   ;; this should never happen, or if it does, it's
                                   ;; someone trying to hack
-                                  (throw (new #?(:clj Exception :cljs js/Error)
-                                              (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
-                      (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
-                                                           (map #(eval ctx %) (vals expr)))
-                                          (handle-meta ctx m))
-                            :else (throw (new #?(:clj Exception :cljs js/Error)
-                                              (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
+                               (throw (new #?(:clj Exception :cljs js/Error)
+                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
+                   (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
+                                                        (map #(eval ctx %) (vals expr)))
+                                       (handle-meta ctx m))
+                         :else (throw (new #?(:clj Exception :cljs js/Error)
+                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
             ;; for debugging:
             ;; (prn :eval expr (meta expr) '-> ret (meta ret))
             ret))

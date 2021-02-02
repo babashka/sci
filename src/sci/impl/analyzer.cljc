@@ -562,38 +562,33 @@
       {:sci.impl/op :try})))
 
 (defn expand-declare [ctx [_declare & names :as expr]]
-  (swap! (:env ctx)
-         (fn [env]
-           (let [cnn (vars/current-ns-name)]
-             (update-in env [:namespaces cnn]
-                        (fn [current-ns]
-                          (reduce (fn [acc name]
-                                    (if-let [x (.get ^java.util.Map acc name)]
-                                      (if-let [prev-ns (some-> x meta :ns)]
-                                        (let [current-ns-name (vars/current-ns-name)]
-                                          (if-not (= (vars/getName prev-ns)
-                                                     current-ns-name)
-                                            (throw-error-with-location
-                                             (str name " already refers to "
-                                                  x " in namespace "
-                                                  current-ns-name)
-                                             expr)
-                                            ;; when the previous bound thing
-                                            ;; didn't have an ns, just assume
-                                            ;; things are ok to redefine
-                                            acc))
-                                        ;; declare does not override an existing var
-                                        acc)
-                                      (assoc acc name
-                                             (doto (vars/->SciVar nil (symbol (str cnn)
-                                                                              (str name))
-                                                                  {:name name
-                                                                   :ns @vars/current-ns
-                                                                   :file @vars/current-file}
-                                                                  false)
-                                               (vars/unbind)))))
-                                  current-ns
-                                  names))))))
+  (let [cnn (vars/current-ns-name)
+        env (:env ctx)
+        the-current-ns (get-in @env [:namespaces cnn])
+        refers (:refers the-current-ns)
+        the-current-ns (reduce (fn [acc name]
+                                 (if-let [x (and refers (.get ^java.util.Map refers name))]
+                                   (throw-error-with-location
+                                    (str name " already refers to "
+                                         x " in namespace "
+                                         cnn)
+                                    expr)
+                                   (if-not #?(:clj (.containsKey ^java.util.Map the-current-ns name)
+                                              :cljs (get the-current-ns name))
+                                     (assoc acc name
+                                            (doto (vars/->SciVar nil (symbol (str cnn)
+                                                                             (str name))
+                                                                 {:name name
+                                                                  :ns @vars/current-ns
+                                                                  :file @vars/current-file}
+                                                                 false)
+                                              (vars/unbind)))
+                                     the-current-ns)))
+                               the-current-ns
+                               names)]
+    (swap! env
+           (fn [env]
+             (update env :namespaces assoc cnn the-current-ns))))
   nil)
 
 ;;;; Interop

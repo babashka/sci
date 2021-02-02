@@ -62,6 +62,13 @@
                                               (contains? sym ))))
                             (contains? utils/ana-macros sym))
                     (symbol "clojure.core" sym-name-str))
+                  (when-let [v (get (:refers the-current-ns) sym)]
+                    ;; TODO: pull out to common function, see above
+                    (when-let [m (meta v)]
+                      (when-let [var-name (:name m)]
+                        (when-let [ns (:ns m)]
+                          (symbol (str (vars/getName ns))
+                                  (str var-name))))))
                   (interop/fully-qualify-class ctx sym)
                   ;; all unresolvable symbols all resolved in the current namespace
                   (symbol current-ns-str sym-name-str))
