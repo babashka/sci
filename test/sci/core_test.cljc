@@ -600,18 +600,6 @@
 (ns foo (:use clojure.string))
 (declare split)"))))
 
-(deftest misc-namespace-test
-  (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
-  (is (= #{1 3 2} (eval* "(mapv alias ['set1 'set2] ['clojure.set 'clojure.set]) (set2/difference
-(set1/union #{1 2 3} #{4 5 6}) #{4 5 6})")))
-  (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))")))
-  (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
-  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))")))
-  (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
-                     "foo #'user/foo"))
-  (is (contains? (set (eval* "(clojure.repl/dir-fn 'clojure.string)"))
-                 'last-index-of)))
-
 (deftest cond-test
   (is (= 2 (eval* "(let [x 2]
                      (cond (string? x) 1 (int? x) 2))")))
@@ -844,10 +832,6 @@
   (is (= 1 (eval* "(defn- foo [] 1) (foo)")))
   (is (true? (eval* "(defn- foo [] 1) (:private (meta #'foo))")))
   (is (= 1 (eval* "(defn get [url & [req]] url) (get 1)"))))
-
-(deftest refer-clojure-exclude
-  (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
-  (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
 
 (deftest core-resolve-test
   (is (= 1 (eval* "((resolve 'clojure.core/inc) 0)")))
