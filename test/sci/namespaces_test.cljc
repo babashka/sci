@@ -56,9 +56,14 @@
        (is (eval* "
 (import clojure.lang.ExceptionInfo) (some? (get (ns-imports *ns*) 'ExceptionInfo))"))]))
 
+(deftest ns-publics-test
+  (testing "See issue 520"
+    (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) 'refer))"))))
+
 (deftest ns-refers-test
   (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
-  (is (eval* "(def x 1) (some? (get (ns-refers *ns*) 'x))")))
+  (is (eval* "(def x 1) (nil? (get (ns-refers *ns*) 'x))"))
+  (is (eval* "(require '[clojure.string :refer [includes?]]) (some? (get (ns-refers *ns*) 'includes?))")))
 
 (deftest ns-map-test
   (is (eval* "(some? (get (ns-map *ns*) 'inc))"))

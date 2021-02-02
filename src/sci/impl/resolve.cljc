@@ -71,6 +71,8 @@
                                :exclude
                                (contains? sym-name))
                kv))
+           ;; TODO: we can unify clojure core and refers into one thing
+           (find (:refers the-current-ns) sym-name)
            (when (when call? (get ana-macros sym))
              [sym sym])
            (when-let [c (interop/resolve-class ctx sym)]
