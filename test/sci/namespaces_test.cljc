@@ -1,6 +1,7 @@
 (ns sci.namespaces-test
   (:require
    [clojure.set :as set]
+   [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.test-utils :as tu]))
 
@@ -8,6 +9,16 @@
   ([form] (eval* nil form))
   ([binding form]
    (tu/eval* form {:bindings {'*in* binding}})))
+
+(deftest misc-namespace-test
+  (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
+  (is (= #{1 3 2} (eval* "(mapv alias ['set1 'set2] ['clojure.set 'clojure.set]) (set2/difference
+(set1/union #{1 2 3} #{4 5 6}) #{4 5 6})")))
+  (is (= 'clojure.set (eval* "(ns-name (find-ns 'clojure.set))")))
+  (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
+  (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))")))
+  (is (contains? (set (eval* "(clojure.repl/dir-fn 'clojure.string)"))
+                 'last-index-of)))
 
 (deftest autoresolve-test
   (is (= :user/foo (eval* "::foo")))
@@ -56,7 +67,18 @@
        (is (eval* "
 (import clojure.lang.ExceptionInfo) (some? (get (ns-imports *ns*) 'ExceptionInfo))"))]))
 
+(deftest refer-clojure-exclude
+  (is (thrown? #?(:clj Exception :cljs js/Error)
+               (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)")))
+  (is (true? (eval* "
+(refer-clojure :exclude '[get])
+get ;; no error in JVM clojure either
+(defn get []) (some? get)"))))
+
 (deftest ns-publics-test
+  (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
+                     "foo #'user/foo"))
   (testing "See issue 520"
     (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) 'refer))"))))
 

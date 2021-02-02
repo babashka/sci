@@ -516,6 +516,9 @@
 (defn sci-refer [sci-ctx & args]
   (apply @utils/eval-refer-state sci-ctx args))
 
+(defn sci-refer-clojure [_ _ & filters]
+  `(clojure.core/refer '~'çlojure.core ~@filters))
+
 (defn sci-ns-resolve
   ([sci-ctx ns sym]
    (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
@@ -1034,6 +1037,7 @@
    'quot (copy-core-var quot)
    're-seq (copy-core-var re-seq)
    'refer (with-meta sci-refer {:sci.impl/op needs-ctx})
+   'refer-clojure (macrofy sci-refer-clojure)
    're-find (copy-core-var re-find)
    #?@(:clj ['re-groups (copy-core-var re-groups)])
    're-pattern (copy-core-var re-pattern)
