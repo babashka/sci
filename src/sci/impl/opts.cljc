@@ -137,7 +137,7 @@
                    :class->opts (:class->opts classes))]
     ctx))
 
-(defn update-ctx! [ctx opts]
+(defn merge-opts [ctx opts]
   (let [{:keys [:bindings
                 :allow :deny
                 :aliases

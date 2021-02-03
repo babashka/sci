@@ -196,10 +196,10 @@
   [opts]
   (opts/init opts))
 
-(defn update!
-  "Updates a context with opts and returns it."
+(defn merge-opts
+  "Updates a context with opts merged in and returns it."
   [ctx opts]
-  (opts/update-ctx! ctx opts))
+  (opts/merge-opts ctx opts))
 
 (defn fork
   "Forks a context (as produced with `init`) into a new context. Any new
