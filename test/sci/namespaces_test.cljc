@@ -77,10 +77,8 @@
                (eval* "(refer 'clojure.string :only [join]) includes?")))
   (is (thrown? #?(:clj Exception :cljs js/Error)
                (eval* "(refer 'clojure.string :exclude [join]) join")))
-  (is (eval* "(refer 'clojure.string :only [join]) (some? join)"))
-  (is (eval* "(refer 'clojure.string) (some? join)"))
-  #_(is (eval* "(refer 'clojure.string) (some? join)"))
- )
+  (is (eval* "(refer 'clojure.string :only '[join]) (some? join)"))
+  (is (eval* "(refer 'clojure.string) (some? join)")))
 
 (deftest ns-publics-test
   (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
