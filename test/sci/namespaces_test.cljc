@@ -83,8 +83,8 @@
 (deftest ns-publics-test
   (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
                      "foo #'user/foo"))
-  (testing "See issue 520"
-    (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) 'refer))"))))
+  (testing "See issue 519, 520, 523"
+    (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) :refer))"))))
 
 (deftest ns-refers-test
   (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))

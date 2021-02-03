@@ -396,18 +396,21 @@
                    (vars/->SciNamespace sym nil))
                  (vals aliases)))))
 
+(defn clean-ns [m]
+  (dissoc m :aliases :imports :obj :refer :refers))
+
 (defn sci-ns-interns [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
-        m (dissoc m :aliases :imports :obj :refers)]
+        m (clean-ns m)]
     m))
 
 (defn sci-ns-publics [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
-        m (dissoc m :aliases :imports :obj :refers)]
+        m (clean-ns m)]
     (into {} (keep (fn [[k v]]
                      (when-not (:private (meta v))
                        [k v]))
@@ -424,14 +427,13 @@
         all-imports (concat (vals global-imports) (vals namespace-imports))]
     (zipmap all-aliased (map (comp :class #(get class-opts %)) all-imports))))
 
-;; TODO, FIX
 (defn sci-ns-refers [ctx sci-ns]
   (let [sci-ns (sci-the-ns ctx sci-ns)
         name (sci-ns-name sci-ns)
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])
         clojure-core (get-in env [:namespaces 'clojure.core])
-        clojure-core (dissoc clojure-core :aliases :imports :obj :refers)]
+        clojure-core (clean-ns clojure-core)]
     (merge clojure-core refers)))
 
 (defn sci-ns-map [ctx sci-ns]
