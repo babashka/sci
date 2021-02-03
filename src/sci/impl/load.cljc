@@ -223,6 +223,9 @@
     env))
 
 (defn eval-refer
+  "The function equivalent of :refer is handled differently than what we
+  did before (this is more like what Clojure itself does.) For
+  referring clojure.core we still use the old code."
   [ctx ns-sym & filters]
   (if (= 'clojure.core ns-sym)
     (eval-refer-clojure ctx filters)
