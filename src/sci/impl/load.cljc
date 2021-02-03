@@ -200,8 +200,9 @@
         to-do (if (= :all (:refer fs))
                 public-keys
                 (or (:refer fs) (:only fs) public-keys))
-        _ (when (and to-do (not (instance? clojure.lang.Sequential to-do)))
-            (throw (new Exception ":only/:refer value must be a sequential collection of symbols")))
+        _ (when (and to-do (not (sequential? to-do)))
+            (throw (new #?(:clj Exception :cljs js/Error)
+                        ":only/:refer value must be a sequential collection of symbols")))
         the-current-ns (get namespaces cnn)
         referred (:refers the-current-ns)
         referred (reduce (fn [referred sym]
