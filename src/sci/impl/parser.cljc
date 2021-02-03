@@ -53,6 +53,14 @@
                         (when-let [ns (:ns m)]
                           (symbol (str (vars/getName ns))
                                   (str var-name))))))
+
+                  (when-let [refers (:refers the-current-ns)]
+                    (when-let [v (get refers sym)]
+                      (when-let [m (meta v)]
+                        (when-let [var-name (:name m)]
+                          (when-let [ns (:ns m)]
+                            (symbol (str (vars/getName ns))
+                                    (str var-name)))))))
                   (when (or (and (contains? (get namespaces 'clojure.core) sym)
                                  ;; only valid when the symbol isn't excluded
                                  (not (some-> the-current-ns
