@@ -517,7 +517,7 @@
   (apply @utils/eval-refer-state sci-ctx args))
 
 (defn sci-refer-clojure [_ _ & filters]
-  `(clojure.core/refer '~'çlojure.core ~@filters))
+  `(clojure.core/refer '~'clojure.core ~@filters))
 
 (defn sci-ns-resolve
   ([sci-ctx ns sym]

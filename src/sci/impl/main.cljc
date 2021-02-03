@@ -24,13 +24,17 @@
         (prn (str "Elapsed time: " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
         ret#)))
 
+(defn opts [ctx]
+  (let [ctx (-> ctx #?(:clj (addons/future)))
+        #?@(:clj [ctx (assoc-in ctx [:namespaces 'clojure.core 'time] (with-meta time* {:sci/macro true}))])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.System] System)])
+        #?@(:clj [ctx (assoc-in ctx [:imports] {'System 'java.lang.System})])]
+    ctx))
+
 (defn ^:skip-aot main [& [form ctx n]]
   (let [n (when n (Integer. n))
         ctx (edn/read-string ctx)
-        ctx (-> ctx #?(:clj (addons/future)))
-        #?@(:clj [ctx (assoc-in ctx [:namespaces 'clojure.core 'time] (with-meta time* {:sci/macro true}))])
-        #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.System] System)])
-        #?@(:clj [ctx (assoc-in ctx [:imports] {'System 'java.lang.System})])
+        ctx (opts ctx)
         v (sci/with-bindings {sci/out *out*
                               #?@(:clj [sci/err *err*])}
             (if n

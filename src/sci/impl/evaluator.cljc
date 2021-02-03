@@ -361,27 +361,47 @@
     (set-namespace! ctx ns-sym nil)
     nil))
 
-(defn eval-refer [ctx ns-sym & exprs]
-  (let [ns-sym (eval ctx ns-sym)]
-    (loop [exprs exprs]
-      (when exprs
-        (let [[k v] exprs]
-          (case k
-            :exclude
-            (swap! (:env ctx)
-                   (fn [env]
-                     (let [cnn (vars/current-ns-name)]
-                       (update-in env [:namespaces cnn :refer ns-sym :exclude]
-                                  (fnil into #{}) v))))
-            :only
-            (swap! (:env ctx)
-                   (fn [env]
-                     (let [cnn (vars/current-ns-name)
-                           other-ns (get-in env [:namespaces ns-sym])
-                           other-vars (select-keys other-ns v)]
-                       (update-in env [:namespaces cnn]
-                                  merge other-vars)))))
-          (recur (nnext exprs)))))))
+(defn eval-refer* [env ns-sym filters]
+  env
+  (let [cnn (vars/current-ns-name)
+        namespaces (:namespaces env)
+        ns (or (get namespaces ns-sym)
+               (throw (new #?(:clj Exception :cljs js/Error)
+                           (str "No namespace: " ns-sym))))
+        fs (apply hash-map filters)
+        public-keys (filter symbol? (keys ns))
+        rename (or (:rename fs) {})
+        exclude (set (:exclude fs))
+        to-do (if (= :all (:refer fs))
+                public-keys
+                (or (:refer fs) (:only fs) public-keys))
+        _ (when (and to-do (not (instance? clojure.lang.Sequential to-do)))
+            (throw (new Exception ":only/:refer value must be a sequential collection of symbols")))
+        the-current-ns (get namespaces cnn)
+        referred (:refers the-current-ns)
+        referred (reduce (fn [referred sym]
+                           (if-not (exclude sym)
+                             (let [v (get ns sym)]
+                               (when-not v
+                                 (throw (new #?(:clj java.lang.IllegalAccessError
+                                                :cljs js/Error)
+                                             ;; TODO: handle private vars
+                                             (if false ;; (get (ns-interns ns) sym)
+                                               (str sym " is not public")
+                                               (str sym " does not exist")))))
+                               (assoc referred (or (rename sym) sym) v ))
+                             referred))
+                         referred
+                         to-do)
+        the-current-ns (assoc the-current-ns :refers referred)
+        namespaces (assoc namespaces cnn the-current-ns)
+        env (assoc env :namespaces namespaces)]
+    env))
+
+(defn eval-refer
+  [ctx ns-sym & filters]
+  (swap! (:env ctx) eval-refer* ns-sym filters)
+  nil)
 
 (vreset! utils/eval-refer-state eval-refer)
 
