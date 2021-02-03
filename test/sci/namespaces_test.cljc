@@ -70,17 +70,21 @@
 (deftest refer-clojure-exclude
   (is (thrown? #?(:clj Exception :cljs js/Error)
                (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
-  (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)")))
-  (is (true? (eval* "
-(refer-clojure :exclude '[get])
-get ;; no error in JVM clojure either
-(defn get []) (some? get)"))))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
+
+(deftest refer-test
+  (is (thrown? #?(:clj Exception :cljs js/Error)
+               (eval* "(refer 'clojure.string :only [join]) includes?")))
+  (is (thrown? #?(:clj Exception :cljs js/Error)
+               (eval* "(refer 'clojure.string :exclude [join]) join")))
+  (is (eval* "(refer 'clojure.string :only '[join]) (some? join)"))
+  (is (eval* "(refer 'clojure.string) (some? join)")))
 
 (deftest ns-publics-test
   (is (str/includes? (eval* "(defn foo []) (str (ns-publics *ns*))")
                      "foo #'user/foo"))
-  (testing "See issue 520"
-    (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) 'refer))"))))
+  (testing "See issue 519, 520, 523"
+    (is (eval* "(require '[clojure.string :refer [includes?]]) (nil? (get (ns-publics *ns*) :refer))"))))
 
 (deftest ns-refers-test
   (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
