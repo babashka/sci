@@ -23,7 +23,11 @@
                      namespaces (-> namespaces
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc 'global-hierarchy
-                                            (vars/->SciVar (make-hierarchy) 'global-hierarchy nil false)))]
+                                            (vars/->SciVar (make-hierarchy) 'global-hierarchy nil false)))
+                     imports (if-let [env-imports (:imports env)]
+                               (merge env-imports imports)
+                               imports)]
+                 ;; TODO: is the first case ever hit?
                  (if-not env
                    #?(:clj (->Env namespaces imports load-fn)
                       :cljs {:namespaces namespaces
@@ -34,8 +38,8 @@
                           :imports imports
                           :load-fn load-fn))))))
 
-(defn process-permissions [& permissions]
-  (not-empty (into #{} (comp cat (map strip-core-ns)) permissions)))
+(defn process-permissions [prev-perms & permissions]
+  (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
 
 (def default-classes
   #?(:clj {'java.lang.AssertionError AssertionError
@@ -124,10 +128,36 @@
         _ (init-env! env bindings aliases namespaces imports load-fn)
         classes (normalize-classes (merge default-classes classes))
         ctx (assoc (->ctx {} env features readers)
-                   :allow (process-permissions allow)
-                   :deny (process-permissions deny)
+                   :allow (process-permissions #{} allow)
+                   :deny (process-permissions #{} deny)
                    :uberscript uberscript
                    :reify (merge default-reify reify)
+                   :disable-arity-checks disable-arity-checks
+                   :public-class (:public-class classes)
+                   :class->opts (:class->opts classes))]
+    ctx))
+
+(defn update-ctx! [ctx opts]
+  (let [{:keys [:bindings
+                :allow :deny
+                :aliases
+                :namespaces
+                :classes
+                :imports
+                :features
+                :load-fn
+                :uberscript ;; used by babashka, not public!
+                :readers
+                :reify
+                :disable-arity-checks]} opts
+        env (:env ctx)
+        _ (init-env! env bindings aliases namespaces imports load-fn)
+        classes (normalize-classes (merge (:classes ctx) classes))
+        ctx (assoc (->ctx {} env features readers)
+                   :allow (process-permissions (:allow ctx) allow)
+                   :deny (process-permissions (:deny ctx) deny)
+                   :uberscript uberscript
+                   :reify (merge (:reify ctx) reify)
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :class->opts (:class->opts classes))]

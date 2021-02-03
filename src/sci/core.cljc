@@ -196,6 +196,11 @@
   [opts]
   (opts/init opts))
 
+(defn update!
+  "Updates a context with opts and returns it."
+  [ctx opts]
+  (opts/update-ctx! ctx opts))
+
 (defn fork
   "Forks a context (as produced with `init`) into a new context. Any new
   vars created in the new context won't be visible in the original
