@@ -181,6 +181,7 @@
                      (let [cnn (vars/current-ns-name)
                            other-ns (get-in env [:namespaces ns-sym])
                            other-vars (select-keys other-ns v)]
+                       ;; TODO: this is wrong, don't merge these vars into the current namespace
                        (update-in env [:namespaces cnn]
                                   merge other-vars)))))
           (recur (nnext exprs)))))))
