@@ -1096,6 +1096,12 @@
 (deftest var-isnt-fn
   (is (false? (eval* "(fn? #'inc)"))))
 
+(deftest array-based-map-test
+  (is (true? (eval* "(= (range 8) (keys {0 0 1 1 2 2 3 3 4 4 5 5 6 6 7 7}))")))
+  (is (true? (eval* "(= '(:a :b) (keys (let [x 1] {:a x :b 2})))")))
+  (testing "This is an implementation detail of Clojure, but we use it to check if we really create hash-maps here"
+    (is (false? (eval* "(= (range 10) (keys {0 0 1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9}))")))))
+
 ;;;; Scratch
 
 (comment

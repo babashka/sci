@@ -958,7 +958,7 @@
 (defn return-map [ctx the-map]
   (let [children (into [] cat the-map)
         analyzed-children (analyze-children ctx children)]
-    (if (< (count analyzed-children) 9)
+    (if (<= (count analyzed-children) 16)
       (return-call ctx the-map array-map analyzed-children)
       (return-call ctx the-map hash-map analyzed-children))))
 
