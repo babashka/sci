@@ -361,6 +361,28 @@
     (set-namespace! ctx ns-sym nil)
     nil))
 
+(defn eval-refer-clojure [ctx exprs]
+  (let [ns-sym 'clojure.core]
+    (loop [exprs exprs]
+      (when exprs
+        (let [[k v] exprs]
+          (case k
+            :exclude
+            (swap! (:env ctx)
+                   (fn [env]
+                     (let [cnn (vars/current-ns-name)]
+                       (update-in env [:namespaces cnn :refer ns-sym :exclude]
+                                  (fnil into #{}) v))))
+            :only
+            (swap! (:env ctx)
+                   (fn [env]
+                     (let [cnn (vars/current-ns-name)
+                           other-ns (get-in env [:namespaces ns-sym])
+                           other-vars (select-keys other-ns v)]
+                       (update-in env [:namespaces cnn]
+                                  merge other-vars)))))
+          (recur (nnext exprs)))))))
+
 (defn eval-refer* [env ns-sym filters]
   env
   (let [cnn (vars/current-ns-name)
@@ -400,7 +422,10 @@
 
 (defn eval-refer
   [ctx ns-sym & filters]
-  (swap! (:env ctx) eval-refer* ns-sym filters)
+  (let [ns-sym (eval ctx ns-sym)]
+    (if (= 'clojure.core ns-sym)
+      (eval-refer-clojure ctx filters)
+      (swap! (:env ctx) eval-refer* ns-sym filters)))
   nil)
 
 (vreset! utils/eval-refer-state eval-refer)

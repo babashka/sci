@@ -70,11 +70,7 @@
 (deftest refer-clojure-exclude
   (is (thrown? #?(:clj Exception :cljs js/Error)
                (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
-  (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)")))
-  (is (true? (eval* "
-(refer-clojure :exclude '[get])
-get ;; no error in JVM clojure either
-(defn get []) (some? get)"))))
+  (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
 
 (deftest refer-test
   (is (thrown? #?(:clj Exception :cljs js/Error)
