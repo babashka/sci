@@ -1104,6 +1104,12 @@
   (testing "This is an implementation detail of Clojure, but we use it to check if we really create hash-maps here"
     (is (false? (eval* "(= (range 100) (keys (zipmap (range 100) (range 100))))")))))
 
+#?(:clj
+   (deftest merge-opts-test
+     (let [ctx (sci/init {:classes {'System System}})
+           ctx2 (sci/merge-opts ctx {:classes {'Thread Thread}})]
+       (is (sci/eval-string* ctx2 "System Thread")))))
+
 ;;;; Scratch
 
 (comment

@@ -126,7 +126,8 @@
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
-        classes (normalize-classes (merge default-classes classes))
+        raw-classes classes
+        classes (normalize-classes (merge default-classes raw-classes))
         ctx (assoc (->ctx {} env features readers)
                    :allow (process-permissions #{} allow)
                    :deny (process-permissions #{} deny)
@@ -134,6 +135,7 @@
                    :reify (merge default-reify reify)
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
+                   :raw-classes raw-classes ;; hold on for merge-opts
                    :class->opts (:class->opts classes))]
     ctx))
 
@@ -152,7 +154,8 @@
                 :disable-arity-checks]} opts
         env (:env ctx)
         _ (init-env! env bindings aliases namespaces imports load-fn)
-        classes (normalize-classes (merge (:classes ctx) classes))
+        raw-classes (merge (:raw-classes ctx) classes)
+        classes (normalize-classes raw-classes)
         ctx (assoc (->ctx {} env features readers)
                    :allow (process-permissions (:allow ctx) allow)
                    :deny (process-permissions (:deny ctx) deny)
@@ -160,5 +163,6 @@
                    :reify (merge (:reify ctx) reify)
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
+                   :raw-classes raw-classes
                    :class->opts (:class->opts classes))]
     ctx))
