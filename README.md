@@ -23,9 +23,9 @@
 (sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
 ```
 
-For usage with GraalVM `native-image` check [here](#graalvm).
-
 Try sci in your browser at [NextJournal](https://nextjournal.github.io/clojure-mode/).
+
+For usage with GraalVM `native-image` check [here](#graalvm).
 
 ## Why
 
