@@ -25,6 +25,8 @@
 
 For usage with GraalVM `native-image` check [here](#graalvm).
 
+Try sci in your browser at [NextJournal](https://nextjournal.github.io/clojure-mode/).
+
 ## Why
 
 You want to evaluate code from user input, or use Clojure for a DSL inside your
