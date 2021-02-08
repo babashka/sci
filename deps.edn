@@ -21,7 +21,8 @@
   {:extra-deps {org.clojure/clojurescript {:mvn/version "1.10.520"}}
    :main-opts ["-m" "cljs.main" "-co" "min.js.edn" "-c"]}
   :bench
-  {:extra-deps
+  {:jvm-opts ["-Dclojure.compiler.direct-linking=true"]
+   :extra-deps
    {org.clojure/tools.cli {:mvn/version "1.0.194"}
     criterium/criterium {:mvn/version "0.4.6"} }
    :extra-paths ["bench"]

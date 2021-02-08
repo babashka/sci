@@ -536,35 +536,31 @@ $ clojure -M:bench --complete --sexpr "(let [x 1 y 2] (+ x y))" --quick
 BENCHMARKING EXPRESSION: (let [x 1 y 2] (+ x y))
 PARSE:
 -> (let [x 1 y 2] (+ x y))
-Evaluation count : 576270 in 6 samples of 96045 calls.
-             Execution time mean : 1,204314 µs
-    Execution time std-deviation : 211,629588 ns
-   Execution time lower quantile : 1,042261 µs ( 2,5%)
-   Execution time upper quantile : 1,538775 µs (97,5%)
-                   Overhead used : 6,374255 ns
+Evaluation count : 605268 in 6 samples of 100878 calls.
+             Execution time mean : 1,105801 µs
+    Execution time std-deviation : 209,640200 ns
+   Execution time lower quantile : 934,602619 ns ( 2,5%)
+   Execution time upper quantile : 1,459172 µs (97,5%)
+                   Overhead used : 8,140922 ns
 
 Found 1 outliers in 6 samples (16,6667 %)
 	low-severe	 1 (16,6667 %)
- Variance from outliers : 47,8917 % Variance is moderately inflated by outliers
+ Variance from outliers : 48,1886 % Variance is moderately inflated by outliers
 ANALYSIS:
-Evaluation count : 87864 in 6 samples of 14644 calls.
-             Execution time mean : 7,868581 µs
-    Execution time std-deviation : 1,365984 µs
-   Execution time lower quantile : 6,835045 µs ( 2,5%)
-   Execution time upper quantile : 9,602117 µs (97,5%)
-                   Overhead used : 6,374255 ns
+Evaluation count : 82248 in 6 samples of 13708 calls.
+             Execution time mean : 8,562699 µs
+    Execution time std-deviation : 1,289355 µs
+   Execution time lower quantile : 7,557778 µs ( 2,5%)
+   Execution time upper quantile : 10,039290 µs (97,5%)
+                   Overhead used : 8,140922 ns
 EVALUATION:
 -> 3
-Evaluation count : 576786 in 6 samples of 96131 calls.
-             Execution time mean : 1,072887 µs
-    Execution time std-deviation : 33,297260 ns
-   Execution time lower quantile : 1,047914 µs ( 2,5%)
-   Execution time upper quantile : 1,124463 µs (97,5%)
-                   Overhead used : 6,374255 ns
-
-Found 1 outliers in 6 samples (16,6667 %)
-	low-severe	 1 (16,6667 %)
- Variance from outliers : 13,8889 % Variance is moderately inflated by outliers
+Evaluation count : 1607688 in 6 samples of 267948 calls.
+             Execution time mean : 433,635072 ns
+    Execution time std-deviation : 67,003007 ns
+   Execution time lower quantile : 378,876890 ns ( 2,5%)
+   Execution time upper quantile : 512,818448 ns (97,5%)
+                   Overhead used : 8,140922 ns
 ```
 
 Use `--parse`, `--evaluate` and/or `--analyze` to bench individual phases
