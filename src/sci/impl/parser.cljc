@@ -54,9 +54,10 @@
         the-current-ns (get namespaces current-ns)
         aliases (:aliases the-current-ns)
         ret (if-not sym-ns
-              (or (when-let [v (get the-current-ns sym)]
-                    (var->sym v))
-                  (when-let [v (get (:refers the-current-ns) sym)]
+              (or (when-let [refers (:refers the-current-ns)]
+                    (when-let [v (get refers sym)]
+                      (var->sym v)))
+                  (when-let [v (get the-current-ns sym)]
                     (var->sym v))
                   (when (or (and (contains? (get namespaces 'clojure.core) sym)
                                  ;; only valid when the symbol isn't excluded
