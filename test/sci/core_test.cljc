@@ -50,6 +50,8 @@
   (testing "if and when"
     (is (= 1 (eval* 0 '(if (zero? *in*) 1 2))))
     (is (= 2 (eval* 1 '(if (zero? *in*) 1 2))))
+    (is (= 10 (eval* "(if true 10 20)")))
+    (is (= 20 (eval* "(if false 10 20)")))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if"
                           (eval* '(if))))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Too few arguments to if"

@@ -474,7 +474,7 @@
       3 (let [condition (nth children 0)
               then (nth children 1)
               else (nth children 2)]
-          (cond (not condition) nil
+          (cond (not condition) else
                 (constant? condition) then
                 :else (ctx-fn
                        (fn [ctx]

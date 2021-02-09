@@ -2,6 +2,12 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## v0.2.3
+
+### Enhancements / fixes
+
+- if with falsy literal returns nil [#529](https://github.com/borkdude/sci/issues/529)
+
 ## v0.2.2
 
 ### Enhancements / fixes
