@@ -2,7 +2,7 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.2.2
 
 ### Enhancements / fixes
 
@@ -14,6 +14,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Fix ns-publics to not include refers [#520](https://github.com/borkdude/sci/issues/520)
 - Add `refer-clojure` macro [#519](https://github.com/borkdude/sci/issues/519)
 - Syntax quote resolves referred var incorrectly [#526](https://github.com/borkdude/sci/issues/526)
+- Priorize referred vars over vars in current ns [#527](https://github.com/borkdude/sci/issues/527)
 
 ## v0.2.1
 
