@@ -898,11 +898,26 @@
                                            :else (analyze ctx v))]
                         expanded)
                       (if-let [f (:sci.impl/inlined f-meta)]
-                        (return-call ctx
-                                     ;; for backwards compatibility with error reporting
-                                     (mark-eval-call (cons f (rest expr))
-                                                     :sci.impl/f-meta f-meta)
-                                     f (analyze-children ctx (rest expr)))
+                        (cond (identical? inc f)
+                              (let [x (analyze ctx (second expr))]
+                                (ctx-fn
+                                 (fn [ctx]
+                                   (. clojure.lang.Numbers (inc (eval/eval ctx x))))
+                                 (mark-eval-call (cons f (rest expr))
+                                                 :sci.impl/f-meta f-meta)))
+                              (identical? dec f)
+                              (let [x (analyze ctx (second expr))]
+                                (ctx-fn
+                                 (fn [ctx]
+                                   (. clojure.lang.Numbers (dec (eval/eval ctx x))))
+                                 (mark-eval-call (cons f (rest expr))
+                                                 :sci.impl/f-meta f-meta)))
+                              :else
+                              (return-call ctx
+                                           ;; for backwards compatibility with error reporting
+                                           (mark-eval-call (cons f (rest expr))
+                                                           :sci.impl/f-meta f-meta)
+                                           f (analyze-children ctx (rest expr))))
                         (if-let [op (:sci.impl/op (meta f))]
                           (cond
                             (identical? utils/needs-ctx op)
