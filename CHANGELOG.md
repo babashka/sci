@@ -2,6 +2,12 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+### New
+
+- Detect cyclic load dependencies [#531](https://github.com/babashka/babashka/issues/531)
+
 ## v0.2.3
 
 ### Enhancements / fixes
