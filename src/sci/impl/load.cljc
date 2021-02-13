@@ -2,7 +2,8 @@
   (:require
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      kw-identical?]]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [clojure.string :as str]))
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
   (let [referred (:refers the-current-ns)
@@ -68,18 +69,37 @@
         uberscript (:uberscript ctx)
         reload* (or reload uberscript)]
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
-      (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))
+      (let [loading (:loading ctx)]
+        (if (and loading
+                 (nat-int? #?(:clj (.indexOf ^clojure.lang.PersistentVector loading lib)
+                              :cljs (.indexOf loading lib))))
+          (throw-error-with-location
+           (let [lib (str "[ " lib " ]")
+                 loading (into [lib] (conj (subvec loading 1) lib))]
+             (str "Cyclic load dependency: " (str/join "->" loading)))
+           lib)
+          (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
       (if-let [load-fn (:load-fn env)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib
                                                    :reload reload})]
           (do
-            (try (vars/with-bindings
-                   {vars/current-ns @vars/current-ns
-                    vars/current-file file}
-                   (@utils/eval-string* (assoc ctx :bindings {}) source))
-                 (catch #?(:clj Exception :cljs js/Error) e
-                   (swap! env* update :namespaces dissoc lib)
-                   (throw e)))
+            (let [ctx (-> ctx
+                          (assoc :bindings {})
+                          (update :loading (fn [loading]
+                                             (if (nil? loading)
+                                               [lib]
+                                               (conj loading lib)
+                                               #_(if (pos? #?(:clj (.indexOf ^java.lang.PersistentVector loading lib)
+                                                            :cljs (.indexOf loading lib)))
+                                                 (throw-error-with-location "Circular" loading)
+                                                 (conj loading lib))))))]
+              (try (vars/with-bindings
+                     {vars/current-ns @vars/current-ns
+                      vars/current-file file}
+                     (@utils/eval-string* ctx source))
+                   (catch #?(:clj Exception :cljs js/Error) e
+                     (swap! env* update :namespaces dissoc lib)
+                     (throw e))))
             (swap! env* (fn [env]
                           (let [namespaces (get env :namespaces)
                                 the-loaded-ns (get namespaces lib)]

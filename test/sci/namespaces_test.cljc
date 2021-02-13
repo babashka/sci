@@ -3,6 +3,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
+   [sci.core :as sci]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -146,3 +147,19 @@
     (is (thrown-with-data?
          {:line 1 :column 9}
          (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))))
+
+(deftest cyclic-load-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"Cyclic load dependency: \[ foo \]->bar->\[ foo \]"
+       (sci/eval-string "(require 'foo)"
+                        {:load-fn (fn [{:keys [:namespace]}]
+                                    (case namespace
+                                      foo {:source "(ns foo (:require bar)) bar/x"}
+                                      bar {:source "(ns bar (:require foo)) (def x)"}))})))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"Cyclic load dependency: \[ bar \]->foo->\[ bar \]"
+       (sci/eval-string "(require 'bar)"
+                        {:load-fn (fn [{:keys [:namespace]}]
+                                    (case namespace
+                                      foo {:source "(ns foo (:require bar)) bar/x"}
+                                      bar {:source "(ns bar (:require foo)) (def x)"}))}))))
