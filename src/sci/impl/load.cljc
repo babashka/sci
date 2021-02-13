@@ -74,8 +74,9 @@
                  (nat-int? #?(:clj (.indexOf ^clojure.lang.PersistentVector loading lib)
                               :cljs (.indexOf loading lib))))
           (throw-error-with-location
-           (let [lib (str "[ " lib " ]")
-                 loading (into [lib] (conj (subvec loading 1) lib))]
+           (let [lib-emphasized (str "[ " lib " ]")
+                 loading (conj loading lib)
+                 loading (replace {lib lib-emphasized} loading)]
              (str "Cyclic load dependency: " (str/join "->" loading)))
            lib)
           (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
