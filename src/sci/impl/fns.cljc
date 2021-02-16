@@ -221,13 +221,22 @@
           {:sci.impl/fixed-arity fixed-arity}))
       f)))
 
-(defn lookup-by-arity [arities arity]
-  (some (fn [f]
-          (let [{:sci.impl/keys [fixed-arity min-var-args-arity]} (meta f)]
-            (when (or (= arity fixed-arity )
-                      (and min-var-args-arity
-                           (>= arity min-var-args-arity)))
-              f))) arities))
+(defn lookup-by-arity [fixed-arities min-var-args-arity variadic-arity
+                       arity]
+  (or (get fixed-arities arity)
+      (when (and min-var-args-arity
+                 (>= arity min-var-args-arity))
+        variadic-arity)))
+
+(defn- fixed-arities [arities]
+  (->> arities
+       (map (juxt (comp :sci.impl/fixed-arity meta) identity))
+       (into {})))
+
+(defn- variadic-arity [arities]
+  (->> arities
+       (filter (comp :sci.impl/min-var-args-arity meta))
+       first))
 
 (defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name
                                               var] :as f}]
@@ -242,10 +251,14 @@
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
             (fun ctx interpret (first fn-bodies) fn-name macro? false)
-            (let [arities (map #(fun ctx interpret % fn-name macro? true) fn-bodies)]
+            (let [arities (map #(fun ctx interpret % fn-name macro? true) fn-bodies)
+                  fixed-arities (fixed-arities arities)
+                  variadic-arity (variadic-arity arities)
+                  min-var-args-arity (:sci.impl/min-var-args-arity (meta variadic-arity))]
               (fn [& args]
                 (let [arg-count (count args)]
-                  (if-let [f (lookup-by-arity arities arg-count)]
+                  (if-let [f (lookup-by-arity fixed-arities min-var-args-arity variadic-arity
+                                              arg-count)]
                     (apply f args)
                     (throw (new #?(:clj Exception
                                    :cljs js/Error)

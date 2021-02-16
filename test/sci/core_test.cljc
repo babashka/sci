@@ -189,6 +189,9 @@
   (is (= 2 (eval* '((fn foo [x & [y]] y) 1 2 3))))
   (is (= 1 (eval* '((fn ([x] x) ([x y] y)) 1))))
   (is (= 2 (eval* '((fn ([x] x) ([x y] y)) 1 2))))
+  (is (= "otherwise" (eval* '((fn ([x & xs] "variadic") ([x] "otherwise")) 1))))
+  (is (= "otherwise" (eval* '((fn ([x] "otherwise") ([x & xs] "variadic")) 1))))
+  (is (= "variadic" (eval* '((fn ([x] "otherwise") ([x & xs] "variadic")) 1 2))))
   (is (= '(2 3 4) (eval* '(apply (fn [x & xs] xs) 1 2 [3 4]))))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"Can't have fixed arity function with more params than variadic function"
