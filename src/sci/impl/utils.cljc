@@ -128,10 +128,12 @@
                             :locals (or (:locals d)
                                         (:bindings ctx))}
                       phase (:phase ctx)
-                      base (if phase
-                             (assoc base :phase phase)
-                             base)]
-                  (ex-info ex-msg (merge base d) e))]
+                      wrapping-sci-error? (= :sci/error (:type d))
+                      ex-data (cond-> base
+                                      phase (assoc :phase phase)
+                                      wrapping-sci-error? (merge d)
+                                      (not wrapping-sci-error?) (assoc :ex-data d))]
+                  (ex-info ex-msg ex-data e))]
             (throw new-exception))
           (throw e))))))
 
