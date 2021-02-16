@@ -62,10 +62,10 @@
              :locals {}
              :message "ex-message"
              :type :sci/error}
-            {:ex :data}]
+            {:column 3}]
            (try
              (eval-string "
-(defn throwing-fn [] (throw (ex-info \"ex-message\" {:ex :data})))
+(defn throwing-fn [] (throw (ex-info \"ex-message\" {:column 3})))
 
 (throwing-fn)")
              (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
