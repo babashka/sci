@@ -96,9 +96,10 @@
                        vt)
                    (volatile! (list node))))))
       (let [d (ex-data e)
-            e (if (isa? (:type d) :sci/error)
-                #?(:clj (or (-ex-cause e) e)
-                   :cljs e)
+            wrapping-sci-error? (isa? (:type d) :sci/error)
+            e (if wrapping-sci-error?
+                #?(:clj  (or (-ex-cause e) e)
+                   :cljs (or (ex-cause e) e))
                 e)
             ex-msg (or (:message d)
                        #?(:clj (.getMessage e)
@@ -116,24 +117,18 @@
                      ex-msg)]
         (if (and line column)
           (let [new-exception
-                (let [base {:type :sci/error
-                            :line line
-                            :column column
-                            :message ex-msg
-                            :sci.impl/callstack
-                            (delay (when-let
-                                       [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
-                                     @v))
-                            :file file
-                            :locals (or (:locals d)
-                                        (:bindings ctx))}
-                      phase (:phase ctx)
-                      wrapping-sci-error? (= :sci/error (:type d))
-                      ex-data (cond-> base
-                                      phase (assoc :phase phase)
-                                      wrapping-sci-error? (merge d)
-                                      (not wrapping-sci-error?) (assoc :ex-data d))]
-                  (ex-info ex-msg ex-data e))]
+                (let [new-d (if wrapping-sci-error? d
+                                {:type :sci/error
+                                 :line line
+                                 :column column
+                                 :message ex-msg
+                                 :sci.impl/callstack
+                                 (delay (when-let
+                                            [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
+                                          @v))
+                                 :file file
+                                 :locals (:bindings ctx)})]
+                  (ex-info ex-msg new-d e))]
             (throw new-exception))
           (throw e))))))
 
