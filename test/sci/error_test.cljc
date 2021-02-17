@@ -53,3 +53,22 @@
   (foo/echo-msg))  ;; called with the wrong arity
 
 (main)")))))
+
+(deftest inherited-ex-data-is-encapsulated
+  (testing "The original ex-data is encapsulated."
+    (is (= [{:column 22
+             :file nil
+             :line 2
+             :locals {}
+             :message "ex-message"
+             :type :sci/error}
+            {:column 3}]
+           (try
+             (eval-string "
+(defn throwing-fn [] (throw (ex-info \"ex-message\" {:column 3})))
+
+(throwing-fn)")
+             (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
+               [(dissoc (ex-data e) :sci.impl/callstack)
+                (ex-data #?(:clj (.getCause e)
+                            :cljs (ex-cause e)))]))))))
