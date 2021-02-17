@@ -106,7 +106,8 @@
            ;; m (meta ret)
            recur? (instance? Recur ret)]
        (if recur?
-         (let [recur-val (t/getVal ret)]
+         (let [recur-val (t/getVal ret)
+               min-var-args-arity (when var-arg-name fixed-arity)]
            (if min-var-args-arity
              (let [[fixed-args [rest-args]]
                    [(subvec recur-val 0 min-var-args-arity)
@@ -120,11 +121,9 @@
    {:sci.impl/keys [fixed-arity var-arg-name
                     #_:clj-kondo/ignore params body] :as _m}
    #_:clj-kondo/ignore fn-name
-   #_:clj-kondo/ignore macro?
-   with-meta?]
-  (let [nsm (vars/current-ns-name)
+   #_:clj-kondo/ignore macro?]
+  (let [#_:clj-kondo/ignore nsm (vars/current-ns-name)
         disable-arity-checks? (get-2 ctx :disable-arity-checks)
-        min-var-args-arity (when var-arg-name fixed-arity)
         ;; body-count (count body)
         f (if-not #?(:clj (or var-arg-name
                               disable-arity-checks?)
@@ -213,31 +212,22 @@
                             (gen-fn 19 false)))
               (gen-fn-varargs))
             (gen-fn-varargs))]
-    (if with-meta?
-      (with-meta
-        f
-        (if min-var-args-arity
-          {:sci.impl/min-var-args-arity min-var-args-arity}
-          {:sci.impl/fixed-arity fixed-arity}))
-      f)))
+    f))
 
 (defn lookup-by-arity [arities arity]
   (or (get arities arity)
-      (let [vf (:variadic arities)
-            min-var-args-arity (:sci.impl/min-var-args-arity (meta vf))]
-        (when (and min-var-args-arity
-                   (>= arity min-var-args-arity))
-          vf))))
+      (:variadic arities)))
 
 (defn fn-arity-map [ctx interpret fn-name macro? fn-bodies]
   (reduce
     (fn [arity-map fn-body]
-      (let [f (fun ctx interpret fn-body fn-name macro? true)
-            {:sci.impl/keys [fixed-arity min-var-args-arity]} (meta f)]
-        (if min-var-args-arity
+      (let [f (fun ctx interpret fn-body fn-name macro?)
+            var-arg? (:sci.impl/var-arg-name fn-body)
+            fixed-arity (:sci.impl/fixed-arity fn-body)]
+        (if var-arg?
           (assoc arity-map :variadic f)
           (assoc arity-map fixed-arity f))))
-    nil
+    {}
     fn-bodies))
 
 (defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name
@@ -252,7 +242,7 @@
               ctx)
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
-            (fun ctx interpret (first fn-bodies) fn-name macro? false)
+            (fun ctx interpret (first fn-bodies) fn-name macro?)
             (let [arities (fn-arity-map ctx interpret fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
