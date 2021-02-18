@@ -28,3 +28,5 @@ for your version by going to cljdoc. ]
 **expected behavior**
 
 [ What is the behavior you expected to see? Please provide a minimal working example ]
+
+[ Optional: if you or your organization is sponsoring this project, please write "**Sponsor**" in this ticket for higher priority. ]
