@@ -8,6 +8,11 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Detect cyclic load dependencies [#531](https://github.com/babashka/babashka/issues/531)
 
+### Enhancements / fixes
+
+- BREAKING: Do not merge ex-data into sci error [#534](https://github.com/babashka/babashka/issues/534) ([@GreshamDanielStephens](https://github.com/GreshamDanielStephens))
+- Pick fn arity independent of written order [#532](https://github.com/babashka/babashka/issues/532) ([@GreshamDanielStephens](https://github.com/GreshamDanielStephens))
+
 ## v0.2.3
 
 ### Enhancements / fixes
@@ -187,6 +192,10 @@ Details about releases prior to v0.1.0 can be found
 [here](https://github.com/borkdude/sci/releases).
 
 ## Breaking changes
+
+### 0.2.4
+
+-  Do not merge ex-data into sci error [#534](https://github.com/babashka/babashka/issues/534)
 
 ### >= 0.1.0
 
