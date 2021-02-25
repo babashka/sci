@@ -13,8 +13,16 @@
   (let [methods (types/getMethods ref)]
     ((get methods #?(:clj 'deref :cljs '-deref)) ref)))
 
-(defmethod #?(:clj deref :cljs -deref) :default [ref]
+(defmethod #?(:clj deref :cljs -deref) #?(:clj clojure.lang.IDeref :cljs IDeref) [ref]
   (clojure.core/deref ref))
+
+#?(:clj
+   (defmethod clojure.lang.IDeref clojure.lang.IBlockingDeref [ref]
+     (clojure.core/deref ref)))
+
+#?(:clj
+   (defmethod clojure.lang.IDeref java.util.concurrent.Futuref [ref]
+     (clojure.core/deref ref)))
 
 (defn deref*
   ([x]
@@ -113,23 +121,23 @@
 
 ;;;; Defaults
 
-(defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
+(defmethod #?(:clj swap :cljs -swap!) #?(:clj clojure.lang.IAtom :cljs ISwap) [ref f & args]
   ;; TODO: optimize arities
   (apply clojure.core/swap! ref f args))
 
-(defmethod #?(:clj reset :cljs -reset!) :default [ref v]
+(defmethod #?(:clj reset :cljs -reset!) #?(:clj clojure.lang.IAtom :cljs IReset) [ref v]
   (reset! ref v))
 
 #?(:clj
-   (defmethod compareAndSet :default [ref old new]
+   (defmethod compareAndSet clojure.lang.IAtom [ref old new]
      (compare-and-set! ref old new)))
 
 #?(:clj
-   (defmethod swapVals :default [ref & args]
+   (defmethod swapVals clojure.lang.IAtom2 [ref & args]
      (apply swap-vals! ref args)))
 
 #?(:clj
-   (defmethod resetVals :default [ref v]
+   (defmethod resetVals clojure.lang.IAtom2 [ref v]
      (reset-vals! ref v)))
 
 ;;;; Re-routing
