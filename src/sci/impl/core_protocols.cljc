@@ -17,11 +17,11 @@
   (clojure.core/deref ref))
 
 #?(:clj
-   (defmethod clojure.lang.IDeref clojure.lang.IBlockingDeref [ref]
+   (defmethod deref clojure.lang.IDeref clojure.lang.IBlockingDeref [ref]
      (clojure.core/deref ref)))
 
 #?(:clj
-   (defmethod clojure.lang.IDeref java.util.concurrent.Futuref [ref]
+   (defmethod deref clojure.lang.IDeref java.util.concurrent.Futuref [ref]
      (clojure.core/deref ref)))
 
 (defn deref*
