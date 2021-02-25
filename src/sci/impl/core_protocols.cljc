@@ -13,8 +13,9 @@
   (let [methods (types/getMethods ref)]
     ((get methods #?(:clj 'deref :cljs '-deref)) ref)))
 
-(defmethod #?(:clj deref :cljs -deref) :default [ref]
-  (clojure.core/deref ref))
+(def ideref-default
+  (defmethod #?(:clj deref :cljs -deref) :default [ref]
+    (clojure.core/deref ref)))
 
 (defn deref*
   ([x]
@@ -40,7 +41,8 @@
      :cljs
      (vars/new-var
       'cljs.core.IDeref
-      {:methods #{-deref}
+      {:protocol IDeref
+       :methods #{-deref}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 
@@ -113,24 +115,25 @@
 
 ;;;; Defaults
 
-(defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
-  ;; TODO: optimize arities
-  (apply clojure.core/swap! ref f args))
+(def iatom-defaults
+  [(defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
+     ;; TODO: optimize arities
+     (apply clojure.core/swap! ref f args))
 
-(defmethod #?(:clj reset :cljs -reset!) :default [ref v]
-  (reset! ref v))
+   (defmethod #?(:clj reset :cljs -reset!) :default [ref v]
+     (reset! ref v))
 
-#?(:clj
-   (defmethod compareAndSet :default [ref old new]
-     (compare-and-set! ref old new)))
+   #?(:clj
+      (defmethod compareAndSet :default [ref old new]
+        (compare-and-set! ref old new)))
 
-#?(:clj
-   (defmethod swapVals :default [ref & args]
-     (apply swap-vals! ref args)))
+   #?(:clj
+      (defmethod swapVals :default [ref & args]
+        (apply swap-vals! ref args)))
 
-#?(:clj
-   (defmethod resetVals :default [ref v]
-     (reset-vals! ref v)))
+   #?(:clj
+      (defmethod resetVals :default [ref v]
+        (reset-vals! ref v)))])
 
 ;;;; Re-routing
 
@@ -169,7 +172,8 @@
      :cljs
      (vars/new-var
       'cljs.core.ISwap
-      {:methods #{-swap!}
+      {:protocol ISwap
+       :methods #{-swap!}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 
@@ -177,7 +181,8 @@
    (def reset-protocol
      (vars/new-var
       'cljs.core.IReset
-      {:methods #{-reset!}
+      {:protocol IReset
+       :methods #{-reset!}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 
@@ -191,3 +196,5 @@
       {:ns clj-lang-ns})))
 
 ;;;; end IAtom
+
+(def defaults (set (conj iatom-defaults ideref-default)))
