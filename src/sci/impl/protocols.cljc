@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [defprotocol extend-protocol
                             extend extend-type reify satisfies?
                             extends? implements?])
-  (:require [sci.impl.multimethods :as mms]
+  (:require [sci.impl.core-protocols :as core]
+            [sci.impl.multimethods :as mms]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -105,12 +106,18 @@
                                    ~atype ~(second meth) ~@(nnext meth)))
                               meths)))) proto+meths))))
 
+;; IAtom can be implemented as a protocol on reify and defrecords in sci
+
 (defn satisfies? [protocol obj]
   (if  #?(:clj (instance? sci.impl.types.IReified obj)
           :cljs (clojure.core/satisfies? types/IReified obj))
     (when-let [obj-type (types/getInterface obj)]
       (= protocol obj-type))
-    (boolean (some #(get-method % (types/type-impl obj)) (:methods protocol)))))
+    ;; can be record that is implementing this protocol
+    ;; or a type like String, etc. that implements a protocol via extend-type, etc.
+    (boolean (some #(and (not (contains? core/defaults %))
+                         (get-method % (types/type-impl obj)))
+                   (:methods protocol)))))
 
 (defn instance-impl [clazz x]
   (cond
@@ -124,6 +131,7 @@
               (if-let [c (:class clazz)]
                 ;; this is a protocol which is an interface on the JVM
                 (or (satisfies? clazz x)
+                    ;; this is the fallback because we excluded defaults for the core protocols
                     (instance? c x))
                 (satisfies? clazz x))])
     ;; could we have a fast path for CLJS too? please let me know!
