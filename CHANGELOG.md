@@ -7,7 +7,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 ### New
 
 - Detect cyclic load dependencies [#531](https://github.com/babashka/babashka/issues/531)
-- Add `dissoc!`
+- Add `dissoc!` (@wilkerlucio)
 
 ### Enhancements / fixes
 
