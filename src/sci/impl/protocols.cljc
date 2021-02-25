@@ -108,6 +108,13 @@
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 
+(defn find-matching-non-default-method [protocol obj]
+  (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
+                    (let [ms (methods %)
+                          default (get ms :default)]
+                      (not (identical? m default))))
+                 (:methods protocol))))
+
 (defn satisfies? [protocol obj]
   (if  #?(:clj (instance? sci.impl.types.IReified obj)
           :cljs (clojure.core/satisfies? types/IReified obj))
@@ -115,9 +122,15 @@
       (= protocol obj-type))
     ;; can be record that is implementing this protocol
     ;; or a type like String, etc. that implements a protocol via extend-type, etc.
-    (boolean (some #(and (not (contains? core/defaults %))
-                         (get-method % (types/type-impl obj)))
-                   (:methods protocol)))))
+    #?(:cljs (let [p (:protocol protocol)]
+               (or
+                (and p
+                     (condp = p
+                       IDeref (cljs.core/satisfies? IDeref obj)
+                       ISwap (cljs.core/satisfies? ISwap obj)
+                       IReset (cljs.core/satisfies? IReset obj)))
+                (find-matching-non-default-method protocol obj)))
+       :clj (find-matching-non-default-method protocol obj))))
 
 (defn instance-impl [clazz x]
   (cond

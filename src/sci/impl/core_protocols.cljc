@@ -41,7 +41,8 @@
      :cljs
      (vars/new-var
       'cljs.core.IDeref
-      {:methods #{-deref}
+      {:protocol IDeref
+       :methods #{-deref}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 
@@ -171,7 +172,8 @@
      :cljs
      (vars/new-var
       'cljs.core.ISwap
-      {:methods #{-swap!}
+      {:protocol ISwap
+       :methods #{-swap!}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 
@@ -179,7 +181,8 @@
    (def reset-protocol
      (vars/new-var
       'cljs.core.IReset
-      {:methods #{-reset!}
+      {:protocol IReset
+       :methods #{-reset!}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 
