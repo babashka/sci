@@ -105,15 +105,12 @@
                                    ~atype ~(second meth) ~@(nnext meth)))
                               meths)))) proto+meths))))
 
-(defn same-protocol? [protocol obj]
-  (and #?(:clj (instance? sci.impl.types.IReified obj)
-          :cljs (clojure.core/satisfies? types/IReified obj))
-       (when-let [obj-type (types/getInterface obj)]
-         (= protocol obj-type))))
-
 (defn satisfies? [protocol obj]
-  (or (same-protocol? protocol obj)
-      (boolean (some #(get-method % (types/type-impl obj)) (:methods protocol)))))
+  (if  #?(:clj (instance? sci.impl.types.IReified obj)
+          :cljs (clojure.core/satisfies? types/IReified obj))
+    (when-let [obj-type (types/getInterface obj)]
+      (= protocol obj-type))
+    (boolean (some #(get-method % (types/type-impl obj)) (:methods protocol)))))
 
 (defn instance-impl [clazz x]
   (cond
@@ -126,7 +123,7 @@
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]
                 ;; this is a protocol which is an interface on the JVM
-                (or (same-protocol? clazz x)
+                (or (satisfies? clazz x)
                     (instance? c x))
                 (satisfies? clazz x))])
     ;; could we have a fast path for CLJS too? please let me know!

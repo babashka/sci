@@ -1047,6 +1047,7 @@
   (is (true? (eval* "(defrecord Foo []) (instance? Foo (->Foo))")))
   #?(:clj (is (true? (eval* "(instance? Number 1)"))))
   (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(instance? 'Foo 1)")))
+  (is (true? (eval* "(instance? clojure.lang.IAtom (atom nil))")))
   (is (false? (eval* "(instance? clojure.lang.IAtom 1)"))))
 
 (deftest threading-macro-test
