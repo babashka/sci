@@ -456,6 +456,8 @@
                                  (contains? (:imports the-ns-map) sym))
                                 ;; nil marks the imported class as unmapped
                                 (update the-ns-map :imports assoc sym nil)
+                                (contains? (:refers the-ns-map) sym)
+                                (update the-ns-map :refers dissoc sym)
                                 :else the-ns-map))))))
   nil)
 

@@ -103,6 +103,7 @@
   (is (eval* "(def foo 1) (ns-unmap *ns* 'foo) (nil? (resolve 'foo))"))
   (is (eval* "(defn bar []) (ns-unmap *ns* 'bar) (nil? (resolve 'bar))"))
   (is (eval* "(defn- baz []) (ns-unmap *ns* 'baz) (nil? (resolve 'baz))"))
+  (is (eval* "(require '[clojure.string :refer [join]]) (ns-unmap *ns* 'join) (defn join [])"))
   #?(:clj (is (= [false true] (eval* "
 (ns-unmap *ns* 'Object)
 (def o1 (resolve 'Object))
