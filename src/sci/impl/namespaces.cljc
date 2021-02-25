@@ -875,6 +875,7 @@
    'derive (with-meta hierarchies/derive* {:sci.impl/op needs-ctx})
    'descendants (with-meta hierarchies/descendants* {:sci.impl/op needs-ctx})
    'dissoc (copy-core-var dissoc)
+   'dissoc! (copy-core-var dissoc!)
    'distinct (copy-core-var distinct)
    'distinct? (copy-core-var distinct?)
    'disj (copy-core-var disj)
