@@ -2,13 +2,13 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.2.4
 
 ### New
 
 - Detect cyclic load dependencies [#531](https://github.com/babashka/babashka/issues/531)
 - Add `force`
-- Add `dissoc!` (@wilkerlucio)
+- Add `dissoc!` ([@wilkerlucio](https://github.com/wilkerlucio))
 
 ### Enhancements / fixes
 
