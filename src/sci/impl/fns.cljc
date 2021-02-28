@@ -210,6 +210,10 @@
                     :cljs (if disable-arity-checks?
                             (gen-fn 19 true)
                             (gen-fn 19 false)))
+              20 #?(:clj (gen-fn 20)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 20 true)
+                            (gen-fn 20 false)))
               (gen-fn-varargs))
             (gen-fn-varargs))]
     f))
@@ -220,15 +224,15 @@
 
 (defn fn-arity-map [ctx interpret fn-name macro? fn-bodies]
   (reduce
-    (fn [arity-map fn-body]
-      (let [f (fun ctx interpret fn-body fn-name macro?)
-            var-arg? (:sci.impl/var-arg-name fn-body)
-            fixed-arity (:sci.impl/fixed-arity fn-body)]
-        (if var-arg?
-          (assoc arity-map :variadic f)
-          (assoc arity-map fixed-arity f))))
-    {}
-    fn-bodies))
+   (fn [arity-map fn-body]
+     (let [f (fun ctx interpret fn-body fn-name macro?)
+           var-arg? (:sci.impl/var-arg-name fn-body)
+           fixed-arity (:sci.impl/fixed-arity fn-body)]
+       (if var-arg?
+         (assoc arity-map :variadic f)
+         (assoc arity-map fixed-arity f))))
+   {}
+   fn-bodies))
 
 (defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name
                                               var] :as f}]

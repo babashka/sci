@@ -6,12 +6,14 @@
 
 (defn reify [_ _ _ctx & args]
   (let [classes->methods (split-when symbol? args)
-        classes->methods (into {} (map (fn [[class &  methods]]
-                                         [class (into {}
-                                                      (map (fn [meth]
-                                                             `['~(first meth) (fn ~(second meth) ~@(nnext meth))])
-                                                          methods))])
-                                       classes->methods))]
+        classes->methods
+        (into {} (map (fn [[class & methods]]
+                        (let [methods (group-by first methods)]
+                          [class (into {}
+                                       (map (fn [[meth bodies]]
+                                              `['~meth (fn ~@(map rest bodies))])
+                                            methods))]))
+                      classes->methods))]
     `(clojure.core/reify* ~classes->methods)))
 
 (defn reify* [#?(:clj ctx
