@@ -2,7 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [reify])
   (:require [sci.impl.types :as t]
-            [sci.impl.utils :refer [split-when]]))
+            [sci.impl.utils :refer [split-when]])
+  (:import [sci.impl.types IReified]))
 
 (defn reify [_ _ _ctx & args]
   (let [classes->methods (split-when symbol? args)
@@ -18,18 +19,21 @@
 
 (defn reify* [#?(:clj ctx
                  :cljs _ctx) classes->methods]
-  #?(:clj (let [ks (keys classes->methods)]
-            ;; NOTE: if the first thing in reify is a class, we assume all
-            ;; classes and no protocols. This should be addressed in a future version.
-            (if (class? (first ks))
-              (let [class-names (set (map #(symbol (.getName ^Class %)) ks))]
-                (if-let [factory (get-in ctx [:reify class-names])]
-                  (factory (zipmap class-names (vals classes->methods)))
-                  (throw (ex-info (str "No reify factory for: " class-names)
-                                  {:class class}))))
-              ;; So far we only supported reify-ing one protocol at a time. This
-              ;; should be addressed in a future version
-              (let [[interface methods] (first classes->methods)]
-                (t/->Reified interface methods))))
-     :cljs (let [[interface methods] (first classes->methods)]
-             (t/->Reified interface methods))))
+  #?(:clj (let [{classes true protocols false} (group-by (comp class? key) classes->methods)
+                interfaces (keys protocols)
+                reify-methods {'getInterfaces (constantly interfaces)
+                               'getMethods (constantly (apply merge (vals protocols)))}
+                classes->methods (->> (if (seq protocols)
+                                        (conj classes
+                                             [IReified reify-methods])
+                                        classes)
+                                      (map (fn [[^Class c methods]] [(symbol (.getName c)) methods]))
+                                      (into {}))
+                class-names (set (keys classes->methods))]
+            (if-let [factory (get-in ctx [:reify class-names])]
+              (factory classes->methods)
+              (throw (ex-info (str "No reify factory for: " class-names)
+                              {:class class}))))
+     :cljs (let [interfaces (keys classes->methods)
+                 methods (apply merge (vals classes->methods))]
+             (t/->Reified interfaces methods))))

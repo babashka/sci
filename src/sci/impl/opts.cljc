@@ -5,7 +5,8 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]
-   [sci.lang]))
+   [sci.lang])
+  (:import [sci.impl.types IReified]))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -95,7 +96,15 @@
            (fn [methods]
              (reify Object
                (toString [this]
-                 ((get-in methods '[java.lang.Object toString]) this))))}
+                 ((get-in methods '[java.lang.Object toString]) this))))
+           '#{sci.impl.types.IReified}
+           (fn [methods]
+             (reify
+               IReified
+               (getMethods [this]
+                 ((get-in methods '[sci.impl.types.IReified getMethods]) this))
+               (getInterfaces [this]
+                 ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}
      :cljs {}))
 
 #?(:clj (defrecord Ctx [bindings env
