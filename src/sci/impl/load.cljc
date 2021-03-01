@@ -63,7 +63,8 @@
   (swap! env update :loaded-libs (fn [loaded-libs]
                                    (if (nil? loaded-libs)
                                      #{lib}
-                                     (conj loaded-libs lib)))))
+                                     (conj loaded-libs lib))))
+  nil)
 
 (defn handle-require-libspec
   [ctx lib opts]

@@ -722,7 +722,8 @@
          (conj ret
                (ctx-fn
                 (fn [ctx]
-                  (load/add-loaded-lib (:env ctx) ns-name))
+                  (load/add-loaded-lib (:env ctx) ns-name)
+                  nil)
                 nil)))))))
 
 ;;;; End namespaces
