@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [reify])
   (:require [sci.impl.types :as t]
             [sci.impl.utils :refer [split-when]])
-  (:import [sci.impl.types IReified]))
+  #?(:clj (:import [sci.impl.types IReified])))
 
 (defn reify [_ _ _ctx & args]
   (let [classes->methods (split-when symbol? args)

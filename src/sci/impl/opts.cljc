@@ -6,7 +6,7 @@
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]
    [sci.lang])
-  (:import [sci.impl.types IReified]))
+  #?(:clj (:import [sci.impl.types IReified])))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
