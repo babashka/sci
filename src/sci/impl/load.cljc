@@ -1,9 +1,9 @@
 (ns sci.impl.load
   (:require
+   [clojure.string :as str]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      kw-identical?]]
-   [sci.impl.vars :as vars]
-   [clojure.string :as str]))
+   [sci.impl.vars :as vars]))
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
   (let [referred (:refers the-current-ns)
@@ -59,6 +59,12 @@
       (on-loaded {}))
     env))
 
+(defn add-loaded-lib [env lib]
+  (swap! env update :loaded-libs (fn [loaded-libs]
+                                   (if (nil? loaded-libs)
+                                     #{lib}
+                                     (conj loaded-libs lib)))))
+
 (defn handle-require-libspec
   [ctx lib opts]
   (let [{:keys [:reload]} opts
@@ -71,6 +77,7 @@
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
       (let [loading (:loading ctx)]
         (if (and loading
+                 (not (contains? (:loaded-libs env) lib))
                  (nat-int? #?(:clj (.indexOf ^clojure.lang.PersistentVector loading lib)
                               :cljs (.indexOf loading lib))))
           (throw-error-with-location
@@ -89,11 +96,7 @@
                           (update :loading (fn [loading]
                                              (if (nil? loading)
                                                [lib]
-                                               (conj loading lib)
-                                               #_(if (pos? #?(:clj (.indexOf ^java.lang.PersistentVector loading lib)
-                                                            :cljs (.indexOf loading lib)))
-                                                 (throw-error-with-location "Circular" loading)
-                                                 (conj loading lib))))))]
+                                               (conj loading lib)))))]
               (try (vars/with-bindings
                      {vars/current-ns @vars/current-ns
                       vars/current-file file}
@@ -114,7 +117,9 @@
                           (str "Could not find namespace: " lib ".")))))
         (throw (new #?(:clj Exception :cljs js/Error)
 
-                    (str "Could not find namespace " lib ".")))))))
+                    (str "Could not find namespace " lib ".")))))
+    (add-loaded-lib env* lib)
+    nil))
 
 (defn load-lib [ctx prefix lib & options]
   (when (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)

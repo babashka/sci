@@ -9,6 +9,7 @@
    [sci.impl.fns :as fns]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
+   [sci.impl.load :as load]
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
@@ -716,7 +717,13 @@
                                            (meta expr)))))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
-        (return-do expr ret)))))
+        (return-do
+         expr
+         (conj ret
+               (ctx-fn
+                (fn [ctx]
+                  (load/add-loaded-lib (:env ctx) ns-name))
+                nil)))))))
 
 ;;;; End namespaces
 

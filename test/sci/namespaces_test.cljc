@@ -163,4 +163,16 @@
                         {:load-fn (fn [{:keys [:namespace]}]
                                     (case namespace
                                       foo {:source "(ns foo (:require bar)) bar/x"}
-                                      bar {:source "(ns bar (:require foo)) (def x)"}))}))))
+                                      bar {:source "(ns bar (:require foo)) (def x)"}))})))
+  (is (= 1 (sci/eval-string "(require 'foo) foo/foo"
+                           {:load-fn (fn [{:keys [:namespace]}]
+                                       (case namespace
+                                         foo {:source "
+(ns foo)
+(def foo 1)
+;; foo already loaded, should be ok to have cyclic dep on foo from bar now
+(require 'bar)
+bar/bar"}
+                                         bar {:source "
+(ns bar (:require foo))
+(def bar foo/foo)"}))}))))
