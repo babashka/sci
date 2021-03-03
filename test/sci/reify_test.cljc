@@ -11,9 +11,10 @@
 
 (deftest reify-mixed-protocol-class-test
   #?(:clj
-     (testing "reifying Object and IDeref"
-       (is (= ["obj-str" "ideref-deref" "protocol-custom"]
-              (tu/eval* "
+     (when-not tu/native?
+       (testing "reifying Object and IDeref"
+         (is (= ["obj-str" "ideref-deref" "protocol-custom"]
+                (tu/eval* "
 (defprotocol Protocol
   (custom [this]))
 (let [r (reify
@@ -22,15 +23,15 @@
           Protocol (custom [this] \"protocol-custom\")
           )]
   [(str r) (deref r) (custom r)])"
-                        {:reify {'#{java.lang.Object sci.impl.types.IReified}
-                                 (fn [methods]
-                                   (reify
-                                     Object
-                                     (toString [this]
-                                       ((get-in methods '[java.lang.Object toString]) this))
+                          {:reify {'#{java.lang.Object sci.impl.types.IReified}
+                                   (fn [methods]
+                                     (reify
+                                       Object
+                                       (toString [this]
+                                         ((get-in methods '[java.lang.Object toString]) this))
 
-                                     IReified
-                                     (getMethods [this]
-                                       ((get-in methods '[sci.impl.types.IReified getMethods]) this))
-                                     (getInterfaces [this]
-                                       ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}}))))))
+                                       IReified
+                                       (getMethods [this]
+                                         ((get-in methods '[sci.impl.types.IReified getMethods]) this))
+                                       (getInterfaces [this]
+                                         ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}})))))))
