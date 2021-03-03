@@ -1,6 +1,6 @@
 (ns sci.reify-test
   (:require [clojure.test :refer #?(:clj [deftest is testing]
-                                    :cljs [deftest])]
+                                    :cljs [deftest is testing])]
             [sci.test-utils :as tu])
   #?(:clj (:import [sci.impl.types IReified])))
 
@@ -35,3 +35,33 @@
                                          ((get-in methods '[sci.impl.types.IReified getMethods]) this))
                                        (getInterfaces [this]
                                          ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}})))))))
+
+(deftest reify-multiple-protocols
+  (testing "reifying two custom protocols"
+    (is (= ["A" "B"]
+           (tu/eval* "
+(defprotocol ProtocolA
+  (customA [this]))
+(defprotocol ProtocolB
+  (customB [this]))
+(let [r (reify
+          ProtocolA (customA [this] \"A\")
+          ProtocolB (customB [this] \"B\")
+          )]
+  [(customA r) (customB r)])"
+                     nil)))))
+
+(deftest reify-almost-clashing-protocols
+  (testing "reifying two custom protocols that have similar signatures"
+    (is (= ["A" "B"]
+           (tu/eval* "
+(defprotocol ProtocolA
+  (customA [this first-arg]))
+(defprotocol ProtocolB
+  (customA [this first-arg second-arg]))
+(let [r (reify
+          ProtocolA (customA [this _] \"A\")
+          ProtocolB (customA [this _ _] \"B\")
+          )]
+  [(customA r 1) (customA r 1 2)])"
+                     nil)))))

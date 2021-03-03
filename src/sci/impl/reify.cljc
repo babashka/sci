@@ -6,34 +6,34 @@
   #?(:clj (:import [sci.impl.types IReified])))
 
 (defn reify [_ _ _ctx & args]
-  (let [classes->methods (split-when symbol? args)
-        classes->methods
-        (into {} (map (fn [[class & methods]]
-                        (let [methods (group-by first methods)]
-                          [class (into {}
-                                       (map (fn [[meth bodies]]
-                                              `['~meth (fn ~@(map rest bodies))])
-                                            methods))]))
-                      classes->methods))]
-    `(clojure.core/reify* ~classes->methods)))
+  (let [{classes true methods false} (group-by symbol? args)
+        methods (->> (group-by first methods)
+                     (map (fn [[meth bodies]]
+                            `['~meth (fn ~@(map rest bodies))]))
+                     (into {}))]
+    `(clojure.core/reify* ~(vec classes) ~methods)))
 
 (defn reify* [#?(:clj ctx
-                 :cljs _ctx) classes->methods]
-  #?(:clj (let [{classes true protocols false} (group-by (comp class? key) classes->methods)
-                interfaces (keys protocols)
-                reify-methods {'getInterfaces (constantly interfaces)
-                               'getMethods (constantly (apply merge (vals protocols)))}
-                classes->methods (->> (if (seq protocols)
-                                        (conj classes
-                                             [IReified reify-methods])
-                                        classes)
-                                      (map (fn [[^Class c methods]] [(symbol (.getName c)) methods]))
-                                      (into {}))
-                class-names (set (keys classes->methods))]
+                 :cljs _ctx) classes methods]
+  #?(:clj (let [{classes true protocols false} (group-by class? classes)
+
+                classes (if (seq protocols) (distinct (conj classes IReified)) classes)
+                class-names (->> classes
+                                 (map #(symbol (.getName ^Class %)))
+                                 set)
+
+                reify-methods {'getInterfaces (constantly protocols)
+                               'getMethods (constantly methods)}
+                methods (if (seq protocols) (merge reify-methods methods) methods)
+
+                ;; The reify factories get the fn by classname and method name
+                ;; however it shouldn't actually matter which class the method
+                ;; belongs to, as different classes may have the same method
+                ;; names with different arities.
+                ;; classes->methods puts all methods for all classes.
+                classes->methods (into {} (map vector class-names (repeat methods)))]
             (if-let [factory (get-in ctx [:reify class-names])]
               (factory classes->methods)
               (throw (ex-info (str "No reify factory for: " class-names)
                               {:class class}))))
-     :cljs (let [interfaces (keys classes->methods)
-                 methods (apply merge (vals classes->methods))]
-             (t/->Reified interfaces methods))))
+     :cljs (t/->Reified classes methods)))
