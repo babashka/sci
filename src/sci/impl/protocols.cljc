@@ -19,10 +19,12 @@
           (if (keyword? opt) [{opt (second signatures)} (nnext signatures)]
               [nil signatures]))
         current-ns (str (vars/current-ns-name))
+        fq-name (symbol current-ns (str protocol-name))
         expansion
         `(do
            (def  ~(with-meta protocol-name
                     {:doc docstring}) {:methods #{}
+                                       :name ~fq-name
                                        :ns *ns*})
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))

@@ -175,5 +175,7 @@
   (testing "No methods"
     (let [prog "
 (defprotocol Foo)
-(satisfies? Foo (reify Foo))
-"] (is (true? (tu/eval* prog {}))))))
+(defprotocol Bar)
+[(satisfies? Foo (reify Foo))
+ (satisfies? Bar (reify Foo))]
+"] (is (= [true false] (tu/eval* prog {}))))))
