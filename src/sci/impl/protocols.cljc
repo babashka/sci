@@ -118,8 +118,8 @@
 (defn satisfies? [protocol obj]
   (if  #?(:clj (instance? sci.impl.types.IReified obj)
           :cljs (clojure.core/satisfies? types/IReified obj))
-    (when-let [obj-types (types/getInterfaces obj)]
-      (some #(= protocol %) obj-types))
+    (when-let [protos (types/getProtocols obj)]
+      (contains? protos protocol))
     ;; can be record that is implementing this protocol
     ;; or a type like String, etc. that implements a protocol via extend-type, etc.
     #?(:cljs (let [p (:protocol protocol)]

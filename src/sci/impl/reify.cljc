@@ -1,8 +1,7 @@
 (ns sci.impl.reify
   {:no-doc true}
   (:refer-clojure :exclude [reify])
-  (:require [sci.impl.types :as t])
-  #?(:clj (:import [sci.impl.types IReified])))
+  #?(:cljs (:require [sci.impl.types :as t])))
 
 (defn reify [_ _ _ctx & args]
   (let [{classes true methods false} (group-by symbol? args)
@@ -16,13 +15,14 @@
                  :cljs _ctx) classes methods]
   #?(:clj (let [{classes true protocols false} (group-by class? classes)
                 protocols? (seq protocols)
-
-                classes (if protocols? (distinct (conj classes IReified)) classes)
-                class-names (->> classes
-                                 (map #(symbol (.getName ^Class %)))
-                                 set)]
-            (if-let [factory (get-in ctx [:reify class-names])]
-              (factory methods)
-              (throw (ex-info (str "No reify factory for: " class-names)
+                interfaces (->> classes
+                                (map #(symbol (.getName ^Class %)))
+                                set)
+                interfaces (if protocols?
+                              (conj interfaces 'sci.impl.types.IReified)
+                              interfaces)]
+            (if-let [factory (get-in ctx [:reify interfaces])]
+              (factory interfaces methods (set protocols))
+              (throw (ex-info (str "No reify factory for: " interfaces)
                               {:class class}))))
-     :cljs (t/->Reified classes methods)))
+     :cljs (t/->Reified classes methods #{})))

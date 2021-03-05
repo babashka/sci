@@ -24,17 +24,18 @@
           )]
   [(str r) (deref r) (custom r)])"
                           {:reify {'#{java.lang.Object sci.impl.types.IReified}
-                                   (fn [methods]
+                                   (fn [interfaces methods protocols]
                                      (reify
                                        Object
                                        (toString [this]
                                          ((get methods 'toString) this))
-
                                        IReified
-                                       (getMethods [this]
-                                         ((get methods 'getMethods) this))
                                        (getInterfaces [this]
-                                         ((get  methods 'getInterfaces) this))))}})))))))
+                                         interfaces)
+                                       (getMethods [this]
+                                         methods)
+                                       (getProtocols [this]
+                                         protocols)))}})))))))
 
 (deftest reify-multiple-protocols
   (testing "reifying two custom protocols"
@@ -90,7 +91,7 @@
                           {:classes {'Interface1 Interface1
                                      'Interface2 Interface2}
                            :reify {'#{sci.reify_test.Interface1 sci.reify_test.Interface2 sci.impl.types.IReified}
-                                   (fn [methods]
+                                   (fn [interfaces methods protocols]
                                      (reify
                                        Interface1
                                        (method [this]
@@ -101,7 +102,9 @@
                                          ((get methods 'method) this first))
 
                                        IReified
-                                       (getMethods [this]
-                                         ((get methods 'getMethods) this))
                                        (getInterfaces [this]
-                                         ((get methods 'getInterfaces) this))))}})))))))
+                                         interfaces)
+                                       (getMethods [this]
+                                         methods)
+                                       (getProtocols [this]
+                                         protocols)))}})))))))
