@@ -1,8 +1,7 @@
 (ns sci.impl.reify
   {:no-doc true}
   (:refer-clojure :exclude [reify])
-  (:require [sci.impl.types :as t]
-            [sci.impl.utils :refer [split-when]])
+  (:require [sci.impl.types :as t])
   #?(:clj (:import [sci.impl.types IReified])))
 
 (defn reify [_ _ _ctx & args]
@@ -21,20 +20,9 @@
                 classes (if protocols? (distinct (conj classes IReified)) classes)
                 class-names (->> classes
                                  (map #(symbol (.getName ^Class %)))
-                                 set)
-
-                reify-methods {'getInterfaces (constantly protocols)
-                               'getMethods (constantly methods)}
-                methods (if protocols? (merge reify-methods methods) methods)
-
-                ;; The reify factories get the fn by classname and method name
-                ;; however it shouldn't actually matter which class the method
-                ;; belongs to, as different classes may have the same method
-                ;; names with different arities.
-                ;; classes->methods puts all methods for all classes.
-                classes->methods (into {} (map vector class-names (repeat methods)))]
+                                 set)]
             (if-let [factory (get-in ctx [:reify class-names])]
-              (factory classes->methods)
+              (factory methods)
               (throw (ex-info (str "No reify factory for: " class-names)
                               {:class class}))))
      :cljs (t/->Reified classes methods)))

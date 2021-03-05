@@ -96,15 +96,15 @@
            (fn [methods]
              (reify Object
                (toString [this]
-                 ((get-in methods '[java.lang.Object toString]) this))))
+                 ((get methods 'toString) this))))
            '#{sci.impl.types.IReified}
            (fn [methods]
              (reify
                IReified
                (getMethods [this]
-                 ((get-in methods '[sci.impl.types.IReified getMethods]) this))
+                 ((get methods 'getMethods) this))
                (getInterfaces [this]
-                 ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}
+                 ((get methods 'getInterfaces) this))))}
      :cljs {}))
 
 #?(:clj (defrecord Ctx [bindings env

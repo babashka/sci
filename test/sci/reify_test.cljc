@@ -28,13 +28,13 @@
                                      (reify
                                        Object
                                        (toString [this]
-                                         ((get-in methods '[java.lang.Object toString]) this))
+                                         ((get methods 'toString) this))
 
                                        IReified
                                        (getMethods [this]
-                                         ((get-in methods '[sci.impl.types.IReified getMethods]) this))
+                                         ((get methods 'getMethods) this))
                                        (getInterfaces [this]
-                                         ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}})))))))
+                                         ((get  methods 'getInterfaces) this))))}})))))))
 
 (deftest reify-multiple-protocols
   (testing "reifying two custom protocols"
@@ -94,14 +94,14 @@
                                      (reify
                                        Interface1
                                        (method [this]
-                                         ((get-in methods '[Interface1 method]) this))
+                                         ((get methods 'method) this))
 
                                        Interface2
                                        (method [this first]
-                                         ((get-in methods '[Interface2 method]) this first))
+                                         ((get methods 'method) this first))
 
                                        IReified
                                        (getMethods [this]
-                                         ((get-in methods '[sci.impl.types.IReified getMethods]) this))
+                                         ((get methods 'getMethods) this))
                                        (getInterfaces [this]
-                                         ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}})))))))
+                                         ((get methods 'getInterfaces) this))))}})))))))

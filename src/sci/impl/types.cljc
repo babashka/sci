@@ -16,7 +16,7 @@
 (deftype Reified [interfaces meths]
   IReified
   (getInterfaces [_] interfaces)
-  (getMethods [_] meths))
+  (getMethods [_]  meths))
 
 (defn type-impl [x & _xs]
   (or (when (instance? #?(:clj sci.impl.types.IReified :cljs sci.impl.types.Reified) x)
