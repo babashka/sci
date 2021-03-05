@@ -19,8 +19,7 @@
   (getMethods [_] meths))
 
 (defn type-impl [x & _xs]
-  (or (when #?(:clj (instance? sci.impl.types.IReified x)
-               :cljs (clojure.core/satisfies? IReified x))
+  (or (when (satisfies? IReified x)
         :sci.impl.protocols/reified)
       (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore

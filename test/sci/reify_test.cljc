@@ -51,17 +51,57 @@
   [(customA r) (customB r)])"
                      nil)))))
 
-(deftest reify-almost-clashing-protocols
-  (testing "reifying two custom protocols that have similar signatures"
-    (is (= ["A" "B"]
-           (tu/eval* "
-(defprotocol ProtocolA
-  (customA [this first-arg]))
-(defprotocol ProtocolB
-  (customA [this first-arg second-arg]))
+(deftest reify-protocols-with-matching-method-names
+  (testing "reifying two protocols that have the same named methods"
+     (is (= ["Protocol1" "Protocol2"]
+            (tu/eval* "
+(defprotocol Protocol1
+  (method [this first second]))
+(defprotocol Protocol2
+  (method [this first second third]))
 (let [r (reify
-          ProtocolA (customA [this _] \"A\")
-          ProtocolB (customA [this _ _] \"B\")
+          Protocol1  (method [this first second] \"Protocol1\")
+          Protocol2  (method [this first second third] \"Protocol2\")
           )]
-  [(customA r 1) (customA r 1 2)])"
-                     nil)))))
+  [(method r 1 2) (method r 1 2 3)])"
+                      nil)))))
+
+#?(:clj
+   (do (definterface Interface1 (method []))
+       (definterface Interface2 (method [first]))))
+
+(deftest reify-with-matching-method-names
+  #?(:clj
+     (when-not tu/native?
+       (testing "reifying two interfaces and two protocols that have the same named methods"
+         (is (= ["Interface1" "Interface2" "Protocol1" "Protocol2"]
+                (tu/eval* "
+(defprotocol Protocol1
+  (method [this first second]))
+(defprotocol Protocol2
+  (method [this first second third]))
+(let [r (reify
+          Interface1 (method [this] \"Interface1\")
+          Interface2 (method [this first] \"Interface2\")
+          Protocol1  (method [this first second] \"Protocol1\")
+          Protocol2  (method [this first second third] \"Protocol2\")
+          )]
+  [(method r) (method r 1) (method r 1 2) (method r 1 2 3)])"
+                          {:classes {'Interface1 Interface1
+                                     'Interface2 Interface2}
+                           :reify {'#{sci.reify_test.Interface1 sci.reify_test.Interface2 sci.impl.types.IReified}
+                                   (fn [methods]
+                                     (reify
+                                       Interface1
+                                       (method [this]
+                                         ((get-in methods '[Interface1 method]) this))
+
+                                       Interface2
+                                       (method [this first]
+                                         ((get-in methods '[Interface2 method]) this first))
+
+                                       IReified
+                                       (getMethods [this]
+                                         ((get-in methods '[sci.impl.types.IReified getMethods]) this))
+                                       (getInterfaces [this]
+                                         ((get-in methods '[sci.impl.types.IReified getInterfaces]) this))))}})))))))

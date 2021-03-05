@@ -16,15 +16,16 @@
 (defn reify* [#?(:clj ctx
                  :cljs _ctx) classes methods]
   #?(:clj (let [{classes true protocols false} (group-by class? classes)
+                protocols? (seq protocols)
 
-                classes (if (seq protocols) (distinct (conj classes IReified)) classes)
+                classes (if protocols? (distinct (conj classes IReified)) classes)
                 class-names (->> classes
                                  (map #(symbol (.getName ^Class %)))
                                  set)
 
                 reify-methods {'getInterfaces (constantly protocols)
                                'getMethods (constantly methods)}
-                methods (if (seq protocols) (merge reify-methods methods) methods)
+                methods (if protocols? (merge reify-methods methods) methods)
 
                 ;; The reify factories get the fn by classname and method name
                 ;; however it shouldn't actually matter which class the method
