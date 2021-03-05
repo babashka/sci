@@ -90,7 +90,9 @@
   [(method r) (method r 1) (method r 1 2) (method r 1 2 3)])"
                           {:classes {'Interface1 Interface1
                                      'Interface2 Interface2}
-                           :reify {'#{sci.reify_test.Interface1 sci.reify_test.Interface2 sci.impl.types.IReified}
+                           :reify {'#{sci.reify_test.Interface1
+                                      sci.reify_test.Interface2
+                                      sci.impl.types.IReified}
                                    (fn [interfaces methods protocols]
                                      (reify
                                        Interface1
