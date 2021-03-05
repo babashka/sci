@@ -13,7 +13,6 @@
 
 (defn reify* [#?(:clj ctx
                  :cljs _ctx) classes methods]
-  ;; (prn :classes classes)
   #?(:clj (let [{classes true protocols false} (group-by class? classes)
                 protocols? (seq protocols)
                 interfaces (->> classes
@@ -26,5 +25,7 @@
               (factory interfaces methods (set protocols))
               (throw (ex-info (str "No reify factory for: " interfaces)
                               {:class class}))))
-     ;; TODO: in CLJS everything is a protocol in reify, except Object
-     :cljs (t/->Reified classes methods classes)))
+     ;; NOTE: in CLJS everything is a protocol in reify, except Object
+     ;; So it's probably better if we dissoc-ed that from the set of classes
+     ;; However, we only use that set to test in satisfies?
+     :cljs (t/->Reified classes methods (set classes))))
