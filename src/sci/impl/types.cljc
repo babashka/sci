@@ -11,12 +11,14 @@
 
 (defprotocol IReified
   (getInterfaces [_])
-  (getMethods [_]))
+  (getMethods [_])
+  (getProtocols [_]))
 
-(deftype Reified [interfaces meths]
+(deftype Reified [interfaces meths protocols]
   IReified
   (getInterfaces [_] interfaces)
-  (getMethods [_] meths))
+  (getMethods [_] meths)
+  (getProtocols [_] protocols))
 
 (defn type-impl [x & _xs]
   (or (when (instance? #?(:clj sci.impl.types.IReified :cljs sci.impl.types.Reified) x)
