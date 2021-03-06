@@ -117,7 +117,11 @@
                  (:methods protocol))))
 
 (defn satisfies? [protocol obj]
-  (if (instance? sci.impl.types.Reified obj)
+  (if #?(:clj (instance? sci.impl.types.IReified obj)
+         ;; in CLJS we currently don't support mixing "classes" and protocols,
+         ;; hence, the instance is always a Reified, thus we can avoid calling
+         ;; the slower satisfies?
+         :cljs (instance? sci.impl.types.Reified obj))
     (contains? (types/getProtocols obj) protocol)
     ;; can be record that is implementing this protocol
     ;; or a type like String, etc. that implements a protocol via extend-type, etc.

@@ -74,39 +74,56 @@
 (deftest reify-with-matching-method-names
   #?(:clj
      (when-not tu/native?
-       (testing "reifying two interfaces and two protocols that have the same named methods"
-         (is (= ["Interface1" "Interface2" "Protocol1" "Protocol2"]
-                (tu/eval* "
+       (let [mixed-opts
+             {:classes {'Interface1 Interface1
+                        'Interface2 Interface2}
+              :reify {'#{sci.reify_test.Interface1
+                         sci.reify_test.Interface2
+                         sci.impl.types.IReified}
+                      (fn [interfaces methods protocols]
+                        (reify
+                          Interface1
+                          (method [this]
+                            ((get methods 'method) this))
+
+                          Interface2
+                          (method [this first]
+                            ((get methods 'method) this first))
+
+                          IReified
+                          (getInterfaces [this]
+                            interfaces)
+                          (getMethods [this]
+                            methods)
+                          (getProtocols [this]
+                            protocols)))}}
+             prog "
 (defprotocol Protocol1
   (method [this first second]))
 (defprotocol Protocol2
   (method [this first second third]))
+(defprotocol Protocol3) ;; no methods
+(defprotocol Protocol4) ;; not implemented
 (let [r (reify
           Interface1 (method [this] \"Interface1\")
           Interface2 (method [this first] \"Interface2\")
           Protocol1  (method [this first second] \"Protocol1\")
           Protocol2  (method [this first second third] \"Protocol2\")
+          Protocol3
           )]
-  [(method r) (method r 1) (method r 1 2) (method r 1 2 3)])"
-                          {:classes {'Interface1 Interface1
-                                     'Interface2 Interface2}
-                           :reify {'#{sci.reify_test.Interface1
-                                      sci.reify_test.Interface2
-                                      sci.impl.types.IReified}
-                                   (fn [interfaces methods protocols]
-                                     (reify
-                                       Interface1
-                                       (method [this]
-                                         ((get methods 'method) this))
-
-                                       Interface2
-                                       (method [this first]
-                                         ((get methods 'method) this first))
-
-                                       IReified
-                                       (getInterfaces [this]
-                                         interfaces)
-                                       (getMethods [this]
-                                         methods)
-                                       (getProtocols [this]
-                                         protocols)))}})))))))
+  %s)"]
+         (testing "reifying two interfaces and two protocols that have the same named methods"
+           (is (= ["Interface1" "Interface2" "Protocol1" "Protocol2"]
+                  (tu/eval* (format prog (str '[(method r)
+                                                (method r 1)
+                                                (method r 1 2)
+                                                (method r 1 2 3)]))
+                            mixed-opts))))
+         (testing "reifying protocols together with classes satisfies the protocols"
+           (is (= [true true true false]
+                  (tu/eval* (format prog
+                                    (str '[(satisfies? Protocol1 r)
+                                           (satisfies? Protocol2 r)
+                                           (satisfies? Protocol3 r)
+                                           (satisfies? Protocol4 r)]))
+                            mixed-opts))))))))
