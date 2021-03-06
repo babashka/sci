@@ -5,7 +5,9 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]
-   [sci.lang]))
+   [sci.impl.types :as types]
+   [sci.lang])
+  #?(:clj (:import [sci.impl.types IReified])))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -92,10 +94,13 @@
 
 (def default-reify
   #?(:clj {'#{java.lang.Object}
-           (fn [methods]
+           (fn [_interfaces methods _protocols]
              (reify Object
                (toString [this]
-                 ((get-in methods '[java.lang.Object toString]) this))))}
+                 ((get methods 'toString) this))))
+           '#{sci.impl.types.IReified}
+           (fn [interfaces methods protocols]
+             (types/->Reified interfaces methods protocols))}
      :cljs {}))
 
 #?(:clj (defrecord Ctx [bindings env

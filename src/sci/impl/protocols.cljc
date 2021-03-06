@@ -3,8 +3,7 @@
   (:refer-clojure :exclude [defprotocol extend-protocol
                             extend extend-type reify satisfies?
                             extends? implements?])
-  (:require [sci.impl.core-protocols :as core]
-            [sci.impl.multimethods :as mms]
+  (:require [sci.impl.multimethods :as mms]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -19,10 +18,12 @@
           (if (keyword? opt) [{opt (second signatures)} (nnext signatures)]
               [nil signatures]))
         current-ns (str (vars/current-ns-name))
+        fq-name (symbol current-ns (str protocol-name))
         expansion
         `(do
            (def  ~(with-meta protocol-name
                     {:doc docstring}) {:methods #{}
+                                       :name '~fq-name
                                        :ns *ns*})
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))
@@ -116,10 +117,12 @@
                  (:methods protocol))))
 
 (defn satisfies? [protocol obj]
-  (if  #?(:clj (instance? sci.impl.types.IReified obj)
-          :cljs (clojure.core/satisfies? types/IReified obj))
-    (when-let [obj-type (types/getInterface obj)]
-      (= protocol obj-type))
+  (if #?(:clj (instance? sci.impl.types.IReified obj)
+         ;; in CLJS we currently don't support mixing "classes" and protocols,
+         ;; hence, the instance is always a Reified, thus we can avoid calling
+         ;; the slower satisfies?
+         :cljs (instance? sci.impl.types.Reified obj))
+    (contains? (types/getProtocols obj) protocol)
     ;; can be record that is implementing this protocol
     ;; or a type like String, etc. that implements a protocol via extend-type, etc.
     #?(:cljs (let [p (:protocol protocol)]
@@ -130,6 +133,8 @@
                        ISwap (cljs.core/satisfies? ISwap obj)
                        IReset (cljs.core/satisfies? IReset obj)))
                 (find-matching-non-default-method protocol obj)))
+       ;; NOTE: what if the protocol doesn't have any methods?
+       ;; This probably needs fixing
        :clj (find-matching-non-default-method protocol obj))))
 
 (defn instance-impl [clazz x]

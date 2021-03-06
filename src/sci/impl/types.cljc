@@ -10,16 +10,18 @@
   (getVal [_this] v))
 
 (defprotocol IReified
-  (getInterface [_])
-  (getMethods [_]))
+  (getInterfaces [_])
+  (getMethods [_])
+  (getProtocols [_]))
 
-(deftype Reified [interface meths]
+(deftype Reified [interfaces meths protocols]
   IReified
-  (getInterface [_] interface)
-  (getMethods [_] meths))
+  (getInterfaces [_] interfaces)
+  (getMethods [_] meths)
+  (getProtocols [_] protocols))
 
 (defn type-impl [x & _xs]
-  (or (when (instance? sci.impl.types.Reified x)
+  (or (when (instance? #?(:clj sci.impl.types.IReified :cljs sci.impl.types.Reified) x)
         :sci.impl.protocols/reified)
       (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore

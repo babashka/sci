@@ -1,35 +1,31 @@
 (ns sci.impl.reify
   {:no-doc true}
   (:refer-clojure :exclude [reify])
-  (:require [sci.impl.types :as t]
-            [sci.impl.utils :refer [split-when]]))
+  #?(:cljs (:require [sci.impl.types :as t])))
 
 (defn reify [_ _ _ctx & args]
-  (let [classes->methods (split-when symbol? args)
-        classes->methods
-        (into {} (map (fn [[class & methods]]
-                        (let [methods (group-by first methods)]
-                          [class (into {}
-                                       (map (fn [[meth bodies]]
-                                              `['~meth (fn ~@(map rest bodies))])
-                                            methods))]))
-                      classes->methods))]
-    `(clojure.core/reify* ~classes->methods)))
+  (let [{classes true methods false} (group-by symbol? args)
+        methods (->> (group-by first methods)
+                     (map (fn [[meth bodies]]
+                            `['~meth (fn ~@(map rest bodies))]))
+                     (into {}))]
+    `(clojure.core/reify* ~(vec classes) ~methods)))
 
 (defn reify* [#?(:clj ctx
-                 :cljs _ctx) classes->methods]
-  #?(:clj (let [ks (keys classes->methods)]
-            ;; NOTE: if the first thing in reify is a class, we assume all
-            ;; classes and no protocols. This should be addressed in a future version.
-            (if (class? (first ks))
-              (let [class-names (set (map #(symbol (.getName ^Class %)) ks))]
-                (if-let [factory (get-in ctx [:reify class-names])]
-                  (factory (zipmap class-names (vals classes->methods)))
-                  (throw (ex-info (str "No reify factory for: " class-names)
-                                  {:class class}))))
-              ;; So far we only supported reify-ing one protocol at a time. This
-              ;; should be addressed in a future version
-              (let [[interface methods] (first classes->methods)]
-                (t/->Reified interface methods))))
-     :cljs (let [[interface methods] (first classes->methods)]
-             (t/->Reified interface methods))))
+                 :cljs _ctx) classes methods]
+  #?(:clj (let [{classes true protocols false} (group-by class? classes)
+                protocols? (seq protocols)
+                interfaces (->> classes
+                                (map #(symbol (.getName ^Class %)))
+                                set)
+                interfaces (if protocols?
+                              (conj interfaces 'sci.impl.types.IReified)
+                              interfaces)]
+            (if-let [factory (get-in ctx [:reify interfaces])]
+              (factory interfaces methods (set protocols))
+              (throw (ex-info (str "No reify factory for: " interfaces)
+                              {:class class}))))
+     ;; NOTE: in CLJS everything is a protocol in reify, except Object
+     ;; So it's probably better if we dissoc-ed that from the set of classes
+     ;; However, we only use that set to test in satisfies?
+     :cljs (t/->Reified classes methods (set classes))))
