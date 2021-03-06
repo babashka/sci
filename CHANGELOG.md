@@ -2,6 +2,14 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+### Enhancements
+
+- Allow combinations of interfaces and protocols in `reify` (this is private
+  functionality for now, used by babashka) [#540](https://github.com/borkdude/sci/issues/540)
+  ([@GreshamDanielStephens](https://github.com/GreshamDanielStephens))
+
 ## v0.2.4
 
 ### New
