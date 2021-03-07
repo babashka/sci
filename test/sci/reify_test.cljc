@@ -6,8 +6,11 @@
 
 (deftest reify-test
   #?(:clj
-     (testing "reifying Object"
-       (is (= "this!" (tu/eval* "(str (reify Object (toString [this] \"this!\")))" nil))))))
+     (do (testing "reifying Object"
+           (is (= "this!" (tu/eval* "(str (reify Object (toString [this] \"this!\")))" nil))))
+         (testing "metadata"
+           (is (= {:line 1, :column 7, :k :v}
+                  (tu/eval* "(meta ^{:k :v} (reify Object (toString [this] \"this!\")))" nil)))))))
 
 (deftest reify-mixed-protocol-class-test
   #?(:clj
