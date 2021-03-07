@@ -3,7 +3,50 @@
   (:refer-clojure :exclude [defrecord record?])
   (:require [clojure.string :as str]
             [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.impl.types :as types]))
+
+(defn -defrecord [form _ _ctx & args]
+  (let [{classes true methods false} (group-by symbol? args)
+        methods (->> (group-by first methods)
+                     (map (fn [[meth bodies]]
+                            `['~meth (fn ~@(map rest bodies))]))
+                     (into {}))]
+    `(clojure.core/defrecord* ~(vec classes) ~methods)))
+
+(defn -defrecord*
+  #?(:clj [ctx classes methods]
+     :cljs [_ctx classes methods])
+     #?(:clj (let [{interfaces true protocols false} (group-by class? classes)]
+            (if-let [factory (:record-fn ctx)]
+              (factory {:interfaces (set interfaces)
+                        :methods methods
+                        :protocols (set protocols)})
+              (throw (ex-info (str "No reify factory for: " interfaces)
+                              {:class class}))))
+     ;; NOTE: in CLJS everything is a protocol in reify, except Object
+     ;; So it's probably better if we dissoc-ed that from the set of classes
+     ;; However, we only use that set to test in satisfies?
+     :cljs (types/->Reified classes methods (set classes))))
+
+(clojure.core/defrecord SciRecord []
+  sci.impl.types.IReified
+  (getInterfaces [this]
+    (:sci.impl/interfaces (meta this)))
+  (getMethods [this]
+    (:sci.impl/methods (meta this)))
+  (getProtocols [this]
+    (:sci.impl/protocols (meta this)))
+  clojure.lang.IFn
+  (invoke [this a b]
+    ((get (types/getMethods this) 'invoke) this a b)))
+
+(defn ->>SciRecord [m interfaces protocols methods]
+  (vary-meta (into (->SciRecord) m)
+             assoc
+             :sci.impl/interfaces interfaces
+             :sci.impl/protocols protocols
+             :sci.impl/methods methods))
 
 (defn defrecord [_ _ ctx record-name fields & protocol-impls]
   (let [factory-fn-str (str "->" record-name)
