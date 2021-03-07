@@ -21,7 +21,7 @@
                 interfaces (if protocols?
                               (conj interfaces 'sci.impl.types.IReified)
                               interfaces)]
-            (if-let [factory (get-in ctx [:reify interfaces])]
+            (if-let [factory (:reify-fn ctx)]
               (factory interfaces methods (set protocols))
               (throw (ex-info (str "No reify factory for: " interfaces)
                               {:class class}))))

@@ -22,20 +22,7 @@
           clojure.lang.IDeref (deref [this] \"ideref-deref\")
           Protocol (custom [this] \"protocol-custom\")
           )]
-  [(str r) (deref r) (custom r)])"
-                          {:reify {'#{java.lang.Object sci.impl.types.IReified}
-                                   (fn [interfaces methods protocols]
-                                     (reify
-                                       Object
-                                       (toString [this]
-                                         ((get methods 'toString) this))
-                                       IReified
-                                       (getInterfaces [this]
-                                         interfaces)
-                                       (getMethods [this]
-                                         methods)
-                                       (getProtocols [this]
-                                         protocols)))}})))))))
+  [(str r) (deref r) (custom r)])" nil)))))))
 
 (deftest reify-multiple-protocols
   (testing "reifying two custom protocols"
@@ -77,26 +64,24 @@
        (let [mixed-opts
              {:classes {'Interface1 Interface1
                         'Interface2 Interface2}
-              :reify {'#{sci.reify_test.Interface1
-                         sci.reify_test.Interface2
-                         sci.impl.types.IReified}
-                      (fn [interfaces methods protocols]
-                        (reify
-                          Interface1
-                          (method [this]
-                            ((get methods 'method) this))
+              :reify-fn
+              (fn [interfaces methods protocols]
+                (reify
+                  Interface1
+                  (method [this]
+                    ((get methods 'method) this))
 
-                          Interface2
-                          (method [this first]
-                            ((get methods 'method) this first))
+                  Interface2
+                  (method [this first]
+                    ((get methods 'method) this first))
 
-                          IReified
-                          (getInterfaces [this]
-                            interfaces)
-                          (getMethods [this]
-                            methods)
-                          (getProtocols [this]
-                            protocols)))}}
+                  IReified
+                  (getInterfaces [this]
+                    interfaces)
+                  (getMethods [this]
+                    methods)
+                  (getProtocols [this]
+                    protocols)))}
              prog "
 (defprotocol Protocol1
   (method [this first second]))

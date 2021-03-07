@@ -92,16 +92,20 @@
       {:public-class (:public-class classes)
        :class->opts (persistent! class->opts)})))
 
-(def default-reify
-  #?(:clj {'#{java.lang.Object}
-           (fn [_interfaces methods _protocols]
-             (reify Object
-               (toString [this]
-                 ((get methods 'toString) this))))
-           '#{sci.impl.types.IReified}
-           (fn [interfaces methods protocols]
-             (types/->Reified interfaces methods protocols))}
-     :cljs {}))
+(def default-reify-fn
+  #?(:clj (fn [interfaces methods protocols]
+            (reify
+              Object
+              (toString [this]
+                ((get methods 'toString) this))
+              IReified
+              (getInterfaces [this]
+                interfaces)
+              (getMethods [this]
+                methods)
+              (getProtocols [this]
+                protocols)))
+     :cljs (fn [_ _ _])))
 
 #?(:clj (defrecord Ctx [bindings env
                         features readers]))
@@ -125,7 +129,7 @@
            :load-fn
            :uberscript ;; used by babashka, not public!
            :readers
-           :reify
+           :reify-fn
            :disable-arity-checks]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
@@ -137,7 +141,7 @@
                    :allow (process-permissions #{} allow)
                    :deny (process-permissions #{} deny)
                    :uberscript uberscript
-                   :reify (merge default-reify reify)
+                   :reify-fn (or reify-fn default-reify-fn)
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes ;; hold on for merge-opts
@@ -155,7 +159,7 @@
                 :load-fn
                 :uberscript ;; used by babashka, not public!
                 :readers
-                :reify
+                :reify-fn
                 :disable-arity-checks]} opts
         env (:env ctx)
         _ (init-env! env bindings aliases namespaces imports load-fn)
@@ -165,7 +169,7 @@
                    :allow (process-permissions (:allow ctx) allow)
                    :deny (process-permissions (:deny ctx) deny)
                    :uberscript uberscript
-                   :reify (merge (:reify ctx) reify)
+                   :reify-fn reify-fn
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes
