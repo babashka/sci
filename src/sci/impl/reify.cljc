@@ -13,16 +13,11 @@
 
 (defn reify* [#?(:clj ctx
                  :cljs _ctx) classes methods]
-  #?(:clj (let [{classes true protocols false} (group-by class? classes)
-                protocols? (seq protocols)
-                interfaces (->> classes
-                                (map #(symbol (.getName ^Class %)))
-                                set)
-                interfaces (if protocols?
-                              (conj interfaces 'sci.impl.types.IReified)
-                              interfaces)]
+  #?(:clj (let [{interfaces true protocols false} (group-by class? classes)]
             (if-let [factory (:reify-fn ctx)]
-              (factory interfaces methods (set protocols))
+              (factory {:interfaces (set interfaces)
+                        :methods methods
+                        :protocols (set protocols)})
               (throw (ex-info (str "No reify factory for: " interfaces)
                               {:class class}))))
      ;; NOTE: in CLJS everything is a protocol in reify, except Object

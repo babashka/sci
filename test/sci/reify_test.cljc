@@ -56,16 +56,20 @@
 
 #?(:clj
    (do (definterface Interface1 (method []))
-       (definterface Interface2 (method [first]))))
+       (definterface Interface2 (method [first]))
+       (definterface Interface3 (method [first second]))))
 
 (deftest reify-with-matching-method-names
   #?(:clj
      (when-not tu/native?
        (let [mixed-opts
              {:classes {'Interface1 Interface1
-                        'Interface2 Interface2}
+                        'Interface2 Interface2
+                        'Interface3 Interface3
+                        'clojure.lang.Associative clojure.lang.Associative
+                        'clojure.lang.ILookup clojure.lang.ILookup}
               :reify-fn
-              (fn [interfaces methods protocols]
+              (fn [{:keys [interfaces methods protocols]}]
                 (reify
                   Interface1
                   (method [this]
@@ -74,6 +78,14 @@
                   Interface2
                   (method [this first]
                     ((get methods 'method) this first))
+
+                  Interface3
+                  (method [this first second]
+                    ((get methods 'method) this first second))
+
+                  clojure.lang.Associative ;; Associative is also ILookup
+                  (assoc [this k v]
+                    ((get methods 'assoc) this k v))
 
                   IReified
                   (getInterfaces [this]
@@ -92,6 +104,7 @@
 (let [r (reify
           Interface1 (method [this] \"Interface1\")
           Interface2 (method [this first] \"Interface2\")
+          clojure.lang.Associative (assoc [this k v] {k v})
           Protocol1  (method [this first second] \"Protocol1\")
           Protocol2  (method [this first second third] \"Protocol2\")
           Protocol3
@@ -103,6 +116,15 @@
                                                 (method r 1)
                                                 (method r 1 2)
                                                 (method r 1 2 3)]))
+                            mixed-opts))))
+         (testing "reified interfaces are instances of those interfaces"
+           (is (= [true true false true true]
+                  (tu/eval* (format prog
+                                    (str '[(instance? Interface1 r)
+                                           (instance? Interface2 r)
+                                           (instance? Interface3 r)
+                                           (instance? clojure.lang.Associative r)
+                                           (instance? clojure.lang.ILookup r)]))
                             mixed-opts))))
          (testing "reifying protocols together with classes satisfies the protocols"
            (is (= [true true true false]

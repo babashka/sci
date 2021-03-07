@@ -93,7 +93,7 @@
        :class->opts (persistent! class->opts)})))
 
 (def default-reify-fn
-  #?(:clj (fn [interfaces methods protocols]
+  #?(:clj (fn [{:keys [interfaces methods protocols]}]
             (reify
               Object
               (toString [this]
