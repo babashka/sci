@@ -9,6 +9,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Allow combinations of interfaces and protocols in `reify` (this is private
   functionality for now, used by babashka) [#540](https://github.com/borkdude/sci/issues/540)
   ([@GreshamDanielStephens](https://github.com/GreshamDanielStephens))
+- Fix metadata on non-constant map literal expression [#546](https://github.com/borkdude/sci/issues/546)
 
 ## v0.2.4
 
