@@ -993,10 +993,12 @@
                         (assoc analyzed-meta :sci.impl/op :eval))
         ret (if analyzed-meta
               (if (instance? sci.impl.types.EvalFn analyzed-map)
-                (ctx-fn (fn [ctx]
-                          (with-meta (eval/eval ctx analyzed-map)
-                            (eval/eval ctx analyzed-meta)))
-                        nil)
+                (ctx-fn
+                 (fn [ctx]
+                   (let [md (eval/eval ctx analyzed-meta)
+                         coll (eval/eval ctx analyzed-map)]
+                     (with-meta coll md)))
+                 expr)
                 (with-meta analyzed-map analyzed-meta))
               analyzed-map)]
     ret))

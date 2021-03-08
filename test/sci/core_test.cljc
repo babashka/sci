@@ -1080,10 +1080,14 @@
     (is (true? (eval* "(:foo (meta ^:foo [1 2 3]))")))
     (is (true? (eval* "(:foo (meta ^:foo {:a 1}))"))))
   (testing "Reader metadata is evaluated on colls"
-    (is (true? (eval* "(symbol? (:foo (meta ^{:foo 'bar} {})))")))
-    (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} [])))")))
-    (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} #{})))")))
-    (is (true? (eval* "(:foo (meta ^:foo {:x (rand-int 10)}))"))))
+    (testing "constant colls"
+      (is (true? (eval* "(symbol? (:foo (meta ^{:foo 'bar} {})))")))
+      (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} [])))")))
+      (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} #{})))"))))
+    (testing "non-constant colls"
+      (is (true? (eval* "(:foo (meta ^:foo {:x (rand-int 10)}))")))
+      (is (true? (eval* "(:foo (meta ^:foo [(rand-int 10)]))")))
+      (is (true? (eval* "(:foo (meta ^:foo #{(rand-int 10)}))")))))
   (testing "Reader metadata is evaluated on fns"
     (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} (fn []))))")))
     (testing "Fns don't have :line and :column metadata"
