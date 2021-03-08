@@ -990,10 +990,16 @@
                                ;; meta was also a constant-map
                                (identical? m analyzed-meta))
                         analyzed-meta
-                        (assoc analyzed-meta :sci.impl/op :eval))]
-    (if analyzed-meta
-      (with-meta analyzed-map analyzed-meta)
-      analyzed-map)))
+                        (assoc analyzed-meta :sci.impl/op :eval))
+        ret (if analyzed-meta
+              (if (instance? sci.impl.types.EvalFn analyzed-map)
+                (ctx-fn (fn [ctx]
+                          (with-meta (eval/eval ctx analyzed-map)
+                            (eval/eval ctx analyzed-meta)))
+                        nil)
+                (with-meta analyzed-map analyzed-meta))
+              analyzed-map)]
+    ret))
 
 (defn analyze-vec-or-set
   "Returns analyzed vector or set"
