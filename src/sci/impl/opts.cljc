@@ -97,7 +97,11 @@
             (reify
               Object
               (toString [this]
-                ((get methods 'toString) this))
+                ((get methods 'toString (fn [_] (format "#object[%s]"
+                                                        {:interfaces interfaces
+                                                         :protocols (set (map :name protocols))
+                                                         :methods (keys methods) })))
+                 this))
               IReified
               (getInterfaces [this]
                 interfaces)

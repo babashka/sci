@@ -1,9 +1,34 @@
 (ns sci.impl.records
   {:no-doc true}
-  (:refer-clojure :exclude [defrecord record?])
+  (:refer-clojure :exclude [defrecord record? deftype])
   (:require [clojure.string :as str]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
+
+(defn deftype [form _ _ type-name fields & args]
+  (let [dot-fn-sym (symbol (str type-name "."))
+        factory-fn-sym (symbol (str "->" type-name))
+
+        namespaced-type-sym (symbol (str (vars/current-ns-name)) (str type-name))
+
+        {interfaces true methods false} (group-by symbol? args)
+        methods (->> (group-by first methods)
+                     (map (fn [[meth bodies]]
+                            `['~meth (fn ~@(map rest bodies))]))
+                     (into {}))]
+    `(do
+       (defn ~dot-fn-sym ~fields
+         (vary-meta (clojure.core/reify* '~form
+                                         ~interfaces
+                                         ~methods)
+                    assoc
+                    :sci.impl/type true
+                    :type '~namespaced-type-sym))
+       (defn ~factory-fn-sym ~fields
+         (~dot-fn-sym ~@fields))
+       (def ~type-name (with-meta '~namespaced-type-sym
+                                  {:sci.impl/type true
+                                   :sci.impl.record/constructor ~dot-fn-sym})))))
 
 (defn defrecord [_ _ ctx record-name fields & protocol-impls]
   (let [factory-fn-str (str "->" record-name)
