@@ -873,6 +873,7 @@
                 {:sci/macro true
                  :sci.impl/op needs-ctx})
    'delay (macrofy delay*)
+   'delay? (copy-core-var delay?)
    #?@(:clj ['deliver (copy-core-var deliver)])
    'derive (with-meta hierarchies/derive* {:sci.impl/op needs-ctx})
    'descendants (with-meta hierarchies/descendants* {:sci.impl/op needs-ctx})
