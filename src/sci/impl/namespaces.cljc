@@ -21,6 +21,7 @@
    [sci.impl.read :as read :refer [eval load-string read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
+   #?(:clj [sci.impl.proxy :as proxy])
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [needs-ctx]]
    [sci.impl.vars :as vars])
@@ -749,6 +750,11 @@
             {:sci/macro true
              :sci.impl/op needs-ctx})
    'protocol-type-impl types/type-impl
+   #?@(:clj ['proxy* (with-meta proxy/proxy*
+                       {:sci.impl/op needs-ctx})
+             'proxy (with-meta proxy/proxy
+                      {:sci/macro true
+                       :sci.impl/op needs-ctx})])
    'satisfies? protocols/satisfies?
    ;; end protocols
    ;; IDeref as protocol
