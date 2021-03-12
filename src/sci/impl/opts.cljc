@@ -130,6 +130,7 @@
            :uberscript ;; used by babashka, not public!
            :readers
            :reify-fn
+           :proxy-fn
            :disable-arity-checks]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
@@ -142,6 +143,7 @@
                    :deny (process-permissions #{} deny)
                    :uberscript uberscript
                    :reify-fn (or reify-fn default-reify-fn)
+                   :proxy-fn proxy-fn
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes ;; hold on for merge-opts
