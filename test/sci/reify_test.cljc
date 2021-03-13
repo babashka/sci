@@ -59,8 +59,7 @@
 
 #?(:clj
    (do (definterface Interface1 (method []))
-       (definterface Interface2 (method [first]))
-       (definterface Interface3 (method [first second]))))
+       (definterface Interface2 (method [first]))))
 
 (deftest reify-with-matching-method-names
   #?(:clj
@@ -68,7 +67,6 @@
        (let [mixed-opts
              {:classes {'Interface1 Interface1
                         'Interface2 Interface2
-                        'Interface3 Interface3
                         'clojure.lang.Associative clojure.lang.Associative
                         'clojure.lang.ILookup clojure.lang.ILookup}
               :reify-fn
@@ -81,10 +79,6 @@
                   Interface2
                   (method [this first]
                     ((get methods 'method) this first))
-
-                  Interface3
-                  (method [this first second]
-                    ((get methods 'method) this first second))
 
                   clojure.lang.Associative ;; Associative is also ILookup
                   (assoc [this k v]
@@ -121,11 +115,10 @@
                                                 (method r 1 2 3)]))
                             mixed-opts))))
          (testing "reified interfaces are instances of those interfaces"
-           (is (= [true true false true true]
+           (is (= [true true true true]
                   (tu/eval* (format prog
                                     (str '[(instance? Interface1 r)
                                            (instance? Interface2 r)
-                                           (instance? Interface3 r)
                                            (instance? clojure.lang.Associative r)
                                            (instance? clojure.lang.ILookup r)]))
                             mixed-opts))))

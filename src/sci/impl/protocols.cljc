@@ -141,13 +141,7 @@
   (cond
     ;; fast path for Clojure when using normal clazz
     #?@(:clj [(class? clazz)
-              (if (instance? sci.impl.types.IReified x)
-                ;; special case: a reified object is only an instance when the
-                ;; interface is reified explicitly, or assignable from
-                (let [ifaces (types/getInterfaces x)]
-                  (or (contains? ifaces clazz)
-                      (boolean (some #(.isAssignableFrom clazz %) ifaces))))
-                (instance? clazz x))])
+              (instance? clazz x)])
     ;; records are currently represented as a symbol with metadata
     (and (symbol? clazz) (some-> clazz meta :sci.impl/record))
     (= clazz (-> x meta :type))
