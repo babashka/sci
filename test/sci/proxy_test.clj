@@ -7,8 +7,8 @@
              "
 (proxy [clojure.lang.APersistentMap] []
  (valAt
-   ([k] [:k k])
-   ([k default] [:k k :default default])))
+   ([k] (and (instance? clojure.lang.APersistentMap this) [:k k]))
+   ([k default] (and (instance? clojure.lang.APersistentMap this) [:k k :default default]))))
 "
              {:classes {'clojure.lang.APersistentMap clojure.lang.APersistentMap}
               :proxy-fn (fn [{:keys [:class :methods]}]
@@ -16,8 +16,8 @@
                             "clojure.lang.APersistentMap"
                             (proxy [clojure.lang.APersistentMap] []
                               (valAt
-                                ([k] ((get methods 'valAt) k))
-                                ([k default] ((get methods 'valAt) k default))))))})]
+                                ([k] ((get methods 'valAt) this k))
+                                ([k default] ((get methods 'valAt) this k default))))))})]
 
     (is (= [:k :f] (obj :f)))
     (is (= [:k :f :default :def] (obj :f :def)))))

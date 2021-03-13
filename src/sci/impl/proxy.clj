@@ -6,8 +6,15 @@
   (let [abstract-class (first classes)
         methods (into {}
                       (map (fn [meth]
-                             [(list 'quote (first meth)) (list* 'fn (rest meth))])
-                             methods))]
+                             (let [[meth-name & bodies] meth
+                                   bodies (if (vector? (first bodies))
+                                            [bodies]
+                                            bodies)
+                                   bodies (map (fn [[args & body]]
+                                                 (list* (into ['this] args) body))
+                                               bodies)]
+                               [(list 'quote meth-name) (list* 'fn bodies)]))
+                           methods))]
     `(clojure.core/proxy* '~form ~abstract-class ~methods)))
 
 (defn proxy*
