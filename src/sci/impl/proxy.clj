@@ -21,7 +21,9 @@
 (defn proxy*
   [ctx _form abstract-class interfaces methods]
   (if-let [pfn (:proxy-fn ctx)]
-    (pfn {:class abstract-class
-          :interfaces (set interfaces)
-          :methods methods})
+    (let [{interfaces true protocols false} (group-by class? interfaces)]
+      (pfn {:class abstract-class
+            :interfaces (set interfaces)
+            :protocols protocols
+            :methods methods}))
     (throw (Exception. "no proxy-fn"))))
