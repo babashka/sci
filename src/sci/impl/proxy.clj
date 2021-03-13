@@ -4,6 +4,7 @@
 
 (defn proxy [form _ _ctx classes _args & methods]
   (let [abstract-class (first classes)
+        interfaces (vec (rest classes))
         methods (into {}
                       (map (fn [meth]
                              (let [[meth-name & bodies] meth
@@ -15,11 +16,12 @@
                                                bodies)]
                                [(list 'quote meth-name) (list* 'fn bodies)]))
                            methods))]
-    `(clojure.core/proxy* '~form ~abstract-class ~methods)))
+    `(clojure.core/proxy* '~form ~abstract-class ~interfaces ~methods)))
 
 (defn proxy*
-  [ctx _form abstract-class methods]
+  [ctx _form abstract-class interfaces methods]
   (if-let [pfn (:proxy-fn ctx)]
     (pfn {:class abstract-class
+          :interfaces (set interfaces)
           :methods methods})
     (throw (Exception. "no proxy-fn"))))
