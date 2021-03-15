@@ -898,17 +898,35 @@
                                    (case namespace
                                      'foo {:file "foo.clj"
                                            :source "(ns foo) (println \"hello\")"}))}))))
-    (is (= "hello\nhello\n"
-           (sci/with-out-str
-             (tu/eval* "
+    (testing "no reload"
+      (is (= "hello\nhello\n"
+             (sci/with-out-str
+               (tu/eval* "
 (require '[foo])
 (require '[foo] :reload)
 (require 'foo)
 1"
+                         {:load-fn (fn [{:keys [:namespace]}]
+                                     (case namespace
+                                       'foo {:file "foo.clj"
+                                             :source "(ns foo) (println \"hello\")"}))})))))))
+
+(deftest reload-all-test
+  (when-not tu/native?
+    (is (= ":bar\n:foo\n:foo\n:bar\n:foo\n"
+           (sci/with-out-str
+             (tu/eval* "
+(require '[foo])
+(require '[foo])
+(require '[foo] :reload)
+(require 'foo :reload-all)
+1"
                        {:load-fn (fn [{:keys [:namespace]}]
                                    (case namespace
-                                     'foo {:file "foo.clj"
-                                           :source "(ns foo) (println \"hello\")"}))}))))))
+                                     bar {:file "bar.clj"
+                                           :source "(ns bar) (println :bar)"}
+                                     foo {:file "foo.clj"
+                                           :source "(ns foo (:require bar)) (println :foo)"}))}))))))
 
 (deftest alter-meta!-test
   (is (true? (eval* "(doto (def x) (alter-meta! assoc :private true)) (:private (meta #'x))")))

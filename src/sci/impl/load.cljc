@@ -68,13 +68,13 @@
 
 (defn handle-require-libspec
   [ctx lib opts]
-  (let [{:keys [:reload]} opts
+  (let [{:keys [:reload :reload-all]} opts
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
         namespaces (get env :namespaces)
         uberscript (:uberscript ctx)
-        reload* (or reload uberscript)]
+        reload* (or reload reload-all (:reload-all ctx) uberscript)]
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
       (let [loading (:loading ctx)]
         (if (and loading
@@ -90,10 +90,11 @@
           (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
       (if-let [load-fn (:load-fn env)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib
-                                                   :reload reload})]
+                                                   :reload (or reload reload-all)})]
           (do
             (let [ctx (-> ctx
                           (assoc :bindings {})
+                          (assoc :reload-all reload-all)
                           (update :loading (fn [loading]
                                              (if (nil? loading)
                                                [lib]

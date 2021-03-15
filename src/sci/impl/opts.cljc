@@ -108,14 +108,15 @@
      :cljs (fn [_ _ _])))
 
 #?(:clj (defrecord Ctx [bindings env
-                        features readers]))
+                        features readers
+                        reload-all]))
 
 (defn ->ctx [bindings env features readers]
   #?(:cljs {:bindings bindings
             :env env
             :features features
             :readers readers}
-     :clj (->Ctx bindings env features readers)))
+     :clj (->Ctx bindings env features readers false)))
 
 (defn init
   "Initializes options"
