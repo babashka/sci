@@ -6,10 +6,11 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ### Enhancements
 
-- Allow combinations of interfaces and protocols in `reify` (this is private
+- Allow combinations of interface and protocols in `reify` (this is private
   functionality for now, used by babashka) [#540](https://github.com/borkdude/sci/issues/540)
   ([@GreshamDanielStephens](https://github.com/GreshamDanielStephens))
 - Fix metadata on non-constant map literal expression [#546](https://github.com/borkdude/sci/issues/546)
+- Support `:reload-all` [#552](https://github.com/borkdude/sci/issues/552)
 
 ## v0.2.4
 
