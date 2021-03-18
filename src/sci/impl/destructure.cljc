@@ -49,7 +49,10 @@
                            defaults (:or b)]
                        (loop [ret (-> bvec (conj gmap) (conj v)
                                       (conj gmap) (conj (list 'if (list seq? gmap)
-                                                              (list apply hash-map gmap)
+                                                              #?(:clj
+                                                                 `(clojure.core/seq-to-map-for-destructuring ~gmap)
+                                                                 :cljs
+                                                                 (list apply hash-map gmap))
                                                               gmap))
                                       ((fn [ret]
                                          (if (:as b)

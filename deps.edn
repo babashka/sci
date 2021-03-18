@@ -32,4 +32,6 @@
    {com.clojure-goes-fast/clj-async-profiler {:mvn/version "0.4.0"}}
    :extra-paths ["bench"]
    :jvm-opts ["-Djdk.attach.allowAttachSelf"]
-   :main-opts ["-m" "sci.profile"]}}}
+   :main-opts ["-m" "sci.profile"]}
+  :clojure-1.11.0
+  {:extra-deps {org.clojure/clojure {:mvn/version "1.11.0-alpha1"}}}}}

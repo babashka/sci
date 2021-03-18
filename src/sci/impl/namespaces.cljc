@@ -679,6 +679,26 @@
      (or (get (meta x) :type)
          (cljs.core/type x))))
 
+;;;; Clojure 1.11.0 kwargs
+
+#?(:clj (defmacro when-<-clojure-1.11.0 [& body]
+          (let [{:keys [:major :minor]} *clojure-version*]
+            (when-not (or (> major 1)
+                          (and (= major 1)
+                               (>= minor 11)))
+              `(do ~@body)))))
+
+#?(:clj
+   (when-<-clojure-1.11.0
+       (defn seq-to-map-for-destructuring
+         "Builds a map from a seq as described in
+  https://clojure.org/reference/special_forms#keyword-arguments"
+         {:added "1.11"}
+         [s]
+         (if (next s)
+           (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
+           (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -1102,6 +1122,7 @@
    'second (copy-core-var second)
    'set (copy-core-var set)
    'seq (copy-core-var seq)
+   #?@(:clj ['seq-to-map-for-destructuring (copy-var seq-to-map-for-destructuring clojure-core-ns)])
    'seq? (copy-core-var seq?)
    'short (copy-core-var short)
    'shuffle (copy-core-var shuffle)
