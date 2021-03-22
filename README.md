@@ -49,6 +49,7 @@ Sci is used in:
 - [Clj-kondo](https://github.com/borkdude/clj-kondo/). A Clojure linter that sparks joy.
 - [Closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
+- [Datalevin](https://github.com/juji-io/datalevin). Durable Datalog database.
 - [Firn](https://github.com/theiceshelf/firn). Org-mode static site generator.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
