@@ -363,19 +363,7 @@
                    :sci.impl/var.unbound
                    (analyze ctx init))
             m (meta var-name)
-            mks (keys m)
-            k (some
-               #(not
-                 (contains? #{:line :column :dynamic :private :const :doc :tag
-                              :arglists} %))
-               mks)
-            m (if k
-                #_:clj-kondo/ignore
-                (do
-                  #_(when-not (:test m)
-                      (prn "WARNING: ANA def " k m))
-                  (analyze (assoc ctx :meta true) m))
-                m)
+            m (analyze (assoc ctx :meta true) m)
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             var-name (with-meta var-name m)]
@@ -397,19 +385,7 @@
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
         meta-map (merge (meta fn-name) (meta expr) meta-map)
-        mks (keys meta-map)
-        k (some
-           #(not
-             (contains? #{:line :column :dynamic :private :const :doc
-                          :arglists :sci.impl/op :added :skip-wiki :no-doc
-                          :tag :macro} %))
-           mks)
-        meta-map (if k
-                   #_:clj-kondo/ignore
-                   (do
-                     #_(prn "WARNING: ANA defn" k meta-map)
-                     (analyze (assoc ctx :meta true) meta-map))
-                   meta-map)
+        meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (expand-fn ctx fn-body macro?)
@@ -992,7 +968,9 @@
                         analyzed-meta
                         (assoc analyzed-meta :sci.impl/op :eval))
         ret (if analyzed-meta
-              (if (instance? sci.impl.types.EvalFn analyzed-map)
+              (if (instance? #?(:clj sci.impl.types.EvalFn
+                                :cljs sci.impl.types/EvalFn)
+                             analyzed-map)
                 (ctx-fn
                  (fn [ctx]
                    (let [md (eval/eval ctx analyzed-meta)

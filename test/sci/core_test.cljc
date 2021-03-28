@@ -1138,6 +1138,11 @@
            ctx2 (sci/merge-opts ctx {:classes {'Thread Thread}})]
        (is (sci/eval-string* ctx2 "System Thread")))))
 
+(deftest dynamic-meta-def-test
+  (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
+  (is (= "6" (eval* "(def ^{:doc (str (+ 1 2 3))} foo) (:doc (meta #'foo))")))
+  (is (= "6" (eval* "(defn ^{:doc (str (+ 1 2 3))} foo []) (:doc (meta #'foo))"))))
+
 ;;;; Scratch
 
 (comment
