@@ -9,6 +9,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Fix metadata on non-constant map literal expression [#546](https://github.com/borkdude/sci/issues/546)
 - Support `:reload-all` [#552](https://github.com/borkdude/sci/issues/552)
 - Support new kwargs handling from 1.11.0 [#553](https://github.com/borkdude/sci/issues/553).
+- Allow dynamic `:doc` on `def`/`defn` [#554](https://github.com/borkdude/sci/issues/554).
 
 ## v0.2.4
 
