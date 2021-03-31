@@ -973,7 +973,7 @@
                              analyzed-map)
                 (ctx-fn
                  (fn [ctx]
-                   (let [md (eval/eval ctx analyzed-meta)
+                   (let [md (eval/handle-meta ctx analyzed-meta)
                          coll (eval/eval ctx analyzed-map)]
                      (with-meta coll md)))
                  expr)
