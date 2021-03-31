@@ -1109,7 +1109,12 @@
   (testing "Reader metadata is evaluated on fns"
     (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} (fn []))))")))
     (testing "Fns don't have :line and :column metadata"
-      (is (true? (eval* "(nil? (:line (meta ^{:foo (+ 1 2 3)} (fn []))))"))))))
+      (is (true? (eval* "(nil? (:line (meta ^{:foo (+ 1 2 3)} (fn []))))")))))
+  (testing "meta on nested maps"
+    (is (= {:m true} (eval* "(meta ^:m {:foo :bar})")))
+    (is (= {:m true} (eval* "(meta ^:m {:foo {}})")))
+    (is (= {:m 6} (eval* "(meta ^{:m (+ 1 2 3)} {:foo {}})")))
+    (is (= {:n 6} (eval* "(meta (:m (meta ^{:m ^{:n (+ 1 2 3)} {}} {:foo {}})))")))))
 
 (deftest symbol-on-var-test
   (is (= 'user/x (eval* "(def x 1) (symbol #'x)"))))
