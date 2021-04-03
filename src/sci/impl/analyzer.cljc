@@ -54,7 +54,8 @@
                                                 expr)
                 :else
                 (let [f (try (resolve/resolve-symbol ctx op true)
-                             (catch Exception _ ::unresolved))]
+                             (catch #?(:clj Exception :cljs :default)
+                                 _ ::unresolved))]
                   (if (kw-identical? ::unresolved f)
                     expr
                     (let [f (if (and (vars/var? f)
