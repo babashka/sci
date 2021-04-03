@@ -868,7 +868,8 @@
   (is (= #?(:clj 'clojure.core/let
             :cljs 'cljs.core/let)
          (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
-  (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))"))))
+  (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))")))
+  (is (= '(foobar) (eval* "(defmacro foo [] '(foobar)) (macroexpand '(foo))"))))
 
 (deftest macroexpand-call-test
   (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))

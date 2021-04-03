@@ -53,16 +53,19 @@
                 (contains? #{'for} op) (analyze (assoc ctx :sci.impl/macroexpanding true)
                                                 expr)
                 :else
-                (let [f (resolve/resolve-symbol ctx op true)
-                      f (if (and (vars/var? f)
-                                 (vars/isMacro f))
-                          @f f)]
-                  (if (macro? f)
-                    (let [f (if (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
-                              (partial f ctx)
-                              f)]
-                      (apply f original-expr (:bindings ctx) (rest expr)))
-                    expr)))
+                (let [f (try (resolve/resolve-symbol ctx op true)
+                             (catch Exception _ ::unresolved))]
+                  (if (kw-identical? ::unresolved f)
+                    expr
+                    (let [f (if (and (vars/var? f)
+                                     (vars/isMacro f))
+                              @f f)]
+                      (if (macro? f)
+                        (let [f (if (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
+                                  (partial f ctx)
+                                  f)]
+                          (apply f original-expr (:bindings ctx) (rest expr)))
+                        expr)))))
           expr))
       expr)))
 
