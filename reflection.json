@@ -84,4 +84,7 @@
     "allPublicFields": true,
     "allPublicConstructors": true
   }
+  ,
+  {"name": "java.lang.reflect.AccessibleObject",
+   "methods" : [{"name":"canAccess"}]}
 ]
