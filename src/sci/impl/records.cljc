@@ -29,12 +29,16 @@
                                                body (rest impl)
                                                destr (utils/maybe-destructured args body)
                                                args (:params destr)
+                                               orig-this-sym (first args)
+                                               this-sym (gensym "this_")
+                                               args (vec (cons this-sym (rest args)))
                                                body (:body destr)
-                                               this (first args)
                                                bindings
-                                               (vec (mapcat (fn [field]
-                                                              [field (list (keyword field) this)])
-                                                            (reduce disj field-set args)))]
+                                               (vec (concat
+                                                     (mapcat (fn [field]
+                                                               [field (list (keyword field) this-sym)])
+                                                             (reduce disj field-set args))
+                                                     [orig-this-sym this-sym]))]
                                            `(~args
                                              (let ~bindings
                                                ~@body)))) bodies)]

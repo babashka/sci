@@ -46,7 +46,13 @@
 (defprotocol Foo (sayhello [_ name] \"print a name\"))
 (defrecord Greeter [x y] Foo (sayhello [x _] x))
 (sayhello (Greeter. \"x\" \"y\") \"john\")"]
-    (is (= {:x "x" :y "y"} (tu/eval* prog {})))))
+    (is (= {:x "x" :y "y"} (tu/eval* prog {}))))
+  (testing "protocol impl arg shadows this arg (the first one)"
+    (let [prog "
+(defprotocol Foo (sayhello [_ name] \"print a name\"))
+(defrecord Greeter [x y] Foo (sayhello [_ _] x))
+(sayhello (Greeter. \"x\" \"y\") \"john\")"]
+      (is (= "x" (tu/eval* prog {}))))))
 
 (deftest extends?-test
   (let [prog "
