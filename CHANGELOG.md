@@ -11,6 +11,8 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Support new kwargs handling from 1.11.0 [#553](https://github.com/borkdude/sci/issues/553).
 - Allow dynamic `:doc` on `def`/`defn` [#554](https://github.com/borkdude/sci/issues/554).
 - Fix metadata on nested evaluated map [#555](https://github.com/borkdude/sci/issues/555)
+- Bug with protocol methods in record where later arg overrides "this" [#557](https://github.com/borkdude/sci/issues/557)
+- Support :rename in :refer-clojure [#558](https://github.com/borkdude/sci/issues/558)
 
 ## v0.2.4
 
