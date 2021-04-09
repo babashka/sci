@@ -211,7 +211,22 @@
                            other-vars (select-keys other-ns v)]
                        ;; TODO: this is wrong, don't merge these vars into the current namespace
                        (update-in env [:namespaces cnn]
-                                  merge other-vars)))))
+                                  merge other-vars))))
+            :rename
+            (swap! (:env ctx)
+                   (fn [env]
+                     (let [cnn (vars/current-ns-name)
+                           namespaces (:namespaces env)
+                           the-current-ns (get namespaces cnn)
+                           other-ns (get-in env [:namespaces ns-sym])
+                           the-current-ns
+                           (reduce (fn [acc [original-name new-name]]
+                                     (-> acc
+                                         (assoc-in [:refers new-name] (get other-ns original-name))
+                                         (update-in [:refer ns-sym :exclude] (fnil conj #{}) original-name)))
+                                   the-current-ns
+                                   v)]
+                       (assoc-in env [:namespaces cnn] the-current-ns)))))
           (recur (nnext exprs)))))))
 
 (defn eval-refer* [env ns-sym filters]

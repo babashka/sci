@@ -11,6 +11,79 @@
   ([binding form]
    (tu/eval* form {:bindings {'*in* binding}})))
 
+(deftest require-test
+  (is (= "1-2-3" (eval* "(str/join \"-\" [1 2 3])")))
+  (is (= "1-2-3" (eval* "(require '[clojure.string :as string]) (string/join \"-\" [1 2 3])")))
+  (is (= "1-2-3" (eval* "(require '[clojure.string :refer [join]]) (join \"-\" [1 2 3])")))
+  (is (= "1-2-3" (eval* "(require '[clojure.string :refer :all]) (join \"-\" [1 2 3])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"must be a sequential"
+                        (eval* "(require '[clojure.string :refer 1]) (join \"-\" [1 2 3])")))
+  (is (= #{1 4 6 3 2 5} (eval* "(set/union #{1 2 3} #{4 5 6})")))
+  (is (= #{1 4 6 3 2 5} (eval* "(require '[clojure.set :as s]) (s/union #{1 2 3} #{4 5 6})")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"clojure.foo"
+                        (eval* "(require '[clojure.foo :as s])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"quux does not exist"
+                        (eval* "(require '[clojure.set :refer [quux]])")))
+  (is (= [1 2 3] (eval* "(ns foo) (def x 1) (ns bar) (def x 2) (in-ns 'baz) (def x 3) (require 'foo 'bar) [foo/x bar/x x]")))
+  (testing
+      "Require evaluates arguments"
+    (is (= [1 2 3] (eval* "
+(ns foo)
+(def x 1)
+
+(ns bar)
+(def x 2)
+
+(in-ns 'baz)
+(def x 3)
+(require (symbol \"foo\") (symbol \"bar\"))
+[foo/x bar/x x]"))))
+  (testing "require as function"
+    (is (= 1 (eval* "(ns foo) (defn foo [] 1) (ns bar) (apply require ['[foo :as f]]) (f/foo)"))))
+  (testing "rename"
+    (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})")))
+    (is (= 16 (eval* "(ns foo (:refer-clojure :rename {bit-shift-left <<})) (<< 8 1)")))
+    (is (thrown-with-msg?
+         #?(:clj Exception :cljs js/Error)
+         #"not.*resolve.*bit-shift-left"
+         (eval* "(ns foo (:refer-clojure :rename {bit-shift-left <<})) (bit-shift-left 8 1)"))))
+  (when-not tu/native?
+    (testing "load-fn + requiring-resolve"
+      (is (= :success
+             (tu/eval* "(deref (requiring-resolve 'foo.bar/x))"
+                       {:load-fn (fn [{:keys [:namespace]}]
+                                   (when (= 'foo.bar namespace)
+                                     {:source "(ns foo.bar) (def x :success)"
+                                      :file "foo/bar.clj"}))})))))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"already refers to"
+       (eval* "
+(ns foo (:require [clojure.string :refer [split]]))
+(declare split)"))))
+
+(deftest use-test
+  (is (= #{1 2} (eval* "(ns foo (:use clojure.set)) (union #{1} #{2})")))
+  (is (= #{1 2} (eval* "(use 'clojure.set) (union #{1} #{2})")))
+  (is (= #{1 2} (eval* "(use '[clojure.set :only [union]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"not.*resolve.*union"
+       (eval* "(use '[clojure.set :exclude [union]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"not.*resolve.*union"
+       (eval* "(use '[clojure.set :only [difference]]) (union #{1} #{2})")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"already refers to"
+       (eval* "
+(ns foo (:use clojure.string))
+(declare split)"))))
+
 (deftest misc-namespace-test
   (is (= 1 (eval* "(alias (symbol \"c\") (symbol \"clojure.core\")) (c/and true 1)")))
   (is (= #{1 3 2} (eval* "(mapv alias ['set1 'set2] ['clojure.set 'clojure.set]) (set2/difference
