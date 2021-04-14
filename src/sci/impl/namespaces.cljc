@@ -841,6 +841,7 @@
    'binding (with-meta sci-binding {:sci/macro true})
    'binding-conveyor-fn vars/binding-conveyor-fn
    'bit-and-not (copy-core-var bit-and-not)
+   #?@(:clj ['bit-clear (copy-core-var bit-clear)])
    'bit-set (copy-core-var bit-set)
    'bit-shift-left (copy-core-var bit-shift-left)
    'bit-shift-right (copy-core-var bit-shift-right)
