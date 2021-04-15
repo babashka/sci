@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [ex-message ex-cause eval read
                             read-string require
                             use load-string
-                            find-var *1 *2 *3 *e #?(:cljs type)])
+                            find-var *1 *2 *3 *e #?(:cljs type)
+                            bound-fn* with-bindings*])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -560,24 +561,30 @@
 
 ;;;; Binding vars
 
+(defn with-bindings*
+  "Takes a map of Var/value pairs. Installs for the given Vars the associated
+  values as thread-local bindings. Then calls f with the supplied arguments.
+  Pops the installed bindings after f returned. Returns whatever f returns."
+  [binding-map f & args]
+  ;; important: outside try
+  (vars/push-thread-bindings binding-map)
+  (try
+    (apply f args)
+    (finally
+      (vars/pop-thread-bindings))))
+
 (defn sci-with-bindings
-  [_ _ bindings & body]
-  `(do
-     ;; important: outside try
-     (clojure.core/push-thread-bindings ~bindings)
-     (try
-       ~@body
-       (finally
-         (clojure.core/pop-thread-bindings)))))
+  [_ _ binding-map & body]
+  `(clojure.core/with-bindings* ~binding-map (fn [] ~@body)))
 
 (defn sci-binding
   [form _ bindings & body]
   (when-not (vector? bindings)
     (utils/throw-error-with-location (str "binding requires a vector for its bindings")
-                               form))
+                                     form))
   (when-not (even? (count bindings))
     (utils/throw-error-with-location (str "binding requires an even number of forms in binding vector")
-                               form))
+                                     form))
   (let [var-ize (fn [var-vals]
                   (loop [ret [] vvs (seq var-vals)]
                     (if vvs
@@ -591,6 +598,24 @@
          ~@body
          (finally
            (clojure.core/pop-thread-bindings))))))
+
+(defn bound-fn*
+  "Returns a function, which will install the same bindings in effect as in
+  the thread at the time bound-fn* was called and then call f with any given
+  arguments. This may be used to define a helper function which runs on a
+  different thread, but needs the same bindings in place."
+  [f]
+  (let [bindings (vars/get-thread-bindings)]
+    (fn [& args]
+      (apply with-bindings* bindings f args))))
+
+(defn sci-bound-fn
+  "Returns a function defined by the given fntail, which will install the
+  same bindings in effect as in the thread at the time bound-fn was called.
+  This may be used to define a helper function which runs on a different
+  thread, but needs the same bindings in place."
+  [_ _ & fntail]
+  `(clojure.core/bound-fn* (fn ~@fntail)))
 
 (defn sci-with-redefs-fn
   [binding-map func]
@@ -862,6 +887,8 @@
    'bytes (copy-core-var bytes)
    'bit-test (copy-core-var bit-test)
    'bit-and (copy-core-var bit-and)
+   'bound-fn (macrofy sci-bound-fn)
+   'bound-fn* (copy-var bound-fn* clojure-core-ns)
    'bounded-count (copy-core-var bounded-count)
    'bit-or (copy-core-var bit-or)
    'bit-flip (copy-core-var bit-flip)
@@ -1221,6 +1248,7 @@
    'when-not (macrofy when-not*)
    'while (macrofy while*)
    'with-bindings (macrofy sci-with-bindings)
+   'with-bindings* (copy-var with-bindings* clojure-core-ns)
    'with-local-vars (macrofy with-local-vars*)
    'with-meta (copy-core-var with-meta)
    'with-open (macrofy with-open*)
