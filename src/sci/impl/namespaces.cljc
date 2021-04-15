@@ -824,6 +824,7 @@
    'alter-var-root (copy-core-var vars/alter-var-root)
    'ancestors (with-meta hierarchies/ancestors* {:sci.impl/op needs-ctx})
    'aset (copy-core-var aset)
+   #?@(:clj ['aset-byte (copy-core-var aset-byte)])
    'alength #?(:clj (vars/->SciVar (fn [arr]
                                      (java.lang.reflect.Array/getLength arr))
                                    'alength nil false)
