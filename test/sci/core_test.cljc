@@ -525,7 +525,10 @@
                         (eval* "(for [:dude] [i j])")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"keyword"
-                        (eval* "(for [x [1 2 3] :dude []] [i j])"))))
+                        (eval* "(for [x [1 2 3] :dude []] [i j])")))
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                        #"args"
+                        (eval* "(for 1 2 3)"))))
 
 (deftest doseq-test
   (when-not tu/native?

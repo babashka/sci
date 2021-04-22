@@ -1,21 +1,26 @@
 (ns sci.impl.for-macro
   {:no-doc true}
-  (:require [sci.impl.utils :refer [allowed-loop allowed-recur]]))
+  (:require [sci.impl.utils :refer [allowed-loop allowed-recur
+                                    throw-error-with-location]]))
 
 ;; based on the source of clojure.core/for
 
-(defn assert-args [seq-exprs _body-expr]
+(defn assert-args [expr seq-exprs _body-expr]
+  (let [arg-count (dec (count expr))]
+    (when-not (= 2 arg-count)
+      (throw-error-with-location (str "Wrong number of args (" arg-count ") passed to: clojure.core/for")
+                                 expr)))
   (when-not (vector? seq-exprs)
-    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
-                "for requires a vector for its binding")))
+    (throw-error-with-location "for requires a vector for its binding"
+                               expr))
   (when-not (even? (count seq-exprs))
-    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
-                "for requires an even number of forms in binding vector"))))
+    (throw-error-with-location "for requires an even number of forms in binding vector"
+                               expr)))
 
 ;; see clojurescript core.cljc defmacro for
 (defn expand-for
-  [_ [_ seq-exprs body-expr]]
-  (assert-args seq-exprs body-expr)
+  [_ [_ seq-exprs body-expr :as expr]]
+  (assert-args expr seq-exprs body-expr)
   (let [to-groups (fn [seq-exprs]
                     (reduce (fn [groups [k v]]
                               (if (keyword? k)
@@ -72,20 +77,20 @@
                               (~allowed-loop [~gxs ~gxs]
                                (let [~gxs (seq ~gxs)]
                                  (when ~gxs
-                                  (if (chunked-seq? ~gxs)
-                                    (let [c# (chunk-first ~gxs)
-                                          size# (int (count c#))
-                                          ~gb (chunk-buffer size#)]
-                                      (if (~allowed-loop [~gi (int 0)]
-                                           (if (< ~gi size#)
-                                             (let [~bind (nth c# ~gi)]
-                                               ~(do-cmod mod-pairs))
-                                             true))
-                                        (chunk-cons
-                                         (chunk ~gb)
-                                         (~giter (chunk-rest ~gxs)))
-                                        (chunk-cons (chunk ~gb) nil)))
-                                    (let [~bind (first ~gxs)]
-                                      ~(do-mod mod-pairs))))))))))))]
+                                   (if (chunked-seq? ~gxs)
+                                     (let [c# (chunk-first ~gxs)
+                                           size# (int (count c#))
+                                           ~gb (chunk-buffer size#)]
+                                       (if (~allowed-loop [~gi (int 0)]
+                                            (if (< ~gi size#)
+                                              (let [~bind (nth c# ~gi)]
+                                                ~(do-cmod mod-pairs))
+                                              true))
+                                         (chunk-cons
+                                          (chunk ~gb)
+                                          (~giter (chunk-rest ~gxs)))
+                                         (chunk-cons (chunk ~gb) nil)))
+                                     (let [~bind (first ~gxs)]
+                                       ~(do-mod mod-pairs))))))))))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
        (iter# ~(second seq-exprs)))))
