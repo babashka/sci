@@ -20,17 +20,19 @@
    (fn [m]
      (assoc m :sci.impl/op :resolve-sym))))
 
-(defn check-permission! [{:keys [:allow :deny]} check-sym sym v]
+(defn check-permission! [ctx sym [check-sym  v]]
   (or (identical? utils/allowed-loop sym)
       (identical? utils/allowed-recur sym)
-      (let [check-sym (strip-core-ns check-sym)]
+      (let [check-sym (strip-core-ns check-sym)
+            allow (:allow ctx)]
         (when-not (if allow (or (and (vars/var? v) (not (:sci.impl/built-in (meta v))))
                                 (contains? allow check-sym))
                       true)
           (throw-error-with-location (str sym " is not allowed!") sym))
-        (when (if deny (contains? deny check-sym)
-                  false)
-          (throw-error-with-location (str sym " is not allowed!") sym)))))
+        (let [deny (:deny ctx)]
+          (when (if deny (contains? deny check-sym)
+                    false)
+            (throw-error-with-location (str sym " is not allowed!") sym))))))
 
 (defn lookup* [ctx sym call?]
   (let [sym-ns (some-> (namespace sym) symbol)
@@ -107,10 +109,9 @@
                           (eval/resolve-symbol ctx v))
                         v)))]
              [k v]))
-         (when-let
-             [[k v :as kv]
-              (lookup* ctx sym call?)]
-           (check-permission! ctx k sym v)
+         (when-let [kv (lookup* ctx sym call?)]
+           (when (:check-permissions ctx)
+             (check-permission! ctx sym kv))
            kv))]
     ;; (prn 'lookup sym '-> res)
     (if-let [m (and (not (:sci.impl/prevent-deref ctx))

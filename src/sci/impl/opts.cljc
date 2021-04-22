@@ -109,14 +109,16 @@
 
 #?(:clj (defrecord Ctx [bindings env
                         features readers
-                        reload-all]))
+                        reload-all
+                        check-permissions]))
 
-(defn ->ctx [bindings env features readers]
+(defn ->ctx [bindings env features readers check-permissions?]
   #?(:cljs {:bindings bindings
             :env env
             :features features
-            :readers readers}
-     :clj (->Ctx bindings env features readers false)))
+            :readers readers
+            :check-permissions check-permissions?}
+     :clj (->Ctx bindings env features readers false check-permissions?)))
 
 (defn init
   "Initializes options"
@@ -139,9 +141,9 @@
         _ (init-env! env bindings aliases namespaces imports load-fn)
         raw-classes classes
         classes (normalize-classes (merge default-classes raw-classes))
-        ctx (assoc (->ctx {} env features readers)
-                   :allow (process-permissions #{} allow)
-                   :deny (process-permissions #{} deny)
+        ctx (assoc (->ctx {} env features readers (or allow deny))
+                   :allow (when allow (process-permissions #{} allow))
+                   :deny (when deny (process-permissions #{} deny))
                    :uberscript uberscript
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
@@ -168,9 +170,9 @@
         _ (init-env! env bindings aliases namespaces imports load-fn)
         raw-classes (merge (:raw-classes ctx) classes)
         classes (normalize-classes raw-classes)
-        ctx (assoc (->ctx {} env features readers)
-                   :allow (process-permissions (:allow ctx) allow)
-                   :deny (process-permissions (:deny ctx) deny)
+        ctx (assoc (->ctx {} env features readers (or (:check-permissions ctx) allow deny))
+                   :allow (when allow (process-permissions (:allow ctx) allow))
+                   :deny (when deny (process-permissions (:deny ctx) deny))
                    :uberscript uberscript
                    :reify-fn reify-fn
                    :disable-arity-checks disable-arity-checks

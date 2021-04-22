@@ -816,7 +816,9 @@
           (let [;; in call position Clojure prioritizes special symbols over
                 ;; bindings
                 special-sym (get special-syms f)
-                _ (when special-sym (resolve/check-permission! ctx special-sym f nil))
+                _ (when (and special-sym
+                             (:check-permissions ctx))
+                    (resolve/check-permission! ctx f [special-sym nil]))
                 f (or special-sym
                       (resolve/resolve-symbol ctx f true))
                 f-meta (meta f)
