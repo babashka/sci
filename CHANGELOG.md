@@ -4,7 +4,9 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## Unreleased
 
-### Enhancements
+## v0.2.5
+
+### Enhancements / fixes
 
 - Fix metadata on non-constant map literal expression [#546](https://github.com/borkdude/sci/issues/546)
 - Support `:reload-all` [#552](https://github.com/borkdude/sci/issues/552)
