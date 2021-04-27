@@ -13,6 +13,9 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Fix metadata on nested evaluated map [#555](https://github.com/borkdude/sci/issues/555)
 - Bug with protocol methods in record where later arg overrides "this" [#557](https://github.com/borkdude/sci/issues/557)
 - Support :rename in :refer-clojure [#558](https://github.com/borkdude/sci/issues/558)
+- Add `aset-...`, `delay?`, `bit-clear`
+- Add `bound-fn` and `bound-fn*`
+- Add arg count check for `clojure.core/for`
 
 ## v0.2.4
 
