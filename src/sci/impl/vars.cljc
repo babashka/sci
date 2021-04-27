@@ -126,7 +126,8 @@
     (throw (new #?(:clj Exception :cljs js/Error) "No frame to pop."))))
 
 (defn get-thread-bindings []
-  (let [f (get-thread-binding-frame)]
+  (let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
+        ^Frame f (get-thread-binding-frame)]
     (loop [ret {}
            kvs (seq (.-bindings f))]
       (if kvs
@@ -137,7 +138,8 @@
         ret))))
 
 (defn get-thread-binding ^TBox [sci-var]
-  (when-let [^Frame f #?(:clj (.get dvals)
+  (when-let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
+             ^Frame f #?(:clj (.get dvals)
                          :cljs @dvals)]
     #?(:clj (.get ^java.util.Map (.-bindings f) sci-var)
        :cljs (.get (.-bindings f) sci-var))))
