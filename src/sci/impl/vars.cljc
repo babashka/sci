@@ -103,7 +103,7 @@
   (unbind [this]))
 
 (defn push-thread-bindings [bindings]
-  (let [frame (get-thread-binding-frame)
+  (let [^Frame frame (get-thread-binding-frame)
         bmap (.-bindings frame)
         bmap (reduce (fn [acc [var* val*]]
                        (when-not (dynamic-var? var*)
