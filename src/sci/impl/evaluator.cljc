@@ -122,7 +122,7 @@
       (eval ctx found)
       (if (vector? case-default)
         (eval ctx (second case-default))
-        (throw (new #?(:clj Exception :cljs js/Error)
+        (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                     (str "No matching clause: " v)))))))
 
 (defn eval-try

@@ -35,7 +35,9 @@
 (defn eval*
   ([form] (eval* nil form))
   ([binding form]
-   (tu/eval* form {:bindings {'*in* binding}})))
+   (tu/eval* form {:bindings {'*in* binding}
+                   :classes #?(:clj {'java.lang.IllegalArgumentException java.lang.IllegalArgumentException}
+                               :cljs {})})))
 
 (deftest core-test
   (testing "do can have multiple expressions"
@@ -574,7 +576,11 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"matching clause"
-       (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3))"))))
+       #?(:clj  (eval* "
+(try (case (inc 2), 1 true, 2 (+ 1 2 3))
+  (catch java.lang.IllegalArgumentException e
+    (throw (Exception. (ex-message e)))))")
+          :cljs (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3))")))))
 
 (deftest variable-can-have-macro-or-var-name
   (is (= true (eval* "(defn foo [merge] merge) (foo true)")))
