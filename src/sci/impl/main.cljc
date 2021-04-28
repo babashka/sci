@@ -28,6 +28,7 @@
   (let [ctx (-> ctx #?(:clj (addons/future)))
         #?@(:clj [ctx (assoc-in ctx [:namespaces 'clojure.core 'time] (with-meta time* {:sci/macro true}))])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.System] System)])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.IllegalArgumentException] IllegalArgumentException)])
         #?@(:clj [ctx (assoc-in ctx [:imports] {'System 'java.lang.System})])]
     ctx))
 
