@@ -354,7 +354,8 @@
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
-             eval? (instance? sci.impl.types.EvalFn f)
+             eval? (instance? #?(:clj sci.impl.types.EvalFn
+                                 :cljs sci.impl.types/EvalFn) f)
              op (when-not eval?
                   (some-> (meta f) (get-2 :sci.impl/op)))]
          (cond
@@ -385,10 +386,12 @@
 (defn eval
   [ctx expr]
   (try
-    (cond (instance? sci.impl.types.EvalFn expr)
+    (cond (instance? #?(:clj sci.impl.types.EvalFn
+                        :cljs sci.impl.types/EvalFn) expr)
           (let [f (.-f ^sci.impl.types.EvalFn expr)]
             (f ctx))
-          (instance? sci.impl.types.EvalVar expr)
+          (instance? #?(:clj sci.impl.types.EvalVar
+                        :cljs sci.impl.types/EvalVar) expr)
           (let [v (.-v ^sci.impl.types.EvalVar expr)]
             (deref-1 v))
           :else
