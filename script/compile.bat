@@ -10,19 +10,17 @@ if not exist "%GRAALVM_HOME%\bin\native-image.cmd" (
   if %errorlevel% neq 0 exit /b %errorlevel%
 )
 
-set NATIVE_IMAGE="%GRAALVM_HOME%\bin\native-image.cmd"
-
 for /f "delims=" %%x in (resources/SCI_VERSION) do set SCI_VERSION=%%x
 
 set JAVA_HOME=%GRAALVM_HOME%
 set PATH=%GRAALVM_HOME%/bin;%PATH%
 
-call lein with-profiles +clojure-1.10.2-alpha1,+native-image do clean, uberjar
+call lein with-profiles +native-image do clean, uberjar
 if %errorlevel% neq 0 exit /b %errorlevel%
 
 set SCI_JAR=target\sci-%SCI_VERSION%-standalone.jar
 
-call %NATIVE_IMAGE% ^
+call "%GRAALVM_HOME%\bin\native-image.cmd"% ^
   -jar %SCI_JAR% ^
   -cp src-java-graalvm ^
   -H:Name=sci ^

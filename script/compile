@@ -2,44 +2,39 @@
 
 set -eo pipefail
 
-NATIVE_IMAGE=`which native-image` || true
 
-if [ -z "$NATIVE_IMAGE" ]; then
-  if [ -z "$GRAALVM_HOME" ]; then
-      echo "Please set GRAALVM_HOME"
-      exit 1
-  fi
-
-  "$GRAALVM_HOME/bin/gu" install native-image || true
-
-  NATIVE_IMAGE="$GRAALVM_HOME/bin/native-image"
+if [ -z "$GRAALVM_HOME" ]; then
+    echo "Please set GRAALVM_HOME"
+    exit 1
 fi
+
+"$GRAALVM_HOME/bin/gu" install native-image || true
 
 SCI_VERSION=$(cat resources/SCI_VERSION)
 
 export JAVA_HOME=$GRAALVM_HOME
 export PATH=$GRAALVM_HOME/bin:$PATH
 
-lein with-profiles +clojure-1.10.2-rc1,+native-image do clean, uberjar
+lein with-profiles +native-image "do" clean, uberjar
 
 SCI_JAR=target/sci-$SCI_VERSION-standalone.jar
 # SVM_JAR=$(find $GRAALVM_HOME | grep svm.jar)
 # $GRAALVM_HOME/bin/javac -cp $SCI_JAR:$SVM_JAR src-java-graalvm/borkdude/Clojure_lang_Reflector_Substitutions.java
 
-$NATIVE_IMAGE \
-  -jar $SCI_JAR \
-  -cp src-java-graalvm \
-  -H:Name=sci \
-  -H:+ReportExceptionStackTraces \
-  -J-Dclojure.spec.skip-macros=true \
-  -J-Dclojure.compiler.direct-linking=true \
-  "-H:IncludeResources=SCI_VERSION" \
-  -H:ReflectionConfigurationFiles=reflection.json \
-  --initialize-at-build-time  \
-  -H:Log=registerResource: \
-  --verbose \
-  --no-fallback \
-  --no-server \
-  "-J-Xmx3g"
+"$GRAALVM_HOME/bin/native-image" \
+    -jar "$SCI_JAR" \
+    -cp src-java-graalvm \
+    -H:Name=sci \
+    -H:+ReportExceptionStackTraces \
+    -J-Dclojure.spec.skip-macros=true \
+    -J-Dclojure.compiler.direct-linking=true \
+    "-H:IncludeResources=SCI_VERSION" \
+    -H:ReflectionConfigurationFiles=reflection.json \
+    --initialize-at-build-time  \
+    -H:Log=registerResource: \
+    --verbose \
+    --no-fallback \
+    --no-server \
+    "-J-Xmx3g"
 
 lein clean
