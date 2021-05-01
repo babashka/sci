@@ -86,6 +86,7 @@
   '(fn varargs [& args]
      (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
            bindings (.get ^java.util.Map ctx :bindings)
+           bindings (transient bindings)
            bindings
            (loop [args* (seq args)
                   params (seq params)
@@ -93,16 +94,17 @@
              (if params
                (let [fp (first params)]
                  (if (= '& fp)
-                   (assoc ret (second params) args*)
+                   (assoc!-3 ret (second params) args*)
                    (do
                      (when-not args*
                        (throw-arity ctx nsm fn-name macro? args))
                      (recur (next args*) (next params)
-                            (assoc-3 ret fp (first args*))))))
+                            (assoc!-3 ret fp (first args*))))))
                (do
                  (when args*
                    (throw-arity ctx nsm fn-name macro? args))
                  ret)))
+           bindings (persistent! bindings)
            ctx (assoc-3 ctx :bindings bindings)
            ret (interpret ctx body)
            ;; m (meta ret)
