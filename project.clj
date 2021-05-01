@@ -14,7 +14,7 @@
                  [borkdude/edamame "0.0.11"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
-             :clojure-1.10.2-rc1 {:dependencies [[org.clojure/clojure "1.10.2-rc1"]]}
+             :native-image {:dependencies [[org.clojure/clojure "1.10.3"]]}
              :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
              :test {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
                     :dependencies [[clj-commons/conch "0.9.2"]
@@ -25,8 +25,6 @@
                                   "-Dclojure.spec.skip-macros=true"]
                        :aot :all
                        :main sci.impl.main}
-             :native-image {:dependencies [[borkdude/sci.impl.reflector "0.0.1-jdk11"]
-                                           [borkdude/clj-reflector-graal-java11-fix "0.0.1-graalvm-20.3.0"]]}
              :libsci {:dependencies [[cheshire "5.10.0"]]
                       :source-paths ["src" "libsci/src"]}}
   ;; for testing only
