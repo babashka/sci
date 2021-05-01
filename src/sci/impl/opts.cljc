@@ -3,9 +3,9 @@
   (:require
    #?(:cljs [goog.string])
    [sci.impl.namespaces :as namespaces]
+   [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]
-   [sci.impl.types :as types]
    [sci.lang])
   #?(:clj (:import [sci.impl.types IReified])))
 

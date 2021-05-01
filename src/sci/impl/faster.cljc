@@ -15,6 +15,12 @@
    :clj `(.assoc ~(with-meta m {:tag 'clojure.lang.Associative}) ~k ~v)
    :cljs `(~'-assoc ~m ~k ~v)))
 
+(defmacro assoc!-3
+  [m k v]
+  (?
+   :clj `(.assoc ~(with-meta m {:tag 'clojure.lang.ITransientAssociative}) ~k ~v)
+   :cljs `(~'-assoc! ~m ~k ~v)))
+
 (defmacro get-2
   [m k]
   (?
