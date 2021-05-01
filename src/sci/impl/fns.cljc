@@ -64,7 +64,8 @@
                (when-not disable-arity-checks
                  `[(when-not (= ~n (.-length (~'js-arguments)))
                      (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))]))
-          (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
+          (let [;; tried making bindings a transient, but saw no perf improvement
+                ;; it's even slower with less than 8 bindings
                 ~'bindings (get-2 ~'ctx :bindings)
                 ~'bindings (transient ~'bindings)
                 ~@assocs
@@ -84,7 +85,8 @@
 
 (defmacro gen-fn-varargs []
   '(fn varargs [& args]
-     (let [;; tried making bindings a transient, but saw no perf improvement (see #246)
+     (let [;; tried making bindings a transient, but saw no perf improvement
+           ;; it's even slower with less than 8 bindings
            bindings (.get ^java.util.Map ctx :bindings)
            bindings (transient bindings)
            bindings
