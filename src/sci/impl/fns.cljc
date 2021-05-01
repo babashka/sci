@@ -52,8 +52,14 @@
          nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
          let-vec (vec (mapcat (fn [local ith]
                                 [local ith]) locals nths))
+         transient? (>= n 4)
+         assoc-fn (if transient? 'assoc!-3 'assoc-3)
+         transient-expr (when transient?
+                          '[bindings (transient bindings)])
+         persistent-expr (when transient?
+                           '[bindings (persistent! bindings)])
          assocs (mapcat (fn [local fn-param]
-                          `[~'bindings (assoc!-3 ~'bindings ~local ~fn-param)])
+                          `[~'bindings (~assoc-fn ~'bindings ~local ~fn-param)])
                         locals fn-params)
          recurs (map (fn [n]
                        `(nth-2 ~'recur-val ~n))
@@ -67,9 +73,9 @@
           (let [;; tried making bindings a transient, but saw no perf improvement
                 ;; it's even slower with less than 8 bindings
                 ~'bindings (get-2 ~'ctx :bindings)
-                ~'bindings (transient ~'bindings)
+                ~@transient-expr
                 ~@assocs
-                ~'bindings (persistent! ~'bindings)
+                ~@persistent-expr
                 ctx# (assoc-3 ~'ctx :bindings ~'bindings)
                 ret# (~'interpret ctx# ~'body)
                 ;; m (meta ret)
@@ -88,7 +94,6 @@
      (let [;; tried making bindings a transient, but saw no perf improvement
            ;; it's even slower with less than 8 bindings
            bindings (.get ^java.util.Map ctx :bindings)
-           bindings (transient bindings)
            bindings
            (loop [args* (seq args)
                   params (seq params)
@@ -96,17 +101,16 @@
              (if params
                (let [fp (first params)]
                  (if (= '& fp)
-                   (assoc!-3 ret (second params) args*)
+                   (assoc-3 ret (second params) args*)
                    (do
                      (when-not args*
                        (throw-arity ctx nsm fn-name macro? args))
                      (recur (next args*) (next params)
-                            (assoc!-3 ret fp (first args*))))))
+                            (assoc-3 ret fp (first args*))))))
                (do
                  (when args*
                    (throw-arity ctx nsm fn-name macro? args))
                  ret)))
-           bindings (persistent! bindings)
            ctx (assoc-3 ctx :bindings bindings)
            ret (interpret ctx body)
            ;; m (meta ret)
