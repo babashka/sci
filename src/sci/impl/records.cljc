@@ -30,15 +30,21 @@
                                                destr (utils/maybe-destructured args body)
                                                args (:params destr)
                                                orig-this-sym (first args)
-                                               this-sym (gensym "this_")
-                                               args (vec (cons this-sym (rest args)))
-                                               body (:body destr)
-                                               bindings
-                                               (vec (concat
-                                                     (mapcat (fn [field]
-                                                               [field (list (keyword field) this-sym)])
-                                                             (reduce disj field-set args))
-                                                     [orig-this-sym this-sym]))]
+                                               rest-args (rest args)
+                                               shadows-this? (some #(= orig-this-sym %) rest-args)
+                                               this-sym (if shadows-this?
+                                                          (gensym "this_")
+                                                          orig-this-sym)
+                                               args (if shadows-this?
+                                                      (vec (cons this-sym rest-args))
+                                                      args)
+                                               bindings (mapcat (fn [field]
+                                                                  [field (list (keyword field) this-sym)])
+                                                                (reduce disj field-set args))
+                                               bindings (if shadows-this?
+                                                          (concat bindings [orig-this-sym this-sym])
+                                                          bindings)
+                                               bindings (vec bindings)]
                                            `(~args
                                              (let ~bindings
                                                ~@body)))) bodies)]
