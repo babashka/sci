@@ -5,22 +5,33 @@
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
-(defn defrecord [_ _ ctx record-name fields & protocol-impls]
+#?(:clj
+   (defn assert-no-jvm-interface [protocol protocol-name expr]
+     (when (class? protocol)
+       (utils/throw-error-with-location
+        (str "Records currently only support protocol implementations, found: " protocol-name)
+        expr))))
+
+(defn defrecord [_form _ ctx record-name fields & raw-protocol-impls]
   (let [factory-fn-str (str "->" record-name)
         factory-fn-sym (symbol factory-fn-str)
         map-factory-sym (symbol (str "map" factory-fn-str))
         keys (mapv keyword fields)
         rec-type (symbol (str (vars/current-ns-name)) (str record-name))
-        protocol-impls (utils/split-when symbol? protocol-impls)
+        protocol-impls (utils/split-when symbol? raw-protocol-impls)
         field-set (set fields)
         protocol-impls
         (mapcat
-         (fn [[protocol-name & impls]]
+         (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
            (let [impls (group-by first impls)
                  protocol (@utils/eval-resolve-state ctx protocol-name)
+                 _ (when-not protocol
+                     (utils/throw-error-with-location
+                      (str "Protocol not found: " protocol-name)
+                      expr))
+                 #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
                  protocol (if (vars/var? protocol) @protocol protocol)
-                 protocol-ns (:ns protocol)
-                 pns (str (vars/getName protocol-ns))
+                 protocol-ns (:ns protocol) pns (str (vars/getName protocol-ns))
                  fq-meth-name #(symbol pns %)]
              (map (fn [[method-name bodies]]
                     (let [bodies (map rest bodies)
@@ -50,7 +61,8 @@
                                                ~@body)))) bodies)]
                       `(defmethod ~(fq-meth-name (str method-name)) '~rec-type ~@bodies)))
                   impls)))
-         protocol-impls)]
+         protocol-impls
+         raw-protocol-impls)]
     `(do
        (defn ~map-factory-sym [m#]
          (vary-meta m#
