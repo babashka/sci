@@ -247,3 +247,8 @@
        #"vector"
        (sci/eval-string
         "(with-local-vars #{x 1} (+ 1 (var-get x)))"))))
+
+(deftest thread-bound?-test
+  (is (false? (eval* "(def ^:dynamic *x*) (def ^:dynamic *y*) (thread-bound? #'*x* #'*x*)")))
+  (is (true? (eval* "(def ^:dynamic *x*) (def ^:dynamic *y*)
+    (binding [*x* *x* *y* *y*] (thread-bound? #'*x* #'*x*))"))))

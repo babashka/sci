@@ -617,6 +617,9 @@
   [_ _ & fntail]
   `(clojure.core/bound-fn* (fn ~@fntail)))
 
+(defn sci-thread-bound? [& vars]
+  (every? #(vars/get-thread-binding %) vars))
+
 (defn sci-with-redefs-fn
   [binding-map func]
   (let [root-bind (fn [m]
@@ -1164,6 +1167,7 @@
    'shuffle (copy-core-var shuffle)
    'sort (copy-core-var sort)
    'sort-by (copy-core-var sort-by)
+   'thread-bound? (copy-var sci-thread-bound? clojure-core-ns)
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])
    'symbol (copy-var symbol* clojure-core-ns)
