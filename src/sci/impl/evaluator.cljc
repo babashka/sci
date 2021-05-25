@@ -259,13 +259,6 @@
 
 ;;;; End import
 
-(defn eval-set! [ctx [_ obj v]]
-  (let [obj (eval ctx obj)
-        v (eval ctx v)]
-    (if (vars/var? obj)
-      (t/setVal obj v)
-      (throw (ex-info (str "Cannot set " obj " to " v) {:obj obj :v v})))))
-
 (declare eval-string)
 
 (defn eval-do
@@ -339,7 +332,6 @@
     . (eval-instance-method-invocation ctx expr)
     throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
-    set! (eval-set! ctx expr)
     refer (apply load/eval-refer ctx (rest expr))
     require (apply load/eval-require ctx (with-meta (rest expr)
                                       (meta expr)))

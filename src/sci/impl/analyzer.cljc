@@ -714,11 +714,17 @@
 (defn analyze-var [ctx [_ var-name]]
   (resolve/resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name))
 
-(defn analyze-set! [ctx [_ obj v]]
+(defn analyze-set! [ctx [_ obj v :as expr]]
   (let [obj (analyze ctx obj)
         v (analyze ctx v)
-        obj (types/getVal obj)]
-    (mark-eval-call (list 'set! obj v))))
+        obj (if (instance? #?(:clj sci.impl.types.EvalVar
+                              :cljs sci.impl.types/EvalVar) obj)
+              (types/getVal obj)
+              v)]
+    (ctx-fn (fn [ctx]
+              (let [v (eval/eval ctx v)]
+                (types/setVal obj v)))
+            expr)))
 
 ;;;; End vars
 
