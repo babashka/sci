@@ -716,23 +716,26 @@
   (resolve/resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name))
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
-  (let [obj (analyze ctx obj)
-        v (analyze ctx v)]
-    (cond (instance? #?(:clj sci.impl.types.EvalVar
-                        :cljs sci.impl.types/EvalVar) obj)
-          (let [obj (types/getVal obj)]
-            (ctx-fn (fn [ctx]
-                      (let [v (eval/eval ctx v)]
-                        (types/setVal obj v)))
-                    expr))
-          #?@(:cljs [(seq? obj) ;; (.-a foo)
-                     (let [k (subs (nth obj 2) 1)
-                           obj (nth obj 1)]
-                       (ctx-fn (fn [ctx]
-                                 (let [obj (eval/eval ctx obj)
-                                       v (eval/eval ctx v)]
-                                   (gobject/set obj k v)))
-                               expr))]))))
+  (cond (symbol? obj) ;; assume dynamic var
+        (let [obj (resolve/resolve-symbol ctx obj)
+              _ (when-not (vars/var? obj)
+                  (throw-error-with-location "Invalid assignment target" expr))
+              v (analyze ctx v)]
+          (ctx-fn (fn [ctx]
+                    (let [v (eval/eval ctx v)]
+                      (types/setVal obj v)))
+                  expr))
+        #?@(:cljs [(seq? obj)
+                   (let [obj (analyze ctx obj)
+                         v (analyze ctx v)
+                         k (subs (nth obj 2) 1)
+                         obj (nth obj 1)]
+                     (ctx-fn (fn [ctx]
+                               (let [obj (eval/eval ctx obj)
+                                     v (eval/eval ctx v)]
+                                 (gobject/set obj k v)))
+                             expr))])
+        :else (throw-error-with-location "Invalid assignment target" expr)))
 
 ;;;; End vars
 
