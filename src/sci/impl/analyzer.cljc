@@ -715,7 +715,6 @@
 (defn analyze-var [ctx [_ var-name]]
   (resolve/resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name))
 
-;; TODO: obj can also be a local!
 (defn analyze-set! [ctx [_ obj v :as expr]]
   (let [obj (analyze ctx obj)
         v (analyze ctx v)]
