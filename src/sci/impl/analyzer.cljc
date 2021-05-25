@@ -19,7 +19,8 @@
      merge-meta set-namespace!
      macro? ana-macros kw-identical? ctx-fn
      maybe-destructured]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   #?(:cljs [goog.object :as gobject]))
   #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
@@ -714,17 +715,25 @@
 (defn analyze-var [ctx [_ var-name]]
   (resolve/resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name))
 
+;; TODO: obj can also be a local!
 (defn analyze-set! [ctx [_ obj v :as expr]]
   (let [obj (analyze ctx obj)
-        v (analyze ctx v)
-        obj (if (instance? #?(:clj sci.impl.types.EvalVar
-                              :cljs sci.impl.types/EvalVar) obj)
-              (types/getVal obj)
-              v)]
-    (ctx-fn (fn [ctx]
-              (let [v (eval/eval ctx v)]
-                (types/setVal obj v)))
-            expr)))
+        v (analyze ctx v)]
+    (cond (instance? #?(:clj sci.impl.types.EvalVar
+                        :cljs sci.impl.types/EvalVar) obj)
+          (let [obj (types/getVal obj)]
+            (ctx-fn (fn [ctx]
+                      (let [v (eval/eval ctx v)]
+                        (types/setVal obj v)))
+                    expr))
+          #?@(:cljs [(seq? obj) ;; (.-a foo)
+                     (let [k (subs (nth obj 2) 1)
+                           obj (nth obj 1)]
+                       (ctx-fn (fn [ctx]
+                                 (let [obj (eval/eval ctx obj)
+                                       v (eval/eval ctx v)]
+                                   (gobject/set obj k v)))
+                               expr))]))))
 
 ;;;; End vars
 
