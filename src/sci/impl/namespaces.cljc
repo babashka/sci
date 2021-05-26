@@ -38,35 +38,47 @@
 (def inlined-vars
   '#{+' unchecked-remainder-int unchecked-subtract-int dec' short-array bit-shift-right aget = boolean bit-shift-left aclone dec < char unchecked-long unchecked-negate unchecked-inc-int floats pos? boolean-array alength bit-xor unsigned-bit-shift-right neg? unchecked-float num reduced? booleans int-array inc' <= -' * min get long double bit-and-not unchecked-add-int short quot unchecked-double longs unchecked-multiply-int int > unchecked-int unchecked-multiply unchecked-dec double-array float - byte-array zero? unchecked-dec-int rem nth nil? bit-and *' unchecked-add identical? unchecked-divide-int unchecked-subtract / bit-or >= long-array object-array doubles unchecked-byte unchecked-short float-array inc + aset chars ints bit-not byte max == count char-array compare shorts unchecked-negate-int unchecked-inc unchecked-char bytes})
 
+#?(:clj (def elide-vars (= "true" (System/getenv "SCI_ELIDE_VARS")))
+   ;; for self-hosted
+   :cljs (def elide-vars false))
+
 (macros/deftime
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
-  (defmacro copy-var
-    ([sym ns]
-     `(let [ns# ~ns
-            m# (-> (var ~sym) meta)
-            ns-name# (vars/getName ns#)
-            name# (:name m#)
-            name-sym# (symbol (str ns-name#) (str name#))
-            val# ~sym]
-        (vars/->SciVar val# name-sym# (cond->
-                                        {:doc (:doc m#)
-                                         :name name#
+  (if elide-vars
+    (do
+      #?(:clj
+         (binding [*out* *err*]
+           (println "SCI: eliding vars.")))
+      (defmacro copy-var [sym _ns] sym)
+      (defmacro copy-core-var [sym] sym))
+    (do
+      (defmacro copy-var
+        ([sym ns]
+         `(let [ns# ~ns
+                m# (-> (var ~sym) meta)
+                ns-name# (vars/getName ns#)
+                name# (:name m#)
+                name-sym# (symbol (str ns-name#) (str name#))
+                val# ~sym]
+            (vars/->SciVar val# name-sym# (cond->
+                                              {:doc (:doc m#)
+                                               :name name#
+                                               :arglists (:arglists m#)
+                                               :ns ns#
+                                               :sci.impl/built-in true}
+                                            (and (identical? clojure-core-ns ns#)
+                                                 (contains? inlined-vars name#))
+                                            (assoc :sci.impl/inlined val#))
+                           false))))
+      (defmacro copy-core-var
+        ([sym]
+         `(copy-var ~sym clojure-core-ns)
+         #_`(let [m# (-> (var ~sym) meta)]
+              (vars/->SciVar ~sym '~sym {:doc (:doc m#)
+                                         :name (:name m#)
                                          :arglists (:arglists m#)
-                                         :ns ns#
-                                         :sci.impl/built-in true}
-                                        (and (identical? clojure-core-ns ns#)
-                                             (contains? inlined-vars name#))
-                                        (assoc :sci.impl/inlined val#))
-                       false))))
-  (defmacro copy-core-var
-    ([sym]
-     `(copy-var ~sym clojure-core-ns)
-     #_`(let [m# (-> (var ~sym) meta)]
-          (vars/->SciVar ~sym '~sym {:doc (:doc m#)
-                                     :name (:name m#)
-                                     :arglists (:arglists m#)
-                                     :ns clojure-core-ns
-                                     :sci.impl/built-in true})))))
+                                         :ns clojure-core-ns
+                                         :sci.impl/built-in true})))))))
 
 (defn macrofy [f]
   (vary-meta f #(assoc % :sci/macro true)))
@@ -1319,7 +1331,7 @@
   [_ _ sym]
   `(if-let [var# (resolve '~sym)]
      (when (var? var#)
-           (~'clojure.repl/print-doc (meta var#)))
+       (~'clojure.repl/print-doc (meta var#)))
      (if-let [ns# (find-ns '~sym)]
        (~'clojure.repl/print-doc (assoc (meta ns#)
                                         :name (ns-name ns#))))))
@@ -1355,29 +1367,29 @@
                   (sci-all-ns ctx)))))
 
 #_(defn source-fn
-  "Returns a string of the source code for the given symbol, if it can
+    "Returns a string of the source code for the given symbol, if it can
   find it.  This requires that the symbol resolve to a Var defined in
   a namespace for which the .clj is in the classpath.  Returns nil if
   it can't find the source.  For most REPL usage, 'source' is more
   convenient.
 
   Example: (source-fn 'filter)"
-  [x]
-  (when-let [v (resolve x)]
-    (when-let [filepath (:file (meta v))]
-      (when-let [strm (.getResourceAsStream (RT/baseLoader) filepath)]
-        (with-open [rdr (LineNumberReader. (InputStreamReader. strm))]
-          (dotimes [_ (dec (:line (meta v)))] (.readLine rdr))
-          (let [text (StringBuilder.)
-                pbr (proxy [PushbackReader] [rdr]
-                      (read [] (let [i (proxy-super read)]
-                                 (.append text (char i))
-                                 i)))
-                read-opts (if (.endsWith ^String filepath "cljc") {:read-cond :allow} {})]
-            (if (= :unknown *read-eval*)
-              (throw (IllegalStateException. "Unable to read source while *read-eval* is :unknown."))
-              (read read-opts (PushbackReader. pbr)))
-            (str text)))))))
+    [x]
+    (when-let [v (resolve x)]
+      (when-let [filepath (:file (meta v))]
+        (when-let [strm (.getResourceAsStream (RT/baseLoader) filepath)]
+          (with-open [rdr (LineNumberReader. (InputStreamReader. strm))]
+            (dotimes [_ (dec (:line (meta v)))] (.readLine rdr))
+            (let [text (StringBuilder.)
+                  pbr (proxy [PushbackReader] [rdr]
+                        (read [] (let [i (proxy-super read)]
+                                   (.append text (char i))
+                                   i)))
+                  read-opts (if (.endsWith ^String filepath "cljc") {:read-cond :allow} {})]
+              (if (= :unknown *read-eval*)
+                (throw (IllegalStateException. "Unable to read source while *read-eval* is :unknown."))
+                (read read-opts (PushbackReader. pbr)))
+              (str text)))))))
 
 
 (defn source-fn
