@@ -23,7 +23,7 @@
              :uberjar {:global-vars {*assert* false}
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.spec.skip-macros=true"]
-                       :aot :all
+                       :aot [sci.impl.main]
                        :main sci.impl.main}
              :libsci {:dependencies [[cheshire "5.10.0"]]
                       :source-paths ["src" "libsci/src"]}}
