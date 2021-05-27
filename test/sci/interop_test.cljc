@@ -69,7 +69,9 @@
    (deftest instance-fields
      (is (= 1 (tu/eval* "(.-x (js-obj \"x\" 1))" {:classes {:allow :all}})))
      (is (= {"a" 2} (tu/eval* "(def obj #js {:a 1}) (set! (.-a obj) 2) (js->clj obj)"
-                             {:classes {:allow :all}})))))
+                              {:classes {:allow :all}})))
+     (is (= {:foo {:bar :baz}}
+            (tu/eval* "(def x #js {:foo #js {}}) (set! (.. x -foo -bar) :baz) (js->clj x :keywordize-keys true)" {:classes {:allow :all}})))))
 
 #?(:clj
    (deftest static-methods
