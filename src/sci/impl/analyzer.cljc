@@ -544,6 +544,18 @@
               (eval/eval-try ctx body catches finally))
             expr)))
 
+(defn analyze-throw [ctx [_throw ex :as expr]]
+  (when-not (= 2 (count expr))
+    (throw-error-with-location
+     #?(:clj "Too many arguments to throw, throw expects a single Throwable instance"
+        :cljs "Too many arguments to throw")
+     expr))
+  (let [ana (analyze ctx ex)]
+    (ctx-fn (fn [ctx]
+              (throw (eval/eval ctx ana)))
+            ;; legacy structure for error reporting
+            (mark-eval-call (list 'throw)))))
+
 (defn expand-declare [ctx [_declare & names :as expr]]
   (let [cnn (vars/current-ns-name)
         env (:env ctx)
@@ -876,6 +888,7 @@
                     if (return-if ctx expr)
                     case (analyze-case ctx expr)
                     try (analyze-try ctx expr)
+                    throw (analyze-throw ctx expr)
                     declare (expand-declare ctx expr)
                     expand-dot* (expand-dot* ctx expr)
                     . (expand-dot** ctx expr)

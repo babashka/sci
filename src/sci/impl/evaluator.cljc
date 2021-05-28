@@ -151,10 +151,6 @@
     (finally
       (eval ctx finally))))
 
-(defn eval-throw [ctx [_throw ex]]
-  (let [ex (eval ctx ex)]
-    (throw ex)))
-
 ;;;; Interop
 
 (defn eval-static-method-invocation [ctx expr]
@@ -326,7 +322,6 @@
     ;; interop
     new (eval-constructor-invocation ctx expr)
     . (eval-instance-method-invocation ctx expr)
-    throw (eval-throw ctx expr)
     in-ns (eval-in-ns ctx expr)
     refer (apply load/eval-refer ctx (rest expr))
     require (apply load/eval-require ctx (with-meta (rest expr)
