@@ -9,7 +9,6 @@
    [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
-   [sci.impl.types :as t]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
@@ -22,7 +21,7 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def #?(:clj ^:const macros :cljs macros)
-  '#{do and or quote fn def defn
+  '#{do fn def defn
      lazy-seq try syntax-quote case . in-ns set!
      ;; TODO: make normal function
      require})
