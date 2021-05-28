@@ -506,12 +506,13 @@
      ;; legacy structure for error reporting
      (mark-eval-call (list 'case)))))
 
-(defn expand-try
-  [ctx [_try & body]]
-  (let [[body-exprs
+(defn analyze-try
+  [ctx expr]
+  (let [body (next expr)
+        [body-exprs
          catches
          finally]
-        (loop [exprs (seq body)
+        (loop [exprs body
                body-exprs []
                catch-exprs []
                finally-expr nil]
@@ -539,12 +540,9 @@
                       catches)
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
-    (with-meta
-      {:sci.impl/try
-       {:body body
-        :catches catches
-        :finally finally}}
-      {:sci.impl/op :try})))
+    (ctx-fn (fn [ctx]
+              (eval/eval-try ctx body catches finally))
+            expr)))
 
 (defn expand-declare [ctx [_declare & names :as expr]]
   (let [cnn (vars/current-ns-name)
@@ -877,7 +875,7 @@
                     doseq (analyze ctx (expand-doseq ctx expr))
                     if (return-if ctx expr)
                     case (analyze-case ctx expr)
-                    try (expand-try ctx expr)
+                    try (analyze-try ctx expr)
                     declare (expand-declare ctx expr)
                     expand-dot* (expand-dot* ctx expr)
                     . (expand-dot** ctx expr)

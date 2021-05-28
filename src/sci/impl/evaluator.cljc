@@ -129,28 +129,27 @@
        (eval ctx case-default)))))
 
 (defn eval-try
-  [ctx expr]
-  (let [{:keys [:body :catches :finally]} (:sci.impl/try expr)]
-    (try
-      (binding [utils/*in-try* true]
-        (eval ctx body))
-      (catch #?(:clj Throwable :cljs js/Error) e
-        (if-let
-         [[_ r]
-          (reduce (fn [_ c]
-                    (let [clazz (:class c)]
-                      (when (instance? clazz e)
-                        (reduced
-                         [::try-result
-                          (eval (assoc-in ctx [:bindings (:binding c)]
-                                          e)
-                                (:body c))]))))
-                  nil
-                  catches)]
-          r
-          (rethrow-with-location-of-node ctx e body)))
-      (finally
-        (eval ctx finally)))))
+  [ctx body catches finally]
+  (try
+    (binding [utils/*in-try* true]
+      (eval ctx body))
+    (catch #?(:clj Throwable :cljs js/Error) e
+      (if-let
+          [[_ r]
+           (reduce (fn [_ c]
+                     (let [clazz (:class c)]
+                       (when (instance? clazz e)
+                         (reduced
+                          [::try-result
+                           (eval (assoc-in ctx [:bindings (:binding c)]
+                                           e)
+                                 (:body c))]))))
+                   nil
+                   catches)]
+        r
+        (rethrow-with-location-of-node ctx e body)))
+    (finally
+      (eval ctx finally))))
 
 (defn eval-throw [ctx [_throw ex]]
   (let [ex (eval ctx ex)]
@@ -324,7 +323,6 @@
                   (eval ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    try (eval-try ctx expr)
     ;; interop
     new (eval-constructor-invocation ctx expr)
     . (eval-instance-method-invocation ctx expr)
@@ -390,7 +388,6 @@
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
                    :call (eval-call ctx expr)
-                   :try (eval-try ctx expr)
                    :fn (let [fn-meta (:sci.impl/fn-meta expr)
                              the-fn (fns/eval-fn ctx eval expr)
                              fn-meta (when fn-meta (handle-meta ctx fn-meta))]
