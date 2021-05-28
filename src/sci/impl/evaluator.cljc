@@ -317,9 +317,6 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    ;; do (eval-do ctx expr)
-    and (eval-and ctx (rest expr))
-    or (eval-or ctx (rest expr))
     lazy-seq (new #?(:clj clojure.lang.LazySeq
                      :cljs cljs.core/LazySeq)
                   #?@(:clj []
