@@ -830,6 +830,12 @@
 (declare return-call) ;; for clj-kondo
 (gen-return-call)
 
+(defn analyze-quote [_ctx expr]
+  (when-not (= 2 (count expr))
+    (throw-error-with-location "Wrong number of args (0) passed to quote" expr))
+  (let [snd (second expr)]
+    (ctx-fn (fn [_ctx] snd) expr)))
+
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
     (cond (symbol? f)
@@ -880,7 +886,8 @@
                     ns (analyze-ns-form ctx expr)
                     var (analyze-var ctx expr)
                     set! (analyze-set! ctx expr)
-                    (import quote) (mark-eval-call expr) ;; don't analyze children
+                    quote (analyze-quote ctx expr)
+                    import (mark-eval-call expr) ;; don't analyze children
                     ;; TODO: analyze if recur occurs in tail position, see #498
                     ;; recur (mark-eval-call (cons f (analyze-children ctx (rest expr))))
                     ;; else

@@ -335,8 +335,7 @@
                                       (meta expr)))
     use (apply load/eval-use ctx (with-meta (rest expr)
                                    (meta expr)))
-    import (apply eval-import ctx (rest expr))
-    quote (second expr)))
+    import (apply eval-import ctx (rest expr))))
 
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
