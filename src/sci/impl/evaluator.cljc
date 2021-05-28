@@ -9,6 +9,7 @@
    [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
+   [sci.impl.types]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      set-namespace!
