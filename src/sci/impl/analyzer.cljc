@@ -467,14 +467,14 @@
                        (with-meta expr {:sci.impl/op :call}))))
       (throw-error-with-location "Too many arguments to if" expr))))
 
-(defn expand-case
+(defn analyze-case
   [ctx expr]
-  (let [v (analyze ctx (second expr))
+  (let [case-val (analyze ctx (second expr))
         clauses (nnext expr)
         match-clauses (take-nth 2 clauses)
         result-clauses (analyze-children ctx (take-nth 2 (rest clauses)))
-        default (when (odd? (count clauses))
-                  [:val (analyze ctx (last clauses))])
+        [default? case-default] (when (odd? (count clauses))
+                  [true (analyze ctx (last clauses))])
         cases (interleave match-clauses result-clauses)
         assoc-new (fn [m k v]
                     (if-not (contains? m k)
@@ -496,12 +496,15 @@
                           cases
                           (assoc-new ret-map k v))))
                      ret-map))
-        ret (mark-eval-call (list 'case
-                                  {:case-map case-map
-                                   :case-val v
-                                   :case-default default}
-                                  default))]
-    (mark-eval-call ret)))
+        f (if default?
+            (fn [ctx]
+              (eval/eval-case ctx case-map case-val case-default))
+            (fn [ctx]
+              (eval/eval-case ctx case-map case-val)))]
+    (ctx-fn
+     f
+     ;; legacy structure for error reporting
+     (mark-eval-call (list 'case)))))
 
 (defn expand-try
   [ctx [_try & body]]
@@ -867,7 +870,7 @@
                             (analyze ctx res)))
                     doseq (analyze ctx (expand-doseq ctx expr))
                     if (return-if ctx expr)
-                    case (expand-case ctx expr)
+                    case (analyze-case ctx expr)
                     try (expand-try ctx expr)
                     declare (expand-declare ctx expr)
                     expand-dot* (expand-dot* ctx expr)

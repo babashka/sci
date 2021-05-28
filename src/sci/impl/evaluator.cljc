@@ -116,14 +116,17 @@
 (declare eval-string*)
 
 (defn eval-case
-  [ctx [_case {:keys [:case-map :case-val :case-default]}]]
-  (let [v (eval ctx case-val)]
-    (if-let [[_ found] (find case-map v)]
-      (eval ctx found)
-      (if (vector? case-default)
-        (eval ctx (second case-default))
-        (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
-                    (str "No matching clause: " v)))))))
+  ([ctx case-map case-val]
+   (let [v (eval ctx case-val)]
+     (if-let [[_ found] (find case-map v)]
+       (eval ctx found)
+       (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+                   (str "No matching clause: " v))))))
+  ([ctx case-map case-val case-default]
+   (let [v (eval ctx case-val)]
+     (if-let [[_ found] (find case-map v)]
+       (eval ctx found)
+       (eval ctx case-default)))))
 
 (defn eval-try
   [ctx expr]
@@ -324,8 +327,6 @@
                   (eval ctx (second expr))
                   #?@(:clj []
                       :cljs [nil nil]))
-    ;; recur (fn-call ctx (comp fns/->Recur vector) (rest expr))
-    case (eval-case ctx expr)
     try (eval-try ctx expr)
     ;; interop
     new (eval-constructor-invocation ctx expr)
@@ -337,10 +338,6 @@
                                       (meta expr)))
     use (apply load/eval-use ctx (with-meta (rest expr)
                                    (meta expr)))
-    ;; resolve works as a function so this should not be necessary
-    ;; resolve (eval-resolve ctx (second expr))
-    ;;macroexpand-1 (macroexpand-1 ctx (eval ctx (second expr)))
-    ;; macroexpand (macroexpand ctx (eval ctx (second expr)))
     import (apply eval-import ctx (rest expr))
     quote (second expr)))
 
