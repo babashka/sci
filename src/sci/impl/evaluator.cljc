@@ -158,10 +158,6 @@
                                 ;; eval args!
                                 (map #(eval ctx %) (rest expr))))
 
-(defn eval-constructor-invocation [ctx [_new #?(:clj class :cljs constructor) args]]
-  (let [args (map #(eval ctx %) args)] ;; eval args!
-    (interop/invoke-constructor #?(:clj class :cljs constructor) args)))
-
 #?(:clj
    (defn super-symbols [clazz]
      ;; (prn clazz '-> (map #(symbol (.getName ^Class %)) (supers clazz)))
@@ -312,8 +308,6 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    ;; interop
-    new (eval-constructor-invocation ctx expr)
     . (eval-instance-method-invocation ctx expr)
     in-ns (eval-in-ns ctx expr)
     refer (apply load/eval-refer ctx (rest expr))

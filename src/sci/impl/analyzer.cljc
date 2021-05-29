@@ -647,11 +647,15 @@
                 "Malformed member expression, expecting (.member target ...)")))
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
-(defn expand-new [ctx [_new class-sym & args :as _expr]]
+(defn analyze-new [ctx [_new class-sym & args :as expr]]
   (if-let [#?(:clj {:keys [:class] :as _opts}
               :cljs {:keys [:constructor] :as _opts}) (interop/resolve-class-opts ctx class-sym)]
     (let [args (analyze-children ctx args)] ;; analyze args!
-      (mark-eval-call (list 'new #?(:clj class :cljs constructor) args)))
+      (ctx-fn
+       (fn [ctx]
+         (interop/invoke-constructor #?(:clj class :cljs constructor)
+                                     (mapv #(eval/eval ctx %) args)))
+       expr))
     (if-let [record (records/resolve-record-class ctx class-sym)]
       (let [args (analyze-children ctx args)]
         (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args)))
@@ -662,8 +666,8 @@
         class-sym (with-meta (symbol (subs constructor-name 0
                                            (dec (count constructor-name))))
                     (meta constructor-sym))]
-    (expand-new ctx (with-meta (list* 'new class-sym args)
-                      (meta constructor-sym)))))
+    (analyze-new ctx (with-meta (list* 'new class-sym args)
+                       (meta constructor-sym)))))
 
 ;;;; End interop
 
@@ -892,7 +896,7 @@
                     expand-dot* (expand-dot* ctx expr)
                     . (expand-dot** ctx expr)
                     expand-constructor (expand-constructor ctx expr)
-                    new (expand-new ctx expr)
+                    new (analyze-new ctx expr)
                     ns (analyze-ns-form ctx expr)
                     var (analyze-var ctx expr)
                     set! (analyze-set! ctx expr)
