@@ -428,14 +428,13 @@
                                syms))]
     (analyze ctx expansion)))
 
-(defn expand-lazy-seq
+(defn analyze-lazy-seq
   [ctx expr]
-  (let [body (rest expr)]
-    (mark-eval-call
-     (list `lazy-seq
-           (analyze ctx
-                    ;; expand-fn will take care of the analysis of the body
-                    (list 'fn [] (cons 'do body)))))))
+  (let [body (rest expr)
+        ana (analyze ctx (cons 'do body))]
+    (ctx-fn (fn [ctx]
+              (lazy-seq (eval/eval ctx ana)))
+            expr)))
 
 (defn return-if
   [ctx expr]
@@ -879,7 +878,7 @@
                                       ret)
                     ;; TODO: implement as normal macro in namespaces.cljc
                     loop (expand-loop ctx expr)
-                    lazy-seq (expand-lazy-seq ctx expr)
+                    lazy-seq (analyze-lazy-seq ctx expr)
                     for (let [res (expand-for ctx expr)]
                           (if (:sci.impl/macroexpanding ctx)
                             res

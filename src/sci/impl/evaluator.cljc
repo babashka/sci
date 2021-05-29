@@ -23,7 +23,7 @@
 
 (def #?(:clj ^:const macros :cljs macros)
   '#{do fn def defn
-     lazy-seq try syntax-quote case . in-ns set!
+     try syntax-quote case . in-ns set!
      ;; TODO: make normal function
      require})
 
@@ -312,13 +312,6 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    lazy-seq (new #?(:clj clojure.lang.LazySeq
-                     :cljs cljs.core/LazySeq)
-                  #?@(:clj []
-                      :cljs [nil])
-                  (eval ctx (second expr))
-                  #?@(:clj []
-                      :cljs [nil nil]))
     ;; interop
     new (eval-constructor-invocation ctx expr)
     . (eval-instance-method-invocation ctx expr)
