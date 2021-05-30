@@ -601,6 +601,7 @@
                                             (str "Unable to resolve classname: " t) t))]
                              (assoc m :tag-class clazz))
                            m)))
+        _ (prn :i (meta instance-expr))
         method-expr (name method-expr)
         args (when args (analyze-children ctx args))
         res #?(:clj (if (class? instance-expr)
@@ -627,8 +628,18 @@
                         (mark-eval-call
                          `(~(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access}) ~@args)))
-                      (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))
-               :cljs (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))]
+                      (ctx-fn (fn [ctx]
+                                (eval/eval-instance-method-invocation ctx instance-expr method-expr args))
+                              {::instance-expr instance-expr
+                               ::method-expr method-expr}
+                              _expr
+                              ))
+               :cljs (ctx-fn (fn [ctx]
+                               (eval/eval-instance-method-invocation ctx instance-expr method-expr args))
+                             ;; this info is used by set!
+                             {::instance-expr instance-expr
+                              ::method-expr method-expr}
+                             _expr))]
     res))
 
 (defn expand-dot**
@@ -744,8 +755,9 @@
         #?@(:cljs [(seq? obj)
                    (let [obj (analyze ctx obj)
                          v (analyze ctx v)
-                         k (subs (nth obj 2) 1)
-                         obj (nth obj 1)]
+                         obj (types/info obj)
+                         k (subs (::method-expr obj) 1)
+                         obj (::instance-expr obj)]
                      (ctx-fn (fn [ctx]
                                (let [obj (eval/eval ctx obj)
                                      v (eval/eval ctx v)]
@@ -1080,7 +1092,12 @@
                                           vector expr m)
        (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
        (seq? expr) (if (seq expr)
-                     (merge-meta (analyze-call ctx expr top-level?) m)
+                     (do
+                       (when (:tag m)
+                         (prn :> m)
+                         (prn :> (merge-meta (analyze-call ctx expr top-level?) m))
+                         (prn :> (meta (merge-meta (analyze-call ctx expr top-level?) m))))
+                       (merge-meta (analyze-call ctx expr top-level?) m))
                      ;; the empty list
                      expr)
        :else

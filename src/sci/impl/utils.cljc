@@ -222,8 +222,11 @@
      declare expand-dot* expand-constructor new . import in-ns ns var
      set! resolve #_#_macroexpand-1 macroexpand})
 
-(defn ctx-fn [f expr]
-  (t/->EvalFn f nil expr))
+(defn ctx-fn
+  ([f expr]
+   (t/->EvalFn f nil expr))
+  ([f m expr]
+   (t/->EvalFn f m expr)))
 
 (defn maybe-destructured
   [params body]
