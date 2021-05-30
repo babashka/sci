@@ -40,7 +40,10 @@
 (extend-protocol Sexpr
   #?(:clj Object :cljs default) (sexpr [this] this))
 
-(deftype EvalFn [f m expr]
+(defprotocol Info
+  (info [this]))
+
+(deftype EvalFn [f info expr]
   ;; f = (fn [ctx] ...)
   ;; m = meta
   IBox
@@ -53,7 +56,9 @@
      :cljs IWithMeta)
   (#?(:clj withMeta
       :cljs -with-meta) [_this m]
-    (->EvalFn f m (with-meta expr m)))
+    (->EvalFn f info (with-meta expr m)))
+  Info
+  (info [_] info)
   Sexpr
   (sexpr [_] expr)
   Object
