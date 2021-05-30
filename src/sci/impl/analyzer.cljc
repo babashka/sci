@@ -691,9 +691,9 @@
 
 ;;;; Namespaces
 
-(defn return-refer [_ctx expr analyzed-args]
+(defn return-ns-op [_ctx f expr analyzed-args]
   (ctx-fn (fn [ctx]
-            (apply load/eval-refer ctx analyzed-args))
+            (apply f ctx analyzed-args))
           expr))
 
 (defn analyze-ns-form [ctx [_ns ns-name & exprs :as expr]]
@@ -721,20 +721,17 @@
       (if exprs
         (let [[k & args :as expr] (first exprs)]
           (case k
-            (:require :use)
+            (:require :use :import :refer-clojure)
             (recur (next exprs)
                    (conj ret
-                         (mark-eval-call
-                          (with-meta (list* (symbol (name k)) args)
-                            (meta expr)))))
-            :import (recur (next exprs) (conj ret (mark-eval-call
-                                                   (with-meta (list* 'import args)
-                                                     (meta expr)))))
-            :refer-clojure (recur (next exprs)
-                                  (conj ret
-                                        (return-refer ctx
-                                                      (mark-eval-call expr)
-                                                      (cons 'clojure.core args))))
+                         (return-ns-op
+                          ctx (case k
+                                :require load/eval-require
+                                :use load/eval-use
+                                :import eval/eval-import
+                                :refer-clojure (fn [ctx & args]
+                                                 (apply load/eval-refer ctx 'clojure.core args)))
+                          expr args)))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
         (return-do
@@ -881,6 +878,12 @@
                 nil))
             expr)))
 
+(defn analyze-import [_ctx expr]
+  (let [args (rest expr)]
+    (ctx-fn (fn [ctx]
+              (apply eval/eval-import ctx args))
+            (mark-eval-call expr))))
+
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
     (cond (symbol? f)
@@ -933,7 +936,7 @@
                     var (analyze-var ctx expr)
                     set! (analyze-set! ctx expr)
                     quote (analyze-quote ctx expr)
-                    import (mark-eval-call expr) ;; don't analyze children
+                    import (analyze-import ctx expr)
                     ;; TODO: analyze if recur occurs in tail position, see #498
                     ;; recur (mark-eval-call (cons f (analyze-children ctx (rest expr))))
                     ;; else
