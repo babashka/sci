@@ -6,7 +6,6 @@
    [sci.impl.faster :as faster :refer [get-2 deref-1]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
-   [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.types]
@@ -22,9 +21,7 @@
 
 (def #?(:clj ^:const macros :cljs macros)
   '#{do fn def defn
-     try syntax-quote set!
-     ;; TODO: make normal function
-     require})
+     syntax-quote})
 
 ;;;; Evaluation
 
@@ -303,10 +300,6 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    require (apply load/eval-require ctx (with-meta (rest expr)
-                                      (meta expr)))
-    use (apply load/eval-use ctx (with-meta (rest expr)
-                                   (meta expr)))
     import (apply eval-import ctx (rest expr))))
 
 (defn eval-call [ctx expr]
