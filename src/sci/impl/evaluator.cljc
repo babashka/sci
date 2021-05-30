@@ -23,7 +23,7 @@
 
 (def #?(:clj ^:const macros :cljs macros)
   '#{do fn def defn
-     try syntax-quote case . in-ns set!
+     try syntax-quote case in-ns set!
      ;; TODO: make normal function
      require})
 
@@ -163,8 +163,8 @@
      ;; (prn clazz '-> (map #(symbol (.getName ^Class %)) (supers clazz)))
      (map #(symbol (.getName ^Class %)) (supers clazz))))
 
-(defn eval-instance-method-invocation [{:keys [:class->opts] :as ctx}
-                                       [_dot instance-expr method-str args :as _expr]]
+(defn eval-instance-method-invocation
+  [ctx instance-expr method-str args]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (eval ctx instance-expr)]
@@ -175,6 +175,7 @@
             instance-class-name #?(:clj (.getName ^Class instance-class)
                                    :cljs (.-name instance-class))
             instance-class-symbol (symbol instance-class-name)
+            class->opts (:class->opts ctx)
             allowed? (or
                       (get class->opts :allow)
                       (get class->opts instance-class-symbol))
@@ -308,7 +309,6 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    . (eval-instance-method-invocation ctx expr)
     in-ns (eval-in-ns ctx expr)
     refer (apply load/eval-refer ctx (rest expr))
     require (apply load/eval-require ctx (with-meta (rest expr)

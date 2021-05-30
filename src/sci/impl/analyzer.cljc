@@ -329,7 +329,12 @@
   (let [[ctx new-let-bindings]
         (reduce
          (fn [[ctx new-let-bindings] [binding-name binding-value]]
-           (let [v (analyze ctx binding-value)]
+           (let [m (meta binding-value)
+                 t (when m (:tag m))
+                 binding-name (if t (vary-meta binding-name
+                                               assoc :tag t)
+                                  binding-name)
+                 v (analyze ctx binding-value)]
              [(update ctx :bindings assoc binding-name v)
               (conj new-let-bindings binding-name v)]))
          [ctx []]
@@ -627,8 +632,21 @@
                         (mark-eval-call
                          `(~(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access}) ~@args)))
-                      (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))
-               :cljs (mark-eval-call `(~'. ~instance-expr ~method-expr ~args)))]
+                      (ctx-fn (fn [ctx]
+                                (eval/eval-instance-method-invocation ctx instance-expr method-expr args))
+                              ;; this info is used by set!
+                              {::instance-expr instance-expr
+                               ::method-expr method-expr}
+                              ;; legacy error reporting for (.foo 1)
+                              (mark-eval-call _expr)
+                              ))
+               :cljs (ctx-fn (fn [ctx]
+                               (eval/eval-instance-method-invocation ctx instance-expr method-expr args))
+                             ;; this info is used by set!
+                             {::instance-expr instance-expr
+                              ::method-expr method-expr}
+                             ;; legacy error reporting for (.foo 1)
+                             (mark-eval-call _expr)))]
     res))
 
 (defn expand-dot**
@@ -744,8 +762,9 @@
         #?@(:cljs [(seq? obj)
                    (let [obj (analyze ctx obj)
                          v (analyze ctx v)
-                         k (subs (nth obj 2) 1)
-                         obj (nth obj 1)]
+                         obj (types/info obj)
+                         k (subs (::method-expr obj) 1)
+                         obj (::instance-expr obj)]
                      (ctx-fn (fn [ctx]
                                (let [obj (eval/eval ctx obj)
                                      v (eval/eval ctx v)]
