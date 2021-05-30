@@ -298,10 +298,6 @@
 
 (def-fn-call)
 
-(defn eval-special-call [ctx f-sym expr]
-  (case (utils/strip-core-ns f-sym)
-    import (apply eval-import ctx (rest expr))))
-
 (defn eval-call [ctx expr]
   (try (let [f (first expr)
              eval? (instance? #?(:clj sci.impl.types.EvalFn
@@ -309,8 +305,6 @@
              op (when-not eval?
                   (some-> (meta f) (get-2 :sci.impl/op)))]
          (cond
-           (and (symbol? f) (not op))
-           (eval-special-call ctx f expr)
            (kw-identical? op :static-access)
            (eval-static-method-invocation ctx expr)
            :else

@@ -878,6 +878,12 @@
                 nil))
             expr)))
 
+(defn analyze-import [_ctx expr]
+  (let [args (rest expr)]
+    (ctx-fn (fn [ctx]
+              (apply eval/eval-import ctx args))
+            (mark-eval-call expr))))
+
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
     (cond (symbol? f)
@@ -930,7 +936,7 @@
                     var (analyze-var ctx expr)
                     set! (analyze-set! ctx expr)
                     quote (analyze-quote ctx expr)
-                    import (mark-eval-call expr) ;; don't analyze children
+                    import (analyze-import ctx expr)
                     ;; TODO: analyze if recur occurs in tail position, see #498
                     ;; recur (mark-eval-call (cons f (analyze-children ctx (rest expr))))
                     ;; else
