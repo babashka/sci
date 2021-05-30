@@ -1095,6 +1095,7 @@
                      (do
                        (when (:tag m)
                          (prn :> m)
+                         (prn :>ana (analyze-call ctx expr top-level?) )
                          (prn :> (merge-meta (analyze-call ctx expr top-level?) m))
                          (prn :> (meta (merge-meta (analyze-call ctx expr top-level?) m))))
                        (merge-meta (analyze-call ctx expr top-level?) m))
