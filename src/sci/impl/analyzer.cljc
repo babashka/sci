@@ -691,6 +691,11 @@
 
 ;;;; Namespaces
 
+(defn return-refer [_ctx expr analyzed-args]
+  (ctx-fn (fn [ctx]
+            (apply load/eval-refer ctx analyzed-args))
+          expr))
+
 (defn analyze-ns-form [ctx [_ns ns-name & exprs :as expr]]
   (when-not (symbol? ns-name)
     (throw (new #?(:clj IllegalArgumentException
@@ -727,9 +732,9 @@
                                                      (meta expr)))))
             :refer-clojure (recur (next exprs)
                                   (conj ret
-                                        (mark-eval-call
-                                         (with-meta (list* 'refer 'clojure.core args)
-                                           (meta expr)))))
+                                        (return-refer ctx
+                                                      (mark-eval-call expr)
+                                                      (cons 'clojure.core args))))
             :gen-class ;; ignore
             (recur (next exprs) ret)))
         (return-do

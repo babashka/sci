@@ -12,7 +12,6 @@
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
-                                     set-namespace!
                                      kw-identical?]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
@@ -23,7 +22,7 @@
 
 (def #?(:clj ^:const macros :cljs macros)
   '#{do fn def defn
-     try syntax-quote case in-ns set!
+     try syntax-quote set!
      ;; TODO: make normal function
      require})
 
@@ -304,7 +303,6 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    refer (apply load/eval-refer ctx (rest expr))
     require (apply load/eval-require ctx (with-meta (rest expr)
                                       (meta expr)))
     use (apply load/eval-use ctx (with-meta (rest expr)
