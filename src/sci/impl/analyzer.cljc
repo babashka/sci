@@ -634,16 +634,19 @@
                               {:sci.impl/op :static-access}) ~@args)))
                       (ctx-fn (fn [ctx]
                                 (eval/eval-instance-method-invocation ctx instance-expr method-expr args))
+                              ;; this info is used by set!
                               {::instance-expr instance-expr
                                ::method-expr method-expr}
-                              _expr
+                              ;; legacy error reporting for (.foo 1)
+                              (mark-eval-call _expr)
                               ))
                :cljs (ctx-fn (fn [ctx]
                                (eval/eval-instance-method-invocation ctx instance-expr method-expr args))
                              ;; this info is used by set!
                              {::instance-expr instance-expr
                               ::method-expr method-expr}
-                             _expr))]
+                             ;; legacy error reporting for (.foo 1)
+                             (mark-eval-call _expr)))]
     res))
 
 (defn expand-dot**
