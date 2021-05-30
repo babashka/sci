@@ -96,9 +96,7 @@
          (when-let [[k v]
                     (find bindings sym)]
            ;; never inline a binding at macro time!
-           (let [_ (prn :v v)
-                 t (tag ctx v)
-                 _ (prn :t t)
+           (let [t (tag ctx v)
                  v (mark-resolve-sym k)
                  ;; pass along tag of expression!
                  v (if t

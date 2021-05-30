@@ -329,7 +329,12 @@
   (let [[ctx new-let-bindings]
         (reduce
          (fn [[ctx new-let-bindings] [binding-name binding-value]]
-           (let [v (analyze ctx binding-value)]
+           (let [m (meta binding-value)
+                 t (when m (:tag m))
+                 binding-name (if t (vary-meta binding-name
+                                               assoc :tag t)
+                                  binding-name)
+                 v (analyze ctx binding-value)]
              [(update ctx :bindings assoc binding-name v)
               (conj new-let-bindings binding-name v)]))
          [ctx []]
@@ -601,7 +606,6 @@
                                             (str "Unable to resolve classname: " t) t))]
                              (assoc m :tag-class clazz))
                            m)))
-        _ (prn :i (meta instance-expr))
         method-expr (name method-expr)
         args (when args (analyze-children ctx args))
         res #?(:clj (if (class? instance-expr)
@@ -1092,13 +1096,7 @@
                                           vector expr m)
        (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
        (seq? expr) (if (seq expr)
-                     (do
-                       (when (:tag m)
-                         (prn :> m)
-                         (prn :>ana (analyze-call ctx expr top-level?) )
-                         (prn :> (merge-meta (analyze-call ctx expr top-level?) m))
-                         (prn :> (meta (merge-meta (analyze-call ctx expr top-level?) m))))
-                       (merge-meta (analyze-call ctx expr top-level?) m))
+                     (merge-meta (analyze-call ctx expr top-level?) m)
                      ;; the empty list
                      expr)
        :else
