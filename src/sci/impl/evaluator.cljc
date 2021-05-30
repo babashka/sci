@@ -193,11 +193,6 @@
 
 ;;;; Namespaces
 
-(defn eval-in-ns [ctx [_in-ns ns-expr]]
-  (let [ns-sym (eval ctx ns-expr)]
-    (set-namespace! ctx ns-sym nil)
-    nil))
-
 (declare eval-form)
 
 (defn eval-resolve
@@ -309,7 +304,6 @@
 
 (defn eval-special-call [ctx f-sym expr]
   (case (utils/strip-core-ns f-sym)
-    in-ns (eval-in-ns ctx expr)
     refer (apply load/eval-refer ctx (rest expr))
     require (apply load/eval-require ctx (with-meta (rest expr)
                                       (meta expr)))

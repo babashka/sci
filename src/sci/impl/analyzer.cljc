@@ -868,6 +868,14 @@
   (let [snd (second expr)]
     (ctx-fn (fn [_ctx] snd) expr)))
 
+(defn analyze-in-ns [ctx expr]
+  (let [ns-expr (analyze ctx (second expr))]
+    (ctx-fn (fn [ctx]
+              (let [ns-sym (eval/eval ctx ns-expr)]
+                (set-namespace! ctx ns-sym nil)
+                nil))
+            expr)))
+
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
     (cond (symbol? f)
@@ -927,6 +935,7 @@
                     or (return-or expr (analyze-children ctx (rest expr)))
                     and (return-and expr (analyze-children ctx (rest expr)))
                     recur (return-recur expr (analyze-children ctx (rest expr)))
+                    in-ns (analyze-in-ns ctx expr)
                     (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
                   :else
                   (try
