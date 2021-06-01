@@ -394,7 +394,15 @@
                     (when (string? ds) ds))
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
+        [meta-map2 body] (if (seq? body)
+                           (let [lb (last body)]
+                             (if (map? lb)
+                               [lb (butlast body)]
+                               [nil body]))
+                           [nil body])
         meta-map (merge (meta fn-name) (meta expr) meta-map)
+        meta-map (if meta-map2 (merge meta-map meta-map2)
+                     meta-map)
         meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))

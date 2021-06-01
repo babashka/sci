@@ -254,7 +254,11 @@
             (= (get m1 k) (get m2 k)))
           (keys m1)))
 
-(submap? {:line 2, :column 1} (meta #'foo))")))))
+(submap? {:line 2, :column 1} (meta #'foo))"))))
+  (testing "trailing metadata"
+    (is (= 1337 (eval* "(do (defn foo
+                            ([x] (dec x)) {:cool-meta (+ 1336 1)})
+                          (:cool-meta (meta #'foo)))")))))
 
 (deftest resolve-test
   (is (thrown-with-msg?
