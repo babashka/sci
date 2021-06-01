@@ -258,7 +258,8 @@
   (testing "trailing metadata"
     (is (= 1337 (eval* "(do (defn foo
                             ([x] (dec x)) {:cool-meta (+ 1336 1)})
-                          (:cool-meta (meta #'foo)))")))))
+                          (:cool-meta (meta #'foo)))")))
+    (is (map? (eval* "(defn- accept [x] {::op ::accept :ret x}) (accept 1)")))))
 
 (deftest resolve-test
   (is (thrown-with-msg?

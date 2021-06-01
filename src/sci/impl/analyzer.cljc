@@ -394,7 +394,7 @@
                     (when (string? ds) ds))
         meta-map (when-let [m (last pre-body)]
                    (when (map? m) m))
-        [meta-map2 body] (if (seq? body)
+        [meta-map2 body] (if (seq? (first body))
                            (let [lb (last body)]
                              (if (map? lb)
                                [lb (butlast body)]
