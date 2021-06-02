@@ -240,6 +240,7 @@
 
 (defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name
                                               var] :as f}]
+  ;; (prn :eval-fn fn-name (take 5 #?(:clj (.getStackTrace (Thread/currentThread)))))
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
         ctx (if (and (not var)
