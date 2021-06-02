@@ -335,35 +335,13 @@
         self-ref? (and fn-name (not defn?))
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))]
-    (case [(boolean fn-meta) (boolean self-ref?)]
-      [false false]
-      (fn [ctx]
-        (fns/eval-fn ctx fn-name fn-bodies macro? single-arity))
-      [false true]
-      (fn [ctx]
-        (let [self-ref (atom nil)
-              ctx (assoc-in ctx [:bindings fn-name]
-                            (fn call-self [& args]
-                              (apply @self-ref args)))
-              f (fns/eval-fn ctx fn-name fn-bodies macro? single-arity)]
-          (reset! self-ref f)
-          f))
-      [true false]
+    (if fn-meta
       (fn [ctx]
         (let [fn-meta (eval/handle-meta ctx fn-meta)
-              f (fns/eval-fn ctx fn-name fn-bodies macro? single-arity)]
+              f (fns/eval-fn ctx fn-name fn-bodies macro? single-arity self-ref?)]
           (vary-meta f merge fn-meta)))
-      [true true]
       (fn [ctx]
-        (let [self-ref (atom nil)
-              ctx (assoc-in ctx [:bindings fn-name]
-                            (fn call-self [& args]
-                              (apply @self-ref args)))
-              fn-meta (eval/handle-meta ctx fn-meta)
-              f (fns/eval-fn ctx fn-name fn-bodies macro? single-arity)
-              f (vary-meta f merge fn-meta)]
-          (reset! self-ref f)
-          f)))))
+        (fns/eval-fn ctx fn-name fn-bodies macro? single-arity self-ref?)))))
 
 (defn expand-fn [ctx fn-expr macro?]
   (let [struct (expand-fn* ctx fn-expr macro?)

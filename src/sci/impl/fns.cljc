@@ -239,8 +239,14 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx fn-name fn-bodies macro? single-arity]
-  (let [f (if single-arity
+(defn eval-fn [ctx fn-name fn-bodies macro? single-arity self-ref?]
+  (let [self-ref (when self-ref? (atom nil))
+        ctx (if self-ref?
+              (assoc-in ctx [:bindings fn-name]
+                        (fn call-self [& args]
+                          (apply @self-ref args)))
+              ctx)
+        f (if single-arity
             (fun ctx single-arity fn-name macro?)
             (let [arities (fn-arity-map ctx fn-name macro? fn-bodies)]
               (fn [& args]
@@ -256,6 +262,7 @@
             (vary-meta f
                        #(assoc % :sci/macro macro?))
             f)]
+    (when self-ref? (reset! self-ref f))
     f))
 
 (vreset! utils/eval-fn eval-fn)
