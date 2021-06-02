@@ -123,11 +123,15 @@
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
-   {:keys [fixed-arity var-arg-name
-                    #_:clj-kondo/ignore params body] :as _m}
+   fn-body
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?]
-  (let [#_:clj-kondo/ignore nsm (vars/current-ns-name)
+  (let [fixed-arity (:fixed-arity fn-body)
+        var-arg-name (:var-arg-name fn-body)
+        #_:clj-kondo/ignore
+        params (:params fn-body)
+        body (:body fn-body)
+        #_:clj-kondo/ignore nsm (vars/current-ns-name)
         disable-arity-checks? (get-2 ctx :disable-arity-checks)
         ;; body-count (count body)
         f (if-not #?(:clj (or var-arg-name
