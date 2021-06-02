@@ -84,30 +84,21 @@
        (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
          [sym x])))))
 
-(defn tag [_ctx expr]
-  (when-let [m (meta expr)]
-    (:tag m)))
-
 (defn lookup [ctx sym call?]
   (let [bindings (faster/get-2 ctx :bindings)
         [k v :as kv]
         (or
          ;; bindings are not checked for permissions
-         (when-let [[k v]
+         (when-let [[k _]
                     (find bindings sym)]
            ;; never inline a binding at macro time!
-           (let [t (tag ctx v)
-                 v (mark-resolve-sym k)
-                 ;; pass along tag of expression!
-                 v (if t
-                     ;; when v has a tag, let's handle it the old way for now
-                     (vary-meta v assoc :tag t)
-                     (if call? ;; resolve-symbol is already handled in the call case
-                       v
-                       (ctx-fn
-                        (fn [ctx]
-                          (eval/resolve-symbol ctx v))
-                        v)))]
+           (let [;; pass along tag of expression!
+                 v (if call? ;; resolve-symbol is already handled in the call case
+                     (mark-resolve-sym k)
+                     (ctx-fn
+                      (fn [ctx]
+                        (eval/resolve-symbol ctx k))
+                      k))]
              [k v]))
          (when-let [kv (lookup* ctx sym call?)]
            (when (:check-permissions ctx)

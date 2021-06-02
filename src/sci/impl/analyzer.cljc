@@ -785,6 +785,8 @@
 ;;;; End vars
 
 (defmacro gen-return-binding-call
+  "Creates returning-binding-call function, optimizes calling a local
+  binding as function."
   []
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
