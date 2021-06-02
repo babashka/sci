@@ -331,14 +331,37 @@
   (let [fn-name (:sci.impl/fn-name struct)
         fn-bodies (:sci.impl/fn-bodies struct)
         defn? (:sci.impl/defn struct)
-        macro? (:sci/macro struct)]
-    (if fn-meta
+        macro? (:sci/macro struct)
+        self-ref? (and fn-name (not defn?))]
+    (case [(boolean fn-meta) (boolean self-ref?)]
+      [false false]
       (fn [ctx]
-        (let [the-fn (fns/eval-fn ctx fn-name fn-bodies defn? macro?)
-              fn-meta (eval/handle-meta ctx fn-meta)]
-          (vary-meta the-fn merge fn-meta)))
+        (fns/eval-fn ctx fn-name fn-bodies macro?))
+      [false true]
       (fn [ctx]
-        (fns/eval-fn ctx fn-name fn-bodies defn? macro?)))))
+        (let [self-ref (atom nil)
+              ctx (assoc-in ctx [:bindings fn-name]
+                            (fn call-self [& args]
+                              (apply @self-ref args)))
+              f (fns/eval-fn ctx fn-name fn-bodies macro?)]
+          (reset! self-ref f)
+          f))
+      [true false]
+      (fn [ctx]
+        (let [fn-meta (eval/handle-meta ctx fn-meta)
+              f (fns/eval-fn ctx fn-name fn-bodies macro?)]
+          (vary-meta f merge fn-meta)))
+      [true true]
+      (fn [ctx]
+        (let [self-ref (atom nil)
+              ctx (assoc-in ctx [:bindings fn-name]
+                            (fn call-self [& args]
+                              (apply @self-ref args)))
+              fn-meta (eval/handle-meta ctx fn-meta)
+              f (fns/eval-fn ctx fn-name fn-bodies macro?)
+              f (vary-meta f merge fn-meta)]
+          (reset! self-ref f)
+          f)))))
 
 (defn expand-fn [ctx fn-expr macro?]
   (let [struct (expand-fn* ctx fn-expr macro?)
