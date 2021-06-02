@@ -330,11 +330,11 @@
 (defn fn-ctx-fn [_ctx struct fn-meta]
   (if fn-meta
     (fn [ctx]
-      (let [the-fn (fns/eval-fn ctx eval/eval struct)
+      (let [the-fn (fns/eval-fn ctx struct)
             fn-meta (eval/handle-meta ctx fn-meta)]
         (vary-meta the-fn merge fn-meta)))
     (fn [ctx]
-      (fns/eval-fn ctx eval/eval struct))))
+      (fns/eval-fn ctx struct))))
 
 (defn expand-fn [ctx fn-expr macro?]
   (let [struct (expand-fn* ctx fn-expr macro?)

@@ -4,7 +4,6 @@
   (:require
    [clojure.string :as str]
    [sci.impl.faster :as faster :refer [get-2 deref-1]]
-   [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
