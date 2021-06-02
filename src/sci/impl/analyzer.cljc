@@ -273,7 +273,8 @@
               m)]
     m))
 
-(defn expand-fn [ctx [_fn name? & body :as fn-expr] macro?]
+
+(defn expand-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
                   name?
@@ -323,13 +324,20 @@
                           :fn true
                           :fn-meta fn-meta}
         struct (with-meta struct
-                 {:sci.impl/op :fn}) ]
-    (ctx-fn (fn [ctx]
-              (let [the-fn (fns/eval-fn ctx eval/eval struct)
-                    fn-meta (when fn-meta (eval/handle-meta ctx fn-meta))]
-                (if fn-meta
-                  (vary-meta the-fn merge fn-meta)
-                  the-fn)))
+                 {:sci.impl/op :fn})]
+    struct))
+
+(defn expand-fn [ctx fn-expr macro?]
+  (let [struct (expand-fn* ctx fn-expr macro?)
+        fn-meta (:sci.impl/fn-meta struct)
+        ctxfn (if fn-meta
+                (fn [ctx]
+                  (let [the-fn (fns/eval-fn ctx eval/eval struct)
+                        fn-meta (eval/handle-meta ctx fn-meta)]
+                    (vary-meta the-fn merge fn-meta)))
+                (fn [ctx]
+                  (fns/eval-fn ctx eval/eval struct)))]
+    (ctx-fn ctxfn
             struct
             struct)))
 
@@ -415,7 +423,7 @@
         meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
-        f (types/info (expand-fn ctx fn-body macro?))
+        f (expand-fn* ctx fn-body macro?)
         arglists (seq (:sci.impl/arglists f))
         meta-map (assoc meta-map
                         :ns @vars/current-ns
@@ -429,14 +437,14 @@
                  :sci.impl/fn-name fn-name
                  :sci.impl/var true)
         fn-meta (:sci.impl/fn-meta f)
-        f (ctx-fn (fn [ctx]
-                    (let [the-fn (fns/eval-fn ctx eval/eval f)
-                          fn-meta (when fn-meta (eval/handle-meta ctx fn-meta))]
-                      (if fn-meta
-                        (vary-meta the-fn merge fn-meta)
-                        the-fn)))
-                  f
-                  f)]
+        ctxfn (if fn-meta
+                (fn [ctx]
+                  (let [the-fn (fns/eval-fn ctx eval/eval f)
+                        fn-meta (eval/handle-meta ctx fn-meta)]
+                    (vary-meta the-fn merge fn-meta)))
+                (fn [ctx]
+                  (fns/eval-fn ctx eval/eval f)))
+        f (ctx-fn ctxfn f f)]
     (ctx-fn
      (fn [ctx]
        (eval/eval-def ctx fn-name f))
