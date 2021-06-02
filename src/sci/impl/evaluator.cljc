@@ -349,10 +349,6 @@
                  (case op
                    :call (eval-call ctx expr)
                    :static-access (interop/get-static-field expr)
-                   :deref! (let [v (first expr)
-                                 v (if (vars/var? v) @v v)
-                                 v (force v)]
-                             v)
                    ;; needed for when a needs-ctx fn is passed as hof
                    needs-ctx (if (identical? op utils/needs-ctx)
                                (partial expr ctx)

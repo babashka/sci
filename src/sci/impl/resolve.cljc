@@ -85,35 +85,24 @@
          [sym x])))))
 
 (defn lookup [ctx sym call?]
-  (let [bindings (faster/get-2 ctx :bindings)
-        [k v :as kv]
-        (or
-         ;; bindings are not checked for permissions
-         (when-let [[k _]
-                    (find bindings sym)]
-           ;; never inline a binding at macro time!
-           (let [;; pass along tag of expression!
-                 v (if call? ;; resolve-symbol is already handled in the call case
-                     (mark-resolve-sym k)
-                     (ctx-fn
-                      (fn [ctx]
-                        (eval/resolve-symbol ctx k))
-                      k))]
-             [k v]))
-         (when-let [kv (lookup* ctx sym call?)]
-           (when (:check-permissions ctx)
-             (check-permission! ctx sym kv))
-           kv))]
-    ;; (prn 'lookup sym '-> res)
-    (if-let [m (and (not (:sci.impl/prevent-deref ctx))
-                    (meta k))]
-      (if (:sci.impl/deref! m)
-        ;; the evaluation of this expression has been delayed by
-        ;; the caller and now is the time to deref it
-        [k (with-meta [v]
-             {:sci.impl/op :deref!})]
-        kv)
-      kv)))
+  (let [bindings (faster/get-2 ctx :bindings)]
+    (or
+     ;; bindings are not checked for permissions
+     (when-let [[k _]
+                (find bindings sym)]
+       ;; never inline a binding at macro time!
+       (let [;; pass along tag of expression!
+             v (if call? ;; resolve-symbol is already handled in the call case
+                 (mark-resolve-sym k)
+                 (ctx-fn
+                  (fn [ctx]
+                    (eval/resolve-symbol ctx k))
+                  k))]
+         [k v]))
+     (when-let [kv (lookup* ctx sym call?)]
+       (when (:check-permissions ctx)
+         (check-permission! ctx sym kv))
+       kv))))
 
 ;; workaround for evaluator also needing this function
 (vreset! utils/lookup lookup)

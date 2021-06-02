@@ -785,7 +785,7 @@
 ;;;; Vars
 
 (defn analyze-var [ctx [_ var-name]]
-  (resolve/resolve-symbol (assoc ctx :sci.impl/prevent-deref true) var-name))
+  (resolve/resolve-symbol ctx var-name))
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
   (cond (symbol? obj) ;; assume dynamic var

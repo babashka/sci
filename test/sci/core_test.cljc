@@ -162,17 +162,6 @@
                   '(let [x 3] (f) (f) x) {:bindings {'f #(swap! a inc)}})
                  @a))))))
 
-(deftest delay-test
-  (when-not tu/native?
-    ;; cannot test this natively due to metadata serialization in EDN
-    (is (= 6 (tu/eval* '(+ 1 2 3) {:bindings {(with-meta 'x {:sci.impl/deref! true})
-                                              (delay (throw (new #?(:clj Exception :cljs js/Error)
-                                                                 "o n000s")))}})))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                          #"o n000s"
-                          (tu/eval* '(+ 1 2 3 x) {:bindings {(with-meta 'x {:sci.impl/deref! true})
-                                                             (delay (throw (new #?(:clj Exception :cljs js/Error)
-                                                                                "o n000s")))}})))))
 (deftest fn-literal-test
   (is (= '(1 2 3)
          (eval* "(map #(do %) [1 2 3])")))
