@@ -428,9 +428,9 @@
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
                  :sci.impl/var true)
+        fn-meta (:sci.impl/fn-meta f)
         f (ctx-fn (fn [ctx]
-                    (let [fn-meta (:sci.impl/fn-meta f)
-                          the-fn (fns/eval-fn ctx eval/eval f)
+                    (let [the-fn (fns/eval-fn ctx eval/eval f)
                           fn-meta (when fn-meta (eval/handle-meta ctx fn-meta))]
                       (if fn-meta
                         (vary-meta the-fn merge fn-meta)
