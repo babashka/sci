@@ -328,13 +328,17 @@
     struct))
 
 (defn fn-ctx-fn [_ctx struct fn-meta]
-  (if fn-meta
-    (fn [ctx]
-      (let [the-fn (fns/eval-fn ctx struct)
-            fn-meta (eval/handle-meta ctx fn-meta)]
-        (vary-meta the-fn merge fn-meta)))
-    (fn [ctx]
-      (fns/eval-fn ctx struct))))
+  (let [fn-name (:sci.impl/fn-name struct)
+        fn-bodies (:sci.impl/fn-bodies struct)
+        defn? (:sci.impl/defn struct)
+        macro? (:sci/macro struct)]
+    (if fn-meta
+      (fn [ctx]
+        (let [the-fn (fns/eval-fn ctx fn-name fn-bodies defn? macro?)
+              fn-meta (eval/handle-meta ctx fn-meta)]
+          (vary-meta the-fn merge fn-meta)))
+      (fn [ctx]
+        (fns/eval-fn ctx fn-name fn-bodies defn? macro?)))))
 
 (defn expand-fn [ctx fn-expr macro?]
   (let [struct (expand-fn* ctx fn-expr macro?)
