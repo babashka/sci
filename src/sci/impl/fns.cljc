@@ -1,10 +1,10 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
+  (:require [sci.impl.evaluator :as eval]
+            [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
             [sci.impl.utils :as utils]
-            [sci.impl.evaluator :as eval]
             [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
                                                   gen-fn-varargs]])))
@@ -123,7 +123,7 @@
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
-   {:sci.impl/keys [fixed-arity var-arg-name
+   {:keys [fixed-arity var-arg-name
                     #_:clj-kondo/ignore params body] :as _m}
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?]
@@ -231,8 +231,8 @@
   (reduce
    (fn [arity-map fn-body]
      (let [f (fun ctx fn-body fn-name macro?)
-           var-arg? (:sci.impl/var-arg-name fn-body)
-           fixed-arity (:sci.impl/fixed-arity fn-body)]
+           var-arg? (:var-arg-name fn-body)
+           fixed-arity (:fixed-arity fn-body)]
        (if var-arg?
          (assoc arity-map :variadic f)
          (assoc arity-map fixed-arity f))))

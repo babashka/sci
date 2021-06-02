@@ -225,7 +225,9 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} fn-name [binding-vector & body-exprs] macro?]
+(defrecord FnBody [params body fixed-arity var-arg-name])
+
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -258,10 +260,7 @@
         ctx (update ctx :bindings merge (zipmap params
                                                 (repeat nil)))
         body (return-do fn-expr (analyze-children ctx body))]
-    #:sci.impl{:body body
-               :params params
-               :fixed-arity fixed-arity
-               :var-arg-name var-arg-name}))
+    (->FnBody params body fixed-arity var-arg-name)))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -290,10 +289,10 @@
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
-                                 body (expand-fn-args+body ctx fn-name body macro?)
-                                 body (assoc body :sci.impl/arglist arglist)
-                                 var-arg-name (:sci.impl/var-arg-name body)
-                                 fixed-arity (:sci.impl/fixed-arity body)
+                                 body (expand-fn-args+body ctx body macro?)
+                                 ;; body (assoc body :sci.impl/arglist arglist)
+                                 var-arg-name (:var-arg-name body)
+                                 fixed-arity (:fixed-arity body)
                                  new-min-varargs (when var-arg-name fixed-arity)]
                              (when (and var-arg-name min-varargs)
                                (throw-error-with-location "Can't have more than 1 variadic overload" fn-expr))
@@ -302,7 +301,7 @@
                                 "Can't have fixed arity function with more params than variadic function" fn-expr))
                              (-> acc
                                  (assoc :min-varargs new-min-varargs
-                                        :max-fixed (max (:sci.impl/fixed-arity body)
+                                        :max-fixed (max fixed-arity
                                                         max-fixed))
                                  (update :bodies conj body)
                                  (update :arglists conj arglist))))
