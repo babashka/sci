@@ -92,14 +92,13 @@
          (when-let [[k _]
                     (find bindings sym)]
            ;; never inline a binding at macro time!
-           (let [v (mark-resolve-sym k)
-                 ;; pass along tag of expression!
+           (let [;; pass along tag of expression!
                  v (if call? ;; resolve-symbol is already handled in the call case
-                     v
+                     (mark-resolve-sym k)
                      (ctx-fn
                       (fn [ctx]
-                        (eval/resolve-symbol ctx v))
-                      v))]
+                        (eval/resolve-symbol ctx k))
+                      k))]
              [k v]))
          (when-let [kv (lookup* ctx sym call?)]
            (when (:check-permissions ctx)
