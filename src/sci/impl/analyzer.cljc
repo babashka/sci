@@ -261,8 +261,7 @@
     #:sci.impl{:body body
                :params params
                :fixed-arity fixed-arity
-               :var-arg-name var-arg-name
-               :fn-name fn-name}))
+               :var-arg-name var-arg-name}))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
