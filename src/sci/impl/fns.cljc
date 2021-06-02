@@ -239,10 +239,9 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx fn-name fn-bodies macro?]
-  (let [single-arity? (= 1 (count fn-bodies))
-        f (if single-arity?
-            (fun ctx (first fn-bodies) fn-name macro?)
+(defn eval-fn [ctx fn-name fn-bodies macro? single-arity]
+  (let [f (if single-arity
+            (fun ctx single-arity fn-name macro?)
             (let [arities (fn-arity-map ctx fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
