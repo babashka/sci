@@ -316,13 +316,22 @@
         ana-fn-meta (analyzed-fn-meta ctx fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
-                  (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))]
-    (with-meta #:sci.impl{:fn-bodies arities
+                  (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
+        struct #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta}
-      {:sci.impl/op :fn})))
+        struct (with-meta struct
+                 {:sci.impl/op :fn}) ]
+    (ctx-fn (fn [ctx]
+              (let [the-fn (fns/eval-fn ctx eval/eval struct)
+                    fn-meta (when fn-meta (eval/handle-meta ctx fn-meta))]
+                (if fn-meta
+                  (vary-meta the-fn merge fn-meta)
+                  the-fn)))
+            struct
+            struct)))
 
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
@@ -406,7 +415,7 @@
         meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
-        f (expand-fn ctx fn-body macro?)
+        f (types/info (expand-fn ctx fn-body macro?))
         arglists (seq (:sci.impl/arglists f))
         meta-map (assoc meta-map
                         :ns @vars/current-ns
@@ -418,7 +427,16 @@
         f (assoc f
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
-                 :sci.impl/var true)]
+                 :sci.impl/var true)
+        f (ctx-fn (fn [ctx]
+                    (let [fn-meta (:sci.impl/fn-meta f)
+                          the-fn (fns/eval-fn ctx eval/eval f)
+                          fn-meta (when fn-meta (eval/handle-meta ctx fn-meta))]
+                      (if fn-meta
+                        (vary-meta the-fn merge fn-meta)
+                        the-fn)))
+                  f
+                  f)]
     (ctx-fn
      (fn [ctx]
        (eval/eval-def ctx fn-name f))

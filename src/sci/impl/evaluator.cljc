@@ -348,7 +348,7 @@
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
-                   :fn (let [fn-meta (:sci.impl/fn-meta expr)
+                   #_#_:fn (let [fn-meta (:sci.impl/fn-meta expr)
                              the-fn (fns/eval-fn ctx eval expr)
                              fn-meta (when fn-meta (handle-meta ctx fn-meta))]
                          (if fn-meta
