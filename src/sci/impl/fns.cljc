@@ -4,6 +4,7 @@
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
             [sci.impl.utils :as utils]
+            [sci.impl.evaluator :as eval]
             [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
                                                   gen-fn-varargs]])))
@@ -70,7 +71,7 @@
                 ~'bindings (get-2 ~'ctx :bindings)
                 ~@assocs
                 ctx# (assoc-3 ~'ctx :bindings ~'bindings)
-                ret# (~'interpret ctx# ~'body)
+                ret# (eval/eval ctx# ~'body)
                 ;; m (meta ret)
                 recur?# (instance? Recur ret#)]
             (if recur?#
@@ -106,7 +107,7 @@
                    (throw-arity ctx nsm fn-name macro? args))
                  ret)))
            ctx (assoc-3 ctx :bindings bindings)
-           ret (interpret ctx body)
+           ret (eval/eval ctx body)
            ;; m (meta ret)
            recur? (instance? Recur ret)]
        (if recur?
@@ -121,7 +122,7 @@
          ret))))
 
 (defn fun
-  [#?(:clj ^clojure.lang.Associative ctx :cljs ctx) interpret
+  [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
    {:sci.impl/keys [fixed-arity var-arg-name
                     #_:clj-kondo/ignore params body] :as _m}
    #_:clj-kondo/ignore fn-name
@@ -134,7 +135,7 @@
                      :cljs var-arg-name)
             (case (int fixed-arity)
               0 (fn arity-0 []
-                  (let [ret (interpret ctx body)
+                  (let [ret (eval/eval ctx body)
                         ;; m (meta ret)
                         recur? (instance? Recur ret)]
                     (if recur? (recur) ret)))
@@ -226,10 +227,10 @@
   (or (get arities arity)
       (:variadic arities)))
 
-(defn fn-arity-map [ctx interpret fn-name macro? fn-bodies]
+(defn fn-arity-map [ctx fn-name macro? fn-bodies]
   (reduce
    (fn [arity-map fn-body]
-     (let [f (fun ctx interpret fn-body fn-name macro?)
+     (let [f (fun ctx fn-body fn-name macro?)
            var-arg? (:sci.impl/var-arg-name fn-body)
            fixed-arity (:sci.impl/fixed-arity fn-body)]
        (if var-arg?
@@ -238,8 +239,9 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx interpret {:sci.impl/keys [fn-bodies fn-name
+(defn eval-fn [ctx {:sci.impl/keys [fn-bodies fn-name
                                               var] :as f}]
+  ;; (prn :eval-fn fn-name (take 5 #?(:clj (.getStackTrace (Thread/currentThread)))))
   (let [macro? (:sci/macro f)
         self-ref (atom nil)
         ctx (if (and (not var)
@@ -250,8 +252,8 @@
               ctx)
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
-            (fun ctx interpret (first fn-bodies) fn-name macro?)
-            (let [arities (fn-arity-map ctx interpret fn-name macro? fn-bodies)]
+            (fun ctx (first fn-bodies) fn-name macro?)
+            (let [arities (fn-arity-map ctx fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]

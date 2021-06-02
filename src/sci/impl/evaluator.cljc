@@ -4,7 +4,6 @@
   (:require
    [clojure.string :as str]
    [sci.impl.faster :as faster :refer [get-2 deref-1]]
-   [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
@@ -348,12 +347,6 @@
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
-                   :fn (let [fn-meta (:sci.impl/fn-meta expr)
-                             the-fn (fns/eval-fn ctx eval expr)
-                             fn-meta (when fn-meta (handle-meta ctx fn-meta))]
-                         (if fn-meta
-                           (vary-meta the-fn merge fn-meta)
-                           the-fn))
                    :call (eval-call ctx expr)
                    :static-access (interop/get-static-field expr)
                    :deref! (let [v (first expr)

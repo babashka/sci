@@ -273,7 +273,8 @@
               m)]
     m))
 
-(defn expand-fn [ctx [_fn name? & body :as fn-expr] macro?]
+
+(defn expand-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
                   name?
@@ -316,13 +317,32 @@
         ana-fn-meta (analyzed-fn-meta ctx fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
-                  (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))]
-    (with-meta #:sci.impl{:fn-bodies arities
+                  (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
+        struct #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta}
-      {:sci.impl/op :fn})))
+        struct (with-meta struct
+                 {:sci.impl/op :fn})]
+    struct))
+
+(defn fn-ctx-fn [_ctx struct fn-meta]
+  (if fn-meta
+    (fn [ctx]
+      (let [the-fn (fns/eval-fn ctx struct)
+            fn-meta (eval/handle-meta ctx fn-meta)]
+        (vary-meta the-fn merge fn-meta)))
+    (fn [ctx]
+      (fns/eval-fn ctx struct))))
+
+(defn expand-fn [ctx fn-expr macro?]
+  (let [struct (expand-fn* ctx fn-expr macro?)
+        fn-meta (:sci.impl/fn-meta struct)
+        ctxfn (fn-ctx-fn ctx struct fn-meta)]
+    (ctx-fn ctxfn
+            struct
+            struct)))
 
 (defn expand-let*
   [ctx destructured-let-bindings exprs]
@@ -406,7 +426,7 @@
         meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
-        f (expand-fn ctx fn-body macro?)
+        f (expand-fn* ctx fn-body macro?)
         arglists (seq (:sci.impl/arglists f))
         meta-map (assoc meta-map
                         :ns @vars/current-ns
@@ -418,7 +438,10 @@
         f (assoc f
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
-                 :sci.impl/var true)]
+                 :sci.impl/var true)
+        fn-meta (:sci.impl/fn-meta f)
+        ctxfn (fn-ctx-fn ctx f fn-meta)
+        f (ctx-fn ctxfn f f)]
     (ctx-fn
      (fn [ctx]
        (eval/eval-def ctx fn-name f))
@@ -1014,7 +1037,6 @@
               1 (let [arg (nth children 0)]
                   (ctx-fn
                    (fn [ctx]
-                     ;; (prn :f f :arg (eval/eval ctx arg))
                      (f (eval/eval ctx arg)))
                    expr))
               2 (let [arg0 (nth children 0)
