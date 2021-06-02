@@ -438,7 +438,7 @@
         f (assoc f
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
-                 :sci.impl/var true)
+                 :sci.impl/defn true)
         fn-meta (:sci.impl/fn-meta f)
         ctxfn (fn-ctx-fn ctx f fn-meta)
         f (ctx-fn ctxfn f f)]
