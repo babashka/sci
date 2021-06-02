@@ -239,10 +239,10 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx {:sci.impl/keys [fn-bodies fn-name
-                                              defn] :as f}]
-  ;; (prn :eval-fn fn-name (take 5 #?(:clj (.getStackTrace (Thread/currentThread)))))
-  (let [self-ref? (and fn-name (not defn))
+(defn eval-fn [ctx f]
+  (let [fn-name (:sci.impl/fn-name f)
+        defn (:sci.impl/defn f)
+        self-ref? (and fn-name (not defn))
         macro? (:sci/macro f)
         self-ref (when self-ref? (atom nil))
         ctx (if self-ref?
@@ -250,6 +250,7 @@
                         (fn call-self [& args]
                           (apply @self-ref args)))
               ctx)
+        fn-bodies (:sci.impl/fn-bodies f)
         single-arity? (= 1 (count fn-bodies))
         f (if single-arity?
             (fun ctx (first fn-bodies) fn-name macro?)
