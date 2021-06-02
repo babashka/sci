@@ -348,13 +348,13 @@
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
-                   :call (eval-call ctx expr)
                    :fn (let [fn-meta (:sci.impl/fn-meta expr)
                              the-fn (fns/eval-fn ctx eval expr)
                              fn-meta (when fn-meta (handle-meta ctx fn-meta))]
                          (if fn-meta
                            (vary-meta the-fn merge fn-meta)
                            the-fn))
+                   :call (eval-call ctx expr)
                    :static-access (interop/get-static-field expr)
                    :deref! (let [v (first expr)
                                  v (if (vars/var? v) @v v)
