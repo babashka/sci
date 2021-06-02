@@ -327,16 +327,19 @@
                  {:sci.impl/op :fn})]
     struct))
 
+(defn fn-ctx-fn [struct fn-meta]
+  (if fn-meta
+    (fn [ctx]
+      (let [the-fn (fns/eval-fn ctx eval/eval struct)
+            fn-meta (eval/handle-meta ctx fn-meta)]
+        (vary-meta the-fn merge fn-meta)))
+    (fn [ctx]
+      (fns/eval-fn ctx eval/eval struct))))
+
 (defn expand-fn [ctx fn-expr macro?]
   (let [struct (expand-fn* ctx fn-expr macro?)
         fn-meta (:sci.impl/fn-meta struct)
-        ctxfn (if fn-meta
-                (fn [ctx]
-                  (let [the-fn (fns/eval-fn ctx eval/eval struct)
-                        fn-meta (eval/handle-meta ctx fn-meta)]
-                    (vary-meta the-fn merge fn-meta)))
-                (fn [ctx]
-                  (fns/eval-fn ctx eval/eval struct)))]
+        ctxfn (fn-ctx-fn struct fn-meta)]
     (ctx-fn ctxfn
             struct
             struct)))
@@ -437,13 +440,7 @@
                  :sci.impl/fn-name fn-name
                  :sci.impl/var true)
         fn-meta (:sci.impl/fn-meta f)
-        ctxfn (if fn-meta
-                (fn [ctx]
-                  (let [the-fn (fns/eval-fn ctx eval/eval f)
-                        fn-meta (eval/handle-meta ctx fn-meta)]
-                    (vary-meta the-fn merge fn-meta)))
-                (fn [ctx]
-                  (fns/eval-fn ctx eval/eval f)))
+        ctxfn (fn-ctx-fn f fn-meta)
         f (ctx-fn ctxfn f f)]
     (ctx-fn
      (fn [ctx]
