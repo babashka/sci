@@ -125,9 +125,6 @@
                         (str/ends-with? n ".")
                         (> (count n) 1))
                    [sym 'expand-constructor]
-                   #_#_(str/starts-with? n "'") ;; TODO: deprecated?
-                   (let [v (symbol (subs n 1))]
-                     [v v])
                    :else
                    (throw-error-with-location
                     (str "Could not resolve symbol: " (str sym))
