@@ -110,8 +110,7 @@
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false))
   ([ctx sym call?]
-   (let [sym sym ;; (strip-core-ns sym)
-         res (second
+   (let [res (second
               (or
                (lookup ctx sym call?)
                ;; TODO: check if symbol is in macros and then emit an error: cannot take
@@ -126,7 +125,7 @@
                         (str/ends-with? n ".")
                         (> (count n) 1))
                    [sym 'expand-constructor]
-                   (str/starts-with? n "'") ;; TODO: deprecated?
+                   #_#_(str/starts-with? n "'") ;; TODO: deprecated?
                    (let [v (symbol (subs n 1))]
                      [v v])
                    :else
