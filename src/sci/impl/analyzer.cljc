@@ -628,6 +628,13 @@
 
 ;;;; Interop
 
+(defn return-static-access [expr]
+  (ctx-fn (fn [_ctx]
+            (interop/get-static-field expr))
+          ;; legacy error reporting
+          (with-meta expr
+            {:sci.impl/op :static-access})))
+
 (defn expand-dot [ctx [_dot instance-expr method-expr & args :as _expr]]
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
@@ -647,8 +654,7 @@
         res #?(:clj (if (class? instance-expr)
                       (if (nil? args)
                         (if (str/starts-with? method-expr "-")
-                          (with-meta [instance-expr (subs method-expr 1)]
-                            {:sci.impl/op :static-access})
+                          (return-static-access [instance-expr (subs method-expr 1)])
                           ;; https://clojure.org/reference/java_interop
                           ;; If the second operand is a symbol and no args are
                           ;; supplied it is taken to be a field access - the
@@ -660,11 +666,9 @@
                           (if-let [_
                                    (try (Reflector/getStaticField ^Class instance-expr ^String method-expr)
                                         (catch IllegalArgumentException _ nil))]
-                            (with-meta [instance-expr method-expr]
-                              {:sci.impl/op :static-access})
+                            (return-static-access [instance-expr method-expr])
                             (mark-eval-call
-                             `(~(with-meta [instance-expr method-expr]
-                                  {:sci.impl/op :static-access}) ~@args))))
+                             `(~(return-static-access [instance-expr method-expr]) ~@args))))
                         (mark-eval-call
                          `(~(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access}) ~@args)))
