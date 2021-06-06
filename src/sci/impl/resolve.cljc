@@ -52,15 +52,19 @@
                [sym v])))
        (or (some-> env :namespaces sym-ns (find sym-name))
            (when-let [clazz (interop/resolve-class ctx sym-ns)]
-             [sym (with-meta
-                    [clazz sym-name]
-                    #?(:clj
-                       (if call?
+             [sym (if call?
+                    (with-meta
+                      [clazz sym-name]
+                      #?(:clj
                          {:sci.impl.analyzer/static-access true}
-                         {:sci.impl/op :static-access
-                          :file @vars/current-file
-                          :ns @vars/current-ns})
-                       :cljs {:sci.impl/op :static-access}))])))
+                         :cljs {:sci.impl/op :static-access}))
+                    (ctx-fn
+                     (fn [_ctx]
+                       (interop/get-static-field [clazz sym-name]))
+                     (with-meta [clazz sym-name]
+                       {:sci.impl/op :static-access
+                        :file @vars/current-file
+                        :ns @vars/current-ns})))])))
       ;; no sym-ns
       (or
        ;; prioritize refers over vars in the current namespace, see 527
