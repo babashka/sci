@@ -1052,11 +1052,16 @@
                                (eval/eval ctx arg1)))
                           expr))
               (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f) expr)))
-          ;; (fn? f)
-          ;; TODO: how is this state reached? Maybe via a user-defined macro.
           :else
-          (let [ret (mark-eval-call (analyze-children ctx expr))]
-            ret))))
+          (let [f (analyze ctx f)
+                children (analyze-children ctx (rest expr))]
+            (ctx-fn (fn [ctx]
+                      (let [f (eval/eval ctx f)]
+                        (if (ifn? f)
+                          (eval/fn-call ctx f children)
+                          (throw (new #?(:clj Exception :cljs js/Error)
+                                      (str "Cannot call " (pr-str f) " as a function."))))))
+                    (mark-eval-call (cons f children)))))))
 
 (def ^:const constant-colls true) ;; see GH #452
 
