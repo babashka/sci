@@ -1037,8 +1037,9 @@
                                                       (with-meta (cons f (rest expr))
                                                         (meta expr))))))))
           (keyword? f)
-          (let [children (analyze-children ctx (rest expr))]
-            (case (count children)
+          (let [children (analyze-children ctx (rest expr))
+                ccount (count children)]
+            (case ccount
               1 (let [arg (nth children 0)]
                   (ctx-fn
                    (fn [ctx]
@@ -1050,7 +1051,7 @@
                             (f (eval/eval ctx arg0)
                                (eval/eval ctx arg1)))
                           expr))
-              (mark-eval-call (cons f children))))
+              (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f) expr)))
           ;; (fn? f)
           ;; TODO: how is this state reached? Maybe via a user-defined macro.
           :else
