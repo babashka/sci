@@ -1159,7 +1159,9 @@
    ;; (prn :ana expr (:meta ctx))
    (let [m (meta expr)]
      (cond
-       (constant? expr) expr ;; constants do not carry metadata
+       (constant? expr) (if (not (:meta ctx))
+                          (ctx-fn (fn [_ctx] expr) expr)
+                          expr) ;; constants do not carry metadata
        (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false)]
                         (cond (constant? v) v
                               (vars/var? v)
