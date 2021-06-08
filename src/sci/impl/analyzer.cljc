@@ -719,7 +719,11 @@
        expr))
     (if-let [record (records/resolve-record-class ctx class-sym)]
       (let [args (analyze-children ctx args)]
-        (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args)))
+        (return-call ctx
+                     ;; for backwards compatibility with error reporting
+                     (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args))
+                     (:sci.impl.record/constructor (meta record))
+                     args))
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]

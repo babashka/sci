@@ -347,6 +347,7 @@
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
+                   ;; only used for interop still
                    :call (eval-call ctx expr)
                    ;; needed for when a needs-ctx fn is passed as hof
                    needs-ctx (if (identical? op utils/needs-ctx)
