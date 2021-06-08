@@ -297,26 +297,6 @@
 
 (def-fn-call)
 
-(defn eval-call [ctx expr]
-  (try (let [f (first expr)
-             eval? (instance? #?(:clj sci.impl.types.EvalFn
-                                 :cljs sci.impl.types/EvalFn) f)
-             op (when-not eval?
-                  (some-> (meta f) (get-2 :sci.impl/op)))]
-         (cond
-           (kw-identical? op :static-access)
-           (eval-static-method-invocation ctx expr)
-           :else
-           (let [f (if (or op eval?)
-                     (eval ctx f)
-                     f)]
-             (if (ifn? f)
-               (fn-call ctx f (rest expr))
-               (throw (new #?(:clj Exception :cljs js/Error)
-                           (str "Cannot call " (pr-str f) " as a function.")))))))
-       (catch #?(:clj Throwable :cljs js/Error) e
-         (rethrow-with-location-of-node ctx e expr))))
-
 (defn handle-meta [ctx m]
   ;; Sometimes metadata needs eval. In this case the metadata has metadata.
   (-> (if-let [mm (meta m)]
@@ -347,10 +327,6 @@
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
-                   ;; only used for interop still
-                   ;; TODO: also get rid of CLJS
-                   #?@(:cljs [:call (eval-call ctx expr)])
-                   ;; needed for when a needs-ctx fn is passed as hof
                    needs-ctx (if (identical? op utils/needs-ctx)
                                (partial expr ctx)
                                   ;; this should never happen, or if it does, it's

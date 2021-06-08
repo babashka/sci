@@ -953,7 +953,12 @@
                 f-meta (meta f)
                 eval? (and f-meta (:sci.impl/op f-meta))]
             (cond (and f-meta (::static-access f-meta))
-                  (expand-dot** ctx (list* '. (first f) (second f) (rest expr)))
+                  #?(:clj (expand-dot** ctx (list* '. (first f) (second f) (rest expr)))
+                     :cljs
+                     (let [children (analyze-children ctx (rest expr))]
+                       (ctx-fn (fn [ctx]
+                                 (eval/eval-static-method-invocation ctx (cons f children)))
+                               expr)))
                   (and (not eval?) ;; the symbol is not a binding
                        (or
                         special-sym

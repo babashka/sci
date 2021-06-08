@@ -55,9 +55,7 @@
              [sym (if call?
                     (with-meta
                       [clazz sym-name]
-                      #?(:clj
-                         {:sci.impl.analyzer/static-access true}
-                         :cljs {:sci.impl/op :static-access}))
+                      {:sci.impl.analyzer/static-access true})
                     (ctx-fn
                      (fn [_ctx]
                        (interop/get-static-field [clazz sym-name]))
