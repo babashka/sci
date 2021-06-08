@@ -1186,8 +1186,7 @@
                      (merge-meta (analyze-call ctx expr top-level?) m)
                      ;; the empty list
                      expr)
-       :else
-       expr))))
+       :else expr))))
 
 ;;;; Scratch
 

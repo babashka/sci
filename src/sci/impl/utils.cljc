@@ -10,7 +10,7 @@
 (derive :sci.error/parse :sci/error)
 
 (defn constant? [x]
-  (or (number? x) (string? x) (keyword? x) (boolean? x)))
+  (or (number? x) (string? x) (keyword? x) (boolean? x) (nil? x)))
 
 (defn eval? [x]
   (some-> x meta :sci.impl/op))
