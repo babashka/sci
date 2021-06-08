@@ -484,9 +484,10 @@
     (case (count children)
       (0 1) (throw-error-with-location "Too few arguments to if" expr)
       2 (let [condition (nth children 0)
+              cond-sexpr condition #_(types/sexpr condition)
               then (nth children 1)]
-          (cond (not condition) nil
-                (constant? condition) then
+          (cond (not cond-sexpr) nil
+                (constant? cond-sexpr) then
                 :else (ctx-fn
                        (fn [ctx]
                          (when (eval/eval ctx condition)
@@ -494,10 +495,11 @@
                        ;; backward compatibility with stacktrace
                        (with-meta expr {:sci.impl/op :call}))))
       3 (let [condition (nth children 0)
+              cond-sexpr condition #_(types/sexpr condition)
               then (nth children 1)
               else (nth children 2)]
-          (cond (not condition) else
-                (constant? condition) then
+          (cond (not cond-sexpr) else
+                (constant? cond-sexpr) then
                 :else (ctx-fn
                        (fn [ctx]
                          (if (eval/eval ctx condition)
