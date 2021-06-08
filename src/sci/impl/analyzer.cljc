@@ -669,9 +669,12 @@
                              (with-meta [instance-expr (subs method-expr 1)]
                                {:sci.impl/op :static-access})) #_(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access})
-                            (mark-eval-call
-                             `(~(with-meta [instance-expr method-expr]
-                                  {:sci.impl/op :static-access}) ~@args))))
+                            (ctx-fn
+                             (fn [_ctx]
+                               (eval/eval-static-method-invocation ctx (cons [instance-expr method-expr] args)))
+                             (mark-eval-call (cons (with-meta [instance-expr method-expr]
+                                                     {:sci.impl/op :static-access})
+                                                   args)))))
                         (mark-eval-call
                          `(~(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access}) ~@args)))
