@@ -123,6 +123,53 @@ public class Reflector{
         return "No matching method " + methodName + " found taking " + args.length + " args"
             + (target==null?"":" for " + target.getClass());
     }
+
+    public static Method findMatchingMethod1(List methods, Object [] args) {
+        if(methods.size() == 1)
+            {
+                return (Method) methods.get(0);
+            }
+        Method m = null;
+        Method foundm = null;
+        for(Iterator i = methods.iterator(); i.hasNext();)
+            {
+                m = (Method) i.next();
+
+                Class[] params = m.getParameterTypes();
+                if(isCongruent(params, args))
+                    {
+                        if(foundm == null || Compiler.subsumes(params, foundm.getParameterTypes()))
+                            {
+                                foundm = m;
+                            }
+                    }
+            }
+        return foundm;
+    }
+
+    public static Method findMatchingMethod(String methodName, Object target, Object [] args, boolean statics) {
+        Class tc = target.getClass();
+        System.out.println(tc);
+        Method foundm = null;
+        List<Method> methods = getMethods(tc, args.length, methodName, statics);
+        foundm = findMatchingMethod1(methods, args);
+        if (foundm != null) {
+            return foundm;
+        }
+        for(Class iface : tc.getInterfaces())
+            {
+                methods = getMethods(iface, args.length, methodName, statics);
+                foundm = findMatchingMethod1(methods, args);
+                if (foundm != null) {
+                    return foundm;
+                }
+            }
+        Class sc = tc.getSuperclass();
+        if(sc == null)
+            return findMatchingMethod(methodName, sc, args, statics);
+        throw new IllegalArgumentException(noMethodReport(methodName,target,args));
+    }
+
     public static Object invokeMatchingMethod(String methodName, List methods, Object target, Object[] args)
     {
         Method m = null;

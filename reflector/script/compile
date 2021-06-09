@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -eou pipefail
+
+lein javac
+
+cmd_args=(
+    -cp target/classes:"$(clojure -Spath)"
+    --no-fallback
+    --verbose
+    --no-server
+    "-H:ReflectionConfigurationFiles=reflection.json"
+    sci.impl.Main
+)
+
+"$GRAALVM_HOME/bin/native-image" "${cmd_args[@]}"

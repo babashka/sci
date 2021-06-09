@@ -1,1 +1,5 @@
 project.clj
+/.cpcache
+/.lein-repl-history
+/sci.impl.main
+/sci.impl.main.build_artifacts.txt
