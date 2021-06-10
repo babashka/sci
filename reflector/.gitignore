@@ -3,3 +3,5 @@ project.clj
 /.lein-repl-history
 /sci.impl.main
 /sci.impl.main.build_artifacts.txt
+/sci.impl.repro
+/sci.impl.repro.build_artifacts.txt

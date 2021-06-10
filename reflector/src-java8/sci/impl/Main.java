@@ -4,10 +4,12 @@ import java.lang.reflect.Method;
 public class Main {
 
     public static void main(String[] args) {
-        Method m = Reflector.findMatchingMethod("toString", "foo", new Object[]{}, false);
-        System.out.println(m);
-        m = Reflector.findMatchingMethod("notify", "foo", new Object[]{}, false);
-        System.out.println(m);
+        // Method m = Reflector.findMatchingMethod("toString", "foo", new Object[]{}, false);
+        // System.out.println(m);
+        // m = Reflector.findMatchingMethod("notify", "foo", new Object[]{}, false);
+        // System.out.println(m);
+        Object res = Reflector.invokeInstanceMethod("foo", "notify", new Object[]{});
+        System.out.println(res);
     }
 
 }

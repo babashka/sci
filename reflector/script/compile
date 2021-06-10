@@ -10,7 +10,7 @@ cmd_args=(
     --verbose
     --no-server
     "-H:ReflectionConfigurationFiles=reflection.json"
-    sci.impl.Main
+    sci.impl.Repro
 )
 
 "$GRAALVM_HOME/bin/native-image" "${cmd_args[@]}"
