@@ -400,11 +400,10 @@
             m (meta var-name)
             m (analyze (assoc ctx :meta true) m)
             m (assoc m :ns @vars/current-ns)
-            m (if docstring (assoc m :doc docstring) m)
-            var-name (with-meta var-name m)]
+            m (if docstring (assoc m :doc docstring) m)]
         (ctx-fn
          (fn [ctx]
-           (eval/eval-def ctx var-name init))
+           (eval/eval-def ctx var-name init m))
          expr)))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
@@ -436,10 +435,9 @@
         meta-map (assoc meta-map
                         :ns @vars/current-ns
                         :arglists arglists)
-        fn-name (with-meta fn-name
-                  (cond-> meta-map
-                    docstring (assoc :doc docstring)
-                    macro? (assoc :macro true)))
+        meta-map (cond-> meta-map
+                   docstring (assoc :doc docstring)
+                   macro? (assoc :macro true))
         f (assoc f
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
@@ -449,7 +447,7 @@
         f (ctx-fn ctxfn f f)]
     (ctx-fn
      (fn [ctx]
-       (eval/eval-def ctx fn-name f))
+       (eval/eval-def ctx fn-name f meta-map))
      expr)))
 
 (defn expand-loop
@@ -1031,21 +1029,32 @@
                                                      :sci.impl/f-meta f-meta)
                                      f (analyze-children ctx (rest expr)))
                         (if-let [op (:sci.impl/op (meta f))]
-                          (cond
-                            (identical? utils/needs-ctx op)
-                            (return-needs-ctx-call ctx
-                                                   ;; no need to pass metadata for backwards compatibility
-                                                   ;; since we weren't reporting needs-ctx-fns anyway
-                                                   expr
-                                                   f (analyze-children ctx (rest expr)))
-                            (kw-identical? :resolve-sym op)
+                          (case op
+                            needs-ctx
+                            (if (identical? utils/needs-ctx op)
+                              (return-needs-ctx-call ctx
+                                                     ;; no need to pass metadata for backwards compatibility
+                                                     ;; since we weren't reporting needs-ctx-fns anyway
+                                                     expr
+                                                     f (analyze-children ctx (rest expr)))
+                              (let [children (analyze-children ctx (rest expr))]
+                                (return-call ctx
+                                             ;; for backwards compatibility with error reporting
+                                             (mark-eval-call (cons f children)
+                                                             :sci.impl/f-meta f-meta)
+                                             f children)))
+                            :resolve-sym
                             (return-binding-call ctx
                                                  ;; for backwards compatibility with error reporting
                                                  (mark-eval-call (cons f (rest expr))
                                                                  :sci.impl/f-meta f-meta)
                                                  f (analyze-children ctx (rest expr)))
-                            :else
-                            (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                            (let [children (analyze-children ctx (rest expr))]
+                              (return-call ctx
+                                           ;; for backwards compatibility with error reporting
+                                           (mark-eval-call (cons f children)
+                                                           :sci.impl/f-meta f-meta)
+                                           f children)))
                           (let [children (analyze-children ctx (rest expr))]
                             (return-call ctx
                                          ;; for backwards compatibility with error reporting
