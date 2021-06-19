@@ -1029,21 +1029,32 @@
                                                      :sci.impl/f-meta f-meta)
                                      f (analyze-children ctx (rest expr)))
                         (if-let [op (:sci.impl/op (meta f))]
-                          (cond
-                            (identical? utils/needs-ctx op)
-                            (return-needs-ctx-call ctx
-                                                   ;; no need to pass metadata for backwards compatibility
-                                                   ;; since we weren't reporting needs-ctx-fns anyway
-                                                   expr
-                                                   f (analyze-children ctx (rest expr)))
-                            (kw-identical? :resolve-sym op)
+                          (case op
+                            needs-ctx
+                            (if (identical? utils/needs-ctx op)
+                              (return-needs-ctx-call ctx
+                                                     ;; no need to pass metadata for backwards compatibility
+                                                     ;; since we weren't reporting needs-ctx-fns anyway
+                                                     expr
+                                                     f (analyze-children ctx (rest expr)))
+                              (let [children (analyze-children ctx (rest expr))]
+                                (return-call ctx
+                                             ;; for backwards compatibility with error reporting
+                                             (mark-eval-call (cons f children)
+                                                             :sci.impl/f-meta f-meta)
+                                             f children)))
+                            :resolve-sym
                             (return-binding-call ctx
                                                  ;; for backwards compatibility with error reporting
                                                  (mark-eval-call (cons f (rest expr))
                                                                  :sci.impl/f-meta f-meta)
                                                  f (analyze-children ctx (rest expr)))
-                            :else
-                            (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                            (let [children (analyze-children ctx (rest expr))]
+                              (return-call ctx
+                                           ;; for backwards compatibility with error reporting
+                                           (mark-eval-call (cons f children)
+                                                           :sci.impl/f-meta f-meta)
+                                           f children)))
                           (let [children (analyze-children ctx (rest expr))]
                             (return-call ctx
                                          ;; for backwards compatibility with error reporting

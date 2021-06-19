@@ -328,27 +328,21 @@
                         :cljs sci.impl.types/EvalVar) expr)
           (let [v (.-v ^sci.impl.types.EvalVar expr)]
             (deref-1 v))
-          :else
+          (map? expr)
           (let [m (meta expr)
                 op (when m (get-2 m :sci.impl/op))
                 ret
                 (if
                  (not op) expr
-                    ;; TODO: moving this up increased performance for #246. We can
-                    ;; probably optimize it further by not using separate keywords for
-                    ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
-                   (cond (map? expr)
-                         (do
-                           ;; (prn :yolo expr)
-                           (with-meta (zipmap (map #(eval ctx %) (keys expr))
-                                              (map #(eval ctx %) (vals expr)))
-                             (handle-meta ctx m)))
-                         :else (throw (new #?(:clj Exception :cljs js/Error)
-                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
-            ;; for debugging:
-            ;; (prn :eval expr (meta expr) '-> ret (meta ret))
-            ret))
+                   :eval
+                   (with-meta (zipmap (map #(eval ctx %) (keys expr))
+                                      (map #(eval ctx %) (vals expr)))
+                     (handle-meta ctx m))
+                   (throw (new #?(:clj Exception :cljs js/Error)
+                               (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr))))))]
+            ret)
+          :else expr)
     (catch #?(:clj Throwable :cljs js/Error) e
       (rethrow-with-location-of-node ctx e expr))))
 
