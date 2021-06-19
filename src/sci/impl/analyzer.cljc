@@ -435,10 +435,9 @@
         meta-map (assoc meta-map
                         :ns @vars/current-ns
                         :arglists arglists)
-        fn-name (with-meta fn-name
-                  (cond-> meta-map
-                    docstring (assoc :doc docstring)
-                    macro? (assoc :macro true)))
+        meta-map (cond-> meta-map
+                   docstring (assoc :doc docstring)
+                   macro? (assoc :macro true))
         f (assoc f
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
@@ -448,7 +447,7 @@
         f (ctx-fn ctxfn f f)]
     (ctx-fn
      (fn [ctx]
-       (eval/eval-def ctx fn-name f nil))
+       (eval/eval-def ctx fn-name f meta-map))
      expr)))
 
 (defn expand-loop
