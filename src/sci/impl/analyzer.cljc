@@ -400,11 +400,10 @@
             m (meta var-name)
             m (analyze (assoc ctx :meta true) m)
             m (assoc m :ns @vars/current-ns)
-            m (if docstring (assoc m :doc docstring) m)
-            var-name (with-meta var-name m)]
+            m (if docstring (assoc m :doc docstring) m)]
         (ctx-fn
          (fn [ctx]
-           (eval/eval-def ctx var-name init))
+           (eval/eval-def ctx var-name init m))
          expr)))))
 
 (defn expand-defn [ctx [op fn-name & body :as expr]]
@@ -449,7 +448,7 @@
         f (ctx-fn ctxfn f f)]
     (ctx-fn
      (fn [ctx]
-       (eval/eval-def ctx fn-name f))
+       (eval/eval-def ctx fn-name f nil))
      expr)))
 
 (defn expand-loop

@@ -77,9 +77,9 @@
               ret))))))
 
 (defn eval-def
-  [ctx var-name init]
+  [ctx var-name init m]
   (let [init (eval ctx init)
-        m (meta var-name)
+        m (or m (meta var-name))
         m (eval ctx m) ;; m is marked with eval op in analyzer only when necessary
         cnn (vars/getName (:ns m))
         assoc-in-env
