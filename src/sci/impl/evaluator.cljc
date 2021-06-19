@@ -328,7 +328,9 @@
                         :cljs sci.impl.types/EvalVar) expr)
           (let [v (.-v ^sci.impl.types.EvalVar expr)]
             (deref-1 v))
-          (map? expr)
+          #?(:clj (instance? clojure.lang.IPersistentMap expr)
+             :cljs (if (nil? expr) false
+                       (satisfies? IMap expr)))
           (let [m (meta expr)
                 op (when m (get-2 m :sci.impl/op))
                 ret
