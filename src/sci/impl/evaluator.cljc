@@ -76,11 +76,22 @@
           (if nexprs (recur nexprs)
               ret))))))
 
+(declare handle-meta)
+
+(defn eval-map [ctx expr]
+  (if-let [m (meta expr)]
+    (if (identical? :eval (:sci.impl/op m))
+      (with-meta (zipmap (map #(eval ctx %) (keys expr))
+                         (map #(eval ctx %) (vals expr)))
+        (handle-meta ctx m))
+      expr)
+    expr))
+
 (defn eval-def
   [ctx var-name init m]
   (let [init (eval ctx init)
         m (or m (meta var-name))
-        m (eval ctx m) ;; m is marked with eval op in analyzer only when necessary
+        m (eval-map ctx m) ;; m is marked with eval op in analyzer only when necessary
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -327,9 +338,12 @@
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
-                   (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
-                                                        (map #(eval ctx %) (vals expr)))
-                                       (handle-meta ctx m))
+                   (cond (map? expr)
+                         (do
+                           ;; (prn :yolo expr)
+                           (with-meta (zipmap (map #(eval ctx %) (keys expr))
+                                              (map #(eval ctx %) (vals expr)))
+                             (handle-meta ctx m)))
                          :else (throw (new #?(:clj Exception :cljs js/Error)
                                            (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))))]
             ;; for debugging:
