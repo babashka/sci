@@ -80,7 +80,7 @@
 
 (defn eval-map [ctx expr]
   (if-let [m (meta expr)]
-    (if (identical? :eval (:sci.impl/op m))
+    (if (kw-identical? :eval (:sci.impl/op m))
       (with-meta (zipmap (map #(eval ctx %) (keys expr))
                          (map #(eval ctx %) (vals expr)))
         (handle-meta ctx m))
