@@ -327,12 +327,6 @@
                     ;; probably optimize it further by not using separate keywords for
                     ;; one :sci.impl/op keyword on which we can use a case expression
                  (case op
-                   needs-ctx (if (identical? op utils/needs-ctx)
-                               (partial expr ctx)
-                                  ;; this should never happen, or if it does, it's
-                                  ;; someone trying to hack
-                               (throw (new #?(:clj Exception :cljs js/Error)
-                                           (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr)))))
                    (cond (map? expr) (with-meta (zipmap (map #(eval ctx %) (keys expr))
                                                         (map #(eval ctx %) (vals expr)))
                                        (handle-meta ctx m))
