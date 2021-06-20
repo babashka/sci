@@ -100,15 +100,15 @@
             (mapcat (fn [[i binds]]
                       [i `(let ~binds
                             (ctx-fn
-                             (fn [~'ctx]
+                             (fn [~'ctx ~'bindings]
                                ~@(map (fn [j]
-                                        `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                        `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                       (range i)))
                              ~'expr))])
                     let-bindings)
             `[(ctx-fn
-               (fn [~'ctx]
-                 (eval/eval-do ~'ctx ~'analyzed-children))
+               (fn [~'ctx ~'bindings]
+                 (eval/eval-do ~'ctx ~'bindings ~'analyzed-children))
                ~'expr)])))))
 
 ;; (require '[clojure.pprint :refer [pprint]])
@@ -134,16 +134,16 @@
             (mapcat (fn [[i binds]]
                       [i `(let ~binds
                             (ctx-fn
-                             (fn [~'ctx]
+                             (fn [~'ctx ~'bindings]
                                (or
                                 ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                         `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                        (range i))))
                              ~'expr))])
                     let-bindings)
             `[(ctx-fn
-               (fn [~'ctx]
-                 (eval/eval-or ~'ctx ~'analyzed-children))
+               (fn [~'ctx ~'bindings]
+                 (eval/eval-or ~'ctx ~'bindings ~'analyzed-children))
                ~'expr)])))))
 
 (declare return-or) ;; for clj-kondo
@@ -196,23 +196,23 @@
        (case (count ~'analyzed-children)
          ~@(concat
             [0 `(ctx-fn
-                 (fn [~'_]
+                 (fn [~'_ ~'_bindings]
                    recur-0)
                  ~'expr)]
             (mapcat (fn [[i binds]]
                       [i `(let ~binds
                             (ctx-fn
-                             (fn [~'ctx]
+                             (fn [~'ctx ~'bindings]
                                (and
                                 (fns/->Recur
                                  [~@(map (fn [j]
-                                           `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                          (range i))])))
                              ~'expr))])
                     let-bindings)
             `[(ctx-fn
-               (fn [~'ctx]
-                 (eval/fn-call ~'ctx (comp fns/->Recur vector) ~'analyzed-children))
+               (fn [~'ctx ~'bindings]
+                 (eval/fn-call ~'ctx ~'bindings (comp fns/->Recur vector) ~'analyzed-children))
                ~'expr)])))))
 
 ;; (require 'clojure.pprint)
@@ -334,12 +334,12 @@
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))]
     (if fn-meta
-      (fn [ctx]
+      (fn [ctx bindings]
         (let [fn-meta (eval/handle-meta ctx fn-meta)
-              f (fns/eval-fn ctx fn-name fn-bodies macro? single-arity self-ref?)]
+              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref?)]
           (vary-meta f merge fn-meta)))
-      (fn [ctx]
-        (fns/eval-fn ctx fn-name fn-bodies macro? single-arity self-ref?)))))
+      (fn [ctx bindings]
+        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref?)))))
 
 (defn expand-fn [ctx fn-expr macro?]
   (let [struct (expand-fn* ctx fn-expr macro?)
@@ -366,8 +366,8 @@
          (partition 2 destructured-let-bindings))
         body (analyze-children ctx exprs)]
     (ctx-fn
-     (fn [ctx]
-       (eval/eval-let ctx new-let-bindings body))
+     (fn [ctx bindings]
+       (eval/eval-let ctx bindings new-let-bindings body))
      nil)))
 
 (defn expand-let
@@ -486,9 +486,9 @@
           (cond (not condition) nil
                 (constant? condition) then
                 :else (ctx-fn
-                       (fn [ctx]
-                         (when (eval/eval ctx condition)
-                           (eval/eval ctx then)))
+                       (fn [ctx bindings]
+                         (when (eval/eval ctx bindings condition)
+                           (eval/eval ctx bindings then)))
                        ;; backward compatibility with stacktrace
                        (with-meta expr {:sci.impl/op :call}))))
       3 (let [condition (nth children 0)
@@ -497,10 +497,10 @@
           (cond (not condition) else
                 (constant? condition) then
                 :else (ctx-fn
-                       (fn [ctx]
-                         (if (eval/eval ctx condition)
-                           (eval/eval ctx then)
-                           (eval/eval ctx else)))
+                       (fn [ctx bindings]
+                         (if (eval/eval ctx bindings condition)
+                           (eval/eval ctx bindings then)
+                           (eval/eval ctx bindings else)))
                        ;; backward compatibility with stacktrace
                        (with-meta expr {:sci.impl/op :call}))))
       (throw-error-with-location "Too many arguments to if" expr))))
@@ -668,14 +668,14 @@
                                {:sci.impl/op :static-access})) #_(with-meta [instance-expr method-expr]
                               {:sci.impl/op :static-access})
                             (ctx-fn
-                             (fn [ctx]
-                               (eval/eval-static-method-invocation ctx (cons [instance-expr method-expr] args)))
+                             (fn [ctx bindings]
+                               (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
                              (mark-eval-call (cons (with-meta [instance-expr method-expr]
                                                      {:sci.impl/op :static-access})
                                                    args)))))
                         (ctx-fn
-                         (fn [ctx]
-                           (eval/eval-static-method-invocation ctx (cons [instance-expr method-expr] args)))
+                         (fn [ctx bindings]
+                           (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
                          (mark-eval-call (cons (with-meta [instance-expr method-expr]
                                                  {:sci.impl/op :static-access})
                                                args))))
@@ -839,7 +839,7 @@
                           (range 20))]
     `(defn ~'return-binding-call
        ~'[_ctx expr f analyzed-children]
-       (ctx-fn
+       #_(ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
              (mapcat (fn [[i binds]]
@@ -904,14 +904,14 @@
           ~@(concat
              (mapcat (fn [[i binds]]
                        [i `(let ~binds
-                             (fn [~'ctx]
+                             (fn [~'ctx ~'bindings]
                                (~'f
                                 ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~(symbol (str "arg" j))))
+                                         `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                        (range i)))))])
                      let-bindings)
-             `[(fn [~'ctx]
-                 (eval/fn-call ~'ctx ~'f ~'analyzed-children))]))
+             `[(fn [~'ctx ~'bindings]
+                 (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children))]))
         ~'expr))))
 
 (declare return-call) ;; for clj-kondo
@@ -1086,10 +1086,10 @@
           :else
           (let [f (analyze ctx f)
                 children (analyze-children ctx (rest expr))]
-            (ctx-fn (fn [ctx]
-                      (let [f (eval/eval ctx f)]
+            (ctx-fn (fn [ctx bindings]
+                      (let [f (eval/eval ctx bindings f)]
                         (if (ifn? f)
-                          (eval/fn-call ctx f children)
+                          (eval/fn-call ctx bindings f children)
                           (throw (new #?(:clj Exception :cljs js/Error)
                                       (str "Cannot call " (pr-str f) " as a function."))))))
                     (mark-eval-call (cons f children)))))))

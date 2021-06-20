@@ -97,8 +97,8 @@
              v (if call? ;; resolve-symbol is already handled in the call case
                  (mark-resolve-sym k)
                  (ctx-fn
-                  (fn [ctx]
-                    (eval/resolve-symbol ctx k))
+                  (fn [_ctx bindings]
+                    (eval/resolve-symbol bindings k))
                   k))]
          [k v]))
      (when-let [kv (lookup* ctx sym call?)]

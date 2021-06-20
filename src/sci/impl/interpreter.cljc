@@ -24,7 +24,7 @@
   (prn (zipmap (keys @stats)
                (map #(/ (double %) 1000000.0) (vals @stats)))))
 
-(defn eval-form-stats [ctx form]
+#_(defn eval-form-stats [ctx form]
   (if (seq? form)
     (if (= 'do (first form))
       (loop [exprs (rest form)
@@ -73,17 +73,19 @@
                 (= 'ns (first form))
                 (= 'require (first form)))
         (let [analyzed (ana/analyze ctx form true)
+              bindings (:bindings ctx)
               ret (if (instance? sci.impl.types.EvalForm analyzed)
                     (eval-form ctx (t/getVal analyzed))
-                    (eval/eval ctx analyzed))]
+                    (eval/eval ctx bindings analyzed))]
           ret)))
     (let [analyzed (ana/analyze ctx form)
-          ret (eval/eval ctx analyzed)]
+          bindings (:bindings ctx)
+          ret (eval/eval ctx bindings analyzed)]
       ret)))
 
-#?(:clj
-   (when (System/getenv "SCI_STATS")
-     (alter-var-root #'eval-form (constantly eval-form-stats))))
+;; #?(:clj
+;;    (when (System/getenv "SCI_STATS")
+;;      (alter-var-root #'eval-form (constantly eval-form-stats))))
 
 (vreset! utils/eval-form-state eval-form)
 
