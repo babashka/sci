@@ -76,9 +76,17 @@
           (if nexprs (recur nexprs)
               ret))))))
 
-(declare handle-meta)
+(defn handle-meta [ctx m]
+  ;; Sometimes metadata needs eval. In this case the metadata has metadata.
+  (-> (if-let [mm (meta m)]
+        (if (when mm (get-2 mm :sci.impl/op))
+          (eval ctx m)
+          m)
+        m)
+      (dissoc :sci.impl/op)))
 
-(defn eval-map [ctx expr]
+(defn eval-map
+  [ctx expr]
   (if-let [m (meta expr)]
     (if (kw-identical? :eval (:sci.impl/op m))
       (with-meta (zipmap (map #(eval ctx %) (keys expr))
@@ -308,15 +316,6 @@
 
 (def-fn-call)
 
-(defn handle-meta [ctx m]
-  ;; Sometimes metadata needs eval. In this case the metadata has metadata.
-  (-> (if-let [mm (meta m)]
-        (if (when mm (get-2 mm :sci.impl/op))
-          (eval ctx m)
-          m)
-        m)
-      (dissoc :sci.impl/op)))
-
 (defn eval
   [ctx expr]
   (try
@@ -331,19 +330,7 @@
           #?(:clj (instance? clojure.lang.IPersistentMap expr)
              :cljs (if (nil? expr) false
                        (satisfies? IMap expr)))
-          (let [m (meta expr)
-                op (when m (get-2 m :sci.impl/op))
-                ret
-                (if
-                 (not op) expr
-                 (case op
-                   :eval
-                   (with-meta (zipmap (map #(eval ctx %) (keys expr))
-                                      (map #(eval ctx %) (vals expr)))
-                     (handle-meta ctx m))
-                   (throw (new #?(:clj Exception :cljs js/Error)
-                               (str "unexpected: " expr ", type: " (type expr), ", meta:" (meta expr))))))]
-            ret)
+          (eval-map ctx expr)
           :else expr)
     (catch #?(:clj Throwable :cljs js/Error) e
       (rethrow-with-location-of-node ctx e expr))))
