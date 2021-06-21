@@ -57,7 +57,7 @@
                       [clazz sym-name]
                       {:sci.impl.analyzer/static-access true})
                     (ctx-fn
-                     (fn [_ctx]
+                     (fn [_ctx _bindings]
                        (interop/get-static-field [clazz sym-name]))
                      (with-meta [clazz sym-name]
                        {:sci.impl/op :static-access

@@ -62,60 +62,62 @@
 
 (def needs-ctx (symbol "needs-ctx"))
 
-(defn rethrow-with-location-of-node [ctx ^Throwable e raw-node]
-  (if *in-try* (throw e)
-      (let [node (t/sexpr raw-node)
-            m (meta node)
-            f (when (seqable? node) (first node))
-            fm (some-> f meta)
-            op (when (and fm m)
-                 (.get ^java.util.Map m :sci.impl/op))
-            special? (or
-                      ;; special call like def
-                      (and (symbol? f) (not op))
-                      ;; anonymous function
-                      (kw-identical? :fn op)
-                      ;; special thing like require
-                      (identical? needs-ctx op))
-            env (:env ctx)
-            id (:id ctx)]
-        (when (not special?)
-          (swap! env update-in [:sci.impl/callstack id]
-                 (fn [vt]
-                   (if vt
-                     (do (vswap! vt conj node)
-                         vt)
-                     (volatile! (list node))))))
-        (let [d (ex-data e)
-              wrapping-sci-error? (isa? (:type d) :sci/error)]
-          (if wrapping-sci-error?
-            (throw e)
-            (let [ex-msg #?(:clj (.getMessage e)
-                            :cljs (.-message e))
-                  {:keys [:line :column :file]}
-                  (or (some-> env deref
-                              :sci.impl/callstack (get id)
-                              deref last meta)
-                      (meta node))]
-              (if (and line column)
-                (let [ex-msg (if (and ex-msg (:name fm))
-                               (str/replace ex-msg #"(sci\.impl\.)?fns/fun/[a-zA-Z0-9-]+--\d+"
-                                            (str (:ns fm) "/" (:name fm)))
-                               ex-msg)
-                      new-exception
-                      (let [new-d {:type :sci/error
-                                   :line line
-                                   :column column
-                                   :message ex-msg
-                                   :sci.impl/callstack
-                                   (delay (when-let
-                                              [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
-                                            @v))
-                                   :file file
-                                   :locals (:bindings ctx)}]
-                        (ex-info ex-msg new-d e))]
-                  (throw new-exception))
-                (throw e))))))))
+(defn rethrow-with-location-of-node
+  ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
+  ([ctx bindings ^Throwable e raw-node]
+   (if *in-try* (throw e)
+       (let [node (t/sexpr raw-node)
+             m (meta node)
+             f (when (seqable? node) (first node))
+             fm (some-> f meta)
+             op (when (and fm m)
+                  (.get ^java.util.Map m :sci.impl/op))
+             special? (or
+                       ;; special call like def
+                       (and (symbol? f) (not op))
+                       ;; anonymous function
+                       (kw-identical? :fn op)
+                       ;; special thing like require
+                       (identical? needs-ctx op))
+             env (:env ctx)
+             id (:id ctx)]
+         (when (not special?)
+           (swap! env update-in [:sci.impl/callstack id]
+                  (fn [vt]
+                    (if vt
+                      (do (vswap! vt conj node)
+                          vt)
+                      (volatile! (list node))))))
+         (let [d (ex-data e)
+               wrapping-sci-error? (isa? (:type d) :sci/error)]
+           (if wrapping-sci-error?
+             (throw e)
+             (let [ex-msg #?(:clj (.getMessage e)
+                             :cljs (.-message e))
+                   {:keys [:line :column :file]}
+                   (or (some-> env deref
+                               :sci.impl/callstack (get id)
+                               deref last meta)
+                       (meta node))]
+               (if (and line column)
+                 (let [ex-msg (if (and ex-msg (:name fm))
+                                (str/replace ex-msg #"(sci\.impl\.)?fns/fun/[a-zA-Z0-9-]+--\d+"
+                                             (str (:ns fm) "/" (:name fm)))
+                                ex-msg)
+                       new-exception
+                       (let [new-d {:type :sci/error
+                                    :line line
+                                    :column column
+                                    :message ex-msg
+                                    :sci.impl/callstack
+                                    (delay (when-let
+                                               [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
+                                             @v))
+                                    :file file
+                                    :locals bindings}]
+                         (ex-info ex-msg new-d e))]
+                   (throw new-exception))
+                 (throw e)))))))))
 
 (defn iobj? [obj]
   (and #?(:clj (instance? clojure.lang.IObj obj)

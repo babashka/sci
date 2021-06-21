@@ -162,7 +162,7 @@
                    nil
                    catches)]
         r
-        (rethrow-with-location-of-node ctx e body)))
+        (rethrow-with-location-of-node ctx bindings e body)))
     (finally
       (eval ctx bindings finally))))
 
@@ -334,6 +334,6 @@
           (eval-map ctx bindings expr)
           :else expr)
     (catch #?(:clj Throwable :cljs js/Error) e
-      (rethrow-with-location-of-node ctx e expr))))
+      (rethrow-with-location-of-node ctx bindings e expr))))
 
 (vreset! utils/eval* eval)
