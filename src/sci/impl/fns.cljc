@@ -68,10 +68,8 @@
           (let [;; tried making bindings a transient, but saw no perf improvement
                 ;; it's even slower with less than ~10 bindings which is pretty uncommon
                 ;; see https://github.com/borkdude/sci/issues/559
-                ~'bindings (get-2 ~'ctx :bindings)
                 ~@assocs
-                ctx# (assoc-3 ~'ctx :bindings ~'bindings)
-                ret# (eval/eval ctx# ~'body)
+                ret# (eval/eval ~'ctx ~'bindings ~'body)
                 ;; m (meta ret)
                 recur?# (instance? Recur ret#)]
             (if recur?#
@@ -88,7 +86,6 @@
      (let [;; tried making bindings a transient, but saw no perf improvement
            ;; it's even slower with less than ~10 bindings which is pretty uncommon
            ;; see https://github.com/borkdude/sci/issues/559
-           bindings (.get ^java.util.Map ctx :bindings)
            bindings
            (loop [args* (seq args)
                   params (seq params)
@@ -106,8 +103,7 @@
                  (when args*
                    (throw-arity ctx nsm fn-name macro? args))
                  ret)))
-           ctx (assoc-3 ctx :bindings bindings)
-           ret (eval/eval ctx body)
+           ret (eval/eval ctx bindings body)
            ;; m (meta ret)
            recur? (instance? Recur ret)]
        (if recur?
@@ -123,6 +119,7 @@
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+   bindings
    fn-body
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?]
@@ -139,7 +136,7 @@
                      :cljs var-arg-name)
             (case (int fixed-arity)
               0 (fn arity-0 []
-                  (let [ret (eval/eval ctx body)
+                  (let [ret (eval/eval ctx bindings body)
                         ;; m (meta ret)
                         recur? (instance? Recur ret)]
                     (if recur? (recur) ret)))
@@ -231,10 +228,10 @@
   (or (get arities arity)
       (:variadic arities)))
 
-(defn fn-arity-map [ctx fn-name macro? fn-bodies]
+(defn fn-arity-map [ctx bindings fn-name macro? fn-bodies]
   (reduce
    (fn [arity-map fn-body]
-     (let [f (fun ctx fn-body fn-name macro?)
+     (let [f (fun ctx bindings fn-body fn-name macro?)
            var-arg? (:var-arg-name fn-body)
            fixed-arity (:fixed-arity fn-body)]
        (if var-arg?
@@ -243,16 +240,16 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx fn-name fn-bodies macro? single-arity self-ref?]
+(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref?]
   (let [self-ref (when self-ref? (atom nil))
-        ctx (if self-ref?
-              (assoc-in ctx [:bindings fn-name]
-                        (fn call-self [& args]
-                          (apply @self-ref args)))
-              ctx)
+        bindings (if self-ref?
+                   (assoc bindings fn-name
+                             (fn call-self [& args]
+                               (apply @self-ref args)))
+                   bindings)
         f (if single-arity
-            (fun ctx single-arity fn-name macro?)
-            (let [arities (fn-arity-map ctx fn-name macro? fn-bodies)]
+            (fun ctx bindings single-arity fn-name macro?)
+            (let [arities (fn-arity-map ctx bindings fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]

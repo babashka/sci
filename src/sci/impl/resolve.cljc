@@ -57,7 +57,7 @@
                       [clazz sym-name]
                       {:sci.impl.analyzer/static-access true})
                     (ctx-fn
-                     (fn [_ctx]
+                     (fn [_ctx _bindings]
                        (interop/get-static-field [clazz sym-name]))
                      (with-meta [clazz sym-name]
                        {:sci.impl/op :static-access
@@ -97,8 +97,8 @@
              v (if call? ;; resolve-symbol is already handled in the call case
                  (mark-resolve-sym k)
                  (ctx-fn
-                  (fn [ctx]
-                    (eval/resolve-symbol ctx k))
+                  (fn [_ctx bindings]
+                    (eval/resolve-symbol bindings k))
                   k))]
          [k v]))
      (when-let [kv (lookup* ctx sym call?)]

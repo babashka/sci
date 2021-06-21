@@ -26,12 +26,12 @@
 
 (defn eval-and
   "The and macro from clojure.core. Note: and is unrolled in the analyzer, this is a fallback."
-  [ctx args]
+  [ctx bindings args]
   (let [args (seq args)]
     (loop [args args]
       (if args
         (let [x (first args)
-              v (eval ctx x)]
+              v (eval ctx bindings x)]
           (if v
             (let [xs (next args)]
               (if xs
@@ -40,12 +40,12 @@
 
 (defn eval-or
   "The or macro from clojure.core. Note: or is unrolled in the analyzer, this is a fallback."
-  [ctx args]
+  [ctx bindings args]
   (let [args (seq args)]
     (loop [args args]
       (when args
         (let [x (first args)
-              v (eval ctx x)]
+              v (eval ctx bindings x)]
           (if v v
               (let [xs (next args)]
                 (if xs (recur xs)
@@ -53,53 +53,55 @@
 
 (defn eval-let
   "The let macro from clojure.core"
-  [ctx let-bindings exprs]
-  (let [ctx (loop [ctx ctx
-                   let-bindings let-bindings]
-              (let [let-name (first let-bindings)
-                    let-bindings (rest let-bindings)
-                    let-val (first let-bindings)
-                    rest-let-bindings (next let-bindings)
-                    v (eval ctx let-val)
-                    bindings (faster/get-2 ctx :bindings)
-                    bindings (faster/assoc-3 bindings let-name v)
-                    ctx (faster/assoc-3 ctx :bindings bindings)]
-                (if-not rest-let-bindings
-                  ctx
-                  (recur ctx
-                         rest-let-bindings))))]
+  [ctx bindings let-bindings exprs]
+  (let [[ctx bindings] (loop [ctx ctx
+                              bindings bindings
+                              let-bindings let-bindings]
+                         (let [let-name (first let-bindings)
+                               let-bindings (rest let-bindings)
+                               let-val (first let-bindings)
+                               rest-let-bindings (next let-bindings)
+                               v (eval ctx bindings let-val)
+                               ;; bindings (faster/get-2 ctx :bindings)
+                               bindings (faster/assoc-3 bindings let-name v)
+                               ;; ctx (faster/assoc-3 ctx :bindings bindings)
+                               ]
+                           (if-not rest-let-bindings
+                             [ctx bindings]
+                             (recur ctx bindings
+                                    rest-let-bindings))))]
     (when exprs
       (loop [exprs exprs]
         (let [e (first exprs)
-              ret (eval ctx e)
+              ret (eval ctx bindings e)
               nexprs (next exprs)]
           (if nexprs (recur nexprs)
               ret))))))
 
-(defn handle-meta [ctx m]
+(defn handle-meta [ctx bindings m]
   ;; Sometimes metadata needs eval. In this case the metadata has metadata.
   (-> (if-let [mm (meta m)]
         (if (when mm (get-2 mm :sci.impl/op))
-          (eval ctx m)
+          (eval ctx bindings m)
           m)
         m)
       (dissoc :sci.impl/op)))
 
 (defn eval-map
-  [ctx expr]
+  [ctx bindings expr]
   (if-let [m (meta expr)]
     (if (kw-identical? :eval (:sci.impl/op m))
-      (with-meta (zipmap (map #(eval ctx %) (keys expr))
-                         (map #(eval ctx %) (vals expr)))
-        (handle-meta ctx m))
+      (with-meta (zipmap (map #(eval ctx bindings %) (keys expr))
+                         (map #(eval ctx bindings %) (vals expr)))
+        (handle-meta ctx bindings m))
       expr)
     expr))
 
 (defn eval-def
-  [ctx var-name init m]
-  (let [init (eval ctx init)
+  [ctx bindings var-name init m]
+  (let [init (eval ctx bindings init)
         m (or m (meta var-name))
-        m (eval-map ctx m) ;; m is marked with eval op in analyzer only when necessary
+        m (eval-map ctx bindings m) ;; m is marked with eval op in analyzer only when necessary
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -122,31 +124,30 @@
     ;; return var
     (get (get (get env :namespaces) cnn) var-name)))
 
-(defmacro resolve-symbol [ctx sym]
-  `(.get ^java.util.Map
-         (.get ~(with-meta ctx
-                  {:tag 'java.util.Map}) :bindings) ~sym))
+(defmacro resolve-symbol [bindings sym]
+  `(.get ~(with-meta bindings
+            {:tag 'java.util.Map}) ~sym))
 
 (declare eval-string*)
 
 (defn eval-case
-  ([ctx case-map case-val]
-   (let [v (eval ctx case-val)]
+  ([ctx bindings case-map case-val]
+   (let [v (eval ctx bindings case-val)]
      (if-let [[_ found] (find case-map v)]
-       (eval ctx found)
+       (eval ctx bindings found)
        (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                    (str "No matching clause: " v))))))
-  ([ctx case-map case-val case-default]
-   (let [v (eval ctx case-val)]
+  ([ctx bindings case-map case-val case-default]
+   (let [v (eval ctx bindings case-val)]
      (if-let [[_ found] (find case-map v)]
-       (eval ctx found)
-       (eval ctx case-default)))))
+       (eval ctx bindings found)
+       (eval ctx bindings case-default)))))
 
 (defn eval-try
-  [ctx body catches finally]
+  [ctx bindings body catches finally]
   (try
     (binding [utils/*in-try* true]
-      (eval ctx body))
+      (eval ctx bindings body))
     (catch #?(:clj Throwable :cljs js/Error) e
       (if-let
           [[_ r]
@@ -155,22 +156,22 @@
                        (when (instance? clazz e)
                          (reduced
                           [::try-result
-                           (eval (assoc-in ctx [:bindings (:binding c)]
-                                           e)
+                           (eval ctx
+                                 (assoc bindings (:binding c) e)
                                  (:body c))]))))
                    nil
                    catches)]
         r
-        (rethrow-with-location-of-node ctx e body)))
+        (rethrow-with-location-of-node ctx bindings e body)))
     (finally
-      (eval ctx finally))))
+      (eval ctx bindings finally))))
 
 ;;;; Interop
 
-(defn eval-static-method-invocation [ctx expr]
+(defn eval-static-method-invocation [ctx bindings expr]
   (interop/invoke-static-method (first expr)
                                 ;; eval args!
-                                (map #(eval ctx %) (rest expr))))
+                                (map #(eval ctx bindings %) (rest expr))))
 
 #?(:clj
    (defn super-symbols [clazz]
@@ -178,10 +179,10 @@
      (map #(symbol (.getName ^Class %)) (supers clazz))))
 
 (defn eval-instance-method-invocation
-  [ctx instance-expr method-str args]
+  [ctx bindings instance-expr method-str args]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
-        instance-expr* (eval ctx instance-expr)]
+        instance-expr* (eval ctx bindings instance-expr)]
     (if (and (map? instance-expr*)
              (:sci.impl/record (meta instance-expr*))) ;; a sci record
       (get instance-expr* (keyword (subs method-str 1)))
@@ -200,7 +201,7 @@
         ;; of instance-expr is at analysis time
         (when-not target-class
           (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        (let [args (map #(eval ctx %) args)] ;; eval args!
+        (let [args (map #(eval ctx bindings %) args)] ;; eval args!
           (interop/invoke-instance-method instance-expr* target-class method-str args))))))
 
 ;;;; End interop
@@ -210,12 +211,12 @@
 (declare eval-form)
 
 (defn eval-resolve
-  ([ctx sym]
-   (let [sym (eval ctx sym)]
+  ([ctx bindings sym]
+   (let [sym (eval ctx bindings sym)]
      (second (@utils/lookup ctx sym false))))
-  ([ctx env sym]
+  ([ctx bindings env sym]
    (when-not (contains? env sym)
-     (let [sym (eval ctx sym)]
+     (let [sym (eval ctx bindings sym)]
        (second (@utils/lookup ctx sym false))))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
@@ -267,11 +268,11 @@
 
 (defn eval-do
   "Note: various arities of do have already been unrolled in the analyzer."
-  [ctx exprs]
+  [ctx bindings exprs]
   (let [exprs (seq exprs)]
     (loop [exprs exprs]
       (when exprs
-        (let [ret (eval ctx (first exprs))]
+        (let [ret (eval ctx bindings (first exprs))]
           (if-let [exprs (next exprs)]
             (recur exprs)
             ret))))))
@@ -280,17 +281,17 @@
 
 (macros/deftime
   ;; This macro generates a function of the following form for 20 arities:
-  #_(defn fn-call [ctx f args]
+  #_(defn fn-call [ctx bindings f args]
       (case (count args)
         0 (f)
-        1 (let [arg (eval ctx (first args))]
+        1 (let [arg (eval ctx bindings (first args))]
             (f arg))
-        2 (let [arg1 (eval ctx (first args))
+        2 (let [arg1 (eval ctx bindings (first args))
                 args (rest args)
-                arg2 (eval ctx (first args))]
+                arg2 (eval ctx bindings (first args))]
             (f arg1 arg2))
         ,,,
-        (let [args (mapv #(eval ctx %) args)]
+        (let [args (mapv #(eval ctx bindings %) args)]
           (apply f args))))
   (defmacro def-fn-call []
     (let [cases
@@ -298,17 +299,17 @@
                     [i (let [arg-syms (map (fn [_] (gensym "arg")) (range i))
                              args-sym 'args ;; (gensym "args")
                              let-syms (interleave arg-syms (repeat args-sym))
-                             let-vals (interleave (repeat `(eval ~'ctx (first ~args-sym)))
+                             let-vals (interleave (repeat `(eval ~'ctx ~'bindings (first ~args-sym)))
                                                   (repeat `(rest ~args-sym)))
                              let-bindings (vec (interleave let-syms let-vals))]
                          `(let ~let-bindings
                             (~'f ~@arg-syms)))]) (range 20))
-          cases (concat cases ['(let [args (mapv #(eval ctx %) args)]
+          cases (concat cases ['(let [args (mapv #(eval ctx bindings %) args)]
                                   (apply f args))])]
       ;; Normal apply:
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(eval ~'ctx %) ~'args)))
-      `(defn ~'fn-call ~'[ctx f args]
+      `(defn ~'fn-call ~'[ctx bindings f args]
          ;; TODO: can we prevent hitting this at all, by analyzing more efficiently?
          ;; (prn :count ~'f ~'(count args) ~'args)
          (case ~'(count args)
@@ -317,12 +318,12 @@
 (def-fn-call)
 
 (defn eval
-  [ctx expr]
+  [ctx bindings expr]
   (try
     (cond (instance? #?(:clj sci.impl.types.EvalFn
                         :cljs sci.impl.types/EvalFn) expr)
           (let [f (.-f ^sci.impl.types.EvalFn expr)]
-            (f ctx))
+            (f ctx bindings))
           (instance? #?(:clj sci.impl.types.EvalVar
                         :cljs sci.impl.types/EvalVar) expr)
           (let [v (.-v ^sci.impl.types.EvalVar expr)]
@@ -330,9 +331,9 @@
           #?(:clj (instance? clojure.lang.IPersistentMap expr)
              :cljs (if (nil? expr) false
                        (satisfies? IMap expr)))
-          (eval-map ctx expr)
+          (eval-map ctx bindings expr)
           :else expr)
     (catch #?(:clj Throwable :cljs js/Error) e
-      (rethrow-with-location-of-node ctx e expr))))
+      (rethrow-with-location-of-node ctx bindings e expr))))
 
 (vreset! utils/eval* eval)
