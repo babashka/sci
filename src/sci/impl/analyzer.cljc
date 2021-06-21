@@ -646,7 +646,7 @@
                       (if (nil? args)
                         (if (str/starts-with? method-expr "-")
                           (ctx-fn
-                           (fn [_ctx]
+                           (fn [_ctx _bindings]
                              (interop/get-static-field [instance-expr (subs method-expr 1)]))
                            (with-meta [instance-expr (subs method-expr 1)]
                              {:sci.impl/op :static-access}))
@@ -662,7 +662,7 @@
                                    (try (Reflector/getStaticField ^Class instance-expr ^String method-expr)
                                         (catch IllegalArgumentException _ nil))]
                             (ctx-fn
-                             (fn [_ctx]
+                             (fn [_ctx _bindings]
                                (interop/get-static-field [instance-expr method-expr]))
                              (with-meta [instance-expr (subs method-expr 1)]
                                {:sci.impl/op :static-access})) #_(with-meta [instance-expr method-expr]
@@ -743,7 +743,7 @@
 ;;;; Namespaces
 
 (defn return-ns-op [_ctx f expr analyzed-args]
-  (ctx-fn (fn [ctx]
+  (ctx-fn (fn [ctx _bindings]
             (apply f ctx analyzed-args))
           expr))
 
@@ -789,7 +789,7 @@
          expr
          (conj ret
                (ctx-fn
-                (fn [ctx]
+                (fn [ctx _bindings]
                   (load/add-loaded-lib (:env ctx) ns-name)
                   nil)
                 nil)))))))

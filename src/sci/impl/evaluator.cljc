@@ -157,7 +157,7 @@
                          (reduced
                           [::try-result
                            (eval ctx
-                                 (assoc bindings c e )
+                                 (assoc bindings (:binding c) e)
                                  (:body c))]))))
                    nil
                    catches)]

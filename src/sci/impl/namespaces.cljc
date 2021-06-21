@@ -525,9 +525,9 @@
 
 (defn sci-resolve
   ([sci-ctx sym]
-   (@utils/eval-resolve-state sci-ctx sym))
+   (@utils/eval-resolve-state sci-ctx (:bindings sci-ctx) sym))
   ([sci-ctx env sym]
-   (@utils/eval-resolve-state sci-ctx env sym)))
+   (@utils/eval-resolve-state sci-ctx (:bindings sci-ctx) env sym)))
 
 (defn sci-refer [sci-ctx & args]
   (apply @utils/eval-refer-state sci-ctx args))

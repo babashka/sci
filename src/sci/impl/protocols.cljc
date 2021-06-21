@@ -56,7 +56,7 @@
 
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
-        protocol-var (@utils/eval-resolve-state ctx protocol-name)
+        protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
         protocol-ns (-> protocol-var deref :ns)
         pns (str (vars/getName protocol-ns))
         fq-meth-name #(symbol pns %)
@@ -97,7 +97,7 @@
 (defn extend-type [_ _ ctx atype & proto+meths]
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map (fn [[proto & meths]]
-                  (let [protocol-var (@utils/eval-resolve-state ctx proto)
+                  (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
                         protocol-ns (-> protocol-var deref :ns)
                         pns (str (vars/getName protocol-ns))
                         fq-meth-name #(symbol pns %)]

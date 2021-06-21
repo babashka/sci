@@ -228,10 +228,10 @@
   (or (get arities arity)
       (:variadic arities)))
 
-(defn fn-arity-map [ctx fn-name macro? fn-bodies]
+(defn fn-arity-map [ctx bindings fn-name macro? fn-bodies]
   (reduce
    (fn [arity-map fn-body]
-     (let [f (fun ctx fn-body fn-name macro?)
+     (let [f (fun ctx bindings fn-body fn-name macro?)
            var-arg? (:var-arg-name fn-body)
            fixed-arity (:fixed-arity fn-body)]
        (if var-arg?
@@ -249,7 +249,7 @@
                    bindings)
         f (if single-arity
             (fun ctx bindings single-arity fn-name macro?)
-            (let [arities (fn-arity-map ctx fn-name macro? fn-bodies)]
+            (let [arities (fn-arity-map ctx bindings fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]
