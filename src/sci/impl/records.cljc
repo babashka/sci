@@ -24,7 +24,7 @@
         (mapcat
          (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
            (let [impls (group-by first impls)
-                 protocol (@utils/eval-resolve-state ctx protocol-name)
+                 protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
                  _ (when-not protocol
                      (utils/throw-error-with-location
                       (str "Protocol not found: " protocol-name)

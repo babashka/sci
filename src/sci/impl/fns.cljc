@@ -86,7 +86,6 @@
      (let [;; tried making bindings a transient, but saw no perf improvement
            ;; it's even slower with less than ~10 bindings which is pretty uncommon
            ;; see https://github.com/borkdude/sci/issues/559
-           bindings (.get ^java.util.Map ctx :bindings)
            bindings
            (loop [args* (seq args)
                   params (seq params)
@@ -104,8 +103,7 @@
                  (when args*
                    (throw-arity ctx nsm fn-name macro? args))
                  ret)))
-           ctx (assoc-3 ctx :bindings bindings)
-           ret (eval/eval ctx body)
+           ret (eval/eval ctx bindings body)
            ;; m (meta ret)
            recur? (instance? Recur ret)]
        (if recur?
