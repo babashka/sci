@@ -227,7 +227,7 @@
 
 (defrecord FnBody [params body fixed-arity var-arg-name closure-bindings])
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro?]
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] fn-name macro?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -257,11 +257,17 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        param-map (zipmap params
-                          (repeat nil))
-        closure-bindings (atom #{})
-        ctx (assoc ctx :param-map param-map :closure-bindings closure-bindings)
-        ctx (update ctx :bindings merge param-map)
+        bindings (zipmap params
+                         (repeat nil))
+        [ctx closure-bindings]
+        (if-let [cb (:closure-bindings ctx)]
+          (do (when fn-name
+                (swap! cb conj fn-name))
+              [ctx cb])
+          (let [cb (atom (if fn-name #{fn-name} #{}))]
+            [(assoc ctx :closure-bindings cb) cb]))
+        ctx (assoc ctx :param-map bindings)
+        ctx (update ctx :bindings merge bindings)
         ana-children (analyze-children ctx body)
         body (return-do fn-expr ana-children)]
     (->FnBody params body fixed-arity var-arg-name @closure-bindings)))
@@ -293,7 +299,7 @@
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
-                                 body (expand-fn-args+body ctx body macro?)
+                                 body (expand-fn-args+body ctx body fn-name macro?)
                                  ;; body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:var-arg-name body)
                                  fixed-arity (:fixed-arity body)
@@ -849,7 +855,9 @@
              (mapcat (fn [[i binds]]
                        [i `(let ~binds
                              (fn [~'ctx ~'bindings]
-                               ((eval/resolve-symbol ~'bindings ~'f)
+                               ((do
+                                  ;; (prn :f ~'f)
+                                  (eval/resolve-symbol ~'bindings ~'f))
                                 ~@(map (fn [j]
                                          `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                        (range i)))))])
