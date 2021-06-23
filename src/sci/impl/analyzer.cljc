@@ -268,7 +268,7 @@
           [(assoc ctx :param-map param-bindings) cb]
           (if (empty? bindings)
             [ctx nil]
-            (let [cb (atom #{})]
+            (let [cb (volatile! #{})]
               [(assoc ctx :closure-bindings cb :param-map param-bindings) cb])))
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ana-children (analyze-children ctx body)
