@@ -225,7 +225,7 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
-(defrecord FnBody [params body fixed-arity var-arg-name])
+(defrecord FnBody [params body fixed-arity var-arg-name closure-bindings])
 
 (defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro?]
   (when-not binding-vector
@@ -257,10 +257,14 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        ctx (update ctx :bindings merge (zipmap params
-                                                (repeat nil)))
-        body (return-do fn-expr (analyze-children ctx body))]
-    (->FnBody params body fixed-arity var-arg-name)))
+        param-map (zipmap params
+                          (repeat nil))
+        closure-bindings (atom #{})
+        ctx (assoc ctx :param-map param-map :closure-bindings closure-bindings)
+        ctx (update ctx :bindings merge param-map)
+        ana-children (analyze-children ctx body)
+        body (return-do fn-expr ana-children)]
+    (->FnBody params body fixed-arity var-arg-name @closure-bindings)))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys

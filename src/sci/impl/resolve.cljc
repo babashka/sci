@@ -94,6 +94,9 @@
                 (find bindings sym)]
        ;; never inline a binding at macro time!
        (let [;; pass along tag of expression!
+             _ (when-not (contains? (:param-map ctx) sym)
+                 (when-let [cb (:closure-bindings ctx)]
+                   (swap! cb conj sym)))
              v (if call? ;; resolve-symbol is already handled in the call case
                  (mark-resolve-sym k)
                  (ctx-fn

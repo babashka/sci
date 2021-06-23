@@ -83,6 +83,12 @@
     "allPublicMethods":true,
     "allPublicFields": true,
     "allPublicConstructors": true
+  },
+  {
+    "name":"java.lang.Thread",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
   }
   ,
   {"name": "java.lang.reflect.AccessibleObject",

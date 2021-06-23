@@ -123,7 +123,10 @@
    fn-body
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?]
-  (let [fixed-arity (:fixed-arity fn-body)
+  (let [closure-bindings (:closure-bindings fn-body)
+        bindings (select-keys bindings closure-bindings)
+        ;;_ (prn :bindings bindings)
+        fixed-arity (:fixed-arity fn-body)
         var-arg-name (:var-arg-name fn-body)
         #_:clj-kondo/ignore
         params (:params fn-body)
