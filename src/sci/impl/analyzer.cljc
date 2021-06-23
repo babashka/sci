@@ -261,10 +261,8 @@
                          (repeat nil))
         [ctx closure-bindings]
         (if-let [cb (:closure-bindings ctx)]
-          (do (when fn-name
-                (swap! cb conj fn-name))
-              [ctx cb])
-          (let [cb (atom (if fn-name #{fn-name} #{}))]
+          [ctx cb]
+          (let [cb (atom #{})]
             [(assoc ctx :closure-bindings cb) cb]))
         ctx (assoc ctx :param-map bindings)
         ctx (update ctx :bindings merge bindings)
