@@ -225,9 +225,9 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
-(defrecord FnBody [params body fixed-arity var-arg-name closure-bindings])
+(defrecord FnBody [params body fixed-arity var-arg-name bindings-fn])
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] fn-name macro?]
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] _fn-name macro?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -257,18 +257,35 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        bindings (zipmap params
+        param-bindings (zipmap params
                          (repeat nil))
+        bindings (:bindings ctx)
+        binding-cnt (count bindings)
+        ;; :param-maps is only needed when we're detecting :closure-bindings
+        ;; in sci.impl.resolve
         [ctx closure-bindings]
         (if-let [cb (:closure-bindings ctx)]
-          [ctx cb]
-          (let [cb (atom #{})]
-            [(assoc ctx :closure-bindings cb) cb]))
-        ctx (assoc ctx :param-map bindings)
-        ctx (update ctx :bindings merge bindings)
+          [(assoc ctx :param-map param-bindings) cb]
+          (if (empty? bindings)
+            [ctx nil]
+            (let [cb (atom #{})]
+              [(assoc ctx :closure-bindings cb :param-map param-bindings) cb])))
+        ctx (assoc ctx :bindings (merge bindings param-bindings))
         ana-children (analyze-children ctx body)
-        body (return-do fn-expr ana-children)]
-    (->FnBody params body fixed-arity var-arg-name @closure-bindings)))
+        body (return-do fn-expr ana-children)
+        closure-bindings (when closure-bindings
+                           @closure-bindings)
+        closure-binding-cnt (when closure-bindings (count closure-bindings))
+        bindings-fn (if closure-bindings
+                      (if (= binding-cnt
+                             closure-binding-cnt)
+                        ;; same count, all bindings are needed
+                        identity
+                        ;; here we narrow down the bindings based on closure-bindings
+                        #(select-keys % closure-bindings))
+                      ;; no closure bindings, bindings was empty anyways
+                      identity)]
+    (->FnBody params body fixed-arity var-arg-name bindings-fn)))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
