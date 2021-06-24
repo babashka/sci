@@ -870,9 +870,7 @@
              (mapcat (fn [[i binds]]
                        [i `(let ~binds
                              (fn [~'ctx ~'bindings]
-                               ((do
-                                  ;; (prn :f ~'f)
-                                  (eval/resolve-symbol ~'bindings ~'f))
+                               ((eval/resolve-symbol ~'bindings ~'f)
                                 ~@(map (fn [j]
                                          `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                        (range i)))))])
