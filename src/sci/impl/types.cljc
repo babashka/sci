@@ -46,6 +46,9 @@
 (defprotocol Stack
   (stack [this]))
 
+(extend-protocol Stack
+  #?(:clj Object :cljs default) (sexpr [this] this))
+
 (deftype EvalFn [f info expr stack]
   ;; f = (fn [ctx] ...)
   ;; m = meta

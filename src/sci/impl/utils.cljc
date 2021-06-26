@@ -66,7 +66,8 @@
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx bindings ^Throwable e raw-node]
    (if *in-try* (throw e)
-       (let [node (t/sexpr raw-node)
+       (let [stack (t/stack raw-node)
+             node (t/sexpr raw-node)
              m (meta node)
              f (when (seqable? node) (first node))
              fm (some-> f meta)
@@ -81,14 +82,22 @@
                        (identical? needs-ctx op))
              env (:env ctx)
              id (:id ctx)]
-         (when (not special?)
+         (if stack
            ;; (prn :adding node)
            (swap! env update-in [:sci.impl/callstack id]
                   (fn [vt]
                     (if vt
-                      (do (vswap! vt conj node)
+                      (do (vswap! vt into stack)
                           vt)
-                      (volatile! (list node))))))
+                      (volatile! (list* stack)))))
+           (when (not special?)
+             ;; (prn :adding node)
+             (swap! env update-in [:sci.impl/callstack id]
+                    (fn [vt]
+                      (if vt
+                        (do (vswap! vt conj node)
+                            vt)
+                        (volatile! (list node)))))))
          (let [d (ex-data e)
                wrapping-sci-error? (isa? (:type d) :sci/error)]
            (if wrapping-sci-error?
@@ -96,7 +105,8 @@
              (let [ex-msg #?(:clj (.getMessage e)
                              :cljs (.-message e))
                    {:keys [:line :column :file]}
-                   (or (some-> env deref
+                   (or (first stack)
+                       (some-> env deref
                                :sci.impl/callstack (get id)
                                deref last meta)
                        (meta node))]

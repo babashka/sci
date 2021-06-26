@@ -1054,10 +1054,14 @@
                         (do
                           (return-call ctx
                                        ;; for backwards compatibility with error reporting
-                                       (mark-eval-call (cons f (rest expr))
+                                       expr #_(mark-eval-call (cons f (rest expr))
                                                        :sci.impl/f-meta f-meta)
                                        f (analyze-children ctx (rest expr))
-                                       [(meta f) f-meta]))
+                                       (do
+                                         [(assoc (meta expr)
+                                                 :sci.impl/op :call
+                                                 :ns @vars/current-ns
+                                                 :file @vars/current-file) f-meta])))
                         (if-let [op (:sci.impl/op (meta f))]
                           (case op
                             needs-ctx
