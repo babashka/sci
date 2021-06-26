@@ -1048,7 +1048,9 @@
                                            ;; hand back control to eval-form for
                                            ;; interleaved analysis and eval
                                            (types/->EvalForm v)
-                                           :else (analyze ctx v))]
+                                           :else (do
+                                                   ;; (prn :v v)
+                                                   (analyze ctx v)))]
                         expanded)
                       (if-let [f (:sci.impl/inlined f-meta)]
                         (return-call ctx
@@ -1058,7 +1060,8 @@
                                      f (analyze-children ctx (rest expr))
                                      [(assoc (meta expr)
                                              :ns @vars/current-ns
-                                             :file @vars/current-file) f-meta])
+                                             :file @vars/current-file
+                                             :sci.impl/f-meta f-meta)])
                         (if-let [op (:sci.impl/op (meta f))]
                           (case op
                             needs-ctx
@@ -1076,7 +1079,8 @@
                                              f children
                                              [(assoc (meta expr)
                                                      :ns @vars/current-ns
-                                                     :file @vars/current-file) f-meta])))
+                                                     :file @vars/current-file
+                                                     :sci.impl/f-meta f-meta)])))
                             :resolve-sym
                             (return-binding-call ctx
                                                  ;; for backwards compatibility with error reporting
@@ -1089,15 +1093,23 @@
                                            expr
                                            f children [(assoc (meta expr)
                                                               :ns @vars/current-ns
-                                                              :file @vars/current-file)
-                                                       f-meta])))
+                                                              :file @vars/current-file
+                                                              :sci.impl/f-meta f-meta)
+                                                       ])))
                           (let [children (analyze-children ctx (rest expr))]
-                            (return-call ctx
-                                         ;; for backwards compatibility with error reporting
-                                         (mark-eval-call (cons f children)
-                                                         :sci.impl/f-meta f-meta)
-                                         f children nil)))))
+                            (do
+                              ;; (prn :expr expr (meta expr))
+                              (return-call ctx
+                                           ;; for backwards compatibility with error reporting
+                                           expr #_(mark-eval-call (cons f children)
+                                                                  :sci.impl/f-meta f-meta)
+                                           f children [(assoc (meta expr)
+                                                              :ns @vars/current-ns
+                                                              :file @vars/current-file
+                                                              :sci.impl/f-meta f-meta)
+                                                       ]))))))
                     (catch #?(:clj Exception :cljs js/Error) e
+                      (prn :error)
                       (rethrow-with-location-of-node ctx e
                                                      ;; adding metadata for error reporting
                                                      (mark-eval-call

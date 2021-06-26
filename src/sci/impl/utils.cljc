@@ -67,10 +67,14 @@
   ([ctx bindings ^Throwable e raw-node]
    (if *in-try* (throw e)
        (let [stack (t/stack raw-node)
+             ;; _ (prn :stack stack)
              node (t/sexpr raw-node)
              m (meta node)
              f (when (seqable? node) (first node))
-             fm (some-> f meta)
+             fm (or (some :sci.impl/f-meta stack)
+                    (some-> f meta)
+                    #_(last stack))
+             ;; _ (prn :fm fm stack)
              op (when (and fm m)
                   (.get ^java.util.Map m :sci.impl/op))
              special? (or
@@ -87,9 +91,9 @@
            (swap! env update-in [:sci.impl/callstack id]
                   (fn [vt]
                     (if vt
-                      (do (vswap! vt into stack)
+                      (do (vswap! vt into (reverse stack))
                           vt)
-                      (volatile! (list* stack)))))
+                      (volatile! (list* (reverse stack))))))
            (when (not special?)
              ;; (prn :adding node)
              (swap! env update-in [:sci.impl/callstack id]
