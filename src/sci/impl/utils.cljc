@@ -82,6 +82,7 @@
              env (:env ctx)
              id (:id ctx)]
          (when (not special?)
+           ;; (prn :adding node)
            (swap! env update-in [:sci.impl/callstack id]
                   (fn [vt]
                     (if vt
@@ -226,9 +227,11 @@
 
 (defn ctx-fn
   ([f expr]
-   (t/->EvalFn f nil expr))
+   (t/->EvalFn f nil expr nil))
   ([f m expr]
-   (t/->EvalFn f m expr)))
+   (t/->EvalFn f m expr nil))
+  ([f m expr stack]
+   (t/->EvalFn f m expr stack)))
 
 (defn maybe-destructured
   [params body]

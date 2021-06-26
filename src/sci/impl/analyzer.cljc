@@ -752,7 +752,8 @@
                      ;; for backwards compatibility with error reporting
                      (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args))
                      (:sci.impl.record/constructor (meta record))
-                     args))
+                     args
+                     nil))
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
@@ -923,7 +924,7 @@
                                             (range i)))])
                           (range 20))]
     `(defn ~'return-call
-       ~'[_ctx expr f analyzed-children]
+       ~'[_ctx expr f analyzed-children stack]
        (ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
@@ -937,7 +938,9 @@
                      let-bindings)
              `[(fn [~'ctx ~'bindings]
                  (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children))]))
-        ~'expr))))
+        nil
+        ~'expr
+        ~'stack))))
 
 (declare return-call) ;; for clj-kondo
 (gen-return-call)
@@ -1048,11 +1051,13 @@
                                            :else (analyze ctx v))]
                         expanded)
                       (if-let [f (:sci.impl/inlined f-meta)]
-                        (return-call ctx
-                                     ;; for backwards compatibility with error reporting
-                                     (mark-eval-call (cons f (rest expr))
-                                                     :sci.impl/f-meta f-meta)
-                                     f (analyze-children ctx (rest expr)))
+                        (do
+                          (return-call ctx
+                                       ;; for backwards compatibility with error reporting
+                                       (mark-eval-call (cons f (rest expr))
+                                                       :sci.impl/f-meta f-meta)
+                                       f (analyze-children ctx (rest expr))
+                                       [(meta f) f-meta]))
                         (if-let [op (:sci.impl/op (meta f))]
                           (case op
                             needs-ctx
@@ -1067,7 +1072,7 @@
                                              ;; for backwards compatibility with error reporting
                                              (mark-eval-call (cons f children)
                                                              :sci.impl/f-meta f-meta)
-                                             f children)))
+                                             f children nil)))
                             :resolve-sym
                             (return-binding-call ctx
                                                  ;; for backwards compatibility with error reporting
@@ -1079,13 +1084,13 @@
                                            ;; for backwards compatibility with error reporting
                                            (mark-eval-call (cons f children)
                                                            :sci.impl/f-meta f-meta)
-                                           f children)))
+                                           f children nil)))
                           (let [children (analyze-children ctx (rest expr))]
                             (return-call ctx
                                          ;; for backwards compatibility with error reporting
                                          (mark-eval-call (cons f children)
                                                          :sci.impl/f-meta f-meta)
-                                         f children)))))
+                                         f children nil)))))
                     (catch #?(:clj Exception :cljs js/Error) e
                       (rethrow-with-location-of-node ctx e
                                                      ;; adding metadata for error reporting
@@ -1125,8 +1130,8 @@
   (let [children (into [] cat the-map)
         analyzed-children (analyze-children ctx children)]
     (if (<= (count analyzed-children) 16)
-      (return-call ctx the-map array-map analyzed-children)
-      (return-call ctx the-map hash-map analyzed-children))))
+      (return-call ctx the-map array-map analyzed-children nil)
+      (return-call ctx the-map hash-map analyzed-children nil))))
 
 (defn analyze-map
   [ctx expr m]
@@ -1176,14 +1181,14 @@
                         expr
                         (if m
                           ;; can we transform this into return-call?
-                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr))]
+                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil)]
                             (ctx-fn
                              (fn [ctx bindings]
                                (let [md (eval/eval ctx bindings analyzed-meta)
                                      coll (eval/eval ctx bindings ef)]
                                  (with-meta coll md)))
                              expr))
-                          (return-call ctx expr f2 (analyze-children ctx expr))))]
+                          (return-call ctx expr f2 (analyze-children ctx expr) nil)))]
     analyzed-coll))
 
 (defn analyze

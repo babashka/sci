@@ -43,7 +43,10 @@
 (defprotocol Info
   (info [this]))
 
-(deftype EvalFn [f info expr]
+(defprotocol Stack
+  (stack [this]))
+
+(deftype EvalFn [f info expr stack]
   ;; f = (fn [ctx] ...)
   ;; m = meta
   IBox
@@ -56,11 +59,13 @@
      :cljs IWithMeta)
   (#?(:clj withMeta
       :cljs -with-meta) [_this m]
-    (->EvalFn f info (with-meta expr m)))
+    (->EvalFn f info (with-meta expr m) stack))
   Info
   (info [_] info)
   Sexpr
   (sexpr [_] expr)
   Object
   (toString [_this]
-    (str expr)))
+    (str expr))
+  Stack
+  (stack [_] stack))
