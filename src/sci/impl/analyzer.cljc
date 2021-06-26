@@ -1071,9 +1071,12 @@
                               (let [children (analyze-children ctx (rest expr))]
                                 (return-call ctx
                                              ;; for backwards compatibility with error reporting
-                                             (mark-eval-call (cons f children)
+                                             expr #_(mark-eval-call (cons f children)
                                                              :sci.impl/f-meta f-meta)
-                                             f children nil)))
+                                             f children
+                                             [(assoc (meta expr)
+                                                     :ns @vars/current-ns
+                                                     :file @vars/current-file) f-meta])))
                             :resolve-sym
                             (return-binding-call ctx
                                                  ;; for backwards compatibility with error reporting
