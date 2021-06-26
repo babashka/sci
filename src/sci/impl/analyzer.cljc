@@ -1109,7 +1109,6 @@
                                                               :sci.impl/f-meta f-meta)
                                                        ]))))))
                     (catch #?(:clj Exception :cljs js/Error) e
-                      (prn :error)
                       (rethrow-with-location-of-node ctx e
                                                      ;; adding metadata for error reporting
                                                      (mark-eval-call
