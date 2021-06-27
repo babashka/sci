@@ -50,14 +50,14 @@
        (let [stack (t/stack raw-node)
              ;; _ (prn :stack stack)
              node (t/sexpr raw-node)
-             m (meta node)
+             #_#_m (meta node)
              f (when (seqable? node)
                  (first node))
              fm (or (:sci.impl/f-meta stack)
                     (some-> f meta))
-             op (when (and fm m)
+             #_#_op (when (and fm m)
                   (.get ^java.util.Map m :sci.impl/op))
-             special? (or
+             #_#_special? (or
                        ;; special call like def
                        (and (symbol? f) (not op))
                        ;; anonymous function
@@ -74,7 +74,7 @@
                         (do (vswap! vt conj stack)
                             vt)
                         (volatile! (list stack))))))
-           (when-not special?
+           #_(when-not special?
              (swap! env update-in [:sci.impl/callstack id]
                     (fn [vt]
                       (if vt
