@@ -511,7 +511,9 @@
                          (when (eval/eval ctx bindings condition)
                            (eval/eval ctx bindings then)))
                        ;; backward compatibility with stacktrace
-                       (with-meta expr {:sci.impl/op :call}))))
+                       nil
+                       expr
+                       nil)))
       3 (let [condition (nth children 0)
               then (nth children 1)
               else (nth children 2)]
@@ -523,7 +525,9 @@
                            (eval/eval ctx bindings then)
                            (eval/eval ctx bindings else)))
                        ;; backward compatibility with stacktrace
-                       (with-meta expr {:sci.impl/op :call}))))
+                       nil
+                       expr
+                       nil)))
       (throw-error-with-location "Too many arguments to if" expr))))
 
 (defn analyze-case
