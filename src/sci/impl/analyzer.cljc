@@ -1055,8 +1055,7 @@
                     or (return-or expr (analyze-children ctx (rest expr)))
                     and (return-and expr (analyze-children ctx (rest expr)))
                     recur (return-recur expr (analyze-children ctx (rest expr)))
-                    in-ns (analyze-in-ns ctx expr)
-                    (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                    in-ns (analyze-in-ns ctx expr))
                   :else
                   (try
                     (if (macro? f)
