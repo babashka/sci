@@ -657,7 +657,7 @@
 
 ;;;; Interop
 
-(defn expand-dot [ctx [_dot instance-expr method-expr & args :as _expr]]
+(defn expand-dot [ctx [_dot instance-expr method-expr & args :as expr]]
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
@@ -701,9 +701,12 @@
                             (ctx-fn
                              (fn [ctx bindings]
                                (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
-                             (mark-eval-call (cons (with-meta [instance-expr method-expr]
-                                                     {:sci.impl/op :static-access})
-                                                   args)))))
+                             nil
+                             expr
+                             [(assoc (meta expr)
+                                     :ns @vars/current-ns
+                                     :file @vars/current-file
+                                     )])))
                         (ctx-fn
                          (fn [ctx bindings]
                            (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
@@ -716,7 +719,7 @@
                               {::instance-expr instance-expr
                                ::method-expr method-expr}
                               ;; legacy error reporting for (.foo 1)
-                              (mark-eval-call _expr)
+                              (mark-eval-call expr)
                               ))
                :cljs (ctx-fn (fn [ctx bindings]
                                (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
@@ -724,7 +727,7 @@
                              {::instance-expr instance-expr
                               ::method-expr method-expr}
                              ;; legacy error reporting for (.foo 1)
-                             (mark-eval-call _expr)))]
+                             (mark-eval-call expr)))]
     res))
 
 (defn expand-dot**
@@ -985,7 +988,8 @@
                 f-meta (meta f)
                 eval? (and f-meta (:sci.impl/op f-meta))]
             (cond (and f-meta (::static-access f-meta))
-                  #?(:clj (expand-dot** ctx (list* '. (first f) (second f) (rest expr)))
+                  #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
+                                              (meta expr)))
                      :cljs
                      (let [children (analyze-children ctx (rest expr))]
                        (ctx-fn (fn [ctx bindings]
@@ -1029,9 +1033,6 @@
                     set! (analyze-set! ctx expr)
                     quote (analyze-quote ctx expr)
                     import (analyze-import ctx expr)
-                    ;; TODO: analyze if recur occurs in tail position, see #498
-                    ;; recur (mark-eval-call (cons f (analyze-children ctx (rest expr))))
-                    ;; else
                     or (return-or expr (analyze-children ctx (rest expr)))
                     and (return-and expr (analyze-children ctx (rest expr)))
                     recur (return-recur expr (analyze-children ctx (rest expr)))
