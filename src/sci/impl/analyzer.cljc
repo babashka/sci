@@ -16,7 +16,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
     [ana-macros constant? ctx-fn kw-identical? macro?
-     maybe-destructured rethrow-with-location-of-node set-namespace!]]
+     maybe-destructured merge-meta rethrow-with-location-of-node set-namespace!]]
    [sci.impl.vars :as vars])
   #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
@@ -1248,7 +1248,7 @@
                                   (types/->EvalVar v)))
                               (identical? utils/needs-ctx (:sci.impl/op mv))
                               (partial v ctx)
-                              :else v))
+                              :else (merge-meta v m)))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
        (record? expr) expr
