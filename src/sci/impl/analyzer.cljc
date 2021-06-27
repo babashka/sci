@@ -255,7 +255,7 @@
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
         param-bindings (zipmap params
-                         (repeat nil))
+                               (repeat nil))
         bindings (:bindings ctx)
         binding-cnt (count bindings)
         ;; :param-maps is only needed when we're detecting :closure-bindings
@@ -536,7 +536,7 @@
         match-clauses (take-nth 2 clauses)
         result-clauses (analyze-children ctx (take-nth 2 (rest clauses)))
         [default? case-default] (when (odd? (count clauses))
-                  [true (analyze ctx (last clauses))])
+                                  [true (analyze ctx (last clauses))])
         cases (interleave match-clauses result-clauses)
         assoc-new (fn [m k v]
                     (if-not (contains? m k)
@@ -678,8 +678,7 @@
                           (ctx-fn
                            (fn [_ctx _bindings]
                              (interop/get-static-field [instance-expr (subs method-expr 1)]))
-                           (with-meta [instance-expr (subs method-expr 1)]
-                             {:sci.impl/op :static-access}))
+                           nil expr nil)
                           ;; https://clojure.org/reference/java_interop
                           ;; If the second operand is a symbol and no args are
                           ;; supplied it is taken to be a field access - the
@@ -694,9 +693,7 @@
                             (ctx-fn
                              (fn [_ctx _bindings]
                                (interop/get-static-field [instance-expr method-expr]))
-                             (with-meta [instance-expr (subs method-expr 1)]
-                               {:sci.impl/op :static-access})) #_(with-meta [instance-expr method-expr]
-                              {:sci.impl/op :static-access})
+                             nil expr nil)
                             (ctx-fn
                              (fn [ctx bindings]
                                (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
@@ -704,39 +701,32 @@
                              expr
                              (assoc (meta expr)
                                     :ns @vars/current-ns
-                                    :file @vars/current-file
-                                    ))))
+                                    :file @vars/current-file))))
                         (ctx-fn
                          (fn [ctx bindings]
                            (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
                          nil expr
                          (assoc (meta expr)
                                 :ns @vars/current-ns
-                                :file @vars/current-file
-                                )))
+                                :file @vars/current-file)))
                       (ctx-fn (fn [ctx bindings]
                                 (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
                               ;; this info is used by set!
                               {::instance-expr instance-expr
                                ::method-expr method-expr}
-                              ;; legacy error reporting for (.foo 1)
                               expr
                               (assoc (meta expr)
                                      :ns @vars/current-ns
-                                     :file @vars/current-file
-                                     )
-                              ))
+                                     :file @vars/current-file)))
                :cljs (ctx-fn (fn [ctx bindings]
                                (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
                              ;; this info is used by set!
                              {::instance-expr instance-expr
                               ::method-expr method-expr}
-                             ;; legacy error reporting for (.foo 1)
                              expr
                              (assoc (meta expr)
                                     :ns @vars/current-ns
-                                    :file @vars/current-file
-                                    )))]
+                                    :file @vars/current-file)))]
     res))
 
 (defn expand-dot**
@@ -1084,9 +1074,7 @@
                         expanded)
                       (if-let [f (:sci.impl/inlined f-meta)]
                         (return-call ctx
-                                     ;; for backwards compatibility with error reporting
-                                     expr #_(mark-eval-call (cons f (rest expr))
-                                                            :sci.impl/f-meta f-meta)
+                                     expr
                                      f (analyze-children ctx (rest expr))
                                      (assoc (meta expr)
                                             :ns @vars/current-ns
@@ -1097,15 +1085,11 @@
                             needs-ctx
                             (if (identical? utils/needs-ctx op)
                               (return-needs-ctx-call ctx
-                                                     ;; no need to pass metadata for backwards compatibility
-                                                     ;; since we weren't reporting needs-ctx-fns anyway
                                                      expr
                                                      f (analyze-children ctx (rest expr)))
                               (let [children (analyze-children ctx (rest expr))]
                                 (return-call ctx
-                                             ;; for backwards compatibility with error reporting
-                                             expr #_(mark-eval-call (cons f children)
-                                                             :sci.impl/f-meta f-meta)
+                                             expr
                                              f children
                                              (assoc (meta expr)
                                                     :ns @vars/current-ns
@@ -1113,9 +1097,7 @@
                                                     :sci.impl/f-meta f-meta))))
                             :resolve-sym
                             (return-binding-call ctx
-                                                 ;; for backwards compatibility with error reporting
-                                                 expr #_(mark-eval-call (cons f (rest expr))
-                                                                 :sci.impl/f-meta f-meta)
+                                                 expr
                                                  f (analyze-children ctx (rest expr))
                                                  (assoc (meta expr)
                                                         :ns @vars/current-ns
@@ -1123,34 +1105,31 @@
                                                         :sci.impl/f-meta f-meta))
                             (let [children (analyze-children ctx (rest expr))]
                               (return-call ctx
-                                           ;; for backwards compatibility with error reporting
                                            expr
                                            f children (assoc (meta expr)
                                                              :ns @vars/current-ns
                                                              :file @vars/current-file
-                                                             :sci.impl/f-meta f-meta)
-                                           )))
+                                                             :sci.impl/f-meta f-meta))))
                           (let [children (analyze-children ctx (rest expr))]
                             (return-call ctx
-                                         ;; for backwards compatibility with error reporting
-                                         expr #_(mark-eval-call (cons f children)
-                                                                :sci.impl/f-meta f-meta)
+                                         expr
                                          f children (assoc (meta expr)
                                                            :ns @vars/current-ns
                                                            :file @vars/current-file
-                                                           :sci.impl/f-meta f-meta)
-                                         )))))
+                                                           :sci.impl/f-meta f-meta))))))
                     (catch #?(:clj Exception :cljs js/Error) e
+                      ;; we pass a ctx-fn because the rethrow function calls
+                      ;; stack on it, the only interesting bit it the map
+                      ;; with :ns and :file
                       (rethrow-with-location-of-node ctx e
-                                                     ;; adding metadata for error reporting
-                                                     (ctx-fn nil nil expr (assoc (meta expr)
-                                                                                 :ns @vars/current-ns
-                                                                                 :file @vars/current-file
-                                                                                 :sci.impl/f-meta f-meta)
-                                                             )
-                                                     #_(mark-eval-call
-                                                      (with-meta (cons f (rest expr))
-                                                        (meta expr))))))))
+                                                     (ctx-fn
+                                                      nil
+                                                      nil
+                                                      expr
+                                                      (assoc (meta expr)
+                                                             :ns @vars/current-ns
+                                                             :file @vars/current-file
+                                                             :sci.impl/f-meta f-meta)))))))
           (keyword? f)
           (let [children (analyze-children ctx (rest expr))
                 ccount (count children)]
