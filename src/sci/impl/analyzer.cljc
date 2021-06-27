@@ -342,9 +342,7 @@
                           :fn-name fn-name
                           :arglists arglists
                           :fn true
-                          :fn-meta fn-meta}
-        struct (with-meta struct
-                 {:sci.impl/op :fn})]
+                          :fn-meta fn-meta}]
     struct))
 
 (defn fn-ctx-fn [_ctx struct fn-meta]
