@@ -372,7 +372,8 @@
         ctxfn (fn-ctx-fn ctx struct fn-meta)]
     (ctx-fn ctxfn
             struct
-            struct)))
+            fn-expr
+            nil)))
 
 (defn expand-let*
   [ctx expr destructured-let-bindings exprs]
