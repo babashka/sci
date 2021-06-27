@@ -18,8 +18,7 @@
     [ana-macros constant? ctx-fn kw-identical? macro?
      maybe-destructured merge-meta rethrow-with-location-of-node set-namespace!]]
    [sci.impl.vars :as vars])
-  #?(:clj (:import
-                   [sci.impl Reflector]))
+  #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-do
@@ -568,7 +567,7 @@
      f
      nil
      expr
-     [])))
+     nil)))
 
 (defn analyze-try
   [ctx expr]
