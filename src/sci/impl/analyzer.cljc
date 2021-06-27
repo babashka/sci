@@ -14,7 +14,7 @@
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
-    [mark-eval mark-eval-call constant?
+    [mark-eval constant?
      rethrow-with-location-of-node
      merge-meta set-namespace!
      macro? ana-macros kw-identical? ctx-fn
@@ -566,8 +566,9 @@
               (eval/eval-case ctx bindings case-map case-val)))]
     (ctx-fn
      f
-     ;; legacy structure for error reporting
-     (mark-eval-call (list 'case)))))
+     nil
+     expr
+     [])))
 
 (defn analyze-try
   [ctx expr]
@@ -617,7 +618,12 @@
     (ctx-fn (fn [ctx bindings]
               (throw (eval/eval ctx bindings ana)))
             ;; legacy structure for error reporting
-            (mark-eval-call (list 'throw)))))
+            expr
+            nil
+            (assoc (meta expr)
+                   :ns @vars/current-ns
+                   :file @vars/current-file
+                   :special true))))
 
 (defn expand-declare [ctx [_declare & names :as expr]]
   (let [cnn (vars/current-ns-name)
@@ -651,7 +657,7 @@
 
 ;;;; Interop
 
-(defn expand-dot [ctx [_dot instance-expr method-expr & args :as _expr]]
+(defn expand-dot [ctx [_dot instance-expr method-expr & args :as expr]]
   (let [[method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
@@ -695,22 +701,31 @@
                             (ctx-fn
                              (fn [ctx bindings]
                                (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
-                             (mark-eval-call (cons (with-meta [instance-expr method-expr]
-                                                     {:sci.impl/op :static-access})
-                                                   args)))))
+                             nil
+                             expr
+                             (assoc (meta expr)
+                                    :ns @vars/current-ns
+                                    :file @vars/current-file
+                                    ))))
                         (ctx-fn
                          (fn [ctx bindings]
                            (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
-                         (mark-eval-call (cons (with-meta [instance-expr method-expr]
-                                                 {:sci.impl/op :static-access})
-                                               args))))
+                         nil expr
+                         (assoc (meta expr)
+                                :ns @vars/current-ns
+                                :file @vars/current-file
+                                )))
                       (ctx-fn (fn [ctx bindings]
                                 (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
                               ;; this info is used by set!
                               {::instance-expr instance-expr
                                ::method-expr method-expr}
                               ;; legacy error reporting for (.foo 1)
-                              (mark-eval-call _expr)
+                              expr
+                              (assoc (meta expr)
+                                     :ns @vars/current-ns
+                                     :file @vars/current-file
+                                     )
                               ))
                :cljs (ctx-fn (fn [ctx bindings]
                                (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
@@ -718,7 +733,11 @@
                              {::instance-expr instance-expr
                               ::method-expr method-expr}
                              ;; legacy error reporting for (.foo 1)
-                             (mark-eval-call _expr)))]
+                             expr
+                             (assoc (meta expr)
+                                    :ns @vars/current-ns
+                                    :file @vars/current-file
+                                    )))]
     res))
 
 (defn expand-dot**
@@ -748,11 +767,16 @@
        expr))
     (if-let [record (records/resolve-record-class ctx class-sym)]
       (let [args (analyze-children ctx args)]
+        ;; _ctx expr f analyzed-children stack
         (return-call ctx
                      ;; for backwards compatibility with error reporting
-                     (mark-eval-call (list* (:sci.impl.record/constructor (meta record)) args))
+                     expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
                      (:sci.impl.record/constructor (meta record))
-                     args))
+                     args
+                     (assoc (meta expr)
+                            :ns @vars/current-ns
+                            :file @vars/current-file
+                            )))
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
@@ -863,7 +887,7 @@
                                             (range i)))])
                           (range 20))]
     `(defn ~'return-binding-call
-       ~'[_ctx expr f analyzed-children]
+       ~'[_ctx expr f analyzed-children stack]
        (ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
@@ -877,7 +901,9 @@
                      let-bindings)
              `[(fn [~'ctx ~'bindings]
                  (eval/fn-call ~'ctx ~'bindings (eval/resolve-symbol ~'bindings ~'f) ~'analyzed-children))]))
-        ~'expr))))
+        nil
+        ~'expr
+        ~'stack))))
 
 (declare return-binding-call) ;; for clj-kondo
 (gen-return-binding-call)
@@ -923,7 +949,7 @@
                                             (range i)))])
                           (range 20))]
     `(defn ~'return-call
-       ~'[_ctx expr f analyzed-children]
+       ~'[_ctx expr f analyzed-children stack]
        (ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
@@ -937,7 +963,9 @@
                      let-bindings)
              `[(fn [~'ctx ~'bindings]
                  (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children))]))
-        ~'expr))))
+        nil
+        ~'expr
+        ~'stack))))
 
 (declare return-call) ;; for clj-kondo
 (gen-return-call)
@@ -956,11 +984,16 @@
                 nil))
             expr)))
 
+;; f m expr stack
 (defn analyze-import [_ctx expr]
   (let [args (rest expr)]
     (ctx-fn (fn [ctx _bindings]
               (apply eval/eval-import ctx args))
-            (mark-eval-call expr))))
+            nil
+            expr
+            (assoc (meta expr)
+                   :ns @vars/current-ns
+                   :file @vars/current-file))))
 
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
@@ -976,7 +1009,8 @@
                 f-meta (meta f)
                 eval? (and f-meta (:sci.impl/op f-meta))]
             (cond (and f-meta (::static-access f-meta))
-                  #?(:clj (expand-dot** ctx (list* '. (first f) (second f) (rest expr)))
+                  #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
+                                              (meta expr)))
                      :cljs
                      (let [children (analyze-children ctx (rest expr))]
                        (ctx-fn (fn [ctx bindings]
@@ -1020,14 +1054,10 @@
                     set! (analyze-set! ctx expr)
                     quote (analyze-quote ctx expr)
                     import (analyze-import ctx expr)
-                    ;; TODO: analyze if recur occurs in tail position, see #498
-                    ;; recur (mark-eval-call (cons f (analyze-children ctx (rest expr))))
-                    ;; else
                     or (return-or expr (analyze-children ctx (rest expr)))
                     and (return-and expr (analyze-children ctx (rest expr)))
                     recur (return-recur expr (analyze-children ctx (rest expr)))
-                    in-ns (analyze-in-ns ctx expr)
-                    (mark-eval-call (cons f (analyze-children ctx (rest expr)))))
+                    in-ns (analyze-in-ns ctx expr))
                   :else
                   (try
                     (if (macro? f)
@@ -1045,14 +1075,24 @@
                                            ;; hand back control to eval-form for
                                            ;; interleaved analysis and eval
                                            (types/->EvalForm v)
-                                           :else (analyze ctx v))]
+                                           :else (let [m (meta expr)
+                                                       v (if m (if #?(:clj (instance? clojure.lang.IObj v)
+                                                                      :cljs (implements? IWithMeta v))
+                                                                 (with-meta v (merge m (meta v)))
+                                                                 v)
+                                                             v)]
+                                                   (analyze ctx v)))]
                         expanded)
                       (if-let [f (:sci.impl/inlined f-meta)]
                         (return-call ctx
                                      ;; for backwards compatibility with error reporting
-                                     (mark-eval-call (cons f (rest expr))
-                                                     :sci.impl/f-meta f-meta)
-                                     f (analyze-children ctx (rest expr)))
+                                     expr #_(mark-eval-call (cons f (rest expr))
+                                                            :sci.impl/f-meta f-meta)
+                                     f (analyze-children ctx (rest expr))
+                                     (assoc (meta expr)
+                                            :ns @vars/current-ns
+                                            :file @vars/current-file
+                                            :sci.impl/f-meta f-meta))
                         (if-let [op (:sci.impl/op (meta f))]
                           (case op
                             needs-ctx
@@ -1065,31 +1105,53 @@
                               (let [children (analyze-children ctx (rest expr))]
                                 (return-call ctx
                                              ;; for backwards compatibility with error reporting
-                                             (mark-eval-call (cons f children)
+                                             expr #_(mark-eval-call (cons f children)
                                                              :sci.impl/f-meta f-meta)
-                                             f children)))
+                                             f children
+                                             (assoc (meta expr)
+                                                    :ns @vars/current-ns
+                                                    :file @vars/current-file
+                                                    :sci.impl/f-meta f-meta))))
                             :resolve-sym
                             (return-binding-call ctx
                                                  ;; for backwards compatibility with error reporting
-                                                 (mark-eval-call (cons f (rest expr))
+                                                 expr #_(mark-eval-call (cons f (rest expr))
                                                                  :sci.impl/f-meta f-meta)
-                                                 f (analyze-children ctx (rest expr)))
+                                                 f (analyze-children ctx (rest expr))
+                                                 (assoc (meta expr)
+                                                        :ns @vars/current-ns
+                                                        :file @vars/current-file
+                                                        :sci.impl/f-meta f-meta))
                             (let [children (analyze-children ctx (rest expr))]
                               (return-call ctx
                                            ;; for backwards compatibility with error reporting
-                                           (mark-eval-call (cons f children)
-                                                           :sci.impl/f-meta f-meta)
-                                           f children)))
+                                           expr
+                                           f children (assoc (meta expr)
+                                                             :ns @vars/current-ns
+                                                             :file @vars/current-file
+                                                             :sci.impl/f-meta f-meta)
+                                           )))
                           (let [children (analyze-children ctx (rest expr))]
-                            (return-call ctx
-                                         ;; for backwards compatibility with error reporting
-                                         (mark-eval-call (cons f children)
-                                                         :sci.impl/f-meta f-meta)
-                                         f children)))))
+                            (do
+                              ;; (prn :expr expr (meta expr))
+                              (return-call ctx
+                                           ;; for backwards compatibility with error reporting
+                                           expr #_(mark-eval-call (cons f children)
+                                                                  :sci.impl/f-meta f-meta)
+                                           f children (assoc (meta expr)
+                                                             :ns @vars/current-ns
+                                                             :file @vars/current-file
+                                                             :sci.impl/f-meta f-meta)
+                                           ))))))
                     (catch #?(:clj Exception :cljs js/Error) e
                       (rethrow-with-location-of-node ctx e
                                                      ;; adding metadata for error reporting
-                                                     (mark-eval-call
+                                                     (ctx-fn nil nil expr (assoc (meta expr)
+                                                                                 :ns @vars/current-ns
+                                                                                 :file @vars/current-file
+                                                                                 :sci.impl/f-meta f-meta)
+                                                             )
+                                                     #_(mark-eval-call
                                                       (with-meta (cons f (rest expr))
                                                         (meta expr))))))))
           (keyword? f)
@@ -1117,7 +1179,11 @@
                           (eval/fn-call ctx bindings f children)
                           (throw (new #?(:clj Exception :cljs js/Error)
                                       (str "Cannot call " (pr-str f) " as a function."))))))
-                    (mark-eval-call (cons f children)))))))
+                    nil
+                    expr
+                    (assoc (meta expr)
+                           :ns @vars/current-ns
+                           :file @vars/current-file))))))
 
 (def ^:const constant-colls true) ;; see GH #452
 
@@ -1125,8 +1191,8 @@
   (let [children (into [] cat the-map)
         analyzed-children (analyze-children ctx children)]
     (if (<= (count analyzed-children) 16)
-      (return-call ctx the-map array-map analyzed-children)
-      (return-call ctx the-map hash-map analyzed-children))))
+      (return-call ctx the-map array-map analyzed-children nil)
+      (return-call ctx the-map hash-map analyzed-children nil))))
 
 (defn analyze-map
   [ctx expr m]
@@ -1176,14 +1242,14 @@
                         expr
                         (if m
                           ;; can we transform this into return-call?
-                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr))]
+                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil)]
                             (ctx-fn
                              (fn [ctx bindings]
                                (let [md (eval/eval ctx bindings analyzed-meta)
                                      coll (eval/eval ctx bindings ef)]
                                  (with-meta coll md)))
                              expr))
-                          (return-call ctx expr f2 (analyze-children ctx expr))))]
+                          (return-call ctx expr f2 (analyze-children ctx expr) nil)))]
     analyzed-coll))
 
 (defn analyze

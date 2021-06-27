@@ -59,10 +59,11 @@
                     (ctx-fn
                      (fn [_ctx _bindings]
                        (interop/get-static-field [clazz sym-name]))
-                     (with-meta [clazz sym-name]
-                       {:sci.impl/op :static-access
-                        :file @vars/current-file
-                        :ns @vars/current-ns})))])))
+                     nil
+                     sym
+                     (assoc (meta sym)
+                            :file @vars/current-file
+                            :ns @vars/current-ns)))])))
       ;; no sym-ns
       (or
        ;; prioritize refers over vars in the current namespace, see 527

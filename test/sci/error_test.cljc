@@ -16,16 +16,28 @@
                (map #(-> %
                          (select-keys [:ns :name :line :column])
                          (update :ns sci-ns-name))
-                    (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
-    #_(doseq [st stacktrace]
+                    (cs/stacktrace (:sci.impl/callstack (ex-data e))))))
+        expected '({:ns clojure.core, :name subs}
+                   {:ns user, :name bar, :line 2, :column 14}
+                   {:ns user, :name bar, :line 2, :column 1}
+                   {:ns user, :name foo, :line 3, :column 14}
+                   {:ns user, :name foo, :line 3, :column 1}
+                   {:ns user, :name nil, :line 4, :column 1})]
+    #_#_#_(doseq [st expected]
       (prn st))
-    (is (= '({:ns clojure.core, :name subs}
-             {:ns user, :name bar, :line 2, :column 14}
-             {:ns user, :name bar, :line 2, :column 1}
-             {:ns user, :name foo, :line 3, :column 14}
-             {:ns user, :name foo, :line 3, :column 1}
-             {:ns user, :name nil, :line 4, :column 1})
-           stacktrace))))
+    (println "-- ^ expected --- , actual")
+    (doseq [st stacktrace]
+      (prn st))
+    (is (= expected
+           stacktrace)))
+  (let [stacktrace (try (eval-string "(1 2 3)")
+                        (catch #?(:clj Exception
+                                  :cljs js/Error) e
+                          (map #(-> %
+                                    (select-keys [:ns :name :line :column])
+                                    (update :ns sci-ns-name))
+                               (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
+    (is (= '({:ns user, :name nil, :line 1, :column 1}) stacktrace ))))
 
 (deftest locals-test
   (testing "defn does not introduce fn-named local binding"

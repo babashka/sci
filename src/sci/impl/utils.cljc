@@ -17,25 +17,6 @@
 
 (def kw-identical? #?(:clj identical? :cljs keyword-identical?))
 
-(defn mark-eval-call
-  ([expr]
-   (vary-meta
-    expr
-    (fn [m]
-      (-> m
-          (assoc :sci.impl/op :call)
-          (assoc :ns @vars/current-ns)
-          (assoc :file @vars/current-file)))))
-  ([expr extra-key extra-val]
-   (vary-meta
-    expr
-    (fn [m]
-      (-> m
-          (assoc :sci.impl/op :call)
-          (assoc :ns @vars/current-ns)
-          (assoc :file @vars/current-file)
-          (assoc extra-key extra-val))))))
-
 (defn mark-eval
   [expr]
   (vary-meta
@@ -66,28 +47,22 @@
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx bindings ^Throwable e raw-node]
    (if *in-try* (throw e)
-       (let [node (t/sexpr raw-node)
-             m (meta node)
-             f (when (seqable? node) (first node))
-             fm (some-> f meta)
-             op (when (and fm m)
-                  (.get ^java.util.Map m :sci.impl/op))
-             special? (or
-                       ;; special call like def
-                       (and (symbol? f) (not op))
-                       ;; anonymous function
-                       (kw-identical? :fn op)
-                       ;; special thing like require
-                       (identical? needs-ctx op))
+       (let [stack (t/stack raw-node)
+             node (t/sexpr raw-node)
+             f (when (seqable? node)
+                 (first node))
+             fm (or (:sci.impl/f-meta stack)
+                    (some-> f meta))
              env (:env ctx)
              id (:id ctx)]
-         (when (not special?)
-           (swap! env update-in [:sci.impl/callstack id]
-                  (fn [vt]
-                    (if vt
-                      (do (vswap! vt conj node)
-                          vt)
-                      (volatile! (list node))))))
+         (when stack
+           (when-not (:special stack)
+             (swap! env update-in [:sci.impl/callstack id]
+                    (fn [vt]
+                      (if vt
+                        (do (vswap! vt conj stack)
+                            vt)
+                        (volatile! (list stack)))))))
          (let [d (ex-data e)
                wrapping-sci-error? (isa? (:type d) :sci/error)]
            (if wrapping-sci-error?
@@ -95,7 +70,8 @@
              (let [ex-msg #?(:clj (.getMessage e)
                              :cljs (.-message e))
                    {:keys [:line :column :file]}
-                   (or (some-> env deref
+                   (or stack
+                       (some-> env deref
                                :sci.impl/callstack (get id)
                                deref last meta)
                        (meta node))]
@@ -226,9 +202,11 @@
 
 (defn ctx-fn
   ([f expr]
-   (t/->EvalFn f nil expr))
+   (t/->EvalFn f nil expr nil))
   ([f m expr]
-   (t/->EvalFn f m expr)))
+   (t/->EvalFn f m expr nil))
+  ([f m expr stack]
+   (t/->EvalFn f m expr stack)))
 
 (defn maybe-destructured
   [params body]

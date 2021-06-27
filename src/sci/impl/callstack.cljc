@@ -14,7 +14,7 @@
     new-m))
 
 (defn expr->data [expr]
-  (let [m (meta expr)
+  (let [m (or (meta expr) expr #_(when (map? expr) expr))
         f (when (seqable? expr) (first expr))
         fm (or (:sci.impl/f-meta m)
                (some-> f meta))
@@ -32,6 +32,7 @@
   (let [callstack @callstack
         callstack (dedupe callstack)
         data (mapcat expr->data callstack)
+        ;; _ (prn :data data)
         data (reduce (fn [[acc last-file last-ns last-name] entry]
                        (let [new-last-name (or (:name entry)
                                                last-name)
@@ -49,6 +50,7 @@
                      (let [fd (first data)]
                        ['() (:file fd) (:ns fd) (:name fd)])
                      data)]
+    ;; (prn (first data))
     (first data)))
 
 (defn phase [ex stacktrace]
