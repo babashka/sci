@@ -710,9 +710,11 @@
                         (ctx-fn
                          (fn [ctx bindings]
                            (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
-                         (mark-eval-call (cons (with-meta [instance-expr method-expr]
-                                                 {:sci.impl/op :static-access})
-                                               args))))
+                         nil expr
+                         [(assoc (meta expr)
+                                 :ns @vars/current-ns
+                                 :file @vars/current-file
+                                 )]))
                       (ctx-fn (fn [ctx bindings]
                                 (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
                               ;; this info is used by set!
