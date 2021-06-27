@@ -48,39 +48,21 @@
   ([ctx bindings ^Throwable e raw-node]
    (if *in-try* (throw e)
        (let [stack (t/stack raw-node)
-             ;; _ (prn :stack stack)
              node (t/sexpr raw-node)
-             #_#_m (meta node)
              f (when (seqable? node)
                  (first node))
              fm (or (:sci.impl/f-meta stack)
                     (some-> f meta))
-             #_#_op (when (and fm m)
-                  (.get ^java.util.Map m :sci.impl/op))
-             #_#_special? (or
-                       ;; special call like def
-                       (and (symbol? f) (not op))
-                       ;; anonymous function
-                       (kw-identical? :fn op)
-                       ;; special thing like require
-                       (identical? needs-ctx op))
              env (:env ctx)
              id (:id ctx)]
-         (if stack
+         (when stack
            (when-not (:special stack)
              (swap! env update-in [:sci.impl/callstack id]
                     (fn [vt]
                       (if vt
                         (do (vswap! vt conj stack)
                             vt)
-                        (volatile! (list stack))))))
-           #_(when-not special?
-             (swap! env update-in [:sci.impl/callstack id]
-                    (fn [vt]
-                      (if vt
-                        (do (vswap! vt conj node)
-                            vt)
-                        (volatile! (list node)))))))
+                        (volatile! (list stack)))))))
          (let [d (ex-data e)
                wrapping-sci-error? (isa? (:type d) :sci/error)]
            (if wrapping-sci-error?
