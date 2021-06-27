@@ -375,7 +375,7 @@
             struct)))
 
 (defn expand-let*
-  [ctx destructured-let-bindings exprs]
+  [ctx expr destructured-let-bindings exprs]
   (let [[ctx new-let-bindings]
         (reduce
          (fn [[ctx new-let-bindings] [binding-name binding-value]]
@@ -393,13 +393,13 @@
     (ctx-fn
      (fn [ctx bindings]
        (eval/eval-let ctx bindings new-let-bindings body))
-     nil)))
+     expr)))
 
 (defn expand-let
   "The let macro from clojure.core"
-  [ctx [_let let-bindings  & exprs]]
+  [ctx [_let let-bindings & exprs :as expr]]
   (let [let-bindings (destructure let-bindings)]
-    (expand-let* ctx let-bindings exprs)))
+    (expand-let* ctx expr let-bindings exprs)))
 
 (declare expand-declare)
 
