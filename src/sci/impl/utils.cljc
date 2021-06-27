@@ -70,7 +70,8 @@
              ;; _ (prn :stack stack)
              node (t/sexpr raw-node)
              m (meta node)
-             f (when (seqable? node) (first node))
+             f (when (seqable? node)
+                 (first node))
              fm (or (some :sci.impl/f-meta stack)
                     (some-> f meta)
                     #_(last stack))
@@ -87,15 +88,14 @@
              env (:env ctx)
              id (:id ctx)]
          (if stack
-           ;; (prn :adding node)
-           (swap! env update-in [:sci.impl/callstack id]
-                  (fn [vt]
-                    (if vt
-                      (do (vswap! vt into (reverse stack))
-                          vt)
-                      (volatile! (list* (reverse stack))))))
-           (when (not special?)
-             ;; (prn :adding node)
+           (when-not (:special (first stack))
+             (swap! env update-in [:sci.impl/callstack id]
+                    (fn [vt]
+                      (if vt
+                        (do (vswap! vt into (reverse stack))
+                            vt)
+                        (volatile! (list* (reverse stack)))))))
+           (when-not special?
              (swap! env update-in [:sci.impl/callstack id]
                     (fn [vt]
                       (if vt

@@ -618,7 +618,12 @@
     (ctx-fn (fn [ctx bindings]
               (throw (eval/eval ctx bindings ana)))
             ;; legacy structure for error reporting
-            (mark-eval-call (list 'throw)))))
+            expr
+            nil
+            [(assoc (meta expr)
+                    :ns @vars/current-ns
+                    :file @vars/current-file
+                    :special true)])))
 
 (defn expand-declare [ctx [_declare & names :as expr]]
   (let [cnn (vars/current-ns-name)
