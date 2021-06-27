@@ -53,10 +53,8 @@
              m (meta node)
              f (when (seqable? node)
                  (first node))
-             fm (or (some :sci.impl/f-meta stack)
-                    (some-> f meta)
-                    #_(last stack))
-             ;; _ (prn :fm fm stack)
+             fm (or (:sci.impl/f-meta stack)
+                    (some-> f meta))
              op (when (and fm m)
                   (.get ^java.util.Map m :sci.impl/op))
              special? (or
@@ -69,13 +67,13 @@
              env (:env ctx)
              id (:id ctx)]
          (if stack
-           (when-not (:special (first stack))
+           (when-not (:special stack)
              (swap! env update-in [:sci.impl/callstack id]
                     (fn [vt]
                       (if vt
-                        (do (vswap! vt into (reverse stack))
+                        (do (vswap! vt conj stack)
                             vt)
-                        (volatile! (list* (reverse stack)))))))
+                        (volatile! (list stack))))))
            (when-not special?
              (swap! env update-in [:sci.impl/callstack id]
                     (fn [vt]
@@ -90,7 +88,7 @@
              (let [ex-msg #?(:clj (.getMessage e)
                              :cljs (.-message e))
                    {:keys [:line :column :file]}
-                   (or (first stack)
+                   (or stack
                        (some-> env deref
                                :sci.impl/callstack (get id)
                                deref last meta)
