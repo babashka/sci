@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:clj [clojure.string :as str])
+   #?(:cljs [goog.object :as gobject])
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.evaluator :as eval]
@@ -14,14 +15,11 @@
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
-    [mark-eval constant?
-     rethrow-with-location-of-node
-     merge-meta set-namespace!
-     macro? ana-macros kw-identical? ctx-fn
-     maybe-destructured]]
-   [sci.impl.vars :as vars]
-   #?(:cljs [goog.object :as gobject]))
-  #?(:clj (:import [sci.impl Reflector]))
+    [ana-macros constant? ctx-fn kw-identical? macro?
+     maybe-destructured merge-meta rethrow-with-location-of-node set-namespace!]]
+   [sci.impl.vars :as vars])
+  #?(:clj (:import
+                   [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-do
@@ -290,9 +288,8 @@
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
         meta-needs-eval? (> (count m) 2)
-        ;; TODO: users might have parsed using :end-line still
-        m (if meta-needs-eval? (mark-eval
-                                (analyze (assoc ctx :meta true) m))
+        m (if meta-needs-eval? (-> (analyze (assoc ctx :meta true) m)
+                                   (vary-meta assoc :sci.impl/op :eval))
               m)]
     m))
 
@@ -1133,17 +1130,15 @@
                                                              :sci.impl/f-meta f-meta)
                                            )))
                           (let [children (analyze-children ctx (rest expr))]
-                            (do
-                              ;; (prn :expr expr (meta expr))
-                              (return-call ctx
-                                           ;; for backwards compatibility with error reporting
-                                           expr #_(mark-eval-call (cons f children)
-                                                                  :sci.impl/f-meta f-meta)
-                                           f children (assoc (meta expr)
-                                                             :ns @vars/current-ns
-                                                             :file @vars/current-file
-                                                             :sci.impl/f-meta f-meta)
-                                           ))))))
+                            (return-call ctx
+                                         ;; for backwards compatibility with error reporting
+                                         expr #_(mark-eval-call (cons f children)
+                                                                :sci.impl/f-meta f-meta)
+                                         f children (assoc (meta expr)
+                                                           :ns @vars/current-ns
+                                                           :file @vars/current-file
+                                                           :sci.impl/f-meta f-meta)
+                                         )))))
                     (catch #?(:clj Exception :cljs js/Error) e
                       (rethrow-with-location-of-node ctx e
                                                      ;; adding metadata for error reporting
@@ -1272,9 +1267,7 @@
                                               (str "Can't take value of a macro: " v "")))
                                   (types/->EvalVar v)))
                               (identical? utils/needs-ctx (:sci.impl/op mv))
-                              (do
-                                ;; (prn :partial)
-                                (partial v ctx))
+                              (partial v ctx)
                               :else (merge-meta v m)))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map

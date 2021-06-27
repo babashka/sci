@@ -12,17 +12,7 @@
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x) (boolean? x)))
 
-(defn eval? [x]
-  (some-> x meta :sci.impl/op))
-
 (def kw-identical? #?(:clj identical? :cljs keyword-identical?))
-
-(defn mark-eval
-  [expr]
-  (vary-meta
-   expr
-   (fn [m]
-     (assoc m :sci.impl/op :eval))))
 
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
@@ -61,7 +51,7 @@
                     (fn [vt]
                       (if vt
                         (do (vswap! vt conj stack)
-                            vt)
+                           vt)
                         (volatile! (list stack)))))))
          (let [d (ex-data e)
                wrapping-sci-error? (isa? (:type d) :sci/error)]
@@ -95,7 +85,7 @@
                    (throw new-exception))
                  (throw e)))))))))
 
-(defn iobj? [obj]
+(defn- iobj? [obj]
   (and #?(:clj (instance? clojure.lang.IObj obj)
           :cljs (implements? IWithMeta obj))
        (meta obj)))
