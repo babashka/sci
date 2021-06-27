@@ -1048,8 +1048,12 @@
                                            ;; hand back control to eval-form for
                                            ;; interleaved analysis and eval
                                            (types/->EvalForm v)
-                                           :else (do
-                                                   ;; (prn :v v)
+                                           :else (let [m (meta expr)
+                                                       v (if m (if #?(:clj (instance? clojure.lang.IObj v)
+                                                                      :cljs (implements? IWithMeta v))
+                                                                 (with-meta v (merge m (meta v)))
+                                                                 v)
+                                                             v)]
                                                    (analyze ctx v)))]
                         expanded)
                       (if-let [f (:sci.impl/inlined f-meta)]
