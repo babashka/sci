@@ -721,7 +721,11 @@
                               {::instance-expr instance-expr
                                ::method-expr method-expr}
                               ;; legacy error reporting for (.foo 1)
-                              (mark-eval-call expr)
+                              expr
+                              [(assoc (meta expr)
+                                      :ns @vars/current-ns
+                                      :file @vars/current-file
+                                      )]
                               ))
                :cljs (ctx-fn (fn [ctx bindings]
                                (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
