@@ -566,8 +566,9 @@
               (eval/eval-case ctx bindings case-map case-val)))]
     (ctx-fn
      f
-     ;; legacy structure for error reporting
-     (mark-eval-call (list 'case)))))
+     nil
+     expr
+     [])))
 
 (defn analyze-try
   [ctx expr]
