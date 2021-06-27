@@ -1143,7 +1143,11 @@
                           (eval/fn-call ctx bindings f children)
                           (throw (new #?(:clj Exception :cljs js/Error)
                                       (str "Cannot call " (pr-str f) " as a function."))))))
-                    (mark-eval-call (cons f children)))))))
+                    nil
+                    expr
+                    [(assoc (meta expr)
+                            :ns @vars/current-ns
+                            :file @vars/current-file)])))))
 
 (def ^:const constant-colls true) ;; see GH #452
 
