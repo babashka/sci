@@ -14,7 +14,7 @@
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
-    [mark-eval mark-eval-call constant?
+    [mark-eval constant?
      rethrow-with-location-of-node
      merge-meta set-namespace!
      macro? ana-macros kw-identical? ctx-fn
@@ -1146,7 +1146,12 @@
                     (catch #?(:clj Exception :cljs js/Error) e
                       (rethrow-with-location-of-node ctx e
                                                      ;; adding metadata for error reporting
-                                                     (mark-eval-call
+                                                     (ctx-fn nil nil expr [(assoc (meta expr)
+                                                                                  :ns @vars/current-ns
+                                                                                  :file @vars/current-file
+                                                                                  :sci.impl/f-meta f-meta)
+                                                                           ])
+                                                     #_(mark-eval-call
                                                       (with-meta (cons f (rest expr))
                                                         (meta expr))))))))
           (keyword? f)
