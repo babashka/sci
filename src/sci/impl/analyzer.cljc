@@ -887,7 +887,7 @@
                                             (range i)))])
                           (range 20))]
     `(defn ~'return-binding-call
-       ~'[_ctx expr f analyzed-children]
+       ~'[_ctx expr f analyzed-children stack]
        (ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
@@ -901,7 +901,9 @@
                      let-bindings)
              `[(fn [~'ctx ~'bindings]
                  (eval/fn-call ~'ctx ~'bindings (eval/resolve-symbol ~'bindings ~'f) ~'analyzed-children))]))
-        ~'expr))))
+        nil
+        ~'expr
+        ~'stack))))
 
 (declare return-binding-call) ;; for clj-kondo
 (gen-return-binding-call)
@@ -1113,9 +1115,13 @@
                             :resolve-sym
                             (return-binding-call ctx
                                                  ;; for backwards compatibility with error reporting
-                                                 (mark-eval-call (cons f (rest expr))
+                                                 expr #_(mark-eval-call (cons f (rest expr))
                                                                  :sci.impl/f-meta f-meta)
-                                                 f (analyze-children ctx (rest expr)))
+                                                 f (analyze-children ctx (rest expr))
+                                                 [(assoc (meta expr)
+                                                         :ns @vars/current-ns
+                                                         :file @vars/current-file
+                                                         :sci.impl/f-meta f-meta)])
                             (let [children (analyze-children ctx (rest expr))]
                               (return-call ctx
                                            ;; for backwards compatibility with error reporting
