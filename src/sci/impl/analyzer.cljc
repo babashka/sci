@@ -987,7 +987,11 @@
   (let [args (rest expr)]
     (ctx-fn (fn [ctx _bindings]
               (apply eval/eval-import ctx args))
-            (mark-eval-call expr))))
+            nil
+            expr
+            [(assoc (meta expr)
+                    :ns @vars/current-ns
+                    :file @vars/current-file)])))
 
 (defn analyze-call [ctx expr top-level?]
   (let [f (first expr)]
