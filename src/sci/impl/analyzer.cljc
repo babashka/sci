@@ -1260,11 +1260,10 @@
                                           vector expr m)
        (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
        (seq? expr) (if (seq expr)
-                     (merge-meta (analyze-call ctx expr top-level?) m)
+                     (analyze-call ctx expr top-level?)
                      ;; the empty list
                      expr)
-       :else
-       expr))))
+       :else expr))))
 
 ;;;; Scratch
 
