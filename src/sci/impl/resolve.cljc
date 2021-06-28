@@ -87,38 +87,45 @@
        (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
          [sym x])))))
 
-(defn lookup [ctx sym call?]
-  (let [bindings (faster/get-2 ctx :bindings)]
-    (or
-     ;; bindings are not checked for permissions
-     (when-let [[k _]
-                (find bindings sym)]
-       ;; never inline a binding at macro time!
-       (let [;; pass along tag of expression!
-             _ (when-let [cb (:closure-bindings ctx)]
-                 (when-not (contains? (:param-map ctx) sym)
-                   (vswap! cb conj sym)))
-             v (if call? ;; resolve-symbol is already handled in the call case
-                 (mark-resolve-sym k)
-                 (ctx-fn
-                  (fn [_ctx bindings]
-                    (eval/resolve-symbol bindings k))
-                  k))]
-         [k v]))
-     (when-let [kv (lookup* ctx sym call?)]
-       (when (:check-permissions ctx)
-         (check-permission! ctx sym kv))
-       kv))))
+(defn lookup
+  ([ctx sym call?] (lookup ctx sym call? nil))
+  ([ctx sym call? tag]
+   (let [bindings (faster/get-2 ctx :bindings)]
+     (or
+      ;; bindings are not checked for permissions
+      (when-let [[k _]
+                 (find bindings sym)]
+        ;; never inline a binding at macro time!
+        (let [;; pass along tag of expression!
+              _ (when-let [cb (:closure-bindings ctx)]
+                  (when-not (contains? (:param-map ctx) sym)
+                    (vswap! cb conj sym)))
+              v (if call? ;; resolve-symbol is already handled in the call case
+                  (mark-resolve-sym k)
+                  (let [v (ctx-fn
+                           (fn [_ctx bindings]
+                             (eval/resolve-symbol bindings k))
+                          nil
+                          (if tag
+                            (vary-meta k assoc :tag tag)
+                            k))]
+                    v))]
+          [k v]))
+      (when-let [kv (lookup* ctx sym call?)]
+        (when (:check-permissions ctx)
+          (check-permission! ctx sym kv))
+        kv)))))
 
 ;; workaround for evaluator also needing this function
 (vreset! utils/lookup lookup)
 
 (defn resolve-symbol
-  ([ctx sym] (resolve-symbol ctx sym false))
-  ([ctx sym call?]
+  ([ctx sym] (resolve-symbol ctx sym false nil))
+  ([ctx sym call?] (resolve-symbol ctx sym call? nil))
+  ([ctx sym call? tag]
    (let [res (second
               (or
-               (lookup ctx sym call?)
+               (lookup ctx sym call? tag)
                ;; TODO: check if symbol is in macros and then emit an error: cannot take
                ;; the value of a macro
                (let [n (name sym)]
