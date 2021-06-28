@@ -97,20 +97,6 @@
     (apply vary-meta obj f args)
     obj))
 
-(defn merge-meta
-  "Only adds metadata to obj if d is not nil and if meta on obj isn't already nil."
-  [obj d]
-  (if (and d #?(:clj (instance? clojure.lang.IObj obj)
-                :cljs (implements? IWithMeta obj)))
-    (if-let [m (meta obj)]
-      (do
-        nil
-        ;; this should not happen, turn on for debugging
-        #_(when (identical? m d) (prn :identical obj d m))
-        (with-meta obj (merge m d)))
-      obj)
-    obj))
-
 (defn strip-core-ns [sym]
   (case (namespace sym)
     ("clojure.core" "cljs.core") (symbol (name sym))
