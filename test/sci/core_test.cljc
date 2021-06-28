@@ -279,11 +279,22 @@
   (is (= [1 nil] (eval* "(def a 1) [@(resolve 'a) (resolve '{a 1} 'a)]")))
   #?(:clj
      (testing "type hints"
-       (tu/eval* (binding [*print-meta* true]
-                   (pr-str '(let [http-url "https://www.clojure.org"
-                                  conn  ^java.net.HttpURLConnection (.openConnection (java.net.URL. http-url))])))
-                 {:classes {'java.net.HttpURLConnection java.net.HttpURLConnection
-                            'java.net.URL java.net.URL}}))))
+       (sci/eval-string
+        (binding [*print-meta* true]
+          (pr-str '(let [http-url "https://www.clojure.org"
+                         conn ^java.net.HttpURLConnection (.openConnection (java.net.URL. http-url))]
+                     (.connect conn))))
+        {:namespaces {'clojure.core {'slurp slurp}}
+         :classes {'java.net.HttpURLConnection java.net.HttpURLConnection
+                   'java.net.URL java.net.URL}})
+       (sci/eval-string
+        (binding [*print-meta* true]
+          (pr-str '(let [http-url "https://www.clojure.org"]
+                     (let [conn (.openConnection (java.net.URL. http-url))]
+                       (.getHeaderFieldKey ^java.net.HttpURLConnection conn 0)))))
+        {:namespaces {'clojure.core {'slurp slurp}}
+         :classes {'java.net.HttpURLConnection java.net.HttpURLConnection
+                   'java.net.URL java.net.URL}}))))
 
 (deftest ns-resolve-test
   (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
