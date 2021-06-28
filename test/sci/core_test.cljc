@@ -276,7 +276,14 @@
   (is (= '{do 1} (eval* "(let [do 'do] (do {'do 1}))")))
   (is (= 1 (eval* "((symbol \"recur\") {'recur 1})")))
   (is (= [true false] (eval* "(mapv (comp some? resolve) '[inc x])")))
-  (is (= [1 nil] (eval* "(def a 1) [@(resolve 'a) (resolve '{a 1} 'a)]"))))
+  (is (= [1 nil] (eval* "(def a 1) [@(resolve 'a) (resolve '{a 1} 'a)]")))
+  #?(:clj
+     (testing "type hints"
+       (tu/eval* (binding [*print-meta* true]
+                   (pr-str '(let [http-url "https://www.clojure.org"
+                                  conn  ^java.net.HttpURLConnection (.openConnection (java.net.URL. http-url))])))
+                 {:classes {'java.net.HttpURLConnection java.net.HttpURLConnection
+                            'java.net.URL java.net.URL}}))))
 
 (deftest ns-resolve-test
   (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
@@ -1090,6 +1097,8 @@
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
   (is (= "6" (eval* "(def ^{:doc (str (+ 1 2 3))} foo) (:doc (meta #'foo))")))
   (is (= "6" (eval* "(defn ^{:doc (str (+ 1 2 3))} foo []) (:doc (meta #'foo))"))))
+
+
 
 ;;;; Scratch
 

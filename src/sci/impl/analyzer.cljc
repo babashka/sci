@@ -1248,7 +1248,7 @@
                                   (types/->EvalVar v)))
                               (identical? utils/needs-ctx (:sci.impl/op mv))
                               (partial v ctx)
-                              :else (merge-meta v m)))
+                              :else v #_(merge-meta v m)))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
        (record? expr) expr
