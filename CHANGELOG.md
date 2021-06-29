@@ -4,6 +4,15 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## Unreleased
 
+- Use `IllegalArgumentException` in case when providing duplicate dispatch values
+- Improve error message when protocol not found for class
+- `thread-bound?` predicate #560
+- Allow `set!` to mutate objects in CLJS #563
+- Experimental `SCI_ELIDE_VARS` environment variable for smaller CLJS bundle size
+- Support trailing metadata in `defn` #567
+- GC improvement: don't hang on to all external bindings in closure
+- Several performance improvements
+
 ## v0.2.5
 
 ### Enhancements / fixes
