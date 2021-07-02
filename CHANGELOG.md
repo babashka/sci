@@ -12,6 +12,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Support trailing metadata in `defn` #567
 - GC improvement: don't hang on to all external bindings in closure
 - Several performance improvements
+- Expose `intern` in core API
 
 ## v0.2.5
 

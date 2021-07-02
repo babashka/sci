@@ -1023,7 +1023,7 @@
   (testing "intern via API"
     (let [ctx (sci/init {:namespaces {'foo {}}})]
       (sci/intern ctx 'foo 'x 2)
-      (is (= 1 (sci/eval-string* ctx "foo/x"))))))
+      (is (= 2 (sci/eval-string* ctx "foo/x"))))))
 
 (deftest instance?-test
   (is (false? (eval* "(defrecord Foo []) (instance? Foo 1)")))
