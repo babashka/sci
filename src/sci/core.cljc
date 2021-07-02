@@ -1,7 +1,7 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
-                            ns create-ns set! *1 *2 *3 *e])
+                            intern ns create-ns set! *1 *2 *3 *e])
   (:require
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
@@ -157,6 +157,17 @@
   current value plus any args."
   [v f & args]
   (apply vars/alter-var-root v f args))
+
+(defn intern
+  "Finds or creates a sci var named by the symbol name in the namespace
+  ns (which can be a symbol or a sci namespace), setting its root
+  binding to val if supplied. The namespace must exist in the ctx. The
+  sci var will adopt any metadata from the name symbol.  Returns the
+  sci var."
+  ([ctx sci-ns name]
+   (namespaces/sci-intern ctx sci-ns name))
+  ([ctx sci-ns name val]
+   (namespaces/sci-intern ctx sci-ns name val)))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.

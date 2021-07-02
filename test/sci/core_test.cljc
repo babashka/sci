@@ -1019,7 +1019,11 @@
   (testing "interning var copies meta from name symbol"
     (is (true?
          (sci/eval-string
-          "(ns foo) (ns bar) (intern 'foo (with-meta 'x {:a true}) 1) (:a (meta #'foo/x))")))))
+          "(ns foo) (ns bar) (intern 'foo (with-meta 'x {:a true}) 1) (:a (meta #'foo/x))"))))
+  (testing "intern via API"
+    (let [ctx (sci/init {:namespaces {'foo {}}})]
+      (sci/intern ctx 'foo 'x 2)
+      (is (= 1 (sci/eval-string* ctx "foo/x"))))))
 
 (deftest instance?-test
   (is (false? (eval* "(defrecord Foo []) (instance? Foo 1)")))
