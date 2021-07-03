@@ -643,7 +643,13 @@
     (is (= 'hello (eval* "(try 'hello)"))))
   (testing "babashka GH-220, try should accept nil in body"
     (is (nil? (eval* "(try 1 2 nil)")))
-    (is (= 1 (eval* "(try 1 2 nil 1)")))))
+    (is (= 1 (eval* "(try 1 2 nil 1)"))))
+  #?(:cljs
+     (testing "allow all"
+       (let [ctx (sci/init {:classes {'js goog/global :allow :all}})]
+         (is (= 12 (sci/eval-string* ctx "(try (assoc 1 1 1) (catch :default e 12))")))
+         (is (= 12 (sci/eval-string* ctx "(try (assoc 1 1 1) (catch js/Object e 12))")))
+         (is (= 12 (sci/eval-string* ctx "(try (assoc 1 1 1) (catch (if (odd? 1) js/Object js/Error) e 12))")))))))
 
 (deftest syntax-quote-test
   (is (= '(clojure.core/list 10 10)

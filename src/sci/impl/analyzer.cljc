@@ -594,7 +594,12 @@
         body (analyze ctx (cons 'do body-exprs))
         catches (mapv (fn [c]
                         (let [[_ ex binding & body] c]
-                          (if-let [clazz (interop/resolve-class ctx ex)]
+                          (if-let [clazz #?(:clj (interop/resolve-class ctx ex)
+                                            :cljs (case ex
+                                                    js/Error js/Error
+                                                    js/Object js/Object
+                                                    :default :default
+                                                    (analyze ctx ex)))]
                             {:class clazz
                              :binding binding
                              :body (analyze (assoc-in ctx [:bindings binding] nil)

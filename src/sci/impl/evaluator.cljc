@@ -153,7 +153,12 @@
           [[_ r]
            (reduce (fn [_ c]
                      (let [clazz (:class c)]
-                       (when (instance? clazz e)
+                       (when #?(:cljs
+                                (or (kw-identical? :default clazz)
+                                    (if (instance? sci.impl.types/EvalFn clazz)
+                                      (instance? (eval ctx bindings clazz) e)
+                                      (instance? clazz e)))
+                                :clj (instance? clazz e))
                          (reduced
                           [::try-result
                            (eval ctx
