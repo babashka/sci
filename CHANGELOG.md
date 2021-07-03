@@ -6,13 +6,14 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Use `IllegalArgumentException` in case when providing duplicate dispatch values
 - Improve error message when protocol not found for class
-- `thread-bound?` predicate #560
-- Allow `set!` to mutate objects in CLJS #563
+- `thread-bound?` predicate [#560](https://github.com/borkdude/sci/issues/560)
+- Allow `set!` to mutate objects in CLJS [#563](https://github.com/borkdude/sci/issues/563)
 - Experimental `SCI_ELIDE_VARS` environment variable for smaller CLJS bundle size
-- Support trailing metadata in `defn` #567
+- Support trailing metadata in `defn` [#567](https://github.com/borkdude/sci/issues/567)
 - GC improvement: don't hang on to all external bindings in closure
 - Several performance improvements
 - Expose `intern` in core API
+- Several fixes regarding `try`/`catch` in CLJS [#583](https://github.com/borkdude/sci/issues/583), [#584](https://github.com/borkdude/sci/issues/584), [#585](https://github.com/borkdude/sci/issues/585)
 
 ## v0.2.5
 
