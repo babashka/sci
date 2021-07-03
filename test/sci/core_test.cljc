@@ -1106,7 +1106,12 @@
    (deftest merge-opts-test
      (let [ctx (sci/init {:classes {'System System}})
            ctx2 (sci/merge-opts ctx {:classes {'Thread Thread}})]
-       (is (sci/eval-string* ctx2 "System Thread")))))
+       (is (sci/eval-string* ctx2 "System Thread"))))
+   :cljs
+   (deftest merge-opts-test
+     (let [ctx (sci/init {:classes {'js goog/global :allow :all}})
+           ctx2 (sci/merge-opts ctx {:namespaces {}})]
+       (is (sci/eval-string* ctx2 "(try (assoc 1 1 1) (catch js/Error e 12))")))))
 
 (deftest dynamic-meta-def-test
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))

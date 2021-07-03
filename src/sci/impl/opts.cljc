@@ -139,8 +139,8 @@
         imports (merge default-imports imports)
         bindings bindings
         _ (init-env! env bindings aliases namespaces imports load-fn)
-        raw-classes classes
-        classes (normalize-classes (merge default-classes raw-classes))
+        raw-classes (merge default-classes classes)
+        classes (normalize-classes raw-classes)
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
