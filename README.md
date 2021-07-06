@@ -20,10 +20,10 @@
 ``` clojure
 (require '[sci.core :as sci])
 (sci/eval-string "(inc 1)") => ;; 2
-(sci/eval-string "(inc x)" {:bindings {'x 2}}) ;;=> 3
+(sci/eval-string "(inc x)" {:namespaces {'user {'x 2}}}) ;;=> 3
 ```
 
-Try sci in your browser at [NextJournal](https://nextjournal.github.io/clojure-mode/).
+Try SCI in your browser at [NextJournal](https://nextjournal.github.io/clojure-mode/).
 
 For usage with GraalVM `native-image` check [here](#graalvm).
 
@@ -36,7 +36,7 @@ This library works with:
 
 - Clojure on the JVM
 - Clojure compiled with GraalVM native
-- ClojureScript, even when compiled with `:advanced`, and (as a consequence) JavaScript
+- ClojureScript, even when compiled with `:advanced`, and JavaScript
 
 ## Projects using sci
 
@@ -62,7 +62,7 @@ Sci is used in:
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
 - [Zprint](https://github.com/kkinnear/zprint). Tool to beautifully format Clojure(script) code and data.
 
-Are you using sci in your company or projects? Let us know [here](https://github.com/babashka/babashka/issues/254).
+Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/babashka/issues/254).
 
 ## Status
 
@@ -77,7 +77,7 @@ Use as a dependency:
 
 ## API docs
 
-For Clojure, see the generated [codox](https://borkdude.github.io/sci/doc/codox)
+See the generated [codox](https://borkdude.github.io/sci/doc/codox)
 documentation.
 
 ## Usage
@@ -88,19 +88,19 @@ and an optional options map.
 In `sci`, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
 
-By default `sci` only enables access to most of the Clojure core functions.
-More functions can be enabled, at your own risk, by using `:bindings`.  Normally
-you would use sci's version of `println` but here, for the purposes of
+By default SCI only enables access to most of the Clojure core functions.  More
+functions can be enabled by using `:namespaces` and `:classes`.  Normally you
+would use SCI's version of `println` but here, for the purposes of
 demonstration, we use use Clojure's version of `println` instead:
 
 ``` clojure
 user=> (require '[sci.core :as sci])
-user=> (sci/eval-string "(println \"hello\")" {:bindings {'println println}})
+user=> (sci/eval-string "(println \"hello\")" {:namespaces {'clojure.core {'println println}}})
 hello
 nil
 ```
 
-It is also possible to provide namespaces which can be required:
+It is also possible to provide namespaces which can be required inside a SCI program:
 
 ``` clojure
 user=> (def opts {:namespaces {'foo.bar {'println println}}})
@@ -108,8 +108,6 @@ user=> (sci/eval-string "(require '[foo.bar :as lib]) (lib/println \"hello\")" o
 hello
 nil
 ```
-
-In fact `{:bindings ...}` is just shorthand for `{:namespaces {'user ...}}`.
 
 You can provide a list of allowed symbols. Using other symbols causes an exception:
 
@@ -127,6 +125,8 @@ user=> (sci/eval-string "(inc 1)" {:deny '[inc]})
 ExceptionInfo inc is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
 ```
 
+### Macros
+
 Providing a macro as a binding can be done by providing a normal function that:
 - has `:sci/macro` on the metadata set to `true`
 - has two extra arguments at the start for `&form` and `&env`:
@@ -139,12 +139,22 @@ hello
 nil
 ```
 
+Alternatively you can refer to the macro from the Clojure environment via the
+var (this only works in a JVM environment):
+
+``` clojure
+user=> (defmacro do-twice [x] (list 'do x x))
+user=> (sci/eval-string "(do-twice (f))" {:namespaces {'user {'do-twice #'do-twice 'f #(println "hello")}}})
+```
+
 ### Vars
 
-To remain safe and sandboxed, sci evaluated Clojure does not have access to Clojure runtime vars.
-Sci has its own var type, distinguished from Clojure vars.
+To remain safe and sandboxed, SCI programs do not have access to Clojure vars,
+unless you explicitly provide that access. SCI has its own var type,
+distinguished from Clojure vars.
 
-In a sci program these vars are created with `def` and `defn` just like in normal Clojure:
+In a SCI program these vars are created with `def` and `defn` just like in
+normal Clojure:
 
 ``` clojure
 (def x 1)
@@ -163,33 +173,31 @@ Dynamic vars with thread-local bindings are also supported:
 x ;;=> 1
 ```
 
-Pre-creating vars that can be used in a sci program can be done using
-`sci/new-var`:
+Creating SCI vars from Clojure can be done using `sci/new-var`:
 
 ``` clojure
 (def x (sci/new-var 'x 10))
-(sci/eval-string "(inc x)" {:bindings {'x x}}) ;;=> 11
+(sci/eval-string "(inc x)" {:namespaces {'user {'x x}}}) ;;=> 11
 ```
 
-To create a dynamic sci var you can set metadata or use `sci/new-dynamic-var`:
+To create a dynamic SCI var you can set metadata or use `sci/new-dynamic-var`:
 
 ``` clojure
-(require '[sci.core] :as sci)
 (def x1 (sci/new-var 'x 10 {:dynamic true}))
-(sci/eval-string "(binding [*x* 12] (inc *x*))" {:bindings {'*x* x1}}) ;;=> 13
+(sci/eval-string "(binding [*x* 12] (inc *x*))" {:namespaces {'user {'*x* x1}}}) ;;=> 13
 (def x2 (sci/new-dynamic-var 'x 10))
-(sci/eval-string "(binding [*x* 12] (inc *x*))" {:bindings {'*x* x2}}) ;;=> 13
+(sci/eval-string "(binding [*x* 12] (inc *x*))" {:namespaces {'user {'*x* x2}}}) ;;=> 13
 ```
 
-Pre-created sci vars can also be externally rebound:
+SCI vars can be bound from Clojure using `sci/binding`:
 
 ``` clojure
 (def x (sci/new-dynamic-var 'x 10))
-(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:bindings {'*x* x2}})) ;;=> 11
+(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:namespaces {'user {'*x* x2}}})) ;;=> 11
 ```
 
-The dynamic vars `*in*`, `*out*`, `*err*` in a sci program correspond to the
-dynamic sci vars `sci.core/in`, `sci.core/out` and `sci.core/err` in the API. These
+The dynamic vars `*in*`, `*out*`, `*err*` SCI a sci program correspond to the
+dynamic sci vars `sci/in`, `sci/out` and `sci/err` in the API. These
 vars can be rebound as well:
 
 ``` clojure
@@ -206,8 +214,8 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 
 ### Stdout and stdin
 
-To enable printing to `stdout` and reading from `stdin` you can sci bind
-`sci.core/out` and `sci.core/in` to `*out*` and `*in*` respectively:
+To enable printing to `stdout` and reading from `stdin` you can SCI-bind
+`sci/out` and `sci/in` to `*out*` and `*in*` respectively:
 
 
 ``` clojure
@@ -224,18 +232,18 @@ Type your name!
 Hello Michiel!
 ```
 
-When adding a Clojure function to sci that interacts with `*out*` (or `*in*` or `*err*`), you
-can hook it up to sci's world. For example, a Clojure function that writes to `*out*`
-can be Clojure bound to sci's `out`:
+When adding a Clojure function to SCI that interacts with `*out*` (or `*in*` or `*err*`), you
+can hook it up to SCI's context. For example, a Clojure function that writes to `*out*`
+can be Clojure bound to SCI's `out`:
 
 ```Clojure
 user=> (defn foo [] (println "yello!"))
 #'user/foo
 user=> ;; without binding *out* to sci's out, the Clojure function will use its default *out*:
-user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo foo}})
+user=> (sci/eval-string "(with-out-str (foo))" {:namespaces {'user {'foo foo}}})
 yello!
 ""
-;; let's hook foo up to sci's world:
+;; Let's hook foo up to SCI's context:
 user=> (defn wrapped-foo [] (binding [*out* @sci/out] (foo)))
 #'user/wrapped-foo
 user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo wrapped-foo}})
@@ -255,13 +263,13 @@ to the sci options:
    [sci.addons.future :as future]))
 
 (sci/eval-string "@(future (inc x))"
-                 (-> {:bindings {'x 1}}
+                 (-> {:namespaces {'user {'x 1}}}
                      (future/install)))
 ;;=> 2
 ```
 
-For conveying thread-local sci bindings to an external `future` use
-`sci.core/future`:
+For conveying thread-local SCI bindings to an external `future` use
+`sci/future`:
 
 ``` clojure
 (ns my.sci.app
@@ -274,7 +282,7 @@ For conveying thread-local sci bindings to an external `future` use
 @(sci/binding [x 11]
    (sci/future
      (sci/eval-string "@(future (inc x))"
-                      (-> {:bindings {'x @x}}
+                      (-> {:namespaces {'user {'x x}}}
                           (future/install)))))
 ;;=> 12
 ```
@@ -294,43 +302,32 @@ To make this work with `GraalVM` you will also need to add an entry to your
 config](https://github.com/oracle/graal/blob/master/substratevm/REFLECTION.md)
 for this class. Also see [`reflection.json`](reflection.json).
 
-### State
+By default, SCI only lets you interop with classes explicitly provided in the
+`:classes` config. When a method call returns an instance of a class that is not
+in `:classes` you won't be able to to interop on that. You can disable this
+safety measure with `{:classes {:allow :all}}`.
 
-Sci uses an atom to keep track of state changes like newly defined namespaces
-and vars. You can carry this state over from one call to another by providing
-the atom yourself as the value for the `:env` key:
+In JS hosts, to allow interop with anything, use the following config:
 
 ``` clojure
-(def env (atom {})
-(sci/eval-string "(defn foo [] :foo)" {:env env})
-(sci/eval-string "(foo)" {:env env}) ;;=> :foo
+{:classes {'js goog/global :allow :all}}
 ```
 
-The contents of the the `:env` atom should be considered implementation detail.
+### State
 
-Using an `:env` atom you are allowed to change options at each invocation of
-`eval-string`. If your use case doesn't require this, the recommendation is to
-use a sci context instead.
-
-A sci context is derived once from options as documented in
-`sci.core/eval-string` and contains the runtime state of a sci session.
+Sci uses a context (internally implemented using an atom) to keep track of state
+changes like newly defined namespaces and vars. The contents of the context
+should be considered implementation detail. Every call to `eval-string` creates
+a fresh context. To preserve state over multiple evaluations, you can create a
+context using the same options as those for `sci/eval-string`.
 
 ``` clojure
 (def opts {:namespaces {'foo.bar {'x 1}}})
 (def sci-ctx (sci/init opts))
 ```
 
-Once created, a sci context should be considered final and should not be mutated
-by the user. The contents of the sci context should be considered implementation
-detail.
-
-The sci context can be re-used over successive invocations of
-`sci.core/eval-string*`.
-
-The major difference between `eval-string` and `eval-string*` is that
-`eval-string` will call `init` on the passed options and will pass that through
-to `eval-string*`. When you create a sci context yourself, you can skip the
-extra work that `eval-string` does and work directly with `eval-string*`.
+The SCI context can then be re-used over successive invocations of
+`sci/eval-string*`:
 
 ``` clojure
 (sci/eval-string* sci-ctx "foo.bar/x") ;;=> 1
@@ -340,8 +337,8 @@ extra work that `eval-string` does and work directly with `eval-string*`.
 
 In a multi-user environment it can be useful to give each user their own
 context. This can already be achieved with `eval-string`, but for performance
-reasons it may be desirable to initialize a shared context. This shared context
-can then be forked for each user so that changes in one user's context
+reasons it may be desirable to initialize a shared context once. This shared
+context can then be forked for each user so that changes in one user's context
 aren't visible to other users:
 
 ``` clojure
@@ -353,21 +350,19 @@ aren't visible to other users:
 
 ### Implementing require and load-file
 
-Sci supports implementation of code loading via a function hook that is invoked
-by sci's internal implementation of `require`. The job of this function is to
-find and return the source code for the requested namespace. This passed-in
-function will be called with a single argument that is a hashmap with a key
-`:namespace`. The value for this key will be the _symbol_ of the requested
-namespace.
+SCI supports loading code via a hook that is invoked by SCI's implementation of
+`require`. The job of this function is to find and return the source code for
+the requested namespace. This passed-in function will be called with a single
+argument that is a hashmap with a key `:namespace`. The value for this key will
+be the _symbol_ of the requested namespace.
 
-This function can return a hashmap with the keys `:file` (containing the
-filename to be used in error messages) and `:source` (containing the source code
-text) and sci will evaluate that source code to satisfy the
-require. Alternatively the function can return `nil` which will result in sci
-throwing an exception that the namespace can not be found.
+This function should return a map with keys `:file` (containing the filename to
+be used in error messages) and `:source` (containing the source code text). SCI
+will evaluate that source code to satisfy the call to `require`. Alternatively
+the function can return `nil` which will result in SCI throwing an exception
+that the namespace could not be found.
 
-This custom function is passed into the sci context under the `:load-fn` key as
-shown below.
+The load hook is passed as part of the SCI options via the `:load-fn`:
 
 ``` clojure
 (defn load-fn [{:keys [namespace]}]
@@ -378,10 +373,10 @@ shown below.
 ;;=> :foo
 ```
 
-Note that internally specified namespaces (either those within sci itself or
-those mounted under the `:namespaces` context setting) will be utilised first
-and load-fn will not be called in those cases, unless `:reload` or `:reload-all`
-are used:
+Note that internally specified namespaces (either the default namespaces that
+SCI provides itself or those provides via the `:namespaces` key) will be
+considered first and if found there, `:load-fn` will not be called, unless
+`:reload` or `:reload-all` are used:
 
 ``` clojure
 (sci/eval-string
@@ -438,17 +433,6 @@ Run instructions are included at the bottom of each example.
 To include an nREPL server in your sci-based project, you can use
 [babashka.nrepl](https://github.com/babashka/babashka.nrepl).
 
-## Location metadata
-
-Sci includes location metadata on forms that can carry it:
-
-```
-(sci/eval-string "(meta [1 2 3])")
-;;=> {:line 1, :column 7, :end-line 1, :end-column 14}
-```
-
-This metadata is used by sci for error reporting.
-
 ## GraalVM
 
 For general information about Clojure and GraalVM, check out
@@ -457,32 +441,8 @@ For general information about Clojure and GraalVM, check out
 
 ### Clojure version
 
-To build native images with GraalVM it is recommended to use clojure
-`1.10.2-alpha4` or later.
-
-### Java 11
-
-To use sci with GraalVM java11 override the dependency
-`[borkdude/sci.impl.reflector "0.0.1"]` to `[borkdude/sci.impl.reflector
-"0.0.1-java11]` in your `project.clj` or `deps.edn`.
-
-Also you'll likely need a fix for `clojure.lang.Reflector`:
-
-See
-[clj-graal-docs](https://github.com/lread/clj-graal-docs#jdk11-and-clojurelangreflector)
-and
-[clj-reflector-graal-java11-fix](https://github.com/borkdude/clj-reflector-graal-java11-fix).
-
-### Random numbers
-
-For GraalVM < 20.3.0:
-
-To make the `rand-*` functions behave well when compiling to a GraalVM native binary, use this setting:
-
-``` clojure
---initialize-at-run-time=java.lang.Math\$RandomNumberGeneratorHolder
-```
-
+To build native images with GraalVM it is recommended to use clojure `1.10.3` or
+later.
 
 <!-- ## Use from JavaScript -->
 
@@ -508,11 +468,12 @@ To make the `rand-*` functions behave well when compiling to a GraalVM native bi
 
 ## Use as native shared library
 
-To use sci as a native shared library from e.g. C, C++, Rust, read this [tutorial](doc/libsci.md).
+To use SCI as a native shared library from e.g. C, C++, Rust, read this
+[tutorial](doc/libsci.md).
 
 ## Limitations
 
-Currently sci doesn't support `deftype` and `definterface`.
+Currently SCI doesn't support `deftype` and `definterface`.
 
 ## Test
 
@@ -588,7 +549,7 @@ $ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt
 
 ## License
 
-Copyright © 2019-2020 Michiel Borkent
+Copyright © 2019-2021 Michiel Borkent
 
 Distributed under the Eclipse Public License 1.0. This project contains code
 from Clojure and ClojureScript which are also licensed under the EPL 1.0. See
