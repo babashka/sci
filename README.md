@@ -254,7 +254,7 @@ nil
 ```
 
 To copy an entire namespace without enumerating all vars explicitly with
-`sci/copy-var` you can use the following approach using `ns-publics`:
+`sci/copy-var` you can use the following approach using `ns-publics` and `sci/new-var`:
 
 ``` Clojure
 (reduce (fn [ns-map [var-name var]]
