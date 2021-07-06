@@ -212,6 +212,68 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
 ```
 
+### Copy a namespace
+
+To copy the public vars of a Clojure namespace and to reify the Clojure vars into
+corresponding SCI vars, you can use `ns-publics` in Clojure and the following API functions:
+
+- `sci/create-ns`: creates an object that identifies a SCI namespace and carries the metadata of a SCI namespaces
+- `sci/copy-var`: macro that copies a Clojure var to a SCI namespace (created through `sci/create-ns`). Automatically converts dynamic vars and macros. Captures docstrings and arglists.
+
+E.g. given the following Clojure namespace:
+
+``` clojure
+(ns foobar)
+
+(defmacro do-twice [x] (list 'do x x))
+
+(defn times-two [x]
+  (* x 2))
+```
+
+you can re-create that namespace in a SCI context like this:
+
+``` clojure
+(require 'foobar)
+
+(def fns (sci/create-ns 'foobar-ns nil))
+
+(def foobar-ns {'do-twice (sci/copy-var foobar/do-twice fns)
+                'times-two (sci/copy-var foobar/times-two fns)})
+
+(def ctx (sci/init {:namespaces {'foobar foobar-ns}}))
+
+(sci/binding [sci/out *out*]
+  (sci/eval-string* ctx "(foobar/do-twice (prn :x))"))
+:x
+:x
+nil
+
+(sci/eval-string* ctx "(foobar/times-two 2)")
+4
+```
+
+To copy an entire namespace without enumerating all vars explicitly with
+`sci/copy-var` you can use the following approach using `ns-publics`:
+
+``` Clojure
+(reduce (fn [ns-map [var-name var]]
+            (let [m (meta var)
+                  no-doc (:no-doc m)
+                  doc (:doc m)
+                  arglists (:arglists m)]
+              (if no-doc ns-map
+                  (assoc ns-map var-name
+                         (sci/new-var (symbol var-name) @var
+                                      (cond-> {:ns fns
+                                               :name (:name m)}
+                                        (:macro m) (assoc :macro true)
+                                        doc (assoc :doc doc)
+                                        arglists (assoc :arglists arglists)))))))
+          {}
+          (ns-publics 'foobar))
+```
+
 ### Stdout and stdin
 
 To enable printing to `stdout` and reading from `stdin` you can SCI-bind

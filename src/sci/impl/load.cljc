@@ -1,4 +1,5 @@
 (ns sci.impl.load
+  {:no-doc true}
   (:require
    [clojure.string :as str]
    [sci.impl.utils :as utils :refer [throw-error-with-location
