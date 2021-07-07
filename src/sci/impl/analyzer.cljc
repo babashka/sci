@@ -547,7 +547,7 @@
                         ret-map {}]
                    (if cases
                      (let [[k v & cases] cases]
-                       (if (list? k)
+                       (if (seq? k)
                          (recur
                           cases
                           (reduce (fn [acc k]
