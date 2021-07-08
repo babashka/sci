@@ -4,6 +4,10 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## Unreleased
 
+...
+
+## v0.2.6
+
 - Use `IllegalArgumentException` in case when providing duplicate dispatch values
 - Improve error message when protocol not found for class
 - `thread-bound?` predicate [#560](https://github.com/borkdude/sci/issues/560)
