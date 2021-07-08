@@ -8,7 +8,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## v0.2.6
 
-- Use `IllegalArgumentException` in case when providing duplicate dispatch values
+- Use `IllegalArgumentException` in `case` when providing duplicate dispatch values
 - Improve error message when protocol not found for class
 - Add `thread-bound?` predicate [#560](https://github.com/borkdude/sci/issues/560)
 - Allow `set!` to mutate objects in CLJS [#563](https://github.com/borkdude/sci/issues/563)
