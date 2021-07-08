@@ -10,7 +10,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Use `IllegalArgumentException` in case when providing duplicate dispatch values
 - Improve error message when protocol not found for class
-- `thread-bound?` predicate [#560](https://github.com/borkdude/sci/issues/560)
+- Add `thread-bound?` predicate [#560](https://github.com/borkdude/sci/issues/560)
 - Allow `set!` to mutate objects in CLJS [#563](https://github.com/borkdude/sci/issues/563)
 - Experimental `SCI_ELIDE_VARS` environment variable for smaller CLJS bundle size
 - Support trailing metadata in `defn` [#567](https://github.com/borkdude/sci/issues/567)
