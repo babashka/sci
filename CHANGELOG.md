@@ -4,7 +4,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## Unreleased
 
-...
+- Fix function reference equality [#587](https://github.com/borkdude/sci/issues/587)
 
 ## v0.2.6
 
