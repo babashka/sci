@@ -5,6 +5,7 @@
             [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
+            [sci.impl.types :as types]
             [sci.impl.utils :as utils :refer [strip-core-ns
                                               ana-macros
                                               ctx-fn]]
@@ -93,24 +94,34 @@
    (let [bindings (faster/get-2 ctx :bindings)]
      (or
       ;; bindings are not checked for permissions
-      (when-let [[k _]
+      (when-let [[k v]
                  (find bindings sym)]
-        ;; never inline a binding at macro time!
-        (let [;; pass along tag of expression!
-              _ (when-let [cb (:closure-bindings ctx)]
-                  (when-not (contains? (:param-map ctx) sym)
-                    (vswap! cb conj sym)))
-              v (if call? ;; resolve-symbol is already handled in the call case
-                  (mark-resolve-sym k)
-                  (let [v (ctx-fn
-                           (fn [_ctx bindings]
-                             (eval/resolve-symbol bindings k))
-                          nil
-                          (if tag
-                            (vary-meta k assoc :tag tag)
-                            k))]
-                    v))]
-          [k v]))
+        ;; never inline a binding at macro time, unless it's a function
+        (if (instance? #?(:clj sci.impl.types.InlinedLateBinding
+                          :cljs sci.impl.types/InlinedLateBinding) v)
+          (if call?
+            [k v]
+            (let [v (types/getVal v)]
+              [k (ctx-fn
+                  (fn [_ctx _bindings]
+                    @v)
+                  nil
+                  nil)]))
+          (let [;; pass along tag of expression!
+                _ (when-let [cb (:closure-bindings ctx)]
+                    (when-not (contains? (:param-map ctx) sym)
+                      (vswap! cb conj sym)))
+                v (if call? ;; resolve-symbol is already handled in the call case
+                    (mark-resolve-sym k)
+                    (let [v (ctx-fn
+                             (fn [_ctx bindings]
+                               (eval/resolve-symbol bindings k))
+                             nil
+                             (if tag
+                               (vary-meta k assoc :tag tag)
+                               k))]
+                      v))]
+            [k v])))
       (when-let [kv (lookup* ctx sym call?)]
         (when (:check-permissions ctx)
           (check-permission! ctx sym kv))

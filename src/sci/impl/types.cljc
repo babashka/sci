@@ -9,6 +9,10 @@
   IBox
   (getVal [_this] v))
 
+(deftype InlinedLateBinding [v]
+  IBox
+  (getVal [_this] v))
+
 (defprotocol IReified
   (getInterfaces [_])
   (getMethods [_])

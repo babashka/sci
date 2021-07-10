@@ -1143,7 +1143,9 @@
   (is (= "6" (eval* "(def ^{:doc (str (+ 1 2 3))} foo) (:doc (meta #'foo))")))
   (is (= "6" (eval* "(defn ^{:doc (str (+ 1 2 3))} foo []) (:doc (meta #'foo))"))))
 
-
+(deftest self-ref-test
+  (testing "self-referantial function is equal to itself"
+    (is (true? (eval* "(def f (fn foo [] foo)) (= f (f))")))))
 
 ;;;; Scratch
 

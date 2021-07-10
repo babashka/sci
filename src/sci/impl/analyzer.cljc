@@ -305,7 +305,10 @@
         bodies (if (seq? (first body))
                  body
                  [body])
-        ctx (if fn-name (assoc-in ctx [:bindings fn-name] nil)
+        self-ref (when fn-name (volatile! nil))
+        ctx (if fn-name (assoc-in ctx
+                                  [:bindings fn-name]
+                                  (types/->InlinedLateBinding self-ref))
                 ctx)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
@@ -339,6 +342,7 @@
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
         struct #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
+                          :self-ref self-ref
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta}]
@@ -347,18 +351,17 @@
 (defn fn-ctx-fn [_ctx struct fn-meta]
   (let [fn-name (:sci.impl/fn-name struct)
         fn-bodies (:sci.impl/fn-bodies struct)
-        defn? (:sci.impl/defn struct)
         macro? (:sci/macro struct)
-        self-ref? (and fn-name (not defn?))
+        self-ref (:sci.impl/self-ref struct)
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))]
     (if fn-meta
       (fn [ctx bindings]
         (let [fn-meta (eval/handle-meta ctx bindings fn-meta)
-              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref?)]
+              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref)]
           (vary-meta f merge fn-meta)))
       (fn [ctx bindings]
-        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref?)))))
+        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref)))))
 
 (defn expand-fn [ctx fn-expr macro?]
   (let [struct (expand-fn* ctx fn-expr macro?)
@@ -770,7 +773,8 @@
                      (assoc (meta expr)
                             :ns @vars/current-ns
                             :file @vars/current-file
-                            )))
+                            )
+                     nil))
       (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
@@ -943,20 +947,29 @@
                                             (range i)))])
                           (range 20))]
     `(defn ~'return-call
-       ~'[_ctx expr f analyzed-children stack]
+       ~'[_ctx expr f analyzed-children stack wrap]
        (ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
              (mapcat (fn [[i binds]]
                        [i `(let ~binds
-                             (fn [~'ctx ~'bindings]
-                               (~'f
-                                ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                       (range i)))))])
+                             (if ~'wrap
+                               (fn [~'ctx ~'bindings]
+                                 ((~'wrap ~'f)
+                                  ~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                         (range i))))
+                               (fn [~'ctx ~'bindings]
+                                 (~'f
+                                  ~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                         (range i))))))])
                      let-bindings)
-             `[(fn [~'ctx ~'bindings]
-                 (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children))]))
+             `[(if ~'wrap
+                 (fn [~'ctx ~'bindings]
+                   (eval/fn-call ~'ctx ~'bindings (~'wrap ~'f) ~'analyzed-children))
+                 (fn [~'ctx ~'bindings]
+                   (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)))]))
         nil
         ~'expr
         ~'stack))))
@@ -1084,7 +1097,8 @@
                                      (assoc (meta expr)
                                             :ns @vars/current-ns
                                             :file @vars/current-file
-                                            :sci.impl/f-meta f-meta))
+                                            :sci.impl/f-meta f-meta)
+                                     nil)
                         (if-let [op (:sci.impl/op (meta f))]
                           (case op
                             needs-ctx
@@ -1099,7 +1113,8 @@
                                              (assoc (meta expr)
                                                     :ns @vars/current-ns
                                                     :file @vars/current-file
-                                                    :sci.impl/f-meta f-meta))))
+                                                    :sci.impl/f-meta f-meta)
+                                             nil)))
                             :resolve-sym
                             (return-binding-call ctx
                                                  expr
@@ -1114,14 +1129,27 @@
                                            f children (assoc (meta expr)
                                                              :ns @vars/current-ns
                                                              :file @vars/current-file
-                                                             :sci.impl/f-meta f-meta))))
-                          (let [children (analyze-children ctx (rest expr))]
-                            (return-call ctx
-                                         expr
-                                         f children (assoc (meta expr)
-                                                           :ns @vars/current-ns
-                                                           :file @vars/current-file
-                                                           :sci.impl/f-meta f-meta))))))
+                                                             :sci.impl/f-meta f-meta)
+                                           nil)))
+                          (if (instance? #?(:clj sci.impl.types.InlinedLateBinding
+                                            :cljs sci.impl.types/InlinedLateBinding) f)
+                            (let [children (analyze-children ctx (rest expr))
+                                  f (types/getVal f)]
+                              (return-call ctx
+                                           expr
+                                           f children (assoc (meta expr)
+                                                             :ns @vars/current-ns
+                                                             :file @vars/current-file
+                                                             :sci.impl/f-meta f-meta)
+                                           deref))
+                            (let [children (analyze-children ctx (rest expr))]
+                              (return-call ctx
+                                           expr
+                                           f children (assoc (meta expr)
+                                                             :ns @vars/current-ns
+                                                             :file @vars/current-file
+                                                             :sci.impl/f-meta f-meta)
+                                           nil))))))
                     (catch #?(:clj Exception :cljs js/Error) e
                       ;; we pass a ctx-fn because the rethrow function calls
                       ;; stack on it, the only interesting bit it the map
@@ -1172,8 +1200,8 @@
   (let [children (into [] cat the-map)
         analyzed-children (analyze-children ctx children)]
     (if (<= (count analyzed-children) 16)
-      (return-call ctx the-map array-map analyzed-children nil)
-      (return-call ctx the-map hash-map analyzed-children nil))))
+      (return-call ctx the-map array-map analyzed-children nil nil)
+      (return-call ctx the-map hash-map analyzed-children nil nil))))
 
 (defn analyze-map
   [ctx expr m]
@@ -1223,14 +1251,14 @@
                         expr
                         (if m
                           ;; can we transform this into return-call?
-                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil)]
+                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil nil)]
                             (ctx-fn
                              (fn [ctx bindings]
                                (let [md (eval/eval ctx bindings analyzed-meta)
                                      coll (eval/eval ctx bindings ef)]
                                  (with-meta coll md)))
                              expr))
-                          (return-call ctx expr f2 (analyze-children ctx expr) nil)))]
+                          (return-call ctx expr f2 (analyze-children ctx expr) nil nil)))]
     analyzed-coll))
 
 (defn analyze

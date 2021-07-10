@@ -4,7 +4,7 @@
             [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
-            [sci.impl.utils :as utils]
+            [sci.impl.utils :as utils :refer [ctx-fn]]
             [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
                                                   gen-fn-varargs]])))
@@ -243,14 +243,8 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref?]
-  (let [self-ref (when self-ref? (atom nil))
-        bindings (if self-ref?
-                   (assoc bindings fn-name
-                             (fn call-self [& args]
-                               (apply @self-ref args)))
-                   bindings)
-        f (if single-arity
+(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref]
+  (let [f (if single-arity
             (fun ctx bindings single-arity fn-name macro?)
             (let [arities (fn-arity-map ctx bindings fn-name macro? fn-bodies)]
               (fn [& args]
@@ -266,7 +260,7 @@
             (vary-meta f
                        #(assoc % :sci/macro macro?))
             f)]
-    (when self-ref? (reset! self-ref f))
+    (when self-ref (vreset! self-ref f))
     f))
 
 (vreset! utils/eval-fn eval-fn)
