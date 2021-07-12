@@ -792,7 +792,11 @@
 (defn return-ns-op [_ctx f expr analyzed-args]
   (ctx-fn (fn [ctx _bindings]
             (apply f ctx analyzed-args))
-          expr))
+          expr
+          nil
+          (assoc (meta expr)
+                 :file @vars/current-file
+                 :ns @vars/current-ns)))
 
 (defn analyze-ns-form [ctx [_ns ns-name & exprs :as expr]]
   (when-not (symbol? ns-name)

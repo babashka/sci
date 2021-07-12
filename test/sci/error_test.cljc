@@ -37,7 +37,16 @@
                                     (select-keys [:ns :name :line :column])
                                     (update :ns sci-ns-name))
                                (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
-    (is (= '({:ns user, :name nil, :line 1, :column 1}) stacktrace ))))
+    (is (= '({:ns user, :name nil, :line 1, :column 1}) stacktrace )))
+  (testing "unresolved class in import"
+    (let [stacktrace (try (eval-string "(ns foo (:import [java.io FooBar]))")
+                          (catch #?(:clj Exception
+                                    :cljs js/Error) e
+                            (map #(-> %
+                                      (select-keys [:ns :name :line :column])
+                                      (update :ns sci-ns-name))
+                                 (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
+      (is (= '({:ns foo, :name nil, :line 1, :column 9}) stacktrace )))))
 
 (deftest locals-test
   (testing "defn does not introduce fn-named local binding"
