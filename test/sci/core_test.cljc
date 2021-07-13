@@ -1145,7 +1145,8 @@
 
 (deftest self-ref-test
   (testing "self-referantial function is equal to itself"
-    (is (true? (eval* "(def f (fn foo [] foo)) (= f (f))")))))
+    (is (true? (eval* "(def f (fn foo [] foo)) (= f (f))")))
+    (is (true? (eval* "(letfn [(f [] f)] (= f (f)))")))))
 
 ;;;; Scratch
 
