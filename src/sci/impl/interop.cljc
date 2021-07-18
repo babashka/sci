@@ -3,8 +3,8 @@
   #?(:clj (:import [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobj])
             [sci.impl.vars :as vars]
-            #?(:cljs [clojure.string])
-            [clojure.string :as str]))
+            #?(:cljs [clojure.string :as str]))
+  #?(:clj (:import [java.lang.reflect Proxy])))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -35,10 +35,16 @@
       [#_([obj method args]
         (invoke-instance-method obj nil method args))
        ([obj target-class method args]
-        (if-not target-class
-          (Reflector/invokeInstanceMethod obj method (object-array args))
-          (let [methods (Reflector/getMethods target-class (count args) method false)]
-            (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
+        (if (instance? Proxy obj)
+          (let [handler (Proxy/getInvocationHandler obj)
+                methods (Reflector/getMethods target-class (count args) method false)]
+            ;; (prn :methods target-class method methods)
+            ;; (prn target-class method handler obj (first methods) (object-array args))
+            (.invoke handler obj (first methods) (object-array args)))
+          (if-not target-class
+            (Reflector/invokeInstanceMethod obj method (object-array args))
+            (let [methods (Reflector/getMethods target-class (count args) method false)]
+              (Reflector/invokeMatchingMethod method methods obj (object-array args))))))]))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [[class field-name-sym]])
