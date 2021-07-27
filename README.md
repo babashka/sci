@@ -416,7 +416,8 @@ SCI supports loading code via a hook that is invoked by SCI's implementation of
 `require`. The job of this function is to find and return the source code for
 the requested namespace. This passed-in function will be called with a single
 argument that is a hashmap with a key `:namespace`. The value for this key will
-be the _symbol_ of the requested namespace.
+be the _symbol_ of the requested namespace. Also a `:opts` key contains options
+from the require call, such as `:as`.
 
 This function should return a map with keys `:file` (containing the filename to
 be used in error messages) and `:source` (containing the source code text). SCI
