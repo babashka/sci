@@ -91,7 +91,7 @@
           (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
       (if-let [load-fn (:load-fn env)]
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib
-                                                   :opts opts
+                                                   :opts (select-keys opts [:as])
                                                    :reload (or reload reload-all)})]
           (do
             (let [ctx (-> ctx
