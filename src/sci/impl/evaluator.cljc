@@ -192,19 +192,20 @@
              (:sci.impl/record (meta instance-expr*))) ;; a sci record
       (get instance-expr* (keyword (subs method-str 1)))
       (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
-            instance-class-name #?(:clj (.getName ^Class instance-class)
-                                   :cljs (.-name instance-class))
-            instance-class-symbol (symbol instance-class-name)
             class->opts (:class->opts ctx)
             allowed? (or
                       (get class->opts :allow)
-                      (get class->opts instance-class-symbol))
+                      (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                                   :cljs (.-name instance-class))
+                            instance-class-symbol (symbol instance-class-name)]
+                        (get class->opts instance-class-symbol)))
             ^Class target-class (if allowed? instance-class
                                     (when-let [f (:public-class ctx)]
                                       (f instance-expr*)))]
         ;; we have to check options at run time, since we don't know what the class
         ;; of instance-expr is at analysis time
-        (when-not target-class
+        (when-not #?(:clj target-class
+                     :cljs allowed?)
           (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
         (let [args (map #(eval ctx bindings %) args)] ;; eval args!
           (interop/invoke-instance-method instance-expr* target-class method-str args))))))
