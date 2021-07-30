@@ -90,9 +90,9 @@
            lib)
           (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
       (if-let [load-fn (:load-fn env)]
-        (if-let [{:keys [:file :source]} (load-fn {:namespace lib
-                                                   :opts (select-keys opts [:as])
-                                                   :reload (or reload reload-all)})]
+        (if-let [{:keys [:file :source :omit-as-alias?]} (load-fn {:namespace lib
+                                                                   :opts (select-keys opts [:as])
+                                                                   :reload (or reload reload-all)})]
           (do
             (let [ctx (-> ctx
                           (assoc :bindings {})
@@ -113,7 +113,9 @@
                                 the-loaded-ns (get namespaces lib)]
                             (handle-require-libspec-env ctx env cnn
                                                         the-loaded-ns
-                                                        lib opts)))))
+                                                        lib (if omit-as-alias?
+                                                              (dissoc opts :as) ;; Allows load-fn to setup aliases
+                                                              opts))))))
           (or (when reload*
                 (when-let [the-loaded-ns (get namespaces lib)]
                   (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
