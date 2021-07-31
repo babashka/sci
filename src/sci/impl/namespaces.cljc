@@ -78,8 +78,12 @@
     (defmacro copy-var [sym _ns] sym)
     (defmacro copy-core-var [sym] sym)))
 
-(defn macrofy [f]
-  (vary-meta f #(assoc % :sci/macro true)))
+(defn macrofy
+  ([f] (vary-meta f #(assoc % :sci/macro true)))
+  ([sym f] (macrofy sym f clojure-core-ns))
+  ([sym f ns]
+   (vars/new-var sym f {:ns ns
+                        :macro true})))
 
 (defn ->*
   [_ _ x & forms]
@@ -738,6 +742,12 @@
            (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
            (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
+(defn core-var
+  ([sym v] (core-var sym v false))
+  ([sym v ctx?]
+   (vars/new-var sym v (cond-> {:ns clojure-core-ns}
+                         ctx? (assoc :sci.impl/op needs-ctx)))))
+
 (def clojure-core
   {:obj clojure-core-ns
    '*ns* vars/current-ns
@@ -982,7 +992,7 @@
    'ex-info (copy-core-var ex-info)
    'ex-message (copy-core-var ex-message)
    'ex-cause (copy-core-var ex-cause)
-   'find-ns (with-meta sci-find-ns {:sci.impl/op needs-ctx})
+   'find-ns (core-var 'find-ns sci-find-ns true #_{:sci.impl/op needs-ctx})
    'find-var (with-meta sci-find-var {:sci.impl/op needs-ctx})
    'first (copy-core-var first)
    'float? (copy-core-var float?)
@@ -1053,7 +1063,7 @@
    'longs (copy-core-var longs)
    'list* (copy-core-var list*)
    'long-array (copy-core-var long-array)
-   'macroexpand (with-meta macroexpand* {:sci.impl/op needs-ctx})
+   'macroexpand (core-var 'macroexpand macroexpand* true #_(with-meta macroexpand* {:sci.impl/op needs-ctx}))
    'macroexpand-1 (with-meta macroexpand-1* {:sci.impl/op needs-ctx})
    'make-array (copy-core-var make-array)
    'make-hierarchy (copy-core-var make-hierarchy)
@@ -1257,7 +1267,7 @@
    'volatile! (copy-core-var volatile!)
    'vreset! (copy-core-var vreset!)
    'vswap! (copy-core-var vswap!*)
-   'when-first (macrofy when-first*)
+   'when-first (macrofy 'when-first when-first*)
    'when-let (macrofy when-let*)
    'when-some (macrofy when-some*)
    'when (macrofy when*)
