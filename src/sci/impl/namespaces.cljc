@@ -1035,6 +1035,7 @@
    'isa? (with-meta hierarchies/isa?* {:sci.impl/op needs-ctx})
    #?@(:cljs ['js->clj (copy-core-var js->clj)])
    #?@(:cljs ['js-obj (copy-core-var js-obj)])
+   #?@(:cljs ['js-keys (copy-core-var js-keys)])
    'juxt (copy-core-var juxt)
    'keep (copy-core-var keep)
    'keep-indexed (copy-core-var keep-indexed)
