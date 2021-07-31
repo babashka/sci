@@ -26,7 +26,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [needs-ctx]]
    [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
+  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var-with-addl-meta copy-var copy-core-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
