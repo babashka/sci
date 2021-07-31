@@ -44,15 +44,15 @@
 
 (macros/deftime
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
-  (defmacro copy-var
-        ([sym ns]
+  (defmacro copy-var-with-addl-meta
+        ([sym ns addl-meta]
          `(let [ns# ~ns
                 m# (-> (var ~sym) meta)
                 ns-name# (vars/getName ns#)
                 name# (:name m#)
                 name-sym# (symbol (str ns-name#) (str name#))
                 val# ~sym]
-            (vars/->SciVar val# name-sym# (cond->
+            (vars/->SciVar val# name-sym# (merge (cond->
                                               {:doc (:doc m#)
                                                :name name#
                                                :arglists (:arglists m#)
@@ -60,8 +60,12 @@
                                                :sci.impl/built-in true}
                                             (and (identical? clojure-core-ns ns#)
                                                  (contains? inlined-vars name#))
-                                            (assoc :sci.impl/inlined val#))
+                                            (assoc :sci.impl/inlined val#)) ~addl-meta)
                            false))))
+  (defmacro copy-var
+    ([sym ns]
+     `(copy-var-with-addl-meta ~sym ~ns {})))
+
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns)
@@ -1506,17 +1510,17 @@
 
 (def clojure-repl
   {:obj clojure-repl-namespace
-   'dir-fn (with-meta dir-fn {:sci.impl/op needs-ctx})
-   'dir (macrofy dir)
-   'print-doc (with-meta print-doc {:private true})
-   'doc (macrofy doc)
-   'find-doc (with-meta find-doc {:sci.impl/op needs-ctx})
-   'apropos (with-meta apropos {:sci.impl/op needs-ctx})
-   'source (macrofy source)
-   'source-fn (with-meta source-fn {:sci.impl/op needs-ctx})
-   #?@(:clj ['pst (with-meta pst {:sci.impl/op needs-ctx})
-             'stack-element-str stack-element-str
-             'demunge demunge])})
+   'dir-fn (copy-var-with-addl-meta dir-fn clojure-repl-namespace {:sci.impl/op needs-ctx})
+   'dir (macrofy 'dir dir clojure-repl-namespace)
+   'print-doc (copy-var-with-addl-meta print-doc clojure-repl-namespace {:private true})
+   'doc (macrofy 'doc doc clojure-repl-namespace)
+   'find-doc (copy-var-with-addl-meta find-doc clojure-repl-namespace {:sci.impl/op needs-ctx})
+   'apropos (copy-var-with-addl-meta apropos clojure-repl-namespace {:sci.impl/op needs-ctx})
+   'source (macrofy 'source source clojure-repl-namespace)
+   'source-fn (copy-var-with-addl-meta source-fn clojure-repl-namespace {:sci.impl/op needs-ctx})
+   #?@(:clj ['pst (copy-var-with-addl-meta pst clojure-repl-namespace {:sci.impl/op needs-ctx})
+             'stack-element-str (copy-var stack-element-str clojure-repl-namespace)
+             'demunge (copy-var demunge clojure-repl-namespace)])})
 
 (defn apply-template
   [argv expr values]
