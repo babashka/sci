@@ -686,20 +686,22 @@
 ;;;;
 
 #?(:clj
-   (def clojure-lang
-     {:obj (vars/->SciNamespace 'clojure.lang nil)
-      ;; IDeref as protocol instead of class
-      'IDeref core-protocols/deref-protocol
-      'deref core-protocols/deref
-      ;; IAtom as protocol instead of class
-      'IAtom core-protocols/swap-protocol
-      'swap core-protocols/swap
-      'reset core-protocols/reset
-      'compareAndSet core-protocols/compareAndSet
-      'IAtom2 core-protocols/iatom2-protocol
-      'resetVals core-protocols/resetVals
-      'swapVals core-protocols/swapVals
-      }))
+   (do
+     (def clojure-lang-namespace (vars/->SciNamespace 'clojure.lang nil))
+     (def clojure-lang
+       {:obj           clojure-lang-namespace
+        ;; IDeref as protocol instead of class
+        'IDeref        core-protocols/deref-protocol
+        'deref         (copy-var core-protocols/deref clojure-lang-namespace)
+        ;; IAtom as protocol instead of class
+        'IAtom         core-protocols/swap-protocol
+        'swap          (copy-var core-protocols/swap clojure-lang-namespace)
+        'reset         (copy-var core-protocols/reset clojure-lang-namespace)
+        'compareAndSet (copy-var core-protocols/compareAndSet clojure-lang-namespace)
+        'IAtom2        core-protocols/iatom2-protocol
+        'resetVals     (copy-var core-protocols/resetVals clojure-lang-namespace)
+        'swapVals      (copy-var core-protocols/swapVals clojure-lang-namespace)
+        })))
 
 ;;;; REPL vars
 
@@ -1500,8 +1502,10 @@
                             (+ 2 (- (count (.getStackTrace cause))
                                     (count st)))))))))))
 
+(def clojure-repl-namespace (vars/->SciNamespace 'clojure.repl nil))
+
 (def clojure-repl
-  {:obj (vars/->SciNamespace 'clojure.repl nil)
+  {:obj clojure-repl-namespace
    'dir-fn (with-meta dir-fn {:sci.impl/op needs-ctx})
    'dir (macrofy dir)
    'print-doc (with-meta print-doc {:private true})
@@ -1526,10 +1530,12 @@
     `(do ~@(map (fn [a] (apply-template argv expr a))
                 (partition c values)))))
 
+(def clojure-template-namespace (vars/->SciNamespace 'clojure.template nil))
+
 (def clojure-template
-  {:obj (vars/->SciNamespace 'clojure.template nil)
-   'apply-template apply-template
-   'do-template (macrofy do-template)})
+  {:obj clojure-template-namespace
+   'apply-template (copy-var apply-template clojure-template-namespace)
+   'do-template (macrofy 'do-template do-template clojure-template-namespace)})
 
 (def clojure-string-namespace (vars/->SciNamespace 'clojure.string nil))
 (def clojure-set-namespace (vars/->SciNamespace 'clojure.set nil))
