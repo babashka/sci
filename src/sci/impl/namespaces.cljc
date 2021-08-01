@@ -85,9 +85,9 @@
    (vars/new-var sym f {:ns ns
                         :macro true})))
 
-(defn new-var-with-ns [ns]
-  (fn new-ns-var
-    ([sym v] (new-ns-var sym v false))
+(defn ns-new-var [ns]
+  (fn new-var-with-ns
+    ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
      (vars/new-var sym v (cond-> {:ns ns}
                            ctx? (assoc :sci.impl/op needs-ctx))))))
@@ -753,7 +753,7 @@
            (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
 (def core-var
-  (new-var-with-ns clojure-core-ns))
+  (ns-new-var clojure-core-ns))
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -1511,7 +1511,7 @@
 (def clojure-repl-namespace (vars/->SciNamespace 'clojure.repl nil))
 
 (def repl-var
-  (new-var-with-ns clojure-repl-namespace))
+  (ns-new-var clojure-repl-namespace))
 
 (def clojure-repl
   {:obj clojure-repl-namespace
