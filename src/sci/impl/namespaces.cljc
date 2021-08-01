@@ -85,6 +85,13 @@
    (vars/new-var sym f {:ns ns
                         :macro true})))
 
+(defn new-var-with-ns [ns]
+  (fn new-ns-var
+    ([sym v] (new-ns-var sym v false))
+    ([sym v ctx?]
+     (vars/new-var sym v (cond-> {:ns ns}
+                           ctx? (assoc :sci.impl/op needs-ctx))))))
+
 (defn ->*
   [_ _ x & forms]
   (loop [x x, forms forms]
@@ -745,11 +752,8 @@
            (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
            (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
-(defn core-var
-  ([sym v] (core-var sym v false))
-  ([sym v ctx?]
-   (vars/new-var sym v (cond-> {:ns clojure-core-ns}
-                         ctx? (assoc :sci.impl/op needs-ctx)))))
+(def core-var
+  (new-var-with-ns clojure-core-ns))
 
 (def clojure-core
   {:obj clojure-core-ns
@@ -1504,19 +1508,24 @@
                             (+ 2 (- (count (.getStackTrace cause))
                                     (count st)))))))))))
 
+(def clojure-repl-namespace (vars/->SciNamespace 'clojure.repl nil))
+
+(def repl-var
+  (new-var-with-ns clojure-repl-namespace))
+
 (def clojure-repl
-  {:obj (vars/->SciNamespace 'clojure.repl nil)
-   'dir-fn (with-meta dir-fn {:sci.impl/op needs-ctx})
-   'dir (macrofy dir)
+  {:obj clojure-repl-namespace
+   'dir-fn (repl-var 'dir-fn dir-fn true)
+   'dir (macrofy 'dir dir clojure-repl-namespace)
    'print-doc (with-meta print-doc {:private true})
-   'doc (macrofy doc)
-   'find-doc (with-meta find-doc {:sci.impl/op needs-ctx})
-   'apropos (with-meta apropos {:sci.impl/op needs-ctx})
-   'source (macrofy source)
-   'source-fn (with-meta source-fn {:sci.impl/op needs-ctx})
-   #?@(:clj ['pst (with-meta pst {:sci.impl/op needs-ctx})
-             'stack-element-str stack-element-str
-             'demunge demunge])})
+   'doc (macrofy 'doc doc clojure-repl-namespace)
+   'find-doc (repl-var 'find-doc find-doc true)
+   'apropos (repl-var 'apropos apropos true)
+   'source (macrofy 'source source clojure-repl-namespace)
+   'source-fn (repl-var 'source-fn source-fn true)
+   #?@(:clj ['pst (repl-var 'pst pst true)
+             'stack-element-str (repl-var 'stack-element-str stack-element-str)
+             'demunge (repl-var 'demunge demunge)])})
 
 (defn apply-template
   [argv expr values]
@@ -1530,10 +1539,12 @@
     `(do ~@(map (fn [a] (apply-template argv expr a))
                 (partition c values)))))
 
+(def clojure-template-namespace (vars/->SciNamespace 'clojure.template nil))
+
 (def clojure-template
-  {:obj (vars/->SciNamespace 'clojure.template nil)
-   'apply-template apply-template
-   'do-template (macrofy do-template)})
+  {:obj clojure-template-namespace
+   'apply-template (copy-var apply-template clojure-template-namespace)
+   'do-template (macrofy 'do-template do-template clojure-template-namespace)})
 
 (def clojure-string-namespace (vars/->SciNamespace 'clojure.string nil))
 (def clojure-set-namespace (vars/->SciNamespace 'clojure.set nil))
