@@ -92,7 +92,10 @@
   (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
   (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))")))
   (is (contains? (set (eval* "(clojure.repl/dir-fn 'clojure.string)"))
-                 'last-index-of)))
+                 'last-index-of))
+  (is (true? (eval* "(def foo-ns (create-ns 'foo)) (def another-foo-ns (create-ns 'foo))
+                     (and (identical? foo-ns another-foo-ns)
+                     (= 'foo (ns-name foo-ns)))"))))
 
 (deftest autoresolve-test
   (is (= :user/foo (eval* "::foo")))

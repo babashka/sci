@@ -393,6 +393,9 @@
              (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
   nil)
 
+(defn sci-create-ns [ctx ns-sym]
+  (utils/namespace-object (:env ctx) ns-sym true nil))
+
 (defn sci-find-ns [ctx ns-sym]
   (assert (symbol? ns-sym))
   (utils/namespace-object (:env ctx) ns-sym false nil))
@@ -993,6 +996,7 @@
    'ex-message (copy-core-var ex-message)
    'ex-cause (copy-core-var ex-cause)
    'find-ns (core-var 'find-ns sci-find-ns true #_{:sci.impl/op needs-ctx})
+   'create-ns (core-var 'create-ns-ns sci-create-ns true #_{:sci.impl/op needs-ctx})
    'find-var (with-meta sci-find-var {:sci.impl/op needs-ctx})
    'first (copy-core-var first)
    'float? (copy-core-var float?)
