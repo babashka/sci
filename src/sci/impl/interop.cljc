@@ -51,6 +51,8 @@
    (defn invoke-js-constructor [constructor args]
      (let [ctor (js/Function.prototype.bind.apply constructor)
            args (js-object-array args)]
+       ;; TODO: why are we convering to a JS array first and then destructuring the thing again into components?
+       ;; TODO: also we should _not_ convert args into JS objects automatically, this is the job of the programmer
        (case (count args)
          0 (new ctor)
          1 (new ctor (nth args 0))
