@@ -755,18 +755,22 @@
 (def core-var
   (ns-new-var clojure-core-ns))
 
+(defn add-core-ns-meta [sci-var]
+  (alter-meta! sci-var assoc :ns clojure-core-ns)
+  sci-var)
+
 (def clojure-core
   {:obj clojure-core-ns
-   '*ns* vars/current-ns
+   '*ns* (add-core-ns-meta vars/current-ns)
    ;; io
-   '*in* io/in
-   '*out* io/out
-   '*err* io/err
-   '*file* vars/current-file
-   '*print-length* io/print-length
-   '*print-level* io/print-level
-   '*print-meta* io/print-meta
-   '*print-namespace-maps* io/print-namespace-maps
+   '*in* (add-core-ns-meta io/in)
+   '*out* (add-core-ns-meta io/out)
+   '*err* (add-core-ns-meta io/err)
+   '*file* (add-core-ns-meta vars/current-file)
+   '*print-length* (add-core-ns-meta io/print-length)
+   '*print-level* (add-core-ns-meta io/print-level)
+   '*print-meta* (add-core-ns-meta io/print-meta)
+   '*print-namespace-maps* (add-core-ns-meta io/print-namespace-maps)
    'newline io/newline
    'flush io/flush
    'pr io/pr
