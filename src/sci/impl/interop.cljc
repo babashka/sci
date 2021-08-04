@@ -33,7 +33,7 @@
                  (throw (js/Error. (str "Could not find instance method: " method-name)))))]
       :clj
       [#_([obj method args]
-        (invoke-instance-method obj nil method args))
+          (invoke-instance-method obj nil method args))
        ([obj target-class method args]
         (if-not target-class
           (Reflector/invokeInstanceMethod obj method (object-array args))
@@ -51,6 +51,8 @@
    (defn invoke-js-constructor [constructor args]
      (let [ctor (js/Function.prototype.bind.apply constructor)
            args (js-object-array args)]
+       ;; TODO: why are we convering to a JS array first and then destructuring the thing again into components?
+       ;; TODO: also we should _not_ convert args into JS objects automatically, this is the job of the programmer
        (case (count args)
          0 (new ctor)
          1 (new ctor (nth args 0))
@@ -99,10 +101,10 @@
 
 (defn resolve-class-opts [{:keys [:env :class->opts]} sym]
   (let [class-opts (or #?(:clj (get class->opts sym)
-                     :cljs (if-let [ns* (namespace sym)]
-                             (when (identical? "js" ns*)
-                               (get class->opts (symbol (name sym))))
-                             (get class->opts sym)))
+                          :cljs (if-let [ns* (namespace sym)]
+                                  (when (identical? "js" ns*)
+                                    (get class->opts (symbol (name sym))))
+                                  (get class->opts sym)))
                        (let [env @env
                              cnn (vars/current-ns-name)
                              imports (get-in env [:namespaces cnn :imports])]
