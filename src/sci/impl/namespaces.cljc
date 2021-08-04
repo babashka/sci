@@ -30,7 +30,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
+(def clojure-core-ns vars/clojure-core-ns)
 
 ;; The following is produced with:
 ;; (def inlined (filter (comp :inline meta) (vals (ns-publics 'clojure.core))))

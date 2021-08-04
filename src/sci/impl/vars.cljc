@@ -388,11 +388,15 @@
    (let [meta (assoc meta :dynamic true)]
      (SciVar. init-val name meta false))))
 
-(def current-file (dynamic-var '*file* nil))
-
+;; rudimentary namespaces
 (def user-ns (->SciNamespace 'user nil))
 
-(def current-ns (dynamic-var '*ns* user-ns))
+(def clojure-core-ns (->SciNamespace 'clojure.core nil))
+
+
+(def current-file (dynamic-var '*file* nil {:ns clojure-core-ns}))
+
+(def current-ns (dynamic-var '*ns* user-ns {:ns clojure-core-ns}))
 
 (defn current-ns-name []
   (getName @current-ns))
