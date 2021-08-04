@@ -755,7 +755,10 @@
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
   (if-let [#?(:clj {:keys [:class] :as _opts}
-              :cljs {:keys [:constructor] :as _opts}) (interop/resolve-class-opts ctx class-sym)]
+              :cljs {:keys [:constructor] :as opts
+                     ;; TODO: deprecate :constructor
+                     ;; nbb maps constructor via ns form which uses imports and adds classes
+                     :or {constructor (:class opts)}}) (interop/resolve-class-opts ctx class-sym)]
     (let [args (analyze-children ctx args)] ;; analyze args!
       (ctx-fn
        (fn [ctx bindings]

@@ -33,7 +33,7 @@
                  (throw (js/Error. (str "Could not find instance method: " method-name)))))]
       :clj
       [#_([obj method args]
-        (invoke-instance-method obj nil method args))
+          (invoke-instance-method obj nil method args))
        ([obj target-class method args]
         (if-not target-class
           (Reflector/invokeInstanceMethod obj method (object-array args))
@@ -99,10 +99,10 @@
 
 (defn resolve-class-opts [{:keys [:env :class->opts]} sym]
   (let [class-opts (or #?(:clj (get class->opts sym)
-                     :cljs (if-let [ns* (namespace sym)]
-                             (when (identical? "js" ns*)
-                               (get class->opts (symbol (name sym))))
-                             (get class->opts sym)))
+                          :cljs (if-let [ns* (namespace sym)]
+                                  (when (identical? "js" ns*)
+                                    (get class->opts (symbol (name sym))))
+                                  (get class->opts sym)))
                        (let [env @env
                              cnn (vars/current-ns-name)
                              imports (get-in env [:namespaces cnn :imports])]
