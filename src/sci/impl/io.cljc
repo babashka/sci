@@ -9,26 +9,31 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
+(defn core-dynamic-var
+  "create a dynamic var with clojure.core :ns meta"
+  ([name] (core-dynamic-var name nil))
+  ([name init-val] (vars/dynamic-var name init-val {:ns vars/clojure-core-ns})))
+
 (def in (binding [*unrestricted* true]
-          (doto (vars/dynamic-var '*in*)
-                                        (vars/unbind))))
+          (doto (core-dynamic-var '*in*)
+            (vars/unbind))))
 
 (def out (binding [*unrestricted* true]
-           (doto (vars/dynamic-var '*out*)
+           (doto (core-dynamic-var '*out*)
              (vars/unbind))))
 
 (def err (binding [*unrestricted* true]
-           (doto (vars/dynamic-var '*err*)
+           (doto (core-dynamic-var '*err*)
              (vars/unbind))))
 
 (def print-meta
-  (vars/dynamic-var '*print-meta* false))
+  (core-dynamic-var '*print-meta* false))
 
-(def print-length (vars/dynamic-var '*print-length* nil))
+(def print-length (core-dynamic-var '*print-length*))
 
-(def print-level (vars/dynamic-var '*print-level* nil))
+(def print-level (core-dynamic-var '*print-level*))
 
-(def print-namespace-maps (vars/dynamic-var '*print-namespace-maps* true))
+(def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true))
 
 #?(:clj (defn pr-on
           {:private true
