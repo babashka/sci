@@ -122,7 +122,7 @@
 
 #?(:clj
    (defn prn-str
-     "pr to a string, returning it"
+     "prn to a string, returning it"
      [& xs]
      (let [sw (java.io.StringWriter.)]
        (vars/with-bindings {out sw}
@@ -130,7 +130,7 @@
        (str sw)))
    :cljs
    (defn prn-str
-     "pr to a string, returning it"
+     "prn to a string, returning it"
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level
@@ -154,7 +154,7 @@
 
 #?(:clj
    (defn print-str
-     "pr to a string, returning it"
+     "print to a string, returning it"
      [& xs]
      (let [sw (java.io.StringWriter.)]
        (vars/with-bindings {out sw}
@@ -162,7 +162,7 @@
        (str sw)))
    :cljs
    (defn print-str
-     "pr to a string, returning it"
+     "print to a string, returning it"
      [& objs]
      (binding [*print-length* @print-length
                *print-level* @print-level
