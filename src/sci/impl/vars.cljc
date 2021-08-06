@@ -388,7 +388,7 @@
    (let [meta (assoc meta :dynamic true)]
      (SciVar. init-val name meta false))))
 
-;; rudimentary namespaces
+;; foundational namespaces
 (def user-ns (->SciNamespace 'user nil))
 
 (def clojure-core-ns (->SciNamespace 'clojure.core nil))

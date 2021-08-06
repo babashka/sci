@@ -767,23 +767,21 @@
    '*print-level* io/print-level
    '*print-meta* io/print-meta
    '*print-namespace-maps* io/print-namespace-maps
-   'newline io/newline
-   'flush io/flush
-   'pr io/pr
-   'prn io/prn
-   'print io/print
-   'println io/println
+   'newline (copy-core-var io/newline)
+   'flush (copy-core-var io/flush)
+   'pr (copy-core-var io/pr)
+   'prn (copy-core-var io/prn)
+   'print (copy-core-var io/print)
+   'println (copy-core-var io/println)
    'pr-str (copy-core-var io/pr-str)
    'prn-str (copy-core-var io/prn-str)
    'print-str (copy-core-var #?(:cljs io/print-str :clj print-str))
    #?@(:clj ['print-method (copy-core-var print-method)])
    #?@(:clj ['print-dup (copy-core-var print-dup)])
-   #?@(:clj ['printf io/printf])
-   'with-out-str (with-meta io/with-out-str
-                   {:sci/macro true})
-   #?@(:clj ['with-in-str (with-meta io/with-in-str
-                            {:sci/macro true})
-             'read-line io/read-line])
+   #?@(:clj ['printf (copy-core-var io/printf)])
+   'with-out-str (macrofy 'with-out-str io/with-out-str)
+   #?@(:clj ['with-in-str (macrofy 'with-in-str io/with-in-str)
+             'read-line (copy-core-var io/read-line)])
    ;; end io
    ;; REPL variables
    '*1 *1
@@ -795,7 +793,7 @@
    'defmulti (with-meta mm/defmulti
                {:sci/macro true
                 :sci.impl/op needs-ctx})
-   'defmethod (macrofy mm/defmethod)
+   'defmethod (macrofy 'defmethod mm/defmethod)
    'get-method (copy-core-var get-method)
    'methods (copy-core-var methods)
    'multi-fn-add-method-impl mm/multi-fn-add-method-impl
@@ -812,7 +810,7 @@
                    :sci.impl/op needs-ctx})
    'extend (with-meta protocols/extend
              {:sci.impl/op needs-ctx})
-   'extends? protocols/extends?
+   'extends? (copy-core-var protocols/extends?)
    'extend-type (with-meta protocols/extend-type
                   {:sci/macro true
                    :sci.impl/op needs-ctx})
@@ -831,24 +829,25 @@
              'proxy (with-meta proxy/proxy
                       {:sci/macro true
                        :sci.impl/op needs-ctx})])
-   'satisfies? protocols/satisfies?
+   'satisfies? (copy-core-var protocols/satisfies?)
    ;; end protocols
    ;; IDeref as protocol
-   'deref core-protocols/deref*
+   'deref (core-var 'deref core-protocols/deref*)
    #?@(:cljs ['-deref core-protocols/-deref
               'IDeref core-protocols/deref-protocol])
    ;; end IDeref as protocol
    ;; IAtom / ISwap as protocol
-   'swap! core-protocols/swap!*
-   'compare-and-set! #?(:clj core-protocols/compare-and-set!*
+   'swap! (core-var 'swap! core-protocols/swap!*)
+   'compare-and-set! #?(:clj (core-var 'compare-and-set!
+                               core-protocols/compare-and-set!*)
                         :cljs (copy-core-var compare-and-set!))
    #?@(:cljs ['IReset core-protocols/reset-protocol
               'ISwap core-protocols/swap-protocol
               '-swap! core-protocols/-swap!
               '-reset! core-protocols/-reset!])
    ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
-   #?@(:clj ['swap-vals! core-protocols/swap-vals!*
-             'reset-vals! core-protocols/reset-vals!*])
+   #?@(:clj ['swap-vals! (core-var 'swap-vals! core-protocols/swap-vals!*)
+             'reset-vals! (core-var 'reset-vals! core-protocols/reset-vals!*)])
    ;; private
    'has-root-impl (copy-core-var has-root-impl)
    ;; used in with-local-vars
@@ -856,7 +855,7 @@
    ;; used in let-fn
    '-new-var #(vars/new-var (gensym) nil)
    ;; end private
-   '.. (macrofy double-dot)
+   '.. (macrofy '.. double-dot)
    '= (copy-core-var =)
    '< (copy-core-var <)
    '<= (copy-core-var <=)
@@ -867,10 +866,10 @@
    '* (copy-core-var *)
    '/ (copy-core-var /)
    '== (copy-core-var ==)
-   '-> (macrofy ->*)
-   '->> (macrofy ->>*)
-   'as-> (macrofy as->*)
-   'comment (macrofy comment*)
+   '-> (macrofy '-> ->*)
+   '->> (macrofy '->> ->>*)
+   'as-> (macrofy 'as-> as->*)
+   'comment (macrofy 'comment comment*)
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)
    'aget (copy-core-var aget)
