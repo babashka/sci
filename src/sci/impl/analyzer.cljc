@@ -1279,6 +1279,8 @@
        (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
                             mv (meta v)]
                         (cond (constant? v) v
+                              (identical? utils/needs-ctx (:sci.impl/op mv))
+                              (partial v ctx)
                               (vars/var? v)
                               (if (:const mv)
                                 @v
@@ -1286,8 +1288,6 @@
                                   (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                               (str "Can't take value of a macro: " v "")))
                                   (types/->EvalVar v)))
-                              (identical? utils/needs-ctx (:sci.impl/op mv))
-                              (partial v ctx)
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
