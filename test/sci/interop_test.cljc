@@ -1,6 +1,6 @@
 (ns sci.interop-test
   (:require
-   [clojure.test :as test :refer [deftest is #?(:clj testing)]]
+   [clojure.test :as test :refer [deftest is testing #?(:cljs async)]]
    [sci.test-utils :as tu]
    #?(:cljs [clojure.string :as str])))
 
@@ -140,3 +140,14 @@
 #?(:cljs
    (deftest js-reader-test
      (is (= (js->clj #js [1 2 3]) (js->clj (tu/eval* "#js [1 2 3]" {}))))))
+
+#?(:cljs
+   (deftest preserve-clojure-vals-in-args-test
+     (testing "interop doesn't convert values to Clojure values automatically"
+       (async done
+              (.then (tu/eval* "(.then (.resolve js/Promise {:a 1}) (clojure.core/fn [{:keys [:a] :as m}] a))"
+                               {:classes
+                                {'js goog/global :allow :all}})
+                     (fn [a]
+                       (is (= 1 a))
+                       (done)))))))

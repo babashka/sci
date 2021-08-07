@@ -118,7 +118,8 @@
     (reset-thread-binding-frame (Frame. bmap frame))))
 
 (defn pop-thread-bindings []
-  (if-let [f (.-prev (get-thread-binding-frame))]
+  ;; type hint needed to satisfy CLJS compiler / shadow
+  (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
     (if (identical? top-frame f)
       #?(:clj (.remove dvals)
          :cljs (reset! dvals top-frame))

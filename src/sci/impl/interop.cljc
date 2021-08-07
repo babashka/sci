@@ -2,26 +2,13 @@
   {:no-doc true}
   #?(:clj (:import [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobj])
-            [sci.impl.vars :as vars]
-            #?(:cljs [clojure.string])
-            [clojure.string :as str]))
+            #?(:cljs [clojure.string :as str])
+            [sci.impl.vars :as vars]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
 
 #?(:clj (set! *warn-on-reflection* true))
-
-
-#?(:cljs
-   (do
-     (defn toJS [v]
-       (if (instance? MetaFn v)
-         ;; when returning a function, make it callable from JS
-         (.-afn v)
-         (clj->js v)))
-
-     (defn js-object-array [args]
-       (to-array (map toJS args)))))
 
 (defn invoke-instance-method
   #?@(:cljs [[obj _target-class method-name args]
@@ -29,7 +16,7 @@
              (if (identical? \- (.charAt method-name 0))
                (aget obj (subs method-name 1))
                (if-let [method (aget obj method-name)]
-                 (.apply method obj (js-object-array args))
+                 (.apply method obj (into-array args) #_(js-object-array args))
                  (throw (js/Error. (str "Could not find instance method: " method-name)))))]
       :clj
       [#_([obj method args]
@@ -50,9 +37,7 @@
 #?(:cljs
    (defn invoke-js-constructor [constructor args]
      (let [ctor (js/Function.prototype.bind.apply constructor)
-           args (js-object-array args)]
-       ;; TODO: why are we convering to a JS array first and then destructuring the thing again into components?
-       ;; TODO: also we should _not_ convert args into JS objects automatically, this is the job of the programmer
+           args (vec args)]
        (case (count args)
          0 (new ctor)
          1 (new ctor (nth args 0))
@@ -75,7 +60,7 @@
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobj/get class method-name)]
-             (.apply method class (js-object-array args))
+             (.apply method class (into-array args))
              (let [method-name (str method-name)
                    field (get-static-field [class method-name])]
                (cond
