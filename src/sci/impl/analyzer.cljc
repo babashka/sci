@@ -1077,6 +1077,8 @@
                     (if (macro? f)
                       (let [needs-ctx? (identical? utils/needs-ctx
                                                    (:sci.impl/op (meta f)))
+                            ;; Fix for #603
+                            #?@(:cljs [f (if (vars/var? f) @f f)])
                             v (if needs-ctx?
                                 (apply f expr
                                        (:bindings ctx)
@@ -1156,7 +1158,7 @@
                                                              :ns @vars/current-ns
                                                              :file @vars/current-file
                                                              :sci.impl/f-meta f-meta)
-                                           nil))))))
+                                           #?(:cljs (when (vars/var? f) deref) :clj nil)))))))
                     (catch #?(:clj Exception :cljs js/Error) e
                       ;; we pass a ctx-fn because the rethrow function calls
                       ;; stack on it, the only interesting bit it the map

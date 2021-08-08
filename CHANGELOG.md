@@ -6,6 +6,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Fix function reference equality [#587](https://github.com/borkdude/sci/issues/587)
 - Don't convert Clojure values to JS values automatically in interop [#602](https://github.com/borkdude/sci/issues/602)
+- Calling comment with 49 (or more) args fails in CLJS #603
 
 ## v0.2.6
 
