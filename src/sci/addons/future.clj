@@ -1,9 +1,11 @@
 (ns sci.addons.future
   {:no-doc true}
   (:refer-clojure :exclude [future pmap])
+  (:require [sci.impl.namespaces :refer [copy-core-var core-var]])
   (:require [sci.impl.vars :as vars]))
 
-(def future* ^:sci/macro
+(def future* ^{:sci/macro true
+               :ns vars/clojure-core-ns}
   (fn [_ _ & body]
     `(let [f# (~'binding-conveyor-fn (fn [] ~@body))]
        (~'future-call f#))))
@@ -38,9 +40,9 @@
   (update-in opts [:namespaces 'clojure.core]
              assoc
              'future future*
-             'future-call future-call
-             'future-cancel future-cancel
-             'future-cancelled? future-cancelled?
-             'future-done? future-done?
-             'future? future?
-             'pmap pmap))
+             'future-call (copy-core-var future-call)
+             'future-cancel (copy-core-var future-cancel)
+             'future-cancelled? (copy-core-var future-cancelled?)
+             'future-done? (copy-core-var future-done?)
+             'future? (copy-core-var future?)
+             'pmap (core-var 'pmap pmap)))
