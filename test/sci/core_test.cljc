@@ -473,13 +473,7 @@
   (is (nil? (eval* '(comment "anything"))))
   (is (nil? (eval* '(comment anything))))
   (is (nil? (eval* '(comment 1))))
-  (is (nil? (eval* '(comment (+ 1 2 (* 3 4))))))
-  (is (nil? (eval* '(comment
-                      0 1 2 3 4 5 6 7 8 9
-                      0 1 2 3 4 5 6 7 8 9
-                      0 1 2 3 4 5 6 7 8 9
-                      0 1 2 3 4 5 6 7 8 9
-                      0 1 2 3 4 5 6 7 8 9)))))
+  (is (nil? (eval* '(comment (+ 1 2 (* 3 4)))))))
 
 (deftest GH-54-recursive-function-test
   (when-not tu/native?
@@ -1154,6 +1148,15 @@
     (is (true? (eval* "(def f (fn foo [] foo)) (= f (f))")))
     (is (true? (eval* "(letfn [(f [] f)] (= f (f)))")))))
 
+(deftest more-than-twenty-args-test
+  (is (nil? (eval* '(comment
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9))))
+  (is (= {1 2, 2 3, 3 4, 4 5, 5 6, 6 7, 7 8, 8 9, 9 10}
+         (eval* '(assoc {} 1 2 3 4 5 6 7 8 9 1 2 3 4 5 6 7 8 9 1 2 3 4 5 6 7 8 9 10)))))
 
 ;;;; Scratch
 
