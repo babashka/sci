@@ -473,7 +473,13 @@
   (is (nil? (eval* '(comment "anything"))))
   (is (nil? (eval* '(comment anything))))
   (is (nil? (eval* '(comment 1))))
-  (is (nil? (eval* '(comment (+ 1 2 (* 3 4)))))))
+  (is (nil? (eval* '(comment (+ 1 2 (* 3 4))))))
+  (is (nil? (eval* '(comment
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9
+                      0 1 2 3 4 5 6 7 8 9)))))
 
 (deftest GH-54-recursive-function-test
   (when-not tu/native?
@@ -1147,6 +1153,7 @@
   (testing "self-referantial function is equal to itself"
     (is (true? (eval* "(def f (fn foo [] foo)) (= f (f))")))
     (is (true? (eval* "(letfn [(f [] f)] (= f (f)))")))))
+
 
 ;;;; Scratch
 

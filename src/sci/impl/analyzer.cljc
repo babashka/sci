@@ -1077,6 +1077,8 @@
                     (if (macro? f)
                       (let [needs-ctx? (identical? utils/needs-ctx
                                                    (:sci.impl/op (meta f)))
+                            ;; Fix for #603
+                            #?@(:cljs [f (if (vars/var? f) @f f)])
                             v (if needs-ctx?
                                 (apply f expr
                                        (:bindings ctx)
