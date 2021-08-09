@@ -2,8 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
-   #?(:clj [clojure.string :as str])
-   #?(:cljs [goog.object :as gobject])
+   [clojure.string :as str]
+   #?(:cljs [goog.object :as gobj])
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.evaluator :as eval]
@@ -875,7 +875,7 @@
                      (ctx-fn (fn [ctx bindings]
                                (let [obj (eval/eval ctx bindings obj)
                                      v (eval/eval ctx bindings v)]
-                                 (gobject/set obj k v)))
+                                 (gobj/set obj k v)))
                              expr))])
         :else (throw-error-with-location "Invalid assignment target" expr)))
 
@@ -1026,7 +1026,18 @@
                   #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
                                               (meta expr)))
                      :cljs
-                     (let [children (analyze-children ctx (rest expr))]
+                     (let [[class method-name] f
+                           method-name (str method-name)
+                           len (.-length method-name)
+                           idx (str/last-index-of method-name ".")
+                           f (if ;; this is not js/Error.
+                                 (and idx (not= (dec len) idx))
+                               ;; this is to support calls like js/Promise.all
+                               ;; and js/process.argv.slice
+                               [(gobj/getValueByKeys class (into-array (.split (subs method-name 0 idx) ".")))
+                                (subs method-name (inc idx))]
+                               f)
+                           children (analyze-children ctx (rest expr))]
                        (ctx-fn (fn [ctx bindings]
                                  (eval/eval-static-method-invocation ctx bindings (cons f children)))
                                expr)))

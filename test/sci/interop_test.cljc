@@ -151,3 +151,14 @@
                      (fn [a]
                        (is (= 1 a))
                        (done)))))))
+
+#?(:cljs
+   (deftest dot-in-js-invocation
+     (is (str/includes?
+          (tu/eval* "(first (js/process.argv.slice 0))"
+                    {:classes
+                     {'js goog/global :allow :all}})
+          "node"))
+     (is (tu/eval* "(js/Promise.all [])"
+                   {:classes
+                    {'js goog/global :allow :all}}))))

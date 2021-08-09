@@ -69,7 +69,8 @@
                  (clojure.string/ends-with? method-name ".")
                  (invoke-js-constructor field args)
                  :else
-                 (apply (get-static-field [class method-name]) args))))))
+                 ;; why is this here??
+                 (apply field args))))))
 
 (defn fully-qualify-class [{:keys [:env :class->opts]} sym]
   (or #?(:clj (when (contains? class->opts sym) sym)
