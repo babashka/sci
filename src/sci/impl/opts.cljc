@@ -166,7 +166,8 @@
                 :uberscript ;; used by babashka, not public!
                 :readers
                 :reify-fn
-                :disable-arity-checks]} opts
+                :disable-arity-checks]
+         :or {disable-arity-checks (:disable-arity-checks ctx)}} opts
         env (:env ctx)
         _ (init-env! env bindings aliases namespaces imports load-fn)
         raw-classes (merge (:raw-classes ctx) classes)
