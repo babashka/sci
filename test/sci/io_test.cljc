@@ -69,3 +69,29 @@
     (is (str/includes?
          (sci/with-out-str (eval* "(binding [*print-namespace-maps* false] (println {:foo/bar 1}))"))
          "{:foo/bar 1}"))))
+
+#?(:clj
+   (defn- flush-alerting-writer
+     [o]
+     (let [flush-count-atom (atom 0)]
+       [
+        (proxy [java.io.BufferedWriter] [o]
+          (flush []
+            (proxy-super flush)
+            (swap! flush-count-atom inc)))
+        flush-count-atom])))
+
+#?(:clj
+   (deftest flush-on-newline-test
+     (let [[out counter] (flush-alerting-writer (java.io.StringWriter.))]
+       (sci/binding [sci/out out]
+         (sci/eval-string (pr-str '(binding [*flush-on-newline* false]
+                                     (prn) (prn)))))
+       (is (= 0 @counter)))
+     (let [[out counter] (flush-alerting-writer (java.io.StringWriter.))]
+       (sci/binding [sci/out out]
+         (sci/eval-string (pr-str '(binding [*flush-on-newline* true]
+                                     (prn) (prn)))))
+       (is (= 2 @counter))))
+   :cljs
+   "*flush-on-newline* doesn't really do anything in CLJS")

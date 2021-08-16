@@ -35,6 +35,8 @@
 
 (def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true))
 
+(def flush-on-newline (core-dynamic-var '*flush-on-newline* *flush-on-newline*))
+
 #?(:clj (defn pr-on
           {:private true
            :static true}
@@ -108,7 +110,7 @@
      [& more]
      (apply pr more)
      (newline)
-     (when *flush-on-newline*
+     (when @flush-on-newline
        (flush)))
    :cljs
    (defn prn

@@ -765,6 +765,7 @@
    '*out* io/out
    '*err* io/err
    '*file* vars/current-file
+   '*flush-on-newline* io/flush-on-newline
    '*print-length* io/print-length
    '*print-level* io/print-level
    '*print-meta* io/print-meta
