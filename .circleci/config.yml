@@ -7,7 +7,7 @@ jobs:
   jvm:
     docker:
       # specify the version you desire here
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+      - image: circleci/clojure:openjdk-11-lein-2.9.3-bullseye
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
@@ -35,7 +35,7 @@ jobs:
   node:
     docker:
       # specify the version you desire here
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster-node
+      - image: circleci/clojure:openjdk-11-lein-2.9.3-bullseye-node
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
@@ -62,7 +62,7 @@ jobs:
           key: v1-dependencies-{{ checksum "project.clj" }}
   linux:
     docker:
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+      - image: circleci/clojure:openjdk-11-lein-2.9.3-bullseye
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
@@ -152,7 +152,7 @@ jobs:
           destination: release
   deploy:
     docker:
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+      - image: circleci/clojure:openjdk-11-lein-2.9.3-bullseye
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
