@@ -95,3 +95,8 @@
        (is (= 2 @counter))))
    :cljs
    "*flush-on-newline* doesn't really do anything in CLJS")
+
+(deftest print-readably-test
+  (is (= "\"hello\"" (eval* "(pr-str \"hello\")")))
+  (is (= "\"hello\"" (eval* "(binding [*print-readably* true] (pr-str \"hello\"))")))
+  (is (= "hello" (eval* "(binding [*print-readably* nil] (pr-str \"hello\"))"))))

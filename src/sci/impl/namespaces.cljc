@@ -770,6 +770,7 @@
    '*print-level* io/print-level
    '*print-meta* io/print-meta
    '*print-namespace-maps* io/print-namespace-maps
+   '*print-readably* io/print-readably
    'newline (copy-core-var io/newline)
    'flush (copy-core-var io/flush)
    'pr (copy-core-var io/pr)
