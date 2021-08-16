@@ -95,6 +95,8 @@
 (def print-length "Sci var that represents sci's `clojure.core/*print-length*`" sio/print-length)
 (def print-level "Sci var that represents sci's `clojure.core/*print-level*`" sio/print-level)
 (def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
+(def print-readably "Sci var that represents sci's `clojure.core/*print-readably*`" sio/print-readably)
+
 (def *1 namespaces/*1)
 (def *2 namespaces/*2)
 (def *3 namespaces/*3)
