@@ -1158,6 +1158,20 @@
   (is (= {1 2, 2 3, 3 4, 4 5, 5 6, 6 7, 7 8, 8 9, 9 10}
          (eval* '(assoc {} 1 2 3 4 5 6 7 8 9 1 2 3 4 5 6 7 8 9 1 2 3 4 5 6 7 8 9 10)))))
 
+(deftest eval-file-meta-test
+  (testing "error during analysis"
+    (let [data (try (sci/eval-string "^{:clojure.core/eval-file \"dude.clj\"} (identity (hi))")
+                   (catch #?(:clj Exception :cljs :default) e
+                     (ex-data e)))]
+      (is (= "analysis" (:phase data)))
+      (is (= "dude.clj" (:file data)))))
+  (testing "error at runtime"
+    (let [data (try (sci/eval-string "^{:clojure.core/eval-file \"dude.clj\"} (let [x :foo] (assoc x :hello 1))")
+                    (catch #?(:clj Exception :cljs :default) e
+                      (ex-data e)))]
+      (is (= :foo (get (:locals data) 'x)))
+      (is (= "dude.clj" (:file data))))))
+
 ;;;; Scratch
 
 (comment

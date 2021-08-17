@@ -1009,210 +1009,216 @@
                    :ns @vars/current-ns
                    :file @vars/current-file))))
 
-(defn analyze-call [ctx expr top-level?]
-  (let [f (first expr)]
-    (cond (symbol? f)
-          (let [;; in call position Clojure prioritizes special symbols over
-                ;; bindings
-                special-sym (get special-syms f)
-                _ (when (and special-sym
-                             (:check-permissions ctx))
-                    (resolve/check-permission! ctx f [special-sym nil]))
-                f (or special-sym
-                      (resolve/resolve-symbol ctx f true))
-                f-meta (meta f)
-                eval? (and f-meta (:sci.impl/op f-meta))]
-            (cond (and f-meta (::static-access f-meta))
-                  #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
-                                              (meta expr)))
-                     :cljs
-                     (let [[class method-name] f
-                           method-name (str method-name)
-                           len (.-length method-name)
-                           idx (str/last-index-of method-name ".")
-                           f (if ;; this is not js/Error.
-                                 (and idx (not= (dec len) idx))
-                               ;; this is to support calls like js/Promise.all
-                               ;; and js/process.argv.slice
-                               [(gobj/getValueByKeys class (into-array (.split (subs method-name 0 idx) ".")))
-                                (subs method-name (inc idx))]
-                               f)
-                           children (analyze-children ctx (rest expr))]
-                       (ctx-fn (fn [ctx bindings]
-                                 (eval/eval-static-method-invocation ctx bindings (cons f children)))
-                               expr)))
-                  (and (not eval?) ;; the symbol is not a binding
-                       (or
-                        special-sym
-                        (contains? ana-macros f)))
-                  (case f
-                    ;; we treat every subexpression of a top-level do as a separate
-                    ;; analysis/interpretation unit so we hand this over to the
-                    ;; interpreter again, which will invoke analysis + evaluation on
-                    ;; every sub expression
-                    do (return-do expr (analyze-children ctx (rest expr)))
-                    let (expand-let ctx expr)
-                    (fn fn*) (expand-fn ctx expr false)
-                    def (expand-def ctx expr)
-                    ;; NOTE: defn / defmacro aren't implemented as normal macros yet
-                    (defn defmacro) (let [ret (expand-defn ctx expr)]
-                                      ret)
-                    ;; TODO: implement as normal macro in namespaces.cljc
-                    loop (expand-loop ctx expr)
-                    lazy-seq (analyze-lazy-seq ctx expr)
-                    for (let [res (expand-for ctx expr)]
-                          (if (:sci.impl/macroexpanding ctx)
-                            res
-                            (analyze ctx res)))
-                    doseq (analyze ctx (expand-doseq ctx expr))
-                    if (return-if ctx expr)
-                    case (analyze-case ctx expr)
-                    try (analyze-try ctx expr)
-                    throw (analyze-throw ctx expr)
-                    declare (expand-declare ctx expr)
-                    expand-dot* (expand-dot* ctx expr)
-                    . (expand-dot** ctx expr)
-                    expand-constructor (expand-constructor ctx expr)
-                    new (analyze-new ctx expr)
-                    ns (analyze-ns-form ctx expr)
-                    var (analyze-var ctx expr)
-                    set! (analyze-set! ctx expr)
-                    quote (analyze-quote ctx expr)
-                    import (analyze-import ctx expr)
-                    or (return-or expr (analyze-children ctx (rest expr)))
-                    and (return-and expr (analyze-children ctx (rest expr)))
-                    recur (return-recur expr (analyze-children ctx (rest expr)))
-                    in-ns (analyze-in-ns ctx expr))
-                  :else
-                  (try
-                    (if (macro? f)
-                      (let [needs-ctx? (identical? utils/needs-ctx
-                                                   (:sci.impl/op (meta f)))
-                            ;; Fix for #603
-                            #?@(:cljs [f (if (vars/var? f) @f f)])
-                            v (if needs-ctx?
-                                (apply f expr
-                                       (:bindings ctx)
-                                       ctx
-                                       (rest expr))
-                                (apply f expr
-                                       (:bindings ctx) (rest expr)))
-                            expanded (cond (:sci.impl/macroexpanding ctx) v
-                                           (and top-level? (seq? v) (= 'do (first v)))
-                                           ;; hand back control to eval-form for
-                                           ;; interleaved analysis and eval
-                                           (types/->EvalForm v)
-                                           :else (let [m (meta expr)
-                                                       v (if m (if #?(:clj (instance? clojure.lang.IObj v)
-                                                                      :cljs (implements? IWithMeta v))
-                                                                 (with-meta v (merge m (meta v)))
-                                                                 v)
-                                                             v)]
-                                                   (analyze ctx v)))]
-                        expanded)
-                      (if-let [f (:sci.impl/inlined f-meta)]
-                        (return-call ctx
-                                     expr
-                                     f (analyze-children ctx (rest expr))
-                                     (assoc (meta expr)
-                                            :ns @vars/current-ns
-                                            :file @vars/current-file
-                                            :sci.impl/f-meta f-meta)
-                                     nil)
-                        (if-let [op (:sci.impl/op (meta f))]
-                          (case op
-                            needs-ctx
-                            (if (identical? utils/needs-ctx op)
-                              (return-needs-ctx-call ctx
-                                                     expr
-                                                     f (analyze-children ctx (rest expr)))
-                              (let [children (analyze-children ctx (rest expr))]
-                                (return-call ctx
-                                             expr
-                                             f children
-                                             (assoc (meta expr)
-                                                    :ns @vars/current-ns
-                                                    :file @vars/current-file
-                                                    :sci.impl/f-meta f-meta)
-                                             nil)))
-                            :resolve-sym
-                            (return-binding-call ctx
+(defn analyze-call [ctx expr m top-level?]
+  (let [eval-file (:clojure.core/eval-file m)]
+    (when eval-file
+      (vars/push-thread-bindings {vars/current-file eval-file}))
+    (try
+      (let [f (first expr)]
+        (cond (symbol? f)
+              (let [;; in call position Clojure prioritizes special symbols over
+                    ;; bindings
+                    special-sym (get special-syms f)
+                    _ (when (and special-sym
+                                 (:check-permissions ctx))
+                        (resolve/check-permission! ctx f [special-sym nil]))
+                    f (or special-sym
+                          (resolve/resolve-symbol ctx f true))
+                    f-meta (meta f)
+                    eval? (and f-meta (:sci.impl/op f-meta))]
+                (cond (and f-meta (::static-access f-meta))
+                      #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
+                                                  m))
+                         :cljs
+                         (let [[class method-name] f
+                               method-name (str method-name)
+                               len (.-length method-name)
+                               idx (str/last-index-of method-name ".")
+                               f (if ;; this is not js/Error.
+                                     (and idx (not= (dec len) idx))
+                                   ;; this is to support calls like js/Promise.all
+                                   ;; and js/process.argv.slice
+                                   [(gobj/getValueByKeys class (into-array (.split (subs method-name 0 idx) ".")))
+                                    (subs method-name (inc idx))]
+                                   f)
+                               children (analyze-children ctx (rest expr))]
+                           (ctx-fn (fn [ctx bindings]
+                                     (eval/eval-static-method-invocation ctx bindings (cons f children)))
+                                   expr)))
+                      (and (not eval?) ;; the symbol is not a binding
+                           (or
+                            special-sym
+                            (contains? ana-macros f)))
+                      (case f
+                        ;; we treat every subexpression of a top-level do as a separate
+                        ;; analysis/interpretation unit so we hand this over to the
+                        ;; interpreter again, which will invoke analysis + evaluation on
+                        ;; every sub expression
+                        do (return-do expr (analyze-children ctx (rest expr)))
+                        let (expand-let ctx expr)
+                        (fn fn*) (expand-fn ctx expr false)
+                        def (expand-def ctx expr)
+                        ;; NOTE: defn / defmacro aren't implemented as normal macros yet
+                        (defn defmacro) (let [ret (expand-defn ctx expr)]
+                                          ret)
+                        ;; TODO: implement as normal macro in namespaces.cljc
+                        loop (expand-loop ctx expr)
+                        lazy-seq (analyze-lazy-seq ctx expr)
+                        for (let [res (expand-for ctx expr)]
+                              (if (:sci.impl/macroexpanding ctx)
+                                res
+                                (analyze ctx res)))
+                        doseq (analyze ctx (expand-doseq ctx expr))
+                        if (return-if ctx expr)
+                        case (analyze-case ctx expr)
+                        try (analyze-try ctx expr)
+                        throw (analyze-throw ctx expr)
+                        declare (expand-declare ctx expr)
+                        expand-dot* (expand-dot* ctx expr)
+                        . (expand-dot** ctx expr)
+                        expand-constructor (expand-constructor ctx expr)
+                        new (analyze-new ctx expr)
+                        ns (analyze-ns-form ctx expr)
+                        var (analyze-var ctx expr)
+                        set! (analyze-set! ctx expr)
+                        quote (analyze-quote ctx expr)
+                        import (analyze-import ctx expr)
+                        or (return-or expr (analyze-children ctx (rest expr)))
+                        and (return-and expr (analyze-children ctx (rest expr)))
+                        recur (return-recur expr (analyze-children ctx (rest expr)))
+                        in-ns (analyze-in-ns ctx expr))
+                      :else
+                      (try
+                        (if (macro? f)
+                          (let [needs-ctx? (identical? utils/needs-ctx
+                                                       (:sci.impl/op (meta f)))
+                                ;; Fix for #603
+                                #?@(:cljs [f (if (vars/var? f) @f f)])
+                                v (if needs-ctx?
+                                    (apply f expr
+                                           (:bindings ctx)
+                                           ctx
+                                           (rest expr))
+                                    (apply f expr
+                                           (:bindings ctx) (rest expr)))
+                                expanded (cond (:sci.impl/macroexpanding ctx) v
+                                               (and top-level? (seq? v) (= 'do (first v)))
+                                               ;; hand back control to eval-form for
+                                               ;; interleaved analysis and eval
+                                               (types/->EvalForm v)
+                                               :else (let [v (if m (if #?(:clj (instance? clojure.lang.IObj v)
+                                                                          :cljs (implements? IWithMeta v))
+                                                                     (with-meta v (merge m (meta v)))
+                                                                     v)
+                                                                 v)]
+                                                       (analyze ctx v)))]
+                            expanded)
+                          (if-let [f (:sci.impl/inlined f-meta)]
+                            (return-call ctx
+                                         expr
+                                         f (analyze-children ctx (rest expr))
+                                         (assoc m
+                                                :ns @vars/current-ns
+                                                :file @vars/current-file
+                                                :sci.impl/f-meta f-meta)
+                                         nil)
+                            (if-let [op (:sci.impl/op (meta f))]
+                              (case op
+                                needs-ctx
+                                (if (identical? utils/needs-ctx op)
+                                  (return-needs-ctx-call ctx
+                                                         expr
+                                                         f (analyze-children ctx (rest expr)))
+                                  (let [children (analyze-children ctx (rest expr))]
+                                    (return-call ctx
                                                  expr
-                                                 f (analyze-children ctx (rest expr))
-                                                 (assoc (meta expr)
+                                                 f children
+                                                 (assoc m
                                                         :ns @vars/current-ns
                                                         :file @vars/current-file
-                                                        :sci.impl/f-meta f-meta))
-                            (let [children (analyze-children ctx (rest expr))]
-                              (return-call ctx
-                                           expr
-                                           f children (assoc (meta expr)
-                                                             :ns @vars/current-ns
-                                                             :file @vars/current-file
-                                                             :sci.impl/f-meta f-meta)
-                                           nil)))
-                          (if (instance? #?(:clj sci.impl.types.InlinedLateBinding
-                                            :cljs sci.impl.types/InlinedLateBinding) f)
-                            (let [children (analyze-children ctx (rest expr))
-                                  f (types/getVal f)]
-                              (return-call ctx
-                                           expr
-                                           f children (assoc (meta expr)
-                                                             :ns @vars/current-ns
-                                                             :file @vars/current-file
-                                                             :sci.impl/f-meta f-meta)
-                                           deref))
-                            (let [children (analyze-children ctx (rest expr))]
-                              (return-call ctx
-                                           expr
-                                           f children (assoc (meta expr)
-                                                             :ns @vars/current-ns
-                                                             :file @vars/current-file
-                                                             :sci.impl/f-meta f-meta)
-                                           #?(:cljs (when (vars/var? f) deref) :clj nil)))))))
-                    (catch #?(:clj Exception :cljs js/Error) e
-                      ;; we pass a ctx-fn because the rethrow function calls
-                      ;; stack on it, the only interesting bit it the map
-                      ;; with :ns and :file
-                      (rethrow-with-location-of-node ctx e
-                                                     (ctx-fn
-                                                      nil
-                                                      nil
-                                                      expr
-                                                      (assoc (meta expr)
-                                                             :ns @vars/current-ns
-                                                             :file @vars/current-file
-                                                             :sci.impl/f-meta f-meta)))))))
-          (keyword? f)
-          (let [children (analyze-children ctx (rest expr))
-                ccount (count children)]
-            (case ccount
-              1 (let [arg (nth children 0)]
-                  (ctx-fn
-                   (fn [ctx bindings]
-                     (f (eval/eval ctx bindings arg)))
-                   expr))
-              2 (let [arg0 (nth children 0)
-                      arg1 (nth children 1)]
-                  (ctx-fn (fn [ctx bindings]
-                            (f (eval/eval ctx bindings arg0)
-                               (eval/eval ctx bindings arg1)))
-                          expr))
-              (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f) expr)))
-          :else
-          (let [f (analyze ctx f)
-                children (analyze-children ctx (rest expr))]
-            (ctx-fn (fn [ctx bindings]
-                      (let [f (eval/eval ctx bindings f)]
-                        (if (ifn? f)
-                          (eval/fn-call ctx bindings f children)
-                          (throw (new #?(:clj Exception :cljs js/Error)
-                                      (str "Cannot call " (pr-str f) " as a function."))))))
-                    nil
-                    expr
-                    (assoc (meta expr)
-                           :ns @vars/current-ns
-                           :file @vars/current-file))))))
+                                                        :sci.impl/f-meta f-meta)
+                                                 nil)))
+                                :resolve-sym
+                                (return-binding-call ctx
+                                                     expr
+                                                     f (analyze-children ctx (rest expr))
+                                                     (assoc m
+                                                            :ns @vars/current-ns
+                                                            :file @vars/current-file
+                                                            :sci.impl/f-meta f-meta))
+                                (let [children (analyze-children ctx (rest expr))]
+                                  (return-call ctx
+                                               expr
+                                               f children (assoc m
+                                                                 :ns @vars/current-ns
+                                                                 :file @vars/current-file
+                                                                 :sci.impl/f-meta f-meta)
+                                               nil)))
+                              (if (instance? #?(:clj sci.impl.types.InlinedLateBinding
+                                                :cljs sci.impl.types/InlinedLateBinding) f)
+                                (let [children (analyze-children ctx (rest expr))
+                                      f (types/getVal f)]
+                                  (return-call ctx
+                                               expr
+                                               f children (assoc m
+                                                                 :ns @vars/current-ns
+                                                                 :file @vars/current-file
+                                                                 :sci.impl/f-meta f-meta)
+                                               deref))
+                                (let [children (analyze-children ctx (rest expr))]
+                                  (return-call ctx
+                                               expr
+                                               f children (assoc m
+                                                                 :ns @vars/current-ns
+                                                                 :file @vars/current-file
+                                                                 :sci.impl/f-meta f-meta)
+                                               #?(:cljs (when (vars/var? f) deref) :clj nil)))))))
+                        (catch #?(:clj Exception :cljs js/Error) e
+                          ;; we pass a ctx-fn because the rethrow function calls
+                          ;; stack on it, the only interesting bit it the map
+                          ;; with :ns and :file
+                          (rethrow-with-location-of-node ctx e
+                                                         (ctx-fn
+                                                          nil
+                                                          nil
+                                                          expr
+                                                          (assoc m
+                                                                 :ns @vars/current-ns
+                                                                 :file @vars/current-file
+                                                                 :sci.impl/f-meta f-meta)))))))
+              (keyword? f)
+              (let [children (analyze-children ctx (rest expr))
+                    ccount (count children)]
+                (case ccount
+                  1 (let [arg (nth children 0)]
+                      (ctx-fn
+                       (fn [ctx bindings]
+                         (f (eval/eval ctx bindings arg)))
+                       expr))
+                  2 (let [arg0 (nth children 0)
+                          arg1 (nth children 1)]
+                      (ctx-fn (fn [ctx bindings]
+                                (f (eval/eval ctx bindings arg0)
+                                   (eval/eval ctx bindings arg1)))
+                              expr))
+                  (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f) expr)))
+              :else
+              (let [f (analyze ctx f)
+                    children (analyze-children ctx (rest expr))]
+                (ctx-fn (fn [ctx bindings]
+                          (let [f (eval/eval ctx bindings f)]
+                            (if (ifn? f)
+                              (eval/fn-call ctx bindings f children)
+                              (throw (new #?(:clj Exception :cljs js/Error)
+                                          (str "Cannot call " (pr-str f) " as a function."))))))
+                        nil
+                        expr
+                        (assoc m
+                               :ns @vars/current-ns
+                               :file @vars/current-file)))))
+      (finally
+        (when eval-file
+          (vars/pop-thread-bindings))))))
 
 (def ^:const constant-colls true) ;; see GH #452
 
@@ -1313,7 +1319,7 @@
                                           vector expr m)
        (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
        (seq? expr) (if (seq expr)
-                     (analyze-call ctx expr top-level?)
+                     (analyze-call ctx expr m top-level?)
                      ;; the empty list
                      expr)
        :else expr))))
