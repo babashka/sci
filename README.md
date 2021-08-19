@@ -551,14 +551,15 @@ Consider the following example:
   (println "Result:" result))
 ```
 
-If the returned lazy seq was realized, the output would be:
+If the returned lazy seq was realized within the `sci/binding` scope, the output
+would be:
 
 ```
 Output: 0123456789
 Result: (nil nil nil nil nil nil nil nil nil nil)
 ```
 
-But without realization the result is:
+But because the result is only printed outside of `sci/binding` the result is:
 
 ```
 Execution error (ClassCastException) at sci.impl.io/pr-on (io.cljc:44).
@@ -570,21 +571,19 @@ This happens because by the time the lazy-seq is realized, the binding scope for
 be realized (due to the delayed calls to `println`, a side-effecting call
 dependends on the value of `sci/out`, set by `sci/binding`.
 
-One possible solution to this issue is to always force realization of lazy-seqs,
-e.g. by wrapping in `doall`, e.g:
+If the result is intented to be serialized as a string, then one could simply
+serialize while the binding is still in place:
 
-```clojure
-(let [sw     (java.io.StringWriter.)
-      result (sci/binding [sci/out sw] (doall (sci/eval-string "(map print (range 10))")))]
-  (println "Output:" (str sw))
-  (println "Result:" result))
+``` clojure
+(let [sw (java.io.StringWriter.)]
+  (sci/binding [sci/out sw]
+    (let [result (sci/eval-string "(map print (range 10))")]
+      (println "Result:" result)
+      (println "Output:" (str sw)))))
 ```
 
-Because the return type of eval-string may be unpredictable, one could write a
-protocol like [finitize](https://github.com/borkdude/finitize) that handles lazy
-seqs in a way customized to your use case. If the result is intented to be
-serialized as a string, then one could simply serialize while the binding is
-still in place.
+Note that we moved `(println "Result:" result)` before `(println "Output:" (str
+sw))`, since the first call takes care of realization.
 
 ## Test
 
