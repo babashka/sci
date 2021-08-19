@@ -318,7 +318,7 @@ context of `sci/eval-string`. Specifically if those side-effecty functions are i
 `sci/eval-string` due to later realisation of a lazy sequence returned from it.  For example,
 the following code does not work:
 
-````clojure
+``` clojure
 (let [sw     (java.io.StringWriter.)
       result (sci/binding [sci/out sw] (sci/eval-string "(map print (range 10))"))]
   (println "Output:" (str sw))
