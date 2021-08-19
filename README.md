@@ -312,6 +312,50 @@ user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo wrapped-foo}})
 "yello!\n"
 ```
 
+**Important note:** despite what was said [above](#usage), forms evaluated by sci that produce
+side effects via bindings (e.g. `println`) **can**, in some cases, "escape" the evaluation
+context of `sci/eval-string`. Specifically if those side-effecty functions are invoked outside
+`sci/eval-string` due to later realisation of a lazy sequence returned from it.  For example,
+the following code does not work:
+
+````clojure
+(let [sw     (java.io.StringWriter.)
+      result (sci/binding [sci/out sw] (sci/eval-string "(map print (range 10))"))]
+  (println "Output:" (str sw))
+  (println "Result:" result))
+```
+
+The expected behaviour in this case would be:
+
+```
+Output: 0123456789
+Result: (nil nil nil nil nil nil nil nil nil nil)
+```
+
+But the actual behaviour is:
+
+```
+Execution error (ClassCastException) at sci.impl.io/pr-on (io.cljc:44).
+class sci.impl.vars.SciUnbound cannot be cast to class java.io.Writer (sci.impl.vars.SciUnbound is in unnamed module of loader clojure.lang.DynamicClassLoader @4c2af006; java.io.Writer is in module java.base of loader 'bootstrap')
+```
+
+This happens because by the time the lazy-seq is realised, the binding scope for `sci/out`
+is long gone, and as a result the lazy-seq can no longer be realised (due to the delayed calls
+to `print`, a side-effecty fn that's dependent on the `sci/binding` scope).
+
+The workaround in this case is to always force realization of lazy-sequences, either inside
+the string evaluated by sci (e.g. `(doall (map print (range 10)))`) or immediately outside
+the call to `eval-string`, but still within the `binding` scope e.g.
+
+```clojure
+(let [sw     (java.io.StringWriter.)
+      result (sci/binding [sci/out sw] (doall (sci/eval-string "(map print (range 10))")))]
+  (println "Output:" (str sw))
+  (println "Result:" result))
+```
+
+Both of these workarounds produce the expected behaviour described above.
+
 ### Futures
 
 Creating threads with `future` and `pmap` is disabled by default, but can be
