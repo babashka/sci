@@ -593,6 +593,7 @@
   values as thread-local bindings. Then calls f with the supplied arguments.
   Pops the installed bindings after f returned. Returns whatever f returns."
   [binding-map f & args]
+  (prn :binding-map binding-map)
   ;; important: outside try
   (vars/push-thread-bindings binding-map)
   (try
@@ -766,6 +767,7 @@
    '*err* io/err
    '*file* vars/current-file
    '*flush-on-newline* io/flush-on-newline
+   #?@(:cljs ['*print-fn* io/print-fn])
    '*print-length* io/print-length
    '*print-level* io/print-level
    '*print-meta* io/print-meta

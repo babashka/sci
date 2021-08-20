@@ -26,6 +26,15 @@
            (doto (core-dynamic-var '*err*)
              (vars/unbind))))
 
+#?(:cljs
+   (def print-fn
+     (binding [*unrestricted* true]
+       (doto (core-dynamic-var '*print-fn*)
+         (vars/unbind)))))
+
+;; TODO: CLJS print-err-fn
+;; TODO: CLJS print-fn-bodies
+
 (def print-meta
   (core-dynamic-var '*print-meta* false))
 
@@ -34,6 +43,10 @@
 (def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true))
 (def flush-on-newline (core-dynamic-var '*flush-on-newline* *flush-on-newline*))
 (def print-readably (core-dynamic-var '*print-readably* *print-readably*))
+
+#?(:cljs (defn string-print [x]
+           (binding [*print-fn* @print-fn]
+             (cljs.core/string-print x))) )
 
 #?(:clj (defn pr-on
           {:private true
@@ -61,13 +74,13 @@
              (apply pr more))))
    :cljs (defn pr
            [& objs]
-           (binding [*print-length* @print-length
+           (binding [*print-fn* @print-fn
+                     *print-length* @print-length
                      *print-level* @print-level
                      *print-meta* @print-meta
                      *print-namespace-maps* @print-namespace-maps
                      *print-readably* @print-readably]
-             (.append @out (apply cljs.core/pr-str objs))
-             nil)))
+             (apply cljs.core/pr objs))))
 
 #?(:clj
    (defn flush
@@ -85,7 +98,8 @@
           nil)
    :cljs (defn newline
            []
-           (println)))
+           (binding [*print-fn* @print-fn]
+             (cljs.core/newline))))
 
 #?(:clj
    (defn pr-str
@@ -116,13 +130,13 @@
    :cljs
    (defn prn
      [& objs]
-     (binding [*print-length* @print-length
+     (binding [*print-fn* @print-fn
+               *print-length* @print-length
                *print-level* @print-level
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
                *print-readably* @print-readably]
-       (.append @out (apply cljs.core/prn-str objs))
-       nil)))
+       (apply cljs.core/prn objs))))
 
 #?(:clj
    (defn prn-str
@@ -151,12 +165,12 @@
    :cljs
    (defn print
      [& objs]
-     (binding [*print-length* @print-length
+     (binding [*print-fn* @print-fn
+               *print-length* @print-length
                *print-level* @print-level
                *print-namespace-maps* @print-namespace-maps
                *print-readably* nil]
-       (.append @out (apply cljs.core/print-str objs))
-       nil)))
+       (apply cljs.core/print objs))))
 
 #?(:clj
    (defn print-str
@@ -185,13 +199,13 @@
    :cljs
    (defn println
      [& objs]
-     (binding [*print-length* @print-length
+     (binding [*print-fn* @print-fn
+               *print-length* @print-length
                *print-level* @print-level
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
                *print-readably* @print-readably]
-       (.append @out (apply println-str objs))
-       nil)))
+       (apply cljs.core/println objs))))
 
 #?(:clj
    (defn printf
