@@ -42,7 +42,7 @@ This library works with:
 
 Sci is used in:
 
-- [4ever-clojure](https://4clojure.oxal.org/)
+- [4ever-clojure](https://4clojure.oxal.org/). 4clojure as a static web page.
 - [Babashka](https://github.com/babashka/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
