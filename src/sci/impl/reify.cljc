@@ -7,7 +7,10 @@
   (let [{classes true methods false} (group-by symbol? args)
         methods (->> (group-by first methods)
                      (map (fn [[meth bodies]]
-                            `['~meth (fn ~@(map rest bodies))]))
+                            (let [meth (if (simple-symbol? meth)
+                                         meth
+                                         (symbol (name meth)))]
+                              `['~meth (fn ~@(map rest bodies))])))
                      (into {}))]
     `(clojure.core/reify* '~form ~(vec classes) ~methods)))
 
