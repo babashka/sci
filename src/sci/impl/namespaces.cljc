@@ -1199,8 +1199,8 @@
    'shuffle (copy-core-var shuffle)
    'sort (copy-core-var sort)
    'sort-by (copy-core-var sort-by)
-   #_#_#?@(:cljs ['-js-this -js-this
-              'this-as (macrofy 'this-as this-as clojure-core-ns)])
+   ;; #?@(:cljs ['-js-this -js-this
+   ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
    'thread-bound? (copy-var sci-thread-bound? clojure-core-ns)
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])
