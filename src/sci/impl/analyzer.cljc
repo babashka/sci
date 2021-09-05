@@ -1287,6 +1287,14 @@
                           (return-call ctx expr f2 (analyze-children ctx expr) nil nil)))]
     analyzed-coll))
 
+#?(:cljs
+   (defn analyze-js-obj [ctx expr]
+     (let [cljv (js->clj expr)
+           ana (analyze ctx cljv)]
+       (ctx-fn (fn [ctx bindings]
+                 (clj->js (eval/eval ctx bindings ana)))
+               expr))))
+
 (defn analyze
   ([ctx expr]
    (analyze ctx expr false))
@@ -1312,6 +1320,7 @@
        ;; since a record is also a map
        (record? expr) expr
        (map? expr) (analyze-map ctx expr m)
+       #?@(:cljs [(object? expr) (analyze-js-obj ctx expr)])
        (vector? expr) (analyze-vec-or-set ctx
                                           ;; relying on analyze-children to
                                           ;; return a vector

@@ -1172,6 +1172,13 @@
       (is (= :foo (get (:locals data) 'x)))
       (is (= "dude.clj" (:file data))))))
 
+#?(:cljs
+   (deftest eval-js-obj-test
+     (is (= 1 (sci/eval-string "(def o #js {:a (fn [] 1)}) (.a o) "
+                               {:classes {'js goog/global :allow :all}})))
+     (testing "js objects are not instantiated at read time, but at runtime, rendering new objects each time"
+       (sci/eval-string "(apply identical? (for [x [1 2]] #js {:a 1}))" {:classes {'js goog/global :allow :all}}))))
+
 ;;;; Scratch
 
 (comment
