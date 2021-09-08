@@ -24,11 +24,11 @@
         (crit/bench (ana/analyze ctx parsed))))
     (let [ana (ana/analyze ctx parsed)]
       (println "EVALUATION:")
-      (prn '-> (eval/eval ctx ana))
+      (prn '-> (eval/eval ctx {} ana))
       (when (or complete evaluate)
         (if quick
-          (crit/quick-bench (eval/eval ctx ana))
-          (crit/bench (eval/eval ctx ana)))))))
+          (crit/quick-bench (eval/eval ctx {} ana))
+          (crit/bench (eval/eval ctx {} ana)))))))
 
 (def cli-options
   ;; An option with a required argument
