@@ -305,10 +305,12 @@
         bodies (if (seq? (first body))
                  body
                  [body])
-        self-ref (when fn-name true)
-        ctx (if fn-name (assoc-in ctx
-                                  [:bindings fn-name]
-                                  ::self-ref)
+        self-ref (when fn-name (volatile! nil))
+        ctx (if fn-name (-> ctx
+                            (assoc :self-ref self-ref)
+                            (assoc-in
+                             [:bindings fn-name]
+                             ::self-ref))
                 ctx)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
@@ -342,7 +344,7 @@
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
         struct #:sci.impl{:fn-bodies arities
                           :fn-name fn-name
-                          :self-ref self-ref
+                          :self-ref (when self-ref @self-ref)
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta}]

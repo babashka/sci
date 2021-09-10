@@ -1146,7 +1146,19 @@
 (deftest self-ref-test
   (testing "self-referantial function is equal to itself"
     (is (true? (eval* "(def f (fn foo [] foo)) (= f (f))")))
-    (is (true? (eval* "(letfn [(f [] f)] (= f (f)))")))))
+    (is (true? (eval* "(letfn [(f [] f)] (= f (f)))")))
+    (is (= :a (eval* "
+(defn foof [x]
+  (let [f (fn f
+            ([] (f nil))
+            ([_] x))]
+    f))
+
+(def f1 (foof :a))
+(def f2 (foof :b))
+
+(f1)
+")))))
 
 (deftest more-than-twenty-args-test
   (is (nil? (eval* '(comment

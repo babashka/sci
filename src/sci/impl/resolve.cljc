@@ -99,9 +99,9 @@
         ;; never inline a binding at macro time, unless it's a function
         (if (kw-identical? :sci.impl.analyzer/self-ref v)
           (do
+            (vreset! (:self-ref ctx) true)
             (when-let [cb (:closure-bindings ctx)]
-              (when-not (contains? (:param-map ctx) sym)
-                (vswap! cb conj sym)))
+              (vswap! cb conj sym))
             (if call?
               [k v]
               [k (ctx-fn
