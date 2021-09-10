@@ -1173,7 +1173,8 @@
                                                                  :ns @vars/current-ns
                                                                  :file @vars/current-file
                                                                  :sci.impl/f-meta f-meta)
-                                               #?(:cljs (when (vars/var? f) deref) :clj nil)))))))
+                                               #?(:cljs (when (vars/var? f) (fn [_ v]
+                                                                              (deref v))) :clj nil)))))))
                         (catch #?(:clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
                           ;; stack on it, the only interesting bit it the map
