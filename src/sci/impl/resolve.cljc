@@ -5,10 +5,10 @@
             [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
-            [sci.impl.types :as types]
             [sci.impl.utils :as utils :refer [strip-core-ns
                                               ana-macros
-                                              ctx-fn]]
+                                              ctx-fn
+                                              kw-identical?]]
             [sci.impl.vars :as vars]))
 
 (defn throw-error-with-location [msg node]
@@ -97,14 +97,17 @@
       (when-let [[k v]
                  (find bindings sym)]
         ;; never inline a binding at macro time, unless it's a function
-        (if (instance? #?(:clj sci.impl.types.InlinedLateBinding
-                          :cljs sci.impl.types/InlinedLateBinding) v)
-          (if call?
-            [k v]
-            (let [v (types/getVal v)]
+        (if (kw-identical? :sci.impl.analyzer/self-ref v)
+          (do
+            (when-let [cb (:closure-bindings ctx)]
+              (when-not (contains? (:param-map ctx) sym)
+                (vswap! cb conj sym)))
+            (if call?
+              [k v]
               [k (ctx-fn
-                  (fn [_ctx _bindings]
-                    @v)
+                  (fn [_ctx bindings]
+                    ;; TODO: optimize
+                    @(eval/resolve-symbol bindings k))
                   nil
                   nil)]))
           (let [;; pass along tag of expression!

@@ -224,7 +224,7 @@
 
 (defrecord FnBody [params body fixed-arity var-arg-name bindings-fn])
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] _fn-name macro?]
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -305,15 +305,15 @@
         bodies (if (seq? (first body))
                  body
                  [body])
-        self-ref (when fn-name (volatile! nil))
+        self-ref (when fn-name true)
         ctx (if fn-name (assoc-in ctx
                                   [:bindings fn-name]
-                                  (types/->InlinedLateBinding self-ref))
+                                  ::self-ref)
                 ctx)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
-                                 body (expand-fn-args+body ctx body fn-name macro?)
+                                 body (expand-fn-args+body ctx body macro?)
                                  ;; body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:var-arg-name body)
                                  fixed-arity (:fixed-arity body)
@@ -962,7 +962,7 @@
                        [i `(let ~binds
                              (if ~'wrap
                                (fn [~'ctx ~'bindings]
-                                 ((~'wrap ~'f)
+                                 ((~'wrap ~'bindings ~'f)
                                   ~@(map (fn [j]
                                            `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                          (range i))))
@@ -974,7 +974,7 @@
                      let-bindings)
              `[(if ~'wrap
                  (fn [~'ctx ~'bindings]
-                   (eval/fn-call ~'ctx ~'bindings (~'wrap ~'f) ~'analyzed-children))
+                   (eval/fn-call ~'ctx ~'bindings (~'wrap ~'bindings ~'f) ~'analyzed-children))
                  (fn [~'ctx ~'bindings]
                    (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)))]))
         nil
@@ -1016,7 +1016,8 @@
     (try
       (let [f (first expr)]
         (cond (symbol? f)
-              (let [;; in call position Clojure prioritizes special symbols over
+              (let [fsym f
+                    ;; in call position Clojure prioritizes special symbols over
                     ;; bindings
                     special-sym (get special-syms f)
                     _ (when (and special-sym
@@ -1154,17 +1155,17 @@
                                                                  :file @vars/current-file
                                                                  :sci.impl/f-meta f-meta)
                                                nil)))
-                              (if (instance? #?(:clj sci.impl.types.InlinedLateBinding
-                                                :cljs sci.impl.types/InlinedLateBinding) f)
-                                (let [children (analyze-children ctx (rest expr))
-                                      f (types/getVal f)]
+                              (if (kw-identical? ::self-ref f)
+                                (let [children (analyze-children ctx (rest expr))]
                                   (return-call ctx
                                                expr
                                                f children (assoc m
                                                                  :ns @vars/current-ns
                                                                  :file @vars/current-file
                                                                  :sci.impl/f-meta f-meta)
-                                               deref))
+                                               (fn [bindings _]
+                                                 (deref
+                                                  (eval/resolve-symbol bindings fsym)))))
                                 (let [children (analyze-children ctx (rest expr))]
                                   (return-call ctx
                                                expr

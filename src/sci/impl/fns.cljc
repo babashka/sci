@@ -124,8 +124,9 @@
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?]
   (let [bindings-fn (:bindings-fn fn-body)
-        ;; _ (prn :bindings fn-name '-> (keys bindings))
+        ;; _ (when fn-name (prn :bindings fn-name '-> (keys bindings)))
         bindings (bindings-fn bindings)
+        ;; _ (when fn-name (prn :bindings fn-name '-> (keys bindings)))
         fixed-arity (:fixed-arity fn-body)
         var-arg-name (:var-arg-name fn-body)
         #_:clj-kondo/ignore
@@ -244,7 +245,13 @@
    fn-bodies))
 
 (defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref]
-  (let [f (if single-arity
+  (let [;; each evaluated fn should have its own self-ref
+        self-ref (when self-ref (volatile! nil))
+        bindings (if self-ref
+                   (assoc bindings fn-name self-ref)
+                   bindings)
+        ;; _ (when (and (not fn-name) self-ref) (prn :assoc fn-name self-refx))
+        f (if single-arity
             (fun ctx bindings single-arity fn-name macro?)
             (let [arities (fn-arity-map ctx bindings fn-name macro? fn-bodies)]
               (fn [& args]
