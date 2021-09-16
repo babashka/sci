@@ -55,6 +55,7 @@ Sci is used in:
 - [Firn](https://github.com/theiceshelf/firn). Org-mode static site generator.
 - [For-science](https://github.com/pmonks/for-science). Discord bot.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
+- [Keycloak-clojure](https://github.com/jgrodziski/keycloak-clojure). Clojure library for Keycloak.
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
