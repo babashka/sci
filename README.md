@@ -279,6 +279,8 @@ To copy an entire namespace without enumerating all vars explicitly with
 
 ### Stdout and stdin
 
+#### Clojure
+
 To enable printing to `stdout` and reading from `stdin` you can SCI-bind
 `sci/out` and `sci/in` to `*out*` and `*in*` respectively:
 
@@ -314,6 +316,23 @@ user=> (defn wrapped-foo [] (binding [*out* @sci/out] (foo)))
 user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo wrapped-foo}})
 "yello!\n"
 ```
+
+#### ClojureScript
+
+Similar to Clojure vs. CLJS, the difference wit SCI on Clojure vs. SCI on CLJS
+is that in the latter you should use `sci/print-newline` and `sci/print-fn` to
+control printing to stdoud:
+
+``` Clojure
+cljs.user=> (def output (atom ""))
+#'cljs.user/output
+cljs.user=> (sci/binding [sci/print-newline true sci/print-fn (fn [s] (swap! output str s))] (sci/eval-string "(print :hello) (println :bye)"))
+nil
+cljs.user=> @output
+":hello:bye\n"
+```
+
+This is supported since SCI 0.2.7 (currently unreleased but available as git dep).
 
 ### Futures
 
