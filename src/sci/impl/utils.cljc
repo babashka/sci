@@ -33,6 +33,10 @@
 
 (def needs-ctx (symbol "needs-ctx"))
 
+#?(:cljs
+   (def allowed-append "used for allowing interop in with-out-str"
+     (symbol "append")))
+
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx bindings ^Throwable e raw-node]

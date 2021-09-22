@@ -184,7 +184,7 @@
      (map #(symbol (.getName ^Class %)) (supers clazz))))
 
 (defn eval-instance-method-invocation
-  [ctx bindings instance-expr method-str args]
+  [ctx bindings instance-expr method-str args #?(:cljs allowed)]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (eval ctx bindings instance-expr)]
@@ -194,11 +194,13 @@
       (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
             class->opts (:class->opts ctx)
             allowed? (or
+                      #?(:cljs allowed)
                       (get class->opts :allow)
                       (let [instance-class-name #?(:clj (.getName ^Class instance-class)
                                                    :cljs (.-name instance-class))
                             instance-class-symbol (symbol instance-class-name)]
-                        (get class->opts instance-class-symbol)))
+                        (get class->opts instance-class-symbol))
+                      #?(:cljs (.log js/console (str method-str))))
             ^Class target-class (if allowed? instance-class
                                     (when-let [f (:public-class ctx)]
                                       (f instance-expr*)))]

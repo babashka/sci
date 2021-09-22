@@ -777,11 +777,13 @@
    '*err* io/err
    '*file* vars/current-file
    '*flush-on-newline* io/flush-on-newline
+   #?@(:cljs ['*print-fn* io/print-fn])
    '*print-length* io/print-length
    '*print-level* io/print-level
    '*print-meta* io/print-meta
    '*print-namespace-maps* io/print-namespace-maps
    '*print-readably* io/print-readably
+   #?@(:cljs ['*print-newline* io/print-newline])
    'newline (copy-core-var io/newline)
    'flush (copy-core-var io/flush)
    'pr (copy-core-var io/pr)

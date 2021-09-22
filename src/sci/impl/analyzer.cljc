@@ -680,14 +680,14 @@
                                             (str "Unable to resolve classname: " t) t))]
                              (assoc m :tag-class clazz))
                            m)))
-        method-expr (name method-expr)
+        method-name (name method-expr)
         args (when args (analyze-children ctx args))
         res #?(:clj (if (class? instance-expr)
                       (if (nil? args)
-                        (if (str/starts-with? method-expr "-")
+                        (if (str/starts-with? method-name "-")
                           (ctx-fn
                            (fn [_ctx _bindings]
-                             (interop/get-static-field [instance-expr (subs method-expr 1)]))
+                             (interop/get-static-field [instance-expr (subs method-name 1)]))
                            nil expr nil)
                           ;; https://clojure.org/reference/java_interop
                           ;; If the second operand is a symbol and no args are
@@ -698,15 +698,15 @@
                           ;; of the same name, in which case it resolves to a
                           ;; call to the method.
                           (if-let [_
-                                   (try (Reflector/getStaticField ^Class instance-expr ^String method-expr)
+                                   (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
                                         (catch IllegalArgumentException _ nil))]
                             (ctx-fn
                              (fn [_ctx _bindings]
-                               (interop/get-static-field [instance-expr method-expr]))
+                               (interop/get-static-field [instance-expr method-name]))
                              nil expr nil)
                             (ctx-fn
                              (fn [ctx bindings]
-                               (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
+                               (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
                              nil
                              expr
                              (assoc (meta expr)
@@ -714,25 +714,27 @@
                                     :file @vars/current-file))))
                         (ctx-fn
                          (fn [ctx bindings]
-                           (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-expr] args)))
+                           (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
                          nil expr
                          (assoc (meta expr)
                                 :ns @vars/current-ns
                                 :file @vars/current-file)))
                       (ctx-fn (fn [ctx bindings]
-                                (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
+                                (eval/eval-instance-method-invocation ctx bindings instance-expr method-name args))
                               ;; this info is used by set!
                               {::instance-expr instance-expr
-                               ::method-expr method-expr}
+                               ::method-name method-name}
                               expr
                               (assoc (meta expr)
                                      :ns @vars/current-ns
                                      :file @vars/current-file)))
-               :cljs (ctx-fn (fn [ctx bindings]
-                               (eval/eval-instance-method-invocation ctx bindings instance-expr method-expr args))
+               :cljs (ctx-fn
+                      (let [allowed? (identical? method-expr utils/allowed-append)]
+                        (fn [ctx bindings]
+                          (eval/eval-instance-method-invocation ctx bindings instance-expr method-name args allowed?)))
                              ;; this info is used by set!
                              {::instance-expr instance-expr
-                              ::method-expr method-expr}
+                              ::method-name method-name}
                              expr
                              (assoc (meta expr)
                                     :ns @vars/current-ns
@@ -872,7 +874,7 @@
                    (let [obj (analyze ctx obj)
                          v (analyze ctx v)
                          obj (types/info obj)
-                         k (subs (::method-expr obj) 1)
+                         k (subs (::method-name obj) 1)
                          obj (::instance-expr obj)]
                      (ctx-fn (fn [ctx bindings]
                                (let [obj (eval/eval ctx bindings obj)

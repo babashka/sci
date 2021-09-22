@@ -87,6 +87,7 @@
     `(with-bindings ~(apply hash-map bindings)
        (do ~@body))))
 
+;; I/O
 (def in "Sci var that represents sci's `clojure.core/*in*`" sio/in)
 (def out "Sci var that represents sci's `clojure.core/*out*`" sio/out)
 (def err "Sci var that represents sci's `clojure.core/*err*`" sio/err)
@@ -96,6 +97,8 @@
 (def print-level "Sci var that represents sci's `clojure.core/*print-level*`" sio/print-level)
 (def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
 (def print-readably "Sci var that represents sci's `clojure.core/*print-readably*`" sio/print-readably)
+#?(:cljs (def print-fn "Sci var that represents sci's `cljs.core/*print-fn*`" sio/print-fn))
+#?(:cljs (def print-newline "Sci var that represents sci's `cljs.core/*print-newline*`" sio/print-newline))
 
 (def *1 namespaces/*1)
 (def *2 namespaces/*2)
@@ -121,11 +124,18 @@
   StringWriter.  Returns the string created by any nested printing
   calls."
     [& body]
-    `(let [out# (macros/? :clj (java.io.StringWriter.)
-                          :cljs (goog.string/StringBuffer.))]
-       (with-bindings {out out#}
-         (do ~@body)
-         (str out#)))))
+    (macros/? :clj
+              `(let [out# (java.io.StringWriter.)]
+                 (with-bindings {out out#}
+                   (do ~@body)
+                   (str out#)))
+              :cljs
+              `(let [sb# (goog.string/StringBuffer.)]
+                 (cljs.core/binding []
+                   (with-bindings {sci.core/print-newline true
+                                   sci.core/print-fn (fn [x#] (.append sb# x#))}
+                     (do ~@body)
+                     (str sb#)))))))
 
 (macros/deftime
   (defmacro future
