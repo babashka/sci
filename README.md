@@ -317,11 +317,17 @@ user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo wrapped-foo}})
 "yello!\n"
 ```
 
+To always enable printing in your SCI environment you can set `sci/out` to `*out*` globally:
+
+``` Clojure
+(sci/alter-var-root sci/out (constantly *out*))
+```
+
 #### ClojureScript
 
 Similar to Clojure vs. CLJS, the difference wit SCI on Clojure vs. SCI on CLJS
 is that in the latter you should use `sci/print-newline` and `sci/print-fn` to
-control printing to stdoud:
+control printing to stdout:
 
 ``` Clojure
 cljs.user=> (def output (atom ""))
@@ -333,6 +339,13 @@ cljs.user=> @output
 ```
 
 This is supported since SCI 0.2.7 (currently unreleased but available as git dep).
+
+To always enable printing in your SCI environment you can set `sci/print-fn` to `*print-fn*` globally:
+
+``` Clojure
+(enable-console-print!)
+(sci/alter-var-root sci/print-fn (constantly *print-fn*))
+```
 
 ### Futures
 
