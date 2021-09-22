@@ -130,9 +130,10 @@
                    (str out#)))
               :cljs
               `(let [sb# (goog.string/StringBuffer.)]
-                 (with-bindings {cljs.core/*print-fn* (fn [x#] (.append sb# x#))}
-                   (do ~@body)
-                   (str sb#))))))
+                 (cljs.core/binding [cljs.core/*print-newline* true]
+                   (with-bindings {sci.core/print-fn (fn [x#] (.append sb# x#))}
+                     (do ~@body)
+                     (str sb#)))))))
 
 (macros/deftime
   (defmacro future
