@@ -874,7 +874,7 @@
                    (let [obj (analyze ctx obj)
                          v (analyze ctx v)
                          obj (types/info obj)
-                         k (subs (::method-expr obj) 1)
+                         k (subs (::method-name obj) 1)
                          obj (::instance-expr obj)]
                      (ctx-fn (fn [ctx bindings]
                                (let [obj (eval/eval ctx bindings obj)
