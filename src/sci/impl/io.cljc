@@ -5,6 +5,7 @@
                             printf #?@(:cljs [string-print])])
   (:require #?(:cljs [goog.string])
             [sci.impl.unrestrict :refer [*unrestricted*]]
+            #?(:cljs [sci.impl.utils :as utils])
             [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -43,6 +44,7 @@
 (def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true))
 (def flush-on-newline (core-dynamic-var '*flush-on-newline* *flush-on-newline*))
 (def print-readably (core-dynamic-var '*print-readably* *print-readably*))
+#?(:cljs (def print-newline (core-dynamic-var '*print-newline* *print-newline*)))
 
 #?(:cljs (defn string-print [x]
            (binding [*print-fn* @print-fn]
@@ -79,7 +81,8 @@
                      *print-level* @print-level
                      *print-meta* @print-meta
                      *print-namespace-maps* @print-namespace-maps
-                     *print-readably* @print-readably]
+                     *print-readably* @print-readably
+                     *print-newline* @print-newline]
              (apply cljs.core/pr objs))))
 
 #?(:clj
@@ -117,7 +120,8 @@
                *print-level* @print-level
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
-               *print-readably* @print-readably]
+               *print-readably* @print-readably
+               *print-newline* @print-newline]
        (apply cljs.core/pr-str objs))))
 
 #?(:clj
@@ -135,7 +139,8 @@
                *print-level* @print-level
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
-               *print-readably* @print-readably]
+               *print-readably* @print-readably
+               *print-newline* @print-newline]
        (apply cljs.core/prn objs))))
 
 #?(:clj
@@ -154,7 +159,8 @@
                *print-level* @print-level
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
-               *print-readably* @print-readably]
+               *print-readably* @print-readably
+               *print-newline* @print-newline]
        (apply cljs.core/prn-str objs))))
 
 #?(:clj
@@ -169,7 +175,8 @@
                *print-length* @print-length
                *print-level* @print-level
                *print-namespace-maps* @print-namespace-maps
-               *print-readably* nil]
+               *print-readably* nil
+               *print-newline* @print-newline]
        (apply cljs.core/print objs))))
 
 #?(:clj
@@ -188,7 +195,8 @@
                *print-level* @print-level
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
-               *print-readably* @print-readably]
+               *print-readably* @print-readably
+               *print-newline* @print-newline]
        (apply cljs.core/print-str objs))))
 
 #?(:clj
@@ -204,7 +212,8 @@
                *print-level* @print-level
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
-               *print-readably* @print-readably]
+               *print-readably* @print-readably
+               *print-newline* @print-newline]
        (apply cljs.core/println objs))))
 
 #?(:clj
@@ -215,10 +224,17 @@
 (defn with-out-str
   [_ _ & body]
   `(let [s# (new #?(:clj java.io.StringWriter
-                    :cljs goog.string.StringBuffer))]
-     (binding [*out* s#]
-       ~@body
-       (str s#))))
+                   :cljs goog.string.StringBuffer))]
+     #?(:clj
+        (binding [*out* s#]
+          ~@body
+          (str s#))
+        :cljs
+        (binding [*print-newline* true
+                  *print-fn* (fn [x#]
+                               (. s# ~utils/allowed-append x#))]
+          ~@body
+          (str s#)))))
 
 #?(:clj
    (defn with-in-str

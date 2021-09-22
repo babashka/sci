@@ -783,6 +783,7 @@
    '*print-meta* io/print-meta
    '*print-namespace-maps* io/print-namespace-maps
    '*print-readably* io/print-readably
+   #?@(:cljs ['*print-newline* io/print-newline])
    'newline (copy-core-var io/newline)
    'flush (copy-core-var io/flush)
    'pr (copy-core-var io/pr)

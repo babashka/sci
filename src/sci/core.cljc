@@ -98,6 +98,7 @@
 (def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
 (def print-readably "Sci var that represents sci's `clojure.core/*print-readably*`" sio/print-readably)
 #?(:cljs (def print-fn "Sci var that represents sci's `cljs.core/*print-fn*`" sio/print-fn))
+#?(:cljs (def print-newline "Sci var that represents sci's `cljs.core/*print-newline*`" sio/print-newline))
 
 (def *1 namespaces/*1)
 (def *2 namespaces/*2)
@@ -130,8 +131,9 @@
                    (str out#)))
               :cljs
               `(let [sb# (goog.string/StringBuffer.)]
-                 (cljs.core/binding [cljs.core/*print-newline* true]
-                   (with-bindings {sci.core/print-fn (fn [x#] (.append sb# x#))}
+                 (cljs.core/binding []
+                   (with-bindings {sci.core/print-newline true
+                                   sci.core/print-fn (fn [x#] (.append sb# x#))}
                      (do ~@body)
                      (str sb#)))))))
 
