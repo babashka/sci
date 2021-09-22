@@ -42,6 +42,7 @@ This library works with:
 
 Sci is used in:
 
+- [4ever-clojure](https://4clojure.oxal.org/). 4clojure as a static web page.
 - [Babashka](https://github.com/babashka/babashka). A Clojure scripting tool that plays well with Bash.
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
@@ -52,7 +53,9 @@ Sci is used in:
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Datalevin](https://github.com/juji-io/datalevin). Durable Datalog database.
 - [Firn](https://github.com/theiceshelf/firn). Org-mode static site generator.
+- [For-science](https://github.com/pmonks/for-science). Discord bot.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
+- [Keycloak-clojure](https://github.com/jgrodziski/keycloak-clojure). Clojure library for Keycloak.
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).

@@ -26,7 +26,8 @@
                        :aot [sci.impl.main]
                        :main sci.impl.main}
              :libsci {:dependencies [[cheshire "5.10.0"]]
-                      :source-paths ["src" "libsci/src"]}}
+                      :source-paths ["src" "libsci/src"]
+                      :aot [sci.impl.libsci]}}
   ;; for testing only
   :deploy-repositories [["clojars" {:url "https://clojars.org/repo"
                                     :username :env/clojars_user

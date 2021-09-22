@@ -4,7 +4,8 @@
                             read-string require
                             use load-string
                             find-var *1 *2 *3 *e #?(:cljs type)
-                            bound-fn* with-bindings*])
+                            bound-fn* with-bindings*
+                            #?(:cljs this-as)])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -755,6 +756,16 @@
            (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
            (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
+#?(:cljs
+   (defn -js-this []
+     (js* "this")))
+
+#?(:cljs
+   (defn this-as
+     [_ _ name & body]
+     `(let [~name (clojure.core/-js-this)]
+        ~@body)))
+
 (def core-var
   (ns-new-var clojure-core-ns))
 
@@ -1190,6 +1201,8 @@
    'shuffle (copy-core-var shuffle)
    'sort (copy-core-var sort)
    'sort-by (copy-core-var sort-by)
+   ;; #?@(:cljs ['-js-this -js-this
+   ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
    'thread-bound? (copy-var sci-thread-bound? clojure-core-ns)
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])

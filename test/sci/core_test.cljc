@@ -1146,7 +1146,19 @@
 (deftest self-ref-test
   (testing "self-referantial function is equal to itself"
     (is (true? (eval* "(def f (fn foo [] foo)) (= f (f))")))
-    (is (true? (eval* "(letfn [(f [] f)] (= f (f)))")))))
+    (is (true? (eval* "(letfn [(f [] f)] (= f (f)))")))
+    (is (= :a (eval* "
+(defn foof [x]
+  (let [f (fn f
+            ([] (f nil))
+            ([_] x))]
+    f))
+
+(def f1 (foof :a))
+(def f2 (foof :b))
+
+(f1)
+")))))
 
 (deftest more-than-twenty-args-test
   (is (nil? (eval* '(comment
@@ -1171,6 +1183,13 @@
                       (ex-data e)))]
       (is (= :foo (get (:locals data) 'x)))
       (is (= "dude.clj" (:file data))))))
+
+#?(:cljs
+   (deftest eval-js-obj-test
+     (is (= 1 (sci/eval-string "(def o #js {:a (fn [] 1)}) (.a o) "
+                               {:classes {'js goog/global :allow :all}})))
+     (testing "js objects are not instantiated at read time, but at runtime, rendering new objects each time"
+       (sci/eval-string "(apply identical? (for [x [1 2]] #js {:a 1}))" {:classes {'js goog/global :allow :all}}))))
 
 ;;;; Scratch
 

@@ -1,6 +1,7 @@
 (ns sci.reify-test
   (:require [clojure.test :refer #?(:clj [deftest is testing]
                                     :cljs [deftest is testing])]
+            #?(:clj [sci.impl.types :as t])
             [sci.test-utils :as tu])
   #?(:clj (:import [sci.impl.types IReified])))
 
@@ -44,8 +45,8 @@
 
 (deftest reify-protocols-with-matching-method-names
   (testing "reifying two protocols that have the same named methods"
-     (is (= ["Protocol1" "Protocol2"]
-            (tu/eval* "
+    (is (= ["Protocol1" "Protocol2"]
+           (tu/eval* "
 (defprotocol Protocol1
   (method [this first second]))
 (defprotocol Protocol2
@@ -55,7 +56,7 @@
           Protocol2  (method [this first second third] \"Protocol2\")
           )]
   [(method r 1 2) (method r 1 2 3)])"
-                      nil)))))
+                     nil)))))
 
 #?(:clj
    (do (definterface Interface1 (method []))
@@ -130,3 +131,37 @@
                                            (satisfies? Protocol3 r)
                                            (satisfies? Protocol4 r)]))
                             mixed-opts))))))))
+
+(deftest reify-form-from-macro-test
+  #?(:clj
+     (when-not tu/native?
+       (let [opts
+             {:classes {:public-class (fn [x]
+                                        (when (instance? IReified x)
+                                          (first (t/getInterfaces x))))
+                        'java.util.function.Function java.util.function.Function}
+              :reify-fn
+              (fn [{:keys [interfaces methods protocols]}]
+                (reify
+                  java.util.function.Function
+                  (apply [this arg]
+                    ((get methods 'apply) this arg))
+
+                  IReified
+                  (getInterfaces [this]
+                    interfaces)
+                  (getMethods [this]
+                    methods)
+                  (getProtocols [this]
+                    protocols)))
+              }]
+         (testing "reify form from macro has (incorrectly) fully qualifed method name"
+           (is (= 2
+                  (tu/eval*
+                   (pr-str '(do
+                              (defmacro clj-fn->function [f]
+                                `(reify java.util.function.Function
+                                   (apply [_# x#]
+                                     (~f x#))))
+                              (.apply (clj-fn->function inc) 1)))
+                   opts))))))))
