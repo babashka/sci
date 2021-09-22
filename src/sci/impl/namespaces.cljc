@@ -755,15 +755,15 @@
            (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
            (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
-#?(:cljs
-   (defn -js-this []
-     (js* "this")))
+;; #?(:cljs
+;;    (defn -js-this []
+;;      (js* "this")))
 
-#?(:cljs
-   (defn this-as
-     [_ _ name & body]
-     `(let [~name (clojure.core/-js-this)]
-        ~@body)))
+;; #?(:cljs
+;;    (defn this-as
+;;      [_ _ name & body]
+;;      `(let [~name (clojure.core/-js-this)]
+;;         ~@body)))
 
 (def core-var
   (ns-new-var clojure-core-ns))
