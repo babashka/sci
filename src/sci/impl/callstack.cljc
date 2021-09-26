@@ -9,30 +9,29 @@
   (vars/getName ns))
 
 (defn select [m]
-  (let [new-m (select-keys m [:ns :name :local-name :file :line :column
-                              :sci.impl/built-in :local :macro])]
+  (let [new-m (select-keys m [:ns :name :local :file :line :column
+                              :sci/built-in :macro])]
     new-m))
 
 (defn expr->data [expr]
-  (let [m (or (meta expr) expr #_(when (map? expr) expr))
+  (let [m (or (meta expr) expr)
         f (when (seqable? expr) (first expr))
         fm (or (:sci.impl/f-meta m)
                (some-> f meta))
-        fm (if (symbol? f)
-             (assoc fm
-                    :local-name f
-                    :local true
-                    :ns (:ns m)
-                    :macro (or (:sci/macro fm)
-                               (:macro fm)))
+        fm (if (= :resolve-sym (:sci.impl/op fm))
+             (assoc fm :ns (:ns m))
              fm)]
     (filter not-empty [(select m) (select fm)])))
+
+(defn clean-ns [m]
+  (if-let [ns (:ns m)]
+    (assoc m :ns (sci-ns-name ns))
+    m))
 
 (defn stacktrace [callstack]
   (let [callstack @callstack
         callstack (dedupe callstack)
         data (mapcat expr->data callstack)
-        ;; _ (prn :data data)
         data (reduce (fn [[acc last-file last-ns last-name] entry]
                        (let [new-last-name (or (:name entry)
                                                last-name)
@@ -50,28 +49,24 @@
                      (let [fd (first data)]
                        ['() (:file fd) (:ns fd) (:name fd)])
                      data)]
-    ;; (prn (first data))
-    (first data)))
-
-(defn phase [ex stacktrace]
-  (or (:phase (ex-data ex))
-      (when (some :macro stacktrace)
-        "macroexpand")))
+    (->> (first data)
+         (mapv clean-ns))))
 
 (defn right-pad [s n]
   (let [n (- n (count s))]
     (str s (str/join (repeat n " ")))))
 
 (defn format-stacktrace [st]
-  (let [data (keep (fn [{:keys [:file :ns :line :column :sci.impl/built-in
-                                :local :local-name]
+  (let [st (force st)
+        data (keep (fn [{:keys [:file :ns :line :column :sci/built-in
+                                :local]
                          nom :name}]
                      (when (or line built-in)
                        {:name (str (if nom
                                      (str ns "/" nom)
                                      ns)
                                    (when local
-                                     (str "#" local-name)))
+                                     (str "#" local)))
                         :loc (str (or file
                                       (if built-in
                                         "<built-in>"

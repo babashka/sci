@@ -28,7 +28,7 @@
   (defmacro with-writeable-namespace
     [the-ns-object ns-meta & body]
     `(let [m# ~ns-meta]
-       (if (or *unrestricted* (not (:sci.impl/built-in m#)))
+       (if (or *unrestricted* (not (:sci/built-in m#)))
          (do ~@body)
          (let [ns-obj# ~the-ns-object
                name# (getName ns-obj#)]
@@ -225,13 +225,13 @@
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 
 (defn built-in-var? [var-meta]
-  (:sci.impl/built-in var-meta))
+  (:sci/built-in var-meta))
 
 (macros/deftime
   (defmacro with-writeable-var
     [the-var var-meta & body]
     `(let [vm# ~var-meta]
-       (if (or *unrestricted* (not (:sci.impl/built-in vm#)))
+       (if (or *unrestricted* (not (:sci/built-in vm#)))
          (do ~@body)
          (let [the-var# ~the-var
                ns# (:ns vm#)

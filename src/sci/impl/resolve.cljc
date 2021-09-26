@@ -26,7 +26,7 @@
       (identical? utils/allowed-recur sym)
       (let [check-sym (strip-core-ns check-sym)
             allow (:allow ctx)]
-        (when-not (if allow (or (and (vars/var? v) (not (:sci.impl/built-in (meta v))))
+        (when-not (if allow (or (and (vars/var? v) (not (:sci/built-in (meta v))))
                                 (contains? allow check-sym))
                       true)
           (throw-error-with-location (str sym " is not allowed!") sym))

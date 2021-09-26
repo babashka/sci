@@ -1,8 +1,10 @@
 (ns sci.core
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
-                            intern ns create-ns set! *1 *2 *3 *e])
+                            intern ns create-ns set! *1 *2 *3 *e
+                            ns-name])
   (:require
+   [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
@@ -279,6 +281,18 @@
   [ctx form]
   (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
     (i/eval-form ctx form)))
+
+(defn stacktrace [ex]
+  (some-> ex ex-data :sci.impl/callstack cs/stacktrace))
+
+(defn format-stacktrace
+  "Returns a list of formatted stack trace elements as strings, or nil
+  if information required is not available on exception.."
+  [stacktrace]
+  (cs/format-stacktrace stacktrace))
+
+(defn ns-name [sci-ns]
+  (namespaces/sci-ns-name sci-ns))
 
 ;;;; Scratch
 

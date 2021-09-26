@@ -216,7 +216,7 @@
 (deftest with-redefs-test
   (is (= [2 1]  (eval* "(def x 1) [(with-redefs [x 2] x) x]")))
   (let [x (sci/new-dynamic-var '*x* (fn [] 10) {:ns (sci/create-ns 'user)
-                                                :sci.impl/built-in true})]
+                                                :sci/built-in true})]
     (is (thrown-with-msg?
          #?(:clj Exception :cljs js/Error)
          #"Built-in var"

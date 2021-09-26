@@ -58,20 +58,14 @@
                                                :name name#
                                                :arglists (:arglists m#)
                                                :ns ns#
-                                               :sci.impl/built-in true}
+                                               :sci/built-in true}
                                             (and (identical? clojure-core-ns ns#)
                                                  (contains? inlined-vars name#))
                                             (assoc :sci.impl/inlined val#))
                            false))))
       (defmacro copy-core-var
         ([sym]
-         `(copy-var ~sym clojure-core-ns)
-         #_`(let [m# (-> (var ~sym) meta)]
-              (vars/->SciVar ~sym '~sym {:doc (:doc m#)
-                                         :name (:name m#)
-                                         :arglists (:arglists m#)
-                                         :ns clojure-core-ns
-                                         :sci.impl/built-in true}))))
+         `(copy-var ~sym clojure-core-ns)))
   (when elide-vars
     #?(:clj
        (binding [*out* *err*]
