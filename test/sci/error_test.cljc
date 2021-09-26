@@ -40,9 +40,9 @@
                                  (sci/stacktrace e))))]
       (is (= '({:ns foo, :name nil, :line 1, :column 9}) stacktrace))))
   (testing "local"
-    (let [stacktrace (try (eval-string "(defn foo []) (defn g [x] (x 1)) (g foo)")
+    (let [stacktrace (try (eval-string "(defn foo []) (defn g [x] (x 1)) (g (foo))")
                           (catch #?(:clj Exception
-                                    :cljs js/Error) e
+                                    :cljs :default) e
                             (sci/stacktrace e)))]
       (is (= '({:ns user, :local x, :line 1, :column 24, :name g, :file nil}
                {:ns user, :file nil, :line 1, :column 27, :name g}
