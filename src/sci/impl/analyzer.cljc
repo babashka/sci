@@ -1150,7 +1150,7 @@
                                                      (assoc m
                                                             :ns @vars/current-ns
                                                             :file @vars/current-file
-                                                            :sci.impl/f-meta (assoc f-meta :local f)))
+                                                            :sci.impl/f-meta f-meta))
                                 (let [children (analyze-children ctx (rest expr))]
                                   (return-call ctx
                                                expr

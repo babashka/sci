@@ -18,12 +18,8 @@
         f (when (seqable? expr) (first expr))
         fm (or (:sci.impl/f-meta m)
                (some-> f meta))
-        fm (if-let [local (:local fm)]
-             (assoc fm
-                    :local local
-                    :ns (:ns m)
-                    #_#_:macro (or (:sci/macro fm)
-                               (:macro fm)))
+        fm (if (= :resolve-sym (:sci.impl/op fm))
+             (assoc fm :ns (:ns m))
              fm)]
     (filter not-empty [(select m) (select fm)])))
 
