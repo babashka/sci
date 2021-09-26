@@ -1,30 +1,24 @@
 (ns sci.error-test
   (:require [clojure.test :as t :refer [deftest testing is]]
-            [sci.core :as sci :refer [eval-string]]
-            [sci.impl.callstack :as cs]
-            [sci.impl.namespaces :refer [sci-ns-name]]))
+            [sci.core :as sci :refer [eval-string]]))
 
-(deftest callstack-test
+(deftest stacktrace-test
   (let [stacktrace
         (try (eval-string "
 (defn bar [] (subs nil 0))
 (defn foo [] (bar))
-(foo)"
-                          )
+(foo)")
              (catch #?(:clj Exception
                        :cljs js/Error) e
                (map #(-> %
-                         (select-keys [:ns :name :line :column])
-                         (update :ns sci-ns-name))
-                    (cs/stacktrace (:sci.impl/callstack (ex-data e))))))
+                         (select-keys [:ns :name :line :column]))
+                    (sci/stacktrace e))))
         expected '({:ns clojure.core, :name subs}
                    {:ns user, :name bar, :line 2, :column 14}
                    {:ns user, :name bar, :line 2, :column 1}
                    {:ns user, :name foo, :line 3, :column 14}
                    {:ns user, :name foo, :line 3, :column 1}
                    {:ns user, :name nil, :line 4, :column 1})]
-    #_#_#_(doseq [st expected]
-      (prn st))
     (println "-- ^ expected --- , actual")
     (doseq [st stacktrace]
       (prn st))
@@ -34,19 +28,25 @@
                         (catch #?(:clj Exception
                                   :cljs js/Error) e
                           (map #(-> %
-                                    (select-keys [:ns :name :line :column])
-                                    (update :ns sci-ns-name))
-                               (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
+                                    (select-keys [:ns :name :line :column]))
+                               (sci/stacktrace e))))]
     (is (= '({:ns user, :name nil, :line 1, :column 1}) stacktrace )))
   (testing "unresolved class in import"
     (let [stacktrace (try (eval-string "(ns foo (:import [java.io FooBar]))")
                           (catch #?(:clj Exception
                                     :cljs js/Error) e
                             (map #(-> %
-                                      (select-keys [:ns :name :line :column])
-                                      (update :ns sci-ns-name))
-                                 (cs/stacktrace (:sci.impl/callstack (ex-data e))))))]
-      (is (= '({:ns foo, :name nil, :line 1, :column 9}) stacktrace )))))
+                                      (select-keys [:ns :name :line :column]))
+                                 (sci/stacktrace e))))]
+      (is (= '({:ns foo, :name nil, :line 1, :column 9}) stacktrace ))))
+  (testing "foobar"
+    (let [stacktrace (try (eval-string "(defmacro foo [x] `(subs nil ~x)) (foo 1)")
+                          (catch #?(:clj Exception
+                                    :cljs js/Error) e
+                            (map #(-> %
+                                      #_(select-keys [:ns :name :line :column]))
+                                 (sci/stacktrace e))))]
+      (prn stacktrace))))
 
 (deftest locals-test
   (testing "defn does not introduce fn-named local binding"
