@@ -9,8 +9,8 @@
   (vars/getName ns))
 
 (defn select [m]
-  (let [new-m (select-keys m [:ns :name :local-name :file :line :column
-                              :sci/built-in :local :macro])]
+  (let [new-m (select-keys m [:ns :name :local :file :line :column
+                              :sci/built-in :macro])]
     new-m))
 
 (defn expr->data [expr]
@@ -18,12 +18,11 @@
         f (when (seqable? expr) (first expr))
         fm (or (:sci.impl/f-meta m)
                (some-> f meta))
-        fm (if (symbol? f)
+        fm (if-let [local (:local fm)]
              (assoc fm
-                    :local-name f
-                    :local true
+                    :local local
                     :ns (:ns m)
-                    :macro (or (:sci/macro fm)
+                    #_#_:macro (or (:sci/macro fm)
                                (:macro fm)))
              fm)]
     (filter not-empty [(select m) (select fm)])))
@@ -69,14 +68,14 @@
 (defn format-stacktrace [st]
   (let [st (force st)
         data (keep (fn [{:keys [:file :ns :line :column :sci/built-in
-                                :local :local-name]
+                                :local]
                          nom :name}]
                      (when (or line built-in)
                        {:name (str (if nom
                                      (str ns "/" nom)
                                      ns)
                                    (when local
-                                     (str "#" local-name)))
+                                     (str "#" local)))
                         :loc (str (or file
                                       (if built-in
                                         "<built-in>"

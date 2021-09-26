@@ -19,7 +19,7 @@
                    {:ns user, :name foo, :line 3, :column 14}
                    {:ns user, :name foo, :line 3, :column 1}
                    {:ns user, :name nil, :line 4, :column 1})]
-    (println "-- ^ expected --- , actual")
+    #_#_(println "-- ^ expected --- , actual")
     (doseq [st stacktrace]
       (prn st))
     (is (= expected
@@ -38,15 +38,23 @@
                             (map #(-> %
                                       (select-keys [:ns :name :line :column]))
                                  (sci/stacktrace e))))]
-      (is (= '({:ns foo, :name nil, :line 1, :column 9}) stacktrace ))))
-  (testing "foobar"
-    (let [stacktrace (try (eval-string "(defmacro foo [x] `(subs nil ~x)) (foo 1)")
+      (is (= '({:ns foo, :name nil, :line 1, :column 9}) stacktrace))))
+  (testing "local"
+    (let [stacktrace (try (eval-string "(defn foo []) (defn g [x] (x 1)) (g foo)")
                           (catch #?(:clj Exception
                                     :cljs js/Error) e
-                            (map #(-> %
-                                      #_(select-keys [:ns :name :line :column]))
-                                 (sci/stacktrace e))))]
-      (prn stacktrace))))
+                            (sci/stacktrace e)))]
+      (is (= '({:ns user, :local x, :line 1, :column 24, :name g, :file nil}
+               {:ns user, :file nil, :line 1, :column 27, :name g}
+               {:ns user, :name g, :file nil, :line 1, :column 15}
+               {:ns user, :file nil, :line 1, :column 34, :name nil})
+             stacktrace))
+      (let [formatted (sci/format-stacktrace stacktrace)]
+        (is (= '("user/g#x - <expr>:1:24"
+                 "user/g   - <expr>:1:27"
+                 "user/g   - <expr>:1:15"
+                 "user     - <expr>:1:34")
+               formatted))))))
 
 (deftest locals-test
   (testing "defn does not introduce fn-named local binding"
