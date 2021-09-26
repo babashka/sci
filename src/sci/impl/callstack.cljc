@@ -52,11 +52,6 @@
     (->> (first data)
          (mapv clean-ns))))
 
-(defn phase [ex stacktrace]
-  (or (:phase (ex-data ex))
-      (when (some :macro stacktrace)
-        "macroexpand")))
-
 (defn right-pad [s n]
   (let [n (- n (count s))]
     (str s (str/join (repeat n " ")))))
