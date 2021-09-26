@@ -282,16 +282,19 @@
   (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
     (i/eval-form ctx form)))
 
-(defn stacktrace [ex]
+(defn stacktrace
+  "Returns list of stacktrace element maps from exception, if available."
+  [ex]
   (some-> ex ex-data :sci.impl/callstack cs/stacktrace))
 
 (defn format-stacktrace
-  "Returns a list of formatted stack trace elements as strings, or nil
-  if information required is not available on exception.."
+  "Returns a list of formatted stack trace elements as strings from stacktrace."
   [stacktrace]
   (cs/format-stacktrace stacktrace))
 
-(defn ns-name [sci-ns]
+(defn ns-name
+  "Returns name of SCI ns as symbol."
+  [sci-ns]
   (namespaces/sci-ns-name sci-ns))
 
 ;;;; Scratch
