@@ -48,16 +48,22 @@
              fm (or (:sci.impl/f-meta stack)
                     (some-> f meta))
              env (:env ctx)
-             id (:id ctx)]
+             id (:id ctx)
+             d (ex-data e)
+             st (or (when-let [st (:sci.impl/callstack d)]
+                      st)
+                    (volatile! '()))]
          (when stack
            (when-not (:special stack)
-             (swap! env update-in [:sci.impl/callstack id]
+             #_(swap! env update-in [:sci.impl/callstack id]
                     (fn [vt]
                       (if vt
                         (do (vswap! vt conj stack)
                            vt)
-                        (volatile! (list stack)))))))
+                        (volatile! (list stack)))))
+             (vswap! st conj stack)))
          (let [d (ex-data e)
+               ;; st (:sci.impl/callstack d)
                wrapping-sci-error? (isa? (:type d) :sci/error)]
            (if wrapping-sci-error?
              (throw e)
@@ -80,7 +86,8 @@
                                     :column column
                                     :message ex-msg
                                     :sci.impl/callstack
-                                    (delay (when-let
+                                    st
+                                    #_(delay (when-let
                                                [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
                                              @v))
                                     :file file
