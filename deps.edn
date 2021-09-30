@@ -1,5 +1,6 @@
 {:paths ["resources" "src"]
- :deps {borkdude/edamame {:mvn/version "0.0.11"}
+ :deps {borkdude/edamame {:git/url "https://github.com/borkdude/edamame"
+                          :git/sha "643e3e1962d6eec0cf54356b9f7f6a9f28e88086"}
         borkdude/sci.impl.reflector {:mvn/version "0.0.1"}}
  :aliases
  {:examples {:extra-paths ["examples"]}
