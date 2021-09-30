@@ -2,11 +2,27 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.2.7
 
-- Fix function reference equality [#587](https://github.com/borkdude/sci/issues/587)
-- Don't convert Clojure values to JS values automatically in interop [#602](https://github.com/borkdude/sci/issues/602)
-- Calling comment with 49 (or more) args fails in CLJS #603
+- Fix function reference equality
+  [#587](https://github.com/borkdude/sci/issues/587)
+- Don't convert Clojure values to JS values automatically in interop
+  [#602](https://github.com/borkdude/sci/issues/602)
+- Calling comment with 49 (or more) args fails in CLJS [#603](https://github.com/borkdude/sci/issues/603)
+- Fix stacktrace for invalid import [#589](https://github.com/borkdude/sci/issues/589)
+- Add `js-keys`
+- Support `create-ns`
+- Varify more core vars ([@bobisageek](https://github.com/bobisageek))
+- Fix constructor call of class added via imports
+- Keep `:disable-arity-checks` after merge-opts
+- Add `*flush-on-newline*`
+- Add `*print-readably*`
+- Support `:clojure.core/eval-file` metadata
+- reify form from macro doesn't evaluate correctly [#609](https://github.com/borkdude/sci/issues/609)
+- Handle js literals in the same way as ClojureScript [#610](https://github.com/borkdude/sci/issues/610)
+- Control printing in CLJS via `*print-fn*` and via API `sci/print-fn` rather
+  than `*out*` [#365](https://github.com/borkdude/sci/issues/365)
+- Make stacktrace logic public [#590](https://github.com/borkdude/sci/issues/590)
 
 ## v0.2.6
 
