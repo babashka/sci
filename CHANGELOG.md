@@ -4,6 +4,16 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## v0.2.7
 
+This release focuses on:
+
+- Improvements regarding CLJS compatibility (interop, js literals, printing via `*print-fn*`)
+- Adding more dynamic vars related to printing
+- Exposing `sci/stacktrace` and `sci/format-stacktrace` for getting a stacktrace
+  from a SCI exception. This allows you to build an error report like babashka
+  and similar tools built with SCI.
+
+The changes per issue:
+
 - Fix function reference equality
   [#587](https://github.com/borkdude/sci/issues/587)
 - Don't convert Clojure values to JS values automatically in interop
