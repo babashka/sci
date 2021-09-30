@@ -17,7 +17,8 @@
    [sci.impl.utils :as utils :refer
     [ana-macros constant? ctx-fn kw-identical? macro?
      maybe-destructured rethrow-with-location-of-node set-namespace!]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   #?(:cljs [cljs.tagged-literals :refer [JSValue]]))
   #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
@@ -1294,12 +1295,23 @@
     analyzed-coll))
 
 #?(:cljs
-   (defn analyze-js-obj [ctx expr]
-     (let [cljv (js->clj expr)
-           ana (analyze ctx cljv)]
-       (ctx-fn (fn [ctx bindings]
-                 (clj->js (eval/eval ctx bindings ana)))
-               expr))))
+   (defn analyze-js-obj [ctx js-val]
+     (let [v (.-val js-val)]
+       (if (map? v)
+         (let [ks (keys v)
+               ks (map name ks)
+               vs (vals v)
+               vs (analyze-children ctx vs)]
+           (ctx-fn (fn [ctx bindings]
+                     (apply js-obj (interleave ks (map #(eval/eval ctx bindings %) vs))))
+                   js-val))
+         (let [vs (analyze-children ctx v)]
+           (ctx-fn (fn [ctx bindings]
+                     (let [arr (array)]
+                       (doseq [x vs]
+                         (.push arr (eval/eval ctx bindings x)))
+                       arr))
+                   js-val))))))
 
 (defn analyze
   ([ctx expr]
@@ -1326,7 +1338,7 @@
        ;; since a record is also a map
        (record? expr) expr
        (map? expr) (analyze-map ctx expr m)
-       #?@(:cljs [(object? expr) (analyze-js-obj ctx expr)])
+       #?@(:cljs [(instance?  JSValue expr) (analyze-js-obj ctx expr)])
        (vector? expr) (analyze-vec-or-set ctx
                                           ;; relying on analyze-children to
                                           ;; return a vector
