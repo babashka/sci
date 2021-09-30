@@ -1,5 +1,5 @@
 {:paths ["resources" "src"]
- :deps {borkdude/edamame {:mvn/version "0.0.11"}
+ :deps {borkdude/edamame {:mvn/version "0.0.12"}
         borkdude/sci.impl.reflector {:mvn/version "0.0.1"}}
  :aliases
  {:examples {:extra-paths ["examples"]}

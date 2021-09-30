@@ -1186,6 +1186,10 @@
 
 #?(:cljs
    (deftest eval-js-obj-test
+     (is (= 1 (sci/eval-string "(def o #js {:a 1}) (.-a o) "
+                               {:classes {'js goog/global :allow :all}})))
+     (is (= :a (sci/eval-string "(def o #js {:a :a}) (.-a o) "
+                                {:classes {'js goog/global :allow :all}})))
      (is (= 1 (sci/eval-string "(def o #js {:a (fn [] 1)}) (.a o) "
                                {:classes {'js goog/global :allow :all}})))
      (testing "js objects are not instantiated at read time, but at runtime, rendering new objects each time"

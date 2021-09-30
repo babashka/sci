@@ -1,7 +1,7 @@
 (ns sci.impl.interop
   {:no-doc true}
   #?(:clj (:import [sci.impl Reflector]))
-  (:require #?(:cljs [goog.object :as gobj])
+  (:require #?(:cljs [goog.object :as gobject])
             #?(:cljs [clojure.string :as str])
             [sci.impl.vars :as vars]))
 
@@ -12,7 +12,7 @@
 
 (defn invoke-instance-method
   #?@(:cljs [[obj _target-class method-name args]
-             ;; gobj/get didn't work here
+             ;; gobject/get didn't work here
              (if (identical? \- (.charAt method-name 0))
                (aget obj (subs method-name 1))
                (if-let [method (aget obj method-name)]
@@ -31,8 +31,8 @@
                           :cljs [[class field-name-sym]])
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
      :cljs (if (str/includes? (str field-name-sym) ".")
-             (apply gobj/getValueByKeys class (str/split (str field-name-sym) #"\."))
-             (gobj/get class field-name-sym))))
+             (apply gobject/getValueByKeys class (str/split (str field-name-sym) #"\."))
+             (gobject/get class field-name-sym))))
 
 #?(:cljs
    (defn invoke-js-constructor [constructor args]
@@ -59,7 +59,7 @@
                               :cljs [[class method-name] args])
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
-     :cljs (if-let [method (gobj/get class method-name)]
+     :cljs (if-let [method (gobject/get class method-name)]
              (.apply method class (into-array args))
              (let [method-name (str method-name)
                    field (get-static-field [class method-name])]
