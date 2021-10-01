@@ -19,19 +19,22 @@
               [nil signatures]))
         current-ns (str (vars/current-ns-name))
         fq-name (symbol current-ns (str protocol-name))
+        extend-meta (:extend-via-metadata opts)
         expansion
         `(do
            (def  ~(with-meta protocol-name
-                    {:doc docstring}) {:methods #{}
-                                       :name '~fq-name
-                                       :ns *ns*})
+                    {:doc docstring}) (cond->
+                                          {:methods #{}
+                                           :name '~fq-name
+                                           :ns *ns*}
+                                        ~extend-meta (assoc :extend-via-metadata true)))
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))
                           impls [`(defmulti ~method-name clojure.core/protocol-type-impl)
                                  `(defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
                                     (let [methods# (clojure.core/-reified-methods x#)]
                                       (apply (get methods# '~method-name) x# args#)))]
-                          impls (if (:extend-via-metadata opts)
+                          impls (if extend-meta
                                   (conj impls
                                         `(defmethod ~method-name :default [x# & args#]
                                            (let [meta# (meta x#)
@@ -57,42 +60,40 @@
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
         protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
-        protocol-ns (-> protocol-var deref :ns)
+        protocol-data (deref protocol-var)
+        extend-via-metadata (:extend-via-metadata protocol-data)
+        protocol-ns (:ns protocol-data)
         pns (str (vars/getName protocol-ns))
         fq-meth-name #(symbol pns %)
         expansion
         `(do ~@(map (fn [[type & meths]]
                       `(do
-                         ~@(map (fn [meth]
-                                  `(defmethod ~(fq-meth-name (name (first meth)))
-                                     ~type
-                                     ~(second meth) ~@(nnext meth)))
+                         ~@(map (fn [[meth-name args & body]]
+                                  (let [fq (fq-meth-name (name meth-name))]
+                                    `(defmethod ~fq
+                                       ~type
+                                       ~args ~(if extend-via-metadata
+                                                `(let [farg# ~(first args)]
+                                                   (if-let [m# (meta farg#)]
+                                                     (if-let [meth# (get m# '~fq)]
+                                                       (apply meth# ~args)
+                                                       (do ~@body))
+                                                     (do ~@body)))
+                                                `(do ~@body)))))
                                 meths)))
                     impls))]
-    #_(prn expansion)
     expansion))
 
 (defn extend [ctx atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)
           :let [proto-ns (:ns proto)
                 pns (vars/getName proto-ns)]]
-    #_(when-not (protocol? proto)
-        (throw (new #?(:clj IllegalArgumentException
-                       :cljs js/Error)
-                    (str proto " is not a protocol"))))
-    #_(when (implements? proto atype)
-        (throw (new #?(:clj IllegalArgumentException
-                       :cljs js/Error)
-                    (str atype " already directly implements " (:on-interface proto) " for protocol:"
-                         (:var proto)))))
     (doseq [[fn-name f] mmap]
       (let [fn-sym (symbol (name fn-name))
             env @(:env ctx)
             multi-method-var (get-in env [:namespaces pns fn-sym])
             multi-method @multi-method-var]
-        (mms/multi-fn-add-method-impl multi-method atype f))
-      )
-    #_(-reset-methods (vars/alter-var-root (:var proto) assoc-in [:impls atype] mmap))))
+        (mms/multi-fn-add-method-impl multi-method atype f)))))
 
 (defn extend-type [_ _ ctx atype & proto+meths]
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
@@ -121,7 +122,7 @@
          ;; in CLJS we currently don't support mixing "classes" and protocols,
          ;; hence, the instance is always a Reified, thus we can avoid calling
          ;; the slower satisfies?
-         :cljs (instance? sci.impl.types.Reified obj))
+         :cljs (instance? sci.impl.types/Reified obj))
     (contains? (types/getProtocols obj) protocol)
     ;; can be record that is implementing this protocol
     ;; or a type like String, etc. that implements a protocol via extend-type, etc.
