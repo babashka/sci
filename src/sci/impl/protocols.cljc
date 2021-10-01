@@ -86,14 +86,27 @@
 
 (defn extend [ctx atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)
-          :let [proto-ns (:ns proto)
-                pns (vars/getName proto-ns)]]
-    (doseq [[fn-name f] mmap]
-      (let [fn-sym (symbol (name fn-name))
+          :let [extend-via-metadata (:extend-via-metadata proto)
+                proto-ns (:ns proto)
+                pns (vars/getName proto-ns)
+                pns-str (when extend-via-metadata (str pns))]]
+    (doseq [[meth-name f] mmap]
+      (let [meth-str (name meth-name)
+            meth-sym (symbol meth-str)
             env @(:env ctx)
-            multi-method-var (get-in env [:namespaces pns fn-sym])
+            multi-method-var (get-in env [:namespaces pns meth-sym])
             multi-method @multi-method-var]
-        (mms/multi-fn-add-method-impl multi-method atype f)))))
+        (mms/multi-fn-add-method-impl
+         multi-method atype
+         (if extend-via-metadata
+           (let [fq (symbol pns-str meth-str)]
+             (fn [this & args]
+               (if-let [m (meta this)]
+                 (if-let [meth (get m fq)]
+                   (apply meth this args)
+                   (apply f this args))
+                 (apply f this args))))
+           f))))))
 
 (defn extend-type [_ _ ctx atype & proto+meths]
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]

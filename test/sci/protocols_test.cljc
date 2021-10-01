@@ -183,5 +183,18 @@
 
 (deftest order-test
   (testing "extend-via-metadata overrides extend-protocol, only if option given"
-    (is (= :object (eval* "(defprotocol Foo (foo [this])) (extend-protocol Foo Object (foo [this] :object)) (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
-    (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this])) (extend-protocol Foo Object (foo [this] :object)) (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))))
+    (is (= :object (eval* "(defprotocol Foo (foo [this]))
+                           (extend-protocol Foo Object (foo [this] :object))
+                           (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this]))
+                         (extend-protocol Foo Object (foo [this] :object))
+                         (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (is (= :object (eval* "(defprotocol Foo (foo [this]))
+                           (extend Object Foo {:foo (fn foo [this] :object)})
+                           (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (is (= :object (eval* "(defprotocol Foo (foo [this]))
+                           (extend Object Foo {:foo (fn foo [this] :object)})
+                           (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this]))
+                         (extend Object Foo {:foo (fn foo [this] :object)})
+                         (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))))
