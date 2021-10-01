@@ -57,33 +57,6 @@
                   signatures))]
     expansion))
 
-(defn extend-protocol [_ _ ctx protocol-name & impls]
-  (let [impls (utils/split-when #(not (seq? %)) impls)
-        protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
-        protocol-data (deref protocol-var)
-        extend-via-metadata (:extend-via-metadata protocol-data)
-        protocol-ns (:ns protocol-data)
-        pns (str (vars/getName protocol-ns))
-        fq-meth-name #(symbol pns %)
-        expansion
-        `(do ~@(map (fn [[type & meths]]
-                      `(do
-                         ~@(map (fn [[meth-name args & body]]
-                                  (let [fq (fq-meth-name (name meth-name))]
-                                    `(defmethod ~fq
-                                       ~type
-                                       ~args ~(if extend-via-metadata
-                                                `(let [farg# ~(first args)]
-                                                   (if-let [m# (meta farg#)]
-                                                     (if-let [meth# (get m# '~fq)]
-                                                       (apply meth# ~args)
-                                                       (do ~@body))
-                                                     (do ~@body)))
-                                                `(do ~@body)))))
-                                meths)))
-                    impls))]
-    expansion))
-
 (defn extend [ctx atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)
           :let [extend-via-metadata (:extend-via-metadata proto)
@@ -108,18 +81,55 @@
                  (apply f this args))))
            f))))))
 
+(defn process-single-extend-meta
+  "Processes single args+body pair for extending via metadata"
+  [fq [args & body]]
+  [args `(let [farg# ~(first args)]
+           (if-let [m# (meta farg#)]
+             (if-let [meth# (get m# '~fq)]
+               (apply meth# ~args)
+               (do ~@body))
+             (do ~@body)))])
+
+(defn process-methods [type meths protocol-ns extend-via-metadata]
+  (map
+   (fn [[meth-name & fn-body]]
+     (let [fq (symbol protocol-ns (name meth-name))
+           fn-body (if extend-via-metadata
+                     (if (vector? (first fn-body))
+                       (process-single-extend-meta fq fn-body)
+                       (mapcat #(process-single-extend-meta fq %) fn-body))
+                     fn-body)]
+       `(defmethod ~fq
+          ~type
+          ~@fn-body)))
+   meths))
+
+(defn extend-protocol [_ _ ctx protocol-name & impls]
+  (let [impls (utils/split-when #(not (seq? %)) impls)
+        protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
+        protocol-data (deref protocol-var)
+        extend-via-metadata (:extend-via-metadata protocol-data)
+        protocol-ns (:ns protocol-data)
+        pns (str (vars/getName protocol-ns))
+        expansion
+        `(do ~@(map (fn [[type & meths]]
+                      `(do
+                         ~@(process-methods type meths pns extend-via-metadata)))
+                    impls))]
+    expansion))
+
 (defn extend-type [_ _ ctx atype & proto+meths]
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
-    `(do ~@(map (fn [[proto & meths]]
-                  (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
-                        protocol-ns (-> protocol-var deref :ns)
-                        pns (str (vars/getName protocol-ns))
-                        fq-meth-name #(symbol pns %)]
-                    `(do
-                       ~@(map (fn [meth]
-                                `(defmethod ~(fq-meth-name (name (first meth)))
-                                   ~atype ~(second meth) ~@(nnext meth)))
-                              meths)))) proto+meths))))
+    `(do ~@(map
+            (fn [[proto & meths]]
+              (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
+                    proto-data (deref protocol-var)
+                    protocol-ns (:ns proto-data)
+                    pns (str (vars/getName protocol-ns))
+                    extend-via-metadata (:extend-via-metadata proto-data)]
+                `(do
+                   ~@(process-methods atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 

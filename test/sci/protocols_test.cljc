@@ -100,7 +100,8 @@
                           (str/replace "String" "js/String")))]
     (is (true? (eval* prog))))
   (testing "Aliases are allowed and ignored"
-    (let [prog "
+    (testing "extent-type"
+      (let [prog "
 (ns foo) (defprotocol Foo (foo [this]))
 (ns bar (:require [foo :as f]))
 
@@ -110,11 +111,12 @@
 
 (= \"f\" (f/foo \"foo\"))
 "
-          prog #?(:clj prog
-                  :cljs (-> prog
-                            (str/replace "String" "js/String")))]
-      (is (true? (eval* prog))))
-    (let [prog "
+            prog #?(:clj prog
+                    :cljs (-> prog
+                              (str/replace "String" "js/String")))]
+        (is (true? (eval* prog)))))
+    (testing "extend-protocol"
+      (let [prog "
 (ns foo) (defprotocol Foo (foo [this]))
 (ns bar (:require [foo :as f]))
 
@@ -124,10 +126,10 @@
 
 (= \"f\" (f/foo \"foo\"))
 "
-          prog #?(:clj prog
-                  :cljs (-> prog
-                            (str/replace "String" "js/String")))]
-      (is (true? (eval* prog))))))
+            prog #?(:clj prog
+                    :cljs (-> prog
+                              (str/replace "String" "js/String")))]
+        (is (true? (eval* prog)))))))
 
 (deftest extend-via-metadata-test
   (let [prog "
@@ -150,16 +152,22 @@
                           (tu/eval* prog {})))))
 
 (deftest multi-arity-test
-  (let [prog "
+  (let [prog (fn [expr]
+               (str/replace "
 (defprotocol IFruit (subtotal [item] [item subtotal]))
 (defrecord Apple [price] IFruit (subtotal [_] price) (subtotal [_ discount] (- price discount)))
-(extend-type String IFruit (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))
+{{expr}}
 [(subtotal (->Apple 100)) (subtotal (->Apple 100) 5) (subtotal \"foo\") (subtotal \"foo\" 2)]
 "
-        prog #?(:clj prog
-                :cljs (-> prog
-                          (str/replace "String" "js/String")))]
-    (is (= [100 95 3 1] (eval* prog)))))
+                            "{{expr}}" expr))]
+    (doseq [expr ["(extend-type String IFruit (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))"
+                  "(extend String IFruit {:subtotal (fn ([s] (count s)) ([s discount] (- (count s) discount)))})"
+                  "(extend-protocol IFruit String (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))"]
+            :let [prog (prog expr)
+                  prog #?(:clj prog
+                          :cljs (-> prog
+                                    (str/replace "String" "js/String")))]]
+      (is (= [100 95 3 1] (eval* prog))))))
 
 #?(:clj
    (deftest import-test
@@ -197,4 +205,10 @@
                            (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
     (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this]))
                          (extend Object Foo {:foo (fn foo [this] :object)})
+                         (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (is (= :object (eval* "(defprotocol Foo (foo [this]))
+                           (extend-type Object Foo (foo [_] :object))
+                           (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this]))
+                         (extend-type Object Foo (foo [_] :object))
                          (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))))
