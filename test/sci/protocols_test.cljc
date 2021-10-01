@@ -1,5 +1,6 @@
 (ns sci.protocols-test
   (:require #?(:cljs [clojure.string :as str])
+            [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [sci.test-utils :as tu]))
 
@@ -68,6 +69,14 @@
                                               'js #js {:String js/String
                                                        :Number js/Number}}}))))))
 
+
+(defn eval* [prog]
+  (tu/eval* #?(:clj prog
+               :cljs (str/replace prog "Object" ":default"))
+            #?(:clj {}
+               :cljs {:classes {:allow :all
+                                'js #js {:String js/String}}})))
+
 (deftest docstring-test
   (is (= "-------------------------\nuser/Foo\n  cool protocol\n" (tu/eval* "
 (defprotocol Foo \"cool protocol\" (foo [_]))
@@ -89,9 +98,7 @@
         prog #?(:clj prog
                 :cljs (-> prog
                           (str/replace "String" "js/String")))]
-    (is (true? (tu/eval* prog #?(:clj {}
-                                 :cljs {:classes {:allow :all
-                                                  'js #js {:String js/String}}})))))
+    (is (true? (eval* prog))))
   (testing "Aliases are allowed and ignored"
     (let [prog "
 (ns foo) (defprotocol Foo (foo [this]))
@@ -106,9 +113,7 @@
           prog #?(:clj prog
                   :cljs (-> prog
                             (str/replace "String" "js/String")))]
-      (is (true? (tu/eval* prog #?(:clj {}
-                                   :cljs {:classes {:allow :all
-                                                    'js #js {:String js/String}}})))))
+      (is (true? (eval* prog))))
     (let [prog "
 (ns foo) (defprotocol Foo (foo [this]))
 (ns bar (:require [foo :as f]))
@@ -122,9 +127,7 @@
           prog #?(:clj prog
                   :cljs (-> prog
                             (str/replace "String" "js/String")))]
-      (is (true? (tu/eval* prog #?(:clj {}
-                                   :cljs {:classes {:allow :all
-                                                    'js #js {:String js/String}}})))))))
+      (is (true? (eval* prog))))))
 
 (deftest extend-via-metadata-test
   (let [prog "
@@ -156,9 +159,7 @@
         prog #?(:clj prog
                 :cljs (-> prog
                           (str/replace "String" "js/String")))]
-    (is (= [100 95 3 1] (tu/eval* prog #?(:clj {}
-                                          :cljs {:classes {:allow :all
-                                                           'js #js {:String js/String}}}))))))
+    (is (= [100 95 3 1] (eval* prog)))))
 
 #?(:clj
    (deftest import-test
@@ -179,3 +180,8 @@
 [(satisfies? Foo (reify Foo))
  (satisfies? Bar (reify Foo))]
 "] (is (= [true false] (tu/eval* prog {}))))))
+
+(deftest order-test
+  (testing "extend-via-metadata overrides extend-protocol, only if option given"
+    (is (= :object (eval* "(defprotocol Foo (foo [this])) (extend-protocol Foo Object (foo [this] :object)) (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this])) (extend-protocol Foo Object (foo [this] :object)) (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))))
