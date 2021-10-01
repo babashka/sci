@@ -211,4 +211,16 @@
                            (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
     (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this]))
                          (extend-type Object Foo (foo [_] :object))
-                         (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))))
+                         (foo (vary-meta {} assoc `foo (fn [_] :meta)))"))))
+  (testing "defrecord protocol is preferred over extend-via-metata"
+    (is (= :record (eval* "(defprotocol IFoo (foo [this]))
+                           (defrecord Foo [] IFoo (foo [_] :record))
+                           (foo (vary-meta (->Foo) assoc `foo (fn [_] :meta)))")))
+    (is (= :record (eval* "(defprotocol IFoo :extend-via-metadata true (foo [this]))
+                           (defrecord Foo [] IFoo (foo [_] :record))
+                           (foo (vary-meta (->Foo) assoc `foo (fn [_] :meta)))"))))
+  (testing "defrecord protocol is preferred over extend object"
+    (is (= :record (eval* "(defprotocol IFoo (foo [this]))
+                           (extend-type Object IFoo (foo [this] :object))
+                           (defrecord Foo [] IFoo (foo [_] :record))
+                           (foo (->Foo))")))))
