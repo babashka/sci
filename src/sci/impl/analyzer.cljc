@@ -767,20 +767,55 @@
                                                   (:constructor opts)
                                                   (:class opts)))]
                                 clazz)
-                              (when (not (records/resolve-record-class ctx class-sym))
-                                (analyze ctx class-sym))))]
-    (let [args (analyze-children ctx args)] ;; analyze args!
+                              (analyze ctx class-sym)))]
+    (let [#?@(:cljs [var? (instance? sci.impl.types/EvalVar class)
+                     maybe-var (when var?
+                                 (types/getVal class))
+                     maybe-record (cond
+                                    var?
+                                    (deref maybe-var)
+                                    ;; symbol = already deref-ed record coming in via :import
+                                    (symbol? class)
+                                    class)
+                     maybe-record-constructor
+                     (when maybe-record
+                       (-> maybe-record
+                           meta :sci.impl.record/constructor))])
+          args (analyze-children ctx args)] ;; analyze args!
       #?(:clj
          (ctx-fn
           (fn [ctx bindings]
             (interop/invoke-constructor class (mapv #(eval/eval ctx bindings %) args)))
           expr)
          :cljs
-         (ctx-fn
-          (fn [ctx bindings]
-            (interop/invoke-constructor (eval/eval ctx bindings class)
-                                        (mapv #(eval/eval ctx bindings %) args)))
-          expr)))
+         (cond maybe-record-constructor
+               (return-call ctx
+                            ;; for backwards compatibility with error reporting
+                            expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
+                            maybe-record-constructor
+                            args
+                            (assoc (meta expr)
+                                   :ns @vars/current-ns
+                                   :file @vars/current-file)
+                            nil)
+               var?
+               (ctx-fn
+                (fn [ctx bindings]
+                  (interop/invoke-constructor (deref maybe-var)
+                                              (mapv #(eval/eval ctx bindings %) args)))
+                expr)
+               (instance? sci.impl.types/EvalFn class)
+               (ctx-fn
+                (fn [ctx bindings]
+                  (interop/invoke-constructor (eval/eval ctx bindings class)
+                                              (mapv #(eval/eval ctx bindings %) args)))
+                expr)
+               :else
+               (ctx-fn
+                (fn [ctx bindings]
+                  (interop/invoke-constructor class ;; no eval needed
+                                              (mapv #(eval/eval ctx bindings %) args)))
+                expr))))
     (if-let [record (records/resolve-record-class ctx class-sym)]
       (let [args (analyze-children ctx args)]
         ;; _ctx expr f analyzed-children stack
