@@ -766,19 +766,35 @@
                                                   ;; TODO: deprecate
                                                   (:constructor opts)
                                                   (:class opts)))]
-                                (ctx-fn (fn [_ctx _bindings]
-                                          clazz)
-                                        class-sym))
+                                clazz)
                               (when (contains? (:bindings ctx) class-sym)
                                 (ctx-fn (fn [_ctx bindings]
                                           (eval/resolve-symbol bindings class-sym))
-                                        class-sym))))]
+                                        class-sym))
+                              (when-let [x (resolve/lookup* ctx class-sym false true)]
+                                (let [x (second x)]
+                                  (when (vars/var? x)
+                                    (ctx-fn (fn [_ctx _bindings]
+                                              (deref x))
+                                            class-sym))))))]
     (let [args (analyze-children ctx args)] ;; analyze args!
-      (ctx-fn
-       (fn [ctx bindings]
-         (interop/invoke-constructor #?(:clj class :cljs (eval/eval ctx bindings class))
-                                     (mapv #(eval/eval ctx bindings %) args)))
-       expr))
+      #?(:clj
+         (ctx-fn
+          (fn [ctx bindings]
+            (interop/invoke-constructor class (mapv #(eval/eval ctx bindings %) args)))
+          expr)
+         :cljs
+         (if (instance? sci.impl.types/EvalFn class)
+           (ctx-fn
+            (fn [ctx bindings]
+              (interop/invoke-constructor (eval/eval ctx bindings class)
+                                          (mapv #(eval/eval ctx bindings %) args)))
+            expr)
+           (ctx-fn
+            (fn [ctx bindings]
+              (interop/invoke-constructor class ;; can skip eval here
+                                          (mapv #(eval/eval ctx bindings %) args)))
+            expr))))
     (if-let [record (records/resolve-record-class ctx class-sym)]
       (let [args (analyze-children ctx args)]
         ;; _ctx expr f analyzed-children stack
