@@ -35,58 +35,63 @@
                     false)
             (throw-error-with-location (str sym " is not allowed!") sym))))))
 
-(defn lookup* [ctx sym call?]
-  (let [sym-ns (some-> (namespace sym) symbol)
-        sym-name (symbol (name sym))
-        env (faster/get-2 ctx :env)
-        env @env
-        cnn (vars/current-ns-name)
-        the-current-ns (-> env :namespaces cnn)
-        ;; resolve alias
-        sym-ns (when sym-ns (or (get-in the-current-ns [:aliases sym-ns])
-                                sym-ns))]
-    (if sym-ns
-      (or
-       (when (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))
-         (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
-             (when-let [v (when call? (get ana-macros sym-name))]
-               [sym v])))
-       (or (some-> env :namespaces sym-ns (find sym-name))
-           (when-let [clazz (interop/resolve-class ctx sym-ns)]
-             [sym (if call?
-                    (with-meta
-                      [clazz sym-name]
-                      {:sci.impl.analyzer/static-access true})
-                    (ctx-fn
-                     (fn [_ctx _bindings]
-                       (interop/get-static-field [clazz sym-name]))
-                     nil
-                     sym
-                     (assoc (meta sym)
-                            :file @vars/current-file
-                            :ns @vars/current-ns)))])))
-      ;; no sym-ns
-      (or
-       ;; prioritize refers over vars in the current namespace, see 527
-       (when-let [refers (:refers the-current-ns)]
-         (find refers sym-name))
-       (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
-       (let [kv (some-> env :namespaces (get 'clojure.core) (find sym-name))]
-         ;; only valid when the symbol isn't excluded
-         (when-not (some-> the-current-ns
-                           :refer
-                           (get 'clojure.core)
-                           :exclude
-                           (contains? sym-name))
-           kv))
-       (when (when call? (get ana-macros sym))
-         [sym sym])
-       (when-let [c (interop/resolve-class ctx sym)]
-         [sym c])
-       ;; resolves record or protocol referenced as class
-       ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
-       (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
-         [sym x])))))
+(defn lookup*
+  ([ctx sym call?] (lookup* ctx sym call? false))
+  ([ctx sym call? only-var?]
+   (let [sym-ns (some-> (namespace sym) symbol)
+         sym-name (symbol (name sym))
+         env (faster/get-2 ctx :env)
+         env @env
+         cnn (vars/current-ns-name)
+         the-current-ns (-> env :namespaces cnn)
+         ;; resolve alias
+         sym-ns (when sym-ns (or (get-in the-current-ns [:aliases sym-ns])
+                                 sym-ns))]
+     (if sym-ns
+       (or
+        (when (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))
+          (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
+              (when-let [v (when call? (get ana-macros sym-name))]
+                [sym v])))
+        (or (some-> env :namespaces sym-ns (find sym-name))
+            (when-not only-var?
+                 (when-let [clazz (interop/resolve-class ctx sym-ns)]
+                   [sym (if call?
+                          (with-meta
+                            [clazz sym-name]
+                            {:sci.impl.analyzer/static-access true})
+                          (ctx-fn
+                           (fn [_ctx _bindings]
+                             (interop/get-static-field [clazz sym-name]))
+                           nil
+                           sym
+                           (assoc (meta sym)
+                                  :file @vars/current-file
+                                  :ns @vars/current-ns)))]))))
+       ;; no sym-ns
+       (or
+        ;; prioritize refers over vars in the current namespace, see 527
+        (when-let [refers (:refers the-current-ns)]
+          (find refers sym-name))
+        (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
+        (let [kv (some-> env :namespaces (get 'clojure.core) (find sym-name))]
+          ;; only valid when the symbol isn't excluded
+          (when-not (some-> the-current-ns
+                            :refer
+                            (get 'clojure.core)
+                            :exclude
+                            (contains? sym-name))
+            kv))
+        (when (when call? (get ana-macros sym))
+          [sym sym])
+        (when-not only-var?
+          (or
+           (when-let [c (interop/resolve-class ctx sym)]
+             [sym c])
+           ;; resolves record or protocol referenced as class
+           ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
+           (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+             [sym x]))))))))
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
