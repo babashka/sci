@@ -127,7 +127,7 @@
      (is (= 42 (tu/eval* "(js/parseInt (.-message (js/Error. \"42\")))"
                          {:classes {:allow :all
                                     'js js/global}})))
-     (is (= 42 (tu/eval* "(def err js/Error) (js/parseInt. (.-message (err. \"42\")))"
+     (is (= 42 (tu/eval* "(let [err js/Error] (js/parseInt (.-message (err. \"42\"))))"
                          {:classes {:allow :all
                                     'js js/global}})))))
 

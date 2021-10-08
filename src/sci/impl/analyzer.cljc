@@ -7,6 +7,7 @@
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.evaluator :as eval]
+   #?(:cljs [sci.impl.faster :as faster])
    [sci.impl.fns :as fns]
    [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
@@ -760,15 +761,22 @@
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
   (if-let [class #?(:clj (:class (interop/resolve-class-opts ctx class-sym))
-                    :cljs (when-let [opts (interop/resolve-class-opts ctx class-sym)]
-                            (or
-                             ;; TODO: deprecate
-                             (:constructor opts)
-                             (:class opts))))]
+                    :cljs (or (when-let [clazz (when-let [opts (interop/resolve-class-opts ctx class-sym)]
+                                                 (or
+                                                  ;; TODO: deprecate
+                                                  (:constructor opts)
+                                                  (:class opts)))]
+                                (ctx-fn (fn [_ctx _bindings]
+                                          clazz)
+                                        class-sym))
+                              (when (contains? (:bindings ctx) class-sym)
+                                (ctx-fn (fn [_ctx bindings]
+                                          (eval/resolve-symbol bindings class-sym))
+                                        class-sym))))]
     (let [args (analyze-children ctx args)] ;; analyze args!
       (ctx-fn
        (fn [ctx bindings]
-         (interop/invoke-constructor #?(:clj class :cljs class)
+         (interop/invoke-constructor #?(:clj class :cljs (eval/eval ctx bindings class))
                                      (mapv #(eval/eval ctx bindings %) args)))
        expr))
     (if-let [record (records/resolve-record-class ctx class-sym)]
