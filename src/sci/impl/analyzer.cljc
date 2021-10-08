@@ -759,15 +759,16 @@
   (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
-  (if-let [#?(:clj {:keys [:class] :as _opts}
-              :cljs {:keys [:constructor] :as opts
-                     ;; TODO: deprecate :constructor
-                     ;; nbb maps constructor via ns form which uses imports and adds classes
-                     :or {constructor (:class opts)}}) (interop/resolve-class-opts ctx class-sym)]
+  (if-let [class #?(:clj (:class (interop/resolve-class-opts ctx class-sym))
+                    :cljs (when-let [opts (interop/resolve-class-opts ctx class-sym)]
+                            (or
+                             ;; TODO: deprecate
+                             (:constructor opts)
+                             (:class opts))))]
     (let [args (analyze-children ctx args)] ;; analyze args!
       (ctx-fn
        (fn [ctx bindings]
-         (interop/invoke-constructor #?(:clj class :cljs constructor)
+         (interop/invoke-constructor #?(:clj class :cljs class)
                                      (mapv #(eval/eval ctx bindings %) args)))
        expr))
     (if-let [record (records/resolve-record-class ctx class-sym)]
