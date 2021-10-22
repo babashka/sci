@@ -3,9 +3,9 @@
   (:require
    #?(:cljs [goog.string])
    [sci.impl.namespaces :as namespaces]
+   [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]
-   [sci.impl.types :as types]
    [sci.lang])
   #?(:clj (:import [sci.impl.types IReified])))
 
@@ -131,7 +131,6 @@
            :imports
            :features
            :load-fn
-           :uberscript ;; used by babashka, not public!
            :readers
            :reify-fn
            :proxy-fn
@@ -145,7 +144,6 @@
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
-                   :uberscript uberscript
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
                    :disable-arity-checks disable-arity-checks
@@ -163,7 +161,6 @@
                 :imports
                 :features
                 :load-fn
-                :uberscript ;; used by babashka, not public!
                 :readers
                 :reify-fn
                 :disable-arity-checks]
@@ -175,7 +172,6 @@
         ctx (assoc (->ctx {} env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
-                   :uberscript uberscript
                    :reify-fn reify-fn
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)

@@ -13,17 +13,6 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def stats (atom {:parse 0 :analysis 0 :eval 0 :total 0}))
-(defn update-stats [_ctx k t]
-  (swap! stats (fn [stats]
-                 (-> stats
-                     (update k + t)
-                     (update :total + t)))))
-
-(defn print-stats []
-  (prn (zipmap (keys @stats)
-               (map #(/ (double %) 1000000.0) (vals @stats)))))
-
 (defn eval-form [ctx form]
   (if (seq? form)
     (if (= 'do (first form))
@@ -34,16 +23,13 @@
            (rest exprs)
            (eval-form ctx (first exprs)))
           ret))
-      (when (or (not (:uberscript ctx))
-                (= 'ns (first form))
-                (= 'require (first form)))
-        (let [analyzed (ana/analyze ctx form true)
-              bindings (:bindings ctx)
-              ret (if (instance? #?(:clj sci.impl.types.EvalForm
-                                    :cljs sci.impl.types/EvalForm) analyzed)
-                    (eval-form ctx (t/getVal analyzed))
-                    (eval/eval ctx bindings analyzed))]
-          ret)))
+      (let [analyzed (ana/analyze ctx form true)
+            bindings (:bindings ctx)
+            ret (if (instance? #?(:clj sci.impl.types.EvalForm
+                                  :cljs sci.impl.types/EvalForm) analyzed)
+                  (eval-form ctx (t/getVal analyzed))
+                  (eval/eval ctx bindings analyzed))]
+        ret))
     (let [analyzed (ana/analyze ctx form)
           bindings (:bindings ctx)
           ret (eval/eval ctx bindings analyzed)]

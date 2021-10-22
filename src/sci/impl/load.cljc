@@ -44,9 +44,8 @@
                                                (assoc ns (rename-sym sym)
                                                       (if-let [[_k v] (find the-loaded-ns sym)]
                                                         v
-                                                        (when-not (:uberscript ctx)
-                                                          (throw (new #?(:clj Exception :cljs js/Error)
-                                                                      (str sym " does not exist"))))))
+                                                        (throw (new #?(:clj Exception :cljs js/Error)
+                                                                    (str sym " does not exist")))))
                                                ns))
                                            referred
                                            refer)]
@@ -74,8 +73,7 @@
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
         namespaces (get env :namespaces)
-        uberscript (:uberscript ctx)
-        reload* (or reload reload-all (:reload-all ctx) uberscript)]
+        reload* (or reload reload-all (:reload-all ctx))]
     (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
       (let [loading (:loading ctx)]
         (if (and loading
