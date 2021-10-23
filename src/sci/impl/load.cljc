@@ -92,6 +92,8 @@
         (if-let [{:keys [:file :source]} (load-fn {:namespace lib
                                                    :reload (or reload reload-all)})]
           (do
+            ;; (.println System/err "source")
+            ;; (.println System/err source)
             (let [ctx (-> ctx
                           (assoc :bindings {})
                           (assoc :reload-all reload-all)

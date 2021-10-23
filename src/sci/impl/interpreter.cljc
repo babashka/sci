@@ -14,6 +14,8 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (defn eval-form [ctx form]
+  ;; (.println System/err "form")
+  ;; (.println System/err form)
   (if (seq? form)
     (if (= 'do (first form))
       (loop [exprs (rest form)
