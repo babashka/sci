@@ -1,6 +1,6 @@
 <img src="logo/logo-300dpi.png" width="100px">
 
-[![CircleCI](https://circleci.com/gh/borkdude/sci/tree/master.svg?style=shield)](https://circleci.com/gh/borkdude/sci/tree/master)
+[![CircleCI](https://circleci.com/gh/babashka/SCI/tree/master.svg?style=shield)](https://circleci.com/gh/babashka/SCI/tree/master)
 [![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
 [![Financial Contributors on Open Collective](https://opencollective.com/babashka/all/badge.svg?label=financial+contributors)](https://opencollective.com/babashka)
 [![project chat](https://img.shields.io/badge/slack-join_chat-brightgreen.svg)](https://app.slack.com/client/T03RZGPFR/C015LCR9MHD)
@@ -8,7 +8,7 @@
 **Small Clojure Interpreter**
 
 <blockquote class="twitter-tweet" data-lang="en">
-    <p lang="en" dir="ltr">I want a limited dialect of Clojure for a single-purpose, scripted application. Sci will fit nicely.</p>
+    <p lang="en" dir="ltr">I want a limited dialect of Clojure for a single-purpose, scripted application. SCI will fit nicely.</p>
     &mdash;
     <a href="https://twitter.com/tiagoluchini/status/1193144124142211073">@tiagoluchini</a>
 </blockquote>
@@ -23,7 +23,7 @@
 (sci/eval-string "(inc x)" {:namespaces {'user {'x 2}}}) ;;=> 3
 ```
 
-Try SCI in your browser at [NextJournal](https://nextjournal.github.io/clojure-mode/).
+Try SCI in your browser at o[NextJournal](https://nextjournal.github.io/clojure-mode/).
 
 For usage with GraalVM `native-image` check [here](#graalvm).
 
@@ -38,9 +38,9 @@ This library works with:
 - Clojure compiled with GraalVM native
 - ClojureScript, even when compiled with `:advanced`, and JavaScript
 
-## Projects using sci
+## Projects using SCI
 
-Sci is used in:
+SCI is used in:
 
 - [4ever-clojure](https://4clojure.oxal.org/). 4clojure as a static web page.
 - [Babashka](https://github.com/babashka/babashka). A Clojure scripting tool that plays well with Bash.
@@ -80,7 +80,7 @@ Use as a dependency:
 
 ## API docs
 
-See the generated [codox](https://borkdude.github.io/sci/doc/codox)
+See the generated [codox](https://babashka.org/SCI/doc/codox)
 documentation.
 
 ## Usage
@@ -88,7 +88,7 @@ documentation.
 The main API function is `sci.core/eval-string` which takes a string to evaluate
 and an optional options map.
 
-In `sci`, `defn` does not mutate the outside world, only the evaluation
+In SCI, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
 
 By default SCI only enables access to most of the Clojure core functions.  More
@@ -199,8 +199,8 @@ SCI vars can be bound from Clojure using `sci/binding`:
 (sci/binding [x 11] (sci/eval-string "(inc *x*)" {:namespaces {'user {'*x* x2}}})) ;;=> 11
 ```
 
-The dynamic vars `*in*`, `*out*`, `*err*` SCI a sci program correspond to the
-dynamic sci vars `sci/in`, `sci/out` and `sci/err` in the API. These
+The dynamic vars `*in*`, `*out*`, `*err*` in a SCI program correspond to the
+dynamic SCI vars `sci/in`, `sci/out` and `sci/err` in the API. These
 vars can be rebound as well:
 
 ``` clojure
@@ -690,7 +690,7 @@ $ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt
 - [adgoji](https://www.adgoji.com/) for financial support.
 - [Clojurists Together](https://www.clojuriststogether.org/) for financial support.
 - [Lee Read](https://github.com/lread/) for the logo.
-- [contributors](https://github.com/borkdude/sci/graphs/contributors) and other users posting issues with bug reports and ideas
+- [contributors](https://github.com/babashka/SCI/graphs/contributors) and other users posting issues with bug reports and ideas
 
 ## License
 
