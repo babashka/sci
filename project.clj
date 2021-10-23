@@ -1,11 +1,11 @@
-(defproject borkdude/sci
+(defproject org.babashka/sci
   #=(clojure.string/trim
      #=(slurp "resources/SCI_VERSION"))
   ;; :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
   :description "Small Clojure Interpreter"
-  :url "https://github.com/borkdude/sci"
+  :url "https://github.com/babashka/SCI"
   :scm {:name "git"
-        :url "https://github.com/borkdude/sci"}
+        :url "https://github.com/babashka/SCI"}
   :license {:name "Eclipse Public License 1.0"
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
   :source-paths ["src"]
