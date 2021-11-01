@@ -708,6 +708,12 @@
       'swapVals core-protocols/swapVals
       }))
 
+;;;; Record impl
+
+(def sci-impl-records
+  {:obj (vars/->SciNamespace 'sci.impl.records nil)
+   'toString records/to-string})
+
 ;;;; REPL vars
 
 (def *1 (vars/->SciVar nil '*1 {:ns clojure-core-ns
@@ -854,6 +860,7 @@
    '-new-dynamic-var (core-var '-new-dynamic-var #(vars/new-var (gensym) nil {:dynamic true}))
    ;; used in let-fn
    '-new-var (core-var '-new-var #(vars/new-var (gensym) nil))
+   '->record-impl (copy-core-var records/->record-impl)
    ;; end private
    '.. (macrofy '.. double-dot)
    '= (copy-core-var =)
@@ -1621,7 +1628,8 @@
    'clojure.repl clojure-repl
    'clojure.edn {:obj clojure-edn-namespace
                  'read (copy-var edn/read clojure-edn-namespace)
-                 'read-string (copy-var edn/read-string clojure-edn-namespace)}})
+                 'read-string (copy-var edn/read-string clojure-edn-namespace)}
+   'sci.impl.records sci-impl-records})
 
 (def aliases
   '{str clojure.string
