@@ -169,3 +169,7 @@
 (deftest to-string-test
   (let [prog "(defrecord A [x] Object (toString [x] (str \"ARecord@\" (into {} x)))) (str (->A 1))"]
     (is (= "ARecord@{:x 1}" (tu/eval* prog {})))))
+
+(deftest roundtrip-test
+  (let [prog "(ns foo) (defrecord A [x y z]) (str [#foo.A{:x 1 :y 2 :z 3} (read-string \"#foo.A{:x 1 :y 2 :z 3}\")])"]
+    (is (= "[#foo.A{:x 1, :y 2, :z 3} #foo.A{:x 1, :y 2, :z 3}]" (tu/eval* prog {})))))

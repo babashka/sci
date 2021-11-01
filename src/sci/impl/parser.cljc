@@ -95,7 +95,11 @@
                                    :features features
                                    :auto-resolve auto-resolve
                                    :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
-                                   :readers readers)
+                                   :readers (fn [t]
+                                              (or (and readers (readers t))
+                                                  (some-> (@utils/eval-resolve-state ctx {} t)
+                                                          meta
+                                                          :sci.impl.record/map-constructor))))
                       opts (merge opts))
          ret (try (let [v (edamame/parse-next parse-opts r)]
                     (if (utils/kw-identical? v :edamame.impl.parser/eof)
