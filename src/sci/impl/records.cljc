@@ -96,7 +96,6 @@
                                            `(~args
                                              (let ~bindings
                                                ~@body)))) bodies)]
-                      (prn `(defmethod ~(fq-meth-name (str method-name)) '~rec-type ~@bodies))
                       `(defmethod ~(fq-meth-name (str method-name)) '~rec-type ~@bodies)))
                   impls)))
          protocol-impls

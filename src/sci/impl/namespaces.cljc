@@ -486,8 +486,11 @@
   nil)
 
 (defn sci-all-ns [ctx]
-  (let [env (:env ctx)]
-    (map #(utils/namespace-object env % true nil) (keys (get @env :namespaces)))))
+  (let [env (:env ctx)
+        namespaces (get @env :namespaces)
+        public (remove (fn [[_ v]]
+                         (:private v)) namespaces)]
+    (map #(utils/namespace-object env % true nil) (keys public))))
 
 (defn sci-remove-ns [ctx sym]
   (let [env (:env ctx)]
@@ -694,7 +697,8 @@
 
 #?(:clj
    (def clojure-lang
-     {:obj (vars/->SciNamespace 'clojure.lang nil)
+     {:private true
+      :obj (vars/->SciNamespace 'clojure.lang nil)
       ;; IDeref as protocol instead of class
       'IDeref core-protocols/deref-protocol
       'deref core-protocols/deref
@@ -712,6 +716,7 @@
 
 (def sci-impl-records
   {:obj (vars/->SciNamespace 'sci.impl.records nil)
+   :private true
    'toString records/to-string})
 
 ;;;; REPL vars
