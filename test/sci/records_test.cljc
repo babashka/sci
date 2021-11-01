@@ -46,8 +46,8 @@
   (let [prog "
 (defprotocol Foo (sayhello [_ name] \"print a name\"))
 (defrecord Greeter [x y] Foo (sayhello [x _] x))
-(sayhello (Greeter. \"x\" \"y\") \"john\")"]
-    (is (= {:x "x" :y "y"} (into {} (tu/eval* prog {})))))
+(into {} (sayhello (Greeter. \"x\" \"y\") \"john\"))"]
+    (is (= {:x "x" :y "y"} (tu/eval* prog {}))))
   (testing "protocol impl arg shadows this arg (the first one)"
     (let [prog "
 (defprotocol Foo (sayhello [_ name] \"print a name\"))
@@ -140,11 +140,10 @@
     (is (= 12 (tu/eval* prog {}))))
   (testing "constructor can be used in protocol impls"
     (is (= {:x 1}
-           (into {}
-                 (tu/eval*
-                  "(defprotocol IFoo (foo [this]))
+           (tu/eval*
+            "(defprotocol IFoo (foo [this]))
              (defrecord Foo [x] IFoo (foo [this] (Foo. x)))
-             (foo (Foo. 1))" {}))))))
+             (into {} (foo (Foo. 1)))" {})))))
 
 (deftest namespace-test
   (let [prog "
