@@ -1,7 +1,7 @@
 <img src="logo/logo-300dpi.png" width="100px">
 
 [![CircleCI](https://circleci.com/gh/babashka/SCI/tree/master.svg?style=shield)](https://circleci.com/gh/babashka/SCI/tree/master)
-[![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
+[![Clojars Project](https://img.shields.io/clojars/v/org.babashka/sci.svg)](https://clojars.org/org.babashka/sci)
 [![Financial Contributors on Open Collective](https://opencollective.com/babashka/all/badge.svg?label=financial+contributors)](https://opencollective.com/babashka)
 [![project chat](https://img.shields.io/badge/slack-join_chat-brightgreen.svg)](https://app.slack.com/client/T03RZGPFR/C015LCR9MHD)
 
@@ -76,7 +76,7 @@ be documented in the [CHANGELOG.md](CHANGELOG.md).
 
 Use as a dependency:
 
-[![Clojars Project](https://img.shields.io/clojars/v/borkdude/sci.svg)](https://clojars.org/borkdude/sci)
+[![Clojars Project](https://img.shields.io/clojars/v/org.babashka/sci.svg)](https://clojars.org/org.babashka/sci)
 
 ## API docs
 

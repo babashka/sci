@@ -486,8 +486,11 @@
   nil)
 
 (defn sci-all-ns [ctx]
-  (let [env (:env ctx)]
-    (map #(utils/namespace-object env % true nil) (keys (get @env :namespaces)))))
+  (let [env (:env ctx)
+        namespaces (get @env :namespaces)
+        public (remove (fn [[_ v]]
+                         (:private v)) namespaces)]
+    (map #(utils/namespace-object env % true nil) (keys public))))
 
 (defn sci-remove-ns [ctx sym]
   (let [env (:env ctx)]
@@ -694,7 +697,8 @@
 
 #?(:clj
    (def clojure-lang
-     {:obj (vars/->SciNamespace 'clojure.lang nil)
+     {:private true
+      :obj (vars/->SciNamespace 'clojure.lang nil)
       ;; IDeref as protocol instead of class
       'IDeref core-protocols/deref-protocol
       'deref core-protocols/deref
@@ -707,6 +711,13 @@
       'resetVals core-protocols/resetVals
       'swapVals core-protocols/swapVals
       }))
+
+;;;; Record impl
+
+(def sci-impl-records
+  {:obj (vars/->SciNamespace 'sci.impl.records nil)
+   :private true
+   'toString records/to-string})
 
 ;;;; REPL vars
 
@@ -854,6 +865,7 @@
    '-new-dynamic-var (core-var '-new-dynamic-var #(vars/new-var (gensym) nil {:dynamic true}))
    ;; used in let-fn
    '-new-var (core-var '-new-var #(vars/new-var (gensym) nil))
+   '->record-impl (copy-core-var records/->record-impl)
    ;; end private
    '.. (macrofy '.. double-dot)
    '= (copy-core-var =)
@@ -1621,7 +1633,8 @@
    'clojure.repl clojure-repl
    'clojure.edn {:obj clojure-edn-namespace
                  'read (copy-var edn/read clojure-edn-namespace)
-                 'read-string (copy-var edn/read-string clojure-edn-namespace)}})
+                 'read-string (copy-var edn/read-string clojure-edn-namespace)}
+   'sci.impl.records sci-impl-records})
 
 (def aliases
   '{str clojure.string

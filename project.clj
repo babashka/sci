@@ -1,17 +1,17 @@
-(defproject borkdude/sci
+(defproject org.babashka/sci
   #=(clojure.string/trim
      #=(slurp "resources/SCI_VERSION"))
   ;; :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
   :description "Small Clojure Interpreter"
-  :url "https://github.com/borkdude/sci"
+  :url "https://github.com/babashka/SCI"
   :scm {:name "git"
-        :url "https://github.com/borkdude/sci"}
+        :url "https://github.com/babashka/SCI"}
   :license {:name "Eclipse Public License 1.0"
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/sci.impl.reflector "0.0.1"]
-                 [borkdude/edamame "0.0.11"]]
+                 [borkdude/edamame "0.0.14"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :native-image {:dependencies [[org.clojure/clojure "1.10.3"]]}
