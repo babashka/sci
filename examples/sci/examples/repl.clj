@@ -2,7 +2,7 @@
   (:require [sci.core :as sci]))
 
 (defn prompt [ctx]
-  ;; fetch the current namespace name for printig a prompt
+  ;; fetch the current namespace name for printing a prompt
   (let [ns-name (sci/eval-string* ctx "(ns-name *ns*)")]
     (print (str ns-name "> "))
     (flush)))
