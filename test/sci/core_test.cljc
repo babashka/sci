@@ -3,7 +3,8 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci :refer [eval-string]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [sci.copy-ns-test-ns]))
 
 #?(:cljs
    (defn testing-vars-str
@@ -1194,6 +1195,20 @@
                                {:classes {'js goog/global :allow :all}})))
      (testing "js objects are not instantiated at read time, but at runtime, rendering new objects each time"
        (sci/eval-string "(apply identical? (for [x [1 2]] #js {:a 1}))" {:classes {'js goog/global :allow :all}}))))
+
+(deftest copy-ns-test
+  (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
+                            (sci/create-ns 'sci.copy-ns-test-ns)
+                            {:include [foo bar]
+                             :exclude [baz]})]
+    (is (map? sci-ns))
+    (is (= 2 (count sci-ns)))
+    (is (= #{'foo 'bar} (set (keys sci-ns))))
+    (is (= [:foo :bar] (sci/eval-string
+                        "(require '[sci.copy-ns-test-ns :refer [foo bar]])
+                         [(foo) (bar)]"
+                        {:namespaces {'sci.copy-ns-test-ns sci-ns}} )))))
+
 
 ;;;; Scratch
 

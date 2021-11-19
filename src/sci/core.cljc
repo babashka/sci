@@ -318,6 +318,11 @@
           {}
           ns-publics-map))
 
+(defn process-publics [publics {:keys [include exclude]}]
+  (let [publics (if include (select-keys publics include) publics)
+        publics (if exclude (apply dissoc publics exclude) publics)]
+    publics))
+
 (macros/deftime
   (def ^:private cljs-ns-publics
     (try (resolve 'cljs.analyzer.api/ns-publics)
@@ -325,15 +330,23 @@
                    :cljs :default) _ nil)))
   (defmacro copy-ns
     "Returns map of names to SCI vars as a result of copying public
-  Clojure vars from ns-sym (a quoted symbol). Attaches sci-ns (result
+  Clojure vars from ns-sym (a symbol). Attaches sci-ns (result
   of sci/create-ns) to meta. Copies :name, :macro :doc, :no-doc
-  and :argslists metadata."
+  and :argslists metadata.
+  Options:
+  - :include: a seqable of names to include from the namespace.
+  - :exclude: a seqable of names to exclude from the namespace."
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
-    ([ns-sym sci-ns _opts]
-     (assert (and (seqable? ns-sym)
-                  (symbol? (second ns-sym))) "ns-sym must be a quoted symbol")
-     (macros/? :clj `(-copy-ns (ns-publics ~ns-sym) ~sci-ns)
-               :cljs (let [publics-map (cljs-ns-publics (second ns-sym))
+    ([ns-sym sci-ns opts]
+     (macros/? :clj (let [publics-map (ns-publics ns-sym)
+                          publics-map (process-publics publics-map opts)
+                          publics-map (zipmap (map (fn [k]
+                                                     (list 'quote k))
+                                                   (keys publics-map))
+                                              (vals publics-map))]
+                      `(-copy-ns ~publics-map ~sci-ns))
+               :cljs (let [publics-map (cljs-ns-publics ns-sym)
+                           publics-map (process-publics publics-map opts)
                            publics-map (zipmap (map (fn [k]
                                                       (list 'quote k))
                                                     (keys publics-map))
