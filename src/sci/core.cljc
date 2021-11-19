@@ -342,6 +342,7 @@
                                                        :val (:name m)
                                                        :meta (select-keys (:meta m) [:arglists
                                                                                      :no-doc
+                                                                                     :macro
                                                                                      :doc])})
                                                     (vals publics-map)))]
                        `(-copy-ns ~publics-map ~sci-ns))))))
