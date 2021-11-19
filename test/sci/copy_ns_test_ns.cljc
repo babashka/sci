@@ -12,3 +12,5 @@
   [])
 
 (defn quux {:exclude-this true} [])
+
+(defn skip-wiki {:skip-wiki true} [])

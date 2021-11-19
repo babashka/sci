@@ -1215,8 +1215,8 @@
                             (sci/create-ns 'sci.copy-ns-test-ns)
                             {:exclude-when-meta [:exclude-this]
                              :copy-meta :all})]
-    (is (= 3 (count sci-ns)))
-    (is (= #{'foo 'bar 'baz} (set (keys sci-ns))))
+    (is (= 4 (count sci-ns)))
+    (is (= #{'foo 'bar 'baz 'skip-wiki} (set (keys sci-ns))))
     (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
     (is (:copy-this (meta (get sci-ns 'foo))))
     (is (:awesome-meta (meta (get sci-ns 'baz))))))

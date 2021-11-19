@@ -361,7 +361,8 @@
                                          {:name (list 'quote (:name m))
                                           :val (deref var)
                                           :meta (list 'quote (mf m))})
-                                       (:exclude-when-meta opts))]
+                                       (or (:exclude-when-meta opts)
+                                           [:no-doc :skip-wiki]))]
                       `(-copy-ns ~publics-map ~sci-ns))
                :cljs (let [publics-map (cljs-ns-publics ns-sym)
                            publics-map (process-publics publics-map opts)
@@ -375,7 +376,8 @@
                                           {:name (list 'quote (:name var))
                                            :val (:name var)
                                            :meta (mf m)})
-                                        (:exclude-when-meta opts))]
+                                        (or (:exclude-when-meta opts)
+                                            [:no-doc :skip-wiki]))]
                        `(-copy-ns ~publics-map ~sci-ns))))))
 
 ;;;; Scratch
