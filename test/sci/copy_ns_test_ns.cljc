@@ -1,5 +1,14 @@
 (ns sci.copy-ns-test-ns)
 
-(defn foo [] :foo)
+(defn foo
+  "YOLO"
+  {:copy-this true}
+  [] :foo)
+
 (defn bar [] :bar)
-(defn baz []) ;; excluded from SCI ns
+
+(defn baz
+  {:awesome-meta true}
+  [])
+
+(defn quux {:exclude-this true} [])

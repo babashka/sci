@@ -1200,16 +1200,26 @@
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                             (sci/create-ns 'sci.copy-ns-test-ns)
                             {:include [foo bar]
-                             :exclude [baz]})]
+                             :exclude [baz]
+                             :copy-meta [:doc :copy-this]})]
     (is (map? sci-ns))
     (is (= 2 (count sci-ns)))
     (is (= #{'foo 'bar} (set (keys sci-ns))))
     (is (= [:foo :bar] (sci/eval-string
                         "(require '[sci.copy-ns-test-ns :refer [foo bar]])
                          [(foo) (bar)]"
-                        {:namespaces {'sci.copy-ns-test-ns sci-ns}} )))))
-
-
+                        {:namespaces {'sci.copy-ns-test-ns sci-ns}})))
+    (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
+    (is (:copy-this (meta (get sci-ns 'foo)))))
+  (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
+                            (sci/create-ns 'sci.copy-ns-test-ns)
+                            {:exclude-when-meta [:exclude-this]
+                             :copy-meta :all})]
+    (is (= 3 (count sci-ns)))
+    (is (= #{'foo 'bar 'baz} (set (keys sci-ns))))
+    (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
+    (is (:copy-this (meta (get sci-ns 'foo))))
+    (is (:awesome-meta (meta (get sci-ns 'baz))))))
 
 ;;;; Scratch
 

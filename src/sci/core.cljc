@@ -301,20 +301,10 @@
   {:no-doc true}
   [ns-publics-map sci-ns]
   (reduce (fn [ns-map [var-name var]]
-            (let [m #?(:clj (meta var)
-                       :cljs (:meta var))
-                  no-doc (:no-doc m)
-                  doc (:doc m)
-                  arglists (:arglists m)]
-              (if no-doc ns-map
-                  (assoc ns-map var-name
-                         (new-var (symbol var-name) #?(:clj @var
-                                                       :cljs (:val var))
-                                  (cond-> {:ns sci-ns
-                                           :name (:name m)}
-                                    (:macro m) (assoc :macro true)
-                                    doc (assoc :doc doc)
-                                    arglists (assoc :arglists arglists)))))))
+            (let [m (:meta var)]
+              (assoc ns-map var-name
+                     (new-var (symbol var-name) (:val var)
+                              (assoc m :ns sci-ns)))))
           {}
           ns-publics-map))
 
@@ -322,6 +312,23 @@
   (let [publics (if include (select-keys publics include) publics)
         publics (if exclude (apply dissoc publics exclude) publics)]
     publics))
+
+(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys ]
+  (reduce (fn [ns-map [var-name var]]
+            (let [m (meta-fn var)]
+              (if (some m skip-keys)
+                ns-map
+                (assoc ns-map (key-fn var-name) (val-fn var m)))))
+          {}
+          publics-map))
+
+(defn- meta-fn [opts]
+  (cond (= :all opts) identity
+        opts #(select-keys %  opts)
+        :else #(select-keys % [:arglists
+                               :no-doc
+                               :macro
+                               :doc])))
 
 (macros/deftime
   (def ^:private cljs-ns-publics
@@ -335,29 +342,40 @@
   and :argslists metadata.
   Options:
   - :include: a seqable of names to include from the namespace.
-  - :exclude: a seqable of names to exclude from the namespace."
+  - :exclude: a seqable of names to exclude from the namespace.
+  - :copy-meta: a seqable of keywords to copy from the original var meta.
+    Use :all instead of a seqable to copy all. Defaults to [:doc :arglists :macro].
+  - :exclude-when-meta: seqable of keywords; vars with meta matching these keys are excluded.
+    Defaults to [:no-doc :skip-wiki]"
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
      (macros/? :clj (let [publics-map (ns-publics ns-sym)
                           publics-map (process-publics publics-map opts)
-                          publics-map (zipmap (map (fn [k]
-                                                     (list 'quote k))
-                                                   (keys publics-map))
-                                              (vals publics-map))]
+                          mf (meta-fn (:copy-meta opts))
+                          publics-map (exclude-when-meta
+                                       publics-map
+                                       meta
+                                       (fn [k]
+                                         (list 'quote k))
+                                       (fn [var m]
+                                         {:name (list 'quote (:name m))
+                                          :val (deref var)
+                                          :meta (list 'quote (mf m))})
+                                       (:exclude-when-meta opts))]
                       `(-copy-ns ~publics-map ~sci-ns))
                :cljs (let [publics-map (cljs-ns-publics ns-sym)
                            publics-map (process-publics publics-map opts)
-                           publics-map (zipmap (map (fn [k]
-                                                      (list 'quote k))
-                                                    (keys publics-map))
-                                               (map (fn [m]
-                                                      {:name (list 'quote (:name m))
-                                                       :val (:name m)
-                                                       :meta (select-keys (:meta m) [:arglists
-                                                                                     :no-doc
-                                                                                     :macro
-                                                                                     :doc])})
-                                                    (vals publics-map)))]
+                           mf (meta-fn (:copy-meta opts))
+                           publics-map (exclude-when-meta
+                                        publics-map
+                                        :meta
+                                        (fn [k]
+                                          (list 'quote k))
+                                        (fn [var m]
+                                          {:name (list 'quote (:name var))
+                                           :val (:name var)
+                                           :meta (mf m)})
+                                        (:exclude-when-meta opts))]
                        `(-copy-ns ~publics-map ~sci-ns))))))
 
 ;;;; Scratch
