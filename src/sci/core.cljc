@@ -341,8 +341,8 @@
   of sci/create-ns) to meta. Copies :name, :macro :doc, :no-doc
   and :argslists metadata.
   Options:
-  - :include: a seqable of names to include from the namespace.
-  - :exclude: a seqable of names to exclude from the namespace.
+  - :include: a seqable of names to include from the namespace. Defaults to all.
+  - :exclude: a seqable of names to exclude from the namespace. Defaults to none.
   - :copy-meta: a seqable of keywords to copy from the original var meta.
     Use :all instead of a seqable to copy all. Defaults to [:doc :arglists :macro].
   - :exclude-when-meta: seqable of keywords; vars with meta matching these keys are excluded.
