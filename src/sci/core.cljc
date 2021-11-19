@@ -318,7 +318,7 @@
           {}
           ns-publics-map))
 
-(defn process-publics [publics {:keys [include exclude]}]
+(defn- process-publics [publics {:keys [include exclude]}]
   (let [publics (if include (select-keys publics include) publics)
         publics (if exclude (apply dissoc publics exclude) publics)]
     publics))
