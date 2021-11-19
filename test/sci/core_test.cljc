@@ -2,9 +2,9 @@
   (:require
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
+   [sci.copy-ns-test-ns]
    [sci.core :as sci :refer [eval-string]]
-   [sci.test-utils :as tu]
-   [sci.copy-ns-test-ns]))
+   [sci.test-utils :as tu]))
 
 #?(:cljs
    (defn testing-vars-str
@@ -1208,6 +1208,7 @@
                         "(require '[sci.copy-ns-test-ns :refer [foo bar]])
                          [(foo) (bar)]"
                         {:namespaces {'sci.copy-ns-test-ns sci-ns}} )))))
+
 
 
 ;;;; Scratch
