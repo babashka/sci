@@ -15,7 +15,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var]])))
+            [sci.core :refer [with-bindings with-out-str copy-var copy-ns]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -297,8 +297,53 @@
   [sci-ns]
   (namespaces/sci-ns-name sci-ns))
 
-;;;; Scratch
+(defn -copy-ns
+  {:no-doc true}
+  [ns-publics-map sci-ns]
+  (reduce (fn [ns-map [var-name var]]
+            (let [m #?(:clj (meta var)
+                       :cljs (:meta var))
+                  no-doc (:no-doc m)
+                  doc (:doc m)
+                  arglists (:arglists m)]
+              (if no-doc ns-map
+                  (assoc ns-map var-name
+                         (new-var (symbol var-name) #?(:clj @var
+                                                       :cljs (:val var))
+                                  (cond-> {:ns sci-ns
+                                           :name (:name m)}
+                                    (:macro m) (assoc :macro true)
+                                    doc (assoc :doc doc)
+                                    arglists (assoc :arglists arglists)))))))
+          {}
+          ns-publics-map))
 
-(comment
-  (eval-string "(inc x)" {:bindings {'x 2}})
-  )
+(macros/deftime
+  (def ^:private cljs-ns-publics
+    (try (resolve 'cljs.analyzer.api/ns-publics)
+         (catch #?(:clj Exception
+                   :cljs :default) _ nil)))
+  (defmacro copy-ns
+    "Returns map of names to SCI vars as a result of copying public
+  Clojure vars from ns-sym (a quoted symbol). Attaches sci-ns (result
+  of sci/create-ns) to meta. Copies :name, :macro :doc, :no-doc
+  and :argslists metadata."
+    ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
+    ([ns-sym sci-ns _opts]
+     (assert (and (seqable? ns-sym)
+                  (symbol? (second ns-sym))) "ns-sym must be a quoted symbol")
+     (macros/? :clj `(-copy-ns (ns-publics ~ns-sym) ~sci-ns)
+               :cljs (let [publics-map (cljs-ns-publics (second ns-sym))
+                           publics-map (zipmap (map (fn [k]
+                                                      (list 'quote k))
+                                                    (keys publics-map))
+                                               (map (fn [m]
+                                                      {:name (list 'quote (:name m))
+                                                       :val (:name m)
+                                                       :meta (select-keys (:meta m) [:arglists
+                                                                                     :no-doc
+                                                                                     :doc])})
+                                                    (vals publics-map)))]
+                       `(-copy-ns ~publics-map ~sci-ns))))))
+
+;;;; Scratch
