@@ -352,12 +352,11 @@
   - :exclude-when-meta: seqable of keywords; vars with meta matching
   these keys are excluded.  Defaults to [:no-doc :skip-wiki]
 
-  Any missing vars can be added after the fact with sci/copy-var
-  manually.
-
   The selection of vars is done at compile time which is mostly
   important for ClojureScript to not pull in vars into the compiled
-  JS."
+  JS. Any additional vars can be added after the fact with sci/copy-var
+  manually.
+"
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
      (macros/? :clj (let [publics-map (ns-publics ns-sym)
