@@ -308,9 +308,8 @@
           {}
           ns-publics-map))
 
-(defn- process-publics [publics {:keys [include exclude]}]
-  (let [publics (if include (select-keys publics include) publics)
-        publics (if exclude (apply dissoc publics exclude) publics)]
+(defn- process-publics [publics {:keys [exclude]}]
+  (let [publics (if exclude (apply dissoc publics exclude) publics)]
     publics))
 
 (defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys ]
@@ -337,16 +336,28 @@
                    :cljs :default) _ nil)))
   (defmacro copy-ns
     "Returns map of names to SCI vars as a result of copying public
-  Clojure vars from ns-sym (a symbol). Attaches sci-ns (result
-  of sci/create-ns) to meta. Copies :name, :macro :doc, :no-doc
+  Clojure vars from ns-sym (a symbol). Attaches sci-ns (result of
+  sci/create-ns) to meta. Copies :name, :macro :doc, :no-doc
   and :argslists metadata.
+
   Options:
-  - :include: a seqable of names to include from the namespace. Defaults to all.
-  - :exclude: a seqable of names to exclude from the namespace. Defaults to none.
-  - :copy-meta: a seqable of keywords to copy from the original var meta.
-    Use :all instead of a seqable to copy all. Defaults to [:doc :arglists :macro].
-  - :exclude-when-meta: seqable of keywords; vars with meta matching these keys are excluded.
-    Defaults to [:no-doc :skip-wiki]"
+
+  - :exclude: a seqable of names to exclude from the
+  namespace. Defaults to none.
+
+  - :copy-meta: a seqable of keywords to copy from the original var
+  meta.  Use :all instead of a seqable to copy all. Defaults
+  to [:doc :arglists :macro].
+
+  - :exclude-when-meta: seqable of keywords; vars with meta matching
+  these keys are excluded.  Defaults to [:no-doc :skip-wiki]
+
+  Any missing vars can be added after the fact with sci/copy-var
+  manually.
+
+  The selection of vars is done at compile time which is mostly
+  important for ClojureScript to not pull in vars into the compiled
+  JS."
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
      (macros/? :clj (let [publics-map (ns-publics ns-sym)

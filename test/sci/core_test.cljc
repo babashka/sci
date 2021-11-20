@@ -1199,8 +1199,7 @@
 (deftest copy-ns-test
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                             (sci/create-ns 'sci.copy-ns-test-ns)
-                            {:include [foo bar]
-                             :exclude [baz]
+                            {:exclude [baz quux]
                              :copy-meta [:doc :copy-this]})]
     (is (map? sci-ns))
     (is (= 2 (count sci-ns)))
