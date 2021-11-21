@@ -28,32 +28,40 @@
                        {:classes {'clojure.lang.ReaderConditional
                                   clojure.lang.ReaderConditional}})))))))
        (deftest platform-feature
-         (when-not tu/native?
-           (testing "able to read other than platform feature"
-             (is (= [4 5 6]
-                    (sci/binding [sci/in *in*]
-                      (sci/eval-string
-                       "
+         (testing "able to read other than platform feature"
+           (is (= [4 5 6]
+                  (sci/eval-string
+                   "
 (def form
   (with-in-str \"#?(:cljs [4 5 6] :clj [1 2 3])\"
     (read {:eof ::eof :read-cond :allow :features [:cljs]} *in*)))
 form
-")))))
-           (testing "always include platform feature"
-             (is (= [1 2 3]
-                    (sci/binding [sci/in *in*]
-                      (sci/eval-string
-                       "
+"))))
+         (testing "always include platform feature"
+           (is (= [1 2 3]
+                  (sci/eval-string
+                   "
 (def form
   (with-in-str \"#?(:clj [1 2 3] :cljs [4 5 6])\"
     (read {:eof ::eof :read-cond :allow :features [:cljs]} *in*)))
 form
-")))))))
+")))))
 
-       (deftest eof-test
-         (when-not tu/native?
-           (testing "eof"
-             (is (= :user/eof
-                    (sci/binding [sci/in *in*]
-                      (sci/eval-string
-                       "(with-in-str \"\" (read {:eof ::eof} *in*))")))))))))
+       (deftest read-eval-test
+         (testing "read-eval"
+           (is (= [1 2 6]
+                  (sci/eval-string "(with-in-str \"[1 2 #=(+ 1 2 3)]\" (read *in*))"))))
+         (testing "read-eval disabled"
+           (is (= "EvalReader not allowed when *read-eval* is false."
+                  (sci/eval-string "
+(with-in-str \"[1 2 #=(+ 1 2 3)]\"
+  (try (binding [*read-eval* false] (read *in*))
+    (catch Exception e (ex-message e))))")))))
+
+       (deftest read-string-test
+         (testing "read-eval"
+           (is (= [1 2 6]
+                  (sci/eval-string "(read-string \"[1 2 #=(+ 1 2 3)]\")"))))
+         (testing "eof"
+           (is (= :user/eof
+                  (sci/eval-string "(read-string {:eof ::eof} \"\")")))))))

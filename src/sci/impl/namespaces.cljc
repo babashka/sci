@@ -805,6 +805,11 @@
    #?@(:clj ['with-in-str (macrofy 'with-in-str io/with-in-str)
              'read-line (copy-core-var io/read-line)])
    ;; end io
+   ;; read
+   '*read-eval* read/read-eval
+   'read (core-var 'read read true)
+   'read-string (core-var 'read-string read-string true)
+   ;; end read
    ;; REPL variables
    '*1 *1
    '*2 *2
@@ -1179,8 +1184,6 @@
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
    'rand (copy-core-var rand)
-   'read (core-var 'read read true)
-   'read-string (core-var 'read-string read-string true)
    'replace (copy-core-var replace)
    'rseq (copy-core-var rseq)
    'random-sample (copy-core-var random-sample)
