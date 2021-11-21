@@ -809,6 +809,7 @@
    '*data-readers* parser/data-readers
    '*default-data-reader-fn* parser/default-data-reader-fn
    '*read-eval* parser/read-eval
+   '*reader-resolver* parser/reader-resolver
    'read (core-var 'read read true)
    'read-string (core-var 'read-string read-string true)
    ;; end read

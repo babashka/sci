@@ -26,6 +26,11 @@
                 {:ns vars/clojure-core-ns
                  :dynamic true}))
 
+(def reader-resolver
+  (vars/new-var '*reader-resolver* nil
+                {:ns vars/clojure-core-ns
+                 :dynamic true}))
+
 (def default-opts
   (edamame/normalize-opts
    {:all true
@@ -111,7 +116,13 @@
          auto-resolve (assoc aliases :current current-ns)
          parse-opts (cond-> (assoc default-opts
                                    :features features
-                                   :auto-resolve auto-resolve
+                                   :auto-resolve (if-let [^clojure.lang.LispReader$Resolver resolver
+                                                          @reader-resolver]
+                                                   (fn [alias]
+                                                     (if (= :current alias)
+                                                       (.currentNS ^clojure.lang.LispReader$Resolver resolver)
+                                                       (.resolveAlias ^clojure.lang.LispReader$Resolver resolver alias)))
+                                                   auto-resolve)
                                    :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
                                    :readers (fn [t]
                                               (or (and readers (readers t))
