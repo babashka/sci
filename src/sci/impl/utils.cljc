@@ -1,5 +1,6 @@
 (ns sci.impl.utils
   {:no-doc true}
+  (:refer-clojure :exclude [eval])
   (:require [clojure.string :as str]
             [sci.impl.types :as t]
             [sci.impl.vars :as vars]))
@@ -169,6 +170,9 @@
 (def eval-fn (volatile! nil))
 (def eval-string* (volatile! nil))
 (def lookup (volatile! nil))
+
+(defn eval [sci-ctx form]
+  (@eval-form-state sci-ctx form))
 
 (defn split-when
   "Like partition-by but splits collection only when `pred` returns

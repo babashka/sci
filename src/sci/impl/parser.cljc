@@ -1,6 +1,6 @@
 (ns sci.impl.parser
   {:no-doc true}
-  (:refer-clojure :exclude [read-string])
+  (:refer-clojure :exclude [read-string eval])
   (:require
    [clojure.tools.reader.reader-types :as r]
    [edamame.impl.parser :as edamame]
@@ -11,6 +11,20 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def ^:const eof :sci.impl.parser.edamame/eof)
+
+(def read-eval
+  (vars/new-var '*read-eval true {:ns vars/clojure-core-ns
+                                  :dynamic true}))
+
+(def data-readers
+  (vars/new-var '*default-data-reader-fn* {}
+                {:ns vars/clojure-core-ns
+                 :dynamic true}))
+
+(def default-data-reader-fn
+  (vars/new-var '*default-data-reader-fn* nil
+                {:ns vars/clojure-core-ns
+                 :dynamic true}))
 
 (def default-opts
   (edamame/normalize-opts
@@ -78,6 +92,10 @@
                   sym)))]
     ret))
 
+(defn throw-eval-read [_]
+  (throw (ex-info "EvalReader not allowed when *read-eval* is false."
+                  {:type :sci.error/parse})))
+
 (defn parse-next
   ([ctx r]
    (parse-next ctx r nil))
@@ -97,9 +115,17 @@
                                    :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
                                    :readers (fn [t]
                                               (or (and readers (readers t))
+                                                  (@data-readers t)
                                                   (some-> (@utils/eval-resolve-state ctx {} t)
                                                           meta
-                                                          :sci.impl.record/map-constructor))))
+                                                          :sci.impl.record/map-constructor)
+                                                  (when-let [f @default-data-reader-fn]
+                                                    (fn [form]
+                                                      (f t form)))))
+                                   :read-eval (if @read-eval
+                                                (fn [x]
+                                                  (utils/eval ctx x))
+                                                throw-eval-read))
                       opts (merge opts))
          ret (try (let [v (edamame/parse-next parse-opts r)]
                     (if (utils/kw-identical? v :edamame.impl.parser/eof)

@@ -20,17 +20,6 @@
                        :opts opts})))
     v))
 
-(def read-eval
-  (vars/new-var '*read-eval true {:ns vars/clojure-core-ns
-                                  :dynamic true}))
-
-(comment
-  (require '[sci.core :as sci])
-  (sci/eval-string "(with-in-str \"#=(+ 1 2 3)\" (read *in*))"))
-
-(defn eval [sci-ctx form]
-  (@utils/eval-form-state sci-ctx form))
-
 (defn read
   ([sci-ctx]
    (read sci-ctx @io/in))
@@ -40,24 +29,10 @@
    (read sci-ctx stream eof-error? eof-value false))
   ([sci-ctx stream _eof-error? eof-value _recursive?]
    (let [v (parser/parse-next sci-ctx stream
-                              {:eof eof-value
-                               :read-eval (if @read-eval
-                                            (fn [x]
-                                              (eval sci-ctx x))
-                                            (fn [_]
-                                              (throw (ex-info "EvalReader not allowed when *read-eval* is false."
-                                                              {:type :sci.error/parse
-                                                               :opts {:eof eof-value}}))))})]
+                              {:eof eof-value})]
      (eof-or-throw {:eof eof-value} v)))
   ([sci-ctx opts stream]
-   (let [opts (assoc opts :read-eval (if @read-eval
-                                       (fn [x]
-                                         (eval sci-ctx x))
-                                       (fn [_]
-                                         (throw (ex-info "EvalReader not allowed when *read-eval* is false."
-                                                         {:type :sci.error/parse
-                                                          :opts opts})))))
-         opts (if (:read-cond opts)
+   (let [opts (if (:read-cond opts)
                 ;; always prioritize platform feature
                 (assoc opts :features (into #?(:clj #{:clj}
                                                :cljs #{:cljs})
@@ -81,7 +56,7 @@
         (let [x (parser/parse-next sci-ctx reader)]
           (if (utils/kw-identical? parser/eof x)
             ret
-            (recur (eval sci-ctx x))))))))
+            (recur (utils/eval sci-ctx x))))))))
 
 ;; used by source-fn
 (defn source-logging-reader

@@ -20,12 +20,12 @@
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
-   [sci.impl.read :as read :refer [eval load-string read read-string]]
+   [sci.impl.read :as read :refer [load-string read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    #?(:clj [sci.impl.proxy :as proxy])
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [needs-ctx]]
+   [sci.impl.utils :as utils :refer [eval needs-ctx]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
@@ -806,7 +806,9 @@
              'read-line (copy-core-var io/read-line)])
    ;; end io
    ;; read
-   '*read-eval* read/read-eval
+   '*data-readers* parser/data-readers
+   '*default-data-reader-fn* parser/default-data-reader-fn
+   '*read-eval* parser/read-eval
    'read (core-var 'read read true)
    'read-string (core-var 'read-string read-string true)
    ;; end read

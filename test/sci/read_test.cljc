@@ -64,4 +64,12 @@ form
                   (sci/eval-string "(read-string \"[1 2 #=(+ 1 2 3)]\")"))))
          (testing "eof"
            (is (= :user/eof
-                  (sci/eval-string "(read-string {:eof ::eof} \"\")")))))))
+                  (sci/eval-string "(read-string {:eof ::eof} \"\")")))))
+
+       (deftest tag-fallback-test
+         (testing "js"
+           (is (= '[js [1 2 3]]
+                  (sci/eval-string "
+(binding [*default-data-reader-fn* vector]
+  (read-string {:eof ::eof} \"#js [1 2 3]\"))
+")))))))
