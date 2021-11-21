@@ -7,8 +7,20 @@
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
+(defn- eof-or-throw [opts v]
+  (if (utils/kw-identical? parser/eof v)
+    (if-let [eof (:eof opts)]
+      (if (not (utils/kw-identical? :eofthrow eof))
+        eof
+        (throw (ex-info "EOF while reading"
+                        {:type :sci.error/parse
+                         :opts opts})))
+      (throw (ex-info "EOF while reading"
+                      {:type :sci.error/parse
+                       :opts opts})))
+    v))
+
 (defn read
-  "Added for compatibility. Does not support all of the options from the original yet."
   ([sci-ctx]
    (read sci-ctx @io/in))
   ([sci-ctx stream]
@@ -17,11 +29,16 @@
    (read sci-ctx stream eof-error? eof-value false))
   ([sci-ctx stream _eof-error? eof-value _recursive?]
    (let [v (parser/parse-next sci-ctx stream {:eof eof-value})]
-     (if (utils/kw-identical? parser/eof v)
-       eof-value
-       v)))
-  ([sci-ctx _opts stream]
-   (parser/parse-next sci-ctx stream)))
+     (eof-or-throw {:eof eof-value} v)))
+  ([sci-ctx opts stream]
+   (let [opts (if (:read-cond opts)
+                ;; always prioritize platform feature
+                (assoc opts :features (into #?(:clj #{:clj}
+                                               :cljs #{:cljs})
+                                            (:features opts)))
+                opts)
+         v (parser/parse-next sci-ctx stream opts)]
+     (eof-or-throw opts v))))
 
 (defn read-string
   ([sci-ctx s]
