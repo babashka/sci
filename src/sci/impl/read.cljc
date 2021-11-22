@@ -20,6 +20,19 @@
                        :opts opts})))
     v))
 
+
+(defn with-resolver [opts]
+  #?(:clj (if-let [^clojure.lang.LispReader$Resolver resolver
+                   @parser/reader-resolver]
+            (assoc opts :auto-resolve
+                   (fn [alias]
+                     (if (= :current alias)
+                       (let [c (.currentNS ^clojure.lang.LispReader$Resolver resolver)]
+                         c)
+                       (.resolveAlias ^clojure.lang.LispReader$Resolver resolver alias))))
+            opts)
+     :cljs opts))
+
 (defn read
   ([sci-ctx]
    (read sci-ctx @io/in))
@@ -29,10 +42,12 @@
    (read sci-ctx stream eof-error? eof-value false))
   ([sci-ctx stream _eof-error? eof-value _recursive?]
    (let [v (parser/parse-next sci-ctx stream
-                              {:eof eof-value})]
+                              (-> {:eof eof-value}
+                                  (with-resolver)))]
      (eof-or-throw {:eof eof-value} v)))
   ([sci-ctx opts stream]
-   (let [opts (if (:read-cond opts)
+   (let [opts (with-resolver opts)
+         opts (if (:read-cond opts)
                 ;; always prioritize platform feature
                 (assoc opts :features (into #?(:clj #{:clj}
                                                :cljs #{:cljs})

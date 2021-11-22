@@ -1,7 +1,8 @@
 (ns sci.read-test
   #?(:clj (:require [clojure.test :refer [deftest testing is]]
                     [sci.core :as sci]
-                    [sci.test-utils :as tu])))
+                    [sci.test-utils :as tu]
+                    [clojure.string :as str])))
 
 #?(:clj
    (do (deftest read-test
@@ -72,4 +73,15 @@ form
                   (sci/eval-string "
 (binding [*default-data-reader-fn* vector]
   (read-string {:eof ::eof} \"#js [1 2 3]\"))
-")))))))
+")))))
+       (deftest readder-resolver-test
+         (testing "js"
+           (is (= '[:s/foo :the-current-ns/foo]
+                  (sci/eval-string "
+(binding [*reader-resolver* x]
+  (read-string \"[::s/foo ::foo]\"))
+"
+                                   {:namespaces {'user {'x (reify clojure.lang.LispReader$Resolver
+                                                             (currentNS [_]
+                                                               'the-current-ns)
+                                                             (resolveAlias [_ sym] sym))}}})))))))

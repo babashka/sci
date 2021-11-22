@@ -216,3 +216,7 @@
         {:params new-params
          :body [`(let ~lets
                    ~@body)]}))))
+
+(defn log [& xs]
+  #?(:clj (.println System/err (str/join " " xs))
+     :cljs (.log js/console (str/join " " xs))))

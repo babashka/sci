@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [read-string eval])
   (:require
+   [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [edamame.impl.parser :as edamame]
    [sci.impl.interop :as interop]
@@ -23,6 +24,11 @@
 
 (def default-data-reader-fn
   (vars/new-var '*default-data-reader-fn* nil
+                {:ns vars/clojure-core-ns
+                 :dynamic true}))
+
+(def reader-resolver
+  (vars/new-var '*reader-resolver* nil
                 {:ns vars/clojure-core-ns
                  :dynamic true}))
 
@@ -96,6 +102,16 @@
   (throw (ex-info "EvalReader not allowed when *read-eval* is false."
                   {:type :sci.error/parse})))
 
+(defn auto-resolve [ctx opts]
+  (or (:auto-resolve opts)
+      (let [env (:env ctx)
+            env-val @env
+            current-ns (vars/current-ns-name)
+            the-current-ns (get-in env-val [:namespaces current-ns])
+            aliases (:aliases the-current-ns)
+            auto-resolve (assoc aliases :current current-ns)]
+        auto-resolve)))
+
 (defn parse-next
   ([ctx r]
    (parse-next ctx r nil))
@@ -103,12 +119,7 @@
    (let [features (:features ctx)
          readers (:readers ctx)
          readers (if (vars/var? readers) @readers readers)
-         env (:env ctx)
-         env-val @env
-         current-ns (vars/current-ns-name)
-         the-current-ns (get-in env-val [:namespaces current-ns])
-         aliases (:aliases the-current-ns)
-         auto-resolve (assoc aliases :current current-ns)
+         auto-resolve (auto-resolve ctx opts)
          parse-opts (cond-> (assoc default-opts
                                    :features features
                                    :auto-resolve auto-resolve
