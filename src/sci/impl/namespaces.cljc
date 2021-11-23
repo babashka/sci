@@ -473,15 +473,18 @@
                  name (sci-ns-name sci-ns)]
              (update-in env [:namespaces name]
                         (fn [the-ns-map]
-                          (cond (contains? the-ns-map sym)
+                          (cond (contains? (:refers the-ns-map) sym)
+                                (-> (update the-ns-map :refers dissoc sym)
+                                    ;; remove lingering var that may have been
+                                    ;; overwritten before, see #637
+                                    (dissoc the-ns-map sym))
+                                (contains? the-ns-map sym)
                                 (dissoc the-ns-map sym)
                                 (or
                                  (contains? (:imports env) sym)
                                  (contains? (:imports the-ns-map) sym))
                                 ;; nil marks the imported class as unmapped
                                 (update the-ns-map :imports assoc sym nil)
-                                (contains? (:refers the-ns-map) sym)
-                                (update the-ns-map :refers dissoc sym)
                                 :else the-ns-map))))))
   nil)
 
