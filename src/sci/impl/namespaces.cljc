@@ -5,6 +5,7 @@
                             use load-string
                             find-var *1 *2 *3 *e #?(:cljs type)
                             bound-fn* with-bindings*
+                            vswap!
                             #?(:cljs this-as)])
   (:require
    #?(:clj [clojure.edn :as edn]
@@ -326,9 +327,13 @@
        ~@body
        (finally (clojure.core/pop-thread-bindings)))))
 
-(defn vswap!*
-  [vol f & args]
-  (vreset! vol (apply f @vol args)))
+(defn vswap!
+  "Non-atomically swaps the value of the volatile as if:
+   (apply f current-value-of-vol args). Returns the value that
+   was swapped in."
+  [_ _ vol f & args]
+  (let [v vol]
+    `(vreset! ~v (~f (deref ~v) ~@args))))
 
 (defn delay*
   [_ _ & body]
@@ -996,6 +1001,7 @@
    'distinct (copy-core-var distinct)
    'distinct? (copy-core-var distinct?)
    'disj (copy-core-var disj)
+   'disj! (copy-core-var disj!)
    'doall (copy-core-var doall)
    'dorun (copy-core-var dorun)
    'dotimes (macrofy 'dotimes dotimes*)
@@ -1295,7 +1301,7 @@
    'vector? (copy-core-var vector?)
    'volatile! (copy-core-var volatile!)
    'vreset! (copy-core-var vreset!)
-   'vswap! (copy-core-var vswap!*)
+   'vswap! (macrofy 'vswap! vswap!)
    'when-first (macrofy 'when-first when-first*)
    'when-let (macrofy 'when-let when-let*)
    'when-some (macrofy 'when-some when-some*)
