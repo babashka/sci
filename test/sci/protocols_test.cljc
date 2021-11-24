@@ -1,7 +1,8 @@
 (ns sci.protocols-test
-  (:require #?(:cljs [clojure.string :as str])
+  (:require [clojure.core.protocols :as p]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
+            [sci.core :as sci]
             [sci.test-utils :as tu]))
 
 (deftest protocol-test
@@ -224,3 +225,13 @@
                            (extend-type Object IFoo (foo [this] :object))
                            (defrecord Foo [] IFoo (foo [_] :record))
                            (foo (->Foo))")))))
+
+#?(:clj
+   (deftest satisfies-host-protocol
+     (let [ns (sci/create-ns 'clojure.core.protocols)]
+       (is (true? (sci/eval-string "(satisfies? clojure.core.protocols/IKVReduce {})"
+                                   {:namespaces {'clojure.core.protocols
+                                                 {'IKVReduce (sci/new-var 'clojure.core.protocols/IKVReduce
+                                                                          {:protocol p/IKVReduce
+                                                                          :ns ns}
+                                                                          {:ns ns})}}}))))))

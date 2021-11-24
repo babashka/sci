@@ -159,7 +159,10 @@
                 (find-matching-non-default-method protocol obj)))
        ;; NOTE: what if the protocol doesn't have any methods?
        ;; This probably needs fixing
-       :clj (find-matching-non-default-method protocol obj))))
+       :clj (or
+             (when-let [p (:protocol protocol)]
+               (clojure.core/satisfies? p obj))
+             (find-matching-non-default-method protocol obj)))))
 
 (defn instance-impl [clazz x]
   (cond
