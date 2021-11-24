@@ -1220,6 +1220,10 @@
     (is (:copy-this (meta (get sci-ns 'foo))))
     (is (:awesome-meta (meta (get sci-ns 'baz))))))
 
+(deftest vswap-test
+  (is (= 2 (sci/eval-string
+            "(def v (volatile! 1)) (vswap! v inc) @v"))))
+
 ;;;; Scratch
 
 (comment
