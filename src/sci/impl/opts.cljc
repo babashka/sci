@@ -151,7 +151,8 @@
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes ;; hold on for merge-opts
-                   :class->opts (:class->opts classes))]
+                   :class->opts (:class->opts classes)
+                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
 (defn merge-opts [ctx opts]
@@ -180,5 +181,6 @@
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes
-                   :class->opts (:class->opts classes))]
+                   :class->opts (:class->opts classes)
+                   :main-thread-id (:main-thread-id ctx))]
     ctx))

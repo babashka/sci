@@ -41,7 +41,10 @@
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx bindings ^Throwable e raw-node]
-   (if *in-try* (throw e)
+   (if #?(:clj (or *in-try*
+                   (not= (:main-thread-id ctx)
+                         (.getId (Thread/currentThread))))
+          :cljs *in-try*) (throw e)
        (let [stack (t/stack raw-node)
              node (t/sexpr raw-node)
              f (when (seqable? node)
