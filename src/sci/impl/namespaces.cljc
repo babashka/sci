@@ -820,6 +820,7 @@
    '*reader-resolver* parser/reader-resolver
    'read (core-var 'read read true)
    'read-string (core-var 'read-string read-string true)
+   #?@(:clj ['reader-conditional? (copy-core-var reader-conditional?)])
    ;; end read
    ;; REPL variables
    '*1 *1
