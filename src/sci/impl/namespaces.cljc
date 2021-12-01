@@ -1165,6 +1165,7 @@
    'qualified-symbol? (copy-core-var qualified-symbol?)
    'qualified-keyword? (copy-core-var qualified-keyword?)
    'quot (copy-core-var quot)
+   #?@(:cljs ['random-uuid (copy-core-var random-uuid)])
    're-seq (copy-core-var re-seq)
    'refer (core-var 'refer sci-refer true)
    'refer-clojure (macrofy 'refer-clojure sci-refer-clojure)
