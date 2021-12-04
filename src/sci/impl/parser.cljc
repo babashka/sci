@@ -2,9 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [read-string eval])
   (:require
-   [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
-   [edamame.impl.parser :as edamame]
+   [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
@@ -138,8 +137,8 @@
                                                   (utils/eval ctx x))
                                                 throw-eval-read))
                       opts (merge opts))
-         ret (try (let [v (edamame/parse-next parse-opts r)]
-                    (if (utils/kw-identical? v :edamame.impl.parser/eof)
+         ret (try (let [v (edamame/parse-next r parse-opts)]
+                    (if (utils/kw-identical? v :edamame.core/eof)
                       eof
                       v))
                   (catch #?(:clj clojure.lang.ExceptionInfo
