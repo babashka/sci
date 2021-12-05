@@ -8,12 +8,21 @@
    (do (deftest read-test
          (when-not tu/native?
            (testing "Read works with PushbackReader"
-             (is (= '(+ 1 2 3)
-                    (sci/eval-string
-                     "(read (clojure.lang.LineNumberingPushbackReader. (java.io.StringReader. \"(+ 1 2 3)\")))"
-                     {:classes {'java.io.StringReader java.io.StringReader
-                                'clojure.lang.LineNumberingPushbackReader
-                                clojure.lang.LineNumberingPushbackReader}}))))))
+             (let [v (sci/eval-string
+                      "(read (java.io.PushbackReader. (java.io.StringReader. \"(+ 1 2 3)\")))"
+                      {:classes {'java.io.StringReader
+                                 java.io.StringReader
+                                 'java.io.PushbackReader
+                                 java.io.PushbackReader}})]
+               (is (= '(+ 1 2 3) v))
+               (is (not (meta v))))
+             (let [v (sci/eval-string
+                      "(read (clojure.lang.LineNumberingPushbackReader. (java.io.StringReader. \"(+ 1 2 3)\")))"
+                      {:classes {'java.io.StringReader java.io.StringReader
+                                 'clojure.lang.LineNumberingPushbackReader
+                                 clojure.lang.LineNumberingPushbackReader}})]
+               (is (= '(+ 1 2 3) v))
+               (is (meta v))))))
 
        (deftest read-cond-preserve-test
          (when-not tu/native?
