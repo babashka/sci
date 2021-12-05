@@ -5,11 +5,9 @@
    [clojure.string :as str]
    #?(:cljs [goog.object :as gobj])
    [sci.impl.destructure :refer [destructure]]
-   [sci.impl.doseq-macro :refer [expand-doseq]]
    [sci.impl.evaluator :as eval]
    #?(:cljs [sci.impl.faster :as faster])
    [sci.impl.fns :as fns]
-   [sci.impl.for-macro :refer [expand-for]]
    [sci.impl.interop :as interop]
    [sci.impl.load :as load]
    [sci.impl.records :as records]
@@ -1116,11 +1114,6 @@
                         ;; TODO: implement as normal macro in namespaces.cljc
                         loop (expand-loop ctx expr)
                         lazy-seq (analyze-lazy-seq ctx expr)
-                        for (let [res (expand-for ctx expr)]
-                              (if (:sci.impl/macroexpanding ctx)
-                                res
-                                (analyze ctx res)))
-                        doseq (analyze ctx (expand-doseq ctx expr))
                         if (return-if ctx expr)
                         case (analyze-case ctx expr)
                         try (analyze-try ctx expr)

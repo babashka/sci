@@ -13,7 +13,7 @@
                 "doseq requires an even number of forms in binding vector"))))
 
 (defn expand-doseq
-  [_ [_ seq-exprs & body]]
+  [expr _ seq-exprs & body]
   (assert-args seq-exprs body)
   (let [step (fn step [recform exprs]
                (if-not exprs

@@ -18,6 +18,8 @@
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
+   [sci.impl.for-macro :as for-macro]
+   [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
@@ -1005,6 +1007,7 @@
    'disj! (copy-core-var disj!)
    'doall (copy-core-var doall)
    'dorun (copy-core-var dorun)
+   'doseq   (macrofy 'doseq doseq-macro/expand-doseq)
    'dotimes (macrofy 'dotimes dotimes*)
    'doto (macrofy 'doto doto*)
    'double (copy-core-var double)
@@ -1044,6 +1047,7 @@
    'frequencies (copy-core-var frequencies)
    'float (copy-core-var float)
    'fn? (copy-core-var fn?)
+   'for (macrofy 'for for-macro/expand-for)
    'force (copy-core-var force)
    'get (copy-core-var get)
    'get-thread-binding-frame-impl (core-var 'get-thread-binding-frame-impl vars/get-thread-binding-frame)

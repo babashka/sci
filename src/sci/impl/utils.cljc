@@ -190,7 +190,7 @@
 
 (def ana-macros
   '#{do if and or let fn fn* def defn
-     comment loop lazy-seq for doseq case try defmacro
+     comment loop lazy-seq case try defmacro
      declare expand-dot* expand-constructor new . import in-ns ns var
      set! resolve #_#_macroexpand-1 macroexpand})
 

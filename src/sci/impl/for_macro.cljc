@@ -19,7 +19,7 @@
 
 ;; see clojurescript core.cljc defmacro for
 (defn expand-for
-  [_ [_ seq-exprs body-expr :as expr]]
+  [expr _ seq-exprs body-expr]
   (assert-args expr seq-exprs body-expr)
   (let [to-groups (fn [seq-exprs]
                     (reduce (fn [groups [k v]]
