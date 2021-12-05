@@ -189,7 +189,7 @@
        (cons run (split-when pred (lazy-seq (drop (count run) s))))))))
 
 (def ana-macros
-  '#{do if and or let fn fn* def defn
+  '#{do if let fn fn* def defn
      comment loop lazy-seq case try defmacro
      declare expand-dot* expand-constructor new . import in-ns ns var
      set! resolve #_#_macroexpand-1 macroexpand})

@@ -55,12 +55,13 @@
                 ns-name# (vars/getName ns#)
                 name# (:name m#)
                 name-sym# (symbol (str ns-name#) (str name#))
-                val# ~sym]
+                val# @(var ~sym)]
             (vars/->SciVar val# name-sym# (cond->
                                               {:doc (:doc m#)
                                                :name name#
                                                :arglists (:arglists m#)
                                                :ns ns#
+                                               :macro (:macro m# false)
                                                :sci/built-in true}
                                             (and (identical? clojure-core-ns ns#)
                                                  (contains? inlined-vars name#))
@@ -92,39 +93,6 @@
      (vars/new-var sym v (cond-> {:ns ns}
                            ctx? (assoc :sci.impl/op needs-ctx))))))
 
-(defn ->*
-  [_ _ x & forms]
-  (loop [x x, forms forms]
-    (if forms
-      (let [form (first forms)
-            threaded (if (seq? form)
-                       (with-meta `(~(first form) ~x ~@(next form)) (meta form))
-                       (list form x))]
-        (recur threaded (next forms)))
-      x)))
-
-(defn ->>*
-  [_ _ x & forms]
-  (loop [x x, forms forms]
-    (if forms
-      (let [form (first forms)
-            threaded (if (seq? form)
-                       (with-meta `(~(first form) ~@(next form)  ~x) (meta form))
-                       (list form x))]
-        (recur threaded (next forms)))
-      x)))
-
-(defn as->*
-  [_ _ expr name & forms]
-  `(let [~name ~expr
-         ~@(interleave (repeat name) (butlast forms))]
-     ~(if (empty? forms)
-        name
-        (last forms))))
-
-(defn comment*
-  [_ _ & _body])
-
 (defn dotimes*
   [_ _ bindings & body]
   (assert (vector? bindings))
@@ -136,136 +104,6 @@
         (when (< ~i n#)
           ~@body
           (~utils/allowed-recur (unchecked-inc ~i)))))))
-
-(defn if-not*
-  "if-not from clojure.core"
-  ([&form &env test then] (if-not* &form &env test then nil))
-  ([_&form _&env test then else]
-   `(if (not ~test) ~then ~else)))
-
-(defn when*
-  [_ _ test & body]
-  (list 'if test (cons 'do body)))
-
-(defn when-not*
-  "when-not from clojure.core"
-  [_&form _&env test & body]
-  (list 'if test nil (cons 'do body)))
-
-(defn doto*
-  "doto from clojure.core"
-  [_&form _&env x & forms]
-  (let [gx (gensym)]
-    `(let [~gx ~x]
-       ~@(map (fn [f]
-                (with-meta
-                  (if (seq? f)
-                    `(~(first f) ~gx ~@(next f))
-                    `(~f ~gx))
-                  (meta f)))
-              forms)
-       ~gx)))
-
-(defn cond*
-  [_ _ & clauses]
-  (when clauses
-    (list 'if (first clauses)
-          (if (next clauses)
-            (second clauses)
-            (throw (new #?(:clj IllegalArgumentException
-                           :cljs js/Error)
-                        "cond requires an even number of forms")))
-          (cons 'clojure.core/cond (next (next clauses))))))
-
-(defn cond->*
-  [_&form _&env expr & clauses]
-  (assert (even? (count clauses)))
-  (let [g (gensym)
-        steps (map (fn [[test step]] `(if ~test (-> ~g ~step) ~g))
-                   (partition 2 clauses))]
-    `(let [~g ~expr
-           ~@(interleave (repeat g) (butlast steps))]
-       ~(if (empty? steps)
-          g
-          (last steps)))))
-
-(defn cond->>*
-  [_&form _&env expr & clauses]
-  (assert (even? (count clauses)))
-  (let [g (gensym)
-        steps (map (fn [[test step]] `(if ~test (->> ~g ~step) ~g))
-                   (partition 2 clauses))]
-    `(let [~g ~expr
-           ~@(interleave (repeat g) (butlast steps))]
-       ~(if (empty? steps)
-          g
-          (last steps)))))
-
-(defn if-let*
-  ([&form &env bindings then]
-   (if-let* &form &env bindings then nil))
-  ([_&form _&env bindings then else & _oldform]
-   (let [form (bindings 0) tst (bindings 1)]
-     `(let [temp# ~tst]
-        (if temp#
-          (let [~form temp#]
-            ~then)
-          ~else)))))
-
-(defn if-some*
-  ([&form &env bindings then]
-   (if-some* &form &env bindings then nil))
-  ([_&form _&env bindings then else & _oldform]
-   (let [form (bindings 0) tst (bindings 1)]
-     `(let [temp# ~tst]
-        (if (nil? temp#)
-          ~else
-          (let [~form temp#]
-            ~then))))))
-
-(defn when-let*
-  [_&form _&env bindings & body]
-  (let [form (bindings 0) tst (bindings 1)]
-    `(let [temp# ~tst]
-       (when temp#
-         (let [~form temp#]
-           ~@body)))))
-
-(defn when-first* [_ _ bindings & body]
-  (let [[x xs] bindings]
-    `(when-let [xs# (seq ~xs)]
-       (let [~x (first xs#)]
-         ~@body))))
-
-(defn when-some* [_ _ bindings & body]
-  (let [form (bindings 0) tst (bindings 1)]
-    `(let [temp# ~tst]
-       (if (nil? temp#)
-         nil
-         (let [~form temp#]
-           ~@body)))))
-
-(defn some->*
-  [_&form _&env expr & forms]
-  (let [g (gensym)
-        steps (map (fn [step] `(if (nil? ~g) nil (-> ~g ~step)))
-                   forms)]
-    `(let [~g ~expr
-           ~@(interleave (repeat g) (butlast steps))]
-       ~(if (empty? steps)
-          g
-          (last steps)))))
-
-(defn some->>*
-  [_ _ expr & forms]
-  (let [g (gensym)
-        steps (map (fn [step] `(if (nil? ~g) nil (->> ~g ~step)))
-                   forms)]
-    `(let [~g ~expr
-           ~@(interleave (repeat g) (butlast steps))]
-       ~(if (empty? steps)
-          g
-          (last steps)))))
 
 (def ex-message
   (if-let [v (resolve 'clojure.core/ex-message)]
@@ -346,41 +184,11 @@
   [_ _ name & decls]
   (list* `defn (with-meta name (assoc (meta name) :private true)) decls))
 
-(defn condp*
-  [_ _ pred expr & clauses]
-  (let [gpred (gensym "pred__")
-        gexpr (gensym "expr__")
-        emit (fn emit [pred expr args]
-               (let [[[a b c :as clause] more]
-                     (split-at (if (= :>> (second args)) 3 2) args)
-                     n (count clause)]
-                 (cond
-                   (= 0 n) `(throw (new #?(:clj IllegalArgumentException
-                                           :cljs js/Error)
-                                        (str "No matching clause: " ~expr)))
-                   (= 1 n) a
-                   (= 2 n) `(if (~pred ~a ~expr)
-                              ~b
-                              ~(emit pred expr more))
-                   :else `(if-let [p# (~pred ~a ~expr)]
-                            (~c p#)
-                            ~(emit pred expr more)))))]
-    `(let [~gpred ~pred
-           ~gexpr ~expr]
-       ~(emit gpred gexpr clauses))))
-
 (defn defonce*
   [_ _ name expr]
   `(let [v# (def ~name)]
      (when-not (~'has-root-impl v#)
        (def ~name ~expr))))
-
-(defn while*
-  [_ _ test & body]
-  `(loop []
-     (when ~test
-       ~@body
-       (recur))))
 
 (defn double-dot
   ([_ _ x form] `(. ~x ~form))
@@ -897,10 +705,10 @@
    '* (copy-core-var *)
    '/ (copy-core-var /)
    '== (copy-core-var ==)
-   '-> (macrofy '-> ->*)
-   '->> (macrofy '->> ->>*)
-   'as-> (macrofy 'as-> as->*)
-   'comment (macrofy 'comment comment*)
+   '-> (copy-core-var ->)
+   '->> (copy-core-var ->>)
+   'as-> (copy-core-var as->)
+   'comment (copy-core-var comment)
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)
    'aget (copy-core-var aget)
@@ -922,6 +730,7 @@
                                      (java.lang.reflect.Array/getLength arr))
                                    'alength {:ns clojure-core-ns} false)
                :cljs (copy-core-var alength))
+   'and (copy-core-var and)
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
    'array-map (copy-core-var array-map)
@@ -960,10 +769,10 @@
    'char? (copy-core-var char?)
    #?@(:clj ['class? (copy-core-var class?)])
    #?@(:cljs ['clj->js (copy-core-var clj->js)])
-   'cond (macrofy 'cond cond*)
-   'cond-> (macrofy 'cond-> cond->*)
-   'cond->> (macrofy 'cond->> cond->>*)
-   'condp (macrofy 'condp condp*)
+   'cond (copy-core-var cond)
+   'cond-> (copy-core-var cond->)
+   'cond->> (copy-core-var cond->>)
+   'condp (copy-core-var condp)
    'conj (copy-core-var conj)
    'conj! (copy-core-var conj!)
    'cons (copy-core-var cons)
@@ -1009,7 +818,7 @@
    'dorun (copy-core-var dorun)
    'doseq   (macrofy 'doseq doseq-macro/expand-doseq)
    'dotimes (macrofy 'dotimes dotimes*)
-   'doto (macrofy 'doto doto*)
+   'doto (copy-core-var doto)
    'double (copy-core-var double)
    'double-array (copy-core-var double-array)
    'double? (copy-core-var double?)
@@ -1062,9 +871,9 @@
    'ident? (copy-core-var ident?)
    'identical? (copy-core-var identical?)
    'identity (copy-core-var identity)
-   'if-let (macrofy 'if-let if-let*)
-   'if-some (macrofy 'if-some if-some*)
-   'if-not (macrofy 'if-not if-not*)
+   'if-let (copy-core-var if-let)
+   'if-some (copy-core-var if-some)
+   'if-not (copy-core-var if-not)
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
    'inst? (copy-core-var inst?)
@@ -1152,6 +961,7 @@
    'ns-name (core-var 'ns-name sci-ns-name)
    'odd? (copy-core-var odd?)
    'object-array (copy-core-var object-array)
+   'or (copy-core-var or)
    'parents (core-var 'parents hierarchies/parents* true)
    'peek (copy-core-var peek)
    'pop (copy-core-var pop)
@@ -1215,8 +1025,8 @@
    'simple-keyword? (copy-core-var simple-keyword?)
    'simple-symbol? (copy-core-var simple-symbol?)
    'some? (copy-core-var some?)
-   'some-> (macrofy 'some-> some->*)
-   'some->> (macrofy 'some->> some->>*)
+   'some-> (copy-core-var some->)
+   'some->> (copy-core-var some->>)
    'string? (copy-core-var string?)
    'str (copy-core-var str)
    'second (copy-core-var second)
@@ -1309,12 +1119,12 @@
    'volatile! (copy-core-var volatile!)
    'vreset! (copy-core-var vreset!)
    'vswap! (macrofy 'vswap! vswap!)
-   'when-first (macrofy 'when-first when-first*)
-   'when-let (macrofy 'when-let when-let*)
-   'when-some (macrofy 'when-some when-some*)
-   'when (macrofy 'when when*)
-   'when-not (macrofy 'when-not when-not*)
-   'while (macrofy 'while while*)
+   'when-first (copy-core-var when-first)
+   'when-let (copy-core-var when-let)
+   'when-some (copy-core-var when-some)
+   'when (copy-core-var when)
+   'when-not (copy-core-var when-not)
+   'while (copy-core-var while)
    'with-bindings (macrofy 'with-bindings sci-with-bindings)
    'with-bindings* (copy-var with-bindings* clojure-core-ns)
    'with-local-vars (macrofy 'with-local-vars with-local-vars*)
