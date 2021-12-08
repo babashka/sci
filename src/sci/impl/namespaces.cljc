@@ -1068,6 +1068,7 @@
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
    'inst? (copy-core-var inst?)
+   'inst-ms (copy-core-var inst-ms)
    'instance? (core-var 'instance? protocols/instance-impl)
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
