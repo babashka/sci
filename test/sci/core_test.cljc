@@ -1234,10 +1234,39 @@
   (is (= 2 (sci/eval-string
             "(def v (volatile! 1)) (vswap! v inc) @v"))))
 
+(deftest to-array-2d-test
+  (let [resulting-array (eval* "(to-array-2d [[1 2][3 4]])")]
+    (is (= 2 (alength resulting-array)))
+    (is (= (type (object-array 1)) (type (aget resulting-array 0))))))
+
+(deftest aclone-test
+  (let [[a b] (eval* "(let [a (into-array [1 2 3])
+                            b (aclone a)]
+                        [a b])")]
+    (is (not= a b))
+    (is (= (alength a) (alength b)))
+    (is (= (vec a) (vec b)))))
+
+(deftest areduce-test
+  (is (= 6.0 (eval* "(defn asum [xs]
+                        (areduce xs i ret (float 0)
+                                 (+ ret (aget xs i))))
+                     (asum (into-array [1.0 2.0 3.0]))"))))
+
+(deftest amap-test
+  (let [mapped-array
+        (eval* "(def an-array (into-array (range 5)))
+                (amap an-array
+                      idx
+                      ret
+                      (+ (int 1)
+                         (aget an-array idx)))")]
+    (is (= [1 2 3 4 5] (vec mapped-array)))))
+
 ;;;; Scratch
 
 (comment
   (eval* 1 '(inc *in*))
   (test-difference "foo" "[10 10]" 0 10)
-  (test-difference "rand" #(rand) 0 10)
-  )
+  (test-difference "rand" #(rand) 0 10))
+

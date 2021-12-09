@@ -291,6 +291,23 @@
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
+(defn areduce* [_ _ a idx ret init expr]
+  `(let [a# ~a l# (alength a#)]
+     (loop  [~idx 0 ~ret ~init]
+       (if (< ~idx l#)
+         (recur (unchecked-inc-int ~idx) ~expr)
+         ~ret))))
+
+(defn amap* [_ _ a idx ret expr]
+  `(let [a# ~a l# (alength a#)
+         ~ret (aclone a#)]
+     (loop  [~idx 0]
+       (if (< ~idx  l#)
+         (do
+           (aset ~ret ~idx ~expr)
+           (recur (unchecked-inc ~idx)))
+         ~ret))))
+
 (defn with-open*
   [_ _ bindings & body]
   (cond
@@ -903,11 +920,13 @@
    'comment (macrofy 'comment comment*)
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)
+   'aclone (copy-core-var aclone)
    'aget (copy-core-var aget)
    'alias (core-var 'alias sci-alias true)
    'all-ns (core-var 'all-ns sci-all-ns true)
    'alter-meta! (copy-core-var alter-meta!)
    'alter-var-root (copy-core-var vars/alter-var-root)
+   'amap (macrofy 'amap amap*)
    'ancestors (core-var 'ancestors hierarchies/ancestors* true)
    'aset (copy-core-var aset)
    #?@(:clj ['aset-boolean (copy-core-var aset-boolean)
@@ -924,6 +943,7 @@
                :cljs (copy-core-var alength))
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
+   'areduce (macrofy 'areduce areduce*)
    'array-map (copy-core-var array-map)
    'assert (macrofy 'assert assert*)
    'assoc (copy-core-var assoc)
@@ -1268,6 +1288,7 @@
             :cljs (copy-var type clojure-core-ns))
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
+   'to-array-2d (copy-core-var to-array-2d)
    'update (copy-core-var update)
    'update-in (copy-core-var update-in)
    'uri? (copy-core-var uri?)
