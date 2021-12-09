@@ -184,13 +184,15 @@
      (map #(symbol (.getName ^Class %)) (supers clazz))))
 
 (defn eval-instance-method-invocation
-  [ctx bindings instance-expr method-str args #?(:cljs allowed)]
+  [ctx bindings instance-expr method-str field-access args #?(:cljs allowed)]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (eval ctx bindings instance-expr)]
     (if (and (map? instance-expr*)
              (:sci.impl/record (meta instance-expr*))) ;; a sci record
-      (get instance-expr* (keyword (subs method-str 1)))
+      (get instance-expr* (keyword
+                           ;; TODO: strip leading dash in analyzer
+                           method-str))
       (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
             class->opts (:class->opts ctx)
             allowed? (or
@@ -209,8 +211,10 @@
         (when-not #?(:clj target-class
                      :cljs allowed?)
           (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        (let [args (map #(eval ctx bindings %) args)] ;; eval args!
-          (interop/invoke-instance-method instance-expr* target-class method-str args))))))
+        (if field-access
+          (interop/invoke-instance-field instance-expr* target-class method-str)
+          (let [args (map #(eval ctx bindings %) args)] ;; eval args!
+            (interop/invoke-instance-method instance-expr* target-class method-str args)))))))
 
 ;;;; End interop
 

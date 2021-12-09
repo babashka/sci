@@ -1,6 +1,7 @@
 (ns sci.impl.interop
   {:no-doc true}
-  #?(:clj (:import [sci.impl Reflector]))
+  #?(:clj (:import [sci.impl Reflector]
+                   [java.lang.reflect Field Modifier]))
   (:require #?(:cljs [goog.object :as gobject])
             #?(:cljs [clojure.string :as str])
             [sci.impl.vars :as vars]))
@@ -10,18 +11,27 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
+(defn invoke-instance-field
+  #?@(:cljs [[obj _target-class field-name]
+             ;; gobject/get didn't work here
+             (aget obj field-name)]
+      :clj
+      [([obj ^Class target-class method]
+        (let [^Field field (.getField target-class method)
+              mod (.getModifiers field)]
+          (if (and (not (Modifier/isStatic mod))
+                   (Modifier/isPublic mod))
+            (.get field obj)
+            (throw (ex-info (str "Not found or accessible instance field: " method) {})))))]))
+
 (defn invoke-instance-method
   #?@(:cljs [[obj _target-class method-name args]
              ;; gobject/get didn't work here
-             (if (identical? \- (.charAt method-name 0))
-               (aget obj (subs method-name 1))
-               (if-let [method (aget obj method-name)]
-                 (.apply method obj (into-array args) #_(js-object-array args))
-                 (throw (js/Error. (str "Could not find instance method: " method-name)))))]
+             (if-let [method (aget obj method-name)]
+               (.apply method obj (into-array args) #_(js-object-array args))
+               (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
-      [#_([obj method args]
-          (invoke-instance-method obj nil method args))
-       ([obj target-class method args]
+      [([obj ^Class target-class method args]
         (if-not target-class
           (Reflector/invokeInstanceMethod obj method (object-array args))
           (let [methods (Reflector/getMethods target-class (count args) method false)]

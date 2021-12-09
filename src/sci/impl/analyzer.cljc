@@ -683,63 +683,68 @@
                            m)))
         method-name (name method-expr)
         args (when args (analyze-children ctx args))
-        res #?(:clj (if (class? instance-expr)
-                      (if (nil? args)
-                        (if (str/starts-with? method-name "-")
+        res
+        (let [field-access (str/starts-with? method-name "-")
+              meth-name (if field-access
+                          (subs method-name 1)
+                          method-name)]
+          #?(:clj (if (class? instance-expr)
+                    (if (nil? args)
+                      (if field-access
+                        (ctx-fn
+                         (fn [_ctx _bindings]
+                           (interop/get-static-field [instance-expr (subs method-name 1)]))
+                         nil expr nil)
+                        ;; https://clojure.org/reference/java_interop
+                        ;; If the second operand is a symbol and no args are
+                        ;; supplied it is taken to be a field access - the
+                        ;; name of the field is the name of the symbol, and
+                        ;; the value of the expression is the value of the
+                        ;; field, unless there is a no argument public method
+                        ;; of the same name, in which case it resolves to a
+                        ;; call to the method.
+                        (if-let [_
+                                 (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
+                                      (catch IllegalArgumentException _ nil))]
                           (ctx-fn
                            (fn [_ctx _bindings]
-                             (interop/get-static-field [instance-expr (subs method-name 1)]))
+                             (interop/get-static-field [instance-expr method-name]))
                            nil expr nil)
-                          ;; https://clojure.org/reference/java_interop
-                          ;; If the second operand is a symbol and no args are
-                          ;; supplied it is taken to be a field access - the
-                          ;; name of the field is the name of the symbol, and
-                          ;; the value of the expression is the value of the
-                          ;; field, unless there is a no argument public method
-                          ;; of the same name, in which case it resolves to a
-                          ;; call to the method.
-                          (if-let [_
-                                   (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
-                                        (catch IllegalArgumentException _ nil))]
-                            (ctx-fn
-                             (fn [_ctx _bindings]
-                               (interop/get-static-field [instance-expr method-name]))
-                             nil expr nil)
-                            (ctx-fn
-                             (fn [ctx bindings]
-                               (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
-                             nil
-                             expr
-                             (assoc (meta expr)
-                                    :ns @vars/current-ns
-                                    :file @vars/current-file))))
-                        (ctx-fn
-                         (fn [ctx bindings]
-                           (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
-                         nil expr
-                         (assoc (meta expr)
-                                :ns @vars/current-ns
-                                :file @vars/current-file)))
-                      (ctx-fn (fn [ctx bindings]
-                                (eval/eval-instance-method-invocation ctx bindings instance-expr method-name args))
-                              ;; this info is used by set!
-                              {::instance-expr instance-expr
-                               ::method-name method-name}
-                              expr
-                              (assoc (meta expr)
-                                     :ns @vars/current-ns
-                                     :file @vars/current-file)))
-               :cljs (ctx-fn
-                      (let [allowed? (identical? method-expr utils/allowed-append)]
-                        (fn [ctx bindings]
-                          (eval/eval-instance-method-invocation ctx bindings instance-expr method-name args allowed?)))
-                             ;; this info is used by set!
-                             {::instance-expr instance-expr
-                              ::method-name method-name}
-                             expr
-                             (assoc (meta expr)
-                                    :ns @vars/current-ns
-                                    :file @vars/current-file)))]
+                          (ctx-fn
+                           (fn [ctx bindings]
+                             (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
+                           nil
+                           expr
+                           (assoc (meta expr)
+                                  :ns @vars/current-ns
+                                  :file @vars/current-file))))
+                      (ctx-fn
+                       (fn [ctx bindings]
+                         (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
+                       nil expr
+                       (assoc (meta expr)
+                              :ns @vars/current-ns
+                              :file @vars/current-file)))
+                    (ctx-fn (fn [ctx bindings]
+                              (eval/eval-instance-method-invocation ctx bindings instance-expr meth-name field-access args))
+                            ;; this info is used by set!
+                            {::instance-expr instance-expr
+                             ::method-name method-name}
+                            expr
+                            (assoc (meta expr)
+                                   :ns @vars/current-ns
+                                   :file @vars/current-file)))
+             :cljs (ctx-fn
+                    (let [allowed? (identical? method-expr utils/allowed-append)]
+                      (fn [ctx bindings]
+                        (eval/eval-instance-method-invocation ctx bindings instance-expr meth-name field-access args allowed?)))
+                    ;; this info is used by set!
+                    {::instance-expr instance-expr
+                     ::method-name method-name}
+                    expr
+                    (assoc (meta expr)
+                           :ns @vars/current-ns
+                           :file @vars/current-file))))]
     res))
 
 (defn expand-dot**

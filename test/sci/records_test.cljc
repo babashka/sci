@@ -113,16 +113,7 @@
 
 (width (Rectangle. 10 10))"]
     (is (= 10 (tu/eval* prog {}))))
-  (let [prog "
-(ns foo)
-(defrecord Rectangle [width height])
-
-(ns bar (:import [foo Rectangle]))
-(defn width [^Rectangle rect]
-  (.-width rect))
-
-(def rect (Rectangle. 10 10))
-(width rect)"]
+  (let [prog "(ns foo) (defrecord Rectangle [width height]) (ns bar (:import [foo Rectangle])) (defn width [^Rectangle rect] (.-width rect)) (def rect (Rectangle. 10 10)) (width rect)"]
     (is (= 10 (tu/eval* prog {})))))
 
 (deftest constructor-test
