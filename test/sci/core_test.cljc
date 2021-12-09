@@ -295,7 +295,10 @@
                        (.getHeaderFieldKey ^java.net.HttpURLConnection conn 0)))))
         {:namespaces {'clojure.core {'slurp slurp}}
          :classes {'java.net.HttpURLConnection java.net.HttpURLConnection
-                   'java.net.URL java.net.URL}}))))
+                   'java.net.URL java.net.URL}})))
+  #?(:clj (is (nil? (sci/eval-string "(resolve 'java.lang.Exception/foo)"
+                                     {:classes {'java.lang.Exception java.lang.Exception}})))
+     :cljs (is (nil? (sci/eval-string "(resolve 'js/Error)" {:classes {'js #js {:Error js/Error}}})))))
 
 (deftest ns-resolve-test
   (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))

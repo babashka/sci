@@ -220,12 +220,15 @@
 
 (defn eval-resolve
   ([ctx bindings sym]
-   (let [sym (eval ctx bindings sym)]
-     (second (@utils/lookup ctx sym false))))
+   (eval-resolve ctx bindings nil sym))
   ([ctx bindings env sym]
-   (when-not (contains? env sym)
-     (let [sym (eval ctx bindings sym)]
-       (second (@utils/lookup ctx sym false))))))
+   (when (or (not env)
+             (not (contains? env sym)))
+     (let [sym (eval ctx bindings sym)
+           res (second (@utils/lookup ctx sym false))]
+       (when-not (instance? #?(:clj sci.impl.types.EvalFn
+                               :cljs sci.impl.types/EvalFn) res)
+         res)))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
 
