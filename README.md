@@ -171,9 +171,9 @@ Dynamic vars with thread-local bindings are also supported:
 
 ``` clojure
 (def ^:dynamic *x* 1)
-(binding [*x* 10] x) ;;=> 10
-(binding [*x* 10] (set! x 12) x) ;;=> 12
-x ;;=> 1
+(binding [*x* 10] *x*) ;;=> 10
+(binding [*x* 10] (set! *x* 12) *x*) ;;=> 12
+*x* ;;=> 1
 ```
 
 Creating SCI vars from Clojure can be done using `sci/new-var`:
