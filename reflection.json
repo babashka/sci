@@ -99,5 +99,6 @@
      {"name": "aget"},
      {"name": "aset"},
      {"name": "aclone"}
-   ]}
+   ]},
+  {"name": "[Ljava.lang.Double;"}
 ]
