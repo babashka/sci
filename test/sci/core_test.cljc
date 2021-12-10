@@ -1235,16 +1235,18 @@
             "(def v (volatile! 1)) (vswap! v inc) @v"))))
 
 (deftest to-array-2d-test
-  (let [resulting-array (eval* "(to-array-2d [[1 2][3 4]])")]
-    (is (= 2 (alength resulting-array)))
-    (is (= (type (object-array 1)) (type (aget resulting-array 0))))))
+  (let [[alen type-eq] (eval* "(def arr (to-array-2d [[1 2][3 4]]))
+                               [(alength arr)
+                                (= (type (object-array 1)) (type (aget arr 0)))]")]
+    (is (= 2 alen))
+    (is type-eq)))
 
 (deftest aclone-test
-  (let [[a b] (eval* "(let [a (into-array [1 2 3])
+  (let [[eq a al b bl] (eval* "(let [a (into-array [1 2 3])
                             b (aclone a)]
-                        [a b])")]
-    (is (not= a b))
-    (is (= (alength a) (alength b)))
+                        [(= a b) (vec a) (alength a) (vec b) (alength b)])")]
+    (is (not eq))
+    (is (= al bl))
     (is (= (vec a) (vec b)))))
 
 (deftest areduce-test
@@ -1256,12 +1258,12 @@
 (deftest amap-test
   (let [mapped-array
         (eval* "(def an-array (into-array (range 5)))
-                (amap an-array
+                (vec (amap an-array
                       idx
                       ret
                       (+ (int 1)
-                         (aget an-array idx)))")]
-    (is (= [1 2 3 4 5] (vec mapped-array)))))
+                         (aget an-array idx))))")]
+    (is (= [1 2 3 4 5] mapped-array))))
 
 ;;;; Scratch
 
