@@ -97,6 +97,7 @@
   {"name": "clojure.lang.RT",
    "methods": [
      {"name": "aget"},
+     {"name": "aset"},
      {"name": "aclone"}
    ]}
 ]
