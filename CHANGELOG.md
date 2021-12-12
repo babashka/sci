@@ -2,6 +2,32 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## v0.2.8
+
+- Prefer metadata implementation override over `extend-protocol` #378
+- Prefer metadata implementation in `extend` `extend-protocol` #378
+- Make constructors in CLJS more dynamic #624
+- Support Object toString override on defrecord #627
+- Bump edamame to `0.0.18`
+- Add `copy-ns` macro
+- `clojure.core/read` improvements #663
+- `clojure.core/read` can read with standard `PushbackReader`
+- Support `*read-eval*`
+- Support `*default-data-reader-fn*`
+- Support `*reader-resolver*`
+- Intern fails to rebind a referred var if already present in config #637
+- Support adding protocol for satisfies check #638
+- Add `reader-conditional?`
+- Add CLJS `random-uuid?`
+- Add `clojure.test/test`
+- Expose `doseq` and `for` as normal macros (@erdos)
+- Fix `declare` with dynamic var #630 (@erdos)
+- Support `ns` `:require` with string instead of symbol (@djblue)
+- Add `inst-ms`
+- Fix `resolve` on class method (should return `nil`) #647
+- Support getting instance fields from JVM classes
+- Add `to-array-2d`, `aclone`, `reduce` and `amap` #650 (@MrEbbinghaus)
+
 ## v0.2.7
 
 This release focuses on:

@@ -67,11 +67,6 @@ SCI is used in:
 
 Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/babashka/issues/254).
 
-## Status
-
-Experimental. Breaking changes are expected to happen at this phase. They will
-be documented in the [CHANGELOG.md](CHANGELOG.md).
-
 ## Installation
 
 Use as a dependency:
