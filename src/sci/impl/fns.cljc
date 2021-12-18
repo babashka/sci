@@ -243,6 +243,7 @@
    fn-bodies))
 
 (defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref]
+  ;; (prn :fn-name fn-name)
   (let [;; each evaluated fn should have its own self-ref!
         self-ref (when self-ref (volatile! nil))
         bindings (if self-ref
@@ -261,9 +262,10 @@
                                 (let [actual-count (if macro? (- arg-count 2)
                                                        arg-count)]
                                   (str "Cannot call " fn-name " with " actual-count " arguments")))))))))
-        f (if macro?
+        #_#_f (if macro?
             (vary-meta f
-                       #(assoc % :sci/macro macro?))
+                       #(assoc % :sci/macro macro?
+                                 :name fn-name))
             f)]
     (when self-ref (vreset! self-ref f))
     f))
