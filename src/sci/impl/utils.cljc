@@ -80,26 +80,24 @@
                                deref last meta)
                        (meta node))]
                (if (and line column)
-                 (let [;; dude #"Wrong number of args \(\d+\) passed to: (.*)"
-                       ;; _ (prn :ex ex-msg)
-                       ;; [m r] (and ex-msg (re-matches dude ex-msg))
-                       ;; _ (prn :r r)
-                       pat #"(sci\.impl\.)?fns/fun/arity-([0-9])+--\d+"
-                       [match _ x] (when ex-msg
-                                     (re-find pat ex-msg))
+                 (let [dude #"Wrong number of args \(\d+\) passed to: (.*)"
+                       [_ r] (and ex-msg (re-matches dude ex-msg))
+                       pat #"sci\.impl\.?fns/fun/arity-([0-9])+--\d+"
+                       [match x] (when ex-msg
+                                   (re-find pat ex-msg))
                        friendly-name (when x (str "function of arity " x))
                        ex-msg (if (and ex-msg (:name fm))
                                   (let [ns (symbol (str (:ns fm)))
                                         var-name (:name fm)
                                         var (get-in @env [:namespaces ns var-name])
-                                        ;; _ (prn :var var (meta var) (type var))
-                                        varf (deref var)]
-                                    #_(prn :=== (= r (str varf)) r (str varf))
-                                    #_(prn :pat pat :varf (clojure.main/demunge (str varf))
-                                         (str (:ns fm) "/" (:name fm)))
-                                    (cond (re-find pat #?(:clj (clojure.main/demunge (str varf))
-                                                          :cljs (demunge (str varf))))
-                                          (str/replace ex-msg pat
+                                        varf (when var (deref var))
+                                        varf (or (some-> varf meta :sci.impl/inner-fn)
+                                                 varf)
+                                        varf (when varf
+                                               #?(:clj (clojure.main/demunge (str varf))
+                                                  :cljs (demunge (str varf))))]
+                                    (cond (str/includes? varf r)
+                                          (str/replace ex-msg r
                                                        (str (:ns fm) "/" (:name fm)))
                                           friendly-name (str/replace ex-msg match friendly-name)
                                           :else ex-msg))

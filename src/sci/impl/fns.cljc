@@ -262,10 +262,11 @@
                                 (let [actual-count (if macro? (- arg-count 2)
                                                        arg-count)]
                                   (str "Cannot call " fn-name " with " actual-count " arguments")))))))))
-        #_#_f (if macro?
+        f (if macro?
             (vary-meta f
-                       #(assoc % :sci/macro macro?
-                                 :name fn-name))
+                       #(assoc %
+                               :sci/macro macro?
+                               :sci.impl/inner-fn f))
             f)]
     (when self-ref (vreset! self-ref f))
     f))
