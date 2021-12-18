@@ -97,7 +97,8 @@
                                     #_(prn :=== (= r (str varf)) r (str varf))
                                     #_(prn :pat pat :varf (clojure.main/demunge (str varf))
                                          (str (:ns fm) "/" (:name fm)))
-                                    (cond (re-find pat (clojure.main/demunge (str varf)))
+                                    (cond (re-find pat #?(:clj (clojure.main/demunge (str varf))
+                                                          :cljs (demunge (str varf))))
                                           (str/replace ex-msg pat
                                                        (str (:ns fm) "/" (:name fm)))
                                           friendly-name (str/replace ex-msg match friendly-name)
