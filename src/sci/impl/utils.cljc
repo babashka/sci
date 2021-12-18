@@ -82,9 +82,9 @@
                (if (and line column)
                  (let [dude #"Wrong number of args \(\d+\) passed to: (.*)"
                        [_ r] (and ex-msg (re-matches dude ex-msg))
-                       pat #"sci\.impl\.?fns/fun/arity-([0-9])+--\d+"
-                       [match x] (when ex-msg
-                                   (re-find pat ex-msg))
+                       pat #"(sci\.impl\.)?fns/fun/arity-([0-9])+--\d+"
+                       [match _ x] (when ex-msg
+                                     (re-find pat ex-msg))
                        friendly-name (when x (str "function of arity " x))
                        ex-msg (if (and ex-msg (:name fm))
                                   (let [ns (symbol (str (:ns fm)))
@@ -96,7 +96,7 @@
                                         varf (when varf
                                                #?(:clj (clojure.main/demunge (str varf))
                                                   :cljs (demunge (str varf))))]
-                                    (cond (str/includes? varf r)
+                                    (cond (and varf r (str/includes? varf r))
                                           (str/replace ex-msg r
                                                        (str (:ns fm) "/" (:name fm)))
                                           friendly-name (str/replace ex-msg match friendly-name)
