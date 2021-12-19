@@ -87,6 +87,10 @@
   (testing "apply is not reported when higher order argument causes arity error"
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+         #"Wrong number of args \(1\) passed to: function of arity 0"
+         (eval-string "(apply (fn []) [1])")))
+    (is (thrown-with-msg?
+         #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
          #"Wrong number of args \(3\) passed to: function of arity 1"
          (eval-string "(apply (fn [_]) [1 2 3])")))
     (testing "varargs"
