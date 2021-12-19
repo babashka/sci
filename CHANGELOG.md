@@ -2,6 +2,10 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+- Improve error message for higher order function arity exception [#653](https://github.com/borkdude/sci/issues/653)
+
 ## v0.2.8
 
 - Prefer metadata implementation override over `extend-protocol` [#378](https://github.com/borkdude/sci/issues/378)
