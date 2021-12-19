@@ -420,7 +420,7 @@
 (let [x 1] (bindings))")
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
-                               (doto d prn)))))
+                               d))))
     (tu/assert-submap {:type :sci/error, :line 1, :column 25,
                        :message #"Wrong number of args \(0\) passed to: user/foo"}
                       (try (eval* (str "(defmacro foo [x & xs]) "

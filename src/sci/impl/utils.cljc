@@ -94,8 +94,8 @@
                                         varf (or (some-> varf meta :sci.impl/inner-fn)
                                                  varf)
                                         varf (when varf
-                                               #?(:clj (clojure.main/demunge (str varf))
-                                                  :cljs (demunge (str varf))))]
+                                               #?(:clj (clojure.lang.Compiler/demunge (str varf))
+                                                  :cljs (demunge (.-name varf))))]
                                     (cond (and varf r (str/includes? varf r))
                                           (str/replace ex-msg r
                                                        (str (:ns fm) "/" (:name fm)))

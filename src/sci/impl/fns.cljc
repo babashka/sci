@@ -11,13 +11,15 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn throw-arity [ctx nsm fn-name macro? args]
+(defn throw-arity [ctx nsm fn-name macro? args expected-arity]
   (when-not (:disable-arity-checks ctx)
     (throw (new #?(:clj Exception
                    :cljs js/Error)
                 (let [actual-count (if macro? (- (count args) 2)
                                        (count args))]
-                  (str "Wrong number of args (" actual-count ") passed to: " (str nsm "/" fn-name)))))))
+                  (str "Wrong number of args (" actual-count ") passed to: " (if fn-name
+                                                                               (str nsm "/" fn-name)
+                                                                               (str "function of arity " expected-arity))))))))
 
 (deftype Recur #?(:clj [val]
                   :cljs [val])
@@ -64,7 +66,7 @@
           ~@(? :cljs
                (when-not disable-arity-checks
                  `[(when-not (= ~n (.-length (~'js-arguments)))
-                     (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))]))
+                     (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
           (let [;; tried making bindings a transient, but saw no perf improvement
                 ;; it's even slower with less than ~10 bindings which is pretty uncommon
                 ;; see https://github.com/borkdude/sci/issues/559
@@ -96,12 +98,12 @@
                    (assoc ret (second params) args*)
                    (do
                      (when-not args*
-                       (throw-arity ctx nsm fn-name macro? args))
+                       (throw-arity ctx nsm fn-name macro? args nil))
                      (recur (next args*) (next params)
                             (assoc-3 ret fp (first args*))))))
                (do
                  (when args*
-                   (throw-arity ctx nsm fn-name macro? args))
+                   (throw-arity ctx nsm fn-name macro? args nil))
                  ret)))
            ret (eval/eval ctx bindings body)
            ;; m (meta ret)
