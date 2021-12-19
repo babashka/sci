@@ -254,7 +254,6 @@
    fn-bodies))
 
 (defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref]
-  ;; (prn :fn-name fn-name)
   (let [;; each evaluated fn should have its own self-ref!
         self-ref (when self-ref (volatile! nil))
         bindings (if self-ref
@@ -277,6 +276,7 @@
             (vary-meta f
                        #(assoc %
                                :sci/macro macro?
+                               ;; added for better error reporting
                                :sci.impl/inner-fn f))
             f)]
     (when self-ref (vreset! self-ref f))
