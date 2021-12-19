@@ -98,12 +98,12 @@
                    (assoc ret (second params) args*)
                    (do
                      (when-not args*
-                       (throw-arity ctx nsm fn-name macro? args nil))
+                       (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
                      (recur (next args*) (next params)
                             (assoc-3 ret fp (first args*))))))
                (do
                  (when args*
-                   (throw-arity ctx nsm fn-name macro? args nil))
+                   (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
                  ret)))
            ret (eval/eval ctx bindings body)
            ;; m (meta ret)

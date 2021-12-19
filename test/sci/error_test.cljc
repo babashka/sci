@@ -88,7 +88,12 @@
     (is (thrown-with-msg?
          #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
          #"Wrong number of args \(3\) passed to: function of arity 1"
-         (eval-string "(apply (fn [_]) [1 2 3])")))))
+         (eval-string "(apply (fn [_]) [1 2 3])")))
+    (testing "varargs"
+      (is (thrown-with-msg?
+           #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+           #"Wrong number of args \(0\) passed to: function of arity 1"
+           (eval-string "(apply (fn [_ & xs]) [])"))))))
 
 (deftest inherited-ex-data-is-encapsulated
   (testing "The original ex-data is encapsulated."
