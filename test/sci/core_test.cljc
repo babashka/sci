@@ -413,10 +413,11 @@
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
-    (tu/assert-submap {:type :sci/error, :line 1, :column 93,
+    (tu/assert-submap {:type :sci/error, :line 3, :column 12,
                        :message #"Wrong number of args \(2\) passed to: user/bindings"}
-                      (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
-                                       "(let [x 1] (bindings))"))
+                      (try (eval* "
+(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env)))
+(let [x 1] (bindings))")
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
