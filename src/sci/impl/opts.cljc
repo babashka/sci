@@ -3,9 +3,9 @@
   (:require
    #?(:cljs [goog.string])
    [sci.impl.namespaces :as namespaces]
+   [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]
-   [sci.impl.types :as types]
    [sci.lang])
   #?(:clj (:import [sci.impl.types IReified])))
 
@@ -14,12 +14,18 @@
 
 (defn init-env! [env bindings aliases namespaces imports load-fn]
   (swap! env (fn [env]
-               (let [namespaces (merge-with merge
-                                            namespaces/namespaces
-                                            {'user (assoc bindings
-                                                          :obj vars/user-ns)}
-                                            namespaces
-                                            (:namespaces env))
+               (let [env-nss (:namespaces env)
+                     namespaces (merge-with merge
+                                            (or
+                                             ;; either the env has already got namespaces
+                                             env-nss
+                                             ;; or we need to install the default namespaces
+                                             namespaces/namespaces)
+                                            (when-not env-nss
+                                              ;; can skip when env has already got namespaces
+                                              {'user (assoc bindings
+                                                            :obj vars/user-ns)})
+                                            namespaces)
                      aliases (merge namespaces/aliases aliases
                                     (get-in env [:namespaces 'user :aliases]))
                      namespaces (-> namespaces

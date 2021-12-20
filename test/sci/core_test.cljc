@@ -1150,6 +1150,12 @@
            ctx2 (sci/merge-opts ctx {:namespaces {}})]
        (is (sci/eval-string* ctx2 "(try (assoc 1 1 1) (catch js/Error e 12))")))))
 
+(deftest merge-opts-with-new-vars-test
+  (let [C (atom (sci/init {:namespaces {'n {'foo 1}}}))]
+    (is (= 1 (sci/eval-form @C 'n/foo)))
+    (swap! C sci/merge-opts {:namespaces {'n {'foo 2}}})
+    (is (= 2 (sci/eval-form @C 'n/foo)))))
+
 (deftest dynamic-meta-def-test
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
   (is (= "6" (eval* "(def ^{:doc (str (+ 1 2 3))} foo) (:doc (meta #'foo))")))
