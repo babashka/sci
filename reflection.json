@@ -92,5 +92,13 @@
   }
   ,
   {"name": "java.lang.reflect.AccessibleObject",
-   "methods" : [{"name":"canAccess"}]}
+   "methods" : [{"name":"canAccess"}]},
+
+  {"name": "clojure.lang.RT",
+   "methods": [
+     {"name": "aget"},
+     {"name": "aset"},
+     {"name": "aclone"}
+   ]},
+  {"name": "[Ljava.lang.Double;"}
 ]

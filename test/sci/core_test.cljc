@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
+   [sci.copy-ns-test-ns]
    [sci.core :as sci :refer [eval-string]]
    [sci.test-utils :as tu]))
 
@@ -294,7 +295,10 @@
                        (.getHeaderFieldKey ^java.net.HttpURLConnection conn 0)))))
         {:namespaces {'clojure.core {'slurp slurp}}
          :classes {'java.net.HttpURLConnection java.net.HttpURLConnection
-                   'java.net.URL java.net.URL}}))))
+                   'java.net.URL java.net.URL}})))
+  #?(:clj (is (nil? (sci/eval-string "(resolve 'java.lang.Exception/foo)"
+                                     {:classes {'java.lang.Exception java.lang.Exception}})))
+     :cljs (is (nil? (sci/eval-string "(resolve 'js/Error)" {:classes {'js #js {:Error js/Error}}})))))
 
 (deftest ns-resolve-test
   (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
@@ -354,6 +358,10 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
+  (testing "for/doseq are macroexpanded properly"
+    (is (= 'loop (first (tu/eval* "(macroexpand '(doseq [i [1 2 3]] nil))" {}))))
+    (is (= #?(:clj 'clojure.core/let :cljs 'cljs.core/let)
+           (first (tu/eval* "(macroexpand '(for [i [1 2 3]] i))" {})))))
   (testing "for/doseq/dotimes use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
     (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
@@ -405,10 +413,11 @@
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
-    (tu/assert-submap {:type :sci/error, :line 1, :column 93,
+    (tu/assert-submap {:type :sci/error, :line 3, :column 12,
                        :message #"Wrong number of args \(2\) passed to: user/bindings"}
-                      (try (eval* (str "(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env))) "
-                                       "(let [x 1] (bindings))"))
+                      (try (eval* "
+(defmacro bindings [a] (zipmap (mapv #(list 'quote %) (keys &env)) (keys &env)))
+(let [x 1] (bindings))")
                            (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
@@ -736,7 +745,10 @@
 (deftest declare-test
   (is (= [1 2] (eval* "(declare foo bar) (defn f [] [foo bar]) (def foo 1) (def bar 2) (f)")))
   (is (= 1 (eval* "(def x 1) (declare x) x")))
-  (is (str/includes? (str/lower-case (eval* "(declare x) (str x)")) "unbound")))
+  (is (str/includes? (str/lower-case (eval* "(declare x) (str x)")) "unbound"))
+  (testing "declare var with metadata"
+    (is (= 2 (eval* "(declare ^:dynamic d) (binding [d 2] d)")))
+    (is (= "x" (eval* "(declare ^{:doc \"x\"} e) (-> #' e meta :doc)")))))
 
 (deftest reader-conditionals
   (is (= 6 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:bb}})))
@@ -1138,6 +1150,12 @@
            ctx2 (sci/merge-opts ctx {:namespaces {}})]
        (is (sci/eval-string* ctx2 "(try (assoc 1 1 1) (catch js/Error e 12))")))))
 
+(deftest merge-opts-with-new-vars-test
+  (let [C (atom (sci/init {:namespaces {'n {'foo 1}}}))]
+    (is (= 1 (sci/eval-form @C 'n/foo)))
+    (swap! C sci/merge-opts {:namespaces {'n {'foo 2}}})
+    (is (= 2 (sci/eval-form @C 'n/foo)))))
+
 (deftest dynamic-meta-def-test
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
   (is (= "6" (eval* "(def ^{:doc (str (+ 1 2 3))} foo) (:doc (meta #'foo))")))
@@ -1195,10 +1213,69 @@
      (testing "js objects are not instantiated at read time, but at runtime, rendering new objects each time"
        (sci/eval-string "(apply identical? (for [x [1 2]] #js {:a 1}))" {:classes {'js goog/global :allow :all}}))))
 
+(deftest copy-ns-test
+  (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
+                            (sci/create-ns 'sci.copy-ns-test-ns)
+                            {:exclude [baz quux]
+                             :copy-meta [:doc :copy-this]})]
+    (is (map? sci-ns))
+    (is (= 2 (count sci-ns)))
+    (is (= #{'foo 'bar} (set (keys sci-ns))))
+    (is (= [:foo :bar] (sci/eval-string
+                        "(require '[sci.copy-ns-test-ns :refer [foo bar]])
+                         [(foo) (bar)]"
+                        {:namespaces {'sci.copy-ns-test-ns sci-ns}})))
+    (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
+    (is (:copy-this (meta (get sci-ns 'foo)))))
+  (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
+                            (sci/create-ns 'sci.copy-ns-test-ns)
+                            {:exclude-when-meta [:exclude-this]
+                             :copy-meta :all})]
+    (is (= 4 (count sci-ns)))
+    (is (= #{'foo 'bar 'baz 'skip-wiki} (set (keys sci-ns))))
+    (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
+    (is (:copy-this (meta (get sci-ns 'foo))))
+    (is (:awesome-meta (meta (get sci-ns 'baz))))))
+
+(deftest vswap-test
+  (is (= 2 (sci/eval-string
+            "(def v (volatile! 1)) (vswap! v inc) @v"))))
+
+(deftest to-array-2d-test
+  (let [[alen type-eq] (eval* "(def arr (to-array-2d [[1 2][3 4]]))
+                               [(alength arr)
+                                (= (type (object-array 1)) (type (aget arr 0)))]")]
+    (is (= 2 alen))
+    (is type-eq)))
+
+(deftest aclone-test
+  (let [[eq a al b bl] (eval* "(let [a (into-array [1 2 3])
+                            b (aclone a)]
+                        [(= a b) (vec a) (alength a) (vec b) (alength b)])")]
+    (is (not eq))
+    (is (= al bl))
+    (is (= (vec a) (vec b)))))
+
+(deftest areduce-test
+  (is (= 6.0 (eval* "(defn asum [xs]
+                        (areduce xs i ret (float 0)
+                                 (+ ret (aget xs i))))
+                     (asum (into-array [1.0 2.0 3.0]))"))))
+
+(deftest amap-test
+  (let [mapped-array
+        (eval* "(def an-array (into-array (range 5)))
+                (vec (amap an-array
+                      idx
+                      ret
+                      (+ (int 1)
+                         (aget an-array idx))))")]
+    (is (= [1 2 3 4 5] mapped-array))))
+
 ;;;; Scratch
 
 (comment
   (eval* 1 '(inc *in*))
   (test-difference "foo" "[10 10]" 0 10)
-  (test-difference "rand" #(rand) 0 10)
-  )
+  (test-difference "rand" #(rand) 0 10))
+

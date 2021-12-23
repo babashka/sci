@@ -23,7 +23,7 @@
 (sci/eval-string "(inc x)" {:namespaces {'user {'x 2}}}) ;;=> 3
 ```
 
-Try SCI in your browser at o[NextJournal](https://nextjournal.github.io/clojure-mode/).
+Try SCI in your browser at [NextJournal](https://nextjournal.github.io/clojure-mode/).
 
 For usage with GraalVM `native-image` check [here](#graalvm).
 
@@ -67,11 +67,6 @@ SCI is used in:
 
 Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/babashka/issues/254).
 
-## Status
-
-Experimental. Breaking changes are expected to happen at this phase. They will
-be documented in the [CHANGELOG.md](CHANGELOG.md).
-
 ## Installation
 
 Use as a dependency:
@@ -91,10 +86,10 @@ and an optional options map.
 In SCI, `defn` does not mutate the outside world, only the evaluation
 context inside a call to `sci/eval-string`.
 
-By default SCI only enables access to most of the Clojure core functions.  More
-functions can be enabled by using `:namespaces` and `:classes`.  Normally you
+By default SCI only enables access to most of the Clojure core functions. More
+functions can be enabled by using `:namespaces` and `:classes`. Normally you
 would use SCI's version of `println` but here, for the purposes of
-demonstration, we use use Clojure's version of `println` instead:
+demonstration, we use Clojure's version of `println` instead:
 
 ``` clojure
 user=> (require '[sci.core :as sci])
@@ -171,9 +166,9 @@ Dynamic vars with thread-local bindings are also supported:
 
 ``` clojure
 (def ^:dynamic *x* 1)
-(binding [*x* 10] x) ;;=> 10
-(binding [*x* 10] (set! x 12) x) ;;=> 12
-x ;;=> 1
+(binding [*x* 10] *x*) ;;=> 10
+(binding [*x* 10] (set! *x* 12) *x*) ;;=> 12
+*x* ;;=> 1
 ```
 
 Creating SCI vars from Clojure can be done using `sci/new-var`:
@@ -401,8 +396,8 @@ for this class. Also see [`reflection.json`](reflection.json).
 
 By default, SCI only lets you interop with classes explicitly provided in the
 `:classes` config. When a method call returns an instance of a class that is not
-in `:classes` you won't be able to to interop on that. You can disable this
-safety measure with `{:classes {:allow :all}}`.
+in `:classes` you won't be able to interop on that. You can disable this safety
+measure with `{:classes {:allow :all}}`.
 
 In JS hosts, to allow interop with anything, use the following config:
 
@@ -538,7 +533,7 @@ For general information about Clojure and GraalVM, check out
 
 ### Clojure version
 
-To build native images with GraalVM it is recommended to use clojure `1.10.3` or
+To build native images with GraalVM it is recommended to use Clojure `1.10.3` or
 later.
 
 <!-- ## Use from JavaScript -->
@@ -604,9 +599,9 @@ class sci.impl.vars.SciUnbound cannot be cast to class java.io.Writer (sci.impl.
 This happens because by the time the lazy-seq is realized, the binding scope for
 `sci/out` is no longer established, and as a result the lazy-seq can no longer
 be realized (due to the delayed calls to `println`, a side-effecting call
-dependends on the value of `sci/out`, set by `sci/binding`.
+dependents on the value of `sci/out`, set by `sci/binding`.
 
-If the result is intented to be serialized as a string, then one could simply
+If the result is intended to be serialized as a string, then one could simply
 serialize while the binding is still in place:
 
 ``` clojure
@@ -624,7 +619,7 @@ sw))`, since the first call takes care of realization.
 
 Required: `lein`, the `clojure` CLI and GraalVM.
 
-To succesfully run the GraalVM tests, you will have to compile the binary first
+To successfully run the GraalVM tests, you will have to compile the binary first
 with `script/compile`.
 
 To run all tests:

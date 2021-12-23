@@ -14,12 +14,18 @@
 
 (defn init-env! [env bindings aliases namespaces imports load-fn]
   (swap! env (fn [env]
-               (let [namespaces (merge-with merge
-                                            namespaces/namespaces
-                                            {'user (assoc bindings
-                                                          :obj vars/user-ns)}
-                                            namespaces
-                                            (:namespaces env))
+               (let [env-nss (:namespaces env)
+                     namespaces (merge-with merge
+                                            (or
+                                             ;; either the env has already got namespaces
+                                             env-nss
+                                             ;; or we need to install the default namespaces
+                                             namespaces/namespaces)
+                                            (when-not env-nss
+                                              ;; can skip when env has already got namespaces
+                                              {'user (assoc bindings
+                                                            :obj vars/user-ns)})
+                                            namespaces)
                      aliases (merge namespaces/aliases aliases
                                     (get-in env [:namespaces 'user :aliases]))
                      namespaces (-> namespaces
@@ -149,7 +155,8 @@
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes ;; hold on for merge-opts
-                   :class->opts (:class->opts classes))]
+                   :class->opts (:class->opts classes)
+                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
 (defn merge-opts [ctx opts]
@@ -176,5 +183,6 @@
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes
-                   :class->opts (:class->opts classes))]
+                   :class->opts (:class->opts classes)
+                   :main-thread-id (:main-thread-id ctx))]
     ctx))

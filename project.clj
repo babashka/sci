@@ -11,12 +11,13 @@
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/sci.impl.reflector "0.0.1"]
-                 [borkdude/edamame "0.0.14"]]
+                 [borkdude/edamame "0.0.19"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :native-image {:dependencies [[org.clojure/clojure "1.10.3"]]}
              :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
-             :test {:jvm-opts ["-Djdk.attach.allowAttachSelf"]
+             :test {:resource-paths ["test-resources"]
+                    :jvm-opts ["-Djdk.attach.allowAttachSelf"]
                     :dependencies [[clj-commons/conch "0.9.2"]
                                    [criterium "0.4.5"]
                                    [com.clojure-goes-fast/clj-async-profiler "0.4.0"]]}

@@ -53,7 +53,7 @@
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
               (when-let [v (when call? (get ana-macros sym-name))]
                 [sym v])))
-        (or (some-> env :namespaces sym-ns (find sym-name))
+        (or (some-> env :namespaces (get sym-ns) (find sym-name))
             (when-not only-var?
                  (when-let [clazz (interop/resolve-class ctx sym-ns)]
                    [sym (if call?

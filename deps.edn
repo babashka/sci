@@ -1,9 +1,9 @@
 {:paths ["resources" "src"]
- :deps {borkdude/edamame {:mvn/version "0.0.14"}
+ :deps {borkdude/edamame {:mvn/version "0.0.19"}
         borkdude/sci.impl.reflector {:mvn/version "0.0.1"}}
  :aliases
  {:examples {:extra-paths ["examples"]}
-  :test {:extra-paths ["test"]
+  :test {:extra-paths ["test" "test-resources"]
          :extra-deps {org.clojure/clojure {:mvn/version "1.9.0"}
                       org.clojure/clojurescript {:mvn/version "1.10.866"}
                       clj-commons/conch {:mvn/version "0.9.2"}}}

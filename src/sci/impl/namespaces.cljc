@@ -5,6 +5,7 @@
                             use load-string
                             find-var *1 *2 *3 *e #?(:cljs type)
                             bound-fn* with-bindings*
+                            vswap!
                             #?(:cljs this-as)])
   (:require
    #?(:clj [clojure.edn :as edn]
@@ -17,15 +18,17 @@
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
+   [sci.impl.for-macro :as for-macro]
+   [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
-   [sci.impl.read :as read :refer [eval load-string read read-string]]
+   [sci.impl.read :as read :refer [load-string read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    #?(:clj [sci.impl.proxy :as proxy])
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [needs-ctx]]
+   [sci.impl.utils :as utils :refer [eval needs-ctx]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
@@ -288,6 +291,23 @@
    `(when-not ~x
       (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
 
+(defn areduce* [_ _ a idx ret init expr]
+  `(let [a# ~a l# (alength a#)]
+     (loop  [~idx 0 ~ret ~init]
+       (if (< ~idx l#)
+         (recur (unchecked-inc-int ~idx) ~expr)
+         ~ret))))
+
+(defn amap* [_ _ a idx ret expr]
+  `(let [a# ~a l# (alength a#)
+         ~ret (aclone a#)]
+     (loop  [~idx 0]
+       (if (< ~idx  l#)
+         (do
+           (aset ~ret ~idx ~expr)
+           (recur (unchecked-inc ~idx)))
+         ~ret))))
+
 (defn with-open*
   [_ _ bindings & body]
   (cond
@@ -326,9 +346,13 @@
        ~@body
        (finally (clojure.core/pop-thread-bindings)))))
 
-(defn vswap!*
-  [vol f & args]
-  (vreset! vol (apply f @vol args)))
+(defn vswap!
+  "Non-atomically swaps the value of the volatile as if:
+   (apply f current-value-of-vol args). Returns the value that
+   was swapped in."
+  [_ _ vol f & args]
+  (let [v vol]
+    `(vreset! ~v (~f (deref ~v) ~@args))))
 
 (defn delay*
   [_ _ & body]
@@ -473,15 +497,18 @@
                  name (sci-ns-name sci-ns)]
              (update-in env [:namespaces name]
                         (fn [the-ns-map]
-                          (cond (contains? the-ns-map sym)
+                          (cond (contains? (:refers the-ns-map) sym)
+                                (-> (update the-ns-map :refers dissoc sym)
+                                    ;; remove lingering var that may have been
+                                    ;; overwritten before, see #637
+                                    (dissoc the-ns-map sym))
+                                (contains? the-ns-map sym)
                                 (dissoc the-ns-map sym)
                                 (or
                                  (contains? (:imports env) sym)
                                  (contains? (:imports the-ns-map) sym))
                                 ;; nil marks the imported class as unmapped
                                 (update the-ns-map :imports assoc sym nil)
-                                (contains? (:refers the-ns-map) sym)
-                                (update the-ns-map :refers dissoc sym)
                                 :else the-ns-map))))))
   nil)
 
@@ -805,6 +832,15 @@
    #?@(:clj ['with-in-str (macrofy 'with-in-str io/with-in-str)
              'read-line (copy-core-var io/read-line)])
    ;; end io
+   ;; read
+   '*data-readers* parser/data-readers
+   '*default-data-reader-fn* parser/default-data-reader-fn
+   '*read-eval* parser/read-eval
+   '*reader-resolver* parser/reader-resolver
+   'read (core-var 'read read true)
+   'read-string (core-var 'read-string read-string true)
+   #?@(:clj ['reader-conditional? (copy-core-var reader-conditional?)])
+   ;; end read
    ;; REPL variables
    '*1 *1
    '*2 *2
@@ -884,11 +920,13 @@
    'comment (macrofy 'comment comment*)
    'add-watch (copy-core-var add-watch)
    'remove-watch (copy-core-var remove-watch)
+   'aclone (copy-core-var aclone)
    'aget (copy-core-var aget)
    'alias (core-var 'alias sci-alias true)
    'all-ns (core-var 'all-ns sci-all-ns true)
    'alter-meta! (copy-core-var alter-meta!)
    'alter-var-root (copy-core-var vars/alter-var-root)
+   'amap (macrofy 'amap amap*)
    'ancestors (core-var 'ancestors hierarchies/ancestors* true)
    'aset (copy-core-var aset)
    #?@(:clj ['aset-boolean (copy-core-var aset-boolean)
@@ -905,6 +943,7 @@
                :cljs (copy-core-var alength))
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
+   'areduce (macrofy 'areduce areduce*)
    'array-map (copy-core-var array-map)
    'assert (macrofy 'assert assert*)
    'assoc (copy-core-var assoc)
@@ -985,8 +1024,10 @@
    'distinct (copy-core-var distinct)
    'distinct? (copy-core-var distinct?)
    'disj (copy-core-var disj)
+   'disj! (copy-core-var disj!)
    'doall (copy-core-var doall)
    'dorun (copy-core-var dorun)
+   'doseq   (macrofy 'doseq doseq-macro/expand-doseq)
    'dotimes (macrofy 'dotimes dotimes*)
    'doto (macrofy 'doto doto*)
    'double (copy-core-var double)
@@ -1026,6 +1067,7 @@
    'frequencies (copy-core-var frequencies)
    'float (copy-core-var float)
    'fn? (copy-core-var fn?)
+   'for (macrofy 'for for-macro/expand-for)
    'force (copy-core-var force)
    'get (copy-core-var get)
    'get-thread-binding-frame-impl (core-var 'get-thread-binding-frame-impl vars/get-thread-binding-frame)
@@ -1046,6 +1088,7 @@
    'ifn? (copy-core-var ifn?)
    'inc (copy-core-var inc)
    'inst? (copy-core-var inst?)
+   'inst-ms (copy-core-var inst-ms)
    'instance? (core-var 'instance? protocols/instance-impl)
    'int-array (copy-core-var int-array)
    'interleave (copy-core-var interleave)
@@ -1147,6 +1190,7 @@
    'qualified-symbol? (copy-core-var qualified-symbol?)
    'qualified-keyword? (copy-core-var qualified-keyword?)
    'quot (copy-core-var quot)
+   #?@(:cljs ['random-uuid (copy-core-var random-uuid)])
    're-seq (copy-core-var re-seq)
    'refer (core-var 'refer sci-refer true)
    'refer-clojure (macrofy 'refer-clojure sci-refer-clojure)
@@ -1179,8 +1223,6 @@
    'rsubseq (copy-core-var rsubseq)
    'reductions (copy-core-var reductions)
    'rand (copy-core-var rand)
-   'read (core-var 'read read true)
-   'read-string (core-var 'read-string read-string true)
    'replace (copy-core-var replace)
    'rseq (copy-core-var rseq)
    'random-sample (copy-core-var random-sample)
@@ -1209,6 +1251,7 @@
    'sort-by (copy-core-var sort-by)
    ;; #?@(:cljs ['-js-this -js-this
    ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
+   'test (copy-core-var test)
    'thread-bound? (copy-var sci-thread-bound? clojure-core-ns)
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])
@@ -1245,6 +1288,7 @@
             :cljs (copy-var type clojure-core-ns))
    'true? (copy-core-var true?)
    'to-array (copy-core-var to-array)
+   'to-array-2d (copy-core-var to-array-2d)
    'update (copy-core-var update)
    'update-in (copy-core-var update-in)
    'uri? (copy-core-var uri?)
@@ -1286,7 +1330,7 @@
    'vector? (copy-core-var vector?)
    'volatile! (copy-core-var volatile!)
    'vreset! (copy-core-var vreset!)
-   'vswap! (copy-core-var vswap!*)
+   'vswap! (macrofy 'vswap! vswap!)
    'when-first (macrofy 'when-first when-first*)
    'when-let (macrofy 'when-let when-let*)
    'when-some (macrofy 'when-some when-some*)

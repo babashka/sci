@@ -11,13 +11,15 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn throw-arity [ctx nsm fn-name macro? args]
+(defn throw-arity [ctx nsm fn-name macro? args expected-arity]
   (when-not (:disable-arity-checks ctx)
     (throw (new #?(:clj Exception
                    :cljs js/Error)
                 (let [actual-count (if macro? (- (count args) 2)
                                        (count args))]
-                  (str "Wrong number of args (" actual-count ") passed to: " (str nsm "/" fn-name)))))))
+                  (str "Wrong number of args (" actual-count ") passed to: " (if fn-name
+                                                                               (str nsm "/" fn-name)
+                                                                               (str "function of arity " expected-arity))))))))
 
 (deftype Recur #?(:clj [val]
                   :cljs [val])
@@ -47,35 +49,45 @@
   ([n]
    `(gen-fn ~n false))
   ([n disable-arity-checks]
-   (let [locals (repeatedly n gensym)
-         fn-params (vec (repeatedly n gensym))
-         rnge (range n)
-         nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
-         let-vec (vec (mapcat (fn [local ith]
-                                [local ith]) locals nths))
-         assocs (mapcat (fn [local fn-param]
-                          `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
-                        locals fn-params)
-         recurs (map (fn [n]
-                       `(nth-2 ~'recur-val ~n))
-                     rnge)]
-     `(let ~let-vec
-        (fn ~(symbol (str "arity-" n)) ~fn-params
-          ~@(? :cljs
-               (when-not disable-arity-checks
-                 `[(when-not (= ~n (.-length (~'js-arguments)))
-                     (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments)))))]))
-          (let [;; tried making bindings a transient, but saw no perf improvement
-                ;; it's even slower with less than ~10 bindings which is pretty uncommon
-                ;; see https://github.com/borkdude/sci/issues/559
-                ~@assocs
-                ret# (eval/eval ~'ctx ~'bindings ~'body)
-                ;; m (meta ret)
-                recur?# (instance? Recur ret#)]
-            (if recur?#
-              (let [~'recur-val (t/getVal ret#)]
-                (recur ~@recurs))
-              ret#)))))))
+   (if (zero? n)
+     `(fn ~'arity-0 []
+        ~@(? :cljs
+             (when-not disable-arity-checks
+               `[(when-not (zero? (.-length (~'js-arguments)))
+                   (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
+        (let [ret# (eval/eval ~'ctx ~'bindings ~'body)
+              ;; m (meta ret)
+              recur?# (instance? Recur ret#)]
+           (if recur?# (recur) ret#)))
+     (let [locals (repeatedly n gensym)
+           fn-params (vec (repeatedly n gensym))
+           rnge (range n)
+           nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
+           let-vec (vec (mapcat (fn [local ith]
+                                  [local ith]) locals nths))
+           assocs (mapcat (fn [local fn-param]
+                            `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
+                          locals fn-params)
+           recurs (map (fn [n]
+                         `(nth-2 ~'recur-val ~n))
+                       rnge)]
+       `(let ~let-vec
+          (fn ~(symbol (str "arity-" n)) ~fn-params
+            ~@(? :cljs
+                 (when-not disable-arity-checks
+                   `[(when-not (= ~n (.-length (~'js-arguments)))
+                       (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
+            (let [;; tried making bindings a transient, but saw no perf improvement
+                  ;; it's even slower with less than ~10 bindings which is pretty uncommon
+                  ;; see https://github.com/borkdude/sci/issues/559
+                  ~@assocs
+                  ret# (eval/eval ~'ctx ~'bindings ~'body)
+                  ;; m (meta ret)
+                  recur?# (instance? Recur ret#)]
+              (if recur?#
+                (let [~'recur-val (t/getVal ret#)]
+                  (recur ~@recurs))
+                ret#))))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
@@ -96,12 +108,12 @@
                    (assoc ret (second params) args*)
                    (do
                      (when-not args*
-                       (throw-arity ctx nsm fn-name macro? args))
+                       (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
                      (recur (next args*) (next params)
                             (assoc-3 ret fp (first args*))))))
                (do
                  (when args*
-                   (throw-arity ctx nsm fn-name macro? args))
+                   (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
                  ret)))
            ret (eval/eval ctx bindings body)
            ;; m (meta ret)
@@ -137,11 +149,10 @@
                               disable-arity-checks?)
                      :cljs var-arg-name)
             (case (int fixed-arity)
-              0 (fn arity-0 []
-                  (let [ret (eval/eval ctx bindings body)
-                        ;; m (meta ret)
-                        recur? (instance? Recur ret)]
-                    (if recur? (recur) ret)))
+              0 #?(:clj (gen-fn 0)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 0 true)
+                           (gen-fn 0 false)))
               1 #?(:clj (gen-fn 1)
                    :cljs (if disable-arity-checks?
                            (gen-fn 1 true)
@@ -263,7 +274,10 @@
                                   (str "Cannot call " fn-name " with " actual-count " arguments")))))))))
         f (if macro?
             (vary-meta f
-                       #(assoc % :sci/macro macro?))
+                       #(assoc %
+                               :sci/macro macro?
+                               ;; added for better error reporting
+                               :sci.impl/inner-fn f))
             f)]
     (when self-ref (vreset! self-ref f))
     f))

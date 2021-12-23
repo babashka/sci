@@ -15,7 +15,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var]])))
+            [sci.core :refer [with-bindings with-out-str copy-var copy-ns]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -297,8 +297,97 @@
   [sci-ns]
   (namespaces/sci-ns-name sci-ns))
 
-;;;; Scratch
+(defn -copy-ns
+  {:no-doc true}
+  [ns-publics-map sci-ns]
+  (reduce (fn [ns-map [var-name var]]
+            (let [m (:meta var)]
+              (assoc ns-map var-name
+                     (new-var (symbol var-name) (:val var)
+                              (assoc m :ns sci-ns)))))
+          {}
+          ns-publics-map))
 
-(comment
-  (eval-string "(inc x)" {:bindings {'x 2}})
-  )
+(defn- process-publics [publics {:keys [exclude]}]
+  (let [publics (if exclude (apply dissoc publics exclude) publics)]
+    publics))
+
+(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys ]
+  (reduce (fn [ns-map [var-name var]]
+            (let [m (meta-fn var)]
+              (if (some m skip-keys)
+                ns-map
+                (assoc ns-map (key-fn var-name) (val-fn var m)))))
+          {}
+          publics-map))
+
+(defn- meta-fn [opts]
+  (cond (= :all opts) identity
+        opts #(select-keys %  opts)
+        :else #(select-keys % [:arglists
+                               :no-doc
+                               :macro
+                               :doc])))
+
+(macros/deftime
+  (def ^:private cljs-ns-publics
+    (try (resolve 'cljs.analyzer.api/ns-publics)
+         (catch #?(:clj Exception
+                   :cljs :default) _ nil)))
+  (defmacro copy-ns
+    "Returns map of names to SCI vars as a result of copying public
+  Clojure vars from ns-sym (a symbol). Attaches sci-ns (result of
+  sci/create-ns) to meta. Copies :name, :macro :doc, :no-doc
+  and :argslists metadata.
+
+  Options:
+
+  - :exclude: a seqable of names to exclude from the
+  namespace. Defaults to none.
+
+  - :copy-meta: a seqable of keywords to copy from the original var
+  meta.  Use :all instead of a seqable to copy all. Defaults
+  to [:doc :arglists :macro].
+
+  - :exclude-when-meta: seqable of keywords; vars with meta matching
+  these keys are excluded.  Defaults to [:no-doc :skip-wiki]
+
+  The selection of vars is done at compile time which is mostly
+  important for ClojureScript to not pull in vars into the compiled
+  JS. Any additional vars can be added after the fact with sci/copy-var
+  manually.
+"
+    ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
+    ([ns-sym sci-ns opts]
+     (macros/? :clj (let [publics-map (ns-publics ns-sym)
+                          publics-map (process-publics publics-map opts)
+                          mf (meta-fn (:copy-meta opts))
+                          publics-map (exclude-when-meta
+                                       publics-map
+                                       meta
+                                       (fn [k]
+                                         (list 'quote k))
+                                       (fn [var m]
+                                         {:name (list 'quote (:name m))
+                                          :val (deref var)
+                                          :meta (list 'quote (mf m))})
+                                       (or (:exclude-when-meta opts)
+                                           [:no-doc :skip-wiki]))]
+                      `(-copy-ns ~publics-map ~sci-ns))
+               :cljs (let [publics-map (cljs-ns-publics ns-sym)
+                           publics-map (process-publics publics-map opts)
+                           mf (meta-fn (:copy-meta opts))
+                           publics-map (exclude-when-meta
+                                        publics-map
+                                        :meta
+                                        (fn [k]
+                                          (list 'quote k))
+                                        (fn [var m]
+                                          {:name (list 'quote (:name var))
+                                           :val (:name var)
+                                           :meta (mf m)})
+                                        (or (:exclude-when-meta opts)
+                                            [:no-doc :skip-wiki]))]
+                       `(-copy-ns ~publics-map ~sci-ns))))))
+
+;;;; Scratch

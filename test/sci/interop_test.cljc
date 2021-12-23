@@ -2,7 +2,9 @@
   (:require
    [clojure.test :as test :refer [deftest is testing #?(:cljs async)]]
    [sci.test-utils :as tu]
-   #?(:cljs [clojure.string :as str])))
+   #?(:clj [sci.core :as sci])
+   #?(:cljs [clojure.string :as str]))
+  #?(:clj (:import PublicFields)))
 
 (defn eval* [expr]
   (tu/eval* expr {}))
@@ -35,6 +37,10 @@
                                 {:classes {'java.util.Map 'java.util.Map
                                            :public-class (fn [o]
                                                            (when (instance? java.util.Map o) java.util.Map))}})))))))
+
+#?(:clj
+   (deftest instance-fields
+     (is (= 3 (sci/eval-string "(.-x (PublicFields.))" {:classes {'PublicFields PublicFields}})))))
 
 #?(:clj
    (deftest static-fields
