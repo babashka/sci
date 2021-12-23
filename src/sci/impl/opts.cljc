@@ -137,7 +137,6 @@
            :imports
            :features
            :load-fn
-           :uberscript ;; used by babashka, not public!
            :readers
            :reify-fn
            :proxy-fn
@@ -151,7 +150,6 @@
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
-                   :uberscript uberscript
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
                    :disable-arity-checks disable-arity-checks
@@ -170,7 +168,6 @@
                 :imports
                 :features
                 :load-fn
-                :uberscript ;; used by babashka, not public!
                 :readers
                 :reify-fn
                 :disable-arity-checks]
@@ -182,7 +179,6 @@
         ctx (assoc (->ctx {} env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
-                   :uberscript uberscript
                    :reify-fn reify-fn
                    :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
