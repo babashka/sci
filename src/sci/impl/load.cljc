@@ -69,7 +69,6 @@
 (defn handle-require-libspec
   [ctx lib opts]
   (let [{:keys [:reload :reload-all]} opts
-        reload-all (or reload-all (:reload-all ctx))
         env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
         cnn (vars/current-ns-name)
