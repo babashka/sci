@@ -75,7 +75,7 @@ Use as a dependency:
 
 ## API docs
 
-See the generated [codox](https://babashka.org/SCI/doc/codox)
+See the generated [codox](https://babashka.org/sci/doc/codox)
 documentation.
 
 ## Usage
