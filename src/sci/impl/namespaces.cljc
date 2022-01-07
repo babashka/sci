@@ -1176,6 +1176,7 @@
    'parents (core-var 'parents hierarchies/parents* true)
    'peek (copy-core-var peek)
    'pop (copy-core-var pop)
+   'pop! (copy-core-var pop!)
    'pop-thread-bindings (copy-core-var vars/pop-thread-bindings)
    'pos? (copy-core-var pos?)
    'pos-int? (copy-core-var pos-int?)
