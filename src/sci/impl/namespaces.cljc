@@ -47,8 +47,11 @@
    :cljs (def elide-vars false))
 
 (macros/deftime
+  (defmacro if-vars-elided [then else]
+    (if elide-vars
+      then else))
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
-  (if elide-vars
+  (if-vars-elided
     (do
       #?(:clj
        (binding [*out* *err*]
