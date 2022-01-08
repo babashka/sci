@@ -48,7 +48,15 @@
 
 (macros/deftime
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
-  (defmacro copy-var
+  (if elide-vars
+    (do
+      #?(:clj
+       (binding [*out* *err*]
+         (println "SCI: eliding vars.")))
+      (defmacro copy-var [sym _ns] sym)
+      (defmacro copy-core-var [sym] sym))
+    (do
+      (defmacro copy-var
         ([sym ns]
          `(let [ns# ~ns
                 m# (-> (var ~sym) meta)
@@ -68,13 +76,7 @@
                            false))))
       (defmacro copy-core-var
         ([sym]
-         `(copy-var ~sym clojure-core-ns)))
-  (when elide-vars
-    #?(:clj
-       (binding [*out* *err*]
-         (println "SCI: eliding vars.")))
-    (defmacro copy-var [sym _ns] sym)
-    (defmacro copy-core-var [sym] sym)))
+         `(copy-var ~sym clojure-core-ns))))))
 
 (defn macrofy
   ([f] (vary-meta f #(assoc % :sci/macro true)))
