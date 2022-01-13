@@ -15,11 +15,11 @@
    #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
    [sci.impl.core-protocols :as core-protocols]
+   [sci.impl.doseq-macro :as doseq-macro]
+   [sci.impl.for-macro :as for-macro]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
-   [sci.impl.for-macro :as for-macro]
-   [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
@@ -949,6 +949,7 @@
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
    'areduce (macrofy 'areduce areduce*)
+   #?@(:cljs ['array? (copy-core-var array?)])
    'array-map (copy-core-var array-map)
    'assert (macrofy 'assert assert*)
    'assoc (copy-core-var assoc)
@@ -1112,6 +1113,7 @@
    #?@(:cljs ['js->clj (copy-core-var js->clj)])
    #?@(:cljs ['js-obj (copy-core-var js-obj)])
    #?@(:cljs ['js-keys (copy-core-var js-keys)])
+   #?@(:cljs ['js-delete (copy-core-var js-delete)])
    'juxt (copy-core-var juxt)
    'keep (copy-core-var keep)
    'keep-indexed (copy-core-var keep-indexed)
@@ -1177,6 +1179,7 @@
    'ns-unmap (core-var 'ns-unmap sci-ns-unmap true)
    'ns-name (core-var 'ns-name sci-ns-name)
    'odd? (copy-core-var odd?)
+   #?@(:cljs ['object? (copy-core-var object?)])
    'object-array (copy-core-var object-array)
    'parents (core-var 'parents hierarchies/parents* true)
    'peek (copy-core-var peek)
@@ -1321,6 +1324,7 @@
    'unchecked-char (copy-core-var unchecked-char)
    'unchecked-byte (copy-core-var unchecked-byte)
    'unchecked-short (copy-core-var unchecked-short)
+   #?@(:cljs ['undefined? (copy-core-var undefined?)])
    'underive (core-var 'underive hierarchies/underive* true)
    'unquote (doto (vars/->SciVar nil 'clojure.core/unquote {:ns clojure-core-ns} false)
               (vars/unbind))
