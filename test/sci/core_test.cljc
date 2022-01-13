@@ -677,7 +677,12 @@
        (let [ctx (sci/init {:classes {'js goog/global :allow :all}})]
          (is (= 12 (sci/eval-string* ctx "(try (assoc 1 1 1) (catch :default e 12))")))
          (is (= 12 (sci/eval-string* ctx "(try (assoc 1 1 1) (catch js/Object e 12))")))
-         (is (= 12 (sci/eval-string* ctx "(try (assoc 1 1 1) (catch (if (odd? 1) js/Object js/Error) e 12))")))))))
+         (is (= 12 (sci/eval-string* ctx "(try (assoc 1 1 1) (catch (if (odd? 1) js/Object js/Error) e 12))"))))))
+  #?(:cljs
+     (testing "in JS you can throw anything"
+       (is (thrown? js/Error
+            (sci/eval-string "(try (throw \"blah\") (catch js/Error e (str e e)))")))
+       (is (= "blahblah" (sci/eval-string "(try (throw \"blah\") (catch :default e (str e e)))"))))))
 
 (deftest syntax-quote-test
   (is (= '(clojure.core/list 10 10)

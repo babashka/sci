@@ -6,6 +6,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Improve error message for higher order function arity exception [#653](https://github.com/borkdude/sci/issues/653)
 - `merge-opts` should overwrite existing var [#655](https://github.com/borkdude/sci/issues/655)
+- fix [#660](https://github.com/borkdude/sci/issues/660): In JS you can throw and catch anything
 
 ## v0.2.8
 

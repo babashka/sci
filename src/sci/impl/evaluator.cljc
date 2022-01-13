@@ -148,7 +148,7 @@
   (try
     (binding [utils/*in-try* true]
       (eval ctx bindings body))
-    (catch #?(:clj Throwable :cljs js/Error) e
+    (catch #?(:clj Throwable :cljs :default) e
       (if-let
           [[_ r]
            (reduce (fn [_ c]
