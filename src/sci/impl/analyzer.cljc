@@ -1332,8 +1332,8 @@
                           (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil nil)]
                             (ctx-fn
                              (fn [ctx bindings]
-                               (let [md (eval/eval ctx bindings analyzed-meta)
-                                     coll (eval/eval ctx bindings ef)]
+                               (let [coll (eval/eval ctx bindings ef)
+                                     md (eval/eval ctx bindings analyzed-meta)]
                                  (with-meta coll md)))
                              expr))
                           (return-call ctx expr f2 (analyze-children ctx expr) nil nil)))]
