@@ -1113,6 +1113,10 @@
       (is (true? (eval* "(:foo (meta ^:foo {:x (rand-int 10)}))")))
       (is (true? (eval* "(:foo (meta ^:foo [(rand-int 10)]))")))
       (is (true? (eval* "(:foo (meta ^:foo #{(rand-int 10)}))")))))
+  (testing "Metadata is evaluated after form"
+      (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} {:b (print 1)})")))
+      (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} #{(print 1)})")))
+      (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} [(print 1)])"))))
   (testing "Reader metadata is evaluated on fns"
     (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} (fn []))))")))
     (testing "Fns don't have :line and :column metadata"
