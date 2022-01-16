@@ -56,10 +56,10 @@
                                  _ ::unresolved))]
                   (if (kw-identical? ::unresolved f)
                     expr
-                    (let [f (if (and (vars/var? f)
-                                     (vars/isMacro f))
-                              @f f)]
-                      (if (macro? f)
+                    (let [macro-var? (and (vars/var? f)
+                                          (vars/isMacro f))
+                          f (if macro-var? @f f)]
+                      (if (or macro-var? (macro? f))
                         (let [f (if (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
                                   (partial f ctx)
                                   f)]

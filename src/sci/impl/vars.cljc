@@ -261,7 +261,9 @@
     root)
   (toSymbol [this] sym)
   (isMacro [_]
-    (:sci/macro (clojure.core/meta root)))
+    (or (:macro meta)
+        (when-some [m (clojure.core/meta root)]
+          (:sci/macro m))))
   (setThreadBound [this v]
     (set! (.-thread-bound this) v))
   (unbind [this]

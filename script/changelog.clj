@@ -7,7 +7,7 @@
       replaced (str/replace changelog
                             #" #(\d+)"
                             (fn [[_ issue]]
-                              (format " [#%s](https://github.com/borkdude/sci/issues/%s)"
+                              (format " [#%s](https://github.com/babashka/sci/issues/%s)"
                                       issue issue)))
       replaced (str/replace replaced
                             #"@(\w+)([, .\)]|$)"

@@ -1134,10 +1134,13 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs :default) #"value of a macro"
        (eval* "(defmacro foo []) foo")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs :default) #"value of a macro"
+       (eval* "->")))
   (testing "throw at analysis time"
     (is (thrown-with-msg?
          #?(:clj Exception :cljs :default) #"value of a macro"
-         (eval* "(defmacro foo []) (defn bar []foo )")))))
+         (eval* "(defmacro foo []) (defn bar [] foo)")))))
 
 (deftest var-isnt-fn
   (is (false? (eval* "(fn? #'inc)"))))

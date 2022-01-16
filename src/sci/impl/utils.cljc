@@ -28,7 +28,7 @@
 (def ^:dynamic *in-try* false)
 
 (defn macro? [f]
-  (when-let [m (meta f)]
+  (when-some [m (meta f)]
     (or (:sci/macro m)
         (:macro m))))
 
@@ -79,10 +79,10 @@
           :cljs *in-try*) (throw e)
        (let [stack (t/stack raw-node)
              node (t/sexpr raw-node)
-             f (when (seqable? node)
-                 (first node))
-             fm (or (:sci.impl/f-meta stack)
-                    (some-> f meta))
+             #?@(:clj [f (when (seqable? node)
+                           (first node))])
+             #?@(:clj [fm (or (:sci.impl/f-meta stack)
+                             (some-> f meta))])
              env (:env ctx)
              id (:id ctx)
              d (ex-data e)

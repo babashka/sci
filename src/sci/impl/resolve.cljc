@@ -145,8 +145,6 @@
    (let [res (second
               (or
                (lookup ctx sym call? tag)
-               ;; TODO: check if symbol is in macros and then emit an error: cannot take
-               ;; the value of a macro
                (let [n (name sym)]
                  (cond
                    (and call?
