@@ -1308,8 +1308,8 @@
                              analyzed-map)
                 (ctx-fn
                  (fn [ctx bindings]
-                   (let [md (eval/handle-meta ctx bindings analyzed-meta)
-                         coll (eval/eval ctx bindings analyzed-map)]
+                   (let [coll (eval/eval ctx bindings analyzed-map)
+                         md (eval/handle-meta ctx bindings analyzed-meta)]
                      (with-meta coll md)))
                  expr)
                 (with-meta analyzed-map analyzed-meta))
