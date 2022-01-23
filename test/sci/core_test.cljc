@@ -513,7 +513,11 @@
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
-        (f 0)))))
+        (f 0))))
+  (testing "non-tail usage of recur"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Can only recur from tail position"
+                          (eval* "[(recur)]")))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))

@@ -6,7 +6,6 @@
    #?(:cljs [goog.object :as gobj])
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.evaluator :as eval]
-   #?(:cljs [sci.impl.faster :as faster])
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.load :as load]
@@ -28,6 +27,12 @@
                                  gen-return-binding-call
                                  gen-return-needs-ctx-call
                                  gen-return-call]])))
+
+(defn tail-ctx [ctx]
+  (assoc ctx :tail true))
+
+(defn non-tail-ctx [ctx]
+  (assoc ctx :tail false))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -189,7 +194,9 @@
                                             (range i)))])
                           (range 1 20))]
     `(defn ~'return-recur
-       ~'[expr analyzed-children]
+       ~'[ctx expr analyzed-children]
+       (when (= false (:tail ~'ctx))
+         (throw-error-with-location "Can only recur from tail position" ~'expr))
        (case (count ~'analyzed-children)
          ~@(concat
             [0 `(ctx-fn
@@ -1136,7 +1143,7 @@
                         import (analyze-import ctx expr)
                         or (return-or expr (analyze-children ctx (rest expr)))
                         and (return-and expr (analyze-children ctx (rest expr)))
-                        recur (return-recur expr (analyze-children ctx (rest expr)))
+                        recur (return-recur ctx expr (analyze-children (non-tail-ctx ctx) (rest expr)))
                         in-ns (analyze-in-ns ctx expr))
                       :else
                       (try
@@ -1319,7 +1326,8 @@
 (defn analyze-vec-or-set
   "Returns analyzed vector or set"
   [ctx _f1 f2 expr m]
-  (let [constant-coll?
+  (let [ctx (non-tail-ctx ctx)
+        constant-coll?
         (and constant-colls
              (every? constant? expr))
         analyzed-meta (when m (analyze ctx #_(assoc ctx :meta true) m))
