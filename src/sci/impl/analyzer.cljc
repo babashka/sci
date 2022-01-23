@@ -389,7 +389,8 @@
 
 (defn expand-let*
   [ctx expr destructured-let-bindings exprs]
-  (let [[ctx new-let-bindings]
+  (let [ctx (without-recur-target ctx)
+        [ctx new-let-bindings]
         (reduce
          (fn [[ctx new-let-bindings] [binding-name binding-value]]
            (let [m (meta binding-value)
@@ -402,13 +403,13 @@
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))
-        body (analyze-children ctx exprs)]
+        body (return-do ctx expr exprs)]
     (ctx-fn
      (fn [ctx bindings]
        (eval/eval-let ctx bindings new-let-bindings body))
      expr)))
 
-(defn expand-let
+(defn analyze-let
   "The let macro from clojure.core"
   [ctx [_let let-bindings & exprs :as expr]]
   (let [let-bindings (destructure let-bindings)]
@@ -1125,7 +1126,7 @@
                         ;; interpreter again, which will invoke analysis + evaluation on
                         ;; every sub expression
                         do (return-do ctx expr (rest expr))
-                        let (expand-let ctx expr)
+                        let (analyze-let ctx expr)
                         (fn fn*) (expand-fn ctx expr false)
                         def (expand-def ctx expr)
                         ;; NOTE: defn / defmacro aren't implemented as normal macros yet

@@ -529,7 +529,9 @@
     (throws-tail-ex '(fn [] {:a (recur)}))
     (it-works '{:a (fn [] (recur))})
     (throws-tail-ex '(fn [] (recur) 1 2))
-    (it-works '(fn [] (prn) (prn) (recur)))))
+    (it-works '(fn [] (prn) (prn) (recur)))
+    (throws-tail-ex '(fn [] (let [x (recur)])))
+    (it-works '(fn [] (let [x (fn [] (recur))])))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
