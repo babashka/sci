@@ -387,7 +387,7 @@
             fn-expr
             nil)))
 
-(defn expand-let*
+(defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
   (let [ctx (without-recur-target ctx)
         [ctx new-let-bindings]
@@ -413,7 +413,7 @@
   "The let macro from clojure.core"
   [ctx [_let let-bindings & exprs :as expr]]
   (let [let-bindings (destructure let-bindings)]
-    (expand-let* ctx expr let-bindings exprs)))
+    (analyze-let* ctx expr let-bindings exprs)))
 
 (declare expand-declare)
 

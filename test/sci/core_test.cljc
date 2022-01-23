@@ -506,7 +506,7 @@
        (sci/eval-string (pr-str expr)))))
 
 (defn it-works [expr]
-  (is (sci/eval-string (pr-str expr))))
+  (is (any? (sci/eval-string (pr-str expr)))))
 
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
@@ -531,7 +531,9 @@
     (throws-tail-ex '(fn [] (recur) 1 2))
     (it-works '(fn [] (prn) (prn) (recur)))
     (throws-tail-ex '(fn [] (let [x (recur)])))
-    (it-works '(fn [] (let [x (fn [] (recur))])))))
+    (it-works '(fn [] (let [x (fn [] (recur))])))
+    (throws-tail-ex '(loop [x (recur)]))
+    (it-works '(loop [x (fn [] (recur))]))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
