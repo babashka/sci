@@ -28,8 +28,11 @@
                                  gen-return-needs-ctx-call
                                  gen-return-call]])))
 
-(defn with-recur-target [ctx]
-  (assoc ctx :recur-target true))
+(defn recur-target [ctx]
+  (:recur-target ctx))
+
+(defn with-recur-target [ctx v]
+  (assoc ctx :recur-target v))
 
 (defn without-recur-target [ctx]
   (assoc ctx :recur-target false))
@@ -98,9 +101,10 @@
                           (range 2 4))]
     `(defn ~'return-do
        ~'[ctx expr children]
-       (let [~'non-tail-ctx (without-recur-target ~'ctx)
+       (let [~'rt (recur-target ~'ctx)
+             ~'non-tail-ctx (without-recur-target ~'ctx)
              ~'analyzed-children-non-tail (mapv #(analyze ~'non-tail-ctx %) (butlast ~'children))
-             ~'ret-child (analyze (with-recur-target ~'ctx) (last ~'children))
+             ~'ret-child (analyze (with-recur-target ~'ctx ~'rt) (last ~'children))
              ~'analyzed-children (conj ~'analyzed-children-non-tail ~'ret-child)]
          (case (count ~'analyzed-children)
            ~@(concat
@@ -282,7 +286,7 @@
             (let [cb (volatile! #{})]
               [(assoc ctx :closure-bindings cb :param-map param-bindings) cb])))
         ctx (assoc ctx :bindings (merge bindings param-bindings))
-        body (return-do (with-recur-target ctx) fn-expr body)
+        body (return-do (with-recur-target ctx true) fn-expr body)
         closure-bindings (when closure-bindings
                            @closure-bindings)
         closure-binding-cnt (when closure-bindings (count closure-bindings))
@@ -389,7 +393,8 @@
 
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
-  (let [ctx (without-recur-target ctx)
+  (let [rt (recur-target ctx)
+        ctx (without-recur-target ctx)
         [ctx new-let-bindings]
         (reduce
          (fn [[ctx new-let-bindings] [binding-name binding-value]]
@@ -403,7 +408,7 @@
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))
-        body (return-do ctx expr exprs)]
+        body (return-do (with-recur-target ctx rt) expr exprs)]
     (ctx-fn
      (fn [ctx bindings]
        (eval/eval-let ctx bindings new-let-bindings body))
@@ -509,7 +514,8 @@
 (defn analyze-lazy-seq
   [ctx expr]
   (let [body (rest expr)
-        ana (analyze ctx (cons 'do body))]
+        ctx (with-recur-target ctx true) ;; body is analyzed in context of implicit no-arg fn
+        ana (return-do ctx expr body)]
     (ctx-fn (fn [ctx bindings]
               (lazy-seq (eval/eval ctx bindings ana)))
             expr)))
@@ -590,7 +596,8 @@
 
 (defn analyze-try
   [ctx expr]
-  (let [body (next expr)
+  (let [ctx (without-recur-target ctx)
+        body (next expr)
         [body-exprs
          catches
          finally]
@@ -637,7 +644,8 @@
      #?(:clj "Too many arguments to throw, throw expects a single Throwable instance"
         :cljs "Too many arguments to throw")
      expr))
-  (let [ana (analyze ctx ex)]
+  (let [ctx (without-recur-target ctx)
+        ana (analyze ctx ex)]
     (ctx-fn (fn [ctx bindings]
               (throw (eval/eval ctx bindings ana)))
             ;; legacy structure for error reporting
@@ -681,8 +689,9 @@
 
 ;;;; Interop
 
-(defn expand-dot [ctx [_dot instance-expr method-expr & args :as expr]]
-  (let [[method-expr & args] (if (seq? method-expr) method-expr
+(defn analyze-dot [ctx [_dot instance-expr method-expr & args :as expr]]
+  (let [ctx (without-recur-target ctx)
+        [method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
         instance-expr (utils/vary-meta*
@@ -767,7 +776,7 @@
   (when (< (count expr) 3)
     (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                 "Malformed member expression, expecting (.member target ...)")))
-  (expand-dot ctx expr))
+  (analyze-dot ctx expr))
 
 (defn expand-dot*
   "Expands (.foo x)"
@@ -775,7 +784,7 @@
   (when (< (count expr) 2)
     (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                 "Malformed member expression, expecting (.member target ...)")))
-  (expand-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
+  (analyze-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
   (let [ctx (without-recur-target ctx)]

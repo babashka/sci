@@ -529,6 +529,10 @@
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
         (f 0))))
   (testing "non-tail usage of recur"
+    (throws-tail-ex '(recur))
+    (it-works '(fn [] (recur)))
+    (throws-tail-ex '(do (recur)))
+    (throws-tail-ex '(fn [] (do (recur)) (do (recur))))
     (throws-tail-ex '(fn [] [(recur)]))
     (it-works '[(fn [x] (recur x))])
     (throws-tail-ex '(fn [] {:a (recur)}))
@@ -540,11 +544,23 @@
     (throws-tail-ex '(loop [x (recur)]))
     (it-works '(loop [x (fn [] (recur))]))
     (throws-tail-ex '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (recur) (f 1)))
-    (it-works '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1) (recur)))
+    (throws-tail-ex '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1) (recur)))
     (throws-tail-ex '(letfn [(f [x] (recur 1) (f x 1))]))
     (it-works '(letfn [(f [x] (recur 1))]))
     (throws-tail-ex '(fn [] (new #?(:clj String :cljs js/Error) (recur))))
-    (it-works '(fn [] (new #?(:clj String :cljs js/Error) (fn [] (recur)))))))
+    (it-works '(fn [] (new #?(:clj String :cljs js/Error) (fn [] (recur)))))
+    (throws-tail-ex '(fn [] (throw (recur))))
+    #?(:cljs (it-works '(fn [] (throw (fn [] (recur))))))
+    (throws-tail-ex '(fn [] (.length (recur))))
+    (it-works '(fn [] (.length (fn [] (recur)))))
+    (throws-tail-ex '(fn [] (try (recur))))
+    (it-works '(fn [] (try (fn [] (recur)))))
+    (it-works '(for [i [1 2 3]] i))
+    (it-works '(loop [x 1]
+                 (if (< x 10)
+                   (let [y (+ x 1)]
+                     (do :yolo
+                         (recur (inc x)))))))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
