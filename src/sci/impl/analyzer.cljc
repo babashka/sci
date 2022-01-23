@@ -94,24 +94,28 @@
                                             (range i)))])
                           (range 2 4))]
     `(defn ~'return-do
-       ~'[expr analyzed-children]
-       (case (count ~'analyzed-children)
-         ~@(concat
-            [0 nil]
-            [1 `(nth ~'analyzed-children 0)]
-            (mapcat (fn [[i binds]]
-                      [i `(let ~binds
-                            (ctx-fn
-                             (fn [~'ctx ~'bindings]
-                               ~@(map (fn [j]
-                                        `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                      (range i)))
-                             ~'expr))])
-                    let-bindings)
-            `[(ctx-fn
-               (fn [~'ctx ~'bindings]
-                 (eval/eval-do ~'ctx ~'bindings ~'analyzed-children))
-               ~'expr)])))))
+       ~'[ctx expr children]
+       (let [~'non-tail-ctx (non-tail-ctx ~'ctx)
+             ~'analyzed-children-non-tail (mapv #(analyze ~'non-tail-ctx %) (butlast ~'children))
+             ~'ret-child (analyze (tail-ctx ~'ctx) (last ~'children))
+             ~'analyzed-children (conj ~'analyzed-children-non-tail ~'ret-child)]
+         (case (count ~'children)
+           ~@(concat
+              [0 nil]
+              [1 `(nth ~'analyzed-children 0)]
+              (mapcat (fn [[i binds]]
+                        [i `(let ~binds
+                              (ctx-fn
+                               (fn [~'ctx ~'bindings]
+                                 ~@(map (fn [j]
+                                          `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                        (range i)))
+                               ~'expr))])
+                      let-bindings)
+              `[(ctx-fn
+                 (fn [~'ctx ~'bindings]
+                   (eval/eval-do ~'ctx ~'bindings ~'analyzed-children))
+                 ~'expr)]))))))
 
 ;; (require '[clojure.pprint :refer [pprint]])
 ;; (pprint (clojure.core/macroexpand '(gen-return-do)))
@@ -275,8 +279,7 @@
             (let [cb (volatile! #{})]
               [(assoc ctx :closure-bindings cb :param-map param-bindings) cb])))
         ctx (assoc ctx :bindings (merge bindings param-bindings))
-        ana-children (analyze-children ctx body)
-        body (return-do fn-expr ana-children)
+        body (return-do ctx fn-expr body)
         closure-bindings (when closure-bindings
                            @closure-bindings)
         closure-binding-cnt (when closure-bindings (count closure-bindings))
@@ -902,6 +905,7 @@
             :gen-class ;; ignore
             (recur (next exprs) ret)))
         (return-do
+         ctx
          expr
          (conj ret
                (ctx-fn
@@ -1117,7 +1121,7 @@
                         ;; analysis/interpretation unit so we hand this over to the
                         ;; interpreter again, which will invoke analysis + evaluation on
                         ;; every sub expression
-                        do (return-do expr (analyze-children ctx (rest expr)))
+                        do (return-do ctx expr (rest expr))
                         let (expand-let ctx expr)
                         (fn fn*) (expand-fn ctx expr false)
                         def (expand-def ctx expr)
@@ -1290,7 +1294,8 @@
 
 (defn analyze-map
   [ctx expr m]
-  (let [ks (keys expr)
+  (let [ctx (non-tail-ctx ctx)
+        ks (keys expr)
         vs (vals expr)
         constant-map? (and constant-colls
                            (every? constant? ks)

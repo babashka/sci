@@ -499,6 +499,12 @@
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) #(hello (inc x)) x))
                          (trampoline hello 0)" {}))))
 
+(defmacro throws-tail-ex [expr]
+  `(is (~'thrown-with-msg?
+        #?(:clj Exception :cljs js/Error)
+        #"Can only recur from tail position"
+        (eval* ~expr))))
+
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
                          {})))
@@ -515,9 +521,12 @@
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
         (f 0))))
   (testing "non-tail usage of recur"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                          #"Can only recur from tail position"
-                          (eval* "[(recur)]")))))
+    (throws-tail-ex "(fn [] [(recur)])")
+    (is (eval* "[(fn [x] (recur x))]"))
+    (throws-tail-ex "(fn [] {:a (recur)})")
+    (is (eval* "{:a (fn [] (recur))}"))
+    (throws-tail-ex "(fn [] (recur) 1 2)")
+    (is (eval* "(fn [] 1 2 (recur))"))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
