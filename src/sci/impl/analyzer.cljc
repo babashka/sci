@@ -99,7 +99,7 @@
              ~'analyzed-children-non-tail (mapv #(analyze ~'non-tail-ctx %) (butlast ~'children))
              ~'ret-child (analyze (tail-ctx ~'ctx) (last ~'children))
              ~'analyzed-children (conj ~'analyzed-children-non-tail ~'ret-child)]
-         (case (count ~'children)
+         (case (count ~'analyzed-children)
            ~@(concat
               [0 nil]
               [1 `(nth ~'analyzed-children 0)]
