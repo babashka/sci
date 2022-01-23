@@ -568,7 +568,13 @@
                         1  ;; case return
                         (recur)
                         ;; case default
-                        (recur))))))
+                        (recur))))
+    (throws-tail-ex '(fn [] (or (recur) 1)))
+    (it-works '(fn [] (or (recur))))
+    (it-works '(fn [] (or 1 2 3 (recur))))
+    (throws-tail-ex '(fn [] (and (recur) 1)))
+    (it-works '(fn [] (and (recur))))
+    (it-works '(fn [] (and 1 2 3 (recur))))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))

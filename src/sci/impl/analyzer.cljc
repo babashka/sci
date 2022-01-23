@@ -49,7 +49,7 @@
 (defn- throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
 
-(declare analyze analyze-call return-call return-map)
+(declare analyze analyze-children analyze-call return-call return-map)
 
 ;;;; Macros
 
@@ -91,25 +91,28 @@
 
 ;;;; End macros
 
+(defn analyze-children-tail [ctx children]
+  (let [rt (recur-target ctx)
+        non-tail-ctx (without-recur-target ctx)
+        analyzed-children-non-tail (mapv #(analyze non-tail-ctx %) (butlast children))
+        ret-child (analyze (with-recur-target ctx rt) (last children))]
+    (conj analyzed-children-non-tail ret-child)))
+
 (defmacro gen-return-do
   []
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
                                               [(symbol (str "arg" j))
-                                               `(nth ~'analyzed-children ~j)])
+                                               `(nth (deref ~'analyzed-children) ~j)])
                                             (range i)))])
                           (range 2 4))]
     `(defn ~'return-do
        ~'[ctx expr children]
-       (let [~'rt (recur-target ~'ctx)
-             ~'non-tail-ctx (without-recur-target ~'ctx)
-             ~'analyzed-children-non-tail (mapv #(analyze ~'non-tail-ctx %) (butlast ~'children))
-             ~'ret-child (analyze (with-recur-target ~'ctx ~'rt) (last ~'children))
-             ~'analyzed-children (conj ~'analyzed-children-non-tail ~'ret-child)]
-         (case (count ~'analyzed-children)
+       (let [~'analyzed-children (delay (analyze-children-tail ~'ctx ~'children))]
+         (case (count ~'children)
            ~@(concat
               [0 nil]
-              [1 `(nth ~'analyzed-children 0)]
+              [1 `(nth (deref ~'analyzed-children) 0)]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
                               (ctx-fn
@@ -120,8 +123,9 @@
                                ~'expr))])
                       let-bindings)
               `[(ctx-fn
-                 (fn [~'ctx ~'bindings]
-                   (eval/eval-do ~'ctx ~'bindings ~'analyzed-children))
+                 (let [~'analyzed-children (deref ~'analyzed-children)]
+                   (fn [~'ctx ~'bindings]
+                     (eval/eval-do ~'ctx ~'bindings ~'analyzed-children)))
                  ~'expr)]))))))
 
 ;; (require '[clojure.pprint :refer [pprint]])
@@ -135,29 +139,31 @@
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
                                               [(symbol (str "arg" j))
-                                               `(nth ~'analyzed-children ~j)])
+                                               `(nth (deref ~'analyzed-children) ~j)])
                                             (range i)))])
                           (range 2 20))]
     `(defn ~'return-or
-       ~'[expr analyzed-children]
-       (case (count ~'analyzed-children)
-         ~@(concat
-            [0 nil]
-            [1 `(nth ~'analyzed-children 0)]
-            (mapcat (fn [[i binds]]
-                      [i `(let ~binds
-                            (ctx-fn
-                             (fn [~'ctx ~'bindings]
-                               (or
-                                ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                       (range i))))
-                             ~'expr))])
-                    let-bindings)
-            `[(ctx-fn
-               (fn [~'ctx ~'bindings]
-                 (eval/eval-or ~'ctx ~'bindings ~'analyzed-children))
-               ~'expr)])))))
+       ~'[ctx expr children]
+       (let [~'analyzed-children (delay (analyze-children-tail ~'ctx ~'children))]
+         (case (count ~'children)
+           ~@(concat
+              [0 nil]
+              [1 `(analyze ~'ctx (first ~'children))]
+              (mapcat (fn [[i binds]]
+                        [i `(let ~binds
+                              (ctx-fn
+                               (fn [~'ctx ~'bindings]
+                                 (or
+                                  ~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                         (range i))))
+                               ~'expr))])
+                      let-bindings)
+              `[(ctx-fn
+                 (let [~'analyzed-children (deref ~'analyzed-children)]
+                   (fn [~'ctx ~'bindings]
+                     (eval/eval-or ~'ctx ~'bindings ~'analyzed-children)))
+                 ~'expr)]))))))
 
 (declare return-or) ;; for clj-kondo
 (gen-return-or)
@@ -167,29 +173,31 @@
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
                                               [(symbol (str "arg" j))
-                                               `(nth ~'analyzed-children ~j)])
+                                               `(nth (deref ~'analyzed-children) ~j)])
                                             (range i)))])
                           (range 2 20))]
     `(defn ~'return-and
-       ~'[expr analyzed-children]
-       (case (count ~'analyzed-children)
-         ~@(concat
-            [0 nil]
-            [1 `(nth ~'analyzed-children 0)]
-            (mapcat (fn [[i binds]]
-                      [i `(let ~binds
-                            (ctx-fn
-                             (fn [~'ctx ~'bindings]
-                               (and
-                                ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                       (range i))))
-                             ~'expr))])
-                    let-bindings)
-            `[(ctx-fn
-               (fn [~'ctx ~'bindings]
-                 (eval/eval-and ~'ctx ~'bindings ~'analyzed-children))
-               ~'expr)])))))
+       ~'[ctx expr children]
+       (let [~'analyzed-children (delay (analyze-children-tail ~'ctx ~'children))]
+         (case (count ~'children)
+           ~@(concat
+              [0 nil]
+              [1 `(analyze ~'ctx (first ~'children))]
+              (mapcat (fn [[i binds]]
+                        [i `(let ~binds
+                              (ctx-fn
+                               (fn [~'ctx ~'bindings]
+                                 (and
+                                  ~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                         (range i))))
+                               ~'expr))])
+                      let-bindings)
+              `[(ctx-fn
+                 (let [~'analyzed-children (deref ~'analyzed-children)]
+                   (fn [~'ctx ~'bindings]
+                     (eval/eval-and ~'ctx ~'bindings ~'analyzed-children)))
+                 ~'expr)]))))))
 
 (declare return-and) ;; for clj-kondo
 (gen-return-and)
@@ -1162,8 +1170,8 @@
                         set! (analyze-set! ctx expr)
                         quote (analyze-quote ctx expr)
                         import (analyze-import ctx expr)
-                        or (return-or expr (analyze-children ctx (rest expr)))
-                        and (return-and expr (analyze-children ctx (rest expr)))
+                        or (return-or ctx expr (rest expr))
+                        and (return-and ctx expr (rest expr))
                         recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr)))
                         in-ns (analyze-in-ns ctx expr))
                       :else
