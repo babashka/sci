@@ -422,9 +422,10 @@
 
 (declare expand-declare)
 
-(defn expand-def
+(defn analyze-def
   [ctx expr]
-  (let [[_def var-name ?docstring ?init] expr]
+  (let [ctx (without-recur-target ctx)
+        [_def var-name ?docstring ?init] expr]
     (expand-declare ctx [nil var-name])
     (when-not (simple-symbol? var-name)
       (throw-error-with-location "Var name should be simple symbol." expr))
@@ -450,7 +451,8 @@
            (eval/eval-def ctx bindings var-name init m))
          expr)))))
 
-(defn expand-defn [ctx [op fn-name & body :as expr]]
+(defn analyze-defn [ctx [op fn-name & body :as expr]]
+  ;; TODO: re-use analyze-def
   (when-not (simple-symbol? fn-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
   (expand-declare ctx [nil fn-name])
@@ -556,7 +558,8 @@
 
 (defn analyze-case
   [ctx expr]
-  (let [case-val (analyze ctx (second expr))
+  (let [ctx-wo-rt (without-recur-target ctx)
+        case-val (analyze ctx-wo-rt (second expr))
         clauses (nnext expr)
         match-clauses (take-nth 2 clauses)
         result-clauses (analyze-children ctx (take-nth 2 (rest clauses)))
@@ -1138,9 +1141,9 @@
                         do (return-do ctx expr (rest expr))
                         let (analyze-let ctx expr)
                         (fn fn*) (expand-fn ctx expr false)
-                        def (expand-def ctx expr)
+                        def (analyze-def ctx expr)
                         ;; NOTE: defn / defmacro aren't implemented as normal macros yet
-                        (defn defmacro) (let [ret (expand-defn ctx expr)]
+                        (defn defmacro) (let [ret (analyze-defn ctx expr)]
                                           ret)
                         ;; TODO: implement as normal macro in namespaces.cljc
                         loop (analyze-loop ctx expr)

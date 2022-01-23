@@ -560,7 +560,15 @@
                  (if (< x 10)
                    (let [y (+ x 1)]
                      (do :yolo
-                         (recur (inc x)))))))))
+                         (recur (inc x)))))))
+    (throws-tail-ex '(loop [] (def x (recur))))
+    (it-works '(loop [] (defn f [] (recur))))
+    (throws-tail-ex '(fn [] (case (recur) 1 2)))
+    (it-works '(fn [] (case 1
+                        1  ;; case return
+                        (recur)
+                        ;; case default
+                        (recur))))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
