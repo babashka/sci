@@ -489,7 +489,7 @@
        (eval/eval-def ctx bindings fn-name f meta-map))
      expr)))
 
-(defn expand-loop
+(defn analyze-loop
   [ctx expr]
   (let [bv (second expr)
         arg-names (take-nth 2 bv)
@@ -1133,7 +1133,7 @@
                         (defn defmacro) (let [ret (expand-defn ctx expr)]
                                           ret)
                         ;; TODO: implement as normal macro in namespaces.cljc
-                        loop (expand-loop ctx expr)
+                        loop (analyze-loop ctx expr)
                         lazy-seq (analyze-lazy-seq ctx expr)
                         if (return-if ctx expr)
                         case (analyze-case ctx expr)

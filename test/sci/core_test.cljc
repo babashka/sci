@@ -533,7 +533,11 @@
     (throws-tail-ex '(fn [] (let [x (recur)])))
     (it-works '(fn [] (let [x (fn [] (recur))])))
     (throws-tail-ex '(loop [x (recur)]))
-    (it-works '(loop [x (fn [] (recur))]))))
+    (it-works '(loop [x (fn [] (recur))]))
+    (throws-tail-ex '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (recur) (f 1)))
+    (it-works '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1) (recur)))
+    (throws-tail-ex '(letfn [(f [x] (recur 1) (f x 1))]))
+    (it-works '(letfn [(f [x] (recur 1))]))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
