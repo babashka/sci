@@ -499,6 +499,20 @@
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) #(hello (inc x)) x))
                          (trampoline hello 0)" {}))))
 
+(defn throws-tail-ex [expr]
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"Can only recur from tail position"
+       (sci/eval-string (pr-str expr)))
+      (str "FAIL: does not throw recur exception: " expr)))
+
+(defn it-works [expr]
+  (is (any? (sci/eval-string (pr-str expr)
+                             #?(:clj {:classes {'String String}}
+                                :cljs {:classes {:allow :all
+                                                 'js js/global}})))
+      (str "FAIL: " expr)))
+
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
                          {})))
@@ -513,7 +527,48 @@
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
-        (f 0)))))
+        (f 0))))
+  (testing "non-tail usage of recur"
+    (throws-tail-ex '(recur))
+    (it-works '(fn [] (recur)))
+    (throws-tail-ex '(do (recur)))
+    (throws-tail-ex '(fn [] (do (recur)) (do (recur))))
+    (throws-tail-ex '(fn [] [(recur)]))
+    (it-works '[(fn [x] (recur x))])
+    (throws-tail-ex '(fn [] {:a (recur)}))
+    (it-works '{:a (fn [] (recur))})
+    (throws-tail-ex '(fn [] (recur) 1 2))
+    (it-works '(fn [] (prn) (prn) (recur)))
+    (throws-tail-ex '(fn [] (let [x (recur)])))
+    (it-works '(fn [] (let [x (fn [] (recur))])))
+    (throws-tail-ex '(loop [x (recur)]))
+    (it-works '(loop [x (fn [] (recur))]))
+    (throws-tail-ex '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (recur) (f 1)))
+    (throws-tail-ex '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1) (recur)))
+    (throws-tail-ex '(letfn [(f [x] (recur 1) (f x 1))]))
+    (it-works '(letfn [(f [x] (recur 1))]))
+    (throws-tail-ex '(fn [] (new #?(:clj String :cljs js/Error) (recur))))
+    (it-works '(fn [] (new #?(:clj String :cljs js/Error) (fn [] (recur)))))
+    (throws-tail-ex '(fn [] (throw (recur))))
+    #?(:cljs (it-works '(fn [] (throw (fn [] (recur))))))
+    (throws-tail-ex '(fn [] (.length (recur))))
+    (it-works '(fn [] (.length (fn [] (recur)))))
+    (throws-tail-ex '(fn [] (try (recur))))
+    (it-works '(fn [] (try (fn [] (recur)))))
+    (it-works '(for [i [1 2 3]] i))
+    (it-works '(loop [x 1]
+                 (if (< x 10)
+                   (let [y (+ x 1)]
+                     (do :yolo
+                         (recur (inc x)))))))
+    (throws-tail-ex '(loop [] (def x (recur))))
+    (it-works '(loop [] (defn f [] (recur))))
+    (throws-tail-ex '(fn [] (case (recur) 1 2)))
+    (it-works '(fn [] (case 1
+                        1  ;; case return
+                        (recur)
+                        ;; case default
+                        (recur))))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
@@ -626,8 +681,8 @@
                                      [(last clauses)])))
 
                             (codepoint-case
-                              49
-                              (\1) :yolo)))))))))
+                             49
+                             (\1) :yolo)))))))))
 
 (deftest variable-can-have-macro-or-var-name
   (is (= true (eval* "(defn foo [merge] merge) (foo true)")))
@@ -681,7 +736,7 @@
   #?(:cljs
      (testing "in JS you can throw anything"
        (is (thrown? js/Error
-            (sci/eval-string "(try (throw \"blah\") (catch js/Error e (str e e)))")))
+                    (sci/eval-string "(try (throw \"blah\") (catch js/Error e (str e e)))")))
        (is (= "blahblah" (sci/eval-string "(try (throw \"blah\") (catch :default e (str e e)))"))))))
 
 (deftest syntax-quote-test
@@ -1114,9 +1169,9 @@
       (is (true? (eval* "(:foo (meta ^:foo [(rand-int 10)]))")))
       (is (true? (eval* "(:foo (meta ^:foo #{(rand-int 10)}))")))))
   (testing "Metadata is evaluated after form"
-      (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} {:b (print 1)})")))
-      (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} #{(print 1)})")))
-      (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} [(print 1)])"))))
+    (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} {:b (print 1)})")))
+    (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} #{(print 1)})")))
+    (is (= "123" (eval* "(with-out-str ^{(print 2) (print 3)} [(print 1)])"))))
   (testing "Reader metadata is evaluated on fns"
     (is (true? (eval* "(= 6 (:foo (meta ^{:foo (+ 1 2 3)} (fn []))))")))
     (testing "Fns don't have :line and :column metadata"
@@ -1203,8 +1258,8 @@
 (deftest eval-file-meta-test
   (testing "error during analysis"
     (let [data (try (sci/eval-string "^{:clojure.core/eval-file \"dude.clj\"} (identity (hi))")
-                   (catch #?(:clj Exception :cljs :default) e
-                     (ex-data e)))]
+                    (catch #?(:clj Exception :cljs :default) e
+                      (ex-data e)))]
       (is (= "analysis" (:phase data)))
       (is (= "dude.clj" (:file data)))))
   (testing "error at runtime"
@@ -1290,4 +1345,3 @@
   (eval* 1 '(inc *in*))
   (test-difference "foo" "[10 10]" 0 10)
   (test-difference "rand" #(rand) 0 10))
-

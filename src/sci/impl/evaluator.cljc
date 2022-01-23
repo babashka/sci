@@ -70,13 +70,7 @@
                              [ctx bindings]
                              (recur ctx bindings
                                     rest-let-bindings))))]
-    (when exprs
-      (loop [exprs exprs]
-        (let [e (first exprs)
-              ret (eval ctx bindings e)
-              nexprs (next exprs)]
-          (if nexprs (recur nexprs)
-              ret))))))
+    (eval ctx bindings exprs)))
 
 (defn handle-meta [ctx bindings m]
   ;; Sometimes metadata needs eval. In this case the metadata has metadata.
