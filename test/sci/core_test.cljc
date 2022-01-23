@@ -503,10 +503,15 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"Can only recur from tail position"
-       (sci/eval-string (pr-str expr)))))
+       (sci/eval-string (pr-str expr)))
+      (str "FAIL: does not throw recur exception: " expr)))
 
 (defn it-works [expr]
-  (is (any? (sci/eval-string (pr-str expr)))))
+  (is (any? (sci/eval-string (pr-str expr)
+                             #?(:clj {:classes {'String String}}
+                                :cljs {:classes {:allow :all
+                                                 'js js/global}})))
+      (str "FAIL: " expr)))
 
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
@@ -537,7 +542,9 @@
     (throws-tail-ex '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (recur) (f 1)))
     (it-works '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1) (recur)))
     (throws-tail-ex '(letfn [(f [x] (recur 1) (f x 1))]))
-    (it-works '(letfn [(f [x] (recur 1))]))))
+    (it-works '(letfn [(f [x] (recur 1))]))
+    (throws-tail-ex '(fn [] (new #?(:clj String :cljs js/Error) (recur))))
+    (it-works '(fn [] (new #?(:clj String :cljs js/Error) (fn [] (recur)))))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
