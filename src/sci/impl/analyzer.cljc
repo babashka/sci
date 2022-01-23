@@ -28,11 +28,14 @@
                                  gen-return-needs-ctx-call
                                  gen-return-call]])))
 
-(defn tail-ctx [ctx]
-  (assoc ctx :tail true))
+(defn with-recur-target [ctx]
+  (assoc ctx :recur-target true))
 
-(defn non-tail-ctx [ctx]
-  (assoc ctx :tail false))
+(defn without-recur-target [ctx]
+  (assoc ctx :recur-target false))
+
+(defn recur-target? [ctx]
+  (:recur-target ctx))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -95,9 +98,9 @@
                           (range 2 4))]
     `(defn ~'return-do
        ~'[ctx expr children]
-       (let [~'non-tail-ctx (non-tail-ctx ~'ctx)
+       (let [~'non-tail-ctx (without-recur-target ~'ctx)
              ~'analyzed-children-non-tail (mapv #(analyze ~'non-tail-ctx %) (butlast ~'children))
-             ~'ret-child (analyze (tail-ctx ~'ctx) (last ~'children))
+             ~'ret-child (analyze (with-recur-target ~'ctx) (last ~'children))
              ~'analyzed-children (conj ~'analyzed-children-non-tail ~'ret-child)]
          (case (count ~'analyzed-children)
            ~@(concat
@@ -199,7 +202,7 @@
                           (range 1 20))]
     `(defn ~'return-recur
        ~'[ctx expr analyzed-children]
-       (when (= false (:tail ~'ctx))
+       (when-not (recur-target? ~'ctx)
          (throw-error-with-location "Can only recur from tail position" ~'expr))
        (case (count ~'analyzed-children)
          ~@(concat
@@ -279,7 +282,7 @@
             (let [cb (volatile! #{})]
               [(assoc ctx :closure-bindings cb :param-map param-bindings) cb])))
         ctx (assoc ctx :bindings (merge bindings param-bindings))
-        body (return-do ctx fn-expr body)
+        body (return-do (with-recur-target ctx) fn-expr body)
         closure-bindings (when closure-bindings
                            @closure-bindings)
         closure-binding-cnt (when closure-bindings (count closure-bindings))
@@ -1147,7 +1150,7 @@
                         import (analyze-import ctx expr)
                         or (return-or expr (analyze-children ctx (rest expr)))
                         and (return-and expr (analyze-children ctx (rest expr)))
-                        recur (return-recur ctx expr (analyze-children (non-tail-ctx ctx) (rest expr)))
+                        recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr)))
                         in-ns (analyze-in-ns ctx expr))
                       :else
                       (try
@@ -1294,7 +1297,7 @@
 
 (defn analyze-map
   [ctx expr m]
-  (let [ctx (non-tail-ctx ctx)
+  (let [ctx (without-recur-target ctx)
         ks (keys expr)
         vs (vals expr)
         constant-map? (and constant-colls
@@ -1331,7 +1334,7 @@
 (defn analyze-vec-or-set
   "Returns analyzed vector or set"
   [ctx _f1 f2 expr m]
-  (let [ctx (non-tail-ctx ctx)
+  (let [ctx (without-recur-target ctx)
         constant-coll?
         (and constant-colls
              (every? constant? expr))
