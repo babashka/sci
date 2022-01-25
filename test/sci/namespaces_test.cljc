@@ -265,3 +265,7 @@ bar/bar"}
                                          bar {:source "
 (ns bar (:require foo))
 (def bar foo/foo)"}))}))))
+
+(deftest as-alias-test
+  (is (= :dude/bar (sci/eval-string "(ns my-ns (:require [dude :as-alias foo])) ::foo/bar")))
+  (is (= :dude/bar (sci/eval-string "(require '[dude :as-alias foo]) ::foo/bar"))))
