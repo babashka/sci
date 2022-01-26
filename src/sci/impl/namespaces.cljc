@@ -1081,6 +1081,7 @@
    'get-in (copy-core-var get-in)
    'group-by (copy-core-var group-by)
    'gensym (copy-core-var gensym)
+   'halt-when (copy-core-var halt-when)
    'hash (copy-core-var hash)
    'hash-map (copy-core-var hash-map)
    'hash-set (copy-core-var hash-set)
