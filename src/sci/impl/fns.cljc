@@ -209,7 +209,7 @@
                     :cljs (if disable-arity-checks?
                             (gen-fn 15 true)
                             (gen-fn 15 false)))
-              15 #?(:clj (gen-fn 3)
+              15 #?(:clj (gen-fn 15)
                     :cljs (if disable-arity-checks?
                             (gen-fn 15 true)
                             (gen-fn 15 false)))
