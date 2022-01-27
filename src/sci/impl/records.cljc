@@ -6,6 +6,8 @@
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 #?(:clj
    (defn assert-no-jvm-interface [protocol protocol-name expr]
      (when (and (class? protocol)
@@ -33,7 +35,7 @@
 
 #?(:clj
    (defmethod print-method SciRecord [v ^java.io.Writer w]
-     (.write w (clojure-str v))))
+     (.write w ^String (clojure-str v))))
 
 #?(:cljs ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
    (extend-type SciRecord
