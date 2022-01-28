@@ -149,7 +149,6 @@
 
 (def allowed-loop (symbol "loop"))
 (def allowed-recur (symbol "recur"))
-(def self-ref (symbol "self-ref"))
 
 (defn walk*
   [inner form]

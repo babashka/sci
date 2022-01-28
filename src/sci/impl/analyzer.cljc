@@ -330,11 +330,11 @@
                  body
                  [body])
         self-ref (when fn-name (volatile! nil))
+        self-ref-sym (when fn-name (gensym))
         ctx (if fn-name (-> ctx
                             (assoc :self-ref self-ref)
-                            (assoc-in
-                             [:bindings fn-name]
-                             utils/self-ref))
+                            (assoc :self-ref? #(identical? self-ref-sym %))
+                            (assoc-in [:bindings fn-name] self-ref-sym))
                 ctx)
         bindings (:bindings ctx)
         ctx (assoc ctx :outer-idens (set (vals bindings)))
@@ -1242,26 +1242,27 @@
                                                                  :file @vars/current-file
                                                                  :sci.impl/f-meta f-meta)
                                                nil)))
-                              (if (identical? utils/self-ref f)
-                                (let [children (analyze-children ctx (rest expr))]
-                                  (return-call ctx
-                                               expr
-                                               f children (assoc m
-                                                                 :ns @vars/current-ns
-                                                                 :file @vars/current-file
-                                                                 :sci.impl/f-meta f-meta)
-                                               (fn [bindings _]
-                                                 (deref
-                                                  (eval/resolve-symbol bindings fsym)))))
-                                (let [children (analyze-children ctx (rest expr))]
-                                  (return-call ctx
-                                               expr
-                                               f children (assoc m
-                                                                 :ns @vars/current-ns
-                                                                 :file @vars/current-file
-                                                                 :sci.impl/f-meta f-meta)
-                                               #?(:cljs (when (vars/var? f) (fn [_ v]
-                                                                              (deref v))) :clj nil)))))))
+                              (let [self-ref? (:self-ref? ctx)]
+                                (if (and self-ref? (self-ref? f))
+                                  (let [children (analyze-children ctx (rest expr))]
+                                    (return-call ctx
+                                                 expr
+                                                 f children (assoc m
+                                                                   :ns @vars/current-ns
+                                                                   :file @vars/current-file
+                                                                   :sci.impl/f-meta f-meta)
+                                                 (fn [bindings _]
+                                                   (deref
+                                                    (eval/resolve-symbol bindings fsym)))))
+                                  (let [children (analyze-children ctx (rest expr))]
+                                    (return-call ctx
+                                                 expr
+                                                 f children (assoc m
+                                                                   :ns @vars/current-ns
+                                                                   :file @vars/current-file
+                                                                   :sci.impl/f-meta f-meta)
+                                                 #?(:cljs (when (vars/var? f) (fn [_ v]
+                                                                                (deref v))) :clj nil))))))))
                         (catch #?(:clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
                           ;; stack on it, the only interesting bit it the map
