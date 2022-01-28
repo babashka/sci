@@ -287,11 +287,11 @@
         ;; in sci.impl.resolve
         [ctx closure-bindings]
         (if-let [cb (:closure-bindings ctx)]
-          [(assoc ctx :param-map param-bindings) cb]
+          [ctx cb]
           (if (empty? bindings)
             [ctx nil]
             (let [cb (volatile! #{})]
-              [(assoc ctx :closure-bindings cb :param-map param-bindings) cb])))
+              [(assoc ctx :closure-bindings cb) cb])))
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         body (return-do (with-recur-target ctx true) fn-expr body)
         closure-bindings (when closure-bindings
