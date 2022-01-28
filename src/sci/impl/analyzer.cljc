@@ -317,7 +317,7 @@
     m))
 
 
-(defn expand-fn* [ctx [_fn name? & body :as fn-expr] macro?]
+(defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
                   name?
@@ -336,6 +336,8 @@
                              [:bindings fn-name]
                              utils/self-ref))
                 ctx)
+        bindings (:bindings ctx)
+        ctx (assoc ctx :outer-idens (set (vals bindings)))
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
@@ -389,8 +391,8 @@
       (fn [ctx bindings]
         (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref)))))
 
-(defn expand-fn [ctx fn-expr macro?]
-  (let [struct (expand-fn* ctx fn-expr macro?)
+(defn analyze-fn [ctx fn-expr macro?]
+  (let [struct (analyze-fn* ctx fn-expr macro?)
         fn-meta (:sci.impl/fn-meta struct)
         ctxfn (fn-ctx-fn ctx struct fn-meta)]
     (ctx-fn ctxfn
@@ -483,7 +485,7 @@
         meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
-        f (expand-fn* ctx fn-body macro?)
+        f (analyze-fn* ctx fn-body macro?)
         arglists (seq (:sci.impl/arglists f))
         meta-map (assoc meta-map
                         :ns @vars/current-ns
@@ -1147,7 +1149,7 @@
                         ;; every sub expression
                         do (return-do ctx expr (rest expr))
                         let (analyze-let ctx expr)
-                        (fn fn*) (expand-fn ctx expr false)
+                        (fn fn*) (analyze-fn ctx expr false)
                         def (analyze-def ctx expr)
                         ;; NOTE: defn / defmacro aren't implemented as normal macros yet
                         (defn defmacro) (let [ret (analyze-defn ctx expr)]

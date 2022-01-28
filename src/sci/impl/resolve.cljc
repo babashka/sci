@@ -118,8 +118,9 @@
                   nil)]))
           (let [;; pass along tag of expression!
                 _ (when-let [cb (:closure-bindings ctx)]
-                    (when-not (contains? (:param-map ctx) sym)
-                      (vswap! cb conj sym)))
+                    (when-let [ob (:outer-idens ctx)]
+                      (when (contains? ob v)
+                        (vswap! cb conj sym))))
                 v (if call? ;; resolve-symbol is already handled in the call case
                     (mark-resolve-sym k)
                     (let [v (ctx-fn
