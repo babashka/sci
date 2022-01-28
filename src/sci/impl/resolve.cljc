@@ -101,8 +101,7 @@
       ;; bindings are not checked for permissions
       (when-let [[k v]
                  (find bindings sym)]
-        ;; never inline a binding at macro time, unless it's a function
-        (assert (symbol? v) (str "Not a symbol: " v))
+        ;; (assert (symbol? v) (str "Not a symbol: " v))
         (let [self-ref? (:self-ref? ctx)]
           (if (and self-ref? (self-ref? v))
             (do
