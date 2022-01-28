@@ -101,35 +101,37 @@
       ;; bindings are not checked for permissions
       (when-let [[k v]
                  (find bindings sym)]
-        ;; never inline a binding at macro time, unless it's a function
-        (if (kw-identical? :sci.impl.analyzer/self-ref v)
-          (do
-            (vreset! (:self-ref ctx) true)
-            (when-let [cb (:closure-bindings ctx)]
-              (vswap! cb conj sym))
-            (if call?
-              [k v]
-              [k (ctx-fn
-                  (fn [_ctx bindings]
-                    ;; TODO: optimize
-                    @(eval/resolve-symbol bindings k))
-                  nil
-                  nil)]))
-          (let [;; pass along tag of expression!
-                _ (when-let [cb (:closure-bindings ctx)]
-                    (when-not (contains? (:param-map ctx) sym)
-                      (vswap! cb conj sym)))
-                v (if call? ;; resolve-symbol is already handled in the call case
-                    (mark-resolve-sym k)
-                    (let [v (ctx-fn
-                             (fn [_ctx bindings]
-                               (eval/resolve-symbol bindings k))
-                             nil
-                             (if tag
-                               (vary-meta k assoc :tag tag)
-                               k))]
-                      v))]
-            [k v])))
+        ;; (assert (symbol? v) (str "Not a symbol: " v))
+        (let [self-ref? (:self-ref? ctx)]
+          (if (and self-ref? (self-ref? v))
+            (do
+              (vreset! (:self-ref ctx) true)
+              (when-let [cb (:closure-bindings ctx)]
+                (vswap! cb conj sym))
+              (if call?
+                [k v]
+                [k (ctx-fn
+                    (fn [_ctx bindings]
+                      ;; TODO: optimize
+                      @(eval/resolve-symbol bindings k))
+                    nil
+                    nil)]))
+            (let [;; pass along tag of expression!
+                  _ (when-let [cb (:closure-bindings ctx)]
+                      (when-let [ob (:outer-idens ctx)]
+                        (when (contains? ob v)
+                          (vswap! cb conj sym))))
+                  v (if call? ;; resolve-symbol is already handled in the call case
+                      (mark-resolve-sym k)
+                      (let [v (ctx-fn
+                               (fn [_ctx bindings]
+                                 (eval/resolve-symbol bindings k))
+                               nil
+                               (if tag
+                                 (vary-meta k assoc :tag tag)
+                                 k))]
+                        v))]
+              [k v]))))
       (when-let [kv (lookup* ctx sym call?)]
         (when (:check-permissions ctx)
           (check-permission! ctx sym kv))

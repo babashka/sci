@@ -280,19 +280,18 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        param-bindings (zipmap params
-                               (repeat nil))
+        param-bindings (zipmap params (repeatedly gensym))
         bindings (:bindings ctx)
         binding-cnt (count bindings)
         ;; :param-maps is only needed when we're detecting :closure-bindings
         ;; in sci.impl.resolve
         [ctx closure-bindings]
         (if-let [cb (:closure-bindings ctx)]
-          [(assoc ctx :param-map param-bindings) cb]
+          [ctx cb]
           (if (empty? bindings)
             [ctx nil]
             (let [cb (volatile! #{})]
-              [(assoc ctx :closure-bindings cb :param-map param-bindings) cb])))
+              [(assoc ctx :closure-bindings cb) cb])))
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         body (return-do (with-recur-target ctx true) fn-expr body)
         closure-bindings (when closure-bindings
@@ -318,7 +317,7 @@
     m))
 
 
-(defn expand-fn* [ctx [_fn name? & body :as fn-expr] macro?]
+(defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
                   name?
@@ -331,12 +330,14 @@
                  body
                  [body])
         self-ref (when fn-name (volatile! nil))
+        self-ref-sym (when fn-name (gensym))
         ctx (if fn-name (-> ctx
                             (assoc :self-ref self-ref)
-                            (assoc-in
-                             [:bindings fn-name]
-                             ::self-ref))
+                            (assoc :self-ref? #(identical? self-ref-sym %))
+                            (assoc-in [:bindings fn-name] self-ref-sym))
                 ctx)
+        bindings (:bindings ctx)
+        ctx (assoc ctx :outer-idens (set (vals bindings)))
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
@@ -390,8 +391,8 @@
       (fn [ctx bindings]
         (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref)))))
 
-(defn expand-fn [ctx fn-expr macro?]
-  (let [struct (expand-fn* ctx fn-expr macro?)
+(defn analyze-fn [ctx fn-expr macro?]
+  (let [struct (analyze-fn* ctx fn-expr macro?)
         fn-meta (:sci.impl/fn-meta struct)
         ctxfn (fn-ctx-fn ctx struct fn-meta)]
     (ctx-fn ctxfn
@@ -412,7 +413,7 @@
                                                assoc :tag t)
                                   binding-name)
                  v (analyze ctx binding-value)]
-             [(update ctx :bindings assoc binding-name v)
+             [(update ctx :bindings assoc binding-name (gensym))
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))
@@ -484,7 +485,7 @@
         meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
-        f (expand-fn* ctx fn-body macro?)
+        f (analyze-fn* ctx fn-body macro?)
         arglists (seq (:sci.impl/arglists f))
         meta-map (assoc meta-map
                         :ns @vars/current-ns
@@ -639,7 +640,7 @@
                                                     (analyze ctx ex)))]
                             {:class clazz
                              :binding binding
-                             :body (analyze (assoc-in ctx [:bindings binding] nil)
+                             :body (analyze (assoc-in ctx [:bindings binding] (gensym))
                                             (cons 'do body))}
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
@@ -1148,7 +1149,7 @@
                         ;; every sub expression
                         do (return-do ctx expr (rest expr))
                         let (analyze-let ctx expr)
-                        (fn fn*) (expand-fn ctx expr false)
+                        (fn fn*) (analyze-fn ctx expr false)
                         def (analyze-def ctx expr)
                         ;; NOTE: defn / defmacro aren't implemented as normal macros yet
                         (defn defmacro) (let [ret (analyze-defn ctx expr)]
@@ -1241,26 +1242,27 @@
                                                                  :file @vars/current-file
                                                                  :sci.impl/f-meta f-meta)
                                                nil)))
-                              (if (kw-identical? ::self-ref f)
-                                (let [children (analyze-children ctx (rest expr))]
-                                  (return-call ctx
-                                               expr
-                                               f children (assoc m
-                                                                 :ns @vars/current-ns
-                                                                 :file @vars/current-file
-                                                                 :sci.impl/f-meta f-meta)
-                                               (fn [bindings _]
-                                                 (deref
-                                                  (eval/resolve-symbol bindings fsym)))))
-                                (let [children (analyze-children ctx (rest expr))]
-                                  (return-call ctx
-                                               expr
-                                               f children (assoc m
-                                                                 :ns @vars/current-ns
-                                                                 :file @vars/current-file
-                                                                 :sci.impl/f-meta f-meta)
-                                               #?(:cljs (when (vars/var? f) (fn [_ v]
-                                                                              (deref v))) :clj nil)))))))
+                              (let [self-ref? (:self-ref? ctx)]
+                                (if (and self-ref? (self-ref? f))
+                                  (let [children (analyze-children ctx (rest expr))]
+                                    (return-call ctx
+                                                 expr
+                                                 f children (assoc m
+                                                                   :ns @vars/current-ns
+                                                                   :file @vars/current-file
+                                                                   :sci.impl/f-meta f-meta)
+                                                 (fn [bindings _]
+                                                   (deref
+                                                    (eval/resolve-symbol bindings fsym)))))
+                                  (let [children (analyze-children ctx (rest expr))]
+                                    (return-call ctx
+                                                 expr
+                                                 f children (assoc m
+                                                                   :ns @vars/current-ns
+                                                                   :file @vars/current-file
+                                                                   :sci.impl/f-meta f-meta)
+                                                 #?(:cljs (when (vars/var? f) (fn [_ v]
+                                                                                (deref v))) :clj nil))))))))
                         (catch #?(:clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
                           ;; stack on it, the only interesting bit it the map
