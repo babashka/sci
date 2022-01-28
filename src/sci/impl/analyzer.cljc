@@ -280,8 +280,7 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        param-bindings (zipmap params
-                               (repeat nil))
+        param-bindings (zipmap params (repeatedly gensym))
         bindings (:bindings ctx)
         binding-cnt (count bindings)
         ;; :param-maps is only needed when we're detecting :closure-bindings
@@ -335,7 +334,7 @@
                             (assoc :self-ref self-ref)
                             (assoc-in
                              [:bindings fn-name]
-                             ::self-ref))
+                             utils/self-ref))
                 ctx)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
@@ -412,7 +411,7 @@
                                                assoc :tag t)
                                   binding-name)
                  v (analyze ctx binding-value)]
-             [(update ctx :bindings assoc binding-name v)
+             [(update ctx :bindings assoc binding-name (gensym))
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))
@@ -639,7 +638,7 @@
                                                     (analyze ctx ex)))]
                             {:class clazz
                              :binding binding
-                             :body (analyze (assoc-in ctx [:bindings binding] nil)
+                             :body (analyze (assoc-in ctx [:bindings binding] (gensym))
                                             (cons 'do body))}
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
@@ -1241,7 +1240,7 @@
                                                                  :file @vars/current-file
                                                                  :sci.impl/f-meta f-meta)
                                                nil)))
-                              (if (kw-identical? ::self-ref f)
+                              (if (identical? utils/self-ref f)
                                 (let [children (analyze-children ctx (rest expr))]
                                   (return-call ctx
                                                expr

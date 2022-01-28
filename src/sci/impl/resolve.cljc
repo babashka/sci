@@ -102,7 +102,8 @@
       (when-let [[k v]
                  (find bindings sym)]
         ;; never inline a binding at macro time, unless it's a function
-        (if (kw-identical? :sci.impl.analyzer/self-ref v)
+        (assert (symbol? v) (str "Not a symbol: " v))
+        (if (identical? utils/self-ref v)
           (do
             (vreset! (:self-ref ctx) true)
             (when-let [cb (:closure-bindings ctx)]
