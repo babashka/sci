@@ -202,7 +202,7 @@
 (declare return-and) ;; for clj-kondo
 (gen-return-and)
 
-(def ^:const recur-0 (fns/->Recur []))
+;; (def ^:const recur-0 (fns/->Recur []))
 
 (defmacro gen-return-recur
   []
@@ -211,7 +211,7 @@
                                               [(symbol (str "arg" j))
                                                `(nth ~'analyzed-children ~j)])
                                             (range i)))])
-                          (range 1 20))]
+                          (range 2 20))]
     `(defn ~'return-recur
        ~'[ctx expr analyzed-children]
        (when-not (recur-target? ~'ctx)
@@ -219,16 +219,20 @@
        (case (count ~'analyzed-children)
          ~@(concat
             [0 `(ctx-fn
-                 (fn [~'_ ~'_bindings]
-                   recur-0)
+                 (fn [~'_ ~'bindings]
+                   ~'bindings)
                  ~'expr)]
             (mapcat (fn [[i binds]]
                       [i `(let ~binds
                             (ctx-fn
                              (fn [~'ctx ~'bindings]
                                (and
+                                ;; TODO: assoc on bindings
                                 (fns/->Recur
-                                 [~@(map (fn [j]
+                                 (-> ~'bindings
+                                     (assoc '~(symbol "val") (eval/eval ~'ctx ~'bindings ~'arg0))
+                                     (assoc '~(symbol "cnt") (eval/eval ~'ctx ~'bindings ~'arg1)))
+                                 #_[~@(map (fn [j]
                                            `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                          (range i))])))
                              ~'expr))])

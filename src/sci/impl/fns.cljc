@@ -68,7 +68,7 @@
            assocs (mapcat (fn [local fn-param]
                             `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
                           locals fn-params)
-           recurs (map (fn [n]
+           #_#_recurs (map (fn [n]
                          `(nth-2 ~'recur-val ~n))
                        rnge)]
        `(let ~let-vec
@@ -77,17 +77,18 @@
                  (when-not disable-arity-checks
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
-            (let [;; tried making bindings a transient, but saw no perf improvement
-                  ;; it's even slower with less than ~10 bindings which is pretty uncommon
-                  ;; see https://github.com/borkdude/sci/issues/559
-                  ~@assocs
-                  ret# (eval/eval ~'ctx ~'bindings ~'body)
-                  ;; m (meta ret)
-                  recur?# (instance? Recur ret#)]
-              (if recur?#
-                (let [~'recur-val (t/getVal ret#)]
-                  (recur ~@recurs))
-                ret#))))))))
+            (let [~@assocs]
+              (loop [~'bindings ~'bindings]
+                (let [;; tried making bindings a transient, but saw no perf improvement
+                      ;; it's even slower with less than ~10 bindings which is pretty uncommon
+                      ;; see https://github.com/borkdude/sci/issues/559
+                      ret# (eval/eval ~'ctx ~'bindings ~'body)
+                      ;; m (meta ret)
+                      recur?# (instance? Recur ret#)]
+                  (if recur?#
+                    (let [~'recur-val (t/getVal ret#)]
+                      (recur ~'recur-val #_~@recurs))
+                    ret#))))))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
