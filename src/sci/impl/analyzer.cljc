@@ -6,6 +6,7 @@
    #?(:cljs [goog.object :as gobj])
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.evaluator :as eval]
+   [sci.impl.faster :refer [assoc-3]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.load :as load]
@@ -232,8 +233,8 @@
                                  (fns/->Recur
                                   (-> ~'bindings
                                       ~@(map (fn [j]
-                                               `(assoc ~(symbol (str "param" j))
-                                                       (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
+                                               `(assoc-3 ~(symbol (str "param" j))
+                                                         (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
                                              (range i)))))
                                ~'expr))])
                       let-bindings)))))))
