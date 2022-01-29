@@ -4,7 +4,7 @@
             [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
-            [sci.impl.utils :as utils :refer [ctx-fn]]
+            [sci.impl.utils :as utils]
             [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
                                                   gen-fn-varargs]])))
@@ -67,27 +67,24 @@
                                   [local ith]) locals nths))
            assocs (mapcat (fn [local fn-param]
                             `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
-                          locals fn-params)
-           recurs (map (fn [n]
-                         `(nth-2 ~'recur-val ~n))
-                       rnge)]
+                          locals fn-params)]
        `(let ~let-vec
           (fn ~(symbol (str "arity-" n)) ~fn-params
             ~@(? :cljs
                  (when-not disable-arity-checks
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
-            (let [;; tried making bindings a transient, but saw no perf improvement
-                  ;; it's even slower with less than ~10 bindings which is pretty uncommon
-                  ;; see https://github.com/borkdude/sci/issues/559
-                  ~@assocs
-                  ret# (eval/eval ~'ctx ~'bindings ~'body)
-                  ;; m (meta ret)
-                  recur?# (instance? Recur ret#)]
-              (if recur?#
-                (let [~'recur-val (t/getVal ret#)]
-                  (recur ~@recurs))
-                ret#))))))))
+            (let [~@assocs]
+              (loop [~'bindings ~'bindings]
+                (let [;; tried making bindings a transient, but saw no perf improvement
+                      ;; it's even slower with less than ~10 bindings which is pretty uncommon
+                      ;; see https://github.com/borkdude/sci/issues/559
+                      ret# (eval/eval ~'ctx ~'bindings ~'body)
+                      ;; m (meta ret)
+                      ]
+                  (if (instance? Recur ret#)
+                    (recur (.-val ^Recur ret#))
+                    ret#))))))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
@@ -114,20 +111,12 @@
                (do
                  (when args*
                    (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
-                 ret)))
-           ret (eval/eval ctx bindings body)
-           ;; m (meta ret)
-           recur? (instance? Recur ret)]
-       (if recur?
-         (let [recur-val (t/getVal ret)
-               min-var-args-arity (when var-arg-name fixed-arity)]
-           (if min-var-args-arity
-             (let [[fixed-args [rest-args]]
-                   [(subvec recur-val 0 min-var-args-arity)
-                    (subvec recur-val min-var-args-arity)]]
-               (recur (into fixed-args rest-args)))
-             (recur recur-val)))
-         ret))))
+                 ret)))]
+       (loop [bindings bindings]
+         (let [ret (eval/eval ctx bindings body)]
+           (if (instance? Recur ret)
+             (recur (.-val ^Recur ret))
+             ret))))))
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
@@ -136,6 +125,7 @@
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?]
   (let [bindings-fn (:bindings-fn fn-body)
+        #_:clj-kondo/ignore
         bindings (bindings-fn bindings)
         fixed-arity (:fixed-arity fn-body)
         var-arg-name (:var-arg-name fn-body)
