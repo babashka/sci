@@ -232,18 +232,11 @@
                                  (fns/->Recur
                                   (-> ~'bindings
                                       ~@(map (fn [j]
-                                               `(assoc ~(symbol (str "param" j)) (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
-                                             (range i)))
-                                  #_[~@(map (fn [j]
-                                              `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                            (range i))]))
+                                               `(assoc ~(symbol (str "param" j))
+                                                       (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
+                                             (range i)))))
                                ~'expr))])
-                      let-bindings)
-              #_`[(ctx-fn
-                 (prn (count ~'analyzed-children))
-                 (fn [~'ctx ~'bindings]
-                   (fns/->Recur (merge ~'bindings (zipmap ~'params (map #(eval/eval ~'ctx ~'bindings %) ~'analyzed-children)))))
-                 ~'expr)]))))))
+                      let-bindings)))))))
 
 ;; (require 'clojure.pprint)
 ;; (clojure.pprint/pprint

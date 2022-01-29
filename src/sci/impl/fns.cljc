@@ -115,20 +115,12 @@
                (do
                  (when args*
                    (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
-                 ret)))
-           ]
+                 ret)))]
        (loop [bindings bindings]
          (let [ret (eval/eval ctx bindings body)
                recur? (instance? Recur ret)]
            (if recur?
              (recur (t/getVal ret))
-             #_(let []
-                 (if min-var-args-arity
-                   (let [[fixed-args [rest-args]]
-                         [(subvec recur-val 0 min-var-args-arity)
-                          (subvec recur-val min-var-args-arity)]]
-                     (recur (into fixed-args rest-args)))
-                   (recur recur-val)))
              ret))))))
 
 (defn fun
