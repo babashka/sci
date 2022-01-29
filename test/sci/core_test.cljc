@@ -523,7 +523,10 @@
 ((fn [& sqs]
   (if (= 3 (ffirst sqs))
     sqs
-    (recur (map #(map inc %) sqs)))) [1 2] [3 4])"))))
+    (recur (map #(map inc %) sqs)))) [1 2] [3 4])")))
+    (is (= '(10) (eval* "(defn foo [x & xs]
+                           (if (pos? x) (recur (dec x) (rest xs)) xs))
+                         (apply foo 10 (range 11))"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
