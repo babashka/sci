@@ -203,8 +203,6 @@
 (declare return-and) ;; for clj-kondo
 (gen-return-and)
 
-;; (def ^:const recur-0 (fns/->Recur []))
-
 (defmacro gen-return-recur
   []
   (let [let-bindings (map (fn [i]

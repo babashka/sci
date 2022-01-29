@@ -67,10 +67,7 @@
                                   [local ith]) locals nths))
            assocs (mapcat (fn [local fn-param]
                             `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
-                          locals fn-params)
-           #_#_recurs (map (fn [n]
-                         `(nth-2 ~'recur-val ~n))
-                       rnge)]
+                          locals fn-params)]
        `(let ~let-vec
           (fn ~(symbol (str "arity-" n)) ~fn-params
             ~@(? :cljs
@@ -128,6 +125,7 @@
    #_:clj-kondo/ignore fn-name
    #_:clj-kondo/ignore macro?]
   (let [bindings-fn (:bindings-fn fn-body)
+        #_:clj-kondo/ignore
         bindings (bindings-fn bindings)
         fixed-arity (:fixed-arity fn-body)
         var-arg-name (:var-arg-name fn-body)
