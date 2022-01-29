@@ -6,7 +6,6 @@
    #?(:cljs [goog.object :as gobj])
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.evaluator :as eval]
-   [sci.impl.faster :refer [assoc-3]]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.load :as load]
@@ -203,39 +202,41 @@
 (declare return-and) ;; for clj-kondo
 (gen-return-and)
 
+(def ^:const recur-0 (fns/->Recur []))
+
 (defmacro gen-return-recur
   []
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
-                                             [(symbol (str "arg" j))
-                                              `(nth ~'analyzed-children ~j)
-                                              (symbol (str "param" j))
-                                              `(nth ~'params ~j)])
-                                           (range i)))])
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)])
+                                            (range i)))])
                           (range 1 20))]
     `(defn ~'return-recur
        ~'[ctx expr analyzed-children]
        (when-not (recur-target? ~'ctx)
          (throw-error-with-location "Can only recur from tail position" ~'expr))
-       (let [~'params (:params ~'ctx)]
-         (case (count ~'analyzed-children)
-           ~@(concat
-              [0 `(ctx-fn
-                   (fn [~'_ ~'bindings]
-                     (fns/->Recur ~'bindings))
-                   ~'expr)]
-              (mapcat (fn [[i binds]]
-                        [i `(let ~binds
-                              (ctx-fn
-                               (fn [~'ctx ~'bindings]
-                                 (fns/->Recur
-                                  (-> ~'bindings
-                                      ~@(map (fn [j]
-                                               `(assoc-3 ~(symbol (str "param" j))
-                                                         (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
-                                             (range i)))))
-                               ~'expr))])
-                      let-bindings)))))))
+       (case (count ~'analyzed-children)
+         ~@(concat
+            [0 `(ctx-fn
+                 (fn [~'_ ~'_bindings]
+                   recur-0)
+                 ~'expr)]
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (ctx-fn
+                             (fn [~'ctx ~'bindings]
+                               (and
+                                (fns/->Recur
+                                 [~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                         (range i))])))
+                             ~'expr))])
+                    let-bindings)
+            `[(ctx-fn
+               (fn [~'ctx ~'bindings]
+                 (eval/fn-call ~'ctx ~'bindings (comp fns/->Recur vector) ~'analyzed-children))
+               ~'expr)])))))
 
 ;; (require 'clojure.pprint)
 ;; (clojure.pprint/pprint
@@ -256,6 +257,9 @@
     (throw-error-with-location "Parameter declaration should be a vector" fn-expr))
   (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
                            binding-vector)
+        fixed-args (take-while #(not= '& %) binding-vector)
+        fixed-arity (count fixed-args)
+        var-arg-name (second (drop-while #(not= '& %) binding-vector))
         next-body (next body-exprs)
         conds (when next-body
                 (let [e (first body-exprs)]
@@ -276,13 +280,7 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        [fixed-args [_ var-arg-name]] (split-with #(not= '& %) params)
-        fixed-arity (count fixed-args)
-        ;; param-names = all simple symbols, no destructuring
-        param-names (cond-> fixed-args
-                      var-arg-name (conj var-arg-name))
-        ctx (assoc ctx :params param-names)
-        param-bindings (zipmap param-names (repeatedly gensym))
+        param-bindings (zipmap params (repeatedly gensym))
         bindings (:bindings ctx)
         binding-cnt (count bindings)
         ;; :param-maps is only needed when we're detecting :closure-bindings
