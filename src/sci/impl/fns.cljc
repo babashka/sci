@@ -4,7 +4,7 @@
             [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
-            [sci.impl.utils :as utils :refer [ctx-fn]]
+            [sci.impl.utils :as utils]
             [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
                                                   gen-fn-varargs]])))
@@ -84,10 +84,9 @@
                       ;; see https://github.com/borkdude/sci/issues/559
                       ret# (eval/eval ~'ctx ~'bindings ~'body)
                       ;; m (meta ret)
-                      recur?# (instance? Recur ret#)]
-                  (if recur?#
-                    (let [~'recur-val (t/getVal ret#)]
-                      (recur ~'recur-val #_~@recurs))
+                      ]
+                  (if (instance? Recur ret#)
+                    (recur (.-val ^Recur ret#))
                     ret#))))))))))
 
 #_(require '[clojure.pprint :as pprint])
@@ -117,10 +116,9 @@
                    (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
                  ret)))]
        (loop [bindings bindings]
-         (let [ret (eval/eval ctx bindings body)
-               recur? (instance? Recur ret)]
-           (if recur?
-             (recur (t/getVal ret))
+         (let [ret (eval/eval ctx bindings body)]
+           (if (instance? Recur ret)
+             (recur (.-val ^Recur ret))
              ret))))))
 
 (defn fun
