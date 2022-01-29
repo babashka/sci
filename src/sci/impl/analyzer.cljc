@@ -208,39 +208,41 @@
   []
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
-                                              [(symbol (str "arg" j))
-                                               `(nth ~'analyzed-children ~j)])
-                                            (range i)))])
+                                             [(symbol (str "arg" j))
+                                              `(nth ~'analyzed-children ~j)
+                                              (symbol (str "param" j))
+                                              `(nth ~'params ~j)])
+                                           (range i)))])
                           (range 2 20))]
     `(defn ~'return-recur
        ~'[ctx expr analyzed-children]
        (when-not (recur-target? ~'ctx)
          (throw-error-with-location "Can only recur from tail position" ~'expr))
-       (case (count ~'analyzed-children)
-         ~@(concat
-            [0 `(ctx-fn
-                 (fn [~'_ ~'bindings]
-                   ~'bindings)
-                 ~'expr)]
-            (mapcat (fn [[i binds]]
-                      [i `(let ~binds
-                            (ctx-fn
-                             (fn [~'ctx ~'bindings]
-                               (and
-                                ;; TODO: assoc on bindings
-                                (fns/->Recur
-                                 (-> ~'bindings
-                                     (assoc '~(symbol "val") (eval/eval ~'ctx ~'bindings ~'arg0))
-                                     (assoc '~(symbol "cnt") (eval/eval ~'ctx ~'bindings ~'arg1)))
-                                 #_[~@(map (fn [j]
-                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                         (range i))])))
-                             ~'expr))])
-                    let-bindings)
-            `[(ctx-fn
-               (fn [~'ctx ~'bindings]
-                 (eval/fn-call ~'ctx ~'bindings (comp fns/->Recur vector) ~'analyzed-children))
-               ~'expr)])))))
+       (let [~'params (remove #(= '& %) (:params ~'ctx))]
+         (case (count ~'analyzed-children)
+           ~@(concat
+              [0 `(ctx-fn
+                   (fn [~'_ ~'bindings]
+                     (fns/->Recur ~'bindings))
+                   ~'expr)]
+              (mapcat (fn [[i binds]]
+                        [i `(let ~binds
+                              (ctx-fn
+                               (fn [~'ctx ~'bindings]
+                                 (fns/->Recur
+                                  (-> ~'bindings
+                                      ~@(map (fn [j]
+                                               `(assoc ~(symbol (str "param" j)) (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
+                                             (range i)))
+                                  #_[~@(map (fn [j]
+                                              `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                            (range i))]))
+                               ~'expr))])
+                      let-bindings)
+              `[(ctx-fn
+                 (fn [~'ctx ~'bindings]
+                   (fns/->Recur (merge ~'bindings (zipmap ~'params (map #(eval/eval ~'ctx ~'bindings %) ~'analyzed-children)))))
+                 ~'expr)]))))))
 
 ;; (require 'clojure.pprint)
 ;; (clojure.pprint/pprint
@@ -284,6 +286,7 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
+        ctx (assoc ctx :params params)
         param-bindings (zipmap params (repeatedly gensym))
         bindings (:bindings ctx)
         binding-cnt (count bindings)
