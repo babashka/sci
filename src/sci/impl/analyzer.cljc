@@ -213,7 +213,7 @@
                                               (symbol (str "param" j))
                                               `(nth ~'params ~j)])
                                            (range i)))])
-                          (range 2 20))]
+                          (range 1 20))]
     `(defn ~'return-recur
        ~'[ctx expr analyzed-children]
        (when-not (recur-target? ~'ctx)
@@ -239,7 +239,8 @@
                                             (range i))]))
                                ~'expr))])
                       let-bindings)
-              `[(ctx-fn
+              #_`[(ctx-fn
+                 (prn (count ~'analyzed-children))
                  (fn [~'ctx ~'bindings]
                    (fns/->Recur (merge ~'bindings (zipmap ~'params (map #(eval/eval ~'ctx ~'bindings %) ~'analyzed-children)))))
                  ~'expr)]))))))
