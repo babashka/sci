@@ -219,7 +219,7 @@
        ~'[ctx expr analyzed-children]
        (when-not (recur-target? ~'ctx)
          (throw-error-with-location "Can only recur from tail position" ~'expr))
-       (let [~'params (remove #(= '& %) (:params ~'ctx))]
+       (let [~'params (:params ~'ctx)]
          (case (count ~'analyzed-children)
            ~@(concat
               [0 `(ctx-fn
@@ -258,9 +258,6 @@
     (throw-error-with-location "Parameter declaration should be a vector" fn-expr))
   (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
                            binding-vector)
-        fixed-args (take-while #(not= '& %) binding-vector)
-        fixed-arity (count fixed-args)
-        var-arg-name (second (drop-while #(not= '& %) binding-vector))
         next-body (next body-exprs)
         conds (when next-body
                 (let [e (first body-exprs)]
@@ -281,8 +278,13 @@
                              body-exprs)
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        ctx (assoc ctx :params params)
-        param-bindings (zipmap params (repeatedly gensym))
+        [fixed-args [_ var-arg-name]] (split-with #(not= '& %) params)
+        fixed-arity (count fixed-args)
+        ;; param-names = all simple symbols, no destructuring
+        param-names (cond-> fixed-args
+                      var-arg-name (conj var-arg-name))
+        ctx (assoc ctx :params param-names)
+        param-bindings (zipmap param-names (repeatedly gensym))
         bindings (:bindings ctx)
         binding-cnt (count bindings)
         ;; :param-maps is only needed when we're detecting :closure-bindings
