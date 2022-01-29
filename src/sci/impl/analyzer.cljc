@@ -277,6 +277,7 @@
                      body-exprs)
         {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
         [fixed-args [_ var-arg-name]] (split-with #(not= '& %) params)
+        fixed-args (vec fixed-args)
         fixed-arity (count fixed-args)
         ;; param-names = all simple symbols, no destructuring
         param-names (cond-> fixed-args
