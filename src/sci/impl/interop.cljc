@@ -28,6 +28,7 @@
   #?@(:cljs [[obj _target-class method-name args]
              ;; gobject/get didn't work here
              (if-let [method (aget obj method-name)]
+               ;; use Reflect rather than (.apply method ...), see https://github.com/babashka/nbb/issues/118
                (js/Reflect.apply method obj (into-array args) #_(js-object-array args))
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
