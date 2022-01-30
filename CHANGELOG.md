@@ -5,11 +5,12 @@ For a list of breaking changes, check [here](#breaking-changes)
 ## Unreleased
 
 - Improve error message for higher order function arity exception [#653](https://github.com/babashka/sci/issues/653)
-- fix [#655](https://github.com/babashka/sci/issues/655): `merge-opts` should overwrite existing var
-- fix [#660](https://github.com/babashka/sci/issues/660): In JS you can throw and catch anything
-- fix [#664](https://github.com/babashka/sci/issues/664): cannot take value of macro `->`
-- fix [#659](https://github.com/babashka/sci/issues/659): meta evaluation order (@erdos)
-- feat: add `array?`, `js-delete`, `object?` and `undefined?`
+- Fix [#655](https://github.com/babashka/sci/issues/655): `merge-opts` should overwrite existing var
+- Fix [#660](https://github.com/babashka/sci/issues/660): In JS you can throw and catch anything
+- Fix [#664](https://github.com/babashka/sci/issues/664): cannot take value of macro `->`
+- Fix [#659](https://github.com/babashka/sci/issues/659): meta evaluation order (@erdos)
+- Fix #666: use Reflect when calling instance function
+- Feature: add `array?`, `js-delete`, `object?` and `undefined?`
 
 ## v0.2.8
 
