@@ -119,9 +119,12 @@
      (let [func-without-apply (let [f (fn [_ _ _] 0)]
                                 (js/Object.setPrototypeOf f nil)
                                 f)]
-       (is (tu/eval* "(.f foo)"
-                     {:classes {:allow :all
-                                'foo #js {:f func-without-apply}}})))))
+       (is (= 0 (tu/eval* "(.f foo)"
+                          {:classes {:allow :all
+                                     'foo #js {:f func-without-apply}}})))
+       (is (= 0 (tu/eval* "(foo/f)"
+                          {:classes {:allow :all
+                                     'foo #js {:f func-without-apply}}}))))))
 
 #?(:cljs
    (deftest field-access-test

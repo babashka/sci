@@ -59,7 +59,7 @@
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
      :cljs (if-let [method (gobject/get class method-name)]
-             (.apply method class (into-array args))
+             (js/Reflect.apply method class (into-array args))
              (let [method-name (str method-name)
                    field (get-static-field [class method-name])]
                (cond
