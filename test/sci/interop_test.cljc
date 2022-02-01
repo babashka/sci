@@ -115,7 +115,13 @@
      (is (str/starts-with? (tu/eval* "(.toString js/Math.PI)"
                                      {:classes {:allow :all
                                                 'js goog.global}})
-                          "3.14"))))
+                           "3.14"))
+     (let [func-without-apply (let [f (fn [_ _ _] 0)]
+                                (js/Object.setPrototypeOf f nil)
+                                f)]
+       (is (tu/eval* "(.f foo)"
+                     {:classes {:allow :all
+                                'foo #js {:f func-without-apply}}})))))
 
 #?(:cljs
    (deftest field-access-test
