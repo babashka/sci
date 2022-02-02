@@ -57,19 +57,19 @@
   (let [[ctx bindings] (loop [ctx ctx
                               bindings bindings
                               let-bindings let-bindings]
-                         (let [let-name (first let-bindings)
-                               let-bindings (rest let-bindings)
-                               let-val (first let-bindings)
-                               rest-let-bindings (next let-bindings)
-                               v (eval ctx bindings let-val)
-                               ;; bindings (faster/get-2 ctx :bindings)
-                               bindings (faster/assoc-3 bindings let-name v)
-                               ;; ctx (faster/assoc-3 ctx :bindings bindings)
-                               ]
-                           (if-not rest-let-bindings
-                             [ctx bindings]
-                             (recur ctx bindings
-                                    rest-let-bindings))))]
+                         (let [let-name (first let-bindings)]
+                           (if let-name
+                             (let [let-bindings (rest let-bindings)
+                                   let-val (first let-bindings)
+                                   rest-let-bindings (next let-bindings)
+                                   v (eval ctx bindings let-val)
+                                   ;; bindings (faster/get-2 ctx :bindings)
+                                   bindings (faster/assoc-3 bindings let-name v)
+                                   ;; ctx (faster/assoc-3 ctx :bindings bindings)
+                                   ]
+                               (recur ctx bindings
+                                      rest-let-bindings))
+                             [ctx bindings])))]
     (eval ctx bindings exprs)))
 
 (defn handle-meta [ctx bindings m]
