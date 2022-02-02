@@ -362,6 +362,7 @@
                           :max-fixed -1} bodies)
         closure-bindings (->> (get-in @new-closure-bindings parents)
                               (get-closure-bindings reverse-bindings))
+        ;; _ (prn :closure-bindings closure-bindings)
         bindings-fn (if (seq closure-bindings)
                       (if (= (count bindings)
                              (count closure-bindings))
