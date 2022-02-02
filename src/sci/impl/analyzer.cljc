@@ -299,10 +299,15 @@
               m)]
     m))
 
+(defn keep-closure-bindings [reverse-bindings sym-set]
+  (keep reverse-bindings sym-set))
+
 (defn get-closure-bindings [reverse-bindings x]
   (if (map? x)
-    (reduce into (:syms x) (map #(get-closure-bindings reverse-bindings %) (vals x)))
-    (keep reverse-bindings x)))
+    (reduce into (keep-closure-bindings reverse-bindings (:syms x))
+            (map #(get-closure-bindings reverse-bindings %)
+                 (vals (dissoc x :syms))))
+    (keep-closure-bindings reverse-bindings x)))
 
 (defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
@@ -357,11 +362,9 @@
                           :max-fixed -1} bodies)
         closure-bindings (->> (get-in @new-closure-bindings parents)
                               (get-closure-bindings reverse-bindings))
-        closure-binding-cnt (count closure-bindings)
-        binding-cnt (count bindings)
-        bindings-fn (if closure-bindings
-                      (if (= binding-cnt
-                             closure-binding-cnt)
+        bindings-fn (if (seq closure-bindings)
+                      (if (= (count bindings)
+                             (count closure-bindings))
                         ;; same count, all bindings are needed
                         identity
                         ;; here we narrow down the bindings based on closure-bindings
