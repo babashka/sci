@@ -107,7 +107,9 @@
             (do
               (vreset! (:self-ref ctx) true)
               (when-let [cb (:closure-bindings ctx)]
-                (vswap! cb conj sym))
+                (when-let [oi (:outer-idens ctx)]
+                  (when-let [ob (oi v)]
+                    (vswap! cb update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))))
               (if call?
                 [k v]
                 [k (ctx-fn
@@ -118,9 +120,9 @@
                     nil)]))
             (let [;; pass along tag of expression!
                   _ (when-let [cb (:closure-bindings ctx)]
-                      (when-let [ob (:outer-idens ctx)]
-                        (when (contains? ob v)
-                          (vswap! cb conj sym))))
+                      (when-let [oi (:outer-idens ctx)]
+                        (when-let [ob (oi v)]
+                          (vswap! cb update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))))
                   v (if call? ;; resolve-symbol is already handled in the call case
                       (mark-resolve-sym k)
                       (let [v (ctx-fn

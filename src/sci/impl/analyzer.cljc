@@ -299,6 +299,15 @@
               m)]
     m))
 
+(defn keep-closure-bindings [reverse-bindings sym-set]
+  (keep reverse-bindings sym-set))
+
+(defn get-closure-bindings [reverse-bindings x]
+  (if (map? x)
+    (reduce into (keep-closure-bindings reverse-bindings (:syms x))
+            (map #(get-closure-bindings reverse-bindings %)
+                 (vals (dissoc x :syms))))
+    (keep-closure-bindings reverse-bindings x)))
 
 (defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
@@ -313,21 +322,22 @@
                  body
                  [body])
         self-ref (when fn-name (volatile! nil))
-        self-ref-sym (when fn-name (gensym))
+        fn-id (gensym)
+        self-ref-sym (when fn-name fn-id)
+        parents ((fnil conj []) (:parents ctx) fn-id)
+        ctx (assoc ctx :parents parents)
         ctx (if fn-name (-> ctx
                             (assoc :self-ref self-ref)
                             (assoc :self-ref? #(identical? self-ref-sym %))
                             (assoc-in [:bindings fn-name] self-ref-sym))
                 ctx)
         bindings (:bindings ctx)
-        ctx (assoc ctx :outer-idens (set (vals bindings)))
-        [ctx closure-bindings]
-        (if-let [cb (:closure-bindings ctx)]
-          [ctx cb]
-          (if (empty? bindings)
-            [ctx nil]
-            (let [cb (volatile! #{})]
-              [(assoc ctx :closure-bindings cb) cb])))
+        binding-vals (vals bindings)
+        reverse-bindings (zipmap binding-vals (keys bindings))
+        ctx (assoc ctx :outer-idens (set binding-vals))
+        old-closure-bindings (:closure-bindings ctx)
+        new-closure-bindings (or old-closure-bindings (volatile! {}))
+        ctx (assoc ctx :closure-bindings new-closure-bindings)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
@@ -351,13 +361,12 @@
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
-        closure-bindings (when closure-bindings
-                           @closure-bindings)
-        closure-binding-cnt (when closure-bindings (count closure-bindings))
-        binding-cnt (count bindings)
-        bindings-fn (if closure-bindings
-                      (if (= binding-cnt
-                             closure-binding-cnt)
+        closure-bindings (->> (get-in @new-closure-bindings parents)
+                              (get-closure-bindings reverse-bindings))
+        ;; _ (prn :closure-bindings closure-bindings)
+        bindings-fn (if (seq closure-bindings)
+                      (if (= (count bindings)
+                             (count closure-bindings))
                         ;; same count, all bindings are needed
                         identity
                         ;; here we narrow down the bindings based on closure-bindings
