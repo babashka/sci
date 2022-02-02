@@ -247,7 +247,7 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
-(defrecord FnBody [params body fixed-arity var-arg-name bindings-fn])
+(defrecord FnBody [params body fixed-arity var-arg-name])
 
 (defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro?]
   (when-not binding-vector
@@ -285,31 +285,11 @@
         ctx (assoc ctx :params param-names)
         param-bindings (zipmap param-names (repeatedly gensym))
         bindings (:bindings ctx)
-        binding-cnt (count bindings)
         ;; :param-maps is only needed when we're detecting :closure-bindings
         ;; in sci.impl.resolve
-        [ctx closure-bindings]
-        (if-let [cb (:closure-bindings ctx)]
-          [ctx cb]
-          (if (empty? bindings)
-            [ctx nil]
-            (let [cb (volatile! #{})]
-              [(assoc ctx :closure-bindings cb) cb])))
         ctx (assoc ctx :bindings (merge bindings param-bindings))
-        body (return-do (with-recur-target ctx true) fn-expr body)
-        closure-bindings (when closure-bindings
-                           @closure-bindings)
-        closure-binding-cnt (when closure-bindings (count closure-bindings))
-        bindings-fn (if closure-bindings
-                      (if (= binding-cnt
-                             closure-binding-cnt)
-                        ;; same count, all bindings are needed
-                        identity
-                        ;; here we narrow down the bindings based on closure-bindings
-                        #(select-keys % closure-bindings))
-                      ;; no closure bindings, bindings was empty anyways
-                      identity)]
-    (->FnBody params body fixed-arity var-arg-name bindings-fn)))
+        body (return-do (with-recur-target ctx true) fn-expr body)]
+    (->FnBody params body fixed-arity var-arg-name)))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -341,6 +321,13 @@
                 ctx)
         bindings (:bindings ctx)
         ctx (assoc ctx :outer-idens (set (vals bindings)))
+        [ctx closure-bindings]
+        (if-let [cb (:closure-bindings ctx)]
+          [ctx cb]
+          (if (empty? bindings)
+            [ctx nil]
+            (let [cb (volatile! #{})]
+              [(assoc ctx :closure-bindings cb) cb])))
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
@@ -364,6 +351,19 @@
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
+        closure-bindings (when closure-bindings
+                           @closure-bindings)
+        closure-binding-cnt (when closure-bindings (count closure-bindings))
+        binding-cnt (count bindings)
+        bindings-fn (if closure-bindings
+                      (if (= binding-cnt
+                             closure-binding-cnt)
+                        ;; same count, all bindings are needed
+                        identity
+                        ;; here we narrow down the bindings based on closure-bindings
+                        #(select-keys % closure-bindings))
+                      ;; no closure bindings, bindings was empty anyways
+                      identity)
         arities (:bodies analyzed-bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
@@ -376,7 +376,8 @@
                           :self-ref (when self-ref @self-ref)
                           :arglists arglists
                           :fn true
-                          :fn-meta fn-meta}]
+                          :fn-meta fn-meta
+                          :bindings-fn bindings-fn}]
     struct))
 
 (defn fn-ctx-fn [_ctx struct fn-meta]
@@ -385,14 +386,15 @@
         macro? (:sci/macro struct)
         self-ref (:sci.impl/self-ref struct)
         single-arity (when (= 1 (count fn-bodies))
-                       (first fn-bodies))]
+                       (first fn-bodies))
+        bindings-fn (:sci.impl/bindings-fn struct)]
     (if fn-meta
       (fn [ctx bindings]
         (let [fn-meta (eval/handle-meta ctx bindings fn-meta)
-              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref)]
+              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref bindings-fn)]
           (vary-meta f merge fn-meta)))
       (fn [ctx bindings]
-        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref)))))
+        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref bindings-fn)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)
