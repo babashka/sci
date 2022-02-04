@@ -93,6 +93,9 @@
            (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
              [sym x]))))))))
 
+(defn update-parents [ctx closure-bindings ob]
+  (vswap! closure-bindings update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))
+
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
   ([ctx sym call? tag]
@@ -109,7 +112,7 @@
               (when-let [cb (:closure-bindings ctx)]
                 (when-let [oi (:outer-idens ctx)]
                   (when-let [ob (oi v)]
-                    (vswap! cb update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))))
+                    (update-parents ctx cb ob))))
               (if call?
                 [k v]
                 [k (ctx-fn
@@ -122,10 +125,12 @@
                   _ (when-let [cb (:closure-bindings ctx)]
                       (when-let [oi (:outer-idens ctx)]
                         (when-let [ob (oi v)]
-                          (vswap! cb update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))))
+                          (update-parents ctx cb ob))))
                   v (if call? ;; resolve-symbol is already handled in the call case
                       (mark-resolve-sym k)
-                      (let [v (ctx-fn
+                      (let [idx (get (:iden->idx ctx) v)
+                            ;; _ (prn :idx idx)
+                            v (ctx-fn
                                (fn [_ctx bindings]
                                  (eval/resolve-symbol bindings k))
                                nil

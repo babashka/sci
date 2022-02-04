@@ -284,10 +284,13 @@
                       var-arg-name (conj var-arg-name))
         ctx (assoc ctx :params param-names)
         param-bindings (zipmap param-names (repeatedly gensym))
+        idens (vals param-bindings)
+        iden->idx (zipmap idens (range))
         bindings (:bindings ctx)
         ;; :param-maps is only needed when we're detecting :closure-bindings
         ;; in sci.impl.resolve
         ctx (assoc ctx :bindings (merge bindings param-bindings))
+        ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
         body (return-do (with-recur-target ctx true) fn-expr body)]
     (->FnBody params body fixed-arity var-arg-name)))
 
@@ -363,7 +366,6 @@
                           :max-fixed -1} bodies)
         closure-bindings (->> (get-in @new-closure-bindings parents)
                               (get-closure-bindings reverse-bindings))
-        ;; _ (prn :closure-bindings closure-bindings)
         bindings-fn (if (seq closure-bindings)
                       (if (= (count bindings)
                              (count closure-bindings))
