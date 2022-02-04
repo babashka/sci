@@ -302,15 +302,8 @@
               m)]
     m))
 
-(defn keep-closure-bindings [reverse-bindings sym-set]
-  (keep reverse-bindings sym-set))
-
 (defn get-closure-bindings [reverse-bindings x]
-  (if (map? x)
-    (reduce into (keep-closure-bindings reverse-bindings (:syms x))
-            (map #(get-closure-bindings reverse-bindings %)
-                 (vals (dissoc x :syms))))
-    (keep-closure-bindings reverse-bindings x)))
+  (map reverse-bindings (:syms x)))
 
 (defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)

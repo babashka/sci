@@ -55,19 +55,19 @@
                 [sym v])))
         (or (some-> env :namespaces (get sym-ns) (find sym-name))
             (when-not only-var?
-                 (when-let [clazz (interop/resolve-class ctx sym-ns)]
-                   [sym (if call?
-                          (with-meta
-                            [clazz sym-name]
-                            {:sci.impl.analyzer/static-access true})
-                          (ctx-fn
-                           (fn [_ctx _bindings]
-                             (interop/get-static-field [clazz sym-name]))
-                           nil
-                           sym
-                           (assoc (meta sym)
-                                  :file @vars/current-file
-                                  :ns @vars/current-ns)))]))))
+              (when-let [clazz (interop/resolve-class ctx sym-ns)]
+                [sym (if call?
+                       (with-meta
+                         [clazz sym-name]
+                         {:sci.impl.analyzer/static-access true})
+                       (ctx-fn
+                        (fn [_ctx _bindings]
+                          (interop/get-static-field [clazz sym-name]))
+                        nil
+                        sym
+                        (assoc (meta sym)
+                               :file @vars/current-file
+                               :ns @vars/current-ns)))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527
@@ -94,7 +94,18 @@
              [sym x]))))))))
 
 (defn update-parents [ctx closure-bindings ob]
-  (vswap! closure-bindings update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))
+  (let [parents (:parents ctx)]
+    (vswap! closure-bindings
+            (fn [cb]
+              (first (reduce
+                      (fn [[acc path] entry]
+                        (let [path (conj path entry)
+                              path-syms (conj path :syms)]
+                          [(update-in acc path-syms (fnil conj #{}) ob)
+                           path]))
+                      [cb []]
+                      parents))))
+    #_(prn @closure-bindings)))
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
