@@ -93,19 +93,30 @@
            (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
              [sym x]))))))))
 
-(defn update-parents [ctx closure-bindings ob]
-  (let [parents (:parents ctx)]
-    (vswap! closure-bindings
-            (fn [cb]
-              (first (reduce
-                      (fn [[acc path] entry]
-                        (let [path (conj path entry)
-                              path-syms (conj path :syms)]
-                          [(update-in acc path-syms (fnil conj #{}) ob)
-                           path]))
-                      [cb []]
-                      parents))))
-    #_(prn @closure-bindings)))
+(defn update-parents
+  ":syms = closed over values"
+  [ctx closure-bindings ob]
+  (let [parents (:parents ctx)
+        params (:params ctx)
+        ;; TODO: we can make an explicit counter here
+        offset (count params)
+        ;; TODO: minor - we can shortcut when we detect a sym was already added on the lowest level
+        ;; But then we'd have to start on the lowest level, which is fine too.
+        new-cb (vswap! closure-bindings
+                       (fn [cb]
+                         (first (reduce
+                                 (fn [[acc path] entry]
+                                   (let [path (conj path entry)
+                                         path-syms (conj path :syms)]
+                                     [(update-in acc path-syms (fnil conj #{}) ob)
+                                      path]))
+                                 [cb []]
+                                 parents))))
+        ;; TODO: closure-idx also depends on new let bindings introduced in the
+        ;; body of a function, so we'll have to keep a separate counter for this
+        ;; let's try without let first, shall we?
+        closure-idx (+ offset (dec (count (get-in new-cb (conj parents :syms)))))]
+    closure-idx))
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
@@ -133,14 +144,14 @@
                     nil
                     nil)]))
             (let [;; pass along tag of expression!
-                  _ (when-let [cb (:closure-bindings ctx)]
+                  idx (when-let [cb (:closure-bindings ctx)]
                       (when-let [oi (:outer-idens ctx)]
                         (when-let [ob (oi v)]
                           (update-parents ctx cb ob))))
                   v (if call? ;; resolve-symbol is already handled in the call case
                       (mark-resolve-sym k)
-                      (let [idx (get (:iden->idx ctx) v)
-                            ;; _ (prn :idx idx)
+                      (let [idx (or idx (get (:iden->idx ctx) v))
+                            ;; _ (prn :idx k '-> idx)
                             v (ctx-fn
                                (fn [_ctx bindings]
                                  (eval/resolve-symbol bindings k))
