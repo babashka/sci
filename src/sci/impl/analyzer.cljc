@@ -409,6 +409,11 @@
             fn-expr
             nil)))
 
+#_(defn register-new-let-binding [ctx closure-bindings binding-name new-iden]
+  (let [parents (:parents ctx)
+        path (conj parents :syms)]
+    (prn (vswap! closure-bindings update-in path (fnil assoc {}) new-iden binding-name))))
+
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
   (let [rt (recur-target ctx)
@@ -421,15 +426,30 @@
                  binding-name (if t (vary-meta binding-name
                                                assoc :tag t)
                                   binding-name)
-                 v (analyze ctx binding-value)]
-             [(update ctx :bindings assoc binding-name (gensym))
+                 v (analyze ctx binding-value)
+                 new-iden (gensym)
+                 cb (or (:closure-bindings ctx)
+                        (volatile! {}))
+                 ;; TODO: parents don't need to be updated...
+                 idx (resolve/update-parents ctx cb new-iden)
+                 iden->idx (:iden->idx ctx)
+                 iden->idx (assoc iden->idx new-iden idx)
+                 ctx (assoc ctx :closure-bindings cb)
+                 ctx (assoc ctx :iden->idx iden->idx)]
+             [(update ctx :bindings assoc binding-name new-iden)
               (conj new-let-bindings binding-name v)]))
          [ctx []]
          (partition 2 destructured-let-bindings))
-        body (return-do (with-recur-target ctx rt) expr exprs)]
+        body (return-do (with-recur-target ctx rt) expr exprs)
+        iden->idx (:iden->idx ctx)
+        bindings (:bindings ctx)
+        params (take-nth 2 destructured-let-bindings)
+        idens (map bindings params)
+        idxs (mapv iden->idx idens)]
+    ;; (prn :params params :idens idens :idxs idxs)
     (ctx-fn
      (fn [ctx bindings]
-       (eval/eval-let ctx bindings new-let-bindings body))
+       (eval/eval-let ctx bindings new-let-bindings body idxs))
      expr)))
 
 (defn analyze-let
@@ -521,7 +541,7 @@
         init-vals (take-nth 2 (rest bv))
         [bv syms] (if (every? symbol? arg-names)
                     [bv arg-names]
-                    (let [syms (repeatedly (count arg-names) #(gensym))
+                    (let [syms (repeatedly (count arg-names) gensym)
                           bv1 (map vector syms init-vals)
                           bv2  (map vector arg-names syms)]
                       [(into [] cat (interleave bv1 bv2)) syms]))
