@@ -357,25 +357,33 @@
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
-        closure-bindings (->> (get-in @new-closure-bindings parents)
-                              (get-closure-bindings reverse-bindings))
-        bindings-fn (if (seq closure-bindings)
+        closure-binding-idens (-> (get-in @new-closure-bindings parents)
+                                  :syms)
+        closure-cnt (count closure-binding-idens)
+        closure-binding-syms (mapv reverse-bindings closure-binding-idens)
+        iden->idx (:iden->idx ctx)
+        ;; closure-bindings-idxs (when iden->idx (mapv iden->idx closure-binding-idens))
+        ;; _ (prn closure-bindings-idxs)
+        bindings-fn (if (seq closure-binding-syms)
                       (if (= (count bindings)
-                             (count closure-bindings))
+                             closure-cnt)
                         ;; same count, all bindings are needed
                         identity
                         ;; here we narrow down the bindings based on closure-bindings
-                        #(select-keys % closure-bindings))
+                        #(select-keys % closure-binding-syms))
                       ;; no closure bindings, bindings was empty anyways
                       identity)
-        arities (:bodies analyzed-bodies)
+        bodies (:bodies analyzed-bodies)
+        bodies (mapv (fn [body]
+                       (assoc body :invoc-size (+ (count (:params body)) closure-cnt)))
+                     bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
         ana-fn-meta (analyzed-fn-meta ctx fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
-        struct #:sci.impl{:fn-bodies arities
+        struct #:sci.impl{:fn-bodies bodies
                           :fn-name fn-name
                           :self-ref (when self-ref @self-ref)
                           :arglists arglists
@@ -409,10 +417,23 @@
             fn-expr
             nil)))
 
-#_(defn register-new-let-binding [ctx closure-bindings binding-name new-iden]
+(defn update-parents
+  ":syms = closed over values"
+  [ctx closure-bindings ob]
   (let [parents (:parents ctx)
-        path (conj parents :syms)]
-    (prn (vswap! closure-bindings update-in path (fnil assoc {}) new-iden binding-name))))
+        params (:params ctx)
+        ;; TODO: we can make an explicit counter here
+        offset (count params)
+        ;; TODO: minor - we can shortcut when we detect a sym was already added on the lowest level
+        ;; But then we'd have to start on the lowest level, which is fine too.
+        new-cb (vswap! closure-bindings
+                       (fn [cb]
+                         (update-in cb (conj parents :syms) (fnil conj #{}) ob)))
+        ;; TODO: closure-idx also depends on new let bindings introduced in the
+        ;; body of a function, so we'll have to keep a separate counter for this
+        ;; let's try without let first, shall we?
+        closure-idx (+ offset (dec (count (get-in new-cb (conj parents :syms)))))]
+    closure-idx))
 
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
@@ -431,7 +452,7 @@
                  cb (or (:closure-bindings ctx)
                         (volatile! {}))
                  ;; TODO: parents don't need to be updated...
-                 idx (resolve/update-parents ctx cb new-iden)
+                 idx (update-parents ctx cb new-iden)
                  iden->idx (:iden->idx ctx)
                  iden->idx (assoc iden->idx new-iden idx)
                  ctx (assoc ctx :closure-bindings cb)

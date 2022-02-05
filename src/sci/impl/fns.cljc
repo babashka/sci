@@ -74,7 +74,9 @@
                  (when-not disable-arity-checks
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
-            (let [~@assocs]
+            (let [~'invoc-array (object-array ~'invoc-size)
+                  ;; _# (prn ~'invoc-size (vec ~'invoc-array))
+                  ~@assocs]
               (loop [~'bindings ~'bindings]
                 (let [;; tried making bindings a transient, but saw no perf improvement
                       ;; it's even slower with less than ~10 bindings which is pretty uncommon
@@ -130,6 +132,7 @@
         #_:clj-kondo/ignore
         params (:params fn-body)
         body (:body fn-body)
+        invoc-size (:invoc-size fn-body)
         #_:clj-kondo/ignore nsm (vars/current-ns-name)
         disable-arity-checks? (get-2 ctx :disable-arity-checks)
         ;; body-count (count body)
