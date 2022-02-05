@@ -67,7 +67,11 @@
                                   [local ith]) locals nths))
            assocs (mapcat (fn [local fn-param]
                             `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
-                          locals fn-params)]
+                          locals fn-params)
+           asets `(do ~@(map (fn [fn-param idx]
+                               `(aset ~(with-meta 'invoc-array
+                                         {:tag 'objects}) ~idx ~fn-param))
+                             fn-params (range)))]
        `(let ~let-vec
           (fn ~(symbol (str "arity-" n)) ~fn-params
             ~@(? :cljs
@@ -76,7 +80,12 @@
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
             (let [~'invoc-array (object-array ~'invoc-size)
                   ;; _# (prn ~'invoc-size (vec ~'invoc-array))
+                  ;; TODO: set arguments in invoc-array, indexes are known: easy.
+                  ;; Then copy closed-over vals to invoc-array. We need to know to copy from old-idx to invoc-idx.
+                  ;; We can postpone this, the loop example will already work, since it has not closed over vals.
                   ~@assocs]
+              ~asets
+              ;; (prn ~'invoc-size (vec ~'invoc-array))
               (loop [~'bindings ~'bindings]
                 (let [;; tried making bindings a transient, but saw no perf improvement
                       ;; it's even slower with less than ~10 bindings which is pretty uncommon
