@@ -55,11 +55,9 @@
              (when-not disable-arity-checks
                `[(when-not (zero? (.-length (~'js-arguments)))
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
-        (let [;; _# (prn (vec ~'enclosed-array))
-              ~'invoc-array (object-array ~'invoc-size)
-              ;; TODO: set enclosed values
+        (let [~'invoc-array (object-array ~'invoc-size)
+              _# (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#) (nth ~'enclosed-array i#))) (range (count ~'enclosed-array)))
               ret# (eval/eval ~'ctx ~'invoc-array ~'body)
-              ;; m (meta ret)
               recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
            (if recur?# (recur) ret#)))
      (let [locals (repeatedly n gensym)
@@ -127,6 +125,7 @@
    #_:clj-kondo/ignore macro?]
   (let [#_:clj-kondo/ignore
         fixed-arity (:fixed-arity fn-body)
+        closure-idxs (:closure-idxs fn-body)
         var-arg-name (:var-arg-name fn-body)
         #_:clj-kondo/ignore
         params (:params fn-body)

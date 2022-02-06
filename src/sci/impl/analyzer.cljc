@@ -292,8 +292,12 @@
         ;; in sci.impl.resolve
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
-        body (return-do (with-recur-target ctx true) fn-expr body)]
-    (->FnBody params body fixed-arity var-arg-name)))
+        ctx (assoc ctx :arity fixed-arity)
+        body (return-do (with-recur-target ctx true) fn-expr body)
+        iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) fixed-arity))]
+    (assoc
+      (->FnBody params body fixed-arity var-arg-name)
+      :iden->idx iden->idx)))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -358,26 +362,33 @@
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
-        closure-binding-idens (-> (get-in @new-closure-bindings parents)
+        cb-idens (get-in @new-closure-bindings parents)
+        closure-binding-idens (-> cb-idens
                                   :syms)
         closure-cnt (count closure-binding-idens)
-        closure-binding-syms (vec (keep reverse-bindings closure-binding-idens))
+        ;; closure-binding-syms (vec (keep reverse-bindings closure-binding-idens))
         iden->idx (:iden->idx ctx)
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
-        closure-binding-idxs (when iden->idx (mapv iden->idx closure-binding-idens))
-        bindings-fn (if (seq closure-binding-syms)
-                      (fn [^objects bindings]
-                        (let [enclosed-array (object-array closure-cnt)]
-                          (run! (fn [idx]
-                                  (aset enclosed-array idx (aget bindings (nth closure-binding-idxs idx))))
-                                (range closure-cnt))
-                          enclosed-array))
+        closure-binding-idxs (when iden->idx (vec (keep iden->idx closure-binding-idens)))
+        bindings-fn (if (seq closure-binding-idxs)
+                      (let [closure-cnt (count closure-binding-idxs)]
+                        (fn [^objects bindings]
+                          (let [enclosed-array (object-array closure-cnt)]
+                            (run! (fn [idx]
+                                    (try (aset enclosed-array idx
+                                               (aget bindings (nth closure-binding-idxs idx)))
+                                         (catch Exception e (prn (str e)))))
+                                  (range closure-cnt))
+                            enclosed-array)))
                       ;; no closure bindings, bindings was empty anyways
-                      identity)
+                      (constantly nil))
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
-                       (assoc body :invoc-size (+ (count (:params body)) closure-cnt)))
+                       ;; TODO add idxs of closed over values to idx in invocation array
+                       (assoc body
+                              :invoc-size (+ (count (:params body)) closure-cnt)
+                              :closure-idxs closure-binding-idxs))
                      bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
