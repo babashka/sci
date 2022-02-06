@@ -65,11 +65,9 @@
                                    rest-let-bindings (next let-bindings)
                                    v (eval ctx bindings let-val)
                                    ;; bindings (faster/get-2 ctx :bindings)
-                                   bindings (do
-                                              (aset ^objects (:arr bindings) (nth idxs idx) v)
-                                              (faster/assoc-3 bindings let-name v))
                                    ;; ctx (faster/assoc-3 ctx :bindings bindings)
                                    ]
+                               (aset ^objects bindings (nth idxs idx) v)
                                (recur ctx bindings
                                       rest-let-bindings
                                       (inc idx)))

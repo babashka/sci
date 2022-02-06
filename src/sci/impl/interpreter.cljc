@@ -25,7 +25,9 @@
            (rest exprs)
            (eval-form ctx (first exprs)))
           ret))
-      (let [analyzed (ana/analyze ctx form true)
+      (let [;; take care of invocation array for let
+            form (list (list 'fn [] form))
+            analyzed (ana/analyze ctx form true)
             bindings (:bindings ctx)
             ret (if (instance? #?(:clj sci.impl.types.EvalForm
                                   :cljs sci.impl.types/EvalForm) analyzed)

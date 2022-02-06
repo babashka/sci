@@ -4,7 +4,7 @@
             [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
-            [sci.impl.utils :as utils]
+            [sci.impl.utils :as utils :refer [kw-identical?]]
             [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
                                                   gen-fn-varargs]])))
@@ -56,10 +56,10 @@
                `[(when-not (zero? (.-length (~'js-arguments)))
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
         (let [~'invoc-array (object-array ~'invoc-size)
-              ~'bindings (assoc ~'bindings :arr ~'invoc-array)
-              ret# (eval/eval ~'ctx ~'bindings ~'body)
+              ;; TODO: set enclosed values
+              ret# (eval/eval ~'ctx ~'invoc-array ~'body)
               ;; m (meta ret)
-              recur?# (instance? Recur ret#)]
+              recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
            (if recur?# (recur) ret#)))
      (let [locals (repeatedly n gensym)
            fn-params (vec (repeatedly n gensym))
@@ -67,9 +67,6 @@
            nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
            let-vec (vec (mapcat (fn [local ith]
                                   [local ith]) locals nths))
-           #_#_assocs (mapcat (fn [local fn-param]
-                            `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
-                          locals fn-params)
            asets `(do ~@(map (fn [fn-param idx]
                                `(aset ~(with-meta 'invoc-array
                                          {:tag 'objects}) ~idx ~fn-param))
@@ -80,24 +77,12 @@
                  (when-not disable-arity-checks
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
-            (let [~'invoc-array (object-array ~'invoc-size)
-                  ;; _# (prn ~'invoc-size (vec ~'invoc-array))
-                  ;; TODO: set arguments in invoc-array, indexes are known: easy.
-                  ;; Then copy closed-over vals to invoc-array. We need to know to copy from old-idx to invoc-idx.
-                  ;; We can postpone this, the loop example will already work, since it has not closed over vals.
-                  ;; ~@assocs
-                  ~'bindings (assoc ~'bindings :arr ~'invoc-array)]
+            (let [~'invoc-array (object-array ~'invoc-size)]
               ~asets
-              ;; (prn ~'invoc-size (vec ~'invoc-array))
-              (loop [~'bindings ~'bindings]
-                (let [;; tried making bindings a transient, but saw no perf improvement
-                      ;; it's even slower with less than ~10 bindings which is pretty uncommon
-                      ;; see https://github.com/borkdude/sci/issues/559
-                      ret# (eval/eval ~'ctx ~'bindings ~'body)
-                      ;; m (meta ret)
-                      ]
-                  (if (instance? Recur ret#)
-                    (recur (.-val ^Recur ret#))
+              (loop []
+                (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
+                  (if (kw-identical? :sci.impl.analyzer/recur ret#)
+                    (recur)
                     ret#))))))))))
 
 #_(require '[clojure.pprint :as pprint])

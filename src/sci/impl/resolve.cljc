@@ -152,8 +152,8 @@
                       (mark-resolve-sym k)
                       (let [idx (or idx (get (:iden->idx ctx) v))
                             v (ctx-fn
-                               (fn [_ctx bindings]
-                                 (aget ^objects (:arr bindings) idx)
+                               (fn [_ctx ^objects bindings]
+                                 (aget bindings idx)
                                  #_(eval/resolve-symbol bindings k))
                                nil
                                (if tag

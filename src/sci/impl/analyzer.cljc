@@ -228,26 +228,13 @@
                         [i `(let ~binds
                               (ctx-fn
                                (fn [~'ctx ~'bindings]
-                                 (let [~'arr (:arr ~'bindings)]
-                                   ;; (prn :arr (vec ~'arr))
-                                   (do ~@(map (fn [j]
-                                                `(aset
-                                                  ~(with-meta 'arr
-                                                     {:tag 'objects}) ~j
-                                                  (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
-                                              (range i)))
-                                   (fns/->Recur
-                                    ~'bindings
-                                    #_(-> ~'bindings
-                                        ~@(map (fn [j]
-                                                 `(assoc-3 ~(symbol (str "param" j))
-                                                           (let [res# (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))]
-                                                             (aset
-                                                              ~(with-meta 'arr
-                                                                 {:tag 'objects}) ~j
-                                                              res#)
-                                                             res#)))
-                                               (range i))))))
+                                 (do ~@(map (fn [j]
+                                              `(aset
+                                                ~(with-meta 'bindings
+                                                   {:tag 'objects}) ~j
+                                                (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
+                                            (range i)))
+                                 ::recur)
                                ~'expr))])
                       let-bindings)))))))
 
