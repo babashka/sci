@@ -56,7 +56,10 @@
                `[(when-not (zero? (.-length (~'js-arguments)))
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
         (let [~'invoc-array (object-array ~'invoc-size)
-              _# (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#) (nth ~'enclosed-array i#))) (range (count ~'closure-idxs)))
+              _# (run! (fn [[enclosed-idx# invocation-idx#]]
+                         (aset ~'invoc-array invocation-idx#
+                               (nth ~'enclosed-array enclosed-idx#)))
+                       ~'enclosed->invocation)
               ret# (eval/eval ~'ctx ~'invoc-array ~'body)
               recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
            (if recur?# (recur) ret#)))
@@ -77,8 +80,11 @@
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
             (let [~'invoc-array (object-array ~'invoc-size)]
-              (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#)
-                                   (nth ~'enclosed-array i#))) (range (count ~'closure-idxs)))
+              (run! (fn [[enclosed-idx# invocation-idx#]]
+                      ;; (prn :enc (vec ~'enclosed-array) enclosed-idx# '-> invocation-idx#)
+                      (aset ~'invoc-array invocation-idx#
+                            (nth ~'enclosed-array enclosed-idx#)))
+                    ~'enclosed->invocation)
               ~asets
               (loop []
                 (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
@@ -97,8 +103,10 @@
          var-arg-param# (last ~'params)]
      (fn ~'varargs [& args#]
        (let [ ~'invoc-array (object-array ~'invoc-size)]
-         (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#)
-                              (nth ~'enclosed-array i#))) (range (count ~'closure-idxs)))
+         (run! (fn [[enclosed-idx# invocation-idx#]]
+                 (aset ~'invoc-array invocation-idx#
+                       (nth ~'enclosed-array enclosed-idx#)))
+               ~'enclosed->invocation)
          (run! (fn [idx#]
                   ;; TODO this can be heavily optimized
                   (aset ~'invoc-array idx# (nth args# idx#)))
@@ -119,7 +127,7 @@
    #_:clj-kondo/ignore macro?]
   (let [#_:clj-kondo/ignore
         fixed-arity (:fixed-arity fn-body)
-        closure-idxs (:closure-idxs fn-body)
+        enclosed->invocation (:enclosed->invocation fn-body)
         var-arg-name (:var-arg-name fn-body)
         #_:clj-kondo/ignore
         params (:params fn-body)
@@ -225,10 +233,10 @@
   (or (get arities arity)
       (:variadic arities)))
 
-(defn fn-arity-map [ctx bindings fn-name macro? fn-bodies]
+(defn fn-arity-map [ctx enclosed-array bindings fn-name macro? fn-bodies]
   (reduce
    (fn [arity-map fn-body]
-     (let [f (fun ctx ::TODO bindings fn-body fn-name macro?)
+     (let [f (fun ctx enclosed-array bindings fn-body fn-name macro?)
            var-arg? (:var-arg-name fn-body)
            fixed-arity (:fixed-arity fn-body)]
        (if var-arg?
@@ -240,10 +248,9 @@
 (defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity bindings-fn]
   (let [;; each evaluated fn should have its own self-ref!
         enclosed-array (bindings-fn bindings)
-        ;; _ (when (and (not fn-name) self-ref) (prn :assoc fn-name self-refx))
         f (if single-arity
             (fun ctx enclosed-array bindings single-arity fn-name macro?)
-            (let [arities (fn-arity-map ctx bindings fn-name macro? fn-bodies)]
+            (let [arities (fn-arity-map ctx enclosed-array bindings fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]

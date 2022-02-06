@@ -116,11 +116,11 @@
                                                                                 #{})
                                                                        new-syms (conj syms ob)
                                                                        entry (assoc entry :syms new-syms)
-                                                                       entry (if (and (= path-syms parents)
-                                                                                      ;; something was added
-                                                                                      (not= syms new-syms))
-                                                                               (let [idx (+ offset (dec (count new-syms)))]
-                                                                                 (assoc-in entry [arity ob] idx))
+                                                                       entry (if (= path-syms parents)
+                                                                               (let [iden->idx (entry arity)]
+                                                                                 (if (contains? iden->idx ob)
+                                                                                   entry
+                                                                                   (assoc-in entry [arity ob] (+ offset (count iden->idx)))))
                                                                                entry)]
                                                                    entry)))
                                       path]))
@@ -146,6 +146,7 @@
                       (when-let [ob (oi v)]
                         (update-parents ctx cb ob))))
               idx (or idx (get (:iden->idx ctx) v))
+              ;; _ (prn k '-> idx)
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (ctx-fn

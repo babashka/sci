@@ -228,12 +228,18 @@
                         [i `(let ~binds
                               (ctx-fn
                                (fn [~'ctx ~'bindings]
-                                 (do ~@(map (fn [j]
-                                              `(aset
-                                                ~(with-meta 'bindings
-                                                   {:tag 'objects}) ~j
-                                                (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
-                                            (range i)))
+                                 ;; important, recur vals must be evaluated with old bindings!
+                                 (let [~@(mapcat (fn [j]
+                                                   [(symbol (str "eval-" j) )
+                                                    `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))])
+                                                 (range i))]
+                                   (do ~@(map (fn [j]
+                                                `(aset
+                                                  ~(with-meta 'bindings
+                                                     {:tag 'objects}) ~j
+                                                  (doto ~(symbol (str "eval-" j))
+                                                    (prn :idx ~j))))
+                                              (range i))))
                                  ::recur)
                                ~'expr))])
                       let-bindings)))))))
@@ -334,9 +340,9 @@
                             (assoc-in [:bindings fn-name] self-ref-sym))
                 ctx)
         bindings (:bindings ctx)
-        binding-vals (vals bindings)
+        binding-vals (set (vals bindings))
         ;; reverse-bindings (zipmap binding-vals (keys bindings))
-        ctx (assoc ctx :outer-idens (set binding-vals))
+        ctx (assoc ctx :outer-idens binding-vals)
         old-closure-bindings (:closure-bindings ctx)
         new-closure-bindings (or old-closure-bindings (volatile! {}))
         ctx (assoc ctx :closure-bindings new-closure-bindings)
@@ -364,16 +370,15 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens (get-in @new-closure-bindings parents)
-        closure-binding-idens (-> cb-idens
-                                  :syms)
-        closure-cnt (count closure-binding-idens)
+        all-syms (:syms cb-idens) ;; let syms + closure syms
+        closure-binding-idens (filter binding-vals all-syms)
         ;; closure-binding-syms (vec (keep reverse-bindings closure-binding-idens))
         iden->idx (:iden->idx ctx)
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
-        closure-binding-idxs (when iden->idx (vec (keep iden->idx closure-binding-idens)))
-        bindings-fn (if (or fn-name (seq closure-binding-idxs))
-                      (let [closure-cnt (count closure-binding-idxs)]
+        bindings->enclosed (when iden->idx (mapv iden->idx closure-binding-idens))
+        bindings-fn (if (or fn-name (seq bindings->enclosed))
+                      (let [closure-cnt (count bindings->enclosed)]
                         (fn [^objects bindings]
                           (let [enclosed-array (object-array
                                                 (if fn-name
@@ -381,19 +386,28 @@
                                                   closure-cnt))]
                             (run! (fn [idx]
                                     (aset enclosed-array idx
-                                          (aget bindings (nth closure-binding-idxs idx))))
+                                          (aget bindings (nth bindings->enclosed idx))))
                                   (range closure-cnt))
                             enclosed-array)))
                       ;; no closure bindings, bindings was empty anyways
                       (constantly nil))
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
-                       ;; TODO add idxs of closed over values to idx in invocation array
-                       (let [self-idx (get (:iden->idx body) fn-id)]
+                       (let [iden->enclosed-idx (zipmap closure-binding-idens (range))
+                             iden->invocation-idx (:iden->idx body)
+                             ;; _ (prn :iden->invocation-idx iden->invocation-idx)
+                             ;; invocation-idxs (when iden->invocation-idx
+                             ;;                   (mapv iden->invocation-idx closure-binding-idens))
+                             invocation-self-idx (get iden->invocation-idx fn-id)
+                             enclosed->invocation (vec (keep (fn [iden]
+                                                              (when-let [invocation-idx (iden->invocation-idx iden)]
+                                                                [(iden->enclosed-idx iden) invocation-idx]))
+                                                            closure-binding-idens))]
+                         ;;(prn :enclosed->invocation enclosed->invocation)
                          (assoc body
-                                :invoc-size (+ (count (:params body)) closure-cnt)
-                                :closure-idxs (cond-> closure-binding-idxs
-                                                self-idx (conj self-idx)))))
+                                :invoc-size (+ (count (:params body)) (count all-syms))
+                                :invocation-self-idx invocation-self-idx
+                                :enclosed->invocation enclosed->invocation)))
                      bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
