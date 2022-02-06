@@ -55,7 +55,8 @@
              (when-not disable-arity-checks
                `[(when-not (zero? (.-length (~'js-arguments)))
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
-        (let [~'invoc-array (object-array ~'invoc-size)
+        (let [;; _# (prn (vec ~'enclosed-array))
+              ~'invoc-array (object-array ~'invoc-size)
               ;; TODO: set enclosed values
               ret# (eval/eval ~'ctx ~'invoc-array ~'body)
               ;; m (meta ret)
@@ -119,6 +120,7 @@
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+   enclosed-array
    bindings
    fn-body
    #_:clj-kondo/ignore fn-name
@@ -232,7 +234,7 @@
 (defn fn-arity-map [ctx bindings fn-name macro? fn-bodies]
   (reduce
    (fn [arity-map fn-body]
-     (let [f (fun ctx bindings fn-body fn-name macro?)
+     (let [f (fun ctx ::TODO bindings fn-body fn-name macro?)
            var-arg? (:var-arg-name fn-body)
            fixed-arity (:fixed-arity fn-body)]
        (if var-arg?
@@ -247,10 +249,10 @@
         bindings (if self-ref
                    (assoc bindings fn-name self-ref)
                    bindings)
-        bindings (bindings-fn bindings)
+        enclosed-array (bindings-fn bindings)
         ;; _ (when (and (not fn-name) self-ref) (prn :assoc fn-name self-refx))
         f (if single-arity
-            (fun ctx bindings single-arity fn-name macro?)
+            (fun ctx enclosed-array bindings single-arity fn-name macro?)
             (let [arities (fn-arity-map ctx bindings fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]

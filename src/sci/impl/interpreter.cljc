@@ -28,15 +28,13 @@
       (let [;; take care of invocation array for let
             form (list (list 'fn [] form))
             analyzed (ana/analyze ctx form true)
-            bindings (:bindings ctx)
             ret (if (instance? #?(:clj sci.impl.types.EvalForm
                                   :cljs sci.impl.types/EvalForm) analyzed)
                   (eval-form ctx (t/getVal analyzed))
-                  (eval/eval ctx bindings analyzed))]
+                  (eval/eval ctx nil analyzed))]
         ret))
     (let [analyzed (ana/analyze ctx form)
-          bindings (:bindings ctx)
-          ret (eval/eval ctx bindings analyzed)]
+          ret (eval/eval ctx nil analyzed)]
       ret)))
 
 (vreset! utils/eval-form-state eval-form)

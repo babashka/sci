@@ -361,17 +361,18 @@
         closure-binding-idens (-> (get-in @new-closure-bindings parents)
                                   :syms)
         closure-cnt (count closure-binding-idens)
-        closure-binding-syms (mapv reverse-bindings closure-binding-idens)
+        closure-binding-syms (vec (keep reverse-bindings closure-binding-idens))
         iden->idx (:iden->idx ctx)
-        ;; closure-bindings-idxs (when iden->idx (mapv iden->idx closure-binding-idens))
-        ;; _ (prn closure-bindings-idxs)
+        ;; this represents the indexes of enclosed values in old bindings
+        ;; we need to copy those to a new array, the enclosed-array
+        closure-binding-idxs (when iden->idx (mapv iden->idx closure-binding-idens))
         bindings-fn (if (seq closure-binding-syms)
-                      (if (= (count bindings)
-                             closure-cnt)
-                        ;; same count, all bindings are needed
-                        identity
-                        ;; here we narrow down the bindings based on closure-bindings
-                        #(select-keys % closure-binding-syms))
+                      (fn [^objects bindings]
+                        (let [enclosed-array (object-array closure-cnt)]
+                          (run! (fn [idx]
+                                  (aset enclosed-array idx (aget bindings (nth closure-binding-idxs idx))))
+                                (range closure-cnt))
+                          enclosed-array))
                       ;; no closure bindings, bindings was empty anyways
                       identity)
         bodies (:bodies analyzed-bodies)
