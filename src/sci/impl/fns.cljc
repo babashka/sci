@@ -260,7 +260,7 @@
                                ;; added for better error reporting
                                :sci.impl/inner-fn f))
             f)]
-    (when fn-name
+    (when (and fn-name enclosed-array)
       (aset ^objects enclosed-array (dec (count enclosed-array)) f))
     f))
 

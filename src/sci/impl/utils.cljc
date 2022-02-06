@@ -13,6 +13,7 @@
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x) (boolean? x)))
 
+;; TODO: this can become a macro, so we hit the intrinsic in the compiler
 (def kw-identical? #?(:clj identical? :cljs keyword-identical?))
 
 (defn throw-error-with-location
