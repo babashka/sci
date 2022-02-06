@@ -151,10 +151,10 @@
                   v (if call? ;; resolve-symbol is already handled in the call case
                       (mark-resolve-sym k)
                       (let [idx (or idx (get (:iden->idx ctx) v))
-                            ;; _ (prn :idx k '-> idx)
                             v (ctx-fn
                                (fn [_ctx bindings]
-                                 (eval/resolve-symbol bindings k))
+                                 (aget ^objects (:arr bindings) idx)
+                                 #_(eval/resolve-symbol bindings k))
                                nil
                                (if tag
                                  (vary-meta k assoc :tag tag)

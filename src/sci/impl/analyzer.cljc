@@ -228,12 +228,26 @@
                         [i `(let ~binds
                               (ctx-fn
                                (fn [~'ctx ~'bindings]
-                                 (fns/->Recur
-                                  (-> ~'bindings
-                                      ~@(map (fn [j]
-                                               `(assoc-3 ~(symbol (str "param" j))
-                                                         (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
-                                             (range i)))))
+                                 (let [~'arr (:arr ~'bindings)]
+                                   ;; (prn :arr (vec ~'arr))
+                                   (do ~@(map (fn [j]
+                                                `(aset
+                                                  ~(with-meta 'arr
+                                                     {:tag 'objects}) ~j
+                                                  (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
+                                              (range i)))
+                                   (fns/->Recur
+                                    ~'bindings
+                                    #_(-> ~'bindings
+                                        ~@(map (fn [j]
+                                                 `(assoc-3 ~(symbol (str "param" j))
+                                                           (let [res# (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))]
+                                                             (aset
+                                                              ~(with-meta 'arr
+                                                                 {:tag 'objects}) ~j
+                                                              res#)
+                                                             res#)))
+                                               (range i))))))
                                ~'expr))])
                       let-bindings)))))))
 

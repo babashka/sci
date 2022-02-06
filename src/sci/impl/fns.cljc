@@ -55,7 +55,9 @@
              (when-not disable-arity-checks
                `[(when-not (zero? (.-length (~'js-arguments)))
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
-        (let [ret# (eval/eval ~'ctx ~'bindings ~'body)
+        (let [~'invoc-array (object-array ~'invoc-size)
+              ~'bindings (assoc ~'bindings :arr ~'invoc-array)
+              ret# (eval/eval ~'ctx ~'bindings ~'body)
               ;; m (meta ret)
               recur?# (instance? Recur ret#)]
            (if recur?# (recur) ret#)))
@@ -65,7 +67,7 @@
            nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
            let-vec (vec (mapcat (fn [local ith]
                                   [local ith]) locals nths))
-           assocs (mapcat (fn [local fn-param]
+           #_#_assocs (mapcat (fn [local fn-param]
                             `[~'bindings (assoc-3 ~'bindings ~local ~fn-param)])
                           locals fn-params)
            asets `(do ~@(map (fn [fn-param idx]
@@ -83,7 +85,8 @@
                   ;; TODO: set arguments in invoc-array, indexes are known: easy.
                   ;; Then copy closed-over vals to invoc-array. We need to know to copy from old-idx to invoc-idx.
                   ;; We can postpone this, the loop example will already work, since it has not closed over vals.
-                  ~@assocs]
+                  ;; ~@assocs
+                  ~'bindings (assoc ~'bindings :arr ~'invoc-array)]
               ~asets
               ;; (prn ~'invoc-size (vec ~'invoc-array))
               (loop [~'bindings ~'bindings]
