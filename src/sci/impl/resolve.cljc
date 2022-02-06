@@ -15,11 +15,13 @@
   (utils/throw-error-with-location msg node {:phase "analysis"}))
 
 (defn mark-resolve-sym
-  [sym]
+  [sym idx]
   (vary-meta
    sym
    (fn [m]
-     (assoc m :sci.impl/op :resolve-sym))))
+     (assoc m
+            :sci.impl/op :resolve-sym
+            :sci.impl/idx idx))))
 
 (defn check-permission! [ctx sym [check-sym  v]]
   (or (identical? utils/allowed-loop sym)
@@ -143,10 +145,10 @@
                     (when-let [oi (:outer-idens ctx)]
                       (when-let [ob (oi v)]
                         (update-parents ctx cb ob))))
+              idx (or idx (get (:iden->idx ctx) v))
               v (if call? ;; resolve-symbol is already handled in the call case
-                  (mark-resolve-sym k)
-                  (let [idx (or idx (get (:iden->idx ctx) v))
-                        v (ctx-fn
+                  (mark-resolve-sym k idx)
+                  (let [v (ctx-fn
                            (fn [_ctx ^objects bindings]
                              (aget bindings idx)
                              #_(eval/resolve-symbol bindings k))

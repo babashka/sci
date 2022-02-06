@@ -1050,20 +1050,22 @@
                                             (range i)))])
                           (range 20))]
     `(defn ~'return-binding-call
-       ~'[_ctx expr f analyzed-children stack]
+       ~'[_ctx expr idx f analyzed-children stack]
        (ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
              (mapcat (fn [[i binds]]
                        [i `(let ~binds
                              (fn [~'ctx ~'bindings]
-                               ((eval/resolve-symbol ~'bindings ~'f)
+                               ((aget ~(with-meta 'bindings
+                                         {:tag 'objects}) ~'idx)
                                 ~@(map (fn [j]
                                          `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                        (range i)))))])
                      let-bindings)
              `[(fn [~'ctx ~'bindings]
-                 (eval/fn-call ~'ctx ~'bindings (eval/resolve-symbol ~'bindings ~'f) ~'analyzed-children))]))
+                 (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
+                                                         {:tag 'objects}) ~'idx) ~'analyzed-children))]))
         nil
         ~'expr
         ~'stack))))
@@ -1295,6 +1297,7 @@
                                 :resolve-sym
                                 (return-binding-call ctx
                                                      expr
+                                                     (:sci.impl/idx (meta f))
                                                      f (analyze-children ctx (rest expr))
                                                      (assoc m
                                                             :ns @vars/current-ns
