@@ -77,6 +77,8 @@
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
             (let [~'invoc-array (object-array ~'invoc-size)]
+              (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#)
+                                   (nth ~'enclosed-array i#))) (range (count ~'enclosed-array)))
               ~asets
               (loop []
                 (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
@@ -89,32 +91,24 @@
     (pprint/pprint (macroexpand '(gen-run-fn 2))))
 
 (defmacro gen-fn-varargs []
-  '(fn varargs [& args]
-     (let [;; tried making bindings a transient, but saw no perf improvement
-           ;; it's even slower with less than ~10 bindings which is pretty uncommon
-           ;; see https://github.com/borkdude/sci/issues/559
-           bindings
-           (loop [args* (seq args)
-                  params (seq params)
-                  ret bindings]
-             (if params
-               (let [fp (first params)]
-                 (if (= '& fp)
-                   (assoc ret (second params) args*)
-                   (do
-                     (when-not args*
-                       (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
-                     (recur (next args*) (next params)
-                            (assoc-3 ret fp (first args*))))))
-               (do
-                 (when args*
-                   (throw-arity ctx nsm fn-name macro? args (inc (count ret))))
-                 ret)))]
-       (loop [bindings bindings]
-         (let [ret (eval/eval ctx bindings body)]
-           (if (instance? Recur ret)
-             (recur (.-val ^Recur ret))
-             ret))))))
+  `(let [param-idx# (.indexOf ~(with-meta 'params
+                                 {:tag 'clojure.lang.APersistentVector}) '&)
+         fixed-params# (take param-idx# ~'params)
+         var-arg-param# (last ~'params)]
+     (fn ~'varargs [& args#]
+       (let [ ~'invoc-array (object-array ~'invoc-size)]
+         (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#)
+                              (nth ~'enclosed-array i#))) (range (count ~'enclosed-array)))
+         (run! (fn [idx#]
+                  ;; TODO this can be heavily optimized
+                  (aset ~'invoc-array idx# (nth args# idx#)))
+                (range param-idx#))
+          (aset ~'invoc-array param-idx# (drop param-idx# args#))
+          (loop []
+            (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
+              (if (kw-identical? :sci.impl.analyzer/recur ret#)
+                (recur)
+                ret#)))))))
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
@@ -131,6 +125,7 @@
         params (:params fn-body)
         body (:body fn-body)
         invoc-size (:invoc-size fn-body)
+        self-ref-idx (:self-ref-idx fn-body)
         #_:clj-kondo/ignore nsm (vars/current-ns-name)
         disable-arity-checks? (get-2 ctx :disable-arity-checks)
         ;; body-count (count body)
@@ -242,12 +237,8 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref bindings-fn]
+(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity bindings-fn]
   (let [;; each evaluated fn should have its own self-ref!
-        self-ref (when self-ref (volatile! nil))
-        bindings (if self-ref
-                   (assoc bindings fn-name self-ref)
-                   bindings)
         enclosed-array (bindings-fn bindings)
         ;; _ (when (and (not fn-name) self-ref) (prn :assoc fn-name self-refx))
         f (if single-arity
@@ -269,7 +260,8 @@
                                ;; added for better error reporting
                                :sci.impl/inner-fn f))
             f)]
-    (when self-ref (vreset! self-ref f))
+    (when fn-name
+      (aset ^objects enclosed-array (dec (count enclosed-array)) f))
     f))
 
 (vreset! utils/eval-fn eval-fn)

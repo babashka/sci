@@ -139,40 +139,23 @@
       (when-let [[k v]
                  (find bindings sym)]
         ;; (assert (symbol? v) (str "Not a symbol: " v))
-        (let [self-ref? (:self-ref? ctx)]
-          (if (and self-ref? (self-ref? v))
-            (do
-              (vreset! (:self-ref ctx) true)
-              (when-let [cb (:closure-bindings ctx)]
-                (when-let [oi (:outer-idens ctx)]
-                  (when-let [ob (oi v)]
-                    (update-parents ctx cb ob))))
-              (if call?
-                [k v]
-                [k (ctx-fn
-                    (fn [_ctx bindings]
-                      ;; TODO: optimize
-                      @(eval/resolve-symbol bindings k))
-                    nil
-                    nil)]))
-            (let [;; pass along tag of expression!
-                  idx (when-let [cb (:closure-bindings ctx)]
-                      (when-let [oi (:outer-idens ctx)]
-                        (when-let [ob (oi v)]
-                          (update-parents ctx cb ob))))
-                  v (if call? ;; resolve-symbol is already handled in the call case
-                      (mark-resolve-sym k)
-                      (let [idx (or idx (get (:iden->idx ctx) v))
-                            v (ctx-fn
-                               (fn [_ctx ^objects bindings]
-                                 (aget bindings idx)
-                                 #_(eval/resolve-symbol bindings k))
-                               nil
-                               (if tag
-                                 (vary-meta k assoc :tag tag)
-                                 k))]
-                        v))]
-              [k v]))))
+        (let [idx (when-let [cb (:closure-bindings ctx)]
+                    (when-let [oi (:outer-idens ctx)]
+                      (when-let [ob (oi v)]
+                        (update-parents ctx cb ob))))
+              v (if call? ;; resolve-symbol is already handled in the call case
+                  (mark-resolve-sym k)
+                  (let [idx (or idx (get (:iden->idx ctx) v))
+                        v (ctx-fn
+                           (fn [_ctx ^objects bindings]
+                             (aget bindings idx)
+                             #_(eval/resolve-symbol bindings k))
+                           nil
+                           (if tag
+                             (vary-meta k assoc :tag tag)
+                             k))]
+                    v))]
+          [k v]))
       (when-let [kv (lookup* ctx sym call?)]
         (when (:check-permissions ctx)
           (check-permission! ctx sym kv))

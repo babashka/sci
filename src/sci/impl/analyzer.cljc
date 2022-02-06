@@ -250,7 +250,7 @@
 
 (defrecord FnBody [params body fixed-arity var-arg-name])
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro?]
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro? fn-id]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -297,7 +297,8 @@
         iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) fixed-arity))]
     (assoc
       (->FnBody params body fixed-arity var-arg-name)
-      :iden->idx iden->idx)))
+      :iden->idx iden->idx
+      :self-ref-idx (get iden->idx fn-id))))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -334,7 +335,7 @@
                 ctx)
         bindings (:bindings ctx)
         binding-vals (vals bindings)
-        reverse-bindings (zipmap binding-vals (keys bindings))
+        ;; reverse-bindings (zipmap binding-vals (keys bindings))
         ctx (assoc ctx :outer-idens (set binding-vals))
         old-closure-bindings (:closure-bindings ctx)
         new-closure-bindings (or old-closure-bindings (volatile! {}))
@@ -342,7 +343,7 @@
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [arglist (first body)
-                                 body (expand-fn-args+body ctx body macro?)
+                                 body (expand-fn-args+body ctx body macro? fn-id)
                                  ;; body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:var-arg-name body)
                                  fixed-arity (:fixed-arity body)
@@ -371,14 +372,16 @@
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
         closure-binding-idxs (when iden->idx (vec (keep iden->idx closure-binding-idens)))
-        bindings-fn (if (seq closure-binding-idxs)
+        bindings-fn (if (or fn-name (seq closure-binding-idxs))
                       (let [closure-cnt (count closure-binding-idxs)]
                         (fn [^objects bindings]
-                          (let [enclosed-array (object-array closure-cnt)]
+                          (let [enclosed-array (object-array
+                                                (if fn-name
+                                                  (inc closure-cnt)
+                                                  closure-cnt))]
                             (run! (fn [idx]
-                                    (try (aset enclosed-array idx
-                                               (aget bindings (nth closure-binding-idxs idx)))
-                                         (catch Exception e (prn (str e)))))
+                                    (aset enclosed-array idx
+                                          (aget bindings (nth closure-binding-idxs idx))))
                                   (range closure-cnt))
                             enclosed-array)))
                       ;; no closure bindings, bindings was empty anyways
@@ -386,9 +389,11 @@
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
                        ;; TODO add idxs of closed over values to idx in invocation array
-                       (assoc body
-                              :invoc-size (+ (count (:params body)) closure-cnt)
-                              :closure-idxs closure-binding-idxs))
+                       (let [self-idx (get (:iden->idx body) fn-id)]
+                         (assoc body
+                                :invoc-size (+ (count (:params body)) closure-cnt)
+                                :closure-idxs (cond-> closure-binding-idxs
+                                                self-idx (conj self-idx)))))
                      bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
@@ -398,7 +403,6 @@
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
         struct #:sci.impl{:fn-bodies bodies
                           :fn-name fn-name
-                          :self-ref (when self-ref @self-ref)
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta
@@ -409,17 +413,16 @@
   (let [fn-name (:sci.impl/fn-name struct)
         fn-bodies (:sci.impl/fn-bodies struct)
         macro? (:sci/macro struct)
-        self-ref (:sci.impl/self-ref struct)
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))
         bindings-fn (:sci.impl/bindings-fn struct)]
     (if fn-meta
       (fn [ctx bindings]
         (let [fn-meta (eval/handle-meta ctx bindings fn-meta)
-              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref bindings-fn)]
+              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity bindings-fn)]
           (vary-meta f merge fn-meta)))
       (fn [ctx bindings]
-        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref bindings-fn)))))
+        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity bindings-fn)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)
