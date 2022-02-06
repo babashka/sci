@@ -237,8 +237,7 @@
                                                 `(aset
                                                   ~(with-meta 'bindings
                                                      {:tag 'objects}) ~j
-                                                  (doto ~(symbol (str "eval-" j))
-                                                    (prn :idx ~j))))
+                                                  ~(symbol (str "eval-" j))))
                                               (range i))))
                                  ::recur)
                                ~'expr))])
@@ -371,14 +370,14 @@
                           :max-fixed -1} bodies)
         cb-idens (get-in @new-closure-bindings parents)
         all-idens (:syms cb-idens) ;; let syms + closure syms, including fn-id if used
-        fn-used? (contains? all-idens fn-id)
+        self-ref? (contains? all-idens fn-id)
         closure-binding-idens (filter binding-vals all-idens)
         ;; idens to indexes in the passed bindings
         iden->idx (:iden->idx ctx)
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
         bindings->enclosed (when iden->idx (mapv iden->idx closure-binding-idens))
-        bindings-fn (if (or fn-used? (seq bindings->enclosed))
+        bindings-fn (if (or self-ref? (seq bindings->enclosed))
                       (let [closure-cnt (count bindings->enclosed)]
                         (fn [^objects bindings]
                           (let [enclosed-array (object-array closure-cnt)]
@@ -416,6 +415,7 @@
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
         struct #:sci.impl{:fn-bodies bodies
                           :fn-name fn-name
+                          :self-ref? self-ref?
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta
@@ -428,14 +428,15 @@
         macro? (:sci/macro struct)
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))
-        bindings-fn (:sci.impl/bindings-fn struct)]
+        bindings-fn (:sci.impl/bindings-fn struct)
+        self-ref? (:sci.impl/self-ref? struct)]
     (if fn-meta
       (fn [ctx bindings]
         (let [fn-meta (eval/handle-meta ctx bindings fn-meta)
-              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity bindings-fn)]
+              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)]
           (vary-meta f merge fn-meta)))
       (fn [ctx bindings]
-        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity bindings-fn)))))
+        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)

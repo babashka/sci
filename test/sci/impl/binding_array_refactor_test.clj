@@ -6,6 +6,6 @@
   (is (fn? (sci/eval-string "((fn f [] f))"))))
 
 (deftest enclosing-array-test
-  (is (= [:foo :bar] (sci/eval-string "(let [x :foo y :bar z nil] ((fn ([] z) ([_] [x y])) 1))")))
-  )
+  (is (= 1 (sci/eval-string "(let [x 1] (defn foo [] x)) (foo)")))
+  (is (= [:foo :bar] (sci/eval-string "(let [x :foo y :bar z nil] ((fn ([] z) ([_] [x y])) 1))"))))
 
