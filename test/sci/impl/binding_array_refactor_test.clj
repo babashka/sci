@@ -2,6 +2,10 @@
   (:require  [clojure.test :as t :refer [deftest is]]
              [sci.core :as sci]))
 
+(deftest self-returning-fn-test
+  (is (fn? (sci/eval-string "((fn f [] f))"))))
+
 (deftest enclosing-array-test
-  (is (= [:foo :bar] (sci/eval-string "(let [x :foo y :bar z nil] ((fn ([] z) ([_] [x y])) 1))"))))
+  (is (= [:foo :bar] (sci/eval-string "(let [x :foo y :bar z nil] ((fn ([] z) ([_] [x y])) 1))")))
+  )
 

@@ -370,23 +370,23 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens (get-in @new-closure-bindings parents)
-        all-syms (:syms cb-idens) ;; let syms + closure syms
-        closure-binding-idens (filter binding-vals all-syms)
-        ;; closure-binding-syms (vec (keep reverse-bindings closure-binding-idens))
+        all-idens (:syms cb-idens) ;; let syms + closure syms, including fn-id if used
+        fn-used? (contains? all-idens fn-id)
+        closure-binding-idens (filter binding-vals all-idens)
+        ;; idens to indexes in the passed bindings
         iden->idx (:iden->idx ctx)
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
         bindings->enclosed (when iden->idx (mapv iden->idx closure-binding-idens))
-        bindings-fn (if (or fn-name (seq bindings->enclosed))
+        bindings-fn (if (or fn-used? (seq bindings->enclosed))
                       (let [closure-cnt (count bindings->enclosed)]
                         (fn [^objects bindings]
-                          (let [enclosed-array (object-array
-                                                (if fn-name
-                                                  (inc closure-cnt)
-                                                  closure-cnt))]
+                          (let [enclosed-array (object-array closure-cnt)]
                             (run! (fn [idx]
-                                    (aset enclosed-array idx
-                                          (aget bindings (nth bindings->enclosed idx))))
+                                    ;; for fn-id usage there is no outer binding idx
+                                    (when-let [binding-idx (nth bindings->enclosed idx)]
+                                      (aset enclosed-array idx
+                                            (aget bindings binding-idx))))
                                   (range closure-cnt))
                             enclosed-array)))
                       ;; no closure bindings, bindings was empty anyways
@@ -403,9 +403,8 @@
                                                               (when-let [invocation-idx (iden->invocation-idx iden)]
                                                                 [(iden->enclosed-idx iden) invocation-idx]))
                                                             closure-binding-idens))]
-                         ;;(prn :enclosed->invocation enclosed->invocation)
                          (assoc body
-                                :invoc-size (+ (count (:params body)) (count all-syms))
+                                :invoc-size (+ (count (:params body)) (count all-idens))
                                 :invocation-self-idx invocation-self-idx
                                 :enclosed->invocation enclosed->invocation)))
                      bodies)
