@@ -56,7 +56,7 @@
                `[(when-not (zero? (.-length (~'js-arguments)))
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
         (let [~'invoc-array (object-array ~'invoc-size)
-              _# (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#) (nth ~'enclosed-array i#))) (range (count ~'enclosed-array)))
+              _# (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#) (nth ~'enclosed-array i#))) (range (count ~'closure-idxs)))
               ret# (eval/eval ~'ctx ~'invoc-array ~'body)
               recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
            (if recur?# (recur) ret#)))
@@ -78,7 +78,7 @@
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
             (let [~'invoc-array (object-array ~'invoc-size)]
               (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#)
-                                   (nth ~'enclosed-array i#))) (range (count ~'enclosed-array)))
+                                   (nth ~'enclosed-array i#))) (range (count ~'closure-idxs)))
               ~asets
               (loop []
                 (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
@@ -98,7 +98,7 @@
      (fn ~'varargs [& args#]
        (let [ ~'invoc-array (object-array ~'invoc-size)]
          (run! (fn [i#] (aset ~'invoc-array (nth ~'closure-idxs i#)
-                              (nth ~'enclosed-array i#))) (range (count ~'enclosed-array)))
+                              (nth ~'enclosed-array i#))) (range (count ~'closure-idxs)))
          (run! (fn [idx#]
                   ;; TODO this can be heavily optimized
                   (aset ~'invoc-array idx# (nth args# idx#)))
