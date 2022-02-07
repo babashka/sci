@@ -369,6 +369,8 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens (get-in @new-closure-bindings parents)
+        _ (prn :cb-idens fn-name cb-idens)
+        _ (prn :bindings (:bindings ctx))
         all-idens (:syms cb-idens) ;; let syms + closure syms, including fn-id if used
         self-ref? (contains? all-idens fn-id)
         closure-binding-idens (filter binding-vals all-idens)
@@ -394,14 +396,13 @@
         bodies (mapv (fn [body]
                        (let [iden->enclosed-idx (zipmap closure-binding-idens (range))
                              iden->invocation-idx (:iden->idx body)
-                             ;; _ (prn :iden->invocation-idx iden->invocation-idx)
-                             ;; invocation-idxs (when iden->invocation-idx
-                             ;;                   (mapv iden->invocation-idx closure-binding-idens))
                              invocation-self-idx (get iden->invocation-idx fn-id)
-                             enclosed->invocation (vec (keep (fn [iden]
-                                                              (when-let [invocation-idx (iden->invocation-idx iden)]
-                                                                [(iden->enclosed-idx iden) invocation-idx]))
-                                                            closure-binding-idens))]
+                             enclosed->invocation
+                             (vec (keep (fn [iden]
+                                          (prn :iden iden 'invoc-idx-> (iden->invocation-idx iden))
+                                          (when-let [invocation-idx (iden->invocation-idx iden)]
+                                            [(iden->enclosed-idx iden) invocation-idx]))
+                                        closure-binding-idens))]
                          (assoc body
                                 :invoc-size (+ (count (:params body)) (count all-idens))
                                 :invocation-self-idx invocation-self-idx
