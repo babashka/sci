@@ -1214,7 +1214,7 @@
                                                                      (with-meta v (merge m (meta v)))
                                                                      v)
                                                                  v)]
-                                                       (analyze ctx v)))]
+                                                       (analyze ctx v top-level?)))]
                             expanded)
                           (if-let [f (:sci.impl/inlined f-meta)]
                             (return-call ctx

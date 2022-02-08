@@ -473,10 +473,23 @@
 (foo 10)"))))
   (is (= '(foo 1 2 3) (eval* "(defmacro foo [x y z] (list 'quote &form)) (foo 1 2 3)")))
   (testing "top level macro that emits do form should be analyzed an eval'ed interleaved"
-    (is 'foo (eval* "(defmacro dude []
+    (is (= 'foo (eval* "(defmacro dude []
                      `(do (ns ~'foo) (def ~'x (ns-name *ns*)) (ns ~'user)))
                    (dude)
                    foo/x"))))
+  (testing "nested macro call that results in top level do"
+    (is (true? (eval* "
+(defprotocol Proto
+  (proto [_]))
+
+(defmacro deftrecord [name]
+  `(defrecord ~name []
+     Proto
+     (proto [_] (new ~name))))
+
+(deftrecord Rec)
+
+(map? (proto (->Rec)))")))))
 
 (deftest comment-test
   (is (nil? (eval* '(comment "anything"))))

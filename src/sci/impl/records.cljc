@@ -73,7 +73,9 @@
                    protocol-ns (:ns protocol)
                    pns (cond protocol-ns (str (vars/getName protocol-ns))
                              (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
-                   fq-meth-name #(symbol pns %)]
+                   fq-meth-name #(if (simple-symbol? %)
+                                   (symbol pns (str %))
+                                   %)]
                (map (fn [[method-name bodies]]
                       (let [bodies (map rest bodies)
                             bodies (mapv (fn [impl]
@@ -100,7 +102,7 @@
                                              `(~args
                                                (let ~bindings
                                                  ~@body)))) bodies)]
-                        `(defmethod ~(fq-meth-name (str method-name)) '~rec-type ~@bodies)))
+                        `(defmethod ~(fq-meth-name method-name) '~rec-type ~@bodies)))
                     impls)))
            protocol-impls
            raw-protocol-impls)]
