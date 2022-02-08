@@ -55,13 +55,14 @@
 ;;;; Macros
 
 (defn macroexpand-1 [ctx expr]
-  (let [original-expr expr]
+  (let [ctx (assoc ctx :sci.impl/macroexpanding true)
+        original-expr expr]
     (if (seq? expr)
       (let [op (first expr)]
         (if (symbol? op)
           (cond (get special-syms op) expr
-                (contains? #{'for} op) (analyze (assoc ctx :sci.impl/macroexpanding true)
-                                                expr)
+                (contains? #{'for} op) (analyze ctx expr)
+                (= 'clojure.core/defrecord op) expr
                 :else
                 (let [f (try (resolve/resolve-symbol ctx op true)
                              (catch #?(:clj Exception :cljs :default)
@@ -70,11 +71,11 @@
                     expr
                     (let [macro-var? (and (vars/var? f)
                                           (vars/isMacro f))
+                          needs-ctx? (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
                           f (if macro-var? @f f)]
                       (if (or macro-var? (macro? f))
-                        (let [f (if (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
-                                  (partial f ctx)
-                                  f)]
+                        (if needs-ctx?
+                          (apply f original-expr (:bindings ctx) ctx (rest expr))
                           (apply f original-expr (:bindings ctx) (rest expr)))
                         expr)))))
           expr))
