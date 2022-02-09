@@ -2,16 +2,21 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.2.9
 
-- Improve error message for higher order function arity exception [#653](https://github.com/babashka/sci/issues/653)
+- Feature: add `halt-when`, `pop!`, `array?`, `js-delete`, `object?` and `undefined?`
+- Feature [#616](https://github.com/babashka/sci/issues/616): `:as-alias` support
+- Fix [#498](https://github.com/babashka/sci/issues/498): Cannot recur from non-tail position
+- Fix [#653](https://github.com/babashka/sci/issues/653): Improve error message for higher order function arity exception.
 - Fix [#655](https://github.com/babashka/sci/issues/655): `merge-opts` should overwrite existing var
 - Fix [#660](https://github.com/babashka/sci/issues/660): In JS you can throw and catch anything
 - Fix [#664](https://github.com/babashka/sci/issues/664): cannot take value of macro `->`
 - Fix [#659](https://github.com/babashka/sci/issues/659): meta evaluation order ([@erdos](https://github.com/erdos))
 - Fix [#666](https://github.com/babashka/sci/issues/666): use `js/Reflect` when calling instance function, adds compatibility with GraalVM JS Polyglot
 - Fix [#673](https://github.com/babashka/sci/issues/673): use `js/Reflect` when calling constructor, adds compatibility with GraalVM JS Polyglot
-- Feature: add `array?`, `js-delete`, `object?` and `undefined?`
+- Fix [#677](https://github.com/babashka/sci/issues/677): Fix `macroexpand` for `defrecord`
+- Fix function with arity 15
+- Fix macro which expands in `defrecord` + protocol which invokes record constructor
 
 ## v0.2.8
 
