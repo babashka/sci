@@ -56,14 +56,13 @@
                `[(when-not (zero? (.-length (~'js-arguments)))
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
         (let [~'invoc-array (object-array ~'invoc-size)
+              ;; _# (prn :enclosed ~'fn-name (vec ~'enclosed-array))
               _# (run! (fn [[enclosed-idx# invocation-idx#]]
-                         (prn ~'fn-name :enc->invoc enclosed-idx# invocation-idx#)
+                         ;; (prn ~'fn-name :enc->invoc enclosed-idx# invocation-idx#)
                          (aset ~'invoc-array invocation-idx#
-                               (nth ~'enclosed-array enclosed-idx#))
-                         (prn ~'fn-name :enc (vec ~'enclosed-array) :invoc (vec ~'invoc-array)))
+                               (nth ~'enclosed-array enclosed-idx#)))
                        ~'enclosed->invocation)
-              _# (prn :enc (vec ~'enclosed-array))
-              _# (prn :invoc ~'fn-name (vec ~'invoc-array))
+              ;; _# (prn :invoc ~'fn-name (vec ~'invoc-array))
               ret# (eval/eval ~'ctx ~'invoc-array ~'body)
               recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
            (if recur?# (recur) ret#)))
@@ -252,7 +251,6 @@
 (defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn]
   (let [;; each evaluated fn should have its own self-ref!
         enclosed-array (bindings-fn bindings)
-        _ (prn :enclosed (vec enclosed-array))
         f (if single-arity
             (fun ctx enclosed-array bindings single-arity fn-name macro?)
             (let [arities (fn-arity-map ctx enclosed-array bindings fn-name macro? fn-bodies)]

@@ -99,7 +99,6 @@
   ":syms = closed over values"
   [ctx closure-bindings ob]
   (let [parents (:parents ctx)
-        arity (:arity ctx)
         params (:params ctx)
         ;; TODO: we can make an explicit counter here
         offset (count params)
@@ -112,24 +111,19 @@
                                    (let [path (conj path entry)
                                          path-syms path]
                                      [(update-in acc path-syms (fn [entry]
-                                                                 (let [syms (or (:syms entry)
-                                                                                #{})
-                                                                       new-syms (conj syms ob)
-                                                                       entry (assoc entry :syms new-syms)
-                                                                       entry (if (= path-syms parents)
-                                                                               (let [iden->idx (entry arity)]
-                                                                                 (if (contains? iden->idx ob)
-                                                                                   entry
-                                                                                   (assoc-in entry [arity ob] (+ offset (count iden->idx)))))
-                                                                               entry)]
-                                                                   entry)))
+                                                                 (let [iden->idx (or (:syms entry)
+                                                                                     {})
+                                                                       iden->idx (if (contains? iden->idx ob)
+                                                                                   iden->idx
+                                                                                   (assoc iden->idx ob (+ offset (count iden->idx))))]
+                                                                   (assoc entry :syms iden->idx))))
                                       path]))
                                  [cb []]
                                  parents))))
         ;; TODO: closure-idx also depends on new let bindings introduced in the
         ;; body of a function, so we'll have to keep a separate counter for this
         ;; let's try without let first, shall we?
-        closure-idx (get-in new-cb (conj parents arity ob))]
+        closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
 (defn lookup
@@ -146,7 +140,7 @@
                       (when-let [ob (oi v)]
                         (update-parents ctx cb ob))))
               idx (or idx (get (:iden->idx ctx) v))
-              _ (prn k '-> idx)
+              ;; _ (prn k '-> idx)
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (ctx-fn

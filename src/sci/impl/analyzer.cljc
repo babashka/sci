@@ -298,9 +298,8 @@
         ;; in sci.impl.resolve
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
-        ctx (assoc ctx :arity fixed-arity)
         body (return-do (with-recur-target ctx true) fn-expr body)
-        iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) fixed-arity))]
+        iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (assoc
       (->FnBody params body fixed-arity var-arg-name)
       :iden->idx iden->idx
@@ -348,7 +347,8 @@
         ctx (assoc ctx :closure-bindings new-closure-bindings)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
-                           (let [arglist (first body)
+                           (let [orig-body body
+                                 arglist (first body)
                                  body (expand-fn-args+body ctx body macro? fn-id)
                                  ;; body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:var-arg-name body)
@@ -363,49 +363,59 @@
                                  (assoc :min-varargs new-min-varargs
                                         :max-fixed (max fixed-arity
                                                         max-fixed))
-                                 (update :bodies conj body)
+                                 (update :bodies conj (assoc body :orig orig-body))
                                  (update :arglists conj arglist))))
                          {:bodies []
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
-        cb-idens (get-in @new-closure-bindings parents)
-        _ (prn :cb-idens fn-name cb-idens)
-        _ (prn :bindings (:bindings ctx))
-        all-idens (:syms cb-idens) ;; let syms + closure syms, including fn-id if used
-        self-ref? (contains? all-idens fn-id)
-        closure-binding-idens (filter binding-vals all-idens)
+        cb-idens (get-in @new-closure-bindings (conj parents :syms))
+        self-ref? (contains? cb-idens fn-id)
+        closure-binding-idens (filter binding-vals (keys cb-idens))
+        ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
         ;; idens to indexes in the passed bindings
-        iden->idx (:iden->idx ctx)
+        ;; iden->idx (:iden->idx ctx)
+        iden->idx (get-in @new-closure-bindings (conj (pop parents) :syms))
+        ;;_ (prn :par parent-iden->idx)
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
-        bindings->enclosed (when iden->idx (mapv iden->idx closure-binding-idens))
-        bindings-fn (if (or self-ref? (seq bindings->enclosed))
-                      (let [closure-cnt (count bindings->enclosed)]
+        enclosed-iden->binding-idx (when iden->idx (zipmap closure-binding-idens (mapv iden->idx closure-binding-idens)))
+        ;; here we decide which iden will be installed in which index in the enclosed array
+        iden->enclosed-idx (zipmap closure-binding-idens (range))
+        bindings-fn (if (or self-ref? (seq enclosed-iden->binding-idx))
+                      (let [closure-cnt (count enclosed-iden->binding-idx)
+                            ]
                         (fn [^objects bindings]
                           (let [enclosed-array (object-array closure-cnt)]
-                            (run! (fn [idx]
+                            (run! (fn [iden]
                                     ;; for fn-id usage there is no outer binding idx
-                                    (when-let [binding-idx (nth bindings->enclosed idx)]
-                                      (aset enclosed-array idx
-                                            (aget bindings binding-idx))))
-                                  (range closure-cnt))
+                                    (if-let [binding-idx (get iden->idx iden)]
+                                      (let [enclosed-idx (get iden->enclosed-idx iden)]
+                                        ;; (prn :copying binding-idx '-> enclosed-idx)
+                                        (aset enclosed-array enclosed-idx
+                                              (aget bindings binding-idx)))
+                                      ;; (prn :no-idx fn-name iden)
+                                      ))
+                                  closure-binding-idens)
+                            ;; (prn :enclosed-after-set (vec enclosed-array))
                             enclosed-array)))
                       ;; no closure bindings, bindings was empty anyways
                       (constantly nil))
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
-                       (let [iden->enclosed-idx (zipmap closure-binding-idens (range))
+                       (let [
                              iden->invocation-idx (:iden->idx body)
                              invocation-self-idx (get iden->invocation-idx fn-id)
                              enclosed->invocation
                              (vec (keep (fn [iden]
-                                          (prn :iden iden 'invoc-idx-> (iden->invocation-idx iden))
+                                          ;; (prn :iden iden 'invoc-idx-> (iden->invocation-idx iden))
+                                          ;; (prn (:orig body))
+                                          ;; no idx means iden not used
                                           (when-let [invocation-idx (iden->invocation-idx iden)]
                                             [(iden->enclosed-idx iden) invocation-idx]))
                                         closure-binding-idens))]
                          (assoc body
-                                :invoc-size (+ (count (:params body)) (count all-idens))
+                                :invoc-size (+ (count (:params body)) (count cb-idens))
                                 :invocation-self-idx invocation-self-idx
                                 :enclosed->invocation enclosed->invocation)))
                      bodies)
@@ -460,7 +470,10 @@
         ;; But then we'd have to start on the lowest level, which is fine too.
         new-cb (vswap! closure-bindings
                        (fn [cb]
-                         (update-in cb (conj parents :syms) (fnil conj #{}) ob)))
+                         (update-in cb (conj parents :syms) (fn [iden->idx]
+                                                              (if (contains? iden->idx ob)
+                                                                iden->idx
+                                                                (assoc iden->idx ob (count iden->idx)))))))
         ;; TODO: closure-idx also depends on new let bindings introduced in the
         ;; body of a function, so we'll have to keep a separate counter for this
         ;; let's try without let first, shall we?
