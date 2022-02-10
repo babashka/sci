@@ -373,13 +373,11 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens (get-in @new-closure-bindings (conj parents :syms))
-        _ (prn :cb-idens cb-idens)
         self-ref? (contains? cb-idens fn-id)
         closure-binding-idens (filter binding-vals (keys cb-idens))
         ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
         ;; idens to indexes in the passed bindings
         ;; iden->idx (:iden->idx ctx)
-        tree @new-closure-bindings
         iden->idx (get-in @new-closure-bindings (conj (pop parents) :syms))
         ;;_ (prn :par parent-iden->idx)
         ;; this represents the indexes of enclosed values in old bindings
@@ -391,19 +389,12 @@
                       (let [closure-cnt (count enclosed-iden->binding-idx)
                             ]
                         (fn [^objects bindings]
-                          (prn :iden->enclosed-idx iden->enclosed-idx)
-                          (prn :iden->idx iden->idx)
-                          (prn :tree @new-closure-bindings)
                           (let [enclosed-array (object-array closure-cnt)]
                             (run! (fn [iden]
-                                    (prn fn-name fn-id closure-cnt)
                                     ;; for fn-id usage there is no outer binding idx
                                     (if-let [binding-idx (get iden->idx iden)]
                                       (let [enclosed-idx (get iden->enclosed-idx iden)]
                                         ;; (prn :copying binding-idx '-> enclosed-idx)
-                                        (prn :aget (vec bindings) binding-idx)
-                                        (prn (aget bindings binding-idx))
-                                        (prn :post-aget)
                                         (aset enclosed-array enclosed-idx
                                               (aget bindings binding-idx)))
                                       ;; (prn :no-idx fn-name iden)

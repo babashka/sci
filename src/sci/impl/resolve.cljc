@@ -141,7 +141,7 @@
                         (update-parents ctx cb ob))))
               idx (or idx (get (:iden->idx ctx) v))
               ;; _ (prn k '-> idx)
-              _ (prn k '-> v)
+              ;; _ (prn k '-> v)
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (ctx-fn

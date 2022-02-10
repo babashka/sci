@@ -57,7 +57,6 @@
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
         (let [~'invoc-array (object-array ~'invoc-size)
               ;; _# (prn :enclosed ~'fn-name (vec ~'enclosed-array))
-              _# (prn :invoc! (vec ~'invoc-array))
               _# (run! (fn [[enclosed-idx# invocation-idx#]]
                          ;; (prn ~'fn-name :enc->invoc enclosed-idx# invocation-idx#)
                          (aset ~'invoc-array invocation-idx#
