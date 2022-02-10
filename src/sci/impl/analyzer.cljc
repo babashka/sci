@@ -290,7 +290,9 @@
         param-names (cond-> fixed-args
                       var-arg-name (conj var-arg-name))
         ctx (assoc ctx :params param-names)
-        param-bindings (zipmap param-names (repeatedly gensym))
+        param-count (count param-names)
+        param-idens (take param-count (repeatedly gensym))
+        param-bindings (zipmap param-names param-idens)
         idens (vals param-bindings)
         iden->idx (zipmap idens (range))
         bindings (:bindings ctx)
@@ -298,6 +300,7 @@
         ;; in sci.impl.resolve
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
+        _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         body (return-do (with-recur-target ctx true) fn-expr body)
         iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (assoc
@@ -370,11 +373,13 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens (get-in @new-closure-bindings (conj parents :syms))
+        _ (prn :cb-idens cb-idens)
         self-ref? (contains? cb-idens fn-id)
         closure-binding-idens (filter binding-vals (keys cb-idens))
         ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
         ;; idens to indexes in the passed bindings
         ;; iden->idx (:iden->idx ctx)
+        tree @new-closure-bindings
         iden->idx (get-in @new-closure-bindings (conj (pop parents) :syms))
         ;;_ (prn :par parent-iden->idx)
         ;; this represents the indexes of enclosed values in old bindings
@@ -386,12 +391,19 @@
                       (let [closure-cnt (count enclosed-iden->binding-idx)
                             ]
                         (fn [^objects bindings]
+                          (prn :iden->enclosed-idx iden->enclosed-idx)
+                          (prn :iden->idx iden->idx)
+                          (prn :tree @new-closure-bindings)
                           (let [enclosed-array (object-array closure-cnt)]
                             (run! (fn [iden]
+                                    (prn fn-name fn-id closure-cnt)
                                     ;; for fn-id usage there is no outer binding idx
                                     (if-let [binding-idx (get iden->idx iden)]
                                       (let [enclosed-idx (get iden->enclosed-idx iden)]
                                         ;; (prn :copying binding-idx '-> enclosed-idx)
+                                        (prn :aget (vec bindings) binding-idx)
+                                        (prn (aget bindings binding-idx))
+                                        (prn :post-aget)
                                         (aset enclosed-array enclosed-idx
                                               (aget bindings binding-idx)))
                                       ;; (prn :no-idx fn-name iden)
@@ -463,21 +475,14 @@
   ":syms = closed over values"
   [ctx closure-bindings ob]
   (let [parents (:parents ctx)
-        params (:params ctx)
-        ;; TODO: we can make an explicit counter here
-        offset (count params)
-        ;; TODO: minor - we can shortcut when we detect a sym was already added on the lowest level
-        ;; But then we'd have to start on the lowest level, which is fine too.
         new-cb (vswap! closure-bindings
                        (fn [cb]
-                         (update-in cb (conj parents :syms) (fn [iden->idx]
-                                                              (if (contains? iden->idx ob)
-                                                                iden->idx
-                                                                (assoc iden->idx ob (count iden->idx)))))))
-        ;; TODO: closure-idx also depends on new let bindings introduced in the
-        ;; body of a function, so we'll have to keep a separate counter for this
-        ;; let's try without let first, shall we?
-        closure-idx (+ offset (dec (count (get-in new-cb (conj parents :syms)))))]
+                         (update-in cb (conj parents :syms)
+                                    (fn [iden->idx]
+                                      (if (contains? iden->idx ob)
+                                        iden->idx
+                                        (assoc iden->idx ob (count iden->idx)))))))
+        closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
 (defn analyze-let*

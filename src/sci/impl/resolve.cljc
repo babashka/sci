@@ -99,9 +99,7 @@
   ":syms = closed over values"
   [ctx closure-bindings ob]
   (let [parents (:parents ctx)
-        params (:params ctx)
         ;; TODO: we can make an explicit counter here
-        offset (count params)
         ;; TODO: minor - we can shortcut when we detect a sym was already added on the lowest level
         ;; But then we'd have to start on the lowest level, which is fine too.
         new-cb (vswap! closure-bindings
@@ -110,13 +108,15 @@
                                  (fn [[acc path] entry]
                                    (let [path (conj path entry)
                                          path-syms path]
-                                     [(update-in acc path-syms (fn [entry]
-                                                                 (let [iden->idx (or (:syms entry)
-                                                                                     {})
-                                                                       iden->idx (if (contains? iden->idx ob)
-                                                                                   iden->idx
-                                                                                   (assoc iden->idx ob (+ offset (count iden->idx))))]
-                                                                   (assoc entry :syms iden->idx))))
+                                     [(update-in acc path-syms
+                                                 (fn [entry]
+                                                   (let [iden->idx (or (:syms entry)
+                                                                       {})
+                                                         iden->idx (if (contains? iden->idx ob)
+                                                                     iden->idx
+                                                                     ;; TODO: offset depends on the amount of params at this level!
+                                                                     (assoc iden->idx ob (count iden->idx)))]
+                                                     (assoc entry :syms iden->idx))))
                                       path]))
                                  [cb []]
                                  parents))))
@@ -141,6 +141,7 @@
                         (update-parents ctx cb ob))))
               idx (or idx (get (:iden->idx ctx) v))
               ;; _ (prn k '-> idx)
+              _ (prn k '-> v)
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (ctx-fn
