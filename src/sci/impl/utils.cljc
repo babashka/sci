@@ -61,7 +61,7 @@
                                                  fstr (clojure.lang.Compiler/demunge (str varf))
                                                  fstr (first (str/split fstr #"@"))
                                                  fstr (str/replace fstr (re-pattern (str "^" prefix)) "")]
-                                            fstr))]
+                                             fstr))]
                         (cond (and fstr printed-fn (= fstr printed-fn))
                               (str/replace ex-msg printed-fn
                                            (str (:ns fm) "/" (:name fm)))
@@ -73,7 +73,7 @@
 
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
-  ([ctx bindings ^Throwable e raw-node]
+  ([ctx _bindings ^Throwable e raw-node]
    (if #?(:clj (or *in-try*
                    (not= (:main-thread-id ctx)
                          (.getId (Thread/currentThread))))
@@ -83,7 +83,7 @@
              #?@(:clj [f (when (seqable? node)
                            (first node))])
              #?@(:clj [fm (or (:sci.impl/f-meta stack)
-                             (some-> f meta))])
+                              (some-> f meta))])
              env (:env ctx)
              id (:id ctx)
              d (ex-data e)
@@ -92,12 +92,6 @@
                     (volatile! '()))]
          (when stack
            (when-not (:special stack)
-             #_(swap! env update-in [:sci.impl/callstack id]
-                    (fn [vt]
-                      (if vt
-                        (do (vswap! vt conj stack)
-                           vt)
-                        (volatile! (list stack)))))
              (vswap! st conj stack)))
          (let [d (ex-data e)
                ;; st (:sci.impl/callstack d)
@@ -120,11 +114,7 @@
                                     :line line
                                     :column column
                                     :message ex-msg
-                                    :sci.impl/callstack
-                                    st
-                                    #_(delay (when-let
-                                               [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
-                                             @v))
+                                    :sci.impl/callstack st
                                     :file file}]
                          (ex-info ex-msg new-d e))]
                    (throw new-exception))
