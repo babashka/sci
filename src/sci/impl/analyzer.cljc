@@ -223,7 +223,7 @@
            ~@(concat
               [0 `(ctx-fn
                    (fn [~'_ ~'bindings]
-                     (fns/->Recur ~'bindings))
+                     ::recur)
                    ~'expr)]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
