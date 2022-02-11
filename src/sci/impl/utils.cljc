@@ -125,8 +125,7 @@
                                     #_(delay (when-let
                                                [v (get-in @(:env ctx) [:sci.impl/callstack (:id ctx)])]
                                              @v))
-                                    :file file
-                                    :locals bindings}]
+                                    :file file}]
                          (ex-info ex-msg new-d e))]
                    (throw new-exception))
                  (throw e)))))))))

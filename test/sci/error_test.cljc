@@ -56,7 +56,7 @@
                  "user   - <expr>:1:34")
                formatted))))))
 
-(deftest locals-test
+#_(deftest locals-test
   (testing "defn does not introduce fn-named local binding"
     (let [locals
           (try (eval-string "(defn foo [x] (subs nil 0)) (foo :x)")
@@ -104,7 +104,6 @@
     (is (= [{:column 22
              :file nil
              :line 2
-             :locals {}
              :message "ex-message"
              :type :sci/error}
             {:column 3}]
@@ -114,6 +113,6 @@
 
 (throwing-fn)")
              (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
-               [(dissoc (ex-data e) :sci.impl/callstack)
+               [(dissoc (ex-data e) :sci.impl/callstack :locals)
                 (ex-data #?(:clj (.getCause e)
                             :cljs (ex-cause e)))]))))))
