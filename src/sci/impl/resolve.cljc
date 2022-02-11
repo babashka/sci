@@ -26,7 +26,6 @@
 (defn check-permission! [ctx sym [check-sym  v]]
   (or (identical? utils/allowed-loop sym)
       (identical? utils/allowed-recur sym)
-      (identical? utils/allowed-fn sym)
       (let [check-sym (strip-core-ns check-sym)
             allow (:allow ctx)]
         (when-not (if allow (or (and (vars/var? v) (not (:sci/built-in (meta v))))

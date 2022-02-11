@@ -26,12 +26,18 @@
            (eval-form ctx (first exprs)))
           ret))
       (let [;; take care of invocation array for let
-            form (list (list utils/allowed-fn [] form))
+            upper-sym (gensym)
+            cb (volatile! {upper-sym {:syms {}}})
+            ctx (assoc ctx
+                       :parents [upper-sym]
+                       :closure-bindings cb)
             analyzed (ana/analyze ctx form true)
+            binding-array-size (count (get-in @cb [upper-sym :syms]))
+            bindings (object-array binding-array-size)
             ret (if (instance? #?(:clj sci.impl.types.EvalForm
                                   :cljs sci.impl.types/EvalForm) analyzed)
                   (eval-form ctx (t/getVal analyzed))
-                  (eval/eval ctx nil analyzed))]
+                  (eval/eval ctx bindings analyzed))]
         ret))
     (let [analyzed (ana/analyze ctx form)
           ret (eval/eval ctx nil analyzed)]
