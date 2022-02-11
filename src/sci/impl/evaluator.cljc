@@ -157,9 +157,8 @@
                                 :clj (instance? clazz e))
                          (reduced
                           [::try-result
-                           (eval ctx
-                                 (assoc bindings (:binding c) e)
-                                 (:body c))]))))
+                           (do (aset ^objects bindings (:ex-idx c) e)
+                               (eval ctx bindings (:body c)))]))))
                    nil
                    catches)]
         r

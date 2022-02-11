@@ -726,10 +726,17 @@
                                                     js/Object js/Object
                                                     :default :default
                                                     (analyze ctx ex)))]
-                            {:class clazz
-                             :binding binding
-                             :body (analyze (assoc-in ctx [:bindings binding] (gensym))
-                                            (cons 'do body))}
+                            (let [ex-iden (gensym)
+                                  closure-bindings (:closure-bindings ctx)
+                                  ex-idx (update-parents ctx closure-bindings ex-iden)
+                                  ctx (-> ctx
+                                          (assoc-in [:bindings binding] ex-iden)
+                                          (assoc-in [:iden->idx ex-iden] ex-idx))
+                                  analyzed-body (analyze ctx
+                                                         (cons 'do body))]
+                              {:class clazz
+                               :ex-idx ex-idx
+                               :body analyzed-body})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
         finally (when finally
