@@ -143,8 +143,7 @@
         #_:clj-kondo/ignore nsm (vars/current-ns-name)
         disable-arity-checks? (get-2 ctx :disable-arity-checks)
         ;; body-count (count body)
-        f (if-not #?(:clj (or var-arg-name
-                              disable-arity-checks?)
+        f (if-not #?(:clj var-arg-name
                      :cljs var-arg-name)
             (case (int fixed-arity)
               0 #?(:clj (gen-fn 0)
