@@ -256,7 +256,9 @@
 
 (defrecord FnBody [params body fixed-arity var-arg-name])
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro? fn-id]
+(declare update-parents)
+
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro? fn-name fn-id]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -301,12 +303,13 @@
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
+        self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         body (return-do (with-recur-target ctx true) fn-expr body)
         iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (assoc
       (->FnBody params body fixed-arity var-arg-name)
       :iden->idx iden->idx
-      :self-ref-idx (get iden->idx fn-id))))
+      :self-ref-idx self-ref-idx)))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -331,15 +334,11 @@
         bodies (if (seq? (first body))
                  body
                  [body])
-        self-ref (when fn-name (volatile! nil))
         fn-id (gensym)
-        self-ref-sym (when fn-name fn-id)
         parents ((fnil conj []) (:parents ctx) fn-id)
         ctx (assoc ctx :parents parents)
         ctx (if fn-name (-> ctx
-                            (assoc :self-ref self-ref)
-                            (assoc :self-ref? #(identical? self-ref-sym %))
-                            (assoc-in [:bindings fn-name] self-ref-sym))
+                            (assoc-in [:bindings fn-name] fn-id))
                 ctx)
         bindings (:bindings ctx)
         binding-vals (set (vals bindings))
@@ -352,7 +351,7 @@
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [orig-body body
                                  arglist (first body)
-                                 body (expand-fn-args+body ctx body macro? fn-id)
+                                 body (expand-fn-args+body ctx body macro? fn-name fn-id)
                                  ;; body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:var-arg-name body)
                                  fixed-arity (:fixed-arity body)
@@ -373,7 +372,7 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens (get-in @new-closure-bindings (conj parents :syms))
-        self-ref? (contains? cb-idens fn-id)
+        self-ref? (when fn-name (contains? cb-idens fn-id))
         closure-binding-idens (filter binding-vals (keys cb-idens))
         ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
         ;; idens to indexes in the passed bindings
@@ -384,10 +383,14 @@
         ;; we need to copy those to a new array, the enclosed-array
         enclosed-iden->binding-idx (when iden->idx (zipmap closure-binding-idens (mapv iden->idx closure-binding-idens)))
         ;; here we decide which iden will be installed in which index in the enclosed array
-        iden->enclosed-idx (zipmap closure-binding-idens (range))
+        closure-binding-cnt (count closure-binding-idens)
+        iden->enclosed-idx (zipmap closure-binding-idens (range closure-binding-cnt))
+        iden->enclosed-idx (if fn-name
+                             (assoc iden->enclosed-idx fn-id closure-binding-cnt)
+                             iden->enclosed-idx)
         bindings-fn (if (or self-ref? (seq enclosed-iden->binding-idx))
-                      (let [closure-cnt (count enclosed-iden->binding-idx)
-                            ]
+                      (let [closure-cnt (cond-> (count enclosed-iden->binding-idx)
+                                          fn-name (inc))]
                         (fn [^objects bindings]
                           (let [enclosed-array (object-array closure-cnt)]
                             (run! (fn [iden]
@@ -401,14 +404,14 @@
                                       ))
                                   closure-binding-idens)
                             ;; (prn :enclosed-after-set (vec enclosed-array))
+                            ;; TODO: in fns, set self-ref to last idx of enclosed
                             enclosed-array)))
                       ;; no closure bindings, bindings was empty anyways
                       (constantly nil))
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
-                       (let [
-                             iden->invocation-idx (:iden->idx body)
-                             invocation-self-idx (get iden->invocation-idx fn-id)
+                       (let [iden->invocation-idx (:iden->idx body)
+                             invocation-self-idx (:self-ref-idx body)
                              enclosed->invocation
                              (vec (keep (fn [iden]
                                           ;; (prn :iden iden 'invoc-idx-> (iden->invocation-idx iden))

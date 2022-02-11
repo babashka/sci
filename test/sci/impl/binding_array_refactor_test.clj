@@ -20,3 +20,6 @@
 
 (deftest shadowed-let-binding-test
   (is (= 2 (sci/eval-string "(let [x 1 x (+ x 1)] x)"))))
+
+(deftest multi-arity-self-call-test
+  (is (= 2 (sci/eval-string "((fn f ([x] (f x 1)) ([x y] (+ x y))) 1)"))))
