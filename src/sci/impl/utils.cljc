@@ -150,6 +150,7 @@
 
 (def allowed-loop (symbol "loop"))
 (def allowed-recur (symbol "recur"))
+(def allowed-fn (symbol "fn"))
 
 (defn walk*
   [inner form]
