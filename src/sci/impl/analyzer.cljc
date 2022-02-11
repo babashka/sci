@@ -304,7 +304,10 @@
         ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
-        body (return-do (with-recur-target ctx true) fn-expr body)
+        body (if (identical? utils/allowed-fn (first fn-expr))
+               ;; prevent recur in top level fn
+               (return-do ctx fn-expr body)
+               (return-do (with-recur-target ctx true) fn-expr body))
         iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (assoc
       (->FnBody params body fixed-arity var-arg-name)
