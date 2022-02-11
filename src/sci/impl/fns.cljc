@@ -105,7 +105,7 @@
          fixed-params# (take param-idx# ~'params)
          var-arg-param# (last ~'params)]
      (fn ~'varargs [& args#]
-       (let [fixed# (drop param-idx# args#)
+       (let [fixed# (take param-idx# args#)
              ~'invoc-array (object-array ~'invoc-size)]
          (when (< (count fixed#) param-idx#)
            (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? args# param-idx#))
