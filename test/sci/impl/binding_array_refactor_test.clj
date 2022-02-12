@@ -23,3 +23,16 @@
 
 (deftest multi-arity-self-call-test
   (is (= 2 (sci/eval-string "((fn f ([x] (f x 1)) ([x y] (+ x y))) 1)"))))
+
+(deftest multi-arity-test
+  (is (= :foo (sci/eval-string "
+(defn sh
+  ([x] (sh x nil))
+  ([x y]
+    (let [[g h i] nil]
+     :foo))
+  ([x y z]
+   :bar))
+
+(sh 1 2)
+"))))
