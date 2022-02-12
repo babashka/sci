@@ -295,8 +295,7 @@
         param-count (count param-names)
         param-idens (take param-count (repeatedly gensym))
         param-bindings (zipmap param-names param-idens)
-        idens (vals param-bindings)
-        iden->idx (zipmap idens (range))
+        iden->idx (zipmap param-idens (range))
         bindings (:bindings ctx)
         ;; :param-maps is only needed when we're detecting :closure-bindings
         ;; in sci.impl.resolve
