@@ -302,6 +302,9 @@
         ;; in sci.impl.resolve
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
+        ;; FIXME: we're replacing syms of the previous overload here...
+        ;; We should go back to storing per arity
+        ctx (update ctx :parents conj fixed-arity)
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         body (return-do (with-recur-target ctx true) fn-expr body)
@@ -344,9 +347,7 @@
         binding-vals (set (vals bindings))
         ;; reverse-bindings (zipmap binding-vals (keys bindings))
         ctx (assoc ctx :outer-idens binding-vals)
-        old-closure-bindings (:closure-bindings ctx)
-        new-closure-bindings (or old-closure-bindings (volatile! {}))
-        ctx (assoc ctx :closure-bindings new-closure-bindings)
+        closure-bindings (:closure-bindings ctx)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [orig-body body
@@ -371,13 +372,15 @@
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
-        cb-idens (get-in @new-closure-bindings (conj parents :syms))
+        cb-idens-by-arity (get-in @closure-bindings parents)
+        cb-idens (apply merge (map :syms (vals cb-idens-by-arity)))
+        cb-idens-count (count cb-idens)
         self-ref? (when fn-name (contains? cb-idens fn-id))
         closure-binding-idens (filter binding-vals (keys cb-idens))
         ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
         ;; idens to indexes in the passed bindings
         ;; iden->idx (:iden->idx ctx)
-        iden->idx (get-in @new-closure-bindings (conj (pop parents) :syms))
+        iden->idx (get-in @closure-bindings (conj (pop parents) :syms))
         ;;_ (prn :par parent-iden->idx)
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
@@ -419,9 +422,11 @@
                                           ;; no idx means iden not used
                                           (when-let [invocation-idx (iden->invocation-idx iden)]
                                             [(iden->enclosed-idx iden) invocation-idx]))
-                                        closure-binding-idens))]
+                                        closure-binding-idens))
+                             params (:params body)
+                             param-count (count params)]
                          (assoc body
-                                :invoc-size (+ (count (:params body)) (count cb-idens))
+                                :invoc-size (+ param-count cb-idens-count)
                                 :invocation-self-idx invocation-self-idx
                                 :enclosed->invocation enclosed->invocation)))
                      bodies)
@@ -475,7 +480,7 @@
                                     (fn [iden->idx]
                                       (if (contains? iden->idx ob)
                                         iden->idx
-                                        (assoc iden->idx ob (count iden->idx)))))))
+                                        (assoc iden->idx ob (+ #_arity (count iden->idx))))))))
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
@@ -493,12 +498,10 @@
                                   binding-name)
                  v (analyze ctx binding-value)
                  new-iden (gensym)
-                 cb (or (:closure-bindings ctx)
-                        (volatile! {}))
+                 cb (:closure-bindings ctx)
                  idx (update-parents ctx cb new-iden)
                  iden->idx (:iden->idx ctx)
                  iden->idx (assoc iden->idx new-iden idx)
-                 ctx (assoc ctx :closure-bindings cb)
                  ctx (assoc ctx :iden->idx iden->idx)]
              [(update ctx :bindings assoc binding-name new-iden)
               (conj new-let-bindings binding-name v)

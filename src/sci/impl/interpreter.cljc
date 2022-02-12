@@ -39,7 +39,12 @@
                   (eval-form ctx (t/getVal analyzed))
                   (eval/eval ctx bindings analyzed))]
         ret))
-    (let [analyzed (ana/analyze ctx form)
+    (let [upper-sym (gensym)
+          cb (volatile! {upper-sym {:syms {}}})
+          ctx (assoc ctx
+                     :parents [upper-sym]
+                     :closure-bindings cb)
+          analyzed (ana/analyze ctx form)
           ret (eval/eval ctx nil analyzed)]
       ret)))
 
