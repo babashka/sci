@@ -40,3 +40,6 @@
 
 (deftest order-of-arguments-test
   (is (= [1 2 3 4 5 6 7 8 9] (sci/eval-string "(defn foo [a1 a2 a3 a4 a5 a6 a7 a8 a9] [a1 a2 a3 a4 a5 a6 a7 a8 a9]) (foo 1 2 3 4 5 6 7 8 9)"))))
+
+(deftest varargs-test
+  (is (nil? (sci/eval-string "(defn foo [x y & xs] xs) (foo 1 2)"))))

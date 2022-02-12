@@ -65,7 +65,7 @@
               ;; _# (prn :invoc ~'fn-name (vec ~'invoc-array))
               ret# (eval/eval ~'ctx ~'invoc-array ~'body)
               recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
-           (if recur?# (recur) ret#)))
+          (if recur?# (recur) ret#)))
      (let [locals (repeatedly n gensym)
            fn-params (vec (repeatedly n gensym))
            rnge (range n)
@@ -114,15 +114,15 @@
                        (nth ~'enclosed-array enclosed-idx#)))
                ~'enclosed->invocation)
          (run! (fn [idx#]
-                  ;; TODO this can be heavily optimized
-                  (aset ~'invoc-array idx# (nth args# idx#)))
-                (range param-idx#))
-          (aset ~'invoc-array param-idx# (drop param-idx# args#))
-          (loop []
-            (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
-              (if (kw-identical? :sci.impl.analyzer/recur ret#)
-                (recur)
-                ret#)))))))
+                 ;; TODO this can be heavily optimized
+                 (aset ~'invoc-array idx# (nth args# idx#)))
+               (range param-idx#))
+         (aset ~'invoc-array param-idx# (seq (drop param-idx# args#)))
+         (loop []
+           (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
+             (if (kw-identical? :sci.impl.analyzer/recur ret#)
+               (recur)
+               ret#)))))))
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
