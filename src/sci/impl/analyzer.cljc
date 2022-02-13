@@ -254,7 +254,7 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
-(defrecord FnBody [params body fixed-arity var-arg-name])
+(defrecord FnBody [params body fixed-arity var-arg-name self-ref-idx iden->invoke-idx])
 
 (declare update-parents)
 
@@ -304,10 +304,7 @@
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         body (return-do (with-recur-target ctx true) fn-expr body)
         iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
-    (assoc
-      (->FnBody params body fixed-arity var-arg-name)
-      :iden->invoke-idx iden->invoke-idx
-      :self-ref-idx self-ref-idx)))
+    (->FnBody params body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
