@@ -96,31 +96,34 @@
              [sym x]))))))))
 
 (defn update-parents
-  ":syms = closed over values"
+  ":syms = closed over -> idx"
   [ctx closure-bindings ob]
   (let [parents (:parents ctx)
-        ;; _ (prn :parents parents)
-        ;; TODO: we can make an explicit counter here
-        ;; TODO: minor - we can shortcut when we detect a sym was already added on the lowest level
-        ;; But then we'd have to start on the lowest level, which is fine too.
         new-cb (vswap! closure-bindings
                        (fn [cb]
-                         (first (reduce
-                                 (fn [[acc path] _idx]
-                                   ;; (prn _idx)
-                                   [(update-in acc path
-                                               (fn [entry]
-                                                 (let [iden->invoke-idx (or (:syms entry)
-                                                                            {})
-                                                       iden->invoke-idx (if (contains? iden->invoke-idx ob)
-                                                                          iden->invoke-idx
-                                                                          ;; TODO: offset depends on the amount of params at this level!
-                                                                          (assoc iden->invoke-idx ob (count iden->invoke-idx)))]
-                                                   (assoc entry :syms iden->invoke-idx))))
-                                    (-> path pop pop)])
-                                 [cb
-                                  parents]
-                                 (range (/ (count parents) 2))))))
+                         (first
+                          (reduce
+                           (fn [[acc path] _idx]
+                             (let [new-acc
+                                   (update-in
+                                    acc path
+                                    (fn [entry]
+                                      (let [iden->invoke-idx (or (:syms entry)
+                                                                 {})
+                                            added-before? (contains? iden->invoke-idx ob)]
+                                        (if added-before?
+                                          entry
+                                          (assoc entry :syms
+                                                 (assoc iden->invoke-idx
+                                                        ob (count iden->invoke-idx)))))))
+                                   new-res [new-acc
+                                            (-> path pop pop)]]
+                               (if (= acc new-acc)
+                                 (reduced new-res)
+                                 new-res)))
+                           [cb
+                            parents]
+                           (range (/ (count parents) 2))))))
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
@@ -129,23 +132,17 @@
   ([ctx sym call? tag]
    (let [bindings (faster/get-2 ctx :bindings)]
      (or
-      ;; bindings are not checked for permissions
       (when-let [[k v]
                  (find bindings sym)]
-        ;; (assert (symbol? v) (str "Not a symbol: " v))
-        (let [idx (when-let [cb (:closure-bindings ctx)]
-                    (when-let [oi (:outer-idens ctx)]
-                      (when-let [ob (oi v)]
-                        (update-parents ctx cb ob))))
-              idx (or idx (get (:iden->invoke-idx ctx) v))
-              ;; _ (prn k '-> idx)
-              ;; _ (prn k '-> v)
+        (let [idx (or (get (:iden->invoke-idx ctx) v)
+                      (let [oi (:outer-idens ctx)
+                            ob (oi v)]
+                        (update-parents ctx (:closure-bindings ctx) ob)))
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (ctx-fn
                            (fn [_ctx ^objects bindings]
-                             (aget bindings idx)
-                             #_(eval/resolve-symbol bindings k))
+                             (aget bindings idx))
                            nil
                            (if tag
                              (vary-meta k assoc :tag tag)
