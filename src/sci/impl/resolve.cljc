@@ -99,30 +99,28 @@
   ":syms = closed over values"
   [ctx closure-bindings ob]
   (let [parents (:parents ctx)
+        ;; _ (prn :parents parents)
         ;; TODO: we can make an explicit counter here
         ;; TODO: minor - we can shortcut when we detect a sym was already added on the lowest level
         ;; But then we'd have to start on the lowest level, which is fine too.
         new-cb (vswap! closure-bindings
                        (fn [cb]
                          (first (reduce
-                                 (fn [[acc path] entry]
-                                   (let [path (conj path entry)
-                                         path-syms path]
-                                     [(update-in acc path-syms
-                                                 (fn [entry]
-                                                   (let [iden->invoke-idx (or (:syms entry)
-                                                                       {})
-                                                         iden->invoke-idx (if (contains? iden->invoke-idx ob)
-                                                                     iden->invoke-idx
-                                                                     ;; TODO: offset depends on the amount of params at this level!
-                                                                     (assoc iden->invoke-idx ob (count iden->invoke-idx)))]
-                                                     (assoc entry :syms iden->invoke-idx))))
-                                      path]))
-                                 [cb []]
-                                 parents))))
-        ;; TODO: closure-idx also depends on new let bindings introduced in the
-        ;; body of a function, so we'll have to keep a separate counter for this
-        ;; let's try without let first, shall we?
+                                 (fn [[acc path] _idx]
+                                   ;; (prn _idx)
+                                   [(update-in acc path
+                                               (fn [entry]
+                                                 (let [iden->invoke-idx (or (:syms entry)
+                                                                            {})
+                                                       iden->invoke-idx (if (contains? iden->invoke-idx ob)
+                                                                          iden->invoke-idx
+                                                                          ;; TODO: offset depends on the amount of params at this level!
+                                                                          (assoc iden->invoke-idx ob (count iden->invoke-idx)))]
+                                                   (assoc entry :syms iden->invoke-idx))))
+                                    (-> path pop pop)])
+                                 [cb
+                                  parents]
+                                 (range (/ (count parents) 2))))))
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 

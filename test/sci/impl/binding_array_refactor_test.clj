@@ -43,3 +43,6 @@
 
 (deftest varargs-test
   (is (nil? (sci/eval-string "(defn foo [x y & xs] xs) (foo 1 2)"))))
+
+(deftest top-level-non-seq-test
+  (is (= {:a 1} (sci/eval-string "{:a (let [x 1] x)}"))))

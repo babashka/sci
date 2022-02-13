@@ -368,6 +368,7 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens-by-arity (get-in @closure-bindings parents)
+        ;; _ (prn :cb-idens-by-arity cb-idens-by-arity)
         cb-idens (apply merge (map :syms (vals cb-idens-by-arity)))
         cb-idens-count (count cb-idens)
         self-ref? (when fn-name (contains? cb-idens fn-id))

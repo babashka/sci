@@ -27,12 +27,12 @@
           ret))
       (let [;; take care of invocation array for let
             upper-sym (gensym)
-            cb (volatile! {upper-sym {:syms {}}})
+            cb (volatile! {upper-sym {0 {:syms {}}}})
             ctx (assoc ctx
-                       :parents [upper-sym]
+                       :parents [upper-sym 0]
                        :closure-bindings cb)
             analyzed (ana/analyze ctx form true)
-            binding-array-size (count (get-in @cb [upper-sym :syms]))
+            binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
             bindings (object-array binding-array-size)
             ret (if (instance? #?(:clj sci.impl.types.EvalForm
                                   :cljs sci.impl.types/EvalForm) analyzed)
@@ -40,12 +40,16 @@
                   (eval/eval ctx bindings analyzed))]
         ret))
     (let [upper-sym (gensym)
-          cb (volatile! {upper-sym {:syms {}}})
+          cb (volatile! {upper-sym {0 {:syms {}}}})
           ctx (assoc ctx
-                     :parents [upper-sym]
+                     :parents [upper-sym 0]
                      :closure-bindings cb)
           analyzed (ana/analyze ctx form)
-          ret (eval/eval ctx nil analyzed)]
+          binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
+          bindings (object-array binding-array-size)
+          ;; TODO: should we make an enclosed binding here as well? I guess this can fail!:
+          ;; {:a (let [x 1] x)}
+          ret (eval/eval ctx bindings analyzed)]
       ret)))
 
 (vreset! utils/eval-form-state eval-form)
