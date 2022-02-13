@@ -49,21 +49,29 @@
   ([n]
    `(gen-fn ~n false))
   ([n disable-arity-checks]
+   `(gen-fn ~n ~disable-arity-checks false))
+  ([n disable-arity-checks varargs]
    (if (zero? n)
-     `(fn ~'arity-0 []
-        ~@(? :cljs
-             (when-not disable-arity-checks
-               `[(when-not (zero? (.-length (~'js-arguments)))
-                   (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
-        (let [~'invoc-array (object-array ~'invoc-size)
-              ;; _# (prn :enclosed ~'fn-name (vec ~'enclosed-array))
-              _# (when ~'enclosed->invocation
-                   (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-              ret# (eval/eval ~'ctx ~'invoc-array ~'body)
-              recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
-          (if recur?# (recur) ret#)))
+     (let [varargs-param (when varargs (gensym))]
+       `(fn ~'arity-0 ~(cond-> []
+                         varargs (conj '& varargs-param))
+          ~@(? :cljs
+               (when-not disable-arity-checks
+                 `[(when-not (zero? (.-length (~'js-arguments)))
+                     (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
+          (let [~'invoc-array (object-array ~'invoc-size)]
+            (when ~'enclosed->invocation
+              (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+            ~@(when varargs
+                [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+            (loop []
+              (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
+                (if (kw-identical? :sci.impl.analyzer/recur ret#)
+                  (recur)
+                  ret#))))))
      (let [locals (repeatedly n gensym)
            fn-params (vec (repeatedly n gensym))
+           varargs-param (when varargs (gensym))
            rnge (range n)
            nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
            let-vec (vec (mapcat (fn [local ith]
@@ -73,15 +81,18 @@
                                          {:tag 'objects}) ~idx ~fn-param))
                              fn-params (range)))]
        `(let ~let-vec
-          (fn ~(symbol (str "arity-" n)) ~fn-params
+          (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
+                                            varargs (conj '& varargs-param))
             ~@(? :cljs
                  (when-not disable-arity-checks
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
             (let [~'invoc-array (object-array ~'invoc-size)]
               (when ~'enclosed->invocation
-                   (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
               ~asets
+              ~@(when varargs
+                  [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
               (loop []
                 (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
                   (if (kw-identical? :sci.impl.analyzer/recur ret#)
@@ -91,29 +102,6 @@
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
     (pprint/pprint (macroexpand '(gen-run-fn 2))))
-
-(defmacro gen-fn-varargs []
-  `(let [param-idx# (.indexOf ~(with-meta 'params
-                                 {:tag 'clojure.lang.APersistentVector}) '&)
-         fixed-params# (take param-idx# ~'params)
-         var-arg-param# (last ~'params)]
-     (fn ~'varargs [& args#]
-       (let [fixed# (take param-idx# args#)
-             ~'invoc-array (object-array ~'invoc-size)]
-         (when (< (count fixed#) param-idx#)
-           (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? args# param-idx#))
-         (when ~'enclosed->invocation
-           (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-         (run! (fn [idx#]
-                 ;; TODO this can be heavily optimized
-                 (aset ~'invoc-array idx# (nth args# idx#)))
-               (range param-idx#))
-         (aset ~'invoc-array param-idx# (seq (drop param-idx# args#)))
-         (loop []
-           (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
-             (if (kw-identical? :sci.impl.analyzer/recur ret#)
-               (recur)
-               ret#)))))))
 
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
@@ -133,18 +121,103 @@
         self-ref-idx (:self-ref-idx fn-body)
         #_:clj-kondo/ignore nsm (vars/current-ns-name)
         disable-arity-checks? (get-2 ctx :disable-arity-checks)
+        vararg-idx (:vararg-idx fn-body)
         ;; body-count (count body)
-        f (if-not #?(:clj var-arg-name
-                     :cljs var-arg-name)
+        f (if vararg-idx
             (case (int fixed-arity)
-              0 #?(:clj (gen-fn 0)
+              0 #?(:clj (gen-fn 0 true true)
                    :cljs (if disable-arity-checks?
-                           (gen-fn 0 true)
-                           (gen-fn 0 false)))
-              1 #?(:clj (gen-fn 1)
+                           (gen-fn 0 true true)
+                           (gen-fn 0 false true)))
+              1 #?(:clj (gen-fn 1 true true)
                    :cljs (if disable-arity-checks?
-                           (gen-fn 1 true)
-                           (gen-fn 1 false)))
+                           (gen-fn 1 true true)
+                           (gen-fn 1 false true)))
+              2 #?(:clj (gen-fn 2 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 2 true true)
+                           (gen-fn 2 false true)))
+              3 #?(:clj (gen-fn 3 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 3 true true)
+                           (gen-fn 3 false true)))
+              4 #?(:clj (gen-fn 4 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 4 true true)
+                           (gen-fn 4 false true)))
+              5 #?(:clj (gen-fn 5 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 5 true true)
+                           (gen-fn 5 false true)))
+              6 #?(:clj (gen-fn 6 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 6 true true)
+                           (gen-fn 6 false true)))
+              7 #?(:clj (gen-fn 7 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 7 true true)
+                           (gen-fn 7 false true)))
+              8 #?(:clj (gen-fn 8 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 8 true true)
+                           (gen-fn 8 false true)))
+              9 #?(:clj (gen-fn 9 true true)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 9 true true)
+                           (gen-fn 9 false true)))
+              10 #?(:clj (gen-fn 10 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 10 true true)
+                            (gen-fn 10 false true)))
+              11 #?(:clj (gen-fn 11 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 11 true true)
+                            (gen-fn 11 false true)))
+              12 #?(:clj (gen-fn 12 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 12 true true)
+                            (gen-fn 12 false true)))
+              13 #?(:clj (gen-fn 13 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 13 true true)
+                            (gen-fn 13 false true)))
+              14 #?(:clj (gen-fn 14 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 15 true true)
+                            (gen-fn 15 false true)))
+              15 #?(:clj (gen-fn 15 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 15 true true)
+                            (gen-fn 15 false true)))
+              16 #?(:clj (gen-fn 16 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 16 true true)
+                            (gen-fn 16 false true)))
+              17 #?(:clj (gen-fn 17 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 17 true true)
+                            (gen-fn 17 false true)))
+              18 #?(:clj (gen-fn 18 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 18 true true)
+                            (gen-fn 18 false true)))
+              19 #?(:clj (gen-fn 19 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 19 true true)
+                            (gen-fn 19 false true)))
+              20 #?(:clj (gen-fn 20 true true)
+                    :cljs (if disable-arity-checks?
+                            (gen-fn 20 true true)
+                            (gen-fn 20 false true))))
+            (case (int fixed-arity)
+              0 #?(:clj (gen-fn 0 vararg-idx)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 0 true vararg-idx)
+                           (gen-fn 0 false vararg-idx)))
+              1 #?(:clj (gen-fn 1 vararg-idx)
+                   :cljs (if disable-arity-checks?
+                           (gen-fn 1 true vararg-idx)
+                           (gen-fn 1 false vararg-idx)))
               2 #?(:clj (gen-fn 2)
                    :cljs (if disable-arity-checks?
                            (gen-fn 2 true)
@@ -220,9 +293,7 @@
               20 #?(:clj (gen-fn 20)
                     :cljs (if disable-arity-checks?
                             (gen-fn 20 true)
-                            (gen-fn 20 false)))
-              (gen-fn-varargs))
-            (gen-fn-varargs))]
+                            (gen-fn 20 false)))))]
     f))
 
 (defn lookup-by-arity [arities arity]

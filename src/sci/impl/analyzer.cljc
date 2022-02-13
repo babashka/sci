@@ -293,7 +293,7 @@
                       var-arg-name (conj var-arg-name))
         ctx (assoc ctx :params param-names)
         param-count (count param-names)
-        param-idens (take param-count (repeatedly gensym))
+        param-idens (repeatedly param-count gensym)
         param-bindings (zipmap param-names param-idens)
         iden->invoke-idx (zipmap param-idens (range))
         bindings (:bindings ctx)
@@ -304,7 +304,9 @@
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         body (return-do (with-recur-target ctx true) fn-expr body)
         iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
-    (->FnBody params body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)))
+    (cond-> (->FnBody params body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
+      var-arg-name
+      (assoc :vararg-idx (get iden->invoke-idx (last param-idens))))))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
