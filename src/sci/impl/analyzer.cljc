@@ -336,9 +336,9 @@
                             (assoc-in [:bindings fn-name] fn-id))
                 ctx)
         bindings (:bindings ctx)
-        binding-vals (set (vals bindings))
+        bound-idens (set (vals bindings))
         ;; reverse-bindings (zipmap binding-vals (keys bindings))
-        ctx (assoc ctx :outer-idens binding-vals)
+        ctx (assoc ctx :outer-idens bound-idens)
         closure-bindings (:closure-bindings ctx)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
@@ -365,37 +365,40 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens-by-arity (get-in @closure-bindings parents)
+        ;; all let-bound idens + closed over idens
         cb-idens (apply merge (map :syms (vals cb-idens-by-arity)))
         self-ref? (when fn-name (contains? cb-idens fn-id))
-        closure-binding-idens (filter binding-vals (keys cb-idens))
-        ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
-        ;; idens to indexes in the passed bindings
-        ;; iden->invoke-idx (:iden->invoke-idx ctx)
+        ;; all closed over idens
+        closed-over-idens (filter bound-idens (keys cb-idens))
         iden->invoke-idx (get-in @closure-bindings (conj (pop parents) :syms))
-        ;;_ (prn :par parent-iden->invoke-idx)
-        ;; this represents the indexes of enclosed values in old bindings
+        ;; this represents the indices of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
-        enclosed-iden->binding-idx (when iden->invoke-idx (zipmap closure-binding-idens (mapv iden->invoke-idx closure-binding-idens)))
+        closed-over-iden->binding-idx (when iden->invoke-idx
+                                        (zipmap closed-over-idens
+                                                (mapv iden->invoke-idx closed-over-idens)))
         ;; here we decide which iden will be installed in which index in the enclosed array
-        closure-binding-cnt (count closure-binding-idens)
-        iden->enclosed-idx (zipmap closure-binding-idens (range closure-binding-cnt))
+        closed-over-cnt (count closed-over-idens)
+        iden->enclosed-idx (zipmap closed-over-idens (range closed-over-cnt))
         iden->enclosed-idx (if fn-name
-                             (assoc iden->enclosed-idx fn-id closure-binding-cnt)
+                             (assoc iden->enclosed-idx fn-id closed-over-cnt)
                              iden->enclosed-idx)
         enclosed-array-fn
-        (if (or self-ref? (seq enclosed-iden->binding-idx))
-          (let [enclosed-array-cnt (cond-> (count enclosed-iden->binding-idx)
-                                     fn-name (inc))]
+        (if (or self-ref? (seq closed-over-iden->binding-idx))
+          (let [enclosed-array-cnt (cond-> closed-over-cnt
+                                     fn-name (inc))
+                binding->enclosed (vec (keep (fn [iden]
+                                     ;; for fn-id usage there is no outer binding idx
+                                      (when-let [binding-idx (get iden->invoke-idx iden)]
+                                        (let [enclosed-idx (get iden->enclosed-idx iden)]
+                                          ;; (prn :copying binding-idx '-> enclosed-idx)
+                                          [binding-idx enclosed-idx])))
+                                             closed-over-idens))]
             (fn [^objects bindings]
               (let [enclosed-array (object-array enclosed-array-cnt)]
-                (run! (fn [iden]
-                        ;; for fn-id usage there is no outer binding idx
-                        (when-let [binding-idx (get iden->invoke-idx iden)]
-                          (let [enclosed-idx (get iden->enclosed-idx iden)]
-                            ;; (prn :copying binding-idx '-> enclosed-idx)
-                            (aset enclosed-array enclosed-idx
-                                  (aget bindings binding-idx)))))
-                      closure-binding-idens)
+                (run! (fn [[binding-idx enclosed-idx]]
+                        (aset enclosed-array enclosed-idx
+                              (aget bindings binding-idx)))
+                      binding->enclosed)
                 enclosed-array)))
           (constantly nil))
         bodies (:bodies analyzed-bodies)
@@ -409,7 +412,7 @@
                                           ;; no idx means iden not used
                                           (when-let [invocation-idx (iden->invocation-idx iden)]
                                             [(iden->enclosed-idx iden) invocation-idx]))
-                                        closure-binding-idens))]
+                                        closed-over-idens))]
                          (assoc body
                                 :invoc-size (count iden->invocation-idx)
                                 :invocation-self-idx invocation-self-idx
