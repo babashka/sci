@@ -1,13 +1,12 @@
 (ns sci.impl.fns
   {:no-doc true}
   (:require [sci.impl.evaluator :as eval]
-            [sci.impl.faster :refer [nth-2 assoc-3 get-2]]
+            [sci.impl.faster :refer [nth-2 get-2]]
             [sci.impl.macros :as macros :refer [?]]
             [sci.impl.types :as t]
             [sci.impl.utils :as utils :refer [kw-identical?]]
             [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn
-                                                  gen-fn-varargs]])))
+  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -56,8 +55,9 @@
        `(fn ~'arity-0 ~(cond-> []
                          varargs (conj '& varargs-param))
           ~@(? :cljs
-               (when-not disable-arity-checks
-                 `[(when-not (zero? (.-length (~'js-arguments)))
+               (when (and (not disable-arity-checks)
+                          (not varargs))
+                 `[(when-not `(zero? (.-length (~'js-arguments)))
                      (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
           (let [~'invoc-array (object-array ~'invoc-size)]
             (when ~'enclosed->invocation
@@ -85,7 +85,9 @@
                                             varargs (conj '& varargs-param))
             ~@(? :cljs
                  (when-not disable-arity-checks
-                   `[(when-not (= ~n (.-length (~'js-arguments)))
+                   `[(when-not ~(if varargs
+                                  `(>= (.-length (~'js-arguments)) ~n)
+                                  `(= (.-length (~'js-arguments)) ~n))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
             (let [~'invoc-array (object-array ~'invoc-size)]
               (when ~'enclosed->invocation
@@ -212,12 +214,12 @@
             (case (int fixed-arity)
               0 #?(:clj (gen-fn 0 vararg-idx)
                    :cljs (if disable-arity-checks?
-                           (gen-fn 0 true vararg-idx)
-                           (gen-fn 0 false vararg-idx)))
+                           (gen-fn 0 true)
+                           (gen-fn 0 false)))
               1 #?(:clj (gen-fn 1 vararg-idx)
                    :cljs (if disable-arity-checks?
-                           (gen-fn 1 true vararg-idx)
-                           (gen-fn 1 false vararg-idx)))
+                           (gen-fn 1 true)
+                           (gen-fn 1 false)))
               2 #?(:clj (gen-fn 2)
                    :cljs (if disable-arity-checks?
                            (gen-fn 2 true)
