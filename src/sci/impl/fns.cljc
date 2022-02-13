@@ -57,12 +57,8 @@
                    (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
         (let [~'invoc-array (object-array ~'invoc-size)
               ;; _# (prn :enclosed ~'fn-name (vec ~'enclosed-array))
-              _# (run! (fn [[enclosed-idx# invocation-idx#]]
-                         ;; (prn ~'fn-name :enc->invoc enclosed-idx# invocation-idx#)
-                         (aset ~'invoc-array invocation-idx#
-                               (nth ~'enclosed-array enclosed-idx#)))
-                       ~'enclosed->invocation)
-              ;; _# (prn :invoc ~'fn-name (vec ~'invoc-array))
+              _# (when ~'enclosed->invocation
+                   (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
               ret# (eval/eval ~'ctx ~'invoc-array ~'body)
               recur?# (kw-identical? :sci.impl.analyzer/recur ret#)]
           (if recur?# (recur) ret#)))
@@ -83,11 +79,8 @@
                    `[(when-not (= ~n (.-length (~'js-arguments)))
                        (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) ~n))]))
             (let [~'invoc-array (object-array ~'invoc-size)]
-              (run! (fn [[enclosed-idx# invocation-idx#]]
-                      ;; (prn :enc (vec ~'enclosed-array) enclosed-idx# '-> invocation-idx#)
-                      (aset ~'invoc-array invocation-idx#
-                            (nth ~'enclosed-array enclosed-idx#)))
-                    ~'enclosed->invocation)
+              (when ~'enclosed->invocation
+                   (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
               ~asets
               (loop []
                 (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
@@ -109,10 +102,8 @@
              ~'invoc-array (object-array ~'invoc-size)]
          (when (< (count fixed#) param-idx#)
            (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? args# param-idx#))
-         (run! (fn [[enclosed-idx# invocation-idx#]]
-                 (aset ~'invoc-array invocation-idx#
-                       (nth ~'enclosed-array enclosed-idx#)))
-               ~'enclosed->invocation)
+         (when ~'enclosed->invocation
+           (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
          (run! (fn [idx#]
                  ;; TODO this can be heavily optimized
                  (aset ~'invoc-array idx# (nth args# idx#)))
@@ -133,7 +124,7 @@
    #_:clj-kondo/ignore macro?]
   (let [#_:clj-kondo/ignore
         fixed-arity (:fixed-arity fn-body)
-        enclosed->invocation (:enclosed->invocation fn-body)
+        enclosed->invocation (:copy-enclosed->invocation fn-body)
         var-arg-name (:var-arg-name fn-body)
         #_:clj-kondo/ignore
         params (:params fn-body)

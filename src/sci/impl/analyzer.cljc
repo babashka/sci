@@ -410,17 +410,27 @@
                        (let [iden->invocation-idx (:iden->invoke-idx body)
                              invocation-self-idx (:self-ref-idx body)
                              enclosed->invocation
-                             (vec (keep (fn [iden]
-                                          ;; (prn :iden iden 'invoc-idx-> (iden->invocation-idx iden))
-                                          ;; (prn (:orig body))
-                                          ;; no idx means iden not used
-                                          (when-let [invocation-idx (iden->invocation-idx iden)]
-                                            [(iden->enclosed-idx iden) invocation-idx]))
-                                        closed-over-idens))]
+                             (into-array (keep (fn [iden]
+                                                 (when-let [invocation-idx (iden->invocation-idx iden)]
+                                                   (doto (object-array 2)
+                                                     (aset 0 (iden->enclosed-idx iden))
+                                                     (aset 1 invocation-idx))))
+                                               closed-over-idens))
+                             invoc-size (count iden->invocation-idx)
+                             copy-enclosed->invocation
+                             (when (pos? (alength ^objects enclosed->invocation))
+                               (fn [^objects enclosed-array ^objects invoc-array]
+                                 (areduce ^objects enclosed->invocation idx ret invoc-array
+                                          (let [^objects idxs (aget ^objects enclosed->invocation idx)
+                                                enclosed-idx (aget ^objects  idxs 0)
+                                                enclosed-val (aget ^objects enclosed-array enclosed-idx)
+                                                invoc-idx (aget idxs 1)]
+                                            (aset ^objects ret invoc-idx enclosed-val)
+                                            ret))))]
                          (assoc body
-                                :invoc-size (count iden->invocation-idx)
+                                :invoc-size invoc-size
                                 :invocation-self-idx invocation-self-idx
-                                :enclosed->invocation enclosed->invocation)))
+                                :copy-enclosed->invocation copy-enclosed->invocation)))
                      bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
