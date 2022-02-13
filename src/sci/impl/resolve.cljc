@@ -110,13 +110,13 @@
                                          path-syms path]
                                      [(update-in acc path-syms
                                                  (fn [entry]
-                                                   (let [iden->idx (or (:syms entry)
+                                                   (let [iden->invoke-idx (or (:syms entry)
                                                                        {})
-                                                         iden->idx (if (contains? iden->idx ob)
-                                                                     iden->idx
+                                                         iden->invoke-idx (if (contains? iden->invoke-idx ob)
+                                                                     iden->invoke-idx
                                                                      ;; TODO: offset depends on the amount of params at this level!
-                                                                     (assoc iden->idx ob (count iden->idx)))]
-                                                     (assoc entry :syms iden->idx))))
+                                                                     (assoc iden->invoke-idx ob (count iden->invoke-idx)))]
+                                                     (assoc entry :syms iden->invoke-idx))))
                                       path]))
                                  [cb []]
                                  parents))))
@@ -139,7 +139,7 @@
                     (when-let [oi (:outer-idens ctx)]
                       (when-let [ob (oi v)]
                         (update-parents ctx cb ob))))
-              idx (or idx (get (:iden->idx ctx) v))
+              idx (or idx (get (:iden->invoke-idx ctx) v))
               ;; _ (prn k '-> idx)
               ;; _ (prn k '-> v)
               v (if call? ;; resolve-symbol is already handled in the call case

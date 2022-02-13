@@ -295,18 +295,18 @@
         param-count (count param-names)
         param-idens (take param-count (repeatedly gensym))
         param-bindings (zipmap param-names param-idens)
-        iden->idx (zipmap param-idens (range))
+        iden->invoke-idx (zipmap param-idens (range))
         bindings (:bindings ctx)
         ctx (assoc ctx :bindings (merge bindings param-bindings))
-        ctx (assoc ctx :iden->idx iden->idx)
+        ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
         ctx (update ctx :parents conj fixed-arity)
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         body (return-do (with-recur-target ctx true) fn-expr body)
-        iden->idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
+        iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (assoc
       (->FnBody params body fixed-arity var-arg-name)
-      :iden->idx iden->idx
+      :iden->invoke-idx iden->invoke-idx
       :self-ref-idx self-ref-idx)))
 
 (defn analyzed-fn-meta [ctx m]
@@ -374,12 +374,12 @@
         closure-binding-idens (filter binding-vals (keys cb-idens))
         ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
         ;; idens to indexes in the passed bindings
-        ;; iden->idx (:iden->idx ctx)
-        iden->idx (get-in @closure-bindings (conj (pop parents) :syms))
-        ;;_ (prn :par parent-iden->idx)
+        ;; iden->invoke-idx (:iden->invoke-idx ctx)
+        iden->invoke-idx (get-in @closure-bindings (conj (pop parents) :syms))
+        ;;_ (prn :par parent-iden->invoke-idx)
         ;; this represents the indexes of enclosed values in old bindings
         ;; we need to copy those to a new array, the enclosed-array
-        enclosed-iden->binding-idx (when iden->idx (zipmap closure-binding-idens (mapv iden->idx closure-binding-idens)))
+        enclosed-iden->binding-idx (when iden->invoke-idx (zipmap closure-binding-idens (mapv iden->invoke-idx closure-binding-idens)))
         ;; here we decide which iden will be installed in which index in the enclosed array
         closure-binding-cnt (count closure-binding-idens)
         iden->enclosed-idx (zipmap closure-binding-idens (range closure-binding-cnt))
@@ -393,7 +393,7 @@
                           (let [enclosed-array (object-array closure-cnt)]
                             (run! (fn [iden]
                                     ;; for fn-id usage there is no outer binding idx
-                                    (if-let [binding-idx (get iden->idx iden)]
+                                    (if-let [binding-idx (get iden->invoke-idx iden)]
                                       (let [enclosed-idx (get iden->enclosed-idx iden)]
                                         ;; (prn :copying binding-idx '-> enclosed-idx)
                                         (aset enclosed-array enclosed-idx
@@ -408,7 +408,7 @@
                       (constantly nil))
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
-                       (let [iden->invocation-idx (:iden->idx body)
+                       (let [iden->invocation-idx (:iden->invoke-idx body)
                              invocation-self-idx (:self-ref-idx body)
                              enclosed->invocation
                              (vec (keep (fn [iden]
@@ -472,10 +472,10 @@
         new-cb (vswap! closure-bindings
                        (fn [cb]
                          (update-in cb (conj parents :syms)
-                                    (fn [iden->idx]
-                                      (if (contains? iden->idx ob)
-                                        iden->idx
-                                        (assoc iden->idx ob (+ #_arity (count iden->idx))))))))
+                                    (fn [iden->invoke-idx]
+                                      (if (contains? iden->invoke-idx ob)
+                                        iden->invoke-idx
+                                        (assoc iden->invoke-idx ob (+ #_arity (count iden->invoke-idx))))))))
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
@@ -495,17 +495,17 @@
                  new-iden (gensym)
                  cb (:closure-bindings ctx)
                  idx (update-parents ctx cb new-iden)
-                 iden->idx (:iden->idx ctx)
-                 iden->idx (assoc iden->idx new-iden idx)
-                 ctx (assoc ctx :iden->idx iden->idx)]
+                 iden->invoke-idx (:iden->invoke-idx ctx)
+                 iden->invoke-idx (assoc iden->invoke-idx new-iden idx)
+                 ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)]
              [(update ctx :bindings assoc binding-name new-iden)
               (conj new-let-bindings binding-name v)
               (conj idens new-iden)]))
          [ctx [] []]
          (partition 2 destructured-let-bindings))
         body (return-do (with-recur-target ctx rt) expr exprs)
-        iden->idx (:iden->idx ctx)
-        idxs (mapv iden->idx idens)]
+        iden->invoke-idx (:iden->invoke-idx ctx)
+        idxs (mapv iden->invoke-idx idens)]
     ;; (prn :params params :idens idens :idxs idxs)
     (ctx-fn
      (fn [ctx bindings]
@@ -732,7 +732,7 @@
                                   ex-idx (update-parents ctx closure-bindings ex-iden)
                                   ctx (-> ctx
                                           (assoc-in [:bindings binding] ex-iden)
-                                          (assoc-in [:iden->idx ex-iden] ex-idx))
+                                          (assoc-in [:iden->invoke-idx ex-iden] ex-idx))
                                   analyzed-body (analyze ctx
                                                          (cons 'do body))]
                               {:class clazz
