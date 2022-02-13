@@ -365,9 +365,7 @@
                           :min-var-args nil
                           :max-fixed -1} bodies)
         cb-idens-by-arity (get-in @closure-bindings parents)
-        ;; _ (prn :cb-idens-by-arity cb-idens-by-arity)
         cb-idens (apply merge (map :syms (vals cb-idens-by-arity)))
-        cb-idens-count (count cb-idens)
         self-ref? (when fn-name (contains? cb-idens fn-id))
         closure-binding-idens (filter binding-vals (keys cb-idens))
         ;; _ (prn fn-name (:parents ctx) :closure-binding-idens closure-binding-idens)
@@ -415,11 +413,9 @@
                                           ;; no idx means iden not used
                                           (when-let [invocation-idx (iden->invocation-idx iden)]
                                             [(iden->enclosed-idx iden) invocation-idx]))
-                                        closure-binding-idens))
-                             params (:params body)
-                             param-count (count params)]
+                                        closure-binding-idens))]
                          (assoc body
-                                :invoc-size (+ param-count cb-idens-count)
+                                :invoc-size (count iden->invocation-idx)
                                 :invocation-self-idx invocation-self-idx
                                 :enclosed->invocation enclosed->invocation)))
                      bodies)
