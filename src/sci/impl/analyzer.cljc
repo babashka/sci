@@ -208,11 +208,11 @@
   []
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
-                                             [(symbol (str "arg" j))
-                                              `(nth ~'analyzed-children ~j)
-                                              (symbol (str "param" j))
-                                              `(nth ~'params ~j)])
-                                           (range i)))])
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)
+                                               (symbol (str "param" j))
+                                               `(nth ~'params ~j)])
+                                            (range i)))])
                           (range 1 20))]
     `(defn ~'return-recur
        ~'[ctx expr analyzed-children]
@@ -382,26 +382,22 @@
         iden->enclosed-idx (if fn-name
                              (assoc iden->enclosed-idx fn-id closure-binding-cnt)
                              iden->enclosed-idx)
-        bindings-fn (if (or self-ref? (seq enclosed-iden->binding-idx))
-                      (let [closure-cnt (cond-> (count enclosed-iden->binding-idx)
-                                          fn-name (inc))]
-                        (fn [^objects bindings]
-                          (let [enclosed-array (object-array closure-cnt)]
-                            (run! (fn [iden]
-                                    ;; for fn-id usage there is no outer binding idx
-                                    (if-let [binding-idx (get iden->invoke-idx iden)]
-                                      (let [enclosed-idx (get iden->enclosed-idx iden)]
-                                        ;; (prn :copying binding-idx '-> enclosed-idx)
-                                        (aset enclosed-array enclosed-idx
-                                              (aget bindings binding-idx)))
-                                      ;; (prn :no-idx fn-name iden)
-                                      ))
-                                  closure-binding-idens)
-                            ;; (prn :enclosed-after-set (vec enclosed-array))
-                            ;; TODO: in fns, set self-ref to last idx of enclosed
-                            enclosed-array)))
-                      ;; no closure bindings, bindings was empty anyways
-                      (constantly nil))
+        enclosed-array-fn
+        (if (or self-ref? (seq enclosed-iden->binding-idx))
+          (let [enclosed-array-cnt (cond-> (count enclosed-iden->binding-idx)
+                                     fn-name (inc))]
+            (fn [^objects bindings]
+              (let [enclosed-array (object-array enclosed-array-cnt)]
+                (run! (fn [iden]
+                        ;; for fn-id usage there is no outer binding idx
+                        (when-let [binding-idx (get iden->invoke-idx iden)]
+                          (let [enclosed-idx (get iden->enclosed-idx iden)]
+                            ;; (prn :copying binding-idx '-> enclosed-idx)
+                            (aset enclosed-array enclosed-idx
+                                  (aget bindings binding-idx)))))
+                      closure-binding-idens)
+                enclosed-array)))
+          (constantly nil))
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
                        (let [iden->invocation-idx (:iden->invoke-idx body)
@@ -431,7 +427,7 @@
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta
-                          :bindings-fn bindings-fn}]
+                          :bindings-fn enclosed-array-fn}]
     struct))
 
 (defn fn-ctx-fn [_ctx struct fn-meta]
