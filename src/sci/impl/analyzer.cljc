@@ -297,12 +297,8 @@
         param-bindings (zipmap param-names param-idens)
         iden->idx (zipmap param-idens (range))
         bindings (:bindings ctx)
-        ;; :param-maps is only needed when we're detecting :closure-bindings
-        ;; in sci.impl.resolve
         ctx (assoc ctx :bindings (merge bindings param-bindings))
-        ctx (assoc ctx :iden->idx (merge (:iden->idx ctx) iden->idx))
-        ;; FIXME: we're replacing syms of the previous overload here...
-        ;; We should go back to storing per arity
+        ctx (assoc ctx :iden->idx iden->idx)
         ctx (update ctx :parents conj fixed-arity)
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
