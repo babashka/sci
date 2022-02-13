@@ -386,20 +386,24 @@
         (if (or self-ref? (seq closed-over-iden->binding-idx))
           (let [enclosed-array-cnt (cond-> closed-over-cnt
                                      fn-name (inc))
-                binding->enclosed (vec (keep (fn [iden]
-                                     ;; for fn-id usage there is no outer binding idx
-                                      (when-let [binding-idx (get iden->invoke-idx iden)]
-                                        (let [enclosed-idx (get iden->enclosed-idx iden)]
-                                          ;; (prn :copying binding-idx '-> enclosed-idx)
-                                          [binding-idx enclosed-idx])))
-                                             closed-over-idens))]
+                ^objects binding->enclosed
+                (into-array (keep (fn [iden]
+                                    ;; for fn-id usage there is no outer binding idx
+                                    (when-let [binding-idx (get iden->invoke-idx iden)]
+                                      (let [enclosed-idx (get iden->enclosed-idx iden)]
+                                        ;; (prn :copying binding-idx '-> enclosed-idx)
+                                        (doto (object-array 2)
+                                          (aset 0 binding-idx)
+                                          (aset 1 enclosed-idx)))))
+                                  closed-over-idens))]
             (fn [^objects bindings]
-              (let [enclosed-array (object-array enclosed-array-cnt)]
-                (run! (fn [[binding-idx enclosed-idx]]
-                        (aset enclosed-array enclosed-idx
-                              (aget bindings binding-idx)))
-                      binding->enclosed)
-                enclosed-array)))
+              (areduce binding->enclosed idx ret (object-array enclosed-array-cnt)
+                       (let [^objects idxs (aget binding->enclosed idx)
+                             binding-idx (aget idxs 0)
+                             binding-val (aget bindings binding-idx)
+                             enclosed-idx (aget idxs 1)]
+                         (aset ret enclosed-idx binding-val)
+                         ret))))
           (constantly nil))
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
