@@ -1237,6 +1237,7 @@
                                      (eval/eval-static-method-invocation ctx bindings (cons f children)))
                                    expr)))
                       (and (not eval?) ;; the symbol is not a binding
+                           (symbol? f)
                            (or
                             special-sym
                             (contains? ana-macros f)))
