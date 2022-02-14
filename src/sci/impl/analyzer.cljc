@@ -316,9 +316,6 @@
               m)]
     m))
 
-(defn get-closure-bindings [reverse-bindings x]
-  (map reverse-bindings (:syms x)))
-
 (defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
