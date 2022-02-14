@@ -2,8 +2,10 @@
   {:no-doc true}
   (:refer-clojure :exclude [eval])
   (:require [clojure.string :as str]
+            [sci.impl.macros :as macros]
             [sci.impl.types :as t]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars])
+  #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical?]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -13,8 +15,10 @@
 (defn constant? [x]
   (or (number? x) (string? x) (keyword? x) (boolean? x)))
 
-;; TODO: this can become a macro, so we hit the intrinsic in the compiler
-(def kw-identical? #?(:clj identical? :cljs keyword-identical?))
+(defmacro kw-identical? [k v]
+  (macros/?
+   :clj `(identical? ~k ~v)
+   :cljs `(cljs.core/keyword-identical? ~k ~v)))
 
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
