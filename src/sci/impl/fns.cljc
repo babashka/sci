@@ -57,7 +57,7 @@
           ~@(? :cljs
                (when (and (not disable-arity-checks)
                           (not varargs))
-                 `[(when-not `(zero? (.-length (~'js-arguments)))
+                 `[(when-not (zero? (.-length (~'js-arguments)))
                      (throw-arity ~'ctx ~'nsm ~'fn-name ~'macro? (vals (~'js->clj (~'js-arguments))) 0))]))
           (let [~'invoc-array (object-array ~'invoc-size)]
             (when ~'enclosed->invocation
