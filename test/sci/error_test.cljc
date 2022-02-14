@@ -57,20 +57,20 @@
                formatted))))))
 
 #_(deftest locals-test
-  (testing "defn does not introduce fn-named local binding"
-    (let [locals
-          (try (eval-string "(defn foo [x] (subs nil 0)) (foo :x)")
-               (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
-                 (:locals (ex-data e))))
-          ks (keys locals)]
-      (is (= '[x] ks)))))
+    (testing "defn does not introduce fn-named local binding"
+      (let [locals
+            (try (eval-string "(defn foo [x] (subs nil 0)) (foo :x)")
+                 (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
+                   (:locals (ex-data e))))
+            ks (keys locals)]
+        (is (= '[x] ks)))))
 
-(deftest arity-error-test
-  (testing "The name of the correct function is reported"
-    (is (thrown-with-msg?
-         #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
-         #"Wrong number of args \(0\) passed to: foo/echo-msg"
-         (eval-string "
+#?(:clj (deftest arity-error-test
+          (testing "The name of the correct function is reported"
+            (is (thrown-with-msg?
+                 #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+                 #"Wrong number of args \(0\) passed to: foo/echo-msg"
+                 (eval-string "
 (ns foo)
 
 (defn echo-msg [msg]
@@ -81,23 +81,24 @@
 (defn main []
   (foo/echo-msg))  ;; called with the wrong arity
 
-(main)")))))
+(main)"))))))
 
-(deftest arity-error-hof-test
-  (testing "apply is not reported when higher order argument causes arity error"
-    (is (thrown-with-msg?
-         #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
-         #"Wrong number of args \(1\) passed to: function of arity 0"
-         (eval-string "(apply (fn []) [1])")))
-    (is (thrown-with-msg?
-         #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
-         #"Wrong number of args \(3\) passed to: function of arity 1"
-         (eval-string "(apply (fn [_]) [1 2 3])")))
-    (testing "varargs"
-      (is (thrown-with-msg?
-           #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
-           #"Wrong number of args \(0\) passed to: function of arity 1"
-           (eval-string "(apply (fn [_ & xs]) [])"))))))
+#?(:clj
+   (deftest arity-error-hof-test
+     (testing "apply is not reported when higher order argument causes arity error"
+       (is (thrown-with-msg?
+            #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+            #"Wrong number of args \(1\) passed to: function of arity 0"
+            (eval-string "(apply (fn []) [1])")))
+       (is (thrown-with-msg?
+            #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+            #"Wrong number of args \(3\) passed to: function of arity 1"
+            (eval-string "(apply (fn [_]) [1 2 3])")))
+       (testing "varargs"
+         (is (thrown-with-msg?
+              #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
+              #"Wrong number of args \(0\) passed to: function of arity 1"
+              (eval-string "(apply (fn [_ & xs]) [])")))))))
 
 (deftest inherited-ex-data-is-encapsulated
   (testing "The original ex-data is encapsulated."

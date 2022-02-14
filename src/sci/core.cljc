@@ -205,10 +205,7 @@
 
   - `:env`: an atom with a map in which state from the
   evaluation (defined namespaced and vars) will be persisted for
-  re-use over multiple calls.
-
-  - `:disable-arity-checks`: disables arity checks for single-arity
-  functions."
+  re-use over multiple calls."
   ([s] (eval-string s nil))
   ([s opts]
    (i/eval-string s opts)))
