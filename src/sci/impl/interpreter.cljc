@@ -47,8 +47,6 @@
           analyzed (ana/analyze ctx form)
           binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
           bindings (object-array binding-array-size)
-          ;; TODO: should we make an enclosed binding here as well? I guess this can fail!:
-          ;; {:a (let [x 1] x)}
           ret (eval/eval ctx bindings analyzed)]
       ret)))
 
