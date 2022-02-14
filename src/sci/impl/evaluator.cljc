@@ -53,10 +53,11 @@
 
 (defn eval-let
   "The let macro from clojure.core"
-  [ctx bindings let-bindings exprs]
+  [ctx bindings let-bindings exprs idxs]
   (let [[ctx bindings] (loop [ctx ctx
                               bindings bindings
-                              let-bindings let-bindings]
+                              let-bindings let-bindings
+                              idx 0]
                          (let [let-name (first let-bindings)]
                            (if let-name
                              (let [let-bindings (rest let-bindings)
@@ -64,11 +65,12 @@
                                    rest-let-bindings (next let-bindings)
                                    v (eval ctx bindings let-val)
                                    ;; bindings (faster/get-2 ctx :bindings)
-                                   bindings (faster/assoc-3 bindings let-name v)
                                    ;; ctx (faster/assoc-3 ctx :bindings bindings)
                                    ]
+                               (aset ^objects bindings (nth idxs idx) v)
                                (recur ctx bindings
-                                      rest-let-bindings))
+                                      rest-let-bindings
+                                      (inc idx)))
                              [ctx bindings])))]
     (eval ctx bindings exprs)))
 
@@ -155,9 +157,8 @@
                                 :clj (instance? clazz e))
                          (reduced
                           [::try-result
-                           (eval ctx
-                                 (assoc bindings (:binding c) e)
-                                 (:body c))]))))
+                           (do (aset ^objects bindings (:ex-idx c) e)
+                               (eval ctx bindings (:body c)))]))))
                    nil
                    catches)]
         r

@@ -139,8 +139,7 @@
            :load-fn
            :readers
            :reify-fn
-           :proxy-fn
-           :disable-arity-checks]}]
+           :proxy-fn]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
@@ -152,7 +151,6 @@
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
-                   :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes ;; hold on for merge-opts
                    :class->opts (:class->opts classes)
@@ -169,9 +167,7 @@
                 :features
                 :load-fn
                 :readers
-                :reify-fn
-                :disable-arity-checks]
-         :or {disable-arity-checks (:disable-arity-checks ctx)}} opts
+                :reify-fn]} opts
         env (:env ctx)
         _ (init-env! env bindings aliases namespaces imports load-fn)
         raw-classes (merge (:raw-classes ctx) classes)
@@ -180,7 +176,6 @@
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
-                   :disable-arity-checks disable-arity-checks
                    :public-class (:public-class classes)
                    :raw-classes raw-classes
                    :class->opts (:class->opts classes)

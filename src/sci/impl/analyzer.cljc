@@ -208,11 +208,11 @@
   []
   (let [let-bindings (map (fn [i]
                             [i (vec (mapcat (fn [j]
-                                             [(symbol (str "arg" j))
-                                              `(nth ~'analyzed-children ~j)
-                                              (symbol (str "param" j))
-                                              `(nth ~'params ~j)])
-                                           (range i)))])
+                                              [(symbol (str "arg" j))
+                                               `(nth ~'analyzed-children ~j)
+                                               (symbol (str "param" j))
+                                               `(nth ~'params ~j)])
+                                            (range i)))])
                           (range 1 20))]
     `(defn ~'return-recur
        ~'[ctx expr analyzed-children]
@@ -223,18 +223,24 @@
            ~@(concat
               [0 `(ctx-fn
                    (fn [~'_ ~'bindings]
-                     (fns/->Recur ~'bindings))
+                     ::recur)
                    ~'expr)]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
                               (ctx-fn
                                (fn [~'ctx ~'bindings]
-                                 (fns/->Recur
-                                  (-> ~'bindings
-                                      ~@(map (fn [j]
-                                               `(assoc-3 ~(symbol (str "param" j))
-                                                         (eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))))
-                                             (range i)))))
+                                 ;; important, recur vals must be evaluated with old bindings!
+                                 (let [~@(mapcat (fn [j]
+                                                   [(symbol (str "eval-" j) )
+                                                    `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))])
+                                                 (range i))]
+                                   (do ~@(map (fn [j]
+                                                `(aset
+                                                  ~(with-meta 'bindings
+                                                     {:tag 'objects}) ~j
+                                                  ~(symbol (str "eval-" j))))
+                                              (range i))))
+                                 ::recur)
                                ~'expr))])
                       let-bindings)))))))
 
@@ -248,9 +254,11 @@
 (defn analyze-children [ctx children]
   (mapv #(analyze ctx %) children))
 
-(defrecord FnBody [params body fixed-arity var-arg-name])
+(defrecord FnBody [params body fixed-arity var-arg-name self-ref-idx iden->invoke-idx])
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro?]
+(declare update-parents)
+
+(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro? fn-name fn-id]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -284,13 +292,21 @@
         param-names (cond-> fixed-args
                       var-arg-name (conj var-arg-name))
         ctx (assoc ctx :params param-names)
-        param-bindings (zipmap param-names (repeatedly gensym))
+        param-count (count param-names)
+        param-idens (repeatedly param-count gensym)
+        param-bindings (zipmap param-names param-idens)
+        iden->invoke-idx (zipmap param-idens (range))
         bindings (:bindings ctx)
-        ;; :param-maps is only needed when we're detecting :closure-bindings
-        ;; in sci.impl.resolve
         ctx (assoc ctx :bindings (merge bindings param-bindings))
-        body (return-do (with-recur-target ctx true) fn-expr body)]
-    (->FnBody params body fixed-arity var-arg-name)))
+        ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
+        ctx (update ctx :parents conj fixed-arity)
+        _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
+        self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
+        body (return-do (with-recur-target ctx true) fn-expr body)
+        iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
+    (cond-> (->FnBody params body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
+      var-arg-name
+      (assoc :vararg-idx (get iden->invoke-idx (last param-idens))))))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -299,16 +315,6 @@
                                    (vary-meta assoc :sci.impl/op :eval))
               m)]
     m))
-
-(defn keep-closure-bindings [reverse-bindings sym-set]
-  (keep reverse-bindings sym-set))
-
-(defn get-closure-bindings [reverse-bindings x]
-  (if (map? x)
-    (reduce into (keep-closure-bindings reverse-bindings (:syms x))
-            (map #(get-closure-bindings reverse-bindings %)
-                 (vals (dissoc x :syms))))
-    (keep-closure-bindings reverse-bindings x)))
 
 (defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro?]
   (let [ctx (assoc ctx :fn-expr fn-expr)
@@ -322,27 +328,22 @@
         bodies (if (seq? (first body))
                  body
                  [body])
-        self-ref (when fn-name (volatile! nil))
         fn-id (gensym)
-        self-ref-sym (when fn-name fn-id)
         parents ((fnil conj []) (:parents ctx) fn-id)
         ctx (assoc ctx :parents parents)
         ctx (if fn-name (-> ctx
-                            (assoc :self-ref self-ref)
-                            (assoc :self-ref? #(identical? self-ref-sym %))
-                            (assoc-in [:bindings fn-name] self-ref-sym))
+                            (assoc-in [:bindings fn-name] fn-id))
                 ctx)
         bindings (:bindings ctx)
-        binding-vals (vals bindings)
-        reverse-bindings (zipmap binding-vals (keys bindings))
-        ctx (assoc ctx :outer-idens (set binding-vals))
-        old-closure-bindings (:closure-bindings ctx)
-        new-closure-bindings (or old-closure-bindings (volatile! {}))
-        ctx (assoc ctx :closure-bindings new-closure-bindings)
+        bound-idens (set (vals bindings))
+        ;; reverse-bindings (zipmap binding-vals (keys bindings))
+        ctx (assoc ctx :outer-idens bound-idens)
+        closure-bindings (:closure-bindings ctx)
         analyzed-bodies (reduce
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
-                           (let [arglist (first body)
-                                 body (expand-fn-args+body ctx body macro?)
+                           (let [orig-body body
+                                 arglist (first body)
+                                 body (expand-fn-args+body ctx body macro? fn-name fn-id)
                                  ;; body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:var-arg-name body)
                                  fixed-arity (:fixed-arity body)
@@ -356,55 +357,110 @@
                                  (assoc :min-varargs new-min-varargs
                                         :max-fixed (max fixed-arity
                                                         max-fixed))
-                                 (update :bodies conj body)
+                                 (update :bodies conj (assoc body :orig orig-body))
                                  (update :arglists conj arglist))))
                          {:bodies []
                           :arglists []
                           :min-var-args nil
                           :max-fixed -1} bodies)
-        closure-bindings (->> (get-in @new-closure-bindings parents)
-                              (get-closure-bindings reverse-bindings))
-        ;; _ (prn :closure-bindings closure-bindings)
-        bindings-fn (if (seq closure-bindings)
-                      (if (= (count bindings)
-                             (count closure-bindings))
-                        ;; same count, all bindings are needed
-                        identity
-                        ;; here we narrow down the bindings based on closure-bindings
-                        #(select-keys % closure-bindings))
-                      ;; no closure bindings, bindings was empty anyways
-                      identity)
-        arities (:bodies analyzed-bodies)
+        cb-idens-by-arity (get-in @closure-bindings parents)
+        ;; all let-bound idens + closed over idens
+        cb-idens (apply merge (map :syms (vals cb-idens-by-arity)))
+        self-ref? (when fn-name (contains? cb-idens fn-id))
+        ;; all closed over idens
+        closed-over-idens (filter bound-idens (keys cb-idens))
+        iden->invoke-idx (get-in @closure-bindings (conj (pop parents) :syms))
+        ;; this represents the indices of enclosed values in old bindings
+        ;; we need to copy those to a new array, the enclosed-array
+        closed-over-iden->binding-idx (when iden->invoke-idx
+                                        (zipmap closed-over-idens
+                                                (mapv iden->invoke-idx closed-over-idens)))
+        ;; here we decide which iden will be installed in which index in the enclosed array
+        closed-over-cnt (count closed-over-idens)
+        iden->enclosed-idx (zipmap closed-over-idens (range closed-over-cnt))
+        iden->enclosed-idx (if fn-name
+                             (assoc iden->enclosed-idx fn-id closed-over-cnt)
+                             iden->enclosed-idx)
+        enclosed-array-fn
+        (if (or self-ref? (seq closed-over-iden->binding-idx))
+          (let [enclosed-array-cnt (cond-> closed-over-cnt
+                                     fn-name (inc))
+                ^objects binding->enclosed
+                (into-array (keep (fn [iden]
+                                    ;; for fn-id usage there is no outer binding idx
+                                    (when-let [binding-idx (get iden->invoke-idx iden)]
+                                      (let [enclosed-idx (get iden->enclosed-idx iden)]
+                                        ;; (prn :copying binding-idx '-> enclosed-idx)
+                                        (doto (object-array 2)
+                                          (aset 0 binding-idx)
+                                          (aset 1 enclosed-idx)))))
+                                  closed-over-idens))]
+            (fn [^objects bindings]
+              (areduce binding->enclosed idx ret (object-array enclosed-array-cnt)
+                       (let [^objects idxs (aget binding->enclosed idx)
+                             binding-idx (aget idxs 0)
+                             binding-val (aget bindings binding-idx)
+                             enclosed-idx (aget idxs 1)]
+                         (aset ret enclosed-idx binding-val)
+                         ret))))
+          (constantly nil))
+        bodies (:bodies analyzed-bodies)
+        bodies (mapv (fn [body]
+                       (let [iden->invocation-idx (:iden->invoke-idx body)
+                             invocation-self-idx (:self-ref-idx body)
+                             enclosed->invocation
+                             (into-array (keep (fn [iden]
+                                                 (when-let [invocation-idx (iden->invocation-idx iden)]
+                                                   (doto (object-array 2)
+                                                     (aset 0 (iden->enclosed-idx iden))
+                                                     (aset 1 invocation-idx))))
+                                               closed-over-idens))
+                             invoc-size (count iden->invocation-idx)
+                             copy-enclosed->invocation
+                             (when (pos? (alength ^objects enclosed->invocation))
+                               (fn [^objects enclosed-array ^objects invoc-array]
+                                 (areduce ^objects enclosed->invocation idx ret invoc-array
+                                          (let [^objects idxs (aget ^objects enclosed->invocation idx)
+                                                enclosed-idx (aget ^objects  idxs 0)
+                                                enclosed-val (aget ^objects enclosed-array enclosed-idx)
+                                                invoc-idx (aget idxs 1)]
+                                            (aset ^objects ret invoc-idx enclosed-val)
+                                            ret))))]
+                         (assoc body
+                                :invoc-size invoc-size
+                                :invocation-self-idx invocation-self-idx
+                                :copy-enclosed->invocation copy-enclosed->invocation)))
+                     bodies)
         arglists (:arglists analyzed-bodies)
         fn-meta (meta fn-expr)
         ana-fn-meta (analyzed-fn-meta ctx fn-meta)
         fn-meta (when-not (identical? fn-meta ana-fn-meta)
                   ;; fn-meta contains more than only location info
                   (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
-        struct #:sci.impl{:fn-bodies arities
+        struct #:sci.impl{:fn-bodies bodies
                           :fn-name fn-name
-                          :self-ref (when self-ref @self-ref)
+                          :self-ref? self-ref?
                           :arglists arglists
                           :fn true
                           :fn-meta fn-meta
-                          :bindings-fn bindings-fn}]
+                          :bindings-fn enclosed-array-fn}]
     struct))
 
 (defn fn-ctx-fn [_ctx struct fn-meta]
   (let [fn-name (:sci.impl/fn-name struct)
         fn-bodies (:sci.impl/fn-bodies struct)
         macro? (:sci/macro struct)
-        self-ref (:sci.impl/self-ref struct)
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))
-        bindings-fn (:sci.impl/bindings-fn struct)]
+        bindings-fn (:sci.impl/bindings-fn struct)
+        self-ref? (:sci.impl/self-ref? struct)]
     (if fn-meta
       (fn [ctx bindings]
         (let [fn-meta (eval/handle-meta ctx bindings fn-meta)
-              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref bindings-fn)]
+              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)]
           (vary-meta f merge fn-meta)))
       (fn [ctx bindings]
-        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref bindings-fn)))))
+        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)
@@ -415,27 +471,51 @@
             fn-expr
             nil)))
 
+(defn update-parents
+  ":syms = closed over values"
+  [ctx closure-bindings ob]
+  (let [parents (:parents ctx)
+        new-cb (vswap! closure-bindings
+                       (fn [cb]
+                         (update-in cb (conj parents :syms)
+                                    (fn [iden->invoke-idx]
+                                      (if (contains? iden->invoke-idx ob)
+                                        iden->invoke-idx
+                                        (assoc iden->invoke-idx ob (+ #_arity (count iden->invoke-idx))))))))
+        closure-idx (get-in new-cb (conj parents :syms ob))]
+    closure-idx))
+
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
   (let [rt (recur-target ctx)
         ctx (without-recur-target ctx)
-        [ctx new-let-bindings]
+        [ctx new-let-bindings idens]
         (reduce
-         (fn [[ctx new-let-bindings] [binding-name binding-value]]
+         (fn [[ctx new-let-bindings idens] [binding-name binding-value]]
            (let [m (meta binding-value)
                  t (when m (:tag m))
                  binding-name (if t (vary-meta binding-name
                                                assoc :tag t)
                                   binding-name)
-                 v (analyze ctx binding-value)]
-             [(update ctx :bindings assoc binding-name (gensym))
-              (conj new-let-bindings binding-name v)]))
-         [ctx []]
+                 v (analyze ctx binding-value)
+                 new-iden (gensym)
+                 cb (:closure-bindings ctx)
+                 idx (update-parents ctx cb new-iden)
+                 iden->invoke-idx (:iden->invoke-idx ctx)
+                 iden->invoke-idx (assoc iden->invoke-idx new-iden idx)
+                 ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)]
+             [(update ctx :bindings assoc binding-name new-iden)
+              (conj new-let-bindings binding-name v)
+              (conj idens new-iden)]))
+         [ctx [] []]
          (partition 2 destructured-let-bindings))
-        body (return-do (with-recur-target ctx rt) expr exprs)]
+        body (return-do (with-recur-target ctx rt) expr exprs)
+        iden->invoke-idx (:iden->invoke-idx ctx)
+        idxs (mapv iden->invoke-idx idens)]
+    ;; (prn :params params :idens idens :idxs idxs)
     (ctx-fn
      (fn [ctx bindings]
-       (eval/eval-let ctx bindings new-let-bindings body))
+       (eval/eval-let ctx bindings new-let-bindings body idxs))
      expr)))
 
 (defn analyze-let
@@ -527,7 +607,7 @@
         init-vals (take-nth 2 (rest bv))
         [bv syms] (if (every? symbol? arg-names)
                     [bv arg-names]
-                    (let [syms (repeatedly (count arg-names) #(gensym))
+                    (let [syms (repeatedly (count arg-names) gensym)
                           bv1 (map vector syms init-vals)
                           bv2  (map vector arg-names syms)]
                       [(into [] cat (interleave bv1 bv2)) syms]))
@@ -653,10 +733,17 @@
                                                     js/Object js/Object
                                                     :default :default
                                                     (analyze ctx ex)))]
-                            {:class clazz
-                             :binding binding
-                             :body (analyze (assoc-in ctx [:bindings binding] (gensym))
-                                            (cons 'do body))}
+                            (let [ex-iden (gensym)
+                                  closure-bindings (:closure-bindings ctx)
+                                  ex-idx (update-parents ctx closure-bindings ex-iden)
+                                  ctx (-> ctx
+                                          (assoc-in [:bindings binding] ex-iden)
+                                          (assoc-in [:iden->invoke-idx ex-iden] ex-idx))
+                                  analyzed-body (analyze ctx
+                                                         (cons 'do body))]
+                              {:class clazz
+                               :ex-idx ex-idx
+                               :body analyzed-body})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
         finally (when finally
@@ -999,20 +1086,22 @@
                                             (range i)))])
                           (range 20))]
     `(defn ~'return-binding-call
-       ~'[_ctx expr f analyzed-children stack]
+       ~'[_ctx expr idx f analyzed-children stack]
        (ctx-fn
         (case (count ~'analyzed-children)
           ~@(concat
              (mapcat (fn [[i binds]]
                        [i `(let ~binds
                              (fn [~'ctx ~'bindings]
-                               ((eval/resolve-symbol ~'bindings ~'f)
+                               ((aget ~(with-meta 'bindings
+                                         {:tag 'objects}) ~'idx)
                                 ~@(map (fn [j]
                                          `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
                                        (range i)))))])
                      let-bindings)
              `[(fn [~'ctx ~'bindings]
-                 (eval/fn-call ~'ctx ~'bindings (eval/resolve-symbol ~'bindings ~'f) ~'analyzed-children))]))
+                 (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
+                                                         {:tag 'objects}) ~'idx) ~'analyzed-children))]))
         nil
         ~'expr
         ~'stack))))
@@ -1154,6 +1243,7 @@
                                      (eval/eval-static-method-invocation ctx bindings (cons f children)))
                                    expr)))
                       (and (not eval?) ;; the symbol is not a binding
+                           (symbol? f)
                            (or
                             special-sym
                             (contains? ana-macros f)))
@@ -1244,6 +1334,7 @@
                                 :resolve-sym
                                 (return-binding-call ctx
                                                      expr
+                                                     (:sci.impl/idx (meta f))
                                                      f (analyze-children ctx (rest expr))
                                                      (assoc m
                                                             :ns @vars/current-ns

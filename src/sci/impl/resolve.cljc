@@ -15,11 +15,13 @@
   (utils/throw-error-with-location msg node {:phase "analysis"}))
 
 (defn mark-resolve-sym
-  [sym]
+  [sym idx]
   (vary-meta
    sym
    (fn [m]
-     (assoc m :sci.impl/op :resolve-sym))))
+     (assoc m
+            :sci.impl/op :resolve-sym
+            :sci.impl/idx idx))))
 
 (defn check-permission! [ctx sym [check-sym  v]]
   (or (identical? utils/allowed-loop sym)
@@ -55,19 +57,19 @@
                 [sym v])))
         (or (some-> env :namespaces (get sym-ns) (find sym-name))
             (when-not only-var?
-                 (when-let [clazz (interop/resolve-class ctx sym-ns)]
-                   [sym (if call?
-                          (with-meta
-                            [clazz sym-name]
-                            {:sci.impl.analyzer/static-access true})
-                          (ctx-fn
-                           (fn [_ctx _bindings]
-                             (interop/get-static-field [clazz sym-name]))
-                           nil
-                           sym
-                           (assoc (meta sym)
-                                  :file @vars/current-file
-                                  :ns @vars/current-ns)))]))))
+              (when-let [clazz (interop/resolve-class ctx sym-ns)]
+                [sym (if call?
+                       (with-meta
+                         [clazz sym-name]
+                         {:sci.impl.analyzer/static-access true})
+                       (ctx-fn
+                        (fn [_ctx _bindings]
+                          (interop/get-static-field [clazz sym-name]))
+                        nil
+                        sym
+                        (assoc (meta sym)
+                               :file @vars/current-file
+                               :ns @vars/current-ns)))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527
@@ -93,47 +95,60 @@
            (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
              [sym x]))))))))
 
+(defn update-parents
+  ":syms = closed over -> idx"
+  [ctx closure-bindings ob]
+  (let [parents (:parents ctx)
+        new-cb (vswap! closure-bindings
+                       (fn [cb]
+                         (first
+                          (reduce
+                           (fn [[acc path] _idx]
+                             (let [new-acc
+                                   (update-in
+                                    acc path
+                                    (fn [entry]
+                                      (let [iden->invoke-idx (or (:syms entry)
+                                                                 {})
+                                            added-before? (contains? iden->invoke-idx ob)]
+                                        (if added-before?
+                                          entry
+                                          (assoc entry :syms
+                                                 (assoc iden->invoke-idx
+                                                        ob (count iden->invoke-idx)))))))
+                                   new-res [new-acc
+                                            (-> path pop pop)]]
+                               (if (= acc new-acc)
+                                 (reduced new-res)
+                                 new-res)))
+                           [cb
+                            parents]
+                           (range (/ (count parents) 2))))))
+        closure-idx (get-in new-cb (conj parents :syms ob))]
+    closure-idx))
+
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
   ([ctx sym call? tag]
    (let [bindings (faster/get-2 ctx :bindings)]
      (or
-      ;; bindings are not checked for permissions
       (when-let [[k v]
                  (find bindings sym)]
-        ;; (assert (symbol? v) (str "Not a symbol: " v))
-        (let [self-ref? (:self-ref? ctx)]
-          (if (and self-ref? (self-ref? v))
-            (do
-              (vreset! (:self-ref ctx) true)
-              (when-let [cb (:closure-bindings ctx)]
-                (when-let [oi (:outer-idens ctx)]
-                  (when-let [ob (oi v)]
-                    (vswap! cb update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))))
-              (if call?
-                [k v]
-                [k (ctx-fn
-                    (fn [_ctx bindings]
-                      ;; TODO: optimize
-                      @(eval/resolve-symbol bindings k))
-                    nil
-                    nil)]))
-            (let [;; pass along tag of expression!
-                  _ (when-let [cb (:closure-bindings ctx)]
-                      (when-let [oi (:outer-idens ctx)]
-                        (when-let [ob (oi v)]
-                          (vswap! cb update-in (conj (:parents ctx) :syms) (fnil conj #{}) ob))))
-                  v (if call? ;; resolve-symbol is already handled in the call case
-                      (mark-resolve-sym k)
-                      (let [v (ctx-fn
-                               (fn [_ctx bindings]
-                                 (eval/resolve-symbol bindings k))
-                               nil
-                               (if tag
-                                 (vary-meta k assoc :tag tag)
-                                 k))]
-                        v))]
-              [k v]))))
+        (let [idx (or (get (:iden->invoke-idx ctx) v)
+                      (let [oi (:outer-idens ctx)
+                            ob (oi v)]
+                        (update-parents ctx (:closure-bindings ctx) ob)))
+              v (if call? ;; resolve-symbol is already handled in the call case
+                  (mark-resolve-sym k idx)
+                  (let [v (ctx-fn
+                           (fn [_ctx ^objects bindings]
+                             (aget bindings idx))
+                           nil
+                           (if tag
+                             (vary-meta k assoc :tag tag)
+                             k))]
+                    v))]
+          [k v]))
       (when-let [kv (lookup* ctx sym call?)]
         (when (:check-permissions ctx)
           (check-permission! ctx sym kv))
