@@ -11,7 +11,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 ### Changes
 
 - Remove `:disable-arity-checks` option. Arity checks are now always taken care of
-  by the host environment and SCI does not do any special handling. Tbis means
+  by the host environment and SCI does not do any special handling. This means
   that in JS environments there will be no arity checking regardless of this
   option. This change was introduced for better performance.
 
