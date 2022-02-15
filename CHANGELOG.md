@@ -2,6 +2,19 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## v0.3.0
+
+### Features
+
+- [#416](https://github.com/babashka/sci/issues/416): mutable arrays for bindings. Takes care of approx. 2-4x speedup in loops (depending on environment).
+
+### Changes
+
+- Remove `:disable-arity-checks` option. Arity checks are now always taken care of
+  by the host environment and SCI does not do any special handling. Tbis means
+  that in JS environments there will be no arity checking regardless of this
+  option. This change was introduced for better performance.
+
 ## v0.2.9
 
 - Feature: add `halt-when`, `pop!`, `array?`, `js-delete`, `object?` and `undefined?`
