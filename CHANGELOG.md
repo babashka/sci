@@ -4,9 +4,10 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## v0.3.0
 
-### Features
+### Enhancements
 
 - [#416](https://github.com/babashka/sci/issues/416): mutable arrays for bindings. Takes care of approx. 2-4x speedup in loops (depending on environment).
+- Performance improvements for varargs function invocations.
 
 ### Changes
 
