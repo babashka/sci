@@ -220,11 +220,13 @@
 
 (defn ctx-fn
   ([f expr]
-   (t/->EvalFn f nil expr nil))
+   (t/->EvalFn f nil expr nil nil))
   ([f m expr]
-   (t/->EvalFn f m expr nil))
+   (t/->EvalFn f m expr nil nil))
   ([f m expr stack]
-   (t/->EvalFn f m expr stack)))
+   (t/->EvalFn f m expr stack nil))
+  ([f m expr stack md]
+   (t/->EvalFn f m expr stack md)))
 
 (defn maybe-destructured
   [params body]

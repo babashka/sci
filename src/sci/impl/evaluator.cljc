@@ -3,7 +3,6 @@
   (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
-   [sci.impl.faster :as faster :refer [get-2 deref-1]]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
@@ -312,12 +311,7 @@
   (try
     (cond (instance? #?(:clj sci.impl.types.EvalFn
                         :cljs sci.impl.types/EvalFn) expr)
-          (let [f (.-f ^sci.impl.types.EvalFn expr)]
-            (f ctx bindings))
-          (instance? #?(:clj sci.impl.types.EvalVar
-                        :cljs sci.impl.types/EvalVar) expr)
-          (let [v (.-v ^sci.impl.types.EvalVar expr)]
-            (deref-1 v))
+          ((.-f ^sci.impl.types.EvalFn expr) ctx bindings)
           :else expr)
     (catch #?(:clj Throwable :cljs js/Error) e
       (rethrow-with-location-of-node ctx bindings e expr))))

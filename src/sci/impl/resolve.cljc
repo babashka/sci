@@ -129,7 +129,7 @@
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
-  ([ctx sym call? tag]
+  ([ctx sym call? #?(:clj tag :cljs _tag)]
    (let [bindings (faster/get-2 ctx :bindings)]
      (or
       (when-let [[k v]
@@ -138,15 +138,16 @@
                       (let [oi (:outer-idens ctx)
                             ob (oi v)]
                         (update-parents ctx (:closure-bindings ctx) ob)))
+              #?@(:clj [tag (or tag (some-> k meta :tag))])
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (ctx-fn
                            (fn [_ctx ^objects bindings]
                              (aget bindings idx))
                            nil
-                           (if tag
-                             (vary-meta k assoc :tag tag)
-                             k))]
+                           k
+                           nil
+                           #?(:clj {:tag tag}))]
                     v))]
           [k v]))
       (when-let [kv (lookup* ctx sym call?)]
