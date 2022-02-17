@@ -5,10 +5,6 @@
   (setVal [_this _v])
   (getVal [_this]))
 
-(deftype EvalVar [v]
-  IBox
-  (getVal [_this] v))
-
 (defprotocol IReified
   (getInterfaces [_])
   (getMethods [_])
@@ -49,7 +45,7 @@
 (extend-protocol Stack
   #?(:clj Object :cljs default) (stack [this] nil))
 
-(deftype EvalFn [f info expr stack]
+(deftype EvalFn [f info expr stack md]
   ;; f = (fn [ctx] ...)
   ;; m = meta
   IBox
@@ -57,12 +53,12 @@
   #?(:clj clojure.lang.IMeta
      :cljs IMeta)
   (#?(:clj meta
-      :cljs -meta) [_this] (meta expr))
+      :cljs -meta) [_this] md)
   #?(:clj clojure.lang.IObj
      :cljs IWithMeta)
   (#?(:clj withMeta
       :cljs -with-meta) [_this m]
-    (->EvalFn f info (with-meta expr m) stack))
+    (->EvalFn f info expr stack m))
   Info
   (info [_] info)
   Sexpr

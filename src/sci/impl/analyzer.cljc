@@ -6,7 +6,7 @@
    #?(:cljs [goog.object :as gobj])
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.evaluator :as eval]
-   [sci.impl.faster :refer [assoc-3]]
+   [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.load :as load]
@@ -811,16 +811,16 @@
         [method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
-        instance-expr (utils/vary-meta*
-                       instance-expr
-                       (fn [m]
-                         (if-let [t (:tag m)]
-                           (let [clazz (or (interop/resolve-class ctx t)
-                                           (records/resolve-record-class ctx t)
-                                           (throw-error-with-location
-                                            (str "Unable to resolve classname: " t) t))]
-                             (assoc m :tag-class clazz))
-                           m)))
+        #?@(:clj [instance-expr (utils/vary-meta*
+                                 instance-expr
+                                 (fn [m]
+                                   (if-let [t (:tag m)]
+                                     (let [clazz (or (interop/resolve-class ctx t)
+                                                     (records/resolve-record-class ctx t)
+                                                     (throw-error-with-location
+                                                      (str "Unable to resolve classname: " t) t))]
+                                       (assoc m :tag-class clazz))
+                                     m)))])
         method-name (name method-expr)
         args (when args (analyze-children ctx args))
         res
@@ -912,10 +912,9 @@
                                                     (:constructor opts)
                                                     (:class opts)))]
                                   clazz)
-                                (analyze ctx class-sym)))]
-      (let [#?@(:cljs [var? (instance? sci.impl.types/EvalVar class)
-                       maybe-var (when var?
-                                   (types/getVal class))
+                                (resolve/resolve-symbol ctx class-sym false)))]
+      (let [#?@(:cljs [var? (vars/var? class)
+                       maybe-var (when var? class)
                        maybe-record (cond
                                       var?
                                       (deref maybe-var)
@@ -1513,7 +1512,9 @@
                                 (if (vars/isMacro v)
                                   (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                               (str "Can't take value of a macro: " v "")))
-                                  (types/->EvalVar v)))
+                                  (ctx-fn (fn [_ctx _bindings]
+                                            (faster/deref-1 v))
+                                          v)))
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
