@@ -432,17 +432,14 @@
                                 :copy-enclosed->invocation copy-enclosed->invocation)))
                      bodies)
         arglists (:arglists analyzed-bodies)
-        fn-meta (meta fn-expr)
-        ana-fn-meta (analyzed-fn-meta ctx fn-meta)
-        fn-meta (when-not (identical? fn-meta ana-fn-meta)
-                  ;; fn-meta contains more than only location info
-                  (-> ana-fn-meta (dissoc :line :end-line :column :end-column)))
+        fn-meta (dissoc (meta fn-expr) :line :column)
+        ana-fn-meta (when (seq fn-meta) (analyze ctx fn-meta))
         struct #:sci.impl{:fn-bodies bodies
                           :fn-name fn-name
                           :self-ref? self-ref?
                           :arglists arglists
                           :fn true
-                          :fn-meta fn-meta
+                          :fn-meta ana-fn-meta
                           :bindings-fn enclosed-array-fn}]
     struct))
 
@@ -456,7 +453,7 @@
         self-ref? (:sci.impl/self-ref? struct)]
     (if fn-meta
       (fn [ctx bindings]
-        (let [fn-meta (eval/handle-meta ctx bindings fn-meta)
+        (let [fn-meta (eval/eval ctx bindings fn-meta)
               f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)]
           (vary-meta f merge fn-meta)))
       (fn [ctx bindings]
@@ -547,9 +544,15 @@
                    :sci.impl/var.unbound
                    (analyze ctx init))
             m (meta var-name)
-            m (analyze (assoc ctx :meta true) m)
+            m-cnt (count m)
+            m-needs-eval? (not= 2 m-cnt)
             m (assoc m :ns @vars/current-ns)
-            m (if docstring (assoc m :doc docstring) m)]
+            m (if docstring (assoc m :doc docstring) m)
+            m (if m-needs-eval?
+                (analyze ctx m)
+                (ctx-fn (fn [_ctx _bindings]
+                          m)
+                        m))]
         (ctx-fn
          (fn [ctx bindings]
            (eval/eval-def ctx bindings var-name init m))
@@ -577,11 +580,10 @@
         meta-map (merge (meta fn-name) (meta expr) meta-map)
         meta-map (if meta-map2 (merge meta-map meta-map2)
                      meta-map)
-        meta-map (analyze (assoc ctx :meta true) meta-map)
         fn-body (with-meta (cons 'fn body)
                   (meta expr))
         f (analyze-fn* ctx fn-body macro?)
-        arglists (seq (:sci.impl/arglists f))
+        arglists (list 'quote (seq (:sci.impl/arglists f)))
         meta-map (assoc meta-map
                         :ns @vars/current-ns
                         :arglists arglists)
@@ -594,7 +596,8 @@
                  :sci.impl/defn true)
         fn-meta (:sci.impl/fn-meta f)
         ctxfn (fn-ctx-fn ctx f fn-meta)
-        f (ctx-fn ctxfn f f)]
+        f (ctx-fn ctxfn f f)
+        meta-map (analyze ctx meta-map)]
     (ctx-fn
      (fn [ctx bindings]
        (eval/eval-def ctx bindings fn-name f meta-map))
@@ -1435,29 +1438,16 @@
                            (every? constant? vs))
         analyzed-map (cond constant-map?
                            expr
-                           ;; potential place for optimization
-                           (not (:meta ctx))
-                           (return-map ctx expr)
                            :else
-                           (zipmap (analyze-children ctx ks)
-                                   (analyze-children ctx vs)))
-        analyzed-meta (when m (analyze (assoc ctx :meta true) m))
-        analyzed-meta (if (and constant-map?
-                               ;; meta was also a constant-map
-                               (identical? m analyzed-meta))
-                        analyzed-meta
-                        (assoc analyzed-meta :sci.impl/op :eval))
+                           (return-map ctx expr))
+        analyzed-meta (when m (analyze ctx m))
         ret (if analyzed-meta
-              (if (instance? #?(:clj sci.impl.types.EvalFn
-                                :cljs sci.impl.types/EvalFn)
-                             analyzed-map)
-                (ctx-fn
-                 (fn [ctx bindings]
-                   (let [coll (eval/eval ctx bindings analyzed-map)
-                         md (eval/handle-meta ctx bindings analyzed-meta)]
-                     (with-meta coll md)))
-                 expr)
-                (with-meta analyzed-map analyzed-meta))
+              (ctx-fn
+               (fn [ctx bindings]
+                 (let [coll (eval/eval ctx bindings analyzed-map)
+                       md (eval/eval ctx bindings analyzed-meta)]
+                   (with-meta coll md)))
+               expr)
               analyzed-map)]
     ret))
 

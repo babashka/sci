@@ -74,30 +74,10 @@
                              [ctx bindings])))]
     (eval ctx bindings exprs)))
 
-(defn handle-meta [ctx bindings m]
-  ;; Sometimes metadata needs eval. In this case the metadata has metadata.
-  (-> (if-let [mm (meta m)]
-        (if (when mm (get-2 mm :sci.impl/op))
-          (eval ctx bindings m)
-          m)
-        m)
-      (dissoc :sci.impl/op)))
-
-(defn eval-map
-  [ctx bindings expr]
-  (if-let [m (meta expr)]
-    (if (kw-identical? :eval (:sci.impl/op m))
-      (with-meta (zipmap (map #(eval ctx bindings %) (keys expr))
-                         (map #(eval ctx bindings %) (vals expr)))
-        (handle-meta ctx bindings m))
-      expr)
-    expr))
-
 (defn eval-def
   [ctx bindings var-name init m]
   (let [init (eval ctx bindings init)
-        m (or m (meta var-name))
-        m (eval-map ctx bindings m) ;; m is marked with eval op in analyzer only when necessary
+        m (eval ctx bindings m)
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -338,10 +318,6 @@
                         :cljs sci.impl.types/EvalVar) expr)
           (let [v (.-v ^sci.impl.types.EvalVar expr)]
             (deref-1 v))
-          #?(:clj (instance? clojure.lang.IPersistentMap expr)
-             :cljs (if (nil? expr) false
-                       (satisfies? IMap expr)))
-          (eval-map ctx bindings expr)
           :else expr)
     (catch #?(:clj Throwable :cljs js/Error) e
       (rethrow-with-location-of-node ctx bindings e expr))))
