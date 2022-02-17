@@ -1,5 +1,6 @@
 (ns sci.impl.types
-  {:no-doc true})
+  {:no-doc true}
+  (:refer-clojure :exclude [eval]))
 
 (defprotocol IBox
   (setVal [_this _v])
@@ -45,6 +46,9 @@
 (extend-protocol Stack
   #?(:clj Object :cljs default) (stack [this] nil))
 
+(defprotocol Eval
+  (eval [expr ctx ^objects bindings]))
+
 (deftype EvalFn [f info expr stack md]
   ;; f = (fn [ctx] ...)
   ;; m = meta
@@ -67,4 +71,7 @@
   (toString [_this]
     (str expr))
   Stack
-  (stack [_] stack))
+  (stack [_] stack)
+  Eval
+  (eval [_expr ctx bindings]
+    (f ctx bindings)))

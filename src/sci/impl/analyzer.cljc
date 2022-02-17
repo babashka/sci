@@ -120,7 +120,7 @@
                               (ctx-fn
                                (fn [~'ctx ~'bindings]
                                  ~@(map (fn [j]
-                                          `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                          `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                         (range i)))
                                ~'expr))])
                       let-bindings)
@@ -227,21 +227,20 @@
                    ~'expr)]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              (ctx-fn
-                               (fn [~'ctx ~'bindings]
-                                 ;; important, recur vals must be evaluated with old bindings!
-                                 (let [~@(mapcat (fn [j]
-                                                   [(symbol (str "eval-" j) )
-                                                    `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j)))])
-                                                 (range i))]
-                                   (do ~@(map (fn [j]
-                                                `(aset
-                                                  ~(with-meta 'bindings
-                                                     {:tag 'objects}) ~j
-                                                  ~(symbol (str "eval-" j))))
-                                              (range i))))
-                                 ::recur)
-                               ~'expr))])
+                              (reify sci.impl.types.Eval
+                                (eval [_# ~'ctx ~'bindings]
+                                  ;; important, recur vals must be evaluated with old bindings!
+                                  (let [~@(mapcat (fn [j]
+                                                    [(symbol (str "eval-" j) )
+                                                     `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings)])
+                                                  (range i))]
+                                    (do ~@(map (fn [j]
+                                                 `(aset
+                                                   ~(with-meta 'bindings
+                                                      {:tag 'objects}) ~j
+                                                   ~(symbol (str "eval-" j))))
+                                               (range i))))
+                                  ::recur)))])
                       let-bindings)))))))
 
 ;; (require 'clojure.pprint)
@@ -654,9 +653,9 @@
                 (constant? condition) then
                 :else (ctx-fn
                        (fn [ctx bindings]
-                         (if (eval/eval ctx bindings condition)
-                           (eval/eval ctx bindings then)
-                           (eval/eval ctx bindings else)))
+                         (if (types/eval condition ctx bindings)
+                           (types/eval then ctx bindings)
+                           (types/eval else ctx bindings)))
                        ;; backward compatibility with stacktrace
                        nil
                        expr
@@ -1153,31 +1152,33 @@
                           (range 20))]
     `(defn ~'return-call
        ~'[_ctx expr f analyzed-children stack wrap]
-       (ctx-fn
-        (case (count ~'analyzed-children)
-          ~@(concat
-             (mapcat (fn [[i binds]]
-                       [i `(let ~binds
-                             (if ~'wrap
-                               (fn [~'ctx ~'bindings]
-                                 ((~'wrap ~'bindings ~'f)
-                                  ~@(map (fn [j]
-                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                         (range i))))
-                               (fn [~'ctx ~'bindings]
-                                 (~'f
-                                  ~@(map (fn [j]
-                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                         (range i))))))])
-                     let-bindings)
-             `[(if ~'wrap
+       (case (count ~'analyzed-children)
+         ~@(concat
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (if ~'wrap
+                              (reify sci.impl.types.Eval
+                                (eval ~'[_ ctx bindings]
+                                  ((~'wrap ~'bindings ~'f)
+                                   ~@(map (fn [j]
+                                            `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
+                                          (range i)))))
+                              (reify sci.impl.types.Eval
+                                (eval ~'[_ ctx bindings]
+                                  (~'f
+                                   ~@(map (fn [j]
+                                            `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
+                                          (range i)))))))])
+                    let-bindings)
+            `[(ctx-fn
+               (if ~'wrap
                  (fn [~'ctx ~'bindings]
                    (eval/fn-call ~'ctx ~'bindings (~'wrap ~'bindings ~'f) ~'analyzed-children))
                  (fn [~'ctx ~'bindings]
-                   (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)))]))
-        nil
-        ~'expr
-        ~'stack))))
+                   (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)))
+               nil
+               ~'expr
+               ~'stack)])))))
 
 (declare return-call) ;; for clj-kondo
 (gen-return-call)

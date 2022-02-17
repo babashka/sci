@@ -2,8 +2,10 @@
   {:no-doc true}
   (:require [sci.impl.evaluator :as eval]
             [sci.impl.faster :refer [nth-2]]
+            [sci.impl.types :as types]
             [sci.impl.utils :as utils :refer [kw-identical?]]
-            [sci.impl.vars :as vars])
+            [sci.impl.vars :as vars]
+            )
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -24,7 +26,7 @@
             ~@(when varargs
                 [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
             (loop []
-              (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
+              (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                 (if (kw-identical? :sci.impl.analyzer/recur ret#)
                   (recur)
                   ret#))))))
@@ -49,7 +51,7 @@
               ~@(when varargs
                   [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
               (loop []
-                (let [ret# (eval/eval ~'ctx ~'invoc-array ~'body)]
+                (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                   (if (kw-identical? :sci.impl.analyzer/recur ret#)
                     (recur)
                     ret#))))))))))

@@ -306,13 +306,71 @@
 
 (def-fn-call)
 
+#?(:clj (extend-protocol sci.impl.types/Eval
+          Integer
+          (eval [expr _ _]
+            expr)
+          Long
+          (eval [expr _ _]
+            expr)
+          String
+          (eval [expr _ _]
+            expr)
+          Boolean
+          (eval [expr _ _]
+            expr)
+          java.util.regex.Pattern
+          (eval [expr _ _]
+            expr)
+          java.lang.Class
+          (eval [expr _ _]
+            expr)
+          clojure.lang.Keyword
+          (eval [expr _ _]
+            expr)
+          clojure.lang.PersistentArrayMap
+          (eval [expr _ _]
+            expr)
+          clojure.lang.PersistentVector
+          (eval [expr _ _]
+            expr)
+          clojure.lang.Symbol
+          (eval [expr _ _]
+            expr)
+          sci.impl.vars.SciNamespace
+          (eval [expr _ _]
+            expr)
+          sci.impl.vars.SciVar
+          (eval [expr _ _]
+            expr)
+          clojure.lang.MultiFn
+          (eval [expr _ _]
+            expr)
+          ;; TODO: remove
+          Object
+          (eval [expr _ _]
+            expr)
+          nil (eval [_ _ _])))
+
+#?(:cljs (extend-protocol sci.impl.types/Eval
+          number
+          (eval [expr _ _]
+            expr)
+          string
+          (eval [expr _ _]
+            expr)
+          Keyword
+          (eval [expr _ _]
+            expr)
+          Object
+          (eval [expr _ _]
+            expr)
+          nil (eval [_ _ _])))
+
 (defn eval
   [ctx bindings expr]
   (try
-    (cond (instance? #?(:clj sci.impl.types.EvalFn
-                        :cljs sci.impl.types/EvalFn) expr)
-          ((.-f ^sci.impl.types.EvalFn expr) ctx bindings)
-          :else expr)
+    (sci.impl.types/eval expr ctx bindings)
     (catch #?(:clj Throwable :cljs js/Error) e
       (rethrow-with-location-of-node ctx bindings e expr))))
 
