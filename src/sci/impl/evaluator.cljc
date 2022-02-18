@@ -6,7 +6,7 @@
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
-   [sci.impl.types]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [throw-error-with-location
                                      rethrow-with-location-of-node
                                      kw-identical?]]
@@ -62,7 +62,7 @@
                              (let [let-bindings (rest let-bindings)
                                    let-val (first let-bindings)
                                    rest-let-bindings (next let-bindings)
-                                   v (eval ctx bindings let-val)
+                                   v (types/eval let-val ctx bindings)
                                    ;; bindings (faster/get-2 ctx :bindings)
                                    ;; ctx (faster/assoc-3 ctx :bindings bindings)
                                    ]
@@ -71,7 +71,7 @@
                                       rest-let-bindings
                                       (inc idx)))
                              [ctx bindings])))]
-    (eval ctx bindings exprs)))
+    (types/eval exprs ctx bindings)))
 
 (defn eval-def
   [ctx bindings var-name init m]

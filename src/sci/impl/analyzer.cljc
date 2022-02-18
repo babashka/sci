@@ -509,10 +509,9 @@
         iden->invoke-idx (:iden->invoke-idx ctx)
         idxs (mapv iden->invoke-idx idens)]
     ;; (prn :params params :idens idens :idxs idxs)
-    (ctx-fn
-     (fn [ctx bindings]
-       (eval/eval-let ctx bindings new-let-bindings body idxs))
-     expr)))
+    (reify sci.impl.types/Eval
+      (eval [_expr ctx bindings]
+        (eval/eval-let ctx bindings new-let-bindings body idxs)))))
 
 (defn analyze-let
   "The let macro from clojure.core"
@@ -1094,11 +1093,14 @@
              (mapcat (fn [[i binds]]
                        [i `(let ~binds
                              (fn [~'ctx ~'bindings]
-                               ((aget ~(with-meta 'bindings
-                                         {:tag 'objects}) ~'idx)
-                                ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                       (range i)))))])
+                               (try
+                                 ((aget ~(with-meta 'bindings
+                                           {:tag 'objects}) ~'idx)
+                                  ~@(map (fn [j]
+                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                         (range i)))
+                                 (catch #?(:clj Throwable :cljs js/Error) e#
+                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'stack)))))])
                      let-bindings)
              `[(fn [~'ctx ~'bindings]
                  (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
@@ -1159,16 +1161,22 @@
                             (if ~'wrap
                               (reify sci.impl.types.Eval
                                 (eval ~'[_ ctx bindings]
-                                  ((~'wrap ~'bindings ~'f)
-                                   ~@(map (fn [j]
-                                            `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
-                                          (range i)))))
+                                  (try
+                                    ((~'wrap ~'bindings ~'f)
+                                     ~@(map (fn [j]
+                                              `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                            (range i)))
+                                    (catch #?(:clj Throwable :cljs js/Error) e#
+                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'stack)))))
                               (reify sci.impl.types.Eval
                                 (eval ~'[_ ctx bindings]
-                                  (~'f
-                                   ~@(map (fn [j]
-                                            `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
-                                          (range i)))))))])
+                                  (try
+                                    (~'f
+                                     ~@(map (fn [j]
+                                              `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
+                                            (range i)))
+                                    (catch #?(:clj Throwable :cljs js/Error) e#
+                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'stack)))))))])
                     let-bindings)
             `[(ctx-fn
                (if ~'wrap
