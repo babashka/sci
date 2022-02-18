@@ -2,6 +2,12 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+### Fixes
+
+- Fix [#680](https://github.com/babashka/sci/issues/680): allow expression in class position of `new` in JS targets
+
 ## v0.3.0
 
 ### Enhancements
