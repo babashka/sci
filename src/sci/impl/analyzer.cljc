@@ -1144,20 +1144,29 @@
                           (range 20))]
     `(defn ~'return-needs-ctx-call
        ~'[_ctx expr f analyzed-children]
-       (case (count ~'analyzed-children)
-         ~@(concat
-            (mapcat (fn [[i binds]]
-                      [i `(let ~binds
-                            (reify types/Eval
-                              (~'eval [_# ~'ctx ~'bindings]
-                               (~'f ~'ctx
-                                ~@(map (fn [j]
-                                         `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                       (range i))))))])
-                    let-bindings)
-            `[(reify types/Eval
-                (~'eval [_# ~'ctx ~'bindings]
-                 (eval/fn-call ~'ctx ~'bindings ~'f (cons ~'ctx ~'analyzed-children))))])))))
+       (let [~'stack (assoc (meta ~'expr)
+                            :file @vars/current-file
+                            :ns @vars/current-ns)]
+         (case (count ~'analyzed-children)
+           ~@(concat
+              (mapcat (fn [[i binds]]
+                        [i `(let ~binds
+                              (reify
+                                types/Eval
+                                (~'eval [_# ~'ctx ~'bindings]
+                                 (~'f ~'ctx
+                                  ~@(map (fn [j]
+                                           `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                         (range i))))
+                                types/Stack
+                                ~'(stack [_] stack)))])
+                      let-bindings)
+              `[(reify
+                  types/Eval
+                  (~'eval [_# ~'ctx ~'bindings]
+                   (eval/fn-call ~'ctx ~'bindings ~'f (cons ~'ctx ~'analyzed-children)))
+                  types/Stack
+                  ~'(stack [_] stack))]))))))
 
 (declare return-needs-ctx-call) ;; for clj-kondo
 (gen-return-needs-ctx-call)
