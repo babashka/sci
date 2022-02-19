@@ -1285,7 +1285,6 @@
                       (ex-data e)))]
       ;; TODO:
       #_(is (= :foo (get (:locals data) 'x)))
-      (prn :data data)
       (is (= "dude.clj" (:file data))))))
 
 #?(:cljs

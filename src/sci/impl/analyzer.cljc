@@ -760,16 +760,18 @@
         :cljs "Too many arguments to throw")
      expr))
   (let [ctx (without-recur-target ctx)
-        ana (analyze ctx ex)]
-    (ctx-fn (fn [ctx bindings]
-              (throw (eval/eval ctx bindings ana)))
-            ;; legacy structure for error reporting
-            expr
-            nil
-            (assoc (meta expr)
-                   :ns @vars/current-ns
-                   :file @vars/current-file
-                   :special true))))
+        ana (analyze ctx ex)
+        stack (assoc (meta expr)
+                     :ns @vars/current-ns
+                     :file @vars/current-file
+                     :special true)]
+    (reify
+      sci.impl.types.Eval
+      (eval [this ctx bindings]
+        (rethrow-with-location-of-node ctx bindings (types/eval ana ctx bindings) this))
+      sci.impl.types.Stack
+      (stack [_]
+        stack))))
 
 (defn expand-declare [ctx [_declare & names :as expr]]
   (let [cnn (vars/current-ns-name)
