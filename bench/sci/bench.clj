@@ -4,7 +4,7 @@
             [criterium.core :as crit]
             [sci.core :as sci]
             [sci.impl.analyzer :as ana]
-            [sci.impl.evaluator :as eval]))
+            [sci.impl.types :as types]))
 
 (defn bench-expr [{:keys [:parse :analyze :evaluate :complete :sexpr :quick]}]
   (println "BENCHMARKING EXPRESSION:" sexpr)
@@ -24,11 +24,11 @@
         (crit/bench (ana/analyze ctx parsed))))
     (let [ana (ana/analyze ctx parsed)]
       (println "EVALUATION:")
-      (prn '-> (eval/eval ctx {} ana))
+      (prn '-> (types/eval ana ctx nil))
       (when (or complete evaluate)
         (if quick
-          (crit/quick-bench (eval/eval ctx {} ana))
-          (crit/bench (eval/eval ctx {} ana)))))))
+          (crit/quick-bench (types/eval ana ctx nil))
+          (crit/bench (types/eval ana ctx nil)))))))
 
 (def cli-options
   ;; An option with a required argument

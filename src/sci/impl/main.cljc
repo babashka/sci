@@ -40,24 +40,13 @@
         ctx (opts ctx)
         v (sci/with-bindings {sci/out *out*
                               #?@(:clj [sci/err *err*])}
-            (if n
-              (time (let [ctx (opts/init ctx)
-                          reader (r/indexing-push-back-reader (r/string-push-back-reader form))
-                          form (p/parse-next ctx reader)]
-                      (loop [i 0]
-                        (let [form (ana/analyze ctx form)
-                              ret (types/eval form ctx nil)]
-                          (if (< i n)
-                            (recur (inc i))
-                            ret)))))
-              (let [_ nil ;; clj-kondo
-                    #?@(:clj [f (io/file form)])
-                    #?@(:clj [form (if (.exists f)
-                                     (slurp f) form)])]
-                (eval-string
-                 form
-                 (-> ctx
-                     #?(:clj (addons/future)))))))]
+            (let [#?@(:clj [f (io/file form)])
+                  #?@(:clj [form (if (.exists f)
+                                   (slurp f) form)])]
+              (eval-string
+               form
+               (-> ctx
+                   #?(:clj (addons/future))))))]
     (when (some? v) (prn v))))
 
 ;; for testing only
