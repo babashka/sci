@@ -29,12 +29,6 @@
   IBox
   (getVal [_this] form))
 
-(defprotocol Sexpr
-  (sexpr [this]))
-
-(extend-protocol Sexpr
-  #?(:clj Object :cljs default) (sexpr [this] this))
-
 (defprotocol Stack
   (stack [this]))
 
