@@ -966,7 +966,7 @@
                             (interop/invoke-constructor (deref maybe-var)
                                                         (mapv #(eval/eval ctx bindings %) args)))
                           expr)
-                         (instance? sci.impl.types/EvalFn class)
+                         (implements? sci.impl.types/Eval class)
                          (ctx-fn
                           (fn [ctx bindings]
                             (interop/invoke-constructor (eval/eval ctx bindings class)
@@ -994,8 +994,8 @@
                (let [class (analyze ctx class-sym)]
                  (ctx-fn
                   (fn [ctx bindings]
-                    (interop/invoke-constructor (eval/eval ctx bindings class)
-                                                (mapv #(eval/eval ctx bindings %) args)))
+                    (interop/invoke-constructor (types/eval class ctx bindings)
+                                                (mapv #(types/eval % ctx bindings) args)))
                   expr))))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
