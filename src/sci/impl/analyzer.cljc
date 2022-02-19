@@ -1180,24 +1180,32 @@
             (mapcat (fn [[i binds]]
                       [i `(let ~binds
                             (if ~'wrap
-                              (reify sci.impl.types.Eval
-                                (eval ~'[_ ctx bindings]
+                              (reify
+                                sci.impl.types.Eval
+                                (eval ~'[this ctx bindings]
                                   (try
                                     ((~'wrap ~'bindings ~'f)
                                      ~@(map (fn [j]
                                               `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                             (range i)))
                                     (catch #?(:clj Throwable :cljs js/Error) e#
-                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'stack)))))
-                              (reify sci.impl.types.Eval
-                                (eval ~'[_ ctx bindings]
+                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
+                                sci.impl.types.Stack
+                                (stack ~'[_]
+                                  ~'stack))
+                              (reify
+                                sci.impl.types.Eval
+                                (eval ~'[this ctx bindings]
                                   (try
                                     (~'f
                                      ~@(map (fn [j]
                                               `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
                                             (range i)))
                                     (catch #?(:clj Throwable :cljs js/Error) e#
-                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'stack)))))))])
+                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
+                                sci.impl.types.Stack
+                                (stack ~'[_]
+                                  ~'stack))))])
                     let-bindings)
             `[(ctx-fn
                (if ~'wrap

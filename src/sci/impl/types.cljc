@@ -44,7 +44,7 @@
   (stack [this]))
 
 (extend-protocol Stack
-  #?(:clj Object :cljs default) (stack [this] nil))
+  #?(:clj Object :cljs default) (stack [_this] nil))
 
 (defprotocol Eval
   (eval [expr ctx ^objects bindings]))
