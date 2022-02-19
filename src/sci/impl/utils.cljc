@@ -78,13 +78,14 @@
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx _bindings ^Throwable e raw-node]
+   ;; (prn :raw-node raw-node)
    (if #?(:clj (or *in-try*
                    (not= (:main-thread-id ctx)
                          (.getId (Thread/currentThread))))
           :cljs *in-try*) (throw e)
        (let [stack (t/stack raw-node)
-             node (t/sexpr raw-node)
-             #?@(:clj [f (when (seqable? node)
+             #?@(:clj [node (t/sexpr raw-node)
+                       f (when (seqable? node)
                            (first node))])
              #?@(:clj [fm (or (:sci.impl/f-meta stack)
                               (some-> f meta))])
@@ -109,7 +110,7 @@
                        (some-> env deref
                                :sci.impl/callstack (get id)
                                deref last meta)
-                       (meta node))]
+                       #_(meta node))]
                (if (and line column)
                  (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
                                  :cljs ex-msg)

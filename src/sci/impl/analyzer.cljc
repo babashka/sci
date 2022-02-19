@@ -622,7 +622,11 @@
 (defn return-if
   [ctx expr]
   (let [exprs (rest expr)
-        children (analyze-children ctx exprs)]
+        children (analyze-children ctx exprs)
+        stack (assoc (meta expr)
+                     :ns @vars/current-ns
+                     :file @vars/current-file
+                     :special true)]
     (case (count children)
       (0 1) (throw-error-with-location "Too few arguments to if" expr)
       2 (let [condition (nth children 0)
@@ -632,17 +636,24 @@
                 :else (reify types/Eval
                         (eval [_ ctx bindings]
                           (when (types/eval condition ctx bindings)
-                            (types/eval then ctx bindings))))))
+                            (types/eval then ctx bindings)))
+                        types/Stack
+                        (stack [_]
+                          stack))))
       3 (let [condition (nth children 0)
               then (nth children 1)
               else (nth children 2)]
           (cond (not condition) else
                 (constant? condition) then
-                :else (reify types/Eval
+                :else (reify
+                        types/Eval
                         (eval [_ ctx bindings]
                           (if (types/eval condition ctx bindings)
                             (types/eval then ctx bindings)
-                            (types/eval else ctx bindings))))))
+                            (types/eval else ctx bindings)))
+                        types/Stack
+                        (stack [_]
+                          stack))))
       (throw-error-with-location "Too many arguments to if" expr))))
 
 (defn analyze-case
