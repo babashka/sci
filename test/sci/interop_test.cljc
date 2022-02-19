@@ -147,7 +147,9 @@
                                     'js js/global}})))
      (is (= 42 (tu/eval* "(def err js/Error) (js/parseInt (.-message (err. \"42\")))"
                          {:classes {:allow :all
-                                    'js js/global}})))))
+                                    'js js/global}})))
+     (is (= "dude" (tu/eval* "(def obj #js {:a js/String}) (str (new (.-a obj) \"dude\"))"
+                             {:classes {'js goog.global :allow :all}})))))
 
 #?(:cljs
    (def fs (let [m (js->clj (js/require "fs"))]
