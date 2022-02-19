@@ -1009,13 +1009,19 @@
 ;;;; Namespaces
 
 (defn return-ns-op [_ctx f expr analyzed-args]
-  (ctx-fn (fn [ctx _bindings]
-            (apply f ctx analyzed-args))
-          expr
-          nil
-          (assoc (meta expr)
-                 :file @vars/current-file
-                 :ns @vars/current-ns)))
+  (let [stack (assoc (meta expr)
+                     :file @vars/current-file
+                     :ns @vars/current-ns)]
+    (reify
+      sci.impl.types.Eval
+      (eval [this ctx bindings]
+        (try
+          (apply f ctx analyzed-args)
+          (catch #?(:clj Throwable :cljs js/Error) e
+            (rethrow-with-location-of-node ctx bindings e this))))
+      sci.impl.types.Stack
+      (stack [_]
+        stack))))
 
 (defn analyze-ns-form [ctx [_ns ns-name & exprs :as expr]]
   (when-not (symbol? ns-name)
@@ -1236,16 +1242,22 @@
                 nil))
             expr)))
 
-;; f m expr stack
 (defn analyze-import [_ctx expr]
-  (let [args (rest expr)]
-    (ctx-fn (fn [ctx _bindings]
-              (apply eval/eval-import ctx args))
-            nil
-            expr
-            (assoc (meta expr)
-                   :ns @vars/current-ns
-                   :file @vars/current-file))))
+  (let [args (rest expr)
+        stack (assoc (meta expr)
+                     :ns @vars/current-ns
+                     :file @vars/current-file)]
+    (reify
+      sci.impl.types.Eval
+      (eval [this ctx bindings]
+        (prn :eval)
+        (try (apply eval/eval-import ctx args)
+             (catch #?(:clj Throwable :cljs js/Error) e
+               (prn :>)
+               (rethrow-with-location-of-node ctx bindings e this))))
+      sci.impl.types.Stack
+      (stack [_]
+        stack))))
 
 (defn analyze-call [ctx expr m top-level?]
   (let [eval-file (:clojure.core/eval-file m)]
