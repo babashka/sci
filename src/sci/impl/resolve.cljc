@@ -6,8 +6,7 @@
             [sci.impl.records :as records]
             [sci.impl.types]
             [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros
-                                              ctx-fn]]
+                                              ana-macros]]
             [sci.impl.vars :as vars]))
 
 (defn throw-error-with-location [msg node]
@@ -61,14 +60,16 @@
                        (with-meta
                          [clazz sym-name]
                          {:sci.impl.analyzer/static-access true})
-                       (ctx-fn
-                        (fn [_ctx _bindings]
-                          (interop/get-static-field [clazz sym-name]))
-                        nil
-                        sym
-                        (assoc (meta sym)
-                               :file @vars/current-file
-                               :ns @vars/current-ns)))]))))
+                       (let [stack (assoc (meta sym)
+                                          :file @vars/current-file
+                                          :ns @vars/current-ns)]
+                         (reify
+                           sci.impl.types/Eval
+                           (eval [_ _ctx _bindings]
+                             (interop/get-static-field [clazz sym-name]))
+                           sci.impl.types/Stack
+                           (stack [_]
+                             stack))))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527

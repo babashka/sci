@@ -13,7 +13,7 @@
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
 
-(declare eval fn-call)
+(declare fn-call)
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -30,7 +30,7 @@
     (loop [args args]
       (if args
         (let [x (first args)
-              v (eval ctx bindings x)]
+              v (types/eval x ctx bindings)]
           (if v
             (let [xs (next args)]
               (if xs
@@ -44,7 +44,7 @@
     (loop [args args]
       (when args
         (let [x (first args)
-              v (eval ctx bindings x)]
+              v (types/eval x ctx bindings)]
           (if v v
               (let [xs (next args)]
                 (if xs (recur xs)
@@ -75,8 +75,8 @@
 
 (defn eval-def
   [ctx bindings var-name init m]
-  (let [init (eval ctx bindings init)
-        m (eval ctx bindings m)
+  (let [init (types/eval init ctx bindings)
+        m (types/eval m ctx bindings)
         cnn (vars/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -107,22 +107,22 @@
 
 (defn eval-case
   ([ctx bindings case-map case-val]
-   (let [v (eval ctx bindings case-val)]
+   (let [v (types/eval case-val ctx bindings)]
      (if-let [[_ found] (find case-map v)]
-       (eval ctx bindings found)
+       (types/eval found ctx bindings)
        (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                    (str "No matching clause: " v))))))
   ([ctx bindings case-map case-val case-default]
-   (let [v (eval ctx bindings case-val)]
+   (let [v (types/eval case-val ctx bindings)]
      (if-let [[_ found] (find case-map v)]
-       (eval ctx bindings found)
-       (eval ctx bindings case-default)))))
+       (types/eval found ctx bindings)
+       (types/eval case-default ctx bindings)))))
 
 (defn eval-try
   [ctx bindings body catches finally]
   (try
     (binding [utils/*in-try* true]
-      (eval ctx bindings body))
+      (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
       (if-let
           [[_ r]
@@ -130,27 +130,27 @@
                      (let [clazz (:class c)]
                        (when #?(:cljs
                                 (or (kw-identical? :default clazz)
-                                    (if (instance? sci.impl.types/EvalFn clazz)
-                                      (instance? (eval ctx bindings clazz) e)
+                                    (if (implements? sci.impl.types/Eval clazz)
+                                      (instance? (types/eval clazz ctx bindings) e)
                                       (instance? clazz e)))
                                 :clj (instance? clazz e))
                          (reduced
                           [::try-result
                            (do (aset ^objects bindings (:ex-idx c) e)
-                               (eval ctx bindings (:body c)))]))))
+                               (types/eval (:body c) ctx bindings))]))))
                    nil
                    catches)]
         r
         (rethrow-with-location-of-node ctx bindings e body)))
     (finally
-      (eval ctx bindings finally))))
+      (types/eval finally ctx bindings))))
 
 ;;;; Interop
 
 (defn eval-static-method-invocation [ctx bindings expr]
   (interop/invoke-static-method (first expr)
                                 ;; eval args!
-                                (map #(eval ctx bindings %) (rest expr))))
+                                (map #(types/eval % ctx bindings) (rest expr))))
 
 #?(:clj
    (defn super-symbols [clazz]
@@ -161,7 +161,7 @@
   [ctx bindings instance-expr method-str field-access args #?(:cljs allowed)]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
-        instance-expr* (eval ctx bindings instance-expr)]
+        instance-expr* (types/eval instance-expr ctx bindings)]
     (if (and (map? instance-expr*)
              (:sci.impl/record (meta instance-expr*))) ;; a sci record
       (get instance-expr* (keyword
@@ -187,7 +187,7 @@
           (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
         (if field-access
           (interop/invoke-instance-field instance-expr* target-class method-str)
-          (let [args (map #(eval ctx bindings %) args)] ;; eval args!
+          (let [args (map #(types/eval % ctx bindings) args)] ;; eval args!
             (interop/invoke-instance-method instance-expr* target-class method-str args)))))))
 
 ;;;; End interop
@@ -202,10 +202,10 @@
   ([ctx bindings env sym]
    (when (or (not env)
              (not (contains? env sym)))
-     (let [sym (eval ctx bindings sym)
+     (let [sym (types/eval sym ctx bindings)
            res (second (@utils/lookup ctx sym false))]
-       (when-not (instance? #?(:clj sci.impl.types.EvalFn
-                               :cljs sci.impl.types/EvalFn) res)
+       (when-not #?(:cljs (implements? sci.impl.types/Eval res)
+                    :clj (instance? sci.impl.types/Eval res))
          res)))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
@@ -261,7 +261,7 @@
   (let [exprs (seq exprs)]
     (loop [exprs exprs]
       (when exprs
-        (let [ret (eval ctx bindings (first exprs))]
+        (let [ret (types/eval (first exprs) ctx bindings)]
           (if-let [exprs (next exprs)]
             (recur exprs)
             ret))))))
@@ -288,12 +288,12 @@
                     [i (let [arg-syms (map (fn [_] (gensym "arg")) (range i))
                              args-sym 'args ;; (gensym "args")
                              let-syms (interleave arg-syms (repeat args-sym))
-                             let-vals (interleave (repeat `(eval ~'ctx ~'bindings (first ~args-sym)))
+                             let-vals (interleave (repeat `(types/eval (first ~args-sym) ~'ctx ~'bindings))
                                                   (repeat `(rest ~args-sym)))
                              let-bindings (vec (interleave let-syms let-vals))]
                          `(let ~let-bindings
                             (~'f ~@arg-syms)))]) (range 20))
-          cases (concat cases ['(let [args (mapv #(eval ctx bindings %) args)]
+          cases (concat cases ['(let [args (mapv #(types/eval % ctx bindings) args)]
                                   (apply f args))])]
       ;; Normal apply:
       #_`(defn ~'fn-call ~'[ctx f args]
@@ -366,12 +366,3 @@
           (eval [expr _ _]
             expr)
           nil (eval [_ _ _])))
-
-(defn eval
-  [ctx bindings expr]
-  (try
-    (sci.impl.types/eval expr ctx bindings)
-    (catch #?(:clj Throwable :cljs js/Error) e
-      (rethrow-with-location-of-node ctx bindings e expr))))
-
-(vreset! utils/eval* eval)

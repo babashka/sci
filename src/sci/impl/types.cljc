@@ -49,7 +49,7 @@
 (defprotocol Eval
   (eval [expr ctx ^objects bindings]))
 
-(deftype EvalFn [f info expr stack md]
+#_(deftype EvalFn [f info expr stack md]
   ;; f = (fn [ctx] ...)
   ;; m = meta
   IBox

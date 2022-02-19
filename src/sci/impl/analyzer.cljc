@@ -15,7 +15,7 @@
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer
-    [ana-macros constant? ctx-fn kw-identical? macro?
+    [ana-macros constant? kw-identical? macro?
      maybe-destructured rethrow-with-location-of-node set-namespace!]]
    [sci.impl.vars :as vars]
    #?(:cljs [cljs.tagged-literals :refer [JSValue]]))
@@ -118,18 +118,17 @@
               [1 `(nth (deref ~'analyzed-children) 0)]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              (ctx-fn
-                               (fn [~'ctx ~'bindings]
+                              (reify sci.impl.types/Eval
+                                (~'eval [_ ~'ctx ~'bindings]
                                  ~@(map (fn [j]
                                           `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                        (range i)))
-                               ~'expr))])
+                                        (range i)))))])
                       let-bindings)
-              `[(ctx-fn
-                 (let [~'analyzed-children (deref ~'analyzed-children)]
-                   (fn [~'ctx ~'bindings]
-                     (eval/eval-do ~'ctx ~'bindings ~'analyzed-children)))
-                 ~'expr)]))))))
+              `[(let [~'analyzed-children (deref ~'analyzed-children)]
+                  (reify
+                    sci.impl.types/Eval
+                    (~'eval [_# ~'ctx ~'bindings]
+                     (eval/eval-do ~'ctx ~'bindings ~'analyzed-children))))]))))))
 
 ;; (require '[clojure.pprint :refer [pprint]])
 ;; (pprint (clojure.core/macroexpand '(gen-return-do)))
@@ -154,19 +153,17 @@
               [1 `(analyze ~'ctx (first ~'children))]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              (ctx-fn
-                               (fn [~'ctx ~'bindings]
+                              (reify sci.impl.types/Eval
+                                (~'eval [_# ~'ctx ~'bindings]
                                  (or
                                   ~@(map (fn [j]
-                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                         (range i))))
-                               ~'expr))])
+                                           `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                         (range i))))))])
                       let-bindings)
-              `[(ctx-fn
-                 (let [~'analyzed-children (deref ~'analyzed-children)]
-                   (fn [~'ctx ~'bindings]
-                     (eval/eval-or ~'ctx ~'bindings ~'analyzed-children)))
-                 ~'expr)]))))))
+              `[(let [~'analyzed-children (deref ~'analyzed-children)]
+                  (reify sci.impl.types/Eval
+                    (~'eval [_# ~'ctx ~'bindings]
+                     (eval/eval-or ~'analyzed-children ~'ctx ~'bindings))))]))))))
 
 (declare return-or) ;; for clj-kondo
 (gen-return-or)
@@ -188,19 +185,17 @@
               [1 `(analyze ~'ctx (first ~'children))]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              (ctx-fn
-                               (fn [~'ctx ~'bindings]
+                              (reify sci.impl.types/Eval
+                                (~'eval [_# ~'ctx ~'bindings]
                                  (and
                                   ~@(map (fn [j]
-                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                         (range i))))
-                               ~'expr))])
+                                           `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                         (range i))))))])
                       let-bindings)
-              `[(ctx-fn
-                 (let [~'analyzed-children (deref ~'analyzed-children)]
-                   (fn [~'ctx ~'bindings]
-                     (eval/eval-and ~'ctx ~'bindings ~'analyzed-children)))
-                 ~'expr)]))))))
+              `[(let [~'analyzed-children (deref ~'analyzed-children)]
+                  (reify sci.impl.types/Eval
+                    (~'eval [_# ~'ctx ~'bindings]
+                     (eval/eval-and ~'ctx ~'bindings ~'analyzed-children))))]))))))
 
 (declare return-and) ;; for clj-kondo
 (gen-return-and)
@@ -222,27 +217,26 @@
        (let [~'params (:params ~'ctx)]
          (case (count ~'analyzed-children)
            ~@(concat
-              [0 `(ctx-fn
-                   (fn [~'_ ~'bindings]
-                     ::recur)
-                   ~'expr)]
+              [0 `(reify sci.impl.types/Eval
+                    (~'eval [_# ~'_ ~'bindings]
+                     ::recur))]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
                               (reify
                                 sci.impl.types/Eval
                                 (~'eval [_# ~'ctx ~'bindings]
-                                  ;; important, recur vals must be evaluated with old bindings!
-                                  (let [~@(mapcat (fn [j]
-                                                    [(symbol (str "eval-" j) )
-                                                     `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings)])
-                                                  (range i))]
-                                    (do ~@(map (fn [j]
-                                                 `(aset
-                                                   ~(with-meta 'bindings
-                                                      {:tag 'objects}) ~j
-                                                   ~(symbol (str "eval-" j))))
-                                               (range i))))
-                                  ::recur)))])
+                                 ;; important, recur vals must be evaluated with old bindings!
+                                 (let [~@(mapcat (fn [j]
+                                                   [(symbol (str "eval-" j) )
+                                                    `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings)])
+                                                 (range i))]
+                                   (do ~@(map (fn [j]
+                                                `(aset
+                                                  ~(with-meta 'bindings
+                                                     {:tag 'objects}) ~j
+                                                  ~(symbol (str "eval-" j))))
+                                              (range i))))
+                                 ::recur)))])
                       let-bindings)))))))
 
 ;; (require 'clojure.pprint)
@@ -453,21 +447,19 @@
         bindings-fn (:sci.impl/bindings-fn struct)
         self-ref? (:sci.impl/self-ref? struct)]
     (if fn-meta
-      (fn [ctx bindings]
-        (let [fn-meta (eval/eval ctx bindings fn-meta)
-              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)]
-          (vary-meta f merge fn-meta)))
-      (fn [ctx bindings]
-        (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)))))
+      (reify sci.impl.types/Eval
+        (eval [_this ctx bindings]
+          (let [fn-meta (types/eval fn-meta ctx bindings)
+                f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)]
+            (vary-meta f merge fn-meta))))
+      (reify sci.impl.types/Eval
+        (eval [_ ctx bindings]
+          (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn))))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)
-        fn-meta (:sci.impl/fn-meta struct)
-        ctxfn (fn-ctx-fn ctx struct fn-meta)]
-    (ctx-fn ctxfn
-            struct
-            fn-expr
-            nil)))
+        fn-meta (:sci.impl/fn-meta struct)]
+    (fn-ctx-fn ctx struct fn-meta)))
 
 (defn update-parents
   ":syms = closed over values"
@@ -550,13 +542,12 @@
             m (if docstring (assoc m :doc docstring) m)
             m (if m-needs-eval?
                 (analyze ctx m)
-                (ctx-fn (fn [_ctx _bindings]
-                          m)
-                        m))]
-        (ctx-fn
-         (fn [ctx bindings]
-           (eval/eval-def ctx bindings var-name init m))
-         expr)))))
+                (reify sci.impl.types/Eval
+                  (eval [_ _ctx _bindings]
+                    m)))]
+        (reify sci.impl.types/Eval
+          (eval [_ _ctx bindings]
+            (eval/eval-def ctx bindings var-name init m)))))))
 
 (defn analyze-defn [ctx [op fn-name & body :as expr]]
   ;; TODO: re-use analyze-def
@@ -596,12 +587,11 @@
                  :sci.impl/defn true)
         fn-meta (:sci.impl/fn-meta f)
         ctxfn (fn-ctx-fn ctx f fn-meta)
-        f (ctx-fn ctxfn f f)
+        f ctxfn
         meta-map (analyze ctx meta-map)]
-    (ctx-fn
-     (fn [ctx bindings]
-       (eval/eval-def ctx bindings fn-name f meta-map))
-     expr)))
+    (reify sci.impl.types/Eval
+      (eval [_ ctx bindings]
+        (eval/eval-def ctx bindings fn-name f meta-map)))))
 
 (defn analyze-loop
   [ctx expr]
@@ -625,9 +615,9 @@
   (let [body (rest expr)
         ctx (with-recur-target ctx true) ;; body is analyzed in context of implicit no-arg fn
         ana (return-do ctx expr body)]
-    (ctx-fn (fn [ctx bindings]
-              (lazy-seq (eval/eval ctx bindings ana)))
-            expr)))
+    (reify sci.impl.types/Eval
+      (eval [_ ctx bindings]
+        (lazy-seq (types/eval ana ctx bindings))))))
 
 (defn return-if
   [ctx expr]
@@ -639,28 +629,20 @@
               then (nth children 1)]
           (cond (not condition) nil
                 (constant? condition) then
-                :else (ctx-fn
-                       (fn [ctx bindings]
-                         (when (eval/eval ctx bindings condition)
-                           (eval/eval ctx bindings then)))
-                       ;; backward compatibility with stacktrace
-                       nil
-                       expr
-                       nil)))
+                :else (reify types/Eval
+                        (eval [_ ctx bindings]
+                          (when (types/eval condition ctx bindings)
+                            (types/eval then ctx bindings))))))
       3 (let [condition (nth children 0)
               then (nth children 1)
               else (nth children 2)]
           (cond (not condition) else
                 (constant? condition) then
-                :else (ctx-fn
-                       (fn [ctx bindings]
-                         (if (types/eval condition ctx bindings)
-                           (types/eval then ctx bindings)
-                           (types/eval else ctx bindings)))
-                       ;; backward compatibility with stacktrace
-                       nil
-                       expr
-                       nil)))
+                :else (reify types/Eval
+                        (eval [_ ctx bindings]
+                          (if (types/eval condition ctx bindings)
+                            (types/eval then ctx bindings)
+                            (types/eval else ctx bindings))))))
       (throw-error-with-location "Too many arguments to if" expr))))
 
 (defn analyze-case
@@ -694,15 +676,13 @@
                           (assoc-new ret-map k v))))
                      ret-map))
         f (if default?
-            (fn [ctx bindings]
-              (eval/eval-case ctx bindings case-map case-val case-default))
-            (fn [ctx bindings]
-              (eval/eval-case ctx bindings case-map case-val)))]
-    (ctx-fn
-     f
-     nil
-     expr
-     nil)))
+            (reify types/Eval
+              (eval [_ ctx bindings]
+                (eval/eval-case ctx bindings case-map case-val case-default)))
+            (reify types/Eval
+              (eval [_ ctx bindings]
+                (eval/eval-case ctx bindings case-map case-val))))]
+    f))
 
 (defn analyze-try
   [ctx expr]
@@ -751,9 +731,9 @@
                       catches)
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
-    (ctx-fn (fn [ctx bindings]
-              (eval/eval-try ctx bindings body catches finally))
-            expr)))
+    (reify types/Eval
+      (eval [_ ctx bindings]
+        (eval/eval-try ctx bindings body catches finally)))))
 
 (defn analyze-throw [ctx [_throw ex :as expr]]
   (when-not (= 2 (count expr))
@@ -833,10 +813,9 @@
           #?(:clj (if (class? instance-expr)
                     (if (nil? args)
                       (if field-access
-                        (ctx-fn
-                         (fn [_ctx _bindings]
-                           (interop/get-static-field [instance-expr (subs method-name 1)]))
-                         nil expr nil)
+                        (reify types/Eval
+                          (eval [_ _ctx _bindings]
+                            (interop/get-static-field [instance-expr (subs method-name 1)])))
                         ;; https://clojure.org/reference/java_interop
                         ;; If the second operand is a symbol and no args are
                         ;; supplied it is taken to be a field access - the
@@ -848,45 +827,51 @@
                         (if-let [_
                                  (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
                                       (catch IllegalArgumentException _ nil))]
-                          (ctx-fn
-                           (fn [_ctx _bindings]
-                             (interop/get-static-field [instance-expr method-name]))
-                           nil expr nil)
-                          (ctx-fn
-                           (fn [ctx bindings]
-                             (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
-                           nil
-                           expr
-                           (assoc (meta expr)
-                                  :ns @vars/current-ns
-                                  :file @vars/current-file))))
-                      (ctx-fn
-                       (fn [ctx bindings]
-                         (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
-                       nil expr
-                       (assoc (meta expr)
-                              :ns @vars/current-ns
-                              :file @vars/current-file)))
-                    (ctx-fn (fn [ctx bindings]
-                              (eval/eval-instance-method-invocation ctx bindings instance-expr meth-name field-access args))
-                            ;; this info is used by set!
-                            {::instance-expr instance-expr
-                             ::method-name method-name}
-                            expr
-                            (assoc (meta expr)
-                                   :ns @vars/current-ns
-                                   :file @vars/current-file)))
-             :cljs (ctx-fn
-                    (let [allowed? (identical? method-expr utils/allowed-append)]
-                      (fn [ctx bindings]
-                        (eval/eval-instance-method-invocation ctx bindings instance-expr meth-name field-access args allowed?)))
-                    ;; this info is used by set!
-                    {::instance-expr instance-expr
-                     ::method-name method-name}
-                    expr
-                    (assoc (meta expr)
-                           :ns @vars/current-ns
-                           :file @vars/current-file))))]
+                          (reify types/Eval
+                            (eval [_ _ctx _bindings]
+                              (interop/get-static-field [instance-expr method-name])))
+                          (let [stack (assoc (meta expr)
+                                             :ns @vars/current-ns
+                                             :file @vars/current-file)]
+                            (reify
+                              types/Eval
+                              (eval [_ ctx bindings]
+                                (eval/eval-static-method-invocation ctx bindings (cons [instance-expr method-name] args)))
+                              types/Stack
+                              (stack [_] stack)))))
+                      (let [stack (assoc (meta expr)
+                                         :ns @vars/current-ns
+                                         :file @vars/current-file)]
+                        (reify
+                          types/Eval
+                          (eval [_ ctx bindings]
+                            (eval/eval-static-method-invocation
+                             ctx bindings (cons [instance-expr method-name] args)))
+                          types/Stack
+                          (stack [_] stack))))
+                    (let [stack (assoc (meta expr)
+                                       :ns @vars/current-ns
+                                       :file @vars/current-file)]
+                      (with-meta (reify
+                                   types/Eval (eval [_ ctx bindings]
+                                                (eval/eval-instance-method-invocation ctx bindings instance-expr meth-name field-access args))
+
+                                   types/Stack
+                                   (stack [_] stack))
+                        {::instance-expr instance-expr
+                         ::method-name method-name})))
+             :cljs (let [stack (assoc (meta expr)
+                                      :ns @vars/current-ns
+                                      :file @vars/current-file)
+                         allowed? (identical? method-expr utils/allowed-append)]
+                     (with-meta (reify types/Eval
+                                  (eval [_ ctx bindings]
+                                    (eval/eval-instance-method-invocation
+                                     ctx bindings instance-expr meth-name field-access args allowed?))
+                                  types/Stack
+                                  (stack [_] stack))
+                       {::instance-expr instance-expr
+                        ::method-name method-name}))))]
     res))
 
 (defn expand-dot**
@@ -909,10 +894,9 @@
   (let [ctx (without-recur-target ctx)]
     #?(:clj (if-let [class (:class (interop/resolve-class-opts ctx class-sym))]
               (let [args (analyze-children ctx args)]
-                (ctx-fn
-                 (fn [ctx bindings]
-                   (interop/invoke-constructor class (mapv #(eval/eval ctx bindings %) args)))
-                 expr))
+                (reify types/Eval
+                  (eval [_ _ctx bindings]
+                    (interop/invoke-constructor class (mapv #(types/eval % ctx bindings) args)))))
               (if-let [record (records/resolve-record-class ctx class-sym)]
                 (let [args (analyze-children ctx args)]
                   ;; _ctx expr f analyzed-children stack
@@ -961,23 +945,21 @@
                                              :file @vars/current-file)
                                       nil)
                          var?
-                         (ctx-fn
-                          (fn [ctx bindings]
-                            (interop/invoke-constructor (deref maybe-var)
-                                                        (mapv #(eval/eval ctx bindings %) args)))
-                          expr)
+                         (reify types/Eval
+                           (fn [_ ctx bindings]
+                             (interop/invoke-constructor (deref maybe-var)
+                                                         (mapv #(types/eval % ctx bindings) args))))
                          (implements? sci.impl.types/Eval class)
-                         (ctx-fn
-                          (fn [ctx bindings]
-                            (interop/invoke-constructor (eval/eval ctx bindings class)
-                                                        (mapv #(eval/eval ctx bindings %) args)))
-                          expr)
+                         (reify types/Eval
+                           (eval [_ ctx bindings]
+                             (interop/invoke-constructor (types/eval class ctx bindings)
+                                                         (mapv #(types/eval % ctx bindings) args)))
+                           expr)
                          :else
-                         (ctx-fn
-                          (fn [ctx bindings]
-                            (interop/invoke-constructor class ;; no eval needed
-                                                        (mapv #(eval/eval ctx bindings %) args)))
-                          expr)))
+                         (reify types/Eval
+                           (eval [_ ctx bindings]
+                             (interop/invoke-constructor class ;; no eval needed
+                                                         (mapv #(types/eval % ctx bindings) args))))))
                  (if-let [record (records/resolve-record-class ctx class-sym)]
                    (let [args (analyze-children ctx args)]
                      (return-call ctx
@@ -992,11 +974,10 @@
                                   nil))
                    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
                (let [class (analyze ctx class-sym)]
-                 (ctx-fn
-                  (fn [ctx bindings]
-                    (interop/invoke-constructor (types/eval class ctx bindings)
-                                                (mapv #(types/eval % ctx bindings) args)))
-                  expr))))))
+                 (reify types/Eval
+                   (eval [_ ctx bindings]
+                     (interop/invoke-constructor (types/eval class ctx bindings)
+                                                 (mapv #(types/eval % ctx bindings) args)))))))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
   (let [constructor-name (name constructor-sym)
@@ -1067,11 +1048,10 @@
          ctx
          expr
          (conj ret
-               (ctx-fn
-                (fn [ctx _bindings]
-                  (load/add-loaded-lib (:env ctx) ns-name)
-                  nil)
-                nil)))))))
+               (reify types/Eval
+                 (eval [_ ctx _bindings]
+                   (load/add-loaded-lib (:env ctx) ns-name)
+                   nil))))))))
 
 ;;;; End namespaces
 
@@ -1087,21 +1067,21 @@
               _ (when-not (vars/var? obj)
                   (throw-error-with-location "Invalid assignment target" expr))
               v (analyze ctx v)]
-          (ctx-fn (fn [ctx bindings]
-                    (let [v (eval/eval ctx bindings v)]
-                      (types/setVal obj v)))
-                  expr))
+          (reify types/Eval (eval [_ ctx bindings]
+                              (let [v (types/eval v ctx bindings)]
+                                (types/setVal obj v)))))
         #?@(:cljs [(seq? obj)
                    (let [obj (analyze ctx obj)
                          v (analyze ctx v)
                          obj (types/info obj)
                          k (subs (::method-name obj) 1)
                          obj (::instance-expr obj)]
-                     (ctx-fn (fn [ctx bindings]
-                               (let [obj (eval/eval ctx bindings obj)
-                                     v (eval/eval ctx bindings v)]
-                                 (gobj/set obj k v)))
-                             expr))])
+                     (reify types/Eval
+                       (fn [ctx bindings]
+                         (let [obj (types/eval obj ctx bindings)
+                               v (types/eval v ctx bindings)]
+                           (gobj/set obj k v)))
+                       expr))])
         :else (throw-error-with-location "Invalid assignment target" expr)))
 
 ;;;; End vars
@@ -1153,20 +1133,20 @@
                           (range 20))]
     `(defn ~'return-needs-ctx-call
        ~'[_ctx expr f analyzed-children]
-       (ctx-fn
-        (case (count ~'analyzed-children)
-          ~@(concat
-             (mapcat (fn [[i binds]]
-                       [i `(let ~binds
-                             (fn [~'ctx ~'bindings]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (reify types/Eval
+                              (~'eval [_# ~'ctx ~'bindings]
                                (~'f ~'ctx
                                 ~@(map (fn [j]
-                                         `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
-                                       (range i)))))])
-                     let-bindings)
-             `[(fn [~'ctx ~'bindings]
-                 (eval/fn-call ~'ctx ~'bindings ~'f (cons ~'ctx ~'analyzed-children)))]))
-        ~'expr))))
+                                         `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                       (range i))))))])
+                    let-bindings)
+            `[(reify types/Eval
+                (~'eval [_# ~'ctx ~'bindings]
+                 (eval/fn-call ~'ctx ~'bindings ~'f (cons ~'ctx ~'analyzed-children))))])))))
 
 (declare return-needs-ctx-call) ;; for clj-kondo
 (gen-return-needs-ctx-call)
@@ -1193,39 +1173,41 @@
                               (reify
                                 sci.impl.types/Eval
                                 (~'eval ~'[this ctx bindings]
-                                  (try
-                                    ((~'wrap ~'bindings ~'f)
-                                     ~@(map (fn [j]
-                                              `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                            (range i)))
-                                    (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
+                                 (try
+                                   ((~'wrap ~'bindings ~'f)
+                                    ~@(map (fn [j]
+                                             `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                           (range i)))
+                                   (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                     (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
                                 sci.impl.types/Stack
                                 (~'stack ~'[_]
-                                  ~'stack))
+                                 ~'stack))
                               (reify
                                 sci.impl.types/Eval
                                 (~'eval ~'[this ctx bindings]
-                                  (try
-                                    (~'f
-                                     ~@(map (fn [j]
-                                              `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
-                                            (range i)))
-                                    (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                      (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
+                                 (try
+                                   (~'f
+                                    ~@(map (fn [j]
+                                             `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
+                                           (range i)))
+                                   (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                     (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
                                 sci.impl.types/Stack
                                 (~'stack ~'[_]
-                                  ~'stack))))])
+                                 ~'stack))))])
                     let-bindings)
-            `[(ctx-fn
-               (if ~'wrap
-                 (fn [~'ctx ~'bindings]
+            `[(if ~'wrap
+                (reify types/Eval
+                  (~'eval [_# ~'ctx ~'bindings]
                    (eval/fn-call ~'ctx ~'bindings (~'wrap ~'bindings ~'f) ~'analyzed-children))
-                 (fn [~'ctx ~'bindings]
-                   (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)))
-               nil
-               ~'expr
-               ~'stack)])))))
+                  types/Stack
+                  ~'(stack [_] stack))
+                (reify types/Eval
+                  (~'eval [_# ~'ctx ~'bindings]
+                   (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children))
+                  types/Stack
+                  ~'(stack [_] stack)))])))))
 
 (declare return-call) ;; for clj-kondo
 (gen-return-call)
@@ -1234,15 +1216,15 @@
   (when-not (= 2 (count expr))
     (throw-error-with-location "Wrong number of args (0) passed to quote" expr))
   (let [snd (second expr)]
-    (ctx-fn (fn [_ctx _bindings] snd) expr)))
+    (reify types/Eval (eval [_ _ctx _bindings] snd))))
 
 (defn analyze-in-ns [ctx expr]
   (let [ns-expr (analyze ctx (second expr))]
-    (ctx-fn (fn [ctx bindings]
-              (let [ns-sym (eval/eval ctx bindings ns-expr)]
-                (set-namespace! ctx ns-sym nil)
-                nil))
-            expr)))
+    (reify types/Eval
+      (eval [_ ctx bindings]
+        (let [ns-sym (types/eval ns-expr ctx bindings)]
+          (set-namespace! ctx ns-sym nil)
+          nil)))))
 
 (defn analyze-import [_ctx expr]
   (let [args (rest expr)
@@ -1428,44 +1410,44 @@
                           ;; stack on it, the only interesting bit it the map
                           ;; with :ns and :file
                           (rethrow-with-location-of-node ctx e
-                                                         (ctx-fn
-                                                          nil
-                                                          nil
-                                                          expr
-                                                          (assoc m
-                                                                 :ns @vars/current-ns
-                                                                 :file @vars/current-file
-                                                                 :sci.impl/f-meta f-meta)))))))
+                                                         (let [stack (assoc m
+                                                                            :ns @vars/current-ns
+                                                                            :file @vars/current-file
+                                                                            :sci.impl/f-meta f-meta)]
+                                                           (reify types/Stack
+                                                             (stack [_]
+                                                               stack))))))))
               (keyword? f)
               (let [children (analyze-children ctx (rest expr))
                     ccount (count children)]
                 (case ccount
                   1 (let [arg (nth children 0)]
-                      (ctx-fn
-                       (fn [ctx bindings]
-                         (f (eval/eval ctx bindings arg)))
-                       expr))
+                      (reify types/Eval
+                        (eval [_ ctx bindings]
+                          (f (types/eval arg ctx bindings)))))
                   2 (let [arg0 (nth children 0)
                           arg1 (nth children 1)]
-                      (ctx-fn (fn [ctx bindings]
-                                (f (eval/eval ctx bindings arg0)
-                                   (eval/eval ctx bindings arg1)))
-                              expr))
+                      (reify types/Eval
+                        (eval [_ ctx bindings]
+                          (f (types/eval arg0 ctx bindings)
+                             (types/eval arg1 ctx bindings)))))
                   (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f) expr)))
               :else
               (let [f (analyze ctx f)
-                    children (analyze-children ctx (rest expr))]
-                (ctx-fn (fn [ctx bindings]
-                          (let [f (eval/eval ctx bindings f)]
-                            (if (ifn? f)
-                              (eval/fn-call ctx bindings f children)
-                              (throw (new #?(:clj Exception :cljs js/Error)
-                                          (str "Cannot call " (pr-str f) " as a function."))))))
-                        nil
-                        expr
-                        (assoc m
-                               :ns @vars/current-ns
-                               :file @vars/current-file)))))
+                    children (analyze-children ctx (rest expr))
+                    stack (assoc m
+                                 :ns @vars/current-ns
+                                 :file @vars/current-file)]
+                (reify types/Eval
+                  (eval [_ ctx bindings]
+                    (let [f (types/eval f ctx bindings)]
+                      (if (ifn? f)
+                        (eval/fn-call ctx bindings f children)
+                        (throw (new #?(:clj Exception :cljs js/Error)
+                                    (str "Cannot call " (pr-str f) " as a function."))))))
+
+                  types/Stack
+                  (stack [_] stack)))))
       (finally
         (when eval-file
           (vars/pop-thread-bindings))))))
@@ -1493,12 +1475,12 @@
                            (return-map ctx expr))
         analyzed-meta (when m (analyze ctx m))
         ret (if analyzed-meta
-              (ctx-fn
-               (fn [ctx bindings]
-                 (let [coll (eval/eval ctx bindings analyzed-map)
-                       md (eval/eval ctx bindings analyzed-meta)]
-                   (with-meta coll md)))
-               expr)
+              (reify
+                types/Eval
+                (eval [_ ctx bindings]
+                  (let [coll (types/eval analyzed-map ctx bindings)
+                        md (types/eval analyzed-meta ctx bindings)]
+                    (with-meta coll md))))
               analyzed-map)]
     ret))
 
@@ -1517,12 +1499,11 @@
                         (if m
                           ;; can we transform this into return-call?
                           (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil nil)]
-                            (ctx-fn
-                             (fn [ctx bindings]
-                               (let [coll (eval/eval ctx bindings ef)
-                                     md (eval/eval ctx bindings analyzed-meta)]
-                                 (with-meta coll md)))
-                             expr))
+                            (reify types/Eval
+                             (eval [_ ctx bindings]
+                               (let [coll (types/eval ef ctx bindings)
+                                     md (types/eval analyzed-meta ctx bindings)]
+                                 (with-meta coll md)))))
                           (return-call ctx expr f2 (analyze-children ctx expr) nil nil)))]
     analyzed-coll))
 
@@ -1534,14 +1515,15 @@
                ks (map name ks)
                vs (vals v)
                vs (analyze-children ctx vs)]
-           (ctx-fn (fn [ctx bindings]
-                     (apply js-obj (interleave ks (map #(eval/eval ctx bindings %) vs))))
-                   js-val))
+           (reify types/Eval
+             (eval [_ ctx bindings]
+               (apply js-obj (interleave ks (map #(types/eval % ctx bindings) vs))))
+             js-val))
          (let [vs (analyze-children ctx v)]
            (ctx-fn (fn [ctx bindings]
                      (let [arr (array)]
                        (doseq [x vs]
-                         (.push arr (eval/eval ctx bindings x)))
+                         (.push arr (types/eval x ctx bindings)))
                        arr))
                    js-val))))))
 
@@ -1564,9 +1546,9 @@
                                 (if (vars/isMacro v)
                                   (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                               (str "Can't take value of a macro: " v "")))
-                                  (ctx-fn (fn [_ctx _bindings]
-                                            (faster/deref-1 v))
-                                          v)))
+                                  (reify types/Eval
+                                    (eval [_ _ctx _bindings]
+                                      (faster/deref-1 v)))))
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map

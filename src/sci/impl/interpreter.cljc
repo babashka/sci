@@ -4,10 +4,9 @@
   (:require
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
-   [sci.impl.evaluator :as eval]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
-   [sci.impl.types :as t]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
@@ -36,8 +35,8 @@
             bindings (object-array binding-array-size)
             ret (if (instance? #?(:clj sci.impl.types.EvalForm
                                   :cljs sci.impl.types/EvalForm) analyzed)
-                  (eval-form ctx (t/getVal analyzed))
-                  (eval/eval ctx bindings analyzed))]
+                  (eval-form ctx (types/getVal analyzed))
+                  (types/eval analyzed ctx bindings))]
         ret))
     (let [upper-sym (gensym)
           cb (volatile! {upper-sym {0 {:syms {}}}})
@@ -47,7 +46,7 @@
           analyzed (ana/analyze ctx form)
           binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
           bindings (object-array binding-array-size)
-          ret (eval/eval ctx bindings analyzed)]
+          ret (types/eval analyzed ctx bindings)]
       ret)))
 
 (vreset! utils/eval-form-state eval-form)

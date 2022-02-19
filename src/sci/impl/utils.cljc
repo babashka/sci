@@ -192,7 +192,6 @@
 (def eval-refer-state (volatile! nil))
 (def macroexpand* (volatile! nil))
 (def macroexpand-1* (volatile! nil))
-(def eval* (volatile! nil))
 (def eval-do* (volatile! nil))
 (def eval-fn (volatile! nil))
 (def eval-string* (volatile! nil))
@@ -217,16 +216,6 @@
      comment loop lazy-seq case try defmacro
      declare expand-dot* expand-constructor new . import in-ns ns var
      set! resolve #_#_macroexpand-1 macroexpand})
-
-(defn ctx-fn
-  ([f expr]
-   (t/->EvalFn f nil expr nil nil))
-  ([f m expr]
-   (t/->EvalFn f m expr nil nil))
-  ([f m expr stack]
-   (t/->EvalFn f m expr stack nil))
-  ([f m expr stack md]
-   (t/->EvalFn f m expr stack md)))
 
 (defn maybe-destructured
   [params body]
