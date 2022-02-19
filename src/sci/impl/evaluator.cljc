@@ -309,10 +309,10 @@
 (defn eval
   [ctx bindings expr]
   (try
-    (cond (instance? #?(:clj sci.impl.types.EvalFn
-                        :cljs sci.impl.types/EvalFn) expr)
-          ((.-f ^sci.impl.types.EvalFn expr) ctx bindings)
-          :else expr)
+    (if (instance? #?(:clj sci.impl.types.EvalFn
+                      :cljs sci.impl.types/EvalFn) expr)
+      ((.-f ^sci.impl.types.EvalFn expr) ctx bindings)
+      expr)
     (catch #?(:clj Throwable :cljs js/Error) e
       (rethrow-with-location-of-node ctx bindings e expr))))
 
