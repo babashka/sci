@@ -1250,10 +1250,8 @@
     (reify
       sci.impl.types.Eval
       (eval [this ctx bindings]
-        (prn :eval)
         (try (apply eval/eval-import ctx args)
              (catch #?(:clj Throwable :cljs js/Error) e
-               (prn :>)
                (rethrow-with-location-of-node ctx bindings e this))))
       sci.impl.types.Stack
       (stack [_]
