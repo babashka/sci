@@ -119,7 +119,7 @@
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
                               (reify sci.impl.types/Eval
-                                (~'eval [_ ~'ctx ~'bindings]
+                                (~'eval [_# ~'ctx ~'bindings]
                                  ~@(map (fn [j]
                                           `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                         (range i)))))])
@@ -957,15 +957,14 @@
                                       nil)
                          var?
                          (reify types/Eval
-                           (fn [_ ctx bindings]
+                           (eval [_ ctx bindings]
                              (interop/invoke-constructor (deref maybe-var)
                                                          (mapv #(types/eval % ctx bindings) args))))
                          (implements? sci.impl.types/Eval class)
                          (reify types/Eval
                            (eval [_ ctx bindings]
                              (interop/invoke-constructor (types/eval class ctx bindings)
-                                                         (mapv #(types/eval % ctx bindings) args)))
-                           expr)
+                                                         (mapv #(types/eval % ctx bindings) args))))
                          :else
                          (reify types/Eval
                            (eval [_ ctx bindings]
@@ -1084,15 +1083,14 @@
         #?@(:cljs [(seq? obj)
                    (let [obj (analyze ctx obj)
                          v (analyze ctx v)
-                         obj (types/info obj)
-                         k (subs (::method-name obj) 1)
-                         obj (::instance-expr obj)]
+                         info (meta obj)
+                         k (subs (::method-name info) 1)
+                         obj (::instance-expr info)]
                      (reify types/Eval
-                       (fn [ctx bindings]
+                       (eval [_ ctx bindings]
                          (let [obj (types/eval obj ctx bindings)
                                v (types/eval v ctx bindings)]
-                           (gobj/set obj k v)))
-                       expr))])
+                           (gobj/set obj k v)))))])
         :else (throw-error-with-location "Invalid assignment target" expr)))
 
 ;;;; End vars
@@ -1295,9 +1293,10 @@
                                     (subs method-name (inc idx))]
                                    f)
                                children (analyze-children ctx (rest expr))]
-                           (ctx-fn (fn [ctx bindings]
-                                     (eval/eval-static-method-invocation ctx bindings (cons f children)))
-                                   expr)))
+                           (reify
+                             types/Eval
+                             (eval [_ ctx bindings]
+                               (eval/eval-static-method-invocation ctx bindings (cons f children))))))
                       (and (not eval?) ;; the symbol is not a binding
                            (symbol? f)
                            (or
@@ -1520,10 +1519,10 @@
                           ;; can we transform this into return-call?
                           (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil nil)]
                             (reify types/Eval
-                             (eval [_ ctx bindings]
-                               (let [coll (types/eval ef ctx bindings)
-                                     md (types/eval analyzed-meta ctx bindings)]
-                                 (with-meta coll md)))))
+                              (eval [_ ctx bindings]
+                                (let [coll (types/eval ef ctx bindings)
+                                      md (types/eval analyzed-meta ctx bindings)]
+                                  (with-meta coll md)))))
                           (return-call ctx expr f2 (analyze-children ctx expr) nil nil)))]
     analyzed-coll))
 
@@ -1537,15 +1536,14 @@
                vs (analyze-children ctx vs)]
            (reify types/Eval
              (eval [_ ctx bindings]
-               (apply js-obj (interleave ks (map #(types/eval % ctx bindings) vs))))
-             js-val))
+               (apply js-obj (interleave ks (map #(types/eval % ctx bindings) vs))))))
          (let [vs (analyze-children ctx v)]
-           (ctx-fn (fn [ctx bindings]
-                     (let [arr (array)]
-                       (doseq [x vs]
-                         (.push arr (types/eval x ctx bindings)))
-                       arr))
-                   js-val))))))
+           (reify types/Eval
+             (eval [_ ctx bindings]
+               (let [arr (array)]
+                 (doseq [x vs]
+                   (.push arr (types/eval x ctx bindings)))
+                 arr))))))))
 
 (defn analyze
   ([ctx expr]

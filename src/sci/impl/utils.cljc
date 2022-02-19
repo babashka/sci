@@ -78,7 +78,6 @@
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx _bindings ^Throwable e raw-node]
-   ;; (prn :raw-node raw-node)
    (if #?(:clj (or *in-try*
                    (not= (:main-thread-id ctx)
                          (.getId (Thread/currentThread))))
