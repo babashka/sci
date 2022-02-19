@@ -1,14 +1,13 @@
 (ns sci.impl.resolve
   {:no-doc true}
   (:require [clojure.string :as str]
-            [sci.impl.evaluator :as eval]
             [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
+            [sci.impl.types]
             [sci.impl.utils :as utils :refer [strip-core-ns
                                               ana-macros
-                                              ctx-fn
-                                              kw-identical?]]
+                                              ctx-fn]]
             [sci.impl.vars :as vars]))
 
 (defn throw-error-with-location [msg node]
@@ -138,18 +137,16 @@
                       (let [oi (:outer-idens ctx)
                             ob (oi v)]
                         (update-parents ctx (:closure-bindings ctx) ob)))
-              #?@(:clj [tag (or tag (some-> k meta :tag))])
+              #?@(:clj [tag (or tag
+                                (some-> k meta :tag))])
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
-                  (let [v (reify sci.impl.types.Eval
-                            (eval [expr ctx bindings]
-                              (aget ^objects bindings idx)))#_(ctx-fn
-                           (fn [_ctx ^objects bindings]
-                             (aget bindings idx))
-                           nil
-                           k
-                           nil
-                           #?(:clj {:tag tag}))]
+                  (let [v (cond-> (reify
+                                    sci.impl.types.Eval
+                                    (eval [_this _ctx bindings]
+                                      (aget ^objects bindings idx)))
+                            #?@(:clj [tag (with-meta
+                                            {:tag tag})]))]
                     v))]
           [k v]))
       (when-let [kv (lookup* ctx sym call?)]
