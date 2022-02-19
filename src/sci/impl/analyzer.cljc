@@ -983,7 +983,8 @@
                                          )
                                   nil))
                    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
-               (let [class (analyze ctx class-sym)]
+               (let [class (analyze ctx class-sym)
+                     args (analyze-children ctx args)]
                  (reify types/Eval
                    (eval [_ ctx bindings]
                      (interop/invoke-constructor (types/eval class ctx bindings)
