@@ -29,16 +29,11 @@
   IBox
   (getVal [_this] form))
 
-(declare ->EvalFn)
-
 (defprotocol Sexpr
   (sexpr [this]))
 
 (extend-protocol Sexpr
   #?(:clj Object :cljs default) (sexpr [this] this))
-
-(defprotocol Info
-  (info [this]))
 
 (defprotocol Stack
   (stack [this]))
@@ -48,30 +43,3 @@
 
 (defprotocol Eval
   (eval [expr ctx ^objects bindings]))
-
-#_(deftype EvalFn [f info expr stack md]
-  ;; f = (fn [ctx] ...)
-  ;; m = meta
-  IBox
-  (getVal [_this] f)
-  #?(:clj clojure.lang.IMeta
-     :cljs IMeta)
-  (#?(:clj meta
-      :cljs -meta) [_this] md)
-  #?(:clj clojure.lang.IObj
-     :cljs IWithMeta)
-  (#?(:clj withMeta
-      :cljs -with-meta) [_this m]
-    (->EvalFn f info expr stack m))
-  Info
-  (info [_] info)
-  Sexpr
-  (sexpr [_] expr)
-  Object
-  (toString [_this]
-    (str expr))
-  Stack
-  (stack [_] stack)
-  Eval
-  (eval [_expr ctx bindings]
-    (f ctx bindings)))
