@@ -10,6 +10,7 @@
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.load :as load]
+   [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
@@ -227,8 +228,9 @@
                    ~'expr)]
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              (reify sci.impl.types.Eval
-                                (eval [_# ~'ctx ~'bindings]
+                              (reify
+                                sci.impl.types/Eval
+                                (~'eval [_# ~'ctx ~'bindings]
                                   ;; important, recur vals must be evaluated with old bindings!
                                   (let [~@(mapcat (fn [j]
                                                     [(symbol (str "eval-" j) )
@@ -766,10 +768,10 @@
                      :file @vars/current-file
                      :special true)]
     (reify
-      sci.impl.types.Eval
+      sci.impl.types/Eval
       (eval [this ctx bindings]
         (rethrow-with-location-of-node ctx bindings (types/eval ana ctx bindings) this))
-      sci.impl.types.Stack
+      sci.impl.types/Stack
       (stack [_]
         stack))))
 
@@ -1013,13 +1015,13 @@
                      :file @vars/current-file
                      :ns @vars/current-ns)]
     (reify
-      sci.impl.types.Eval
+      sci.impl.types/Eval
       (eval [this ctx bindings]
         (try
           (apply f ctx analyzed-args)
           (catch #?(:clj Throwable :cljs js/Error) e
             (rethrow-with-location-of-node ctx bindings e this))))
-      sci.impl.types.Stack
+      sci.impl.types/Stack
       (stack [_]
         stack))))
 
@@ -1121,7 +1123,7 @@
             (mapcat (fn [[i binds]]
                       [i `(let ~binds
                             (reify
-                              sci.impl.types.Eval
+                              sci.impl.types/Eval
                               (~'eval [~'this ~'ctx ~'bindings]
                                (try
                                  ((aget ~(with-meta 'bindings
@@ -1129,9 +1131,9 @@
                                   ~@(map (fn [j]
                                            `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                          (range i)))
-                                 (catch #?(:clj Throwable :cljs js/Error) e#
+                                 (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                    (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
-                              sci.impl.types.Stack
+                              sci.impl.types/Stack
                               ~'(stack [_] stack)))])
                     let-bindings)
             `[(fn [~'ctx ~'bindings]
@@ -1189,30 +1191,30 @@
                       [i `(let ~binds
                             (if ~'wrap
                               (reify
-                                sci.impl.types.Eval
-                                (eval ~'[this ctx bindings]
+                                sci.impl.types/Eval
+                                (~'eval ~'[this ctx bindings]
                                   (try
                                     ((~'wrap ~'bindings ~'f)
                                      ~@(map (fn [j]
                                               `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                             (range i)))
-                                    (catch #?(:clj Throwable :cljs js/Error) e#
+                                    (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                       (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
-                                sci.impl.types.Stack
-                                (stack ~'[_]
+                                sci.impl.types/Stack
+                                (~'stack ~'[_]
                                   ~'stack))
                               (reify
-                                sci.impl.types.Eval
-                                (eval ~'[this ctx bindings]
+                                sci.impl.types/Eval
+                                (~'eval ~'[this ctx bindings]
                                   (try
                                     (~'f
                                      ~@(map (fn [j]
                                               `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings ))
                                             (range i)))
-                                    (catch #?(:clj Throwable :cljs js/Error) e#
+                                    (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                       (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
-                                sci.impl.types.Stack
-                                (stack ~'[_]
+                                sci.impl.types/Stack
+                                (~'stack ~'[_]
                                   ~'stack))))])
                     let-bindings)
             `[(ctx-fn
@@ -1248,12 +1250,12 @@
                      :ns @vars/current-ns
                      :file @vars/current-file)]
     (reify
-      sci.impl.types.Eval
+      sci.impl.types/Eval
       (eval [this ctx bindings]
         (try (apply eval/eval-import ctx args)
              (catch #?(:clj Throwable :cljs js/Error) e
                (rethrow-with-location-of-node ctx bindings e this))))
-      sci.impl.types.Stack
+      sci.impl.types/Stack
       (stack [_]
         stack))))
 

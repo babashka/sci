@@ -362,7 +362,7 @@
           Keyword
           (eval [expr _ _]
             expr)
-          Object
+          default
           (eval [expr _ _]
             expr)
           nil (eval [_ _ _])))

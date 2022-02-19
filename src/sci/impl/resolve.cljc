@@ -142,7 +142,7 @@
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (cond-> (reify
-                                    sci.impl.types.Eval
+                                    sci.impl.types/Eval
                                     (eval [_this _ctx bindings]
                                       (aget ^objects bindings idx)))
                             #?@(:clj [tag (with-meta
