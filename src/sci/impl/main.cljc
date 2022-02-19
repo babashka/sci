@@ -8,9 +8,9 @@
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    [sci.impl.analyzer :as ana]
-   [sci.impl.evaluator :as eval]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
+   [sci.impl.types :as types]
    #?(:clj [clojure.java.io :as io]))
   #?(:clj (:gen-class)))
 
@@ -46,7 +46,7 @@
                           form (p/parse-next ctx reader)]
                       (loop [i 0]
                         (let [form (ana/analyze ctx form)
-                              ret (eval/eval ctx form)]
+                              ret (types/eval form ctx nil)]
                           (if (< i n)
                             (recur (inc i))
                             ret)))))
