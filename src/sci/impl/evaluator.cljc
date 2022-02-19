@@ -205,7 +205,7 @@
      (let [sym (types/eval sym ctx bindings)
            res (second (@utils/lookup ctx sym false))]
        (when-not #?(:cljs (implements? sci.impl.types/Eval res)
-                    :clj (instance? sci.impl.types/Eval res))
+                    :clj (instance? sci.impl.types.Eval res))
          res)))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
