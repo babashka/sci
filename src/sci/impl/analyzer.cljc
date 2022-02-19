@@ -1116,27 +1116,27 @@
                           (range 20))]
     `(defn ~'return-binding-call
        ~'[_ctx expr idx f analyzed-children stack]
-       (ctx-fn
-        (case (count ~'analyzed-children)
-          ~@(concat
-             (mapcat (fn [[i binds]]
-                       [i `(let ~binds
-                             (fn [~'ctx ~'bindings]
+       (case (count ~'analyzed-children)
+         ~@(concat
+            (mapcat (fn [[i binds]]
+                      [i `(let ~binds
+                            (reify
+                              sci.impl.types.Eval
+                              (~'eval [~'this ~'ctx ~'bindings]
                                (try
                                  ((aget ~(with-meta 'bindings
                                            {:tag 'objects}) ~'idx)
                                   ~@(map (fn [j]
-                                           `(eval/eval ~'ctx ~'bindings ~(symbol (str "arg" j))))
+                                           `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                          (range i)))
                                  (catch #?(:clj Throwable :cljs js/Error) e#
-                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'stack)))))])
-                     let-bindings)
-             `[(fn [~'ctx ~'bindings]
-                 (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
-                                                         {:tag 'objects}) ~'idx) ~'analyzed-children))]))
-        nil
-        ~'expr
-        ~'stack))))
+                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))))
+                              sci.impl.types.Stack
+                              ~'(stack [_] stack)))])
+                    let-bindings)
+            `[(fn [~'ctx ~'bindings]
+                (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
+                                                        {:tag 'objects}) ~'idx) ~'analyzed-children))])))))
 
 (declare return-binding-call) ;; for clj-kondo
 (gen-return-binding-call)
