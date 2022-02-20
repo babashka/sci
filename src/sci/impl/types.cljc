@@ -63,7 +63,7 @@
                ~body)
               sci.impl.types/Stack
               (~'stack [_#] ~stack))
-      :cljs `(->NodeT
+      :cljs `(->NodeR
               (fn [~'this ~'ctx ~'bindings]
                 ~body)
               ~stack)))))
