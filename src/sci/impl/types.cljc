@@ -1,6 +1,8 @@
 (ns sci.impl.types
   {:no-doc true}
-  (:refer-clojure :exclude [eval]))
+  (:refer-clojure :exclude [eval])
+  (:require [sci.impl.macros :refer [deftime]])
+  #?(:cljs (:require-macros [sci.impl.types :refer [->Node]])))
 
 (defprotocol IBox
   (setVal [_this _v])
@@ -37,3 +39,14 @@
 
 (defprotocol Eval
   (eval [expr ctx ^objects bindings]))
+
+(deftime
+  (defmacro ->Node
+    ([body] `(->Node ~body nil))
+    ([body stack]
+     `(reify
+        sci.impl.types/Eval
+        (~'eval [~'this ~'ctx ~'bindings]
+         ~body)
+        sci.impl.types/Stack
+        (~'stack [_#] ~stack)))))

@@ -4,7 +4,7 @@
             [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
-            [sci.impl.types]
+            [sci.impl.types :refer [->Node]]
             [sci.impl.utils :as utils :refer [strip-core-ns
                                               ana-macros]]
             [sci.impl.vars :as vars]))
@@ -63,13 +63,9 @@
                        (let [stack (assoc (meta sym)
                                           :file @vars/current-file
                                           :ns @vars/current-ns)]
-                         (reify
-                           sci.impl.types/Eval
-                           (eval [_ _ctx _bindings]
-                             (interop/get-static-field [clazz sym-name]))
-                           sci.impl.types/Stack
-                           (stack [_]
-                             stack))))]))))
+                         (->Node
+                          (interop/get-static-field [clazz sym-name])
+                          stack)))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527
@@ -142,10 +138,8 @@
                                 (some-> k meta :tag))])
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
-                  (let [v (cond-> (reify
-                                    sci.impl.types/Eval
-                                    (eval [_this _ctx bindings]
-                                      (aget ^objects bindings idx)))
+                  (let [v (cond-> (->Node
+                                   (aget ^objects bindings idx))
                             #?@(:clj [tag (with-meta
                                             {:tag tag})]))]
                     v))]
