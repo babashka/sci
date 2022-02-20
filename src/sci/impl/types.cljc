@@ -45,6 +45,8 @@
      Stack (stack [_] stack)))
 
 #?(:cljs
+   ;; For performance reasons on CLJS we do not use eval as a protcol method but
+   ;; as a separate function which does an instance check on a concrete type.
    (defn eval [expr ctx bindings]
      (if (instance? NodeR expr)
        ((.-f expr) expr ctx bindings)
