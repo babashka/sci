@@ -914,7 +914,7 @@
                          (->Node
                           (interop/invoke-constructor (deref maybe-var)
                                                       (mapv #(types/eval % ctx bindings) args)))
-                         (instance? sci.impl.types/NodeT class)
+                         (instance? sci.impl.types/NodeR class)
                          (->Node
                           (interop/invoke-constructor (types/eval class ctx bindings)
                                                       (mapv #(types/eval % ctx bindings) args)))

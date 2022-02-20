@@ -41,12 +41,12 @@
           (eval [expr ctx ^objects bindings])))
 
 #?(:cljs
-   (defrecord NodeT [f stack]
+   (defrecord NodeR [f stack]
      Stack (stack [_] stack)))
 
 #?(:cljs
    (defn eval [expr ctx bindings]
-     (if (instance? NodeT expr)
+     (if (instance? NodeR expr)
        ((.-f expr) expr ctx bindings)
        expr)))
 
