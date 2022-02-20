@@ -83,11 +83,7 @@
                          (.getId (Thread/currentThread))))
           :cljs *in-try*) (throw e)
        (let [stack (t/stack raw-node)
-             node (t/sexpr raw-node)
-             #?@(:clj [f (when (seqable? node)
-                           (first node))])
-             #?@(:clj [fm (or (:sci.impl/f-meta stack)
-                              (some-> f meta))])
+             #?@(:clj [fm (:sci.impl/f-meta stack)])
              env (:env ctx)
              id (:id ctx)
              d (ex-data e)
@@ -109,7 +105,7 @@
                        (some-> env deref
                                :sci.impl/callstack (get id)
                                deref last meta)
-                       (meta node))]
+                       #_(meta node))]
                (if (and line column)
                  (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
                                  :cljs ex-msg)
@@ -192,7 +188,6 @@
 (def eval-refer-state (volatile! nil))
 (def macroexpand* (volatile! nil))
 (def macroexpand-1* (volatile! nil))
-(def eval* (volatile! nil))
 (def eval-do* (volatile! nil))
 (def eval-fn (volatile! nil))
 (def eval-string* (volatile! nil))
@@ -217,16 +212,6 @@
      comment loop lazy-seq case try defmacro
      declare expand-dot* expand-constructor new . import in-ns ns var
      set! resolve #_#_macroexpand-1 macroexpand})
-
-(defn ctx-fn
-  ([f expr]
-   (t/->EvalFn f nil expr nil nil))
-  ([f m expr]
-   (t/->EvalFn f m expr nil nil))
-  ([f m expr stack]
-   (t/->EvalFn f m expr stack nil))
-  ([f m expr stack md]
-   (t/->EvalFn f m expr stack md)))
 
 (defn maybe-destructured
   [params body]

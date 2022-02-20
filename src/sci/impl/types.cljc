@@ -1,5 +1,8 @@
 (ns sci.impl.types
-  {:no-doc true})
+  {:no-doc true}
+  (:refer-clojure :exclude [eval])
+  (:require [sci.impl.macros :as macros :refer [deftime]])
+  #?(:cljs (:require-macros [sci.impl.types :refer [->Node]])))
 
 (defprotocol IBox
   (setVal [_this _v])
@@ -28,43 +31,39 @@
   IBox
   (getVal [_this] form))
 
-(declare ->EvalFn)
-
-(defprotocol Sexpr
-  (sexpr [this]))
-
-(extend-protocol Sexpr
-  #?(:clj Object :cljs default) (sexpr [this] this))
-
-(defprotocol Info
-  (info [this]))
-
 (defprotocol Stack
   (stack [this]))
 
 (extend-protocol Stack
-  #?(:clj Object :cljs default) (stack [this] nil))
+  #?(:clj Object :cljs default) (stack [_this] nil))
 
-(deftype EvalFn [f info expr stack md]
-  ;; f = (fn [ctx] ...)
-  ;; m = meta
-  IBox
-  (getVal [_this] f)
-  #?(:clj clojure.lang.IMeta
-     :cljs IMeta)
-  (#?(:clj meta
-      :cljs -meta) [_this] md)
-  #?(:clj clojure.lang.IObj
-     :cljs IWithMeta)
-  (#?(:clj withMeta
-      :cljs -with-meta) [_this m]
-    (->EvalFn f info expr stack m))
-  Info
-  (info [_] info)
-  Sexpr
-  (sexpr [_] expr)
-  Object
-  (toString [_this]
-    (str expr))
-  Stack
-  (stack [_] stack))
+#?(:clj (defprotocol Eval
+          (eval [expr ctx ^objects bindings])))
+
+#?(:cljs
+   (defrecord NodeR [f stack]
+     Stack (stack [_] stack)))
+
+#?(:cljs
+   ;; For performance reasons on CLJS we do not use eval as a protcol method but
+   ;; as a separate function which does an instance check on a concrete type.
+   (defn eval [expr ctx bindings]
+     (if (instance? NodeR expr)
+       ((.-f expr) expr ctx bindings)
+       expr)))
+
+(deftime
+  (defmacro ->Node
+    ([body] `(->Node ~body nil))
+    ([body stack]
+     (macros/?
+      :clj `(reify
+              sci.impl.types/Eval
+              (~'eval [~'this ~'ctx ~'bindings]
+               ~body)
+              sci.impl.types/Stack
+              (~'stack [_#] ~stack))
+      :cljs `(->NodeR
+              (fn [~'this ~'ctx ~'bindings]
+                ~body)
+              ~stack)))))

@@ -4,10 +4,9 @@
   (:require
    [clojure.tools.reader.reader-types :as r]
    [sci.impl.analyzer :as ana]
-   [sci.impl.evaluator :as eval]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
-   [sci.impl.types :as t]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
@@ -33,12 +32,13 @@
                        :closure-bindings cb)
             analyzed (ana/analyze ctx form true)
             binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-            bindings (object-array binding-array-size)
-            ret (if (instance? #?(:clj sci.impl.types.EvalForm
-                                  :cljs sci.impl.types/EvalForm) analyzed)
-                  (eval-form ctx (t/getVal analyzed))
-                  (eval/eval ctx bindings analyzed))]
-        ret))
+            bindings (object-array binding-array-size)]
+        (if (instance? #?(:clj sci.impl.types.EvalForm
+                          :cljs sci.impl.types/EvalForm) analyzed)
+          (eval-form ctx (types/getVal analyzed))
+          (try (types/eval analyzed ctx bindings)
+               (catch #?(:clj Throwable :cljs js/Error) e
+                 (utils/rethrow-with-location-of-node ctx bindings e analyzed))))))
     (let [upper-sym (gensym)
           cb (volatile! {upper-sym {0 {:syms {}}}})
           ctx (assoc ctx
@@ -46,9 +46,10 @@
                      :closure-bindings cb)
           analyzed (ana/analyze ctx form)
           binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-          bindings (object-array binding-array-size)
-          ret (eval/eval ctx bindings analyzed)]
-      ret)))
+          bindings (object-array binding-array-size)]
+      (try (types/eval analyzed ctx bindings)
+           (catch #?(:clj Throwable :cljs js/Error) e
+             (utils/rethrow-with-location-of-node ctx bindings e analyzed))))))
 
 (vreset! utils/eval-form-state eval-form)
 

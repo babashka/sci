@@ -1,14 +1,12 @@
 (ns sci.impl.resolve
   {:no-doc true}
   (:require [clojure.string :as str]
-            [sci.impl.evaluator :as eval]
             [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
+            [sci.impl.types :refer [->Node]]
             [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros
-                                              ctx-fn
-                                              kw-identical?]]
+                                              ana-macros]]
             [sci.impl.vars :as vars]))
 
 (defn throw-error-with-location [msg node]
@@ -62,14 +60,12 @@
                        (with-meta
                          [clazz sym-name]
                          {:sci.impl.analyzer/static-access true})
-                       (ctx-fn
-                        (fn [_ctx _bindings]
-                          (interop/get-static-field [clazz sym-name]))
-                        nil
-                        sym
-                        (assoc (meta sym)
-                               :file @vars/current-file
-                               :ns @vars/current-ns)))]))))
+                       (let [stack (assoc (meta sym)
+                                          :file @vars/current-file
+                                          :ns @vars/current-ns)]
+                         (->Node
+                          (interop/get-static-field [clazz sym-name])
+                          stack)))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527
@@ -138,16 +134,14 @@
                       (let [oi (:outer-idens ctx)
                             ob (oi v)]
                         (update-parents ctx (:closure-bindings ctx) ob)))
-              #?@(:clj [tag (or tag (some-> k meta :tag))])
+              #?@(:clj [tag (or tag
+                                (some-> k meta :tag))])
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
-                  (let [v (ctx-fn
-                           (fn [_ctx ^objects bindings]
-                             (aget bindings idx))
-                           nil
-                           k
-                           nil
-                           #?(:clj {:tag tag}))]
+                  (let [v (cond-> (->Node
+                                   (aget ^objects bindings idx))
+                            #?@(:clj [tag (with-meta
+                                            {:tag tag})]))]
                     v))]
           [k v]))
       (when-let [kv (lookup* ctx sym call?)]
