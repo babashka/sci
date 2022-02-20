@@ -1,7 +1,7 @@
 (ns sci.impl.types
   {:no-doc true}
   (:refer-clojure :exclude [eval])
-  (:require [sci.impl.macros :refer [deftime]])
+  (:require [sci.impl.macros :as macros :refer [deftime]])
   #?(:cljs (:require-macros [sci.impl.types :refer [->Node]])))
 
 (defprotocol IBox
@@ -37,16 +37,31 @@
 (extend-protocol Stack
   #?(:clj Object :cljs default) (stack [_this] nil))
 
-(defprotocol Eval
-  (eval [expr ctx ^objects bindings]))
+#?(:clj (defprotocol Eval
+          (eval [expr ctx ^objects bindings])))
+
+#?(:cljs
+   (defrecord NodeT [f stack]
+     Stack (stack [_] stack)))
+
+#?(:cljs
+   (defn eval [expr ctx bindings]
+     (if (instance? NodeT expr)
+       ((.-f expr) expr ctx bindings)
+       expr)))
 
 (deftime
   (defmacro ->Node
     ([body] `(->Node ~body nil))
     ([body stack]
-     `(reify
-        sci.impl.types/Eval
-        (~'eval [~'this ~'ctx ~'bindings]
-         ~body)
-        sci.impl.types/Stack
-        (~'stack [_#] ~stack)))))
+     (macros/?
+      :clj `(reify
+              sci.impl.types/Eval
+              (~'eval [~'this ~'ctx ~'bindings]
+               ~body)
+              sci.impl.types/Stack
+              (~'stack [_#] ~stack))
+      :cljs `(->NodeT
+              (fn [~'this ~'ctx ~'bindings]
+                ~body)
+              ~stack)))))

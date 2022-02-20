@@ -130,7 +130,7 @@
                      (let [clazz (:class c)]
                        (when #?(:cljs
                                 (or (kw-identical? :default clazz)
-                                    (if (implements? sci.impl.types/Eval clazz)
+                                    (if (instance? sci.impl.types/NodeT clazz)
                                       (instance? (types/eval clazz ctx bindings) e)
                                       (instance? clazz e)))
                                 :clj (instance? clazz e))
@@ -204,7 +204,7 @@
              (not (contains? env sym)))
      (let [sym (types/eval sym ctx bindings)
            res (second (@utils/lookup ctx sym false))]
-       (when-not #?(:cljs (implements? sci.impl.types/Eval res)
+       (when-not #?(:cljs (instance? sci.impl.types/NodeT res)
                     :clj (instance? sci.impl.types.Eval res))
          res)))))
 
@@ -352,17 +352,17 @@
             expr)
           nil (eval [_ _ _])))
 
-#?(:cljs (extend-protocol sci.impl.types/Eval
-          number
-          (eval [expr _ _]
-            expr)
-          string
-          (eval [expr _ _]
-            expr)
-          Keyword
-          (eval [expr _ _]
-            expr)
-          default
-          (eval [expr _ _]
-            expr)
-          nil (eval [_ _ _])))
+;; #?(:cljs (extend-protocol sci.impl.types/Eval
+;;           number
+;;           (eval [expr _ _]
+;;             expr)
+;;           string
+;;           (eval [expr _ _]
+;;             expr)
+;;           Keyword
+;;           (eval [expr _ _]
+;;             expr)
+;;           default
+;;           (eval [expr _ _]
+;;             expr)
+;;           nil (eval [_ _ _])))
