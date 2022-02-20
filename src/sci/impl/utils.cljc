@@ -13,7 +13,8 @@
 (derive :sci.error/parse :sci/error)
 
 (defn constant? [x]
-  (or (number? x) (string? x) (keyword? x) (boolean? x)))
+  ;; TODO: add regex
+  (or (nil? x) (number? x) (string? x) (keyword? x) (boolean? x)))
 
 (defmacro kw-identical? [k v]
   (macros/?

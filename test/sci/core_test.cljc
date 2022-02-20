@@ -98,11 +98,13 @@
     (is (= {:a 4
             :b {:a 2}
             :c [1 1]
-            :d #{1 2}}
+            :d #{1 2}
+            :e {:a 1}}
            (eval* 1 '{:a (+ 1 2 *in*)
                       :b {:a (inc *in*)}
                       :c [*in* *in*]
-                      :d #{*in* (inc *in*)}}))))
+                      :d #{*in* (inc *in*)}
+                      :e {:a *in*}}))))
   (testing "quoting"
     (is (= {:a '*in*} (eval* 1 (str "'{:a *in*}"))))
     (is (= '#{1 2 3 *in*} (eval* 4 "'#{1 2 3 *in*}")))

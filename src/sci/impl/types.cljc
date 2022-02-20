@@ -67,3 +67,9 @@
               (fn [~'this ~'ctx ~'bindings]
                 ~body)
               ~stack)))))
+
+#?(:clj
+   (deftype ConstantNode [x]
+     Eval (eval [_expr _bindings _ctx]
+            x)
+     Stack (stack [_] nil)))

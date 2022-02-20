@@ -72,7 +72,7 @@
                     expr
                     (let [macro-var? (and (vars/var? f)
                                           (vars/isMacro f))
-                          needs-ctx? (identical? utils/needs-ctx (some-> f meta :sci.impl/op))
+                          needs-ctx? (kw-identical? utils/needs-ctx (some-> f meta :sci.impl/op))
                           f (if macro-var? @f f)]
                       (if (or macro-var? (macro? f))
                         (if needs-ctx?
@@ -1382,27 +1382,45 @@
         (when eval-file
           (vars/pop-thread-bindings))))))
 
-(def ^:const constant-colls true) ;; see GH #452
+(defn map-fn [children-count]
+  (if (<= children-count 16)
+    array-map hash-map))
 
-(defn return-map [ctx the-map]
-  (let [children (into [] cat the-map)
-        analyzed-children (analyze-children ctx children)]
-    (if (<= (count analyzed-children) 16)
-      (return-call ctx the-map array-map analyzed-children nil nil)
-      (return-call ctx the-map hash-map analyzed-children nil nil))))
+(defn return-map [ctx the-map analyzed-children]
+  (let [mf (map-fn (count analyzed-children))]
+    (return-call ctx the-map mf analyzed-children nil nil)
+    (return-call ctx the-map mf analyzed-children nil nil)))
+
+(defn constant-node? [x]
+  #?(:clj (instance? sci.impl.types.ConstantNode x)
+     :cljs (not (instance? sci.impl.types.NodeR x))))
+
+#?(:clj (defn unwrap-children [children]
+          (-> (reduce (fn [acc x]
+                        (conj! acc (types/eval x nil nil)))
+                      (transient [])
+                      children)
+              persistent!)))
 
 (defn analyze-map
   [ctx expr m]
   (let [ctx (without-recur-target ctx)
-        ks (keys expr)
-        vs (vals expr)
-        constant-map? (and constant-colls
-                           (every? constant? ks)
-                           (every? constant? vs))
-        analyzed-map (cond constant-map?
-                           expr
-                           :else
-                           (return-map ctx expr))
+        children (into [] cat expr)
+        analyzed-children (analyze-children ctx children)
+        const? (every? constant-node? analyzed-children)
+        #?@(:clj [analyzed-children (if const?
+                                      (unwrap-children analyzed-children)
+                                      analyzed-children)])
+        same? (when const? (= children analyzed-children))
+        const-val (when const?
+                    (if same?
+                      expr
+                      (let [mf (map-fn (count analyzed-children))]
+                        (apply mf analyzed-children))))
+        analyzed-map (if const?
+                       #?(:clj (types/->ConstantNode const-val)
+                          :cljs const-val)
+                       (return-map ctx expr analyzed-children))
         analyzed-meta (when m (analyze ctx m))
         ret (if analyzed-meta
               (->Node
@@ -1414,25 +1432,33 @@
 
 (defn analyze-vec-or-set
   "Returns analyzed vector or set"
-  [ctx _f1 f2 expr m]
+  [ctx f1 f2 expr m]
   (let [ctx (without-recur-target ctx)
-        constant-coll?
-        (and constant-colls
-             (every? constant? expr))
-        analyzed-meta (when m (analyze ctx #_(assoc ctx :meta true) m))
-        must-eval (or (not constant-coll?)
-                      (not (identical? m analyzed-meta)))
-        analyzed-coll (if (not must-eval)
-                        expr
-                        (if m
-                          ;; can we transform this into return-call?
-                          (let [ef (return-call ctx expr f2 (analyze-children ctx expr) nil nil)]
-                            (->Node
-                             (let [coll (types/eval ef ctx bindings)
-                                   md (types/eval analyzed-meta ctx bindings)]
-                               (with-meta coll md))))
-                          (return-call ctx expr f2 (analyze-children ctx expr) nil nil)))]
-    analyzed-coll))
+        analyzed-meta (when m (analyze ctx m))
+        analyzed-children (analyze-children ctx expr)
+        const? (every? constant-node? analyzed-children)
+        #?@(:clj [analyzed-children (if const?
+                                      (unwrap-children analyzed-children)
+                                      analyzed-children)
+                  ])
+        same? (and const? (= (if (set expr)
+                               (seq expr)
+                               expr) analyzed-children))
+        const-val (when const?
+                    (if same?
+                      expr
+                      (f1 analyzed-children)))
+        analyzed-coll (if const?
+                        #?(:clj (types/->ConstantNode const-val)
+                           :cljs const-val)
+                        (return-call ctx expr f2 analyzed-children nil nil))
+        ret (if analyzed-meta
+              (->Node
+               (let [coll (types/eval analyzed-coll ctx bindings)
+                     md (types/eval analyzed-meta ctx bindings)]
+                 (with-meta coll md)))
+              analyzed-coll)]
+    ret))
 
 #?(:cljs
    (defn analyze-js-obj [ctx js-val]
@@ -1455,13 +1481,14 @@
   ([ctx expr]
    (analyze ctx expr false))
   ([ctx expr top-level?]
-   ;; (prn :ana expr (:meta ctx))
    (let [m (meta expr)]
      (cond
-       (constant? expr) expr ;; constants do not carry metadata
+       (constant? expr) #?(:clj (types/->ConstantNode expr)
+                           :cljs expr)
        (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
                             mv (meta v)]
-                        (cond (constant? v) v
+                        (cond (constant? v) #?(:clj (types/->ConstantNode v)
+                                               :cljs v)
                               (identical? utils/needs-ctx (:sci.impl/op mv))
                               (partial v ctx)
                               (vars/var? v)
@@ -1477,7 +1504,7 @@
        ;; since a record is also a map
        (record? expr) expr
        (map? expr) (analyze-map ctx expr m)
-       #?@(:cljs [(instance?  JSValue expr) (analyze-js-obj ctx expr)])
+       #?@(:cljs [(instance? JSValue expr) (analyze-js-obj ctx expr)])
        (vector? expr) (analyze-vec-or-set ctx
                                           ;; relying on analyze-children to
                                           ;; return a vector
