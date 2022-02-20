@@ -13,8 +13,15 @@
 (derive :sci.error/parse :sci/error)
 
 (defn constant? [x]
-  ;; TODO: add regex
-  (or (nil? x) (number? x) (string? x) (keyword? x) (boolean? x)))
+  (or (nil? x)
+      (number? x)
+      (string? x)
+      (keyword? x)
+      (boolean? x)
+      #?(:clj
+         (instance? java.util.regex.Pattern x)
+         :cljs
+         (instance? js/RegExp x))))
 
 (defmacro kw-identical? [k v]
   (macros/?
@@ -140,6 +147,8 @@
 
 (def allowed-loop (symbol "loop"))
 (def allowed-recur (symbol "recur"))
+(def var-unbound #?(:clj (Object.)
+                    :cljs (js/Object.)))
 
 (defn walk*
   [inner form]

@@ -87,7 +87,7 @@
                                       (meta prev)
                                       false)
                        prev)
-                v (if (kw-identical? :sci.impl/var.unbound init)
+                v (if (identical? utils/var-unbound init)
                     (doto prev
                       (alter-meta! merge m))
                     (do (vars/bindRoot prev init)
@@ -306,26 +306,9 @@
 
 (def-fn-call)
 
-#?(:clj (extend-protocol sci.impl.types/Eval
-          Integer
-          (eval [expr _ _]
-            expr)
-          Long
-          (eval [expr _ _]
-            expr)
-          String
-          (eval [expr _ _]
-            expr)
-          Boolean
-          (eval [expr _ _]
-            expr)
-          java.util.regex.Pattern
-          (eval [expr _ _]
-            expr)
+;; The following types cannot be treated as constants in the analyzer
+#?(:clj (extend-protocol types/Eval
           java.lang.Class
-          (eval [expr _ _]
-            expr)
-          clojure.lang.Keyword
           (eval [expr _ _]
             expr)
           clojure.lang.PersistentArrayMap
@@ -346,23 +329,9 @@
           clojure.lang.MultiFn
           (eval [expr _ _]
             expr)
-          ;; TODO: remove
           Object
           (eval [expr _ _]
             expr)
-          nil (eval [_ _ _])))
-
-;; #?(:cljs (extend-protocol sci.impl.types/Eval
-;;           number
-;;           (eval [expr _ _]
-;;             expr)
-;;           string
-;;           (eval [expr _ _]
-;;             expr)
-;;           Keyword
-;;           (eval [expr _ _]
-;;             expr)
-;;           default
-;;           (eval [expr _ _]
-;;             expr)
-;;           nil (eval [_ _ _])))
+          ;; literal nils are treated like constants, but nil might also happen
+          ;; as a result of analysis
+          nil (eval [_ _ _] nil)))

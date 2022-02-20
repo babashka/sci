@@ -518,7 +518,7 @@
                     "Too many arguments to def")))
       (let [init (if docstring ?init ?docstring)
             init (if (= 2 arg-count)
-                   :sci.impl/var.unbound
+                   utils/var-unbound
                    (analyze ctx init))
             m (meta var-name)
             m-cnt (count m)
