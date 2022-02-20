@@ -130,7 +130,7 @@
                      (let [clazz (:class c)]
                        (when #?(:cljs
                                 (or (kw-identical? :default clazz)
-                                    (if (instance? sci.impl.types/NodeT clazz)
+                                    (if (instance? sci.impl.types/NodeR clazz)
                                       (instance? (types/eval clazz ctx bindings) e)
                                       (instance? clazz e)))
                                 :clj (instance? clazz e))
@@ -204,7 +204,7 @@
              (not (contains? env sym)))
      (let [sym (types/eval sym ctx bindings)
            res (second (@utils/lookup ctx sym false))]
-       (when-not #?(:cljs (instance? sci.impl.types/NodeT res)
+       (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
                     :clj (instance? sci.impl.types.Eval res))
          res)))))
 

@@ -1436,7 +1436,7 @@
 
 #?(:cljs
    (defn analyze-js-obj [ctx js-val]
-     (let [v (.-val js-val)]
+     (let [v (.-val ^js js-val)]
        (if (map? v)
          (let [ks (keys v)
                ks (map name ks)
