@@ -1,24 +1,29 @@
 (ns sci.impl.analyzer-test
-  (:require [clojure.test :refer [deftest is]]
-            [sci.core :as sci]))
+  (:require [clojure.test :refer [deftest is testing]]
+            [sci.core :as sci]
+            [sci.impl.analyzer :as ana]
+            [sci.impl.parser :as parser]
+            [sci.impl.types :as types]))
 
-(deftest closure-bindings
-  (let [bnds (volatile! {})]
-    (sci/eval-string* (assoc (sci/init {})
-                             :closure-bindings bnds)
-                      "((fn wrap [] (((let [x 1 y 1] (fn fsuper []  (fn f1 [] x) (fn f2 [] y)))))))")
-    (let [bnds @bnds
-          [_ v] (first bnds)
-          v (dissoc v :syms)]
-      ;; TODO: update after refactor
-      #_#_(is (= 1 (count v)))
-      (let [[_ v] (first v)]
-        (is (= 2 (count v)))
-        (let [[v1 v2] (vals v)]
-          (is (:syms v1))
-          (is (set? (:syms v1)))
-          (is (= 1 (count (:syms v1))))
-          (is (:syms v2))
-          (is (set? (:syms v2)))
-          (is (= 1 (count (:syms v2))))
-          (not= (:syms v1) (:syms v2)))))))
+(defn constant-node? [s]
+  (let [ctx (sci/init {:bindings {'foo 1}})
+        v (parser/parse-string ctx s)
+        a (ana/analyze ctx v)
+        e (types/eval a ctx nil)]
+    [e
+     #?(:clj (instance? sci.impl.types.ConstantNode a)
+        :cljs (not (instance? sci.impl.types.NodeR a)))]))
+
+(deftest analyze-constant-test
+  (is (= [1 true] (constant-node? "1")))
+  (is (= [[1 2 3] true] (constant-node? "[1 2 3]")))
+  (is (= [[1 2 [1 2 3]] true] (constant-node? "[1 2 [1 2 3]]")))
+  (is (= [#{1 2 3} true] (constant-node? "#{1 2 3}")))
+  (is (= [{:a 1} true] (constant-node? "{:a 1}")))
+  (is (= [{:a {:a 1}} true] (constant-node? "{:a {:a 1}}")))
+  (testing "global values are inlined if they are constants"
+    (is (= [[1] true] (constant-node? "[foo]")))
+    (is (= [{:a 1} true](constant-node? "{:a foo}"))))
+  (is (not (second (constant-node? "(+ 1 2 3)"))))
+  (is (not (second(constant-node? "^{:a (+ 1 2 3)} []"))))
+  )
