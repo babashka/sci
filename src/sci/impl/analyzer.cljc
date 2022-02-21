@@ -13,7 +13,7 @@
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
-   [sci.impl.types :as types :refer [->Node]]
+   [sci.impl.types :as types :refer [->Node ->constant]]
    [sci.impl.utils :as utils :refer
     [ana-macros constant? kw-identical? macro?
      maybe-destructured rethrow-with-location-of-node set-namespace!]]
@@ -1158,7 +1158,7 @@
   (when-not (= 2 (count expr))
     (throw-error-with-location "Wrong number of args (0) passed to quote" expr))
   (let [snd (second expr)]
-    (->Node snd nil)))
+    (->constant snd)))
 
 (defn analyze-in-ns [ctx expr]
   (let [ns-expr (analyze ctx (second expr))]
@@ -1418,8 +1418,7 @@
                       (let [mf (map-fn (count analyzed-children))]
                         (apply mf analyzed-children))))
         analyzed-map (if const?
-                       #?(:clj (types/->ConstantNode const-val)
-                          :cljs const-val)
+                       (->constant const-val)
                        (return-map ctx expr analyzed-children))
         analyzed-meta (when m (analyze ctx m))
         ret (if analyzed-meta
@@ -1449,8 +1448,7 @@
                       expr
                       (f1 analyzed-children)))
         analyzed-coll (if const?
-                        #?(:clj (types/->ConstantNode const-val)
-                           :cljs const-val)
+                        (->constant const-val)
                         (return-call ctx expr f2 analyzed-children nil nil))
         ret (if analyzed-meta
               (->Node
@@ -1483,12 +1481,10 @@
   ([ctx expr top-level?]
    (let [m (meta expr)]
      (cond
-       (constant? expr) #?(:clj (types/->ConstantNode expr)
-                           :cljs expr)
+       (constant? expr) (->constant expr)
        (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
                             mv (meta v)]
-                        (cond (constant? v) #?(:clj (types/->ConstantNode v)
-                                               :cljs v)
+                        (cond (constant? v) (->constant v)
                               (identical? utils/needs-ctx (:sci.impl/op mv))
                               (partial v ctx)
                               (vars/var? v)

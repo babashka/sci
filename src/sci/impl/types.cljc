@@ -73,3 +73,7 @@
      Eval (eval [_expr _bindings _ctx]
             x)
      Stack (stack [_] nil)))
+
+(defn ->constant [x]
+  #?(:clj (->ConstantNode x)
+     :cljs x))
