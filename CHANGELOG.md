@@ -2,11 +2,12 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.3.1
 
-### Fixes
+### Enhancements
 
 - Fix [#680](https://github.com/babashka/sci/issues/680): allow expression in class position of `new` in JS targets
+- Performance improvements
 
 ## v0.3.0
 
