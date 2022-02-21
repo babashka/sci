@@ -527,7 +527,7 @@
             m (if docstring (assoc m :doc docstring) m)
             m (if m-needs-eval?
                 (analyze ctx m)
-                (->Node m))]
+                (->constant m))]
         (->Node
          (eval/eval-def ctx bindings var-name init m))))))
 
