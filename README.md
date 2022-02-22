@@ -64,6 +64,7 @@ SCI is used in:
 - [Prose](https://github.com/JeremS/prose). Alternate syntax for Clojure, similar to what Pollen brings to Racket.
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
+- [TryClojure.org](https://tryclojure.org/). Try Clojure!
 - [Zprint](https://github.com/kkinnear/zprint). Tool to beautifully format Clojure(script) code and data.
 
 Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/babashka/issues/254).
