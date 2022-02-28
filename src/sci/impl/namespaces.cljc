@@ -288,13 +288,17 @@
         #?(:clj (.getCause ^Throwable ex)
            :cljs (.-cause ex))))))
 
+(def assert-var (vars/dynamic-var '*assert* true {:ns clojure-core-ns}))
+
 (defn assert*
   ([_&form _ x]
-   `(when-not ~x
-      (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " (pr-str '~x))))))
+   (when @assert-var
+     `(when-not ~x
+        (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " (pr-str '~x)))))))
   ([_&form _ x message]
-   `(when-not ~x
-      (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x)))))))
+   (when @assert-var
+     `(when-not ~x
+        (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x))))))))
 
 (defn areduce* [_ _ a idx ret init expr]
   `(let [a# ~a l# (alength a#)]
@@ -951,6 +955,7 @@
    'areduce (macrofy 'areduce areduce*)
    #?@(:cljs ['array? (copy-core-var array?)])
    'array-map (copy-core-var array-map)
+   '*assert* assert-var
    'assert (macrofy 'assert assert*)
    'assoc (copy-core-var assoc)
    'assoc! (copy-core-var assoc!)

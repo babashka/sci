@@ -882,7 +882,15 @@
          (eval* "(def should-be-true false) (assert should-be-true)")))
     (let [d (try (eval* "(def should-be-true false) (assert should-be-true)")
                  (catch #?(:clj clojure.lang.ExceptionInfo :cljs js/Error) e (ex-data e)))]
-      (is (= 1 (:line d))))))
+      (is (= 1 (:line d)))))
+  (sci/binding [sci/assert true]
+    (sci/eval-string "(set! *assert* false) (assert false)"))
+  (sci/binding [sci/assert true]
+    (sci/eval-string "(set! *assert* true)
+                      (try (assert false)
+                        (catch #?(:clj java.lang.AssertionError :cljs js/Error) e :dude))"
+                     {:features #?(:clj #{:clj}
+                                   :cljs #{:cljs})})))
 
 (deftest dotimes-test
   (when-not tu/native?

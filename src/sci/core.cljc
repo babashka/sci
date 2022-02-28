@@ -2,8 +2,9 @@
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
                             intern ns create-ns set! *1 *2 *3 *e
-                            ns-name])
+                            ns-name assert])
   (:require
+   [clojure.core :as c]
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
@@ -74,7 +75,7 @@
   vars to values. Used in babashka."
     [bindings-map & body]
     `(let [bm# ~bindings-map]
-       (assert (map? bm#))
+       (c/assert (map? bm#))
        (vars/push-thread-bindings bm#) ;; important: outside try
        (try
          (do ~@body)
@@ -84,8 +85,8 @@
     "Macro for binding sci vars. Must be called with a vector of sci
   dynamic vars to values."
     [bindings & body]
-    (assert (vector? bindings))
-    (assert (even? (count bindings)))
+    (vector? bindings)
+    (even? (count bindings))
     `(with-bindings ~(apply hash-map bindings)
        (do ~@body))))
 
@@ -101,6 +102,7 @@
 (def print-readably "Sci var that represents sci's `clojure.core/*print-readably*`" sio/print-readably)
 #?(:cljs (def print-fn "Sci var that represents sci's `cljs.core/*print-fn*`" sio/print-fn))
 #?(:cljs (def print-newline "Sci var that represents sci's `cljs.core/*print-newline*`" sio/print-newline))
+(def assert "SCI var that represents SCI's clojure.core/*assert*" namespaces/assert-var)
 
 (def *1 namespaces/*1)
 (def *2 namespaces/*2)
