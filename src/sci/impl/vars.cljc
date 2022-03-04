@@ -83,7 +83,11 @@
     (Frame. (.-bindings f) nil)))
 
 (defn reset-thread-binding-frame [frame]
-  #?(:clj (.set dvals frame)
+  #?(:clj (let [bindings (.-bindings ^Frame frame)]
+            (when-let [native-bindings (:native-bindings bindings)]
+              (dotimes [_ native-bindings]
+                (clojure.core/pop-thread-bindings)))
+            (.set dvals frame))
      :cljs (reset! dvals frame)))
 
 (declare var?)
@@ -106,13 +110,21 @@
   (let [^Frame frame (get-thread-binding-frame)
         bmap (.-bindings frame)
         bmap (reduce (fn [acc [var* val*]]
-                       (when-not (dynamic-var? var*)
-                         (throw (new #?(:clj IllegalStateException
-                                        :cljs js/Error)
-                                     (str "Can't dynamically bind non-dynamic var " var*))))
-                       (setThreadBound var* true)
-                       (assoc acc var* (TBox. #?(:clj (Thread/currentThread)
-                                                 :cljs nil) val*)))
+                       (if (instance? sci.impl.vars.IVar var*)
+                         (do (when-not (dynamic-var? var*)
+                               (throw (new #?(:clj IllegalStateException
+                                              :cljs js/Error)
+                                           (str "Can't dynamically bind non-dynamic var " var*))))
+                             (setThreadBound var* true)
+                             (assoc acc var* (TBox. #?(:clj (Thread/currentThread)
+                                                       :cljs nil) val*)))
+                         #?(:clj (if (clojure.core/var? var*)
+                                   (do (clojure.core/push-thread-bindings {var* val*})
+                                       (update acc :native-bindings (fnil inc 0)))
+                                   (throw (new IllegalStateException
+                                               (str "Can't dynamically bind non-dynamic var " var*))))
+                            :cljs (throw (new js/Error
+                                        (str "Can't dynamically bind non-dynamic var " var*))))))
                      bmap
                      bindings)]
     (reset-thread-binding-frame (Frame. bmap frame))))
@@ -379,9 +391,15 @@
 (defn var-set [v val]
   (t/setVal v val))
 
+#?(:clj (extend-type clojure.lang.Var
+          IVar
+          (isMacro [this] (:macro (meta this)))))
+
 (defn var? [x]
-  (instance? #?(:clj sci.impl.vars.SciVar
-                :cljs sci.impl.vars/SciVar) x))
+  (or (instance? #?(:clj sci.impl.vars.IVar
+                    :cljs sci.impl.vars/IVar) x)
+      #?(:clj (instance? clojure.lang.Var x)
+         :cljs nil)))
 
 (defn dynamic-var
   ([name]

@@ -1494,7 +1494,8 @@
                                   (throw (new #?(:clj IllegalStateException :cljs js/Error)
                                               (str "Can't take value of a macro: " v "")))
                                   (->Node
-                                   (faster/deref-1 v))))
+                                   (do (prn (get (get-thread-bindings) v))
+                                       (faster/deref-1 v)))))
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
