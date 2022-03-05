@@ -50,7 +50,7 @@
                   ;; $ tmp/bb-only-seq-locs tmp/meander.clj
                   ;; "Elapsed time: 110.869661 msecs"
 
-                  (symbol? obj)
+                  ;; (symbol? obj)
                   ;; same as clojure
                   (seq? obj)))
     :end-location false}))

@@ -64,15 +64,8 @@
                                            (if (keyword? mk)
                                              (let [mkns (namespace mk)
                                                    mkn (name mk)]
-                                               (cond (= mkn "keys")
-                                                     (assoc transforms mk
-                                                            #(keyword (or mkns (namespace %))
-                                                                      (name %)))
-                                                     (= mkn "syms")
-                                                     (assoc transforms mk
-                                                            #(symbol (or mkns
-                                                                         (namespace %))
-                                                                     (name %)))
+                                               (cond (= mkn "keys") (assoc transforms mk #(keyword (or mkns (namespace %)) (name %)))
+                                                     (= mkn "syms") (assoc transforms mk #(list `quote (symbol (or mkns (namespace %)) (name %))))
                                                      (= mkn "strs") (assoc transforms mk str)
                                                      :else transforms))
                                              transforms))
@@ -92,14 +85,9 @@
                                               :cljs (implements? INamed bb))
                                          (with-meta (symbol nil (name bb)) (meta bb))
                                          bb)
-                                 ;; if bk has metadata (:line, :column, etc)
-                                 ;; then it's a binding that needs eval
-                                 bk (if-not (meta bk)
-                                      (list 'quote bk)
-                                      bk)
-                                 bv (if-let [entry (find defaults local)]
-                                      (list get gmap bk (val entry))
-                                      (list get gmap bk))]
+                                 bv (if (contains? defaults local)
+                                      (list `get gmap bk (defaults local))
+                                      (list `get gmap bk))]
                              (recur
                               (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
                                 (-> ret (conj local bv))
