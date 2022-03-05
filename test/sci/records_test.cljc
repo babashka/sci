@@ -164,3 +164,8 @@
 (deftest roundtrip-test
   (let [prog "(ns foo) (defrecord A [x y z]) (str [#foo.A{:x 1 :y 2 :z 3} (read-string \"#foo.A{:x 1 :y 2 :z 3}\")])"]
     (is (= "[#foo.A{:x 1, :y 2, :z 3} #foo.A{:x 1, :y 2, :z 3}]" (tu/eval* prog {})))))
+
+#?(:clj
+   (deftest print-method-test
+     (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str (->A 1))"]
+       (is (= "<A>" (tu/eval* prog {}))))))

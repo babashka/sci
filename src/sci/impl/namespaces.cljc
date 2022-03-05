@@ -834,7 +834,7 @@
    'pr-str (copy-core-var io/pr-str)
    'prn-str (copy-core-var io/prn-str)
    'print-str (copy-core-var #?(:cljs io/print-str :clj print-str))
-   #?@(:clj ['print-method (copy-core-var print-method)])
+   #?@(:clj ['print-method (copy-core-var io/print-method)])
    #?@(:clj ['print-dup (copy-core-var print-dup)])
    #?@(:clj ['printf (copy-core-var io/printf)])
    'with-out-str (macrofy 'with-out-str io/with-out-str)
