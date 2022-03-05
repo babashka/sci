@@ -222,7 +222,9 @@
   (is (= 1 (eval* "(try (let [] (def x 1) x))")))
   (testing "conditionally defining vars doesn't add their metadata yet"
     (is (true? (eval* "(when true (def ^{:test (fn [])} y 1)) (fn? (:test (meta #'y)))")))
-    (is (false? (eval* "(when false (def ^{:test (fn [])} y 1)) (fn? (:test (meta #'y)))")))))
+    (is (false? (eval* "(when false (def ^{:test (fn [])} y 1)) (fn? (:test (meta #'y)))"))))
+  (is (= :a (eval* "(def ^{:foo :bar :a (fn [] :a)} x) ((:a (meta #'x)))")))
+  (is (= "foo" (eval* "(def ^{:doc (str \"foo\")} x) (:doc (meta #'x))"))))
 
 (deftest defn-test
   (is (= 2 (eval* "(do (defn foo \"increment c\" [x] (inc x)) (foo 1))")))

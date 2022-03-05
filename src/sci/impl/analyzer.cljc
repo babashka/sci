@@ -521,8 +521,7 @@
                    utils/var-unbound
                    (analyze ctx init))
             m (meta var-name)
-            m-cnt (count m)
-            m-needs-eval? (not= 2 m-cnt)
+            m-needs-eval? m
             m (assoc m :ns @vars/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             m (if m-needs-eval?
