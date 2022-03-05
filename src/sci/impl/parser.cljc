@@ -38,21 +38,7 @@
     :row-key :line
     :col-key :column
     :read-cond :allow
-    :location? (fn [obj]
-                 (or
-                  ;; for fine-grained error messages during analysis we also add
-                  ;; locations to symbols. This adds about 10% to parse/analysis
-                  ;; time.
-
-                  ;; $ tmp/bb-only-seq-and-sym-locs tmp/meander.clj
-                  ;; "Elapsed time: 120.448655 msecs"
-
-                  ;; $ tmp/bb-only-seq-locs tmp/meander.clj
-                  ;; "Elapsed time: 110.869661 msecs"
-
-                  (symbol? obj)
-                  ;; same as clojure
-                  (seq? obj)))
+    :location? seq?
     :end-location false}))
 
 (defn var->sym [v]
@@ -111,6 +97,12 @@
             auto-resolve (assoc aliases :current current-ns)]
         auto-resolve)))
 
+(defn get-line-number [reader]
+  (r/get-line-number reader))
+
+(defn get-column-number [reader]
+  (r/get-column-number reader))
+
 (defn parse-next
   ([ctx r]
    (parse-next ctx r nil))
@@ -140,7 +132,13 @@
          ret (try (let [v (edamame/parse-next r parse-opts)]
                     (if (utils/kw-identical? v :edamame.core/eof)
                       eof
-                      v))
+                      (if (symbol? v)
+                        (vary-meta v assoc
+                                   :line (get-line-number r)
+                                   :column (- (get-column-number r)
+                                              #?(:clj (.length (str v))
+                                                 :cljs (.-length (str v)))))
+                        v)))
                   (catch #?(:clj clojure.lang.ExceptionInfo
                             :cljs cljs.core/ExceptionInfo) e
                     (throw (ex-info #?(:clj (.getMessage e)
@@ -160,12 +158,6 @@
                                                     (object-array buf-len)
                                                     buf-len buf-len)]
              (r/indexing-push-back-reader pushback-reader))))
-
-(defn get-line-number [reader]
-  (r/get-line-number reader))
-
-(defn get-column-number [reader]
-  (r/get-column-number reader))
 
 (defn parse-string
   ([ctx s]

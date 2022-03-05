@@ -126,9 +126,9 @@
   (is (= :foo/foo (eval* "(ns foo \"docstring\") ::foo"))))
 
 (deftest ns-metadata-test
-  (is (= {:line 1, :column 5, :a 1, :b 1}
+  (is (= {:a 1, :b 1}
          (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*)")))
-  (is (= {:line 1, :column 5, :a 1, :b 1}
+  (is (= {:a 1, :b 1}
          (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*) (ns bar) (meta (the-ns 'foo))"))))
 
 (deftest recycle-namespace-objects

@@ -44,14 +44,13 @@
                           (catch #?(:clj Exception
                                     :cljs :default) e
                             (sci/stacktrace e)))]
-      (is (= '({:ns user, :line 1, :column 24, :name g, :file nil}
+      (is (= '({:ns user, :name g, :file nil}
                {:ns user, :file nil, :line 1, :column 27, :name g}
                {:ns user, :name g, :file nil, :line 1, :column 15}
                {:ns user, :file nil, :line 1, :column 34, :name nil})
              stacktrace))
       (let [formatted (sci/format-stacktrace stacktrace)]
-        (is (= '("user/g - <expr>:1:24"
-                 "user/g - <expr>:1:27"
+        (is (= '("user/g - <expr>:1:27"
                  "user/g - <expr>:1:15"
                  "user   - <expr>:1:34")
                formatted))))))
