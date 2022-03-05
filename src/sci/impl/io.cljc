@@ -2,11 +2,24 @@
   {:no-doc true}
   (:refer-clojure :exclude [pr prn pr-str prn-str print print-str println
                             newline flush with-out-str with-in-str read-line
-                            printf #?@(:cljs [string-print])])
+                            printf #?@(:cljs [string-print])
+                            print-method])
   (:require #?(:cljs [goog.string])
+            [sci.impl.records]
             [sci.impl.unrestrict :refer [*unrestricted*]]
             #?(:cljs [sci.impl.utils :as utils])
             [sci.impl.vars :as vars]))
+
+#?(:clj
+   (defmulti print-method (fn [x _writer]
+                            (if (instance? sci.impl.records.SciRecord x)
+                              (-> x meta :type)
+                              :default))))
+
+#?(:clj
+   (defmethod print-method :default
+     [x writer]
+     (clojure.core/print-method x writer)))
 
 #?(:clj (set! *warn-on-reflection* true))
 
