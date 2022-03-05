@@ -12,9 +12,12 @@
 
 #?(:clj
    (defmulti print-method (fn [x _writer]
-                            (if (instance? sci.impl.records.SciRecord x)
-                              (-> x meta :type)
-                              :default))))
+                            (let [t (-> x meta :type)]
+                              (if (and t
+                                       (or (instance? sci.impl.records.SciRecord x)
+                                           (keyword? t)))
+                                t
+                                (class x))))))
 
 #?(:clj
    (defmethod print-method :default
