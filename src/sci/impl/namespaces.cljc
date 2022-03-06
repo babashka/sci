@@ -272,6 +272,10 @@
           g
           (last steps)))))
 
+(defn declare*
+  "defs the supplied var names with no bindings, useful for making forward declarations."
+  [_ _ & names] `(do ~@(map #(list 'def (vary-meta % assoc :declared true)) names)))
+
 (def ex-message
   (if-let [v (resolve 'clojure.core/ex-message)]
     @v
@@ -1020,6 +1024,7 @@
    'chunk-next (copy-core-var chunk-next)
    'chunked-seq? (copy-core-var chunked-seq?)
    'dec (copy-core-var dec)
+   'declare (macrofy 'declare declare* )
    'dedupe (copy-core-var dedupe)
    'defn- (macrofy 'defn- defn-*)
    'defonce (macrofy 'defonce defonce*)

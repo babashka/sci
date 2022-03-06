@@ -1,5 +1,6 @@
 (ns sci.core-test
   (:require
+   [clojure.edn :as edn]
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.copy-ns-test-ns]
@@ -828,7 +829,8 @@
   (is (str/includes? (str/lower-case (eval* "(declare x) (str x)")) "unbound"))
   (testing "declare var with metadata"
     (is (= 2 (eval* "(declare ^:dynamic d) (binding [d 2] d)")))
-    (is (= "x" (eval* "(declare ^{:doc \"x\"} e) (-> #' e meta :doc)")))))
+    (is (= "x" (eval* "(declare ^{:doc \"x\"} e) (-> #' e meta :doc)")))
+    (is (= :hello (edn/read-string (sci/with-out-str (sci/eval-string "(declare ^{:foo (prn :hello)} foo)")))))))
 
 (deftest reader-conditionals
   (is (= 6 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:bb}})))
