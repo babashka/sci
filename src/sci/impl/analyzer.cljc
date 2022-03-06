@@ -498,13 +498,39 @@
   (let [let-bindings (destructure let-bindings)]
     (analyze-let* ctx expr let-bindings exprs)))
 
-(declare expand-declare)
+(defn init-var! [ctx name expr]
+  (let [cnn (vars/current-ns-name)
+        env (:env ctx)
+        the-current-ns (get-in @env [:namespaces cnn])
+        refers (:refers the-current-ns)
+        the-current-ns (if-let [x (and refers (.get ^java.util.Map refers name))]
+                         (throw-error-with-location
+                          (str name " already refers to "
+                               x " in namespace "
+                               cnn)
+                          expr)
+                         (if-not #?(:clj (.containsKey ^java.util.Map the-current-ns name)
+                                    :cljs (get the-current-ns name))
+                           (assoc the-current-ns name
+                                  (doto (vars/->SciVar nil (symbol (str cnn)
+                                                                   (str name))
+                                                       (assoc (meta name)
+                                                              :name name
+                                                              :ns @vars/current-ns
+                                                              :file @vars/current-file)
+                                                       false)
+                                    (vars/unbind)))
+                           the-current-ns))]
+    (swap! env
+           (fn [env]
+             (update env :namespaces assoc cnn the-current-ns))))
+  nil)
 
 (defn analyze-def
   [ctx expr]
   (let [ctx (without-recur-target ctx)
         [_def var-name ?docstring ?init] expr]
-    (expand-declare ctx [nil var-name])
+    (init-var! ctx var-name expr)
     (when-not (simple-symbol? var-name)
       (throw-error-with-location "Var name should be simple symbol." expr))
     (let [arg-count (count expr)
@@ -534,7 +560,7 @@
   ;; TODO: re-use analyze-def
   (when-not (simple-symbol? fn-name)
     (throw-error-with-location "Var name should be simple symbol." expr))
-  (expand-declare ctx [nil fn-name])
+  (init-var! ctx fn-name expr)
   (let [macro? (= "defmacro" (name op))
         [pre-body body] (split-with (comp not sequential?) body)
         _ (when (empty? body)
@@ -730,37 +756,6 @@
     (->Node
      (rethrow-with-location-of-node ctx bindings (types/eval ana ctx bindings) this)
      stack)))
-
-(defn expand-declare [ctx [_declare & names :as expr]]
-  (let [cnn (vars/current-ns-name)
-        env (:env ctx)
-        the-current-ns (get-in @env [:namespaces cnn])
-        refers (:refers the-current-ns)
-        the-current-ns (reduce (fn [acc name]
-                                 (if-let [x (and refers (.get ^java.util.Map refers name))]
-                                   (throw-error-with-location
-                                    (str name " already refers to "
-                                         x " in namespace "
-                                         cnn)
-                                    expr)
-                                   (if-not #?(:clj (.containsKey ^java.util.Map the-current-ns name)
-                                              :cljs (get the-current-ns name))
-                                     (assoc acc name
-                                            (doto (vars/->SciVar nil (symbol (str cnn)
-                                                                             (str name))
-                                                                 (assoc (meta name)
-                                                                        :name name
-                                                                        :ns @vars/current-ns
-                                                                        :file @vars/current-file)
-                                                                 false)
-                                              (vars/unbind)))
-                                     the-current-ns)))
-                               the-current-ns
-                               names)]
-    (swap! env
-           (fn [env]
-             (update env :namespaces assoc cnn the-current-ns))))
-  nil)
 
 ;;;; Interop
 
@@ -1237,7 +1232,6 @@
                         case (analyze-case ctx expr)
                         try (analyze-try ctx expr)
                         throw (analyze-throw ctx expr)
-                        declare (expand-declare ctx expr)
                         expand-dot* (expand-dot* ctx expr)
                         . (expand-dot** ctx expr)
                         expand-constructor (expand-constructor ctx expr)
