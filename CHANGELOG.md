@@ -2,6 +2,13 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## v0.3.2
+
+- [#665](https://github.com/babashka/sci/issues/665): expose *assert*
+- Drop location metadata from symbols
+- [#687](https://github.com/babashka/sci/issues/687): `declare` as macro
+- [#684](https://github.com/babashka/sci/issues/684): support `print-method` on records
+
 ## v0.3.1
 
 ### Enhancements
