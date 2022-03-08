@@ -33,7 +33,12 @@
                           impls [`(defmulti ~method-name clojure.core/protocol-type-impl)
                                  `(defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
                                     (let [methods# (clojure.core/-reified-methods x#)]
-                                      (apply (get methods# '~method-name) x# args#)))]
+                                      (if-let [m# (get methods# '~method-name)]
+                                        (apply m# x# args#)
+                                        (if-let [default# (get-method ~method-name #?(:clj Object
+                                                                                      :cljs :default))]
+                                          (apply default# x# args#)
+                                          (throw (ex-info "No method " '~method-name " found for: " (type x#)))))))]
                           impls (if extend-meta
                                   (conj impls
                                         `(defmethod ~method-name :default [x# & args#]

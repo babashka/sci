@@ -235,3 +235,7 @@
                                                                           {:protocol p/IKVReduce
                                                                           :ns ns}
                                                                           {:ns ns})}}}))))))
+
+(deftest fallback-on-reified-object-test
+  (is (= :object
+         (eval* "(defprotocol Foo (foo [_])) (defprotocol Bar) (extend-protocol Foo Object (foo [_] :object)) (foo (reify Bar))"))))
