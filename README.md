@@ -322,7 +322,7 @@ To always enable printing in your SCI environment you can set `sci/out` to `*out
 
 #### ClojureScript
 
-Similar to Clojure vs. CLJS, the difference wit SCI on Clojure vs. SCI on CLJS
+Similar to Clojure vs. CLJS, the difference with SCI on Clojure vs. SCI on CLJS
 is that in the latter you should use `sci/print-newline` and `sci/print-fn` to
 control printing to stdout:
 
@@ -335,7 +335,7 @@ cljs.user=> @output
 ":hello:bye\n"
 ```
 
-This is supported since SCI 0.2.7 (currently unreleased but available as git dep).
+This is supported since SCI 0.2.7.
 
 To always enable printing in your SCI environment you can set `sci/print-fn` to `*print-fn*` globally:
 
@@ -348,7 +348,7 @@ To always enable printing in your SCI environment you can set `sci/print-fn` to 
 
 Creating threads with `future` and `pmap` is disabled by default, but can be
 enabled by requiring `sci.addons.future` and applying the `sci.addons.future/install` function
-to the sci options:
+to the SCI options:
 
 ``` clojure
 (ns my.sci.app
@@ -691,7 +691,7 @@ $ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt
 
 ## License
 
-Copyright © 2019-2021 Michiel Borkent
+Copyright © 2019-2022 Michiel Borkent
 
 Distributed under the Eclipse Public License 1.0. This project contains code
 from Clojure and ClojureScript which are also licensed under the EPL 1.0. See
