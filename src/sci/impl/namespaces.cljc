@@ -813,7 +813,10 @@
 
 #?(:clj (def clojure-version-var (vars/dynamic-var
                                   '*clojure-version (update clojure.core/*clojure-version*
-                                                            :qualifier str "-SCI")
+                                                            :qualifier (fn [qualifier]
+                                                                         (if qualifier
+                                                                           (str qualifier "-SCI")
+                                                                           "SCI")))
                                   {:ns clojure-core-ns}) ))
 
 #?(:clj (defn
