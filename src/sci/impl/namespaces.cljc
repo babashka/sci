@@ -6,7 +6,8 @@
                             find-var *1 *2 *3 *e #?(:cljs type)
                             bound-fn* with-bindings*
                             vswap!
-                            #?(:cljs this-as)])
+                            #?(:cljs this-as)
+                            clojure-version])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -810,6 +811,26 @@
 ;;      `(let [~name (clojure.core/-js-this)]
 ;;         ~@body)))
 
+#?(:clj (def clojure-version-var (vars/dynamic-var
+                                  '*clojure-version (update clojure.core/*clojure-version*
+                                                            :qualifier str "-SCI")
+                                  {:ns clojure-core-ns}) ))
+
+#?(:clj (defn
+          clojure-version
+          "Returns clojure version as a printable string."
+          []
+          (let [*clojure-version* @clojure-version-var]
+            (str (:major *clojure-version*)
+                 "."
+                 (:minor *clojure-version*)
+                 (when-let [i (:incremental *clojure-version*)]
+                   (str "." i))
+                 (when-let [q (:qualifier *clojure-version*)]
+                   (when (pos? (count q)) (str "-" q)))
+                 (when (:interim *clojure-version*)
+                   "-SNAPSHOT")))))
+
 (def core-var
   (ns-new-var clojure-core-ns))
 
@@ -860,6 +881,10 @@
    '*3 *3
    '*e *e
    ;; end REPL variables
+   ;; clojure version
+   #?@(:clj ['*clojure-version* clojure-version-var
+             'clojure-version (copy-core-var clojure-version)])
+   ;; end clojure version
    ;; multimethods
    'defmulti (macrofy 'defmulti mm/defmulti
                clojure-core-ns true)

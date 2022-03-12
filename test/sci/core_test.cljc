@@ -1371,6 +1371,12 @@
                          (aget an-array idx))))")]
     (is (= [1 2 3 4 5] mapped-array))))
 
+#?(:clj
+   (deftest clojure-version-test
+     (is (str/ends-with? (sci/eval-string "(clojure-version)") "SCI"))
+     (is (str/ends-with? (:qualifier (sci/eval-string "*clojure-version*"))
+                         "SCI"))))
+
 ;;;; Scratch
 
 (comment

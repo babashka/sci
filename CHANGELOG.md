@@ -2,6 +2,16 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+### New
+
+- [#382](https://github.com/babashka/sci/issues/382): Add `*clojure-version*` and `(clojure-version)`
+
+### Enhancements
+
+- [#689](https://github.com/babashka/sci/issues/689): Reified object doesn't get handled for fallback protocol impl
+
 ## v0.3.2
 
 - [#665](https://github.com/babashka/sci/issues/665): expose `*assert*`
