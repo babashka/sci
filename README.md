@@ -68,7 +68,7 @@ SCI is used in:
 - [TryClojure.org](https://tryclojure.org/). Try Clojure!
 - [Zprint](https://github.com/kkinnear/zprint). Tool to beautifully format Clojure(script) code and data.
 
-Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/babashka/issues/254).
+Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/sci/discussions/662).
 
 ## Installation
 
