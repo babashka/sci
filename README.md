@@ -54,7 +54,6 @@ SCI is used in:
 - [Cq](https://github.com/markus-wa/cq). Clojure Command-line Data Processor for JSON, YAML, EDN, XML and more.
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Datalevin](https://github.com/juji-io/datalevin). Durable Datalog database.
-- [Firn](https://github.com/theiceshelf/firn). Org-mode static site generator.
 - [For-science](https://github.com/pmonks/for-science). Discord bot.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Keycloak-clojure](https://github.com/jgrodziski/keycloak-clojure). Clojure library for Keycloak.
