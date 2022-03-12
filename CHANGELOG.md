@@ -11,6 +11,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 ### Enhancements
 
 - [#689](https://github.com/babashka/sci/issues/689): Reified object doesn't get handled for fallback protocol impl
+- [#692](https://github.com/babashka/sci/issues/692): extending `Object` with protocol doesn't work on records
 
 ## v0.3.2
 
