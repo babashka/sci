@@ -4,9 +4,18 @@
                             extend extend-type reify satisfies?
                             extends? implements?])
   (:require [sci.impl.multimethods :as mms]
+            #?(:clj [sci.impl.interop :as interop])
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
+
+(defn default? [#?(:clj ctx
+                   :cljs _ctx) sym]
+  #?(:clj (and (or (= 'Object sym)
+                   (= 'java.lang.Object type))
+               (= Object (interop/resolve-class ctx 'Object)))
+     :cljs (or (= 'object sym)
+               (= 'default sym))))
 
 (defn defprotocol [_ _ _ctx protocol-name & signatures]
   (let [[docstring signatures]
@@ -35,8 +44,7 @@
                                     (let [methods# (clojure.core/-reified-methods x#)]
                                       (if-let [m# (get methods# '~method-name)]
                                         (apply m# x# args#)
-                                        (if-let [default# (get-method ~method-name #?(:clj Object
-                                                                                      :cljs :default))]
+                                        (if-let [default# (get-method ~method-name :default)]
                                           (apply default# x# args#)
                                           (throw (ex-info "No method " '~method-name " found for: " (type x#)))))))]
                           impls (if extend-meta
@@ -96,7 +104,7 @@
                (do ~@body))
              (do ~@body)))])
 
-(defn process-methods [type meths protocol-ns extend-via-metadata]
+(defn process-methods [ctx type meths protocol-ns extend-via-metadata]
   (map
    (fn [[meth-name & fn-body]]
      (let [fq (symbol protocol-ns (name meth-name))
@@ -105,9 +113,13 @@
                        (process-single-extend-meta fq fn-body)
                        (mapcat #(process-single-extend-meta fq %) fn-body))
                      fn-body)]
-       `(defmethod ~fq
-          ~type
-          ~@fn-body)))
+       (if (default? ctx type)
+         `(defmethod ~fq
+            :default
+            ~@fn-body)
+         `(defmethod ~fq
+            ~type
+            ~@fn-body))))
    meths))
 
 (defn extend-protocol [_ _ ctx protocol-name & impls]
@@ -120,7 +132,7 @@
         expansion
         `(do ~@(map (fn [[type & meths]]
                       `(do
-                         ~@(process-methods type meths pns extend-via-metadata)))
+                         ~@(process-methods ctx type meths pns extend-via-metadata)))
                     impls))]
     expansion))
 
@@ -134,7 +146,7 @@
                     pns (str (vars/getName protocol-ns))
                     extend-via-metadata (:extend-via-metadata proto-data)]
                 `(do
-                   ~@(process-methods atype meths pns extend-via-metadata)))) proto+meths))))
+                   ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 

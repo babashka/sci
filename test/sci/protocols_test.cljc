@@ -238,4 +238,12 @@
 
 (deftest fallback-on-reified-object-test
   (is (= :object
-         (eval* "(defprotocol Foo (foo [_])) (defprotocol Bar) (extend-protocol Foo Object (foo [_] :object)) (foo (reify Bar))"))))
+         (eval* "(defprotocol Foo (foo [_])) (defprotocol Bar) (extend-protocol Foo Object (foo [_] :object)) (foo (reify Bar))")))
+  (is (= [:object :meta]
+         (eval* "(defprotocol Foo :extend-via-metadata true (foo [_])) (defprotocol Bar) (extend-protocol Foo Object (foo [_] :object)) [(foo 1) (foo (with-meta {} {'user/foo (fn [_] :meta)}))]"))))
+
+(deftest fallback-on-record
+  (is (= :object
+         (eval* "(defprotocol Dude (foo [_])) (extend-type Object Dude (foo [_] :object)) (defrecord Rec []) (foo (->Rec))")))
+  (is (= [:object :meta]
+         (eval* "(defprotocol Dude :extend-via-metadata true (foo [_])) (extend-type Object Dude (foo [_] :object)) (defrecord Rec []) [(foo (->Rec)) (foo (with-meta {} {'user/foo (fn [_] :meta)}))]"))))
