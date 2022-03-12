@@ -247,3 +247,18 @@
          (eval* "(defprotocol Dude (foo [_])) (extend-type Object Dude (foo [_] :object)) (defrecord Rec []) (foo (->Rec))")))
   (is (= [:object :meta]
          (eval* "(defprotocol Dude :extend-via-metadata true (foo [_])) (extend-type Object Dude (foo [_] :object)) (defrecord Rec []) [(foo (->Rec)) (foo (with-meta {} {'user/foo (fn [_] :meta)}))]"))))
+
+#?(:clj
+   (deftest IRecord-extension-test
+     (testing "without default override"
+       (is (= :record (sci/eval-string "(defprotocol Dude (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record)) (defrecord Foo []) (dude (->Foo))"
+                                       {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))
+     (testing "without default override + meta"
+       (is (= :record (sci/eval-string "(defprotocol Dude :extend-via-metadata true (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record)) (defrecord Foo []) (dude (->Foo))"
+                                       {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))
+     (testing "with default override"
+       (is (= :record (sci/eval-string "(defprotocol Dude (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record) Object (dude [_] :object)) (defrecord Foo []) (dude (->Foo))"
+                                       {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))
+     (testing "with default override + meta"
+       (is (= :record (sci/eval-string "(defprotocol Dude :extend-via-metadata true (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record) Object (dude [_] :object)) (defrecord Foo []) (dude (->Foo))"
+                                       {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))))
