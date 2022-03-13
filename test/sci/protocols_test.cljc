@@ -82,7 +82,12 @@
   (is (= "-------------------------\nuser/Foo\n  cool protocol\n" (tu/eval* "
 (defprotocol Foo \"cool protocol\" (foo [_]))
 (with-out-str (clojure.repl/doc Foo))
-" {}))))
+" {})))
+  (is (= :object (eval* "
+(defprotocol Foo (foo [_] \"docstring\"))
+(extend-type Object Foo (foo [_] :object))
+(foo 1)
+"))))
 
 (deftest reify-test
   (let [prog "
@@ -273,3 +278,9 @@
      (testing "with default override + meta"
        (is (= :record (sci/eval-string "(defprotocol Dude :extend-via-metadata true (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record) Object (dude [_] :object)) (defrecord Foo []) (dude (->Foo))"
                                        {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))))
+
+(deftest sigs-test
+  (is (= '{:foo {:name foo, :arglists ([_] [_ x]), :doc nil}}
+         (eval* "(defprotocol Dude (foo [_] [_ x])) (:sigs Dude)")))
+  (is (= '{:foo {:name foo, :arglists ([_] [_ x]), :doc "docstring"}}
+         (eval* "(defprotocol Dude (foo [_] [_ x] \"docstring\")) (:sigs Dude)"))))

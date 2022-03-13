@@ -17,6 +17,15 @@
      :cljs (or (= 'object sym)
                (= 'default sym))))
 
+(defn ->sigs [signatures]
+  (into {}
+        (map (fn [[name & arglists]]
+               (let [l (last arglists)
+                     [arglists doc] (if (string? l)
+                                      [(butlast arglists) l]
+                                      [arglists nil])]
+                 [(keyword name) {:name name :arglists arglists :doc doc}])) signatures)))
+
 (defn defprotocol [_ _ _ctx protocol-name & signatures]
   (let [[docstring signatures]
         (let [sig (first signatures)]
@@ -26,6 +35,7 @@
         (let [opt (first signatures)]
           (if (keyword? opt) [{opt (second signatures)} (nnext signatures)]
               [nil signatures]))
+        sigs-map (->sigs signatures)
         current-ns (str (vars/current-ns-name))
         fq-name (symbol current-ns (str protocol-name))
         extend-meta (:extend-via-metadata opts)
@@ -35,7 +45,8 @@
                     {:doc docstring}) (cond->
                                           {:methods #{}
                                            :name '~fq-name
-                                           :ns *ns*}
+                                           :ns *ns*
+                                           :sigs ~(list 'quote sigs-map)}
                                         ~extend-meta (assoc :extend-via-metadata true)))
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))
