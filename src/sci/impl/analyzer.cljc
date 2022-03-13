@@ -1433,12 +1433,15 @@
                                       (unwrap-children analyzed-children)
                                       analyzed-children)
                   ])
-        same? (and const? (= (if (set expr)
-                               (seq expr)
+        set-expr? (set? expr)
+        same? (and const? (= (if set-expr?
+                               (or (seq expr) [])
                                expr) analyzed-children))
         const-val (when const?
                     (if same?
-                      expr
+                      (if (empty? expr)
+                        (if set-expr? #{} [])
+                        expr)
                       (f1 analyzed-children)))
         analyzed-coll (if const?
                         (->constant const-val)

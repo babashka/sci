@@ -1377,6 +1377,10 @@
      (is (str/ends-with? (:qualifier (sci/eval-string "*clojure-version*"))
                          "SCI"))))
 
+(deftest empty-coll-identical-test
+  (is (identical? [] (sci/eval-string "[]")))
+  (is (identical? #{} (sci/eval-string "#{}"))))
+
 ;;;; Scratch
 
 (comment
