@@ -7,11 +7,15 @@ For a list of breaking changes, check [here](#breaking-changes)
 ### New
 
 - [#382](https://github.com/babashka/sci/issues/382): Add `*clojure-version*` and `(clojure-version)`
+- Support `:sigs` on protocol map
 
 ### Enhancements
 
 - [#689](https://github.com/babashka/sci/issues/689): Reified object doesn't get handled for fallback protocol impl
 - [#692](https://github.com/babashka/sci/issues/692): extending `Object` with protocol doesn't work on records
+- [#693](https://github.com/babashka/sci/issues/693): extend protocol to IRecord doesn't work on SCI records
+- [#695](https://github.com/babashka/sci/issues/695): `(identical? [] [])` works
+
 
 ## v0.3.2
 
