@@ -114,37 +114,37 @@
 (defn process-single-extend-meta
   "Processes single args+body pair for extending via metadata"
   [fq [args & body] default-method?]
-  [args (if default-method?
-          `(let [farg# ~(first args)]
-             (if-let [m# (meta farg#)]
-               (if-let [meth# (get m# '~fq)]
-                 (apply meth# ~args)
-                 ;; look for type specific method
-                 (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
-                       default# (get-method ~fq :default)]
-                   (if (not= default# meth#)
-                     (apply meth# ~args)
-                     (do ~@body))))
-               (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
-                     default# (get-method ~fq :default)]
-                 (if (not= default# meth#)
-                   (apply meth# ~args)
-                   (do ~@body)))))
-          `(let [farg# ~(first args)]
-             (if-let [m# (meta farg#)]
-               (if-let [meth# (get m# '~fq)]
-                 (apply meth# ~args)
-                 (do ~@body))
-               (do ~@body))))])
+  (list args (if default-method?
+               `(let [farg# ~(first args)]
+                  (if-let [m# (meta farg#)]
+                    (if-let [meth# (get m# '~fq)]
+                      (apply meth# ~args)
+                      ;; look for type specific method
+                      (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                            default# (get-method ~fq :default)]
+                        (if (not= default# meth#)
+                          (apply meth# ~args)
+                          (do ~@body))))
+                    (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                          default# (get-method ~fq :default)]
+                      (if (not= default# meth#)
+                        (apply meth# ~args)
+                        (do ~@body)))))
+               `(let [farg# ~(first args)]
+                  (if-let [m# (meta farg#)]
+                    (if-let [meth# (get m# '~fq)]
+                      (apply meth# ~args)
+                      (do ~@body))
+                    (do ~@body))))))
 
 (defn process-single
   [fq [args & body]]
-  [args `(let [farg# ~(first args)]
-           (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
-                 default# (get-method ~fq :default)]
-             (if (not= default# meth#)
-               (apply meth# ~args)
-               (do ~@body))))])
+  (list args `(let [farg# ~(first args)]
+                (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                      default# (get-method ~fq :default)]
+                  (if (not= default# meth#)
+                    (apply meth# ~args)
+                    (do ~@body))))))
 
 (defn process-methods [ctx type meths protocol-ns extend-via-metadata]
   (let [default-method? (default? ctx type)]
@@ -154,11 +154,11 @@
              fn-body (cond extend-via-metadata
                            (if (vector? (first fn-body))
                              (process-single-extend-meta fq fn-body default-method?)
-                             (mapcat #(process-single-extend-meta fq % default-method?) fn-body))
+                             (map #(process-single-extend-meta fq % default-method?) fn-body))
                            default-method?
                            (if (vector? (first fn-body))
                              (process-single fq fn-body)
-                             (mapcat #(process-single fq %) fn-body))
+                             (map #(process-single fq %) fn-body))
                            :else fn-body)]
          (if default-method?
            `(defmethod ~fq
@@ -168,6 +168,12 @@
               ~type
               ~@fn-body))))
      meths)))
+
+(defn group-meths [meths]
+  (let [groups (group-by first meths)]
+    (map (fn [[k v]]
+           (cons k (map rest v)))
+         groups)))
 
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
@@ -187,7 +193,8 @@
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
             (fn [[proto & meths]]
-              (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
+              (let [meths (group-meths meths)
+                    protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
                     proto-data (deref protocol-var)
                     protocol-ns (:ns proto-data)
                     pns (str (vars/getName protocol-ns))

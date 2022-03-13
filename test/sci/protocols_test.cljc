@@ -161,7 +161,8 @@
 [(subtotal (->Apple 100)) (subtotal (->Apple 100) 5) (subtotal \"foo\") (subtotal \"foo\" 2)]
 "
                             "{{expr}}" expr))]
-    (doseq [expr ["(extend-type String IFruit (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))"
+    (doseq [expr ["(extend-type String IFruit (subtotal [s] (count s))
+                                              (subtotal [s discount] (- (count s) discount)))"
                   "(extend String IFruit {:subtotal (fn ([s] (count s)) ([s discount] (- (count s) discount)))})"
                   "(extend-protocol IFruit String (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))"]
             :let [prog (prog expr)
@@ -212,7 +213,14 @@
                            (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
     (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this]))
                          (extend-type Object Foo (foo [_] :object))
-                         (foo (vary-meta {} assoc `foo (fn [_] :meta)))"))))
+                         (foo (vary-meta {} assoc `foo (fn [_] :meta)))")))
+    (testing "multi-arity protocol"
+      (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this] [this x]))
+                           (extend-protocol Foo Object (foo ([_] :object) ([_ x] :object2)))
+                           (foo (vary-meta {} assoc `foo (fn ([_] :meta) ([_ _] :meta))))")))
+      (is (= :meta (eval* "(defprotocol Foo :extend-via-metadata true (foo [this] [this x]))
+                           (extend-type Object Foo (foo [_] :object) (foo [_ x] :object2))
+                           (foo (vary-meta {} assoc `foo (fn ([_] :meta) ([_ _] :meta))))")))))
   (testing "defrecord protocol is preferred over extend-via-metata"
     (is (= :record (eval* "(defprotocol IFoo (foo [this]))
                            (defrecord Foo [] IFoo (foo [_] :record))
@@ -258,6 +266,9 @@
                                        {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))
      (testing "with default override"
        (is (= :record (sci/eval-string "(defprotocol Dude (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record) Object (dude [_] :object)) (defrecord Foo []) (dude (->Foo))"
+                                       {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))
+     (testing "with default override + multi-arity"
+       (is (= :record (sci/eval-string "(defprotocol Dude (dude [_] [_ x])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record) Object (dude ([_] :object) ([_ x] :object2))) (defrecord Foo []) (dude (->Foo))"
                                        {:classes {'clojure.lang.IRecord clojure.lang.IRecord}}))))
      (testing "with default override + meta"
        (is (= :record (sci/eval-string "(defprotocol Dude :extend-via-metadata true (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record) Object (dude [_] :object)) (defrecord Foo []) (dude (->Foo))"
