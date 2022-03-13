@@ -54,13 +54,29 @@
                                                  method# (get meta# '~fq-name)]
                                              (if method#
                                                (apply method# x# args#)
+                                               (let [method# (get-method ~method-name (#?(:clj class :cljs type) x#))
+                                                     default# (get-method ~method-name :default)]
+                                                 (if (not= method# default#)
+                                                   (apply method# x# args#)
+                                                   (throw (new #?(:clj IllegalArgumentException
+                                                                  :cljs js/Error)
+                                                               (str "No implementation of method: "
+                                                                    ~(keyword method-name) " of protocol: "
+                                                                    (var ~protocol-name) " found for: "
+                                                                    (clojure.core/protocol-type-impl x#))))))))))
+                                  (conj impls
+                                        ;; fallback method for extension on IRecord
+                                        `(defmethod ~method-name :default [x# & args#]
+                                           (let [method# (get-method ~method-name (#?(:clj class :cljs type) x#))
+                                                 default# (get-method ~method-name :default)]
+                                             (if (not= method# default#)
+                                               (apply method# x# args#)
                                                (throw (new #?(:clj IllegalArgumentException
                                                               :cljs js/Error)
                                                            (str "No implementation of method: "
                                                                 ~(keyword method-name) " of protocol: "
                                                                 (var ~protocol-name) " found for: "
-                                                                (clojure.core/protocol-type-impl x#))))))))
-                                  impls)]
+                                                                (clojure.core/protocol-type-impl x#)))))))))]
                       `(do
                          ~@impls
                          #?(:clj (alter-var-root (var ~protocol-name)
@@ -70,6 +86,7 @@
                   signatures))]
     expansion))
 
+;; TODO: apply patches for default override for records
 (defn extend [ctx atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)
           :let [extend-via-metadata (:extend-via-metadata proto)
@@ -96,31 +113,61 @@
 
 (defn process-single-extend-meta
   "Processes single args+body pair for extending via metadata"
+  [fq [args & body] default-method?]
+  (list args (if default-method?
+               `(let [farg# ~(first args)]
+                  (if-let [m# (meta farg#)]
+                    (if-let [meth# (get m# '~fq)]
+                      (apply meth# ~args)
+                      ;; look for type specific method
+                      (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                            default# (get-method ~fq :default)]
+                        (if (not= default# meth#)
+                          (apply meth# ~args)
+                          (do ~@body))))
+                    (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                          default# (get-method ~fq :default)]
+                      (if (not= default# meth#)
+                        (apply meth# ~args)
+                        (do ~@body)))))
+               `(let [farg# ~(first args)]
+                  (if-let [m# (meta farg#)]
+                    (if-let [meth# (get m# '~fq)]
+                      (apply meth# ~args)
+                      (do ~@body))
+                    (do ~@body))))))
+
+(defn process-single
   [fq [args & body]]
-  [args `(let [farg# ~(first args)]
-           (if-let [m# (meta farg#)]
-             (if-let [meth# (get m# '~fq)]
-               (apply meth# ~args)
-               (do ~@body))
-             (do ~@body)))])
+  (list args `(let [farg# ~(first args)]
+                (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                      default# (get-method ~fq :default)]
+                  (if (not= default# meth#)
+                    (apply meth# ~args)
+                    (do ~@body))))))
 
 (defn process-methods [ctx type meths protocol-ns extend-via-metadata]
-  (map
-   (fn [[meth-name & fn-body]]
-     (let [fq (symbol protocol-ns (name meth-name))
-           fn-body (if extend-via-metadata
-                     (if (vector? (first fn-body))
-                       (process-single-extend-meta fq fn-body)
-                       (mapcat #(process-single-extend-meta fq %) fn-body))
-                     fn-body)]
-       (if (default? ctx type)
-         `(defmethod ~fq
-            :default
-            ~@fn-body)
-         `(defmethod ~fq
-            ~type
-            ~@fn-body))))
-   meths))
+  (let [default-method? (default? ctx type)]
+    (map
+     (fn [[meth-name & fn-body]]
+       (let [fq (symbol protocol-ns (name meth-name))
+             fn-body (cond extend-via-metadata
+                           (if (vector? (first fn-body))
+                             (process-single-extend-meta fq fn-body default-method?)
+                             (map #(process-single-extend-meta fq % default-method?) fn-body))
+                           default-method?
+                           (if (vector? (first fn-body))
+                             (process-single fq fn-body)
+                             (map #(process-single fq %) fn-body))
+                           :else fn-body)]
+         (if default-method?
+           `(defmethod ~fq
+              :default
+              ~@fn-body)
+           `(defmethod ~fq
+              ~type
+              ~@fn-body))))
+     meths)))
 
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
