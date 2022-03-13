@@ -303,7 +303,7 @@
             (let [m (:meta var)]
               (assoc ns-map var-name
                      (new-var (symbol var-name) (:val var)
-                              (assoc m :ns sci-ns)))))
+                              (assoc m :ns sci-ns :name (symbol var-name))))))
           {}
           ns-publics-map))
 
