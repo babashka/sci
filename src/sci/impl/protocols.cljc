@@ -169,12 +169,6 @@
               ~@fn-body))))
      meths)))
 
-(defn group-meths [meths]
-  (let [groups (group-by first meths)]
-    (map (fn [[k v]]
-           (cons k (map rest v)))
-         groups)))
-
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
         protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
@@ -193,8 +187,7 @@
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
             (fn [[proto & meths]]
-              (let [meths (group-meths meths)
-                    protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
+              (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
                     proto-data (deref protocol-var)
                     protocol-ns (:ns proto-data)
                     pns (str (vars/getName protocol-ns))
