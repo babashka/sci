@@ -1336,6 +1336,13 @@
     (is (:copy-this (meta (get sci-ns 'foo))))
     (is (:awesome-meta (meta (get sci-ns 'baz))))))
 
+(deftest copy-ns-default-meta-test
+  (testing "copy-ns default meta includes name"
+    (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
+                   (sci/create-ns 'sci.copy-ns-test-ns))]
+      (is (every? (fn [[var-name meta]] (and (symbol? var-name) (= var-name (:name meta))))
+            (map (fn [[name var]] (vector name (meta var))) sci-ns))))))
+
 (deftest vswap-test
   (is (= 2 (sci/eval-string
             "(def v (volatile! 1)) (vswap! v inc) @v"))))
