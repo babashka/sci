@@ -302,8 +302,8 @@
   (reduce (fn [ns-map [var-name var]]
             (let [m (:meta var)]
               (assoc ns-map var-name
-                     (new-var (symbol var-name) (:val var)
-                              (assoc m :ns sci-ns :name (symbol var-name))))))
+                     (new-var var-name (:val var)
+                              (assoc m :ns sci-ns :name var-name)))))
           {}
           ns-publics-map))
 

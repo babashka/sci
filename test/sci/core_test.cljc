@@ -1340,7 +1340,7 @@
   (testing "copy-ns default meta includes name"
     (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                    (sci/create-ns 'sci.copy-ns-test-ns))]
-      (is (every? (fn [[var-name meta]] (= var-name (:name meta)))
+      (is (every? (fn [[var-name meta]] (and (symbol? var-name) (= var-name (:name meta))))
             (map (fn [[name var]] (vector name (meta var))) sci-ns))))))
 
 (deftest vswap-test
