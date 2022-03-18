@@ -15,7 +15,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - [#692](https://github.com/babashka/sci/issues/692): extending `Object` with protocol doesn't work on records
 - [#693](https://github.com/babashka/sci/issues/693): extend protocol to IRecord doesn't work on SCI records
 - [#695](https://github.com/babashka/sci/issues/695): `(identical? [] [])` works
-
+- [#700](https://github.com/babashka/sci/issues/700): loop doesn't expand in fully qualified let
 
 ## v0.3.2
 

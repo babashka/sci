@@ -611,7 +611,7 @@
                           bv2  (map vector arg-names syms)]
                       [(into [] cat (interleave bv1 bv2)) syms]))
         body (nnext expr)
-        expansion (list 'let bv
+        expansion (list 'clojure.core/let bv
                         (list* `(fn ~(vec arg-names) ~@body)
                                syms))]
     (analyze ctx expansion)))

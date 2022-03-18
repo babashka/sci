@@ -612,7 +612,10 @@
 (let [x 1]
   (loop [x (inc x)]
     x))
-" {}))))
+" {})))
+  (is (= 1 (tu/eval* "
+(let [let 1] (loop [x 1] x))"
+                     {}))))
 
 (deftest for-test
   (is (= '([1 4] [1 6])
