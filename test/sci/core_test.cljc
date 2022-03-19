@@ -166,7 +166,9 @@
                   '(let [x 3] (f) (f) x) {:bindings {'f #(swap! a inc)}})
                  @a)))))
   (testing "nested lets"
-    (is (= [2 1] (eval* "(let [x 1] [(let [x 2] x) x])")))))
+    (is (= [2 1] (eval* "(let [x 1] [(let [x 2] x) x])"))))
+  (testing "let*"
+    (is (= [2 1] (eval* "(let* [x 1] [(let* [x 2] x) x])")))))
 
 (deftest closure-test
   (testing "closure"

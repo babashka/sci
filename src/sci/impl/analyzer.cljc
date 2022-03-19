@@ -46,7 +46,7 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def . var set!})
+(def special-syms '#{try finally do if new recur quote catch throw def . var set! let*})
 
 (defn- throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -457,7 +457,7 @@
                                     (fn [iden->invoke-idx]
                                       (if (contains? iden->invoke-idx ob)
                                         iden->invoke-idx
-                                        (assoc iden->invoke-idx ob (+ #_arity (count iden->invoke-idx))))))))
+                                        (assoc iden->invoke-idx ob (count iden->invoke-idx)))))))
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
@@ -1220,6 +1220,7 @@
                         ;; every sub expression
                         do (return-do ctx expr (rest expr))
                         let (analyze-let ctx expr)
+                        let* (analyze-let* ctx expr (second expr) (nnext expr))
                         (fn fn*) (analyze-fn ctx expr false)
                         def (analyze-def ctx expr)
                         ;; NOTE: defn / defmacro aren't implemented as normal macros yet
