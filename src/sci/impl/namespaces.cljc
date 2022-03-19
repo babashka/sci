@@ -1341,6 +1341,7 @@
    'update-in (copy-core-var update-in)
    'uri? (copy-core-var uri?)
    'uuid? (copy-core-var uuid?)
+   'unchecked-dec (copy-core-var unchecked-dec)
    'unchecked-inc-int (copy-core-var unchecked-inc-int)
    'unchecked-long (copy-core-var unchecked-long)
    'unchecked-negate (copy-core-var unchecked-negate)
