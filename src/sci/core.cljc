@@ -330,7 +330,8 @@
 
 (macros/deftime
   (def ^:private cljs-ns-publics
-    (try (resolve 'cljs.analyzer.api/ns-publics)
+    (try (require 'cljs.analyzer.api)
+         (resolve 'cljs.analyzer.api/ns-publics)
          (catch #?(:clj Exception
                    :cljs :default) _ nil)))
   (defmacro copy-ns
