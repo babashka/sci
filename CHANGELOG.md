@@ -2,6 +2,8 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
 ## v0.3.3
 
 ### New
@@ -14,11 +16,11 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - [#689](https://github.com/babashka/sci/issues/689): Reified object doesn't get handled for fallback protocol impl
 - [#692](https://github.com/babashka/sci/issues/692): extending `Object` with protocol doesn't work on records
-- [#693](https://github.com/babashka/sci/issues/693): extend protocol to IRecord doesn't work on SCI records
+- [#693](https://github.com/babashka/sci/issues/693): extend protocol to `IRecord` doesn't work on SCI records
 - [#695](https://github.com/babashka/sci/issues/695): `(identical? [] [])` works
-- [#700](https://github.com/babashka/sci/issues/700): loop doesn't expand in fully qualified let
-- [#696](https://github.com/babashka/sci/issues/696): add let* special form
-- [#702](https://github.com/babashka/sci/issues/702): require cljs.analyzer.api for copy-ns
+- [#700](https://github.com/babashka/sci/issues/700): `loop` doesn't expand in fully qualified `let`
+- [#696](https://github.com/babashka/sci/issues/696): add `let*` special form
+- [#702](https://github.com/babashka/sci/issues/702): require `cljs.analyzer.api` for `sci/copy-ns`
 
 ## v0.3.2
 
