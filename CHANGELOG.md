@@ -2,12 +2,13 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.3.3
 
 ### New
 
 - [#382](https://github.com/babashka/sci/issues/382): Add `*clojure-version*` and `(clojure-version)`
 - Support `:sigs` on protocol map
+- Add `unchecked-dec`
 
 ### Enhancements
 
@@ -17,6 +18,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - [#695](https://github.com/babashka/sci/issues/695): `(identical? [] [])` works
 - [#700](https://github.com/babashka/sci/issues/700): loop doesn't expand in fully qualified let
 - [#696](https://github.com/babashka/sci/issues/696): add let* special form
+- [#702](https://github.com/babashka/sci/issues/702): require cljs.analyzer.api for copy-ns
 
 ## v0.3.2
 
