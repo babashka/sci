@@ -330,7 +330,7 @@
                                :doc])))
 
 (macros/deftime
-  #?(:clj (def cljs-ns-publics
+  #?(:clj (def ^:private cljs-ns-publics
             (fn [_sym]
               (throw (Exception. "Call (sci/require-cljs-analyzer-api) before using sci/copy-ns from CLJS code.")))))
   #_:clj-kondo/ignore
@@ -342,9 +342,10 @@
                        :clj
                        (do (require '[cljs.analyzer.api])
                            (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
-                       ;; self-hosted CLJS, no require necessary
+                       ;; self-hosted CLJS, no require supported but also not necessary
                        :cljs nil))))
 
+;; When CLJS code is compiled, we know for sure that we can require the CLJS analyzer API
 #?(:cljs (require-cljs-analyzer-api))
 
 (macros/deftime
