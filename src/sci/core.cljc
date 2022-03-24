@@ -396,9 +396,8 @@
                  `(-copy-ns ~publics-map ~sci-ns))
                :cljs #?(:clj
                         ;; this branch is hit by macroexpanding within the CLJS
-                        ;; compiler on the JVM it should therefore be safe to
-                        ;; use require + resolve here as it's unlikely to be
-                        ;; used in GraalVM compilation..
+                        ;; compiler on the JVM. At ths point, cljs-ns-publics
+                        ;; refers to the right var.
                         (let [publics-map
                               #_:clj-kondo/ignore
                               (cljs-ns-publics ns-sym)
