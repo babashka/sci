@@ -62,7 +62,7 @@ jobs:
           key: v1-dependencies-{{ checksum "project.clj" }}
   planck:
     macos:
-      xcode: "13"
+      xcode: "13.3"
     steps:
       - checkout
       - restore_cache:
