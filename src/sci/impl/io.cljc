@@ -49,7 +49,12 @@
        (doto (core-dynamic-var '*print-fn*)
          (vars/unbind)))))
 
-;; TODO: CLJS print-err-fn
+#?(:cljs
+   (def print-err-fn
+     (binding [*unrestricted* true]
+       (doto (core-dynamic-var '*print-err-fn*)
+         (vars/unbind)))))
+
 ;; TODO: CLJS print-fn-bodies
 
 (def print-meta

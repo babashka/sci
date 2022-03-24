@@ -846,7 +846,8 @@
    '*err* io/err
    '*file* vars/current-file
    '*flush-on-newline* io/flush-on-newline
-   #?@(:cljs ['*print-fn* io/print-fn])
+   #?@(:cljs ['*print-fn* io/print-fn
+              '*print-err-fn* io/print-err-fn])
    '*print-length* io/print-length
    '*print-level* io/print-level
    '*print-meta* io/print-meta
