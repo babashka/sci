@@ -16,7 +16,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var copy-ns]])))
+            [sci.core :refer [with-bindings with-out-str copy-var copy-ns def-cljs-ns-publics]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -329,11 +329,14 @@
                                :doc])))
 
 (macros/deftime
-  (def ^:private cljs-ns-publics
-    (try (require 'cljs.analyzer.api)
-         (resolve 'cljs.analyzer.api/ns-publics)
-         (catch #?(:clj Exception
-                   :cljs :default) _ nil)))
+  (defmacro def-cljs-ns-publics []
+    (macros/? :clj `(def cljs-ns-publics nil)
+              :cljs `(do (require 'cljs.analyzer.api)
+                         (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics))))))
+
+#?(:cljs (def-cljs-ns-publics))
+
+(macros/deftime
   (defmacro copy-ns
     "Returns map of names to SCI vars as a result of copying public
   Clojure vars from ns-sym (a symbol). Attaches sci-ns (result of
@@ -356,7 +359,7 @@
   important for ClojureScript to not pull in vars into the compiled
   JS. Any additional vars can be added after the fact with sci/copy-var
   manually.
-"
+  "
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
      (macros/? :clj (let [publics-map (ns-publics ns-sym)
