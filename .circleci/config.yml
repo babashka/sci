@@ -220,6 +220,7 @@ workflows:
     jobs:
       - jvm
       - node
+      - planck
       - linux
       - mac
       - deploy:
