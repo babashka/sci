@@ -80,14 +80,15 @@ jobs:
             wget -nc https://download.clojure.org/install/linux-install-1.10.1.763.sh
             chmod +x linux-install-1.10.1.763.sh
             sudo ./linux-install-1.10.1.763.sh
-      - run:
           name: Install Planck
           command: |
-            sudo apt-get update
-            sudo apt-get install add-apt-repository
-            sudo add-apt-repository ppa:mfikes/planck
-            sudo apt-get update
-            sudo apt-get install planck
+            sudo apt-get install javascriptcoregtk-4.0 libzip4
+            curl -O https://planck-repl.org/releases/2.25.0-debian-9.0-x86_64/planck
+            curl -O https://planck-repl.org/releases/2.25.0-share/plk
+            chmod +x planck
+            chmod +x plk
+            sudo mv planck /usr/bin
+            sudo mv plk /usr/bin
       - run:
           name: Run Planck tests
           command: |
