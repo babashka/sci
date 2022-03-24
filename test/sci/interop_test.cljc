@@ -153,13 +153,15 @@
                        {:classes {'js goog.global :allow :all}})))))
 
 #?(:cljs
-   (def fs (let [m (js->clj (js/require "fs"))]
-             (zipmap (map symbol (keys m)) (vals m)))))
-#?(:cljs
-   (deftest object-as-namespace-test
-     (is (str/includes?
-          (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
-          "EPL"))))
+   (when-not (tu/planck-env?)
+     #?(:cljs
+        (def fs (let [m (js->clj (js/require "fs"))]
+                  (zipmap (map symbol (keys m)) (vals m)))))
+     #?(:cljs
+        (deftest object-as-namespace-test
+          (is (str/includes?
+               (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
+               "EPL"))))))
 
 #?(:cljs
    (deftest js-reader-test
@@ -178,11 +180,12 @@
 
 #?(:cljs
    (deftest dot-in-js-invocation
-     (is (str/includes?
-          (tu/eval* "(first (js/process.argv.slice 0))"
-                    {:classes
-                     {'js goog/global :allow :all}})
-          "node"))
+     (when-not (tu/planck-env?)
+       (is (str/includes?
+            (tu/eval* "(first (js/process.argv.slice 0))"
+                      {:classes
+                       {'js goog/global :allow :all}})
+            "node")))
      (is (tu/eval* "(js/Promise.all [])"
                    {:classes
                     {'js goog/global :allow :all}}))))

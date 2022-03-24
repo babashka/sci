@@ -30,6 +30,10 @@
 (defmacro assert-submap [m r]
   `(is (submap? ~m ~r)))
 
+#?(:cljs
+   (defn planck-env? []
+     (exists? js/PLANCK_EXIT_WITH_VALUE)))
+
 ;;;; Scratch
 
 (comment
