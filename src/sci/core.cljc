@@ -330,9 +330,7 @@
                                :doc])))
 
 (macros/deftime
-  #?(:clj (def ^:private cljs-ns-publics
-            (fn [_sym]
-              (throw (Exception. "Call (sci/require-cljs-analyzer-api) before using sci/copy-ns from CLJS code.")))))
+  #?(:clj (declare cljs-ns-publics))
   #_:clj-kondo/ignore
   (defmacro ^:private require-cljs-analyzer-api []
     (macros/? :clj
