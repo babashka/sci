@@ -102,6 +102,7 @@
 (def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
 (def print-readably "Sci var that represents sci's `clojure.core/*print-readably*`" sio/print-readably)
 #?(:cljs (def print-fn "Sci var that represents sci's `cljs.core/*print-fn*`" sio/print-fn))
+#?(:cljs (def print-err-fn "Sci var that represents sci's `cljs.core/*print-err-fn*`" sio/print-err-fn))
 #?(:cljs (def print-newline "Sci var that represents sci's `cljs.core/*print-newline*`" sio/print-newline))
 (def assert "SCI var that represents SCI's clojure.core/*assert*" namespaces/assert-var)
 
