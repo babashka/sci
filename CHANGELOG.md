@@ -4,6 +4,11 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## Unreleased
 
+## v0.3.4
+
+- Restore compatibiliy with self-hosted CLJS (e.g. planck)
+- Add CLJS `*print-err-fn*` var
+
 ## v0.3.3
 
 ### New
