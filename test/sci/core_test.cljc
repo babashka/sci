@@ -1317,8 +1317,6 @@
      (testing "js objects are not instantiated at read time, but at runtime, rendering new objects each time"
        (sci/eval-string "(apply identical? (for [x [1 2]] #js {:a 1}))" {:classes {'js goog/global :allow :all}}))))
 
-(sci/require-cljs-analyzer-api)
-
 (deftest copy-ns-test
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                             (sci/create-ns 'sci.copy-ns-test-ns)

@@ -334,7 +334,7 @@
             (fn [_sym]
               (throw (Exception. "Call (sci/require-cljs-analyzer-api) before using sci/copy-ns from CLJS code.")))))
   #_:clj-kondo/ignore
-  (defmacro require-cljs-analyzer-api []
+  (defmacro ^:private require-cljs-analyzer-api []
     (macros/? :clj
               ;; noop, macro executed from JVM Clojure, not within CLJS compiler
               nil
@@ -343,8 +343,11 @@
                        (do (require '[cljs.analyzer.api])
                            (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
                        ;; self-hosted CLJS, no require necessary
-                       :cljs nil)))
+                       :cljs nil))))
 
+#?(:cljs (require-cljs-analyzer-api))
+
+(macros/deftime
   (defmacro copy-ns
     "Returns map of names to SCI vars as a result of copying public
   Clojure vars from ns-sym (a symbol). Attaches sci-ns (result of
@@ -431,5 +434,4 @@
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
                           `(-copy-ns ~publics-map ~sci-ns)))))))
-
 ;;;; Scratch
