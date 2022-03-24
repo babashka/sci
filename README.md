@@ -57,6 +57,7 @@ SCI is used in:
 - [For-science](https://github.com/pmonks/for-science). Discord bot.
 - [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Keycloak-clojure](https://github.com/jgrodziski/keycloak-clojure). Clojure library for Keycloak.
+- [Lighthouse](https://github.com/barracudanetworks/lighthouse). A data-driven Kubernetes pre-processor.
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
