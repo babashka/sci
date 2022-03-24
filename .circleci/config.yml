@@ -87,7 +87,7 @@ jobs:
             sudo apt install software-properties-common
             sudo add-apt-repository ppa:mfikes/planck
             sudo apt-get update
-            sudo apt-get install planck
+            sudo apt-get install planck -y
       - run:
           name: Run Planck tests
           command: |
