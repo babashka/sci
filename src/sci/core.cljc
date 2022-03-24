@@ -332,10 +332,14 @@
 (macros/deftime
   #_:clj-kondo/ignore
   (defmacro require-cljs-analyzer-api []
-    (macros/? :clj (def cljs-ns-publics nil)
-              :cljs #?(:clj
+    (macros/? :clj
+              ;; macro executed from JVM Clojure, not within CLJS compiler
+              (def cljs-ns-publics nil)
+              :cljs #?(;; macro executed from JVM Clojure, within CLJS compiler
+                       :clj
                        (do (require '[cljs.analyzer.api])
                            (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
+                       ;; self-hosted CLJS, no require necessary
                        :cljs nil)))
 
   (defmacro copy-ns

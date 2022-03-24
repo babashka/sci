@@ -80,12 +80,13 @@ jobs:
       - run:
           name: Run Planck tests
           command: |
+            echo $PWD
             plk -A:test -K -m sci.test-runner
       - save_cache:
           paths:
             - ~/.m2
             - /Users/distiller/.planck-cache
-          key: mac-{{ checksum "project.clj" }}-{{ checksum ".circleci/config.yml" }}
+          key: mac-{{ checksum "deps.edn" }}-{{ checksum ".circleci/config.yml" }}
       - store_artifacts:
           path: /tmp/release
           destination: release
