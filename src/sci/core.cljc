@@ -16,7 +16,8 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var copy-ns]])))
+            [sci.core :refer [with-bindings with-out-str copy-var copy-ns
+                              require-cljs-analyzer-api]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -328,15 +329,14 @@
                                :macro
                                :doc])))
 
-(prn :sci)
-
 (macros/deftime
-  (defmacro require-cljs-analyzer []
+  #_:clj-kondo/ignore
+  (defmacro require-cljs-analyzer-api []
     (macros/? :clj (def cljs-ns-publics nil)
               :cljs #?(:clj
                        (do (require '[cljs.analyzer.api])
-                           (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics))))))
-  (require-cljs-analyzer)
+                           (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
+                       :cljs nil)))
 
   (defmacro copy-ns
     "Returns map of names to SCI vars as a result of copying public
@@ -360,7 +360,10 @@
   important for ClojureScript to not pull in vars into the compiled
   JS. Any additional vars can be added after the fact with sci/copy-var
   manually.
-  "
+
+  In CLJS, this macro depends on the cljs.analyzer.api namespace. To
+  ensure that it's loaded, call (sci/require-cljs-analyzer-api) before
+  any usages of sci/copy-ns"
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
      (macros/? :clj
