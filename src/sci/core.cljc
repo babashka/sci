@@ -334,7 +334,9 @@
   (defmacro require-cljs-analyzer-api []
     (macros/? :clj
               ;; macro executed from JVM Clojure, not within CLJS compiler
-              (def cljs-ns-publics nil)
+              (def cljs-ns-publics
+                (fn [sym]
+                  (throw (Exception. "Call (sci/require-cljs-analyzer-api) before using sci/copy-ns from CLJS code."))))
               :cljs #?(;; macro executed from JVM Clojure, within CLJS compiler
                        :clj
                        (do (require '[cljs.analyzer.api])
