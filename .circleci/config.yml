@@ -80,11 +80,11 @@ jobs:
       - run:
           name: Run Planck tests
           command: |
-            plk -A:test -m sci.test-runner
+            plk -A:test -K -m sci.test-runner
       - save_cache:
           paths:
             - ~/.m2
-              - ~/graalvm-ce-java11-21.1.0
+            - /Users/distiller/.planck-cache
           key: mac-{{ checksum "project.clj" }}-{{ checksum ".circleci/config.yml" }}
       - store_artifacts:
           path: /tmp/release
