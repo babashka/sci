@@ -67,7 +67,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - mac-{{ checksum "project.clj" }}-{{ checksum ".circleci/config.yml" }}
+            - mac-{{ checksum "deps.edn" }}-{{ checksum ".circleci/config.yml" }}
       - run:
           name: Install Clojure
           command: |
@@ -85,7 +85,7 @@ jobs:
       - save_cache:
           paths:
             - /Users/distiller/.m2
-            - /Users/distiller/project/.planck-cache
+            - /Users/distiller/project/.planck_cache
           key: mac-{{ checksum "deps.edn" }}-{{ checksum ".circleci/config.yml" }}
       - store_artifacts:
           path: /tmp/release

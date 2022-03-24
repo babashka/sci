@@ -1,4 +1,4 @@
-{:paths ["resources" "src"]
+ {:paths ["resources" "src"]
  :deps {borkdude/edamame {:mvn/version "0.0.19"}
         borkdude/sci.impl.reflector {:mvn/version "0.0.1"}}
  :aliases

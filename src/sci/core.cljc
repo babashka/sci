@@ -330,13 +330,14 @@
                                :doc])))
 
 (macros/deftime
+  #?(:clj (def cljs-ns-publics
+            (fn [_sym]
+              (throw (Exception. "Call (sci/require-cljs-analyzer-api) before using sci/copy-ns from CLJS code.")))))
   #_:clj-kondo/ignore
   (defmacro require-cljs-analyzer-api []
     (macros/? :clj
-              ;; macro executed from JVM Clojure, not within CLJS compiler
-              (def cljs-ns-publics
-                (fn [sym]
-                  (throw (Exception. "Call (sci/require-cljs-analyzer-api) before using sci/copy-ns from CLJS code."))))
+              ;; noop, macro executed from JVM Clojure, not within CLJS compiler
+              nil
               :cljs #?(;; macro executed from JVM Clojure, within CLJS compiler
                        :clj
                        (do (require '[cljs.analyzer.api])
