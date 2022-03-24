@@ -60,6 +60,36 @@ jobs:
           paths:
             - ~/.m2
           key: v1-dependencies-{{ checksum "project.clj" }}
+  planck:
+    macos:
+      xcode: "13.3"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - mac-{{ checksum "deps.edn" }}-{{ checksum ".circleci/config.yml" }}
+      - run:
+          name: Install Clojure
+          command: |
+            .circleci/script/install-clojure /usr/local
+      - run:
+          name: Install planck
+          command: |
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install planck
+          no_output_timeout: 30m
+      - run:
+          name: Run Planck tests
+          command: |
+            echo $PWD
+            plk -A:test -K -m sci.test-runner
+      - save_cache:
+          paths:
+            - /Users/distiller/.m2
+            - /Users/distiller/project/.planck_cache
+          key: mac-{{ checksum "deps.edn" }}-{{ checksum ".circleci/config.yml" }}
+      - store_artifacts:
+          path: /tmp/release
+          destination: release
   linux:
     docker:
       - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
@@ -185,6 +215,7 @@ workflows:
     jobs:
       - jvm
       - node
+      - planck
       - linux
       - mac
       - deploy:

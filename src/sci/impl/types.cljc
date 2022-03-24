@@ -1,8 +1,9 @@
 (ns sci.impl.types
   {:no-doc true}
   (:refer-clojure :exclude [eval])
-  (:require [sci.impl.macros :as macros :refer [deftime]])
-  #?(:cljs (:require-macros [sci.impl.types :refer [->Node]])))
+  #?(:clj (:require [sci.impl.macros :as macros]))
+  #?(:cljs (:require-macros [sci.impl.macros :as macros]
+                            [sci.impl.types :refer [->Node]])))
 
 (defprotocol IBox
   (setVal [_this _v])
@@ -52,21 +53,20 @@
        ((.-f expr) expr ctx bindings)
        expr)))
 
-(deftime
+(macros/deftime
   (defmacro ->Node
-    ([body] `(->Node ~body nil))
-    ([body stack]
-     (macros/?
-      :clj `(reify
-              sci.impl.types/Eval
-              (~'eval [~'this ~'ctx ~'bindings]
+    [body stack]
+    (macros/?
+     :clj `(reify
+             sci.impl.types/Eval
+             (~'eval [~'this ~'ctx ~'bindings]
+              ~body)
+             sci.impl.types/Stack
+             (~'stack [_#] ~stack))
+     :cljs `(->NodeR
+             (fn [~'this ~'ctx ~'bindings]
                ~body)
-              sci.impl.types/Stack
-              (~'stack [_#] ~stack))
-      :cljs `(->NodeR
-              (fn [~'this ~'ctx ~'bindings]
-                ~body)
-              ~stack)))))
+             ~stack))))
 
 #?(:clj
    (deftype ConstantNode [x]

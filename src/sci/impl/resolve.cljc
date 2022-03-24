@@ -139,7 +139,8 @@
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (cond-> (->Node
-                                   (aget ^objects bindings idx))
+                                   (aget ^objects bindings idx)
+                                   nil)
                             #?@(:clj [tag (with-meta
                                             {:tag tag})]))]
                     v))]

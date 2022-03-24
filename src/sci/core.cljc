@@ -16,7 +16,8 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var copy-ns]])))
+            [sci.core :refer [with-bindings with-out-str copy-var copy-ns
+                              require-cljs-analyzer-api]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -329,11 +330,25 @@
                                :doc])))
 
 (macros/deftime
-  (def ^:private cljs-ns-publics
-    (try (require 'cljs.analyzer.api)
-         (resolve 'cljs.analyzer.api/ns-publics)
-         (catch #?(:clj Exception
-                   :cljs :default) _ nil)))
+  #?(:clj (def ^:private cljs-ns-publics
+            (fn [_sym]
+              (throw (Exception. "Call (sci/require-cljs-analyzer-api) before using sci/copy-ns from CLJS code.")))))
+  #_:clj-kondo/ignore
+  (defmacro ^:private require-cljs-analyzer-api []
+    (macros/? :clj
+              ;; noop, macro executed from JVM Clojure, not within CLJS compiler
+              nil
+              :cljs #?(;; macro executed from JVM Clojure, within CLJS compiler
+                       :clj
+                       (do (require '[cljs.analyzer.api])
+                           (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
+                       ;; self-hosted CLJS, no require supported but also not necessary
+                       :cljs nil))))
+
+;; When CLJS code is compiled, we know for sure that we can require the CLJS analyzer API
+#?(:cljs (require-cljs-analyzer-api))
+
+(macros/deftime
   (defmacro copy-ns
     "Returns map of names to SCI vars as a result of copying public
   Clojure vars from ns-sym (a symbol). Attaches sci-ns (result of
@@ -356,38 +371,68 @@
   important for ClojureScript to not pull in vars into the compiled
   JS. Any additional vars can be added after the fact with sci/copy-var
   manually.
-"
+
+  In CLJS, this macro depends on the cljs.analyzer.api namespace. To
+  ensure that it's loaded, call (sci/require-cljs-analyzer-api) before
+  any usages of sci/copy-ns"
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
-     (macros/? :clj (let [publics-map (ns-publics ns-sym)
-                          publics-map (process-publics publics-map opts)
-                          mf (meta-fn (:copy-meta opts))
-                          publics-map (exclude-when-meta
-                                       publics-map
-                                       meta
-                                       (fn [k]
-                                         (list 'quote k))
-                                       (fn [var m]
-                                         {:name (list 'quote (:name m))
-                                          :val (deref var)
-                                          :meta (list 'quote (mf m))})
-                                       (or (:exclude-when-meta opts)
-                                           [:no-doc :skip-wiki]))]
-                      `(-copy-ns ~publics-map ~sci-ns))
-               :cljs (let [publics-map (cljs-ns-publics ns-sym)
-                           publics-map (process-publics publics-map opts)
-                           mf (meta-fn (:copy-meta opts))
-                           publics-map (exclude-when-meta
-                                        publics-map
-                                        :meta
-                                        (fn [k]
-                                          (list 'quote k))
-                                        (fn [var m]
-                                          {:name (list 'quote (:name var))
-                                           :val (:name var)
-                                           :meta (mf m)})
-                                        (or (:exclude-when-meta opts)
-                                            [:no-doc :skip-wiki]))]
-                       `(-copy-ns ~publics-map ~sci-ns))))))
-
+     (macros/? :clj
+               ;; this branch is hit by macroexpanding in JVM Clojure, not in the CLJS compiler
+               (let [publics-map (ns-publics ns-sym)
+                     publics-map (process-publics publics-map opts)
+                     mf (meta-fn (:copy-meta opts))
+                     publics-map (exclude-when-meta
+                                  publics-map
+                                  meta
+                                  (fn [k]
+                                    (list 'quote k))
+                                  (fn [var m]
+                                    {:name (list 'quote (:name m))
+                                     :val (deref var)
+                                     :meta (list 'quote (mf m))})
+                                  (or (:exclude-when-meta opts)
+                                      [:no-doc :skip-wiki]))]
+                 `(-copy-ns ~publics-map ~sci-ns))
+               :cljs #?(:clj
+                        ;; this branch is hit by macroexpanding within the CLJS
+                        ;; compiler on the JVM it should therefore be safe to
+                        ;; use require + resolve here as it's unlikely to be
+                        ;; used in GraalVM compilation..
+                        (let [publics-map
+                              #_:clj-kondo/ignore
+                              (cljs-ns-publics ns-sym)
+                              publics-map (process-publics publics-map opts)
+                              mf (meta-fn (:copy-meta opts))
+                              publics-map (exclude-when-meta
+                                           publics-map
+                                           :meta
+                                           (fn [k]
+                                             (list 'quote k))
+                                           (fn [var m]
+                                             {:name (list 'quote (:name var))
+                                              :val (:name var)
+                                              :meta (mf m)})
+                                           (or (:exclude-when-meta opts)
+                                               [:no-doc :skip-wiki]))]
+                          `(-copy-ns ~publics-map ~sci-ns))
+                        :cljs
+                        ;; this branch is hit by self-hosted
+                        (let [publics-map
+                              #_:clj-kondo/ignore
+                              (cljs.analyzer.api/ns-publics ns-sym)
+                              publics-map (process-publics publics-map opts)
+                              mf (meta-fn (:copy-meta opts))
+                              publics-map (exclude-when-meta
+                                           publics-map
+                                           :meta
+                                           (fn [k]
+                                             (list 'quote k))
+                                           (fn [var m]
+                                             {:name (list 'quote (:name var))
+                                              :val (:name var)
+                                              :meta (mf m)})
+                                           (or (:exclude-when-meta opts)
+                                               [:no-doc :skip-wiki]))]
+                          `(-copy-ns ~publics-map ~sci-ns)))))))
 ;;;; Scratch
