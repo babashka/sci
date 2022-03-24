@@ -329,18 +329,6 @@
                                :doc])))
 
 (macros/deftime
-  (defmacro require-cljs-analyzer []
-    (macros/? :clj nil
-              :cljs #?(:clj  (require '[cljs.analyzer.api])
-                       :cljs nil)))
-  #_(try
-    ;; try to require cljs.analyzer.api to be used in copy-ns
-    (require '[cljs.analyzer.api])
-    ;; if it isn't available we define a fake namespace to avoid a class not found exception in copy-ns
-    #?(:clj (catch Exception _ nil)
-       :cljs (catch :default _ nil))))
-
-(macros/deftime
   (defmacro copy-ns
     "Returns map of names to SCI vars as a result of copying public
   Clojure vars from ns-sym (a symbol). Attaches sci-ns (result of
