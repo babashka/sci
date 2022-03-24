@@ -63,7 +63,7 @@ jobs:
   planck:
     docker:
       # specify the version you desire here
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+      - image: circleci/clojure:openjdk-11-lein-2.9.8-bullseye
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
@@ -85,7 +85,7 @@ jobs:
           command: |
             sudo apt update
             sudo apt install software-properties-common
-            sudo add-apt-repository ppa:mfikes/planck
+            sudo add-apt-repository ppa:mfikes/planck -y
             sudo apt-get update
             sudo apt-get install planck -y
       - run:
