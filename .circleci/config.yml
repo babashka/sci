@@ -61,45 +61,30 @@ jobs:
             - ~/.m2
           key: v1-dependencies-{{ checksum "project.clj" }}
   planck:
-    docker:
-      # specify the version you desire here
-      - image: circleci/clojure:openjdk-11-lein-2.9.8-bullseye
-    working_directory: ~/repo
-    environment:
-      LEIN_ROOT: "true"
+    macos:
+      xcode: "12.0.0"
     steps:
       - checkout
       - restore_cache:
           keys:
-            - v1-dependencies-{{ checksum "project.clj" }}
-            # fallback to using the latest cache if no exact match is found
-            - v1-dependencies-
+            - mac-{{ checksum "project.clj" }}-{{ checksum ".circleci/config.yml" }}
       - run:
           name: Install Clojure
           command: |
-            wget -nc https://download.clojure.org/install/linux-install-1.10.1.763.sh
-            chmod +x linux-install-1.10.1.763.sh
-            sudo ./linux-install-1.10.1.763.sh
+            .circleci/script/install-clojure /usr/local
       - run:
-          name: Install Planck
+          name: Install planck
           command: |
-            sudo apt-get update
-            sudo apt-get install libjavascriptcoregtk-4.0-bin, libzip5, libcurl3-gnutls
-            curl -O https://planck-repl.org/releases/2.25.0-debian-9.0-x86_64/planck
-            curl -O https://planck-repl.org/releases/2.25.0-share/plk
-            chmod +x planck
-            chmod +x plk
-            sudo mv planck /usr/bin
-            sudo mv plk /usr/bin
-      - run:
-          name: Run Planck tests
-          command: |
-            plk -A:test -K -m sci.test-runner
+            brew install planck
+          no_output_timeout: 30m
       - save_cache:
           paths:
             - ~/.m2
-            - ~/repo/.planck_cache
-          key: v1-dependencies-{{ checksum "project.clj" }}
+              - ~/graalvm-ce-java11-21.1.0
+          key: mac-{{ checksum "project.clj" }}-{{ checksum ".circleci/config.yml" }}
+      - store_artifacts:
+          path: /tmp/release
+          destination: release
   linux:
     docker:
       - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
