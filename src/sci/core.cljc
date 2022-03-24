@@ -329,15 +329,15 @@
                                :doc])))
 
 (macros/deftime
-  (try
+  (defmacro require-cljs-analyzer []
+    (macros/? :clj nil
+              :cljs #?(:clj  (require '[cljs.analyzer.api])
+                       :cljs nil)))
+  #_(try
     ;; try to require cljs.analyzer.api to be used in copy-ns
     (require '[cljs.analyzer.api])
     ;; if it isn't available we define a fake namespace to avoid a class not found exception in copy-ns
-    #?(:clj (catch Exception
-               _
-             (create-ns 'cljs.analyzer.api)
-             (clojure.core/intern (find-ns 'cljs.analyzer.api) 'ns-publics nil)
-             nil)
+    #?(:clj (catch Exception _ nil)
        :cljs (catch :default _ nil))))
 
 (macros/deftime
@@ -381,22 +381,24 @@
                                        (or (:exclude-when-meta opts)
                                            [:no-doc :skip-wiki]))]
                       `(-copy-ns ~publics-map ~sci-ns))
-               :cljs (let [publics-map
-                           #_:clj-kondo/ignore
-                           (cljs.analyzer.api/ns-publics ns-sym)
-                           publics-map (process-publics publics-map opts)
-                           mf (meta-fn (:copy-meta opts))
-                           publics-map (exclude-when-meta
-                                        publics-map
-                                        :meta
-                                        (fn [k]
-                                          (list 'quote k))
-                                        (fn [var m]
-                                          {:name (list 'quote (:name var))
-                                           :val (:name var)
-                                           :meta (mf m)})
-                                        (or (:exclude-when-meta opts)
-                                            [:no-doc :skip-wiki]))]
-                       `(-copy-ns ~publics-map ~sci-ns))))))
+               :cljs #?(:clj nil
+                        :cljs
+                        (let [publics-map
+                              #_:clj-kondo/ignore
+                              (cljs.analyzer.api/ns-publics ns-sym)
+                              publics-map (process-publics publics-map opts)
+                              mf (meta-fn (:copy-meta opts))
+                              publics-map (exclude-when-meta
+                                           publics-map
+                                           :meta
+                                           (fn [k]
+                                             (list 'quote k))
+                                           (fn [var m]
+                                             {:name (list 'quote (:name var))
+                                              :val (:name var)
+                                              :meta (mf m)})
+                                           (or (:exclude-when-meta opts)
+                                               [:no-doc :skip-wiki]))]
+                          `(-copy-ns ~publics-map ~sci-ns)))))))
 
 ;;;; Scratch
