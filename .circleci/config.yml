@@ -75,7 +75,7 @@ jobs:
       - run:
           name: Install planck
           command: |
-            brew install planck
+            HOMEBREW_NO_AUTO_UPDATE=1 brew install planck
           no_output_timeout: 30m
       - save_cache:
           paths:
