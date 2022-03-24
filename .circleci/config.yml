@@ -60,6 +60,41 @@ jobs:
           paths:
             - ~/.m2
           key: v1-dependencies-{{ checksum "project.clj" }}
+  planck:
+    docker:
+      # specify the version you desire here
+      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+    working_directory: ~/repo
+    environment:
+      LEIN_ROOT: "true"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "project.clj" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+      - run:
+          name: Install Clojure
+          command: |
+            wget -nc https://download.clojure.org/install/linux-install-1.10.1.763.sh
+            chmod +x linux-install-1.10.1.763.sh
+            sudo ./linux-install-1.10.1.763.sh
+      - run:
+          name: Install Planck
+          command: |
+            sudo add-apt-repository ppa:mfikes/planck
+            sudo apt-get update
+            sudo apt-get install planck
+      - run:
+          name: Run Planck tests
+          command: |
+            plk -A:test -K -m sci.test-runner
+      - save_cache:
+          paths:
+            - ~/.m2
+            - ~/repo/.planck_cache
+          key: v1-dependencies-{{ checksum "project.clj" }}
   linux:
     docker:
       - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
