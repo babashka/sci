@@ -16,8 +16,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var copy-ns
-                              cljs-analyzer-ns-publics]])))
+            [sci.core :refer [with-bindings with-out-str copy-var copy-ns]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -333,12 +332,13 @@
   (try
     ;; try to require cljs.analyzer.api to be used in copy-ns
     (require '[cljs.analyzer.api])
-    #?(:clj (catch Exception _ nil)
-       :cljs (catch :default _ nil)))
-
-  (defmacro cljs-analyzer-ns-publics [& body]
-    (when (find-ns 'cljs.analyzer.api)
-      `(~'cljs.analyzer.api/ns-publics ~@body))))
+    ;; if it isn't available we define a fake namespace to avoid a class not found exception in copy-ns
+    #?(:clj (catch Exception
+               _
+             (create-ns 'cljs.analyzer.api)
+             (clojure.core/intern (find-ns 'cljs.analyzer.api) 'ns-publics nil)
+             nil)
+       :cljs (catch :default _ nil))))
 
 (macros/deftime
   (defmacro copy-ns
@@ -382,7 +382,8 @@
                                            [:no-doc :skip-wiki]))]
                       `(-copy-ns ~publics-map ~sci-ns))
                :cljs (let [publics-map
-                           (cljs-analyzer-ns-publics ns-sym)
+                           #_:clj-kondo/ignore
+                           (cljs.analyzer.api/ns-publics ns-sym)
                            publics-map (process-publics publics-map opts)
                            mf (meta-fn (:copy-meta opts))
                            publics-map (exclude-when-meta
