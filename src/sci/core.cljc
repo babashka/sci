@@ -331,7 +331,7 @@
                                :doc])))
 
 (macros/deftime
-  #?(:clj (declare cljs-ns-publics))
+  #?(:clj (declare ^:private cljs-ns-publics))
   #_:clj-kondo/ignore
   (defmacro ^:private require-cljs-analyzer-api []
     (macros/? :clj
@@ -369,11 +369,7 @@
   The selection of vars is done at compile time which is mostly
   important for ClojureScript to not pull in vars into the compiled
   JS. Any additional vars can be added after the fact with sci/copy-var
-  manually.
-
-  In CLJS, this macro depends on the cljs.analyzer.api namespace. To
-  ensure that it's loaded, call (sci/require-cljs-analyzer-api) before
-  any usages of sci/copy-ns"
+  manually."
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
      (macros/? :clj
