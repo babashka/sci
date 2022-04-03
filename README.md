@@ -220,6 +220,7 @@ corresponding SCI vars, you can use `ns-publics` in Clojure and the following AP
 
 - `sci/create-ns`: creates an object that identifies a SCI namespace and carries the metadata of a SCI namespaces
 - `sci/copy-var`: macro that copies a Clojure var to a SCI namespace (created through `sci/create-ns`). Automatically converts dynamic vars and macros. Captures docstrings and arglists.
+- `sci/copy-var-with-diff-name`: same as `copy-var`, but takes an additional argument, a symbol, that will be the var's name.
 
 E.g. given the following Clojure namespace:
 
