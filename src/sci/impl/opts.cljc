@@ -31,8 +31,8 @@
                      namespaces (-> namespaces
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc 'global-hierarchy
-                                            (vars/->SciVar (make-hierarchy) 'global-hierarchy
-                                              {:ns vars/clojure-core-ns} false)))
+                                            (vars/new-var 'global-hierarchy (make-hierarchy) 
+                                              {:ns vars/clojure-core-ns})))
                      imports (if-let [env-imports (:imports env)]
                                (merge env-imports imports)
                                imports)]
