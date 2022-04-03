@@ -242,7 +242,7 @@
 
 (deftype SciVar [#?(:clj ^:volatile-mutable root
                     :cljs ^:mutable root)
-                 sym
+                 _sym
                  #?(:clj ^:volatile-mutable meta
                     :cljs ^:mutable meta)
                  #?(:clj ^:volatile-mutable thread-bound
@@ -252,14 +252,14 @@
      sci.lang.IVar)
   HasName
   (getName [this]
-    sym)
+    (:name meta))
   IVar
   (bindRoot [this v]
     (with-writeable-var this meta
       (set! (.-root this) v)))
   (getRawRoot [this]
     root)
-  (toSymbol [this] sym)
+  (toSymbol [this] (symbol (name (getName (:ns meta))) (name (:name meta))))
   (isMacro [_]
     (or (:macro meta)
         (when-some [m (clojure.core/meta root)]
@@ -278,7 +278,7 @@
          (let [t (.-thread b)]
            (if (not (identical? t (Thread/currentThread)))
              (throw (new IllegalStateException
-                         (format "Can't set!: %s from non-binding thread" sym)))
+                         (format "Can't set!: %s from non-binding thread" (toSymbol this))))
              (t/setVal b v)))
          :cljs (t/setVal b v))
       (throw (new #?(:clj IllegalStateException :cljs js/Error)
@@ -293,12 +293,12 @@
         root)
       root))
   Object
-  (toString [_]
-    (str "#'" sym))
+  (toString [this]
+    (str "#'" (toSymbol this)))
   #?(:cljs IPrintWithWriter)
   #?(:cljs (-pr-writer [a writer opts]
                        (-write writer "#'")
-                       (pr-writer sym writer opts)))
+                       (pr-writer (toSymbol a) writer opts)))
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
   ;; #?(:clj Comparable :cljs IEquiv)
@@ -383,13 +383,20 @@
   (instance? #?(:clj sci.impl.vars.SciVar
                 :cljs sci.impl.vars/SciVar) x))
 
+(defn unqualify-symbol 
+  "If sym is namespace-qualified, remove the namespace, else return sym"
+  [sym]
+  (if (qualified-symbol? sym)
+    (symbol (name sym))
+    sym))
+
 (defn dynamic-var
   ([name]
    (dynamic-var name nil (meta name)))
   ([name init-val]
    (dynamic-var name init-val (meta name)))
   ([name init-val meta]
-   (let [meta (assoc meta :dynamic true)]
+   (let [meta (assoc meta :dynamic true :name (unqualify-symbol name))]
      (SciVar. init-val name meta false))))
 
 ;; foundational namespaces
@@ -427,7 +434,7 @@
   ([name] (doto (new-var name nil nil)
             (unbind)))
   ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (->SciVar init-val name meta false)))
+  ([name init-val meta] (->SciVar init-val name (assoc meta :name (unqualify-symbol name)) false)))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))

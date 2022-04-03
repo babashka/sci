@@ -31,7 +31,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval needs-ctx]]
    [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
+  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var copy-var-with-diff-name]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -57,15 +57,16 @@
       #?(:clj
        (binding [*out* *err*]
          (println "SCI: eliding vars.")))
+      (defmacro copy-var-with-diff-name [sym _ns _new-name] sym)
       (defmacro copy-var [sym _ns] sym)
       (defmacro copy-core-var [sym] sym))
     (do
-      (defmacro copy-var
-        ([sym ns]
+      (defmacro copy-var-with-diff-name
+        ([sym ns new-name]
          `(let [ns# ~ns
                 m# (-> (var ~sym) meta)
                 ns-name# (vars/getName ns#)
-                name# (:name m#)
+                name# (or ~new-name (:name m#))
                 name-sym# (symbol (str ns-name#) (str name#))
                 val# ~sym]
             (vars/->SciVar val# name-sym# (cond->
@@ -78,6 +79,9 @@
                                                  (contains? inlined-vars name#))
                                             (assoc :sci.impl/inlined val#))
                            false))))
+      (defmacro copy-var
+        ([sym ns]
+         `(copy-var-with-diff-name ~sym ~ns nil)))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
@@ -546,7 +550,7 @@
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
          (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (vars/->SciVar nil var-name (meta var-sym) false)]
+               new-var (vars/new-var var-name nil (assoc (meta var-sym) :ns ns))]
            (vars/unbind new-var)
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var))))
@@ -558,7 +562,7 @@
            (vars/bindRoot v val)
            v)
          (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (vars/->SciVar val var-name (meta var-sym) false)]
+               new-var (vars/new-var var-name val (assoc (meta var-sym) :ns ns))]
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var)))))
 
@@ -809,7 +813,7 @@
 ;;         ~@body)))
 
 #?(:clj (def clojure-version-var (vars/dynamic-var
-                                  '*clojure-version (update clojure.core/*clojure-version*
+                                  '*clojure-version* (update clojure.core/*clojure-version*
                                                             :qualifier (fn [qualifier]
                                                                          (if qualifier
                                                                            (str qualifier "-SCI")
@@ -919,7 +923,7 @@
    ;; end protocols
    ;; IDeref as protocol
    'deref (core-var 'deref core-protocols/deref*)
-   #?@(:cljs ['-deref core-protocols/-deref
+   #?@(:cljs ['-deref (core-var '-deref core-protocols/-deref)
               'IDeref core-protocols/deref-protocol])
    ;; end IDeref as protocol
    ;; IAtom / ISwap as protocol
@@ -929,8 +933,8 @@
                         :cljs (copy-core-var compare-and-set!))
    #?@(:cljs ['IReset core-protocols/reset-protocol
               'ISwap core-protocols/swap-protocol
-              '-swap! core-protocols/-swap!
-              '-reset! core-protocols/-reset!])
+              '-swap! (core-var '-swap! core-protocols/-swap!)
+              '-reset! (core-var '-reset! core-protocols/-reset!)])
    ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
    #?@(:clj ['swap-vals! (core-var 'swap-vals! core-protocols/swap-vals!*)
              'reset-vals! (core-var 'reset-vals! core-protocols/reset-vals!*)])
@@ -1001,7 +1005,7 @@
    'bit-shift-left (copy-core-var bit-shift-left)
    'bit-shift-right (copy-core-var bit-shift-right)
    'bit-xor (copy-core-var bit-xor)
-   'bound? (copy-core-var sci-bound?)
+   'bound? (copy-var-with-diff-name sci-bound? clojure-core-ns 'bound?)
    'boolean (copy-core-var boolean)
    'boolean? (copy-core-var boolean?)
    'booleans (copy-core-var booleans)
@@ -1093,7 +1097,7 @@
    'ex-message (copy-core-var ex-message)
    'ex-cause (copy-core-var ex-cause)
    'find-ns (core-var 'find-ns sci-find-ns true #_{:sci.impl/op needs-ctx})
-   'create-ns (core-var 'create-ns-ns sci-create-ns true #_{:sci.impl/op needs-ctx})
+   'create-ns (core-var 'create-ns sci-create-ns true #_{:sci.impl/op needs-ctx})
    'find-var (core-var 'find-var sci-find-var true)
    'first (copy-core-var first)
    'float? (copy-core-var float?)
@@ -1298,10 +1302,10 @@
    ;; #?@(:cljs ['-js-this -js-this
    ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
    'test (copy-core-var test)
-   'thread-bound? (copy-var sci-thread-bound? clojure-core-ns)
+   'thread-bound? (copy-var-with-diff-name sci-thread-bound? clojure-core-ns 'thread-bound?)
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])
-   'symbol (copy-var symbol* clojure-core-ns)
+   'symbol (copy-var-with-diff-name symbol* clojure-core-ns 'symbol)
    'symbol? (copy-core-var symbol?)
    'special-symbol? (copy-core-var special-symbol?)
    'subvec (copy-core-var subvec)
@@ -1364,7 +1368,7 @@
    'unchecked-short (copy-core-var unchecked-short)
    #?@(:cljs ['undefined? (copy-core-var undefined?)])
    'underive (core-var 'underive hierarchies/underive* true)
-   'unquote (doto (vars/new-var 'clojure.core/unquote nil {:ns clojure-core-ns})
+   'unquote (doto (vars/new-var 'unquote nil {:ns clojure-core-ns})
               (vars/unbind))
    'use (core-var 'use use true)
    'val (copy-core-var val)

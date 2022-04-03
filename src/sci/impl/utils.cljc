@@ -241,6 +241,8 @@
          :body [`(let ~lets
                    ~@body)]}))))
 
+(def unqualify-symbol vars/unqualify-symbol)
+
 (defn log [& xs]
   #?(:clj (.println System/err (str/join " " xs))
      :cljs (.log js/console (str/join " " xs))))
