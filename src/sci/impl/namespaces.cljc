@@ -1080,6 +1080,7 @@
    'drop-while (copy-core-var drop-while)
    'doubles (copy-core-var doubles)
    'eduction (copy-core-var eduction)
+   '->Eduction (copy-core-var ->Eduction)
    'empty (copy-core-var empty)
    'empty? (copy-core-var empty?)
    #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
