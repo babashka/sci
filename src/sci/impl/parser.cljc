@@ -13,11 +13,11 @@
 (def ^:const eof :sci.impl.parser.edamame/eof)
 
 (def read-eval
-  (vars/new-var '*read-eval true {:ns vars/clojure-core-ns
+  (vars/new-var '*read-eval* true {:ns vars/clojure-core-ns
                                   :dynamic true}))
 
 (def data-readers
-  (vars/new-var '*default-data-reader-fn* {}
+  (vars/new-var '*data-readers* {}
                 {:ns vars/clojure-core-ns
                  :dynamic true}))
 

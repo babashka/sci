@@ -1,14 +1,13 @@
 (ns sci.addons.future
   {:no-doc true}
   (:refer-clojure :exclude [future pmap])
-  (:require [sci.impl.namespaces :refer [copy-core-var core-var]])
+  (:require [sci.impl.namespaces :refer [copy-core-var core-var macrofy]])
   (:require [sci.impl.vars :as vars]))
 
-(def future* ^{:sci/macro true
-               :ns vars/clojure-core-ns}
-  (fn [_ _ & body]
-    `(let [f# (~'binding-conveyor-fn (fn [] ~@body))]
-       (~'future-call f#))))
+(def future* (macrofy 'future
+               (fn [_ _ & body]
+                 `(let [f# (~'binding-conveyor-fn (fn [] ~@body))]
+                    (~'future-call f#)))))
 
 (defmacro future**
   "Like clojure.core/future but also conveys sci bindings to the thread."

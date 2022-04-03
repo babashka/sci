@@ -762,17 +762,14 @@
 
 ;;;; REPL vars
 
-(def *1 (vars/->SciVar nil '*1 {:ns clojure-core-ns
-                                :dynamic true} false))
+(def *1 (vars/dynamic-var '*1 nil {:ns clojure-core-ns}))
 
-(def *2 (vars/->SciVar nil '*2 {:ns clojure-core-ns
-                                :dynamic true} false))
+(def *2 (vars/dynamic-var '*2 nil {:ns clojure-core-ns}))
 
-(def *3 (vars/->SciVar nil '*3 {:ns clojure-core-ns
-                                :dynamic true} false))
+(def *3 (vars/dynamic-var '*3 nil {:ns clojure-core-ns}))
 
-(def *e (vars/->SciVar nil '*e {:ns clojure-core-ns
-                                :dynamic true} false))
+(def *e (vars/dynamic-var '*e nil {:ns clojure-core-ns}))
+
 
 ;;;; Patch for CLJS type
 
@@ -979,9 +976,9 @@
              'aset-int (copy-core-var aset-int)
              'aset-long (copy-core-var aset-long)
              'aset-short (copy-core-var aset-short)])
-   'alength #?(:clj (vars/->SciVar (fn [arr]
+   'alength #?(:clj (vars/new-var 'alength (fn [arr]
                                      (java.lang.reflect.Array/getLength arr))
-                                   'alength {:ns clojure-core-ns} false)
+                                    {:ns clojure-core-ns})
                :cljs (copy-core-var alength))
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
@@ -1367,7 +1364,7 @@
    'unchecked-short (copy-core-var unchecked-short)
    #?@(:cljs ['undefined? (copy-core-var undefined?)])
    'underive (core-var 'underive hierarchies/underive* true)
-   'unquote (doto (vars/->SciVar nil 'clojure.core/unquote {:ns clojure-core-ns} false)
+   'unquote (doto (vars/new-var 'clojure.core/unquote nil {:ns clojure-core-ns})
               (vars/unbind))
    'use (core-var 'use use true)
    'val (copy-core-var val)
