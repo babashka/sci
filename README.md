@@ -219,8 +219,8 @@ To copy the public vars of a Clojure namespace and to reify the Clojure vars int
 corresponding SCI vars, you can use `ns-publics` in Clojure and the following API functions:
 
 - `sci/create-ns`: creates an object that identifies a SCI namespace and carries the metadata of a SCI namespaces
-- `sci/copy-var`: macro that copies a Clojure var to a SCI namespace (created through `sci/create-ns`). Automatically converts dynamic vars and macros. Captures docstrings and arglists.
-- `sci/copy-and-rename-var`: same as `copy-var`, but takes an additional argument, a symbol (without the namespace), that will be the var's name.
+- `sci/copy-var`: macro that copies a Clojure var to a SCI namespace (created through `sci/create-ns`). Automatically converts dynamic vars and macros. Captures docstrings and arglists. Takes an optional third arguments of an options map, which currently supports `:name` to set the name of the copied var. 
+
 
 E.g. given the following Clojure namespace:
 
@@ -244,7 +244,7 @@ you can re-create that namespace in a SCI context like this:
 
 (def foobar-ns {'do-twice (sci/copy-var foobar/do-twice fns)
                 'times-two (sci/copy-var foobar/times-two fns)
-                'better-name (sci/copy-and-rename-var foobar/silly-name fns 'better-name)})
+                'better-name (sci/copy-var foobar/silly-name fns {:name 'better-name})})
 
 (def ctx (sci/init {:namespaces {'foobar foobar-ns}}))
 

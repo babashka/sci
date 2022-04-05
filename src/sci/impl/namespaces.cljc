@@ -31,7 +31,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval needs-ctx]]
    [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var copy-and-rename-var]])))
+  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -57,31 +57,27 @@
       #?(:clj
        (binding [*out* *err*]
          (println "SCI: eliding vars.")))
-      (defmacro copy-and-rename-var [sym _ns _new-name] sym)
       (defmacro copy-var [sym _ns] sym)
       (defmacro copy-core-var [sym] sym))
     (do
-      (defmacro copy-and-rename-var
-        ([sym ns new-name]
-         `(let [ns# ~ns
-                m# (-> (var ~sym) meta)
-                ns-name# (vars/getName ns#)
-                name# (or ~new-name (:name m#))
-                name-sym# (symbol (str ns-name#) (str name#))
-                val# ~sym]
-            (vars/->SciVar val# name-sym# (cond->
-                                              {:doc (:doc m#)
-                                               :name name#
-                                               :arglists (:arglists m#)
-                                               :ns ns#
-                                               :sci/built-in true}
-                                            (and (identical? clojure-core-ns ns#)
-                                                 (contains? inlined-vars name#))
-                                            (assoc :sci.impl/inlined val#))
-                           false))))
       (defmacro copy-var
         ([sym ns]
-         `(copy-and-rename-var ~sym ~ns nil)))
+         `(copy-var ~sym ~ns nil))
+        ([sym ns opts]
+         `(let [ns# ~ns
+                m# (-> (var ~sym) meta)
+                name# (or (:name ~opts) (:name m#))
+                val# ~sym]
+            (vars/->SciVar val# name# (cond->
+                                            {:doc (:doc m#)
+                                             :name name#
+                                             :arglists (:arglists m#)
+                                             :ns ns#
+                                             :sci/built-in true}
+                                            (and (identical? clojure-core-ns ns#)
+                                              (contains? inlined-vars name#))
+                                            (assoc :sci.impl/inlined val#))
+              false))))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
@@ -1005,7 +1001,7 @@
    'bit-shift-left (copy-core-var bit-shift-left)
    'bit-shift-right (copy-core-var bit-shift-right)
    'bit-xor (copy-core-var bit-xor)
-   'bound? (copy-and-rename-var sci-bound? clojure-core-ns 'bound?)
+   'bound? (copy-var sci-bound? clojure-core-ns {:name 'bound?})
    'boolean (copy-core-var boolean)
    'boolean? (copy-core-var boolean?)
    'booleans (copy-core-var booleans)
@@ -1303,10 +1299,10 @@
    ;; #?@(:cljs ['-js-this -js-this
    ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
    'test (copy-core-var test)
-   'thread-bound? (copy-and-rename-var sci-thread-bound? clojure-core-ns 'thread-bound?)
+   'thread-bound? (copy-var sci-thread-bound? clojure-core-ns {:name 'thread-bound?})
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])
-   'symbol (copy-and-rename-var symbol* clojure-core-ns 'symbol)
+   'symbol (copy-var symbol* clojure-core-ns {:name 'symbol})
    'symbol? (copy-core-var symbol?)
    'special-symbol? (copy-core-var special-symbol?)
    'subvec (copy-core-var subvec)

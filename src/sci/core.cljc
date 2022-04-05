@@ -16,7 +16,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var copy-and-rename-var 
+            [sci.core :refer [with-bindings with-out-str copy-var 
                               copy-ns require-cljs-analyzer-api]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -49,17 +49,18 @@
                                     assoc :sci/macro true)
                          name (assoc meta :macro true :name (utils/unqualify-symbol name)) false)))
 
-(defmacro copy-and-rename-var
+(defmacro copy-var
   "Copies contents from var `sym` to a new sci var. The value `ns` is an
-  object created with `sci.core/create-ns`."
-  ([sym ns new-name]
+  object created with `sci.core/create-ns`. If new-name is supplied, the 
+  copied var will be named new-name."
+  ([sym ns]
+   `(copy-var ~sym ~ns nil))
+  ([sym ns opts]
    `(let [ns# ~ns
           var# (var ~sym)
           val# (deref var#)
           m# (-> var# meta)
-          ns-name# (vars/getName ns#)
-          name# (or ~new-name (:name m#))
-          name-sym# (symbol (str ns-name#) (str name#))
+          name# (or (:name ~opts) (:name m#))
           new-m# {:doc (:doc m#)
                   :name name#
                   :arglists (:arglists m#)
@@ -69,12 +70,6 @@
             (:macro m#)
             (new-macro-var name# val# new-m#)
             :else (new-var name# val# new-m#)))))
-
-(defmacro copy-var
-  "Copies contents from var `sym` to a new sci var. The value `ns` is an
-  object created with `sci.core/create-ns`."
-  ([sym ns]
-   `(copy-and-rename-var ~sym ~ns nil)))
 
 (macros/deftime
   (defmacro with-bindings
