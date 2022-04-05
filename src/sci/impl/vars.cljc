@@ -242,7 +242,7 @@
 
 (deftype SciVar [#?(:clj ^:volatile-mutable root
                     :cljs ^:mutable root)
-                 _sym
+                 sym
                  #?(:clj ^:volatile-mutable meta
                     :cljs ^:mutable meta)
                  #?(:clj ^:volatile-mutable thread-bound
@@ -259,7 +259,12 @@
       (set! (.-root this) v)))
   (getRawRoot [this]
     root)
-  (toSymbol [this] (symbol (name (getName (:ns meta))) (name (:name meta))))
+  (toSymbol [this]
+    ; if we have at least a name from metadata, then build the symbol from that
+    (if-let [sym-name (some-> (:name meta) name)]
+      (symbol (some-> (:ns meta) getName name) sym-name)
+      ; otherwise, fall back to the symbol
+      sym))
   (isMacro [_]
     (or (:macro meta)
         (when-some [m (clojure.core/meta root)]
