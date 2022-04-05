@@ -252,7 +252,7 @@
      sci.lang.IVar)
   HasName
   (getName [this]
-    (:name meta))
+    (or (:name meta) sym))
   IVar
   (bindRoot [this v]
     (with-writeable-var this meta
