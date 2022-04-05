@@ -31,7 +31,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval needs-ctx]]
    [sci.impl.vars :as vars])
-  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var copy-var-with-diff-name]])))
+  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var copy-and-rename-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -57,11 +57,11 @@
       #?(:clj
        (binding [*out* *err*]
          (println "SCI: eliding vars.")))
-      (defmacro copy-var-with-diff-name [sym _ns _new-name] sym)
+      (defmacro copy-and-rename-var [sym _ns _new-name] sym)
       (defmacro copy-var [sym _ns] sym)
       (defmacro copy-core-var [sym] sym))
     (do
-      (defmacro copy-var-with-diff-name
+      (defmacro copy-and-rename-var
         ([sym ns new-name]
          `(let [ns# ~ns
                 m# (-> (var ~sym) meta)
@@ -81,7 +81,7 @@
                            false))))
       (defmacro copy-var
         ([sym ns]
-         `(copy-var-with-diff-name ~sym ~ns nil)))
+         `(copy-and-rename-var ~sym ~ns nil)))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
@@ -1005,7 +1005,7 @@
    'bit-shift-left (copy-core-var bit-shift-left)
    'bit-shift-right (copy-core-var bit-shift-right)
    'bit-xor (copy-core-var bit-xor)
-   'bound? (copy-var-with-diff-name sci-bound? clojure-core-ns 'bound?)
+   'bound? (copy-and-rename-var sci-bound? clojure-core-ns 'bound?)
    'boolean (copy-core-var boolean)
    'boolean? (copy-core-var boolean?)
    'booleans (copy-core-var booleans)
@@ -1303,10 +1303,10 @@
    ;; #?@(:cljs ['-js-this -js-this
    ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
    'test (copy-core-var test)
-   'thread-bound? (copy-var-with-diff-name sci-thread-bound? clojure-core-ns 'thread-bound?)
+   'thread-bound? (copy-and-rename-var sci-thread-bound? clojure-core-ns 'thread-bound?)
    'subs (copy-core-var subs)
    #?@(:clj ['supers (copy-core-var supers)])
-   'symbol (copy-var-with-diff-name symbol* clojure-core-ns 'symbol)
+   'symbol (copy-and-rename-var symbol* clojure-core-ns 'symbol)
    'symbol? (copy-core-var symbol?)
    'special-symbol? (copy-core-var special-symbol?)
    'subvec (copy-core-var subvec)

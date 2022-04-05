@@ -220,7 +220,7 @@ corresponding SCI vars, you can use `ns-publics` in Clojure and the following AP
 
 - `sci/create-ns`: creates an object that identifies a SCI namespace and carries the metadata of a SCI namespaces
 - `sci/copy-var`: macro that copies a Clojure var to a SCI namespace (created through `sci/create-ns`). Automatically converts dynamic vars and macros. Captures docstrings and arglists.
-- `sci/copy-var-with-diff-name`: same as `copy-var`, but takes an additional argument, a symbol, that will be the var's name.
+- `sci/copy-and-rename-var`: same as `copy-var`, but takes an additional argument, a symbol (without the namespace), that will be the var's name.
 
 E.g. given the following Clojure namespace:
 
@@ -231,6 +231,8 @@ E.g. given the following Clojure namespace:
 
 (defn times-two [x]
   (* x 2))
+  
+(defn silly-name [x] (* x x))
 ```
 
 you can re-create that namespace in a SCI context like this:
@@ -241,7 +243,8 @@ you can re-create that namespace in a SCI context like this:
 (def fns (sci/create-ns 'foobar-ns nil))
 
 (def foobar-ns {'do-twice (sci/copy-var foobar/do-twice fns)
-                'times-two (sci/copy-var foobar/times-two fns)})
+                'times-two (sci/copy-var foobar/times-two fns)
+                'better-name (sci/copy-and-rename-var foobar/silly-name fns 'better-name)})
 
 (def ctx (sci/init {:namespaces {'foobar foobar-ns}}))
 
@@ -253,6 +256,9 @@ nil
 
 (sci/eval-string* ctx "(foobar/times-two 2)")
 4
+
+(sci/eval-string* ctx "(foobar/better-name 4)")
+16
 ```
 
 To copy an entire namespace without enumerating all vars explicitly with
