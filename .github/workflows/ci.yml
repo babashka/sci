@@ -51,23 +51,29 @@ jobs:
       - name: Run node tests
         run: bb test:node
 
-  # test-clj:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #       with:
-  #         fetch_depth: 0
+  test-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch_depth: 0
 
-  #     - name: Setup Babashka
-  #       uses: turtlequeue/setup-babashka@v1.3.0
-  #       with:
-  #         babashka-version: 0.7.8
+      - name: Setup Babashka
+        uses: turtlequeue/setup-babashka@v1.3.0
+        with:
+          babashka-version: 0.8.0
 
-  #     - name: Prepare java
-  #       uses: actions/setup-java@v2
-  #       with:
-  #         distribution: 'zulu'
-  #         java-version: '8'
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@4.0
+        with:
+          cli: latest
 
-  #     - name: Run clj tests
-  #       run: bb test:clj
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          version: 'latest'
+          java-version: '11'
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run node tests
+        run: bb test:native
