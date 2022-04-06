@@ -57,7 +57,9 @@
       #?(:clj
        (binding [*out* *err*]
          (println "SCI: eliding vars.")))
-      (defmacro copy-var [sym _ns] sym)
+      (defmacro copy-var
+        ([sym _ns] sym)
+        ([sym _ns _opts] sym))
       (defmacro copy-core-var [sym] sym))
     (do
       (defmacro copy-var
