@@ -56,20 +56,21 @@
   ([sym ns]
    `(copy-var ~sym ~ns nil))
   ([sym ns opts]
-   `(let [ns# ~ns
-          var# (var ~sym)
-          val# (deref var#)
-          m# (-> var# meta)
-          name# (or (:name ~opts) (:name m#))
-          new-m# {:doc (:doc m#)
-                  :name name#
-                  :arglists (:arglists m#)
-                  :ns ns#}]
-      (cond (:dynamic m#)
-            (new-dynamic-var name# val# new-m#)
-            (:macro m#)
-            (new-macro-var name# val# new-m#)
-            :else (new-var name# val# new-m#)))))
+   (let [nm (:name opts)]
+     `(let [ns# ~ns
+            var# (var ~sym)
+            val# (deref var#)
+            m# (-> var# meta)
+            name# (or ~nm (:name m#))
+            new-m# {:doc (:doc m#)
+                    :name name#
+                    :arglists (:arglists m#)
+                    :ns ns#}]
+        (cond (:dynamic m#)
+              (new-dynamic-var name# val# new-m#)
+              (:macro m#)
+              (new-macro-var name# val# new-m#)
+              :else (new-var name# val# new-m#))))))
 
 (macros/deftime
   (defmacro with-bindings
