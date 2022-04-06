@@ -16,8 +16,8 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var copy-ns
-                              require-cljs-analyzer-api]])))
+            [sci.core :refer [with-bindings with-out-str copy-var 
+                              copy-ns require-cljs-analyzer-api]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -26,14 +26,14 @@
   ([name] (doto (new-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (sci.impl.vars.SciVar. init-val name meta false)))
+  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :name (utils/unqualify-symbol name)) false)))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
   ([name] (doto (new-dynamic-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
-  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true) false)))
+  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true :name (utils/unqualify-symbol name)) false)))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -47,28 +47,30 @@
   ([name init-val meta] (sci.impl.vars.SciVar.
                          (vary-meta init-val
                                     assoc :sci/macro true)
-                         name (assoc meta :macro true) false)))
+                         name (assoc meta :macro true :name (utils/unqualify-symbol name)) false)))
 
 (defmacro copy-var
   "Copies contents from var `sym` to a new sci var. The value `ns` is an
-  object created with `sci.core/create-ns`."
+  object created with `sci.core/create-ns`. If new-name is supplied, the 
+  copied var will be named new-name."
   ([sym ns]
-   `(let [ns# ~ns
-          var# (var ~sym)
-          val# (deref var#)
-          m# (-> var# meta)
-          ns-name# (vars/getName ns#)
-          name# (:name m#)
-          name-sym# (symbol (str ns-name#) (str name#))
-          new-m# {:doc (:doc m#)
-                  :name name#
-                  :arglists (:arglists m#)
-                  :ns ns#}]
-      (cond (:dynamic m#)
-            (new-dynamic-var name# val# new-m#)
-            (:macro m#)
-            (new-macro-var name# val# new-m#)
-            :else (new-var name# val# new-m#)))))
+   `(copy-var ~sym ~ns nil))
+  ([sym ns opts]
+   (let [nm (:name opts)]
+     `(let [ns# ~ns
+            var# (var ~sym)
+            val# (deref var#)
+            m# (-> var# meta)
+            name# (or ~nm (:name m#))
+            new-m# {:doc (:doc m#)
+                    :name name#
+                    :arglists (:arglists m#)
+                    :ns ns#}]
+        (cond (:dynamic m#)
+              (new-dynamic-var name# val# new-m#)
+              (:macro m#)
+              (new-macro-var name# val# new-m#)
+              :else (new-var name# val# new-m#))))))
 
 (macros/deftime
   (defmacro with-bindings
