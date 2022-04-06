@@ -53,33 +53,32 @@
       then else))
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
   (if-vars-elided
+      (do
+        #?(:clj
+           (binding [*out* *err*]
+             (println "SCI: eliding vars.")))
+        (defmacro copy-var
+          ([sym _ns] sym)
+          ([sym _ns _opts] sym))
+        (defmacro copy-core-var [sym] sym))
     (do
-      #?(:clj
-       (binding [*out* *err*]
-         (println "SCI: eliding vars.")))
       (defmacro copy-var
-        ([sym _ns] sym)
-        ([sym _ns _opts] sym))
-      (defmacro copy-core-var [sym] sym))
-    (do
-      (defmacro copy-var
-        ([sym ns]
-         `(copy-var ~sym ~ns nil))
-        ([sym ns opts]
-         `(let [ns# ~ns
-                m# (-> (var ~sym) meta)
-                name# (or (:name ~opts) (:name m#))
-                val# ~sym]
-            (vars/->SciVar val# name# (cond->
-                                            {:doc (:doc m#)
-                                             :name name#
-                                             :arglists (:arglists m#)
-                                             :ns ns#
-                                             :sci/built-in true}
-                                            (and (identical? clojure-core-ns ns#)
+        [sym ns & [opts]]
+        (let [nm (:name opts)]
+          `(let [ns# ~ns
+                 m# (-> (var ~sym) meta)
+                 name# (or ~nm (:name m#))
+                 val# ~sym]
+             (vars/->SciVar val# name# (cond->
+                                           {:doc (:doc m#)
+                                            :name name#
+                                            :arglists (:arglists m#)
+                                            :ns ns#
+                                            :sci/built-in true}
+                                         (and (identical? clojure-core-ns ns#)
                                               (contains? inlined-vars name#))
-                                            (assoc :sci.impl/inlined val#))
-              false))))
+                                         (assoc :sci.impl/inlined val#))
+                            false))))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
@@ -812,10 +811,10 @@
 
 #?(:clj (def clojure-version-var (vars/dynamic-var
                                   '*clojure-version* (update clojure.core/*clojure-version*
-                                                            :qualifier (fn [qualifier]
-                                                                         (if qualifier
-                                                                           (str qualifier "-SCI")
-                                                                           "SCI")))
+                                                             :qualifier (fn [qualifier]
+                                                                          (if qualifier
+                                                                            (str qualifier "-SCI")
+                                                                            "SCI")))
                                   {:ns clojure-core-ns}) ))
 
 #?(:clj (defn
@@ -890,7 +889,7 @@
    ;; end clojure version
    ;; multimethods
    'defmulti (macrofy 'defmulti mm/defmulti
-               clojure-core-ns true)
+                      clojure-core-ns true)
    'defmethod (macrofy 'defmethod mm/defmethod)
    'get-method (copy-core-var get-method)
    'methods (copy-core-var methods)
@@ -904,13 +903,13 @@
    ;; end multimethods
    ;; protocols
    'defprotocol (macrofy 'defprotocol protocols/defprotocol
-                  clojure-core-ns true)
+                         clojure-core-ns true)
    'extend (core-var 'extend protocols/extend true)
    'extends? (copy-core-var protocols/extends?)
    'extend-type (macrofy 'extend-type protocols/extend-type
-                  clojure-core-ns true)
+                         clojure-core-ns true)
    'extend-protocol (macrofy 'extend-protocol protocols/extend-protocol
-                      clojure-core-ns true)
+                             clojure-core-ns true)
    '-reified-methods (core-var '-reified-methods #(types/getMethods %))
    'reify* (core-var 'reify* reify/reify* true)
    'reify (macrofy 'reify reify/reify clojure-core-ns true)
@@ -927,7 +926,7 @@
    ;; IAtom / ISwap as protocol
    'swap! (core-var 'swap! core-protocols/swap!*)
    'compare-and-set! #?(:clj (core-var 'compare-and-set!
-                               core-protocols/compare-and-set!*)
+                                       core-protocols/compare-and-set!*)
                         :cljs (copy-core-var compare-and-set!))
    #?@(:cljs ['IReset core-protocols/reset-protocol
               'ISwap core-protocols/swap-protocol
@@ -979,8 +978,8 @@
              'aset-long (copy-core-var aset-long)
              'aset-short (copy-core-var aset-short)])
    'alength #?(:clj (vars/new-var 'alength (fn [arr]
-                                     (java.lang.reflect.Array/getLength arr))
-                                    {:ns clojure-core-ns})
+                                             (java.lang.reflect.Array/getLength arr))
+                                  {:ns clojure-core-ns})
                :cljs (copy-core-var alength))
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
@@ -1057,7 +1056,7 @@
    'defn- (macrofy 'defn- defn-*)
    'defonce (macrofy 'defonce defonce*)
    'defrecord (macrofy 'defrecord records/defrecord
-                clojure-core-ns true)
+                       clojure-core-ns true)
    'delay (macrofy 'delay delay*)
    'delay? (copy-core-var delay?)
    #?@(:clj ['deliver (copy-core-var deliver)])
