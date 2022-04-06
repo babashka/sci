@@ -1,0 +1,13 @@
+{:tasks
+ {test:jvm  {:doc "Run clj tests with leiningen"
+             :task (shell "script/test/jvm")}
+
+  test:native  {:doc "Run clj tests with leiningen"
+                :task (do (shell "script/compile")
+                          (shell {:extra-env {"SCI_TEST_ENV" "native"}}
+                                 "script/test/jvm"))}
+
+  test:node {:doc "Run cljs tests with leiningen"
+             :task (shell "script/test/node")}
+
+  }}
