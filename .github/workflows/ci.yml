@@ -40,7 +40,7 @@ jobs:
       - name: Install clojure tools
         uses: DeLaGuardo/setup-clojure@4.0
         with:
-          clojure: latest
+          cli: latest
 
       - name: Prepare java
         uses: actions/setup-java@v2
