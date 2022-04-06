@@ -52,7 +52,7 @@ jobs:
         run: bb test:node
 
   test-native:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
         with:
@@ -68,12 +68,8 @@ jobs:
         with:
           cli: latest
 
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          version: 'latest'
-          java-version: '11'
-          components: 'native-image'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: foo
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install planck
 
-      - name: Run node tests
-        run: bb test:native
+      - name: Run self-hosted tests
+        run: bb test:self-hosted
