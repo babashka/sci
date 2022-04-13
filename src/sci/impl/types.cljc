@@ -3,16 +3,26 @@
   (:refer-clojure :exclude [eval])
   #?(:clj (:require [sci.impl.macros :as macros]))
   #?(:cljs (:require-macros [sci.impl.macros :as macros]
-                            [sci.impl.types :refer [->Node]])))
+                            [sci.impl.types :refer [->Node]]))
+  #?(:clj (:import [sci.impl.types IReified])))
 
 (defprotocol IBox
   (setVal [_this _v])
   (getVal [_this]))
 
-(defprotocol IReified
-  (getInterfaces [_])
-  (getMethods [_])
-  (getProtocols [_]))
+#?(:cljs
+   (defprotocol IReified
+     (getInterfaces [_])
+     (getMethods [_])
+     (getProtocols [_])))
+
+#?(:clj
+   (do (defn getMethods [obj]
+         (.getMethods ^IReified obj))
+       (defn getInterfaces [obj]
+         (.getInterfaces ^IReified obj))
+       (defn getProtocols [obj]
+         (.getProtocols ^IReified obj))))
 
 (deftype Reified [interfaces meths protocols]
   IReified

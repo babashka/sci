@@ -11,7 +11,8 @@
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [borkdude/sci.impl.reflector "0.0.1"]
-                 [borkdude/edamame "0.0.19"]]
+                 [borkdude/edamame "0.0.19"]
+                 [org.babashka/sci.impl.types "0.0.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
              :native-image {:dependencies [[org.clojure/clojure "1.10.3"]]}
