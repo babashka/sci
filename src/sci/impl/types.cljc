@@ -6,6 +6,8 @@
                             [sci.impl.types :refer [->Node]]))
   #?(:clj (:import [sci.impl.types IReified])))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (defprotocol IBox
   (setVal [_this _v])
   (getVal [_this]))
