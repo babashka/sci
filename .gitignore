@@ -31,3 +31,4 @@ sci.stripped.pdb
 sci.build_artifacts.txt
 !test-resources/PublicFields.class
 .planck_cache
+.cpcache
