@@ -5,18 +5,18 @@
 (set! *warn-on-reflection* false)
 
 (def lib 'org.babashka/sci.impl.types)
-(def version "0.0.1")
+(def version "0.0.2")
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
 (def uber-file (format "target/%s-%s-standalone.jar" (name lib) version))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
 
 (defn interface-data []
-  {:name (symbol (str "sci.impl.types.IReified"))
+  {:name 'sci.impl.types.IReified
    :version 1.8
    :flags #{:public :interface}
    :methods [{:flags #{:public :abstract}, :name :getMethods,    :desc [Object]}
-             {:flags #{:public :abstract}, :name :getProtocols,  :desc [Object]}
+             {:flags #{:public :abstract}, :name :getInterfaces, :desc [Object]}
              {:flags #{:public :abstract}, :name :getProtocols,  :desc [Object]}]})
 
 (defn write-interface [_]
