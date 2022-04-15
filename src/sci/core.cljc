@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
                             intern ns create-ns set! *1 *2 *3 *e
-                            ns-name assert])
+                            ns-name assert print-dup])
   (:require
    [clojure.core :as c]
    [sci.impl.callstack :as cs]
@@ -103,6 +103,7 @@
 (def print-level "Sci var that represents sci's `clojure.core/*print-level*`" sio/print-level)
 (def print-meta "Sci var that represents sci's `clojure.core/*print-meta*`" sio/print-meta)
 (def print-readably "Sci var that represents sci's `clojure.core/*print-readably*`" sio/print-readably)
+(def print-dup "Sci var that represents sci's `clojure.core/*print-dup*`" sio/print-dup-var)
 #?(:cljs (def print-fn "Sci var that represents sci's `cljs.core/*print-fn*`" sio/print-fn))
 #?(:cljs (def print-err-fn "Sci var that represents sci's `cljs.core/*print-err-fn*`" sio/print-err-fn))
 #?(:cljs (def print-newline "Sci var that represents sci's `cljs.core/*print-newline*`" sio/print-newline))

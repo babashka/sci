@@ -65,6 +65,7 @@
 (def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true))
 (def flush-on-newline (core-dynamic-var '*flush-on-newline* *flush-on-newline*))
 (def print-readably (core-dynamic-var '*print-readably* *print-readably*))
+(def print-dup-var (core-dynamic-var '*print-dup* *print-dup*))
 #?(:cljs (def print-newline (core-dynamic-var '*print-newline* *print-newline*)))
 
 #?(:cljs (defn string-print [x]
@@ -87,7 +88,8 @@
                      *print-level* @print-level
                      *print-meta* @print-meta
                      *print-namespace-maps* @print-namespace-maps
-                     *print-readably* @print-readably]
+                     *print-readably* @print-readably
+                     *print-dup* @print-dup-var]
              (pr-on x @out)))
           ([x & more]
            (pr x)
@@ -103,7 +105,8 @@
                      *print-meta* @print-meta
                      *print-namespace-maps* @print-namespace-maps
                      *print-readably* @print-readably
-                     *print-newline* @print-newline]
+                     *print-newline* @print-newline
+                     *print-dup* @print-dup-var]
              (apply cljs.core/pr objs))))
 
 #?(:clj
@@ -142,7 +145,8 @@
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
                *print-readably* @print-readably
-               *print-newline* @print-newline]
+               *print-newline* @print-newline
+               *print-dup* @print-dup-var]
        (apply cljs.core/pr-str objs))))
 
 #?(:clj
@@ -161,7 +165,8 @@
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
                *print-readably* @print-readably
-               *print-newline* @print-newline]
+               *print-newline* @print-newline
+               *print-dup* @print-dup-var]
        (apply cljs.core/prn objs))))
 
 #?(:clj
@@ -181,7 +186,8 @@
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
                *print-readably* @print-readably
-               *print-newline* @print-newline]
+               *print-newline* @print-newline
+               *print-dup* @print-dup-var]
        (apply cljs.core/prn-str objs))))
 
 #?(:clj
@@ -197,7 +203,8 @@
                *print-level* @print-level
                *print-namespace-maps* @print-namespace-maps
                *print-readably* nil
-               *print-newline* @print-newline]
+               *print-newline* @print-newline
+               *print-dup* @print-dup-var]
        (apply cljs.core/print objs))))
 
 #?(:clj
@@ -217,7 +224,8 @@
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
                *print-readably* @print-readably
-               *print-newline* @print-newline]
+               *print-newline* @print-newline
+               *print-dup* @print-dup-var]
        (apply cljs.core/print-str objs))))
 
 #?(:clj
@@ -234,7 +242,8 @@
                *print-meta* @print-meta
                *print-namespace-maps* @print-namespace-maps
                *print-readably* @print-readably
-               *print-newline* @print-newline]
+               *print-newline* @print-newline
+               *print-dup* @print-dup-var]
        (apply cljs.core/println objs))))
 
 #?(:clj
