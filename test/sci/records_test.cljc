@@ -35,7 +35,10 @@
 (defprotocol Foo (sayhello [_ name] \"print a name\"))
 (defrecord Greeter [state] Foo (sayhello [{:keys [state]} name] [state name]))
 (sayhello (Greeter. \"test\") \"john\")"]
-    (is (= ["test" "john"] (tu/eval* prog {})))))
+    (is (= ["test" "john"] (tu/eval* prog {}))))
+  (let [prog "
+(defprotocol Foo (foo [x])) (defrecord Dude [a] Foo (foo [{:keys [a]}] a)) (foo (->Dude 1))"]
+    (is (= 1 (tu/eval* prog {})))))
 
 (deftest shadow-record-field-protocol-fn-test
   (let [prog "

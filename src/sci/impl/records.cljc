@@ -83,6 +83,7 @@
                                                  body (rest impl)
                                                  destr (utils/maybe-destructured args body)
                                                  args (:params destr)
+                                                 body (:body destr)
                                                  orig-this-sym (first args)
                                                  rest-args (rest args)
                                                  shadows-this? (some #(= orig-this-sym %) rest-args)
