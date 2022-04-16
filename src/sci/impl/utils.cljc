@@ -243,6 +243,14 @@
 
 (def unqualify-symbol vars/unqualify-symbol)
 
+(defn make-stack
+  ([expr-meta] (make-stack expr-meta false))
+  ([expr-meta special?]
+   (cond-> (assoc expr-meta
+             :ns @vars/current-ns
+             :file @vars/current-file)
+     special? (assoc :special true))))
+
 (defn log [& xs]
   #?(:clj (.println System/err (str/join " " xs))
      :cljs (.log js/console (str/join " " xs))))

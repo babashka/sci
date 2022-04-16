@@ -476,6 +476,7 @@
   [ctx expr destructured-let-bindings exprs]
   (let [rt (recur-target ctx)
         ctx (without-recur-target ctx)
+        stack (utils/make-stack (meta expr) true)
         [ctx new-let-bindings idens]
         (reduce
          (fn [[ctx new-let-bindings idens] [binding-name binding-value]]
@@ -502,7 +503,7 @@
     ;; (prn :params params :idens idens :idxs idxs)
     (sci.impl.types/->Node
      (eval/eval-let ctx bindings new-let-bindings body idxs)
-     nil)))
+     stack)))
 
 (defn analyze-let
   "The let macro from clojure.core"
@@ -712,6 +713,7 @@
   [ctx expr]
   (let [ctx (without-recur-target ctx)
         body (next expr)
+        stack (utils/make-stack (meta expr) true)
         [body-exprs
          catches
          finally]
@@ -757,7 +759,7 @@
                   (analyze ctx (cons 'do (rest finally))))]
     (sci.impl.types/->Node
      (eval/eval-try ctx bindings body catches finally)
-     nil)))
+     stack)))
 
 (defn analyze-throw [ctx [_throw ex :as expr]]
   (when-not (= 2 (count expr))
