@@ -116,3 +116,22 @@
                [(dissoc (ex-data e) :sci.impl/callstack :locals)
                 (ex-data #?(:clj (.getCause e)
                             :cljs (ex-cause e)))]))))))
+
+(deftest implicit-do-error-test
+  (let [expected   {:type    :sci/error
+                    :line    1
+                    :column  1
+                    :message "Assert failed: false"}
+        try-string #(try
+                      (eval-string %)
+                      (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
+                        (dissoc (ex-data e) :sci.impl/callstack :file)))]
+    (testing "top level try with implicit do wraps exception"
+      (is (= expected
+            (try-string "(try 1 (assert false))"))))
+    (testing "top level let with implicit do wraps exception"
+      (is (= expected
+            (try-string "(let [] 1 (assert false))")))
+      ; macroexpands to a let
+      (is (= expected
+          (try-string "(binding [] (assert false) 1)"))))))
