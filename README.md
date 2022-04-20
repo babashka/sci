@@ -418,7 +418,7 @@ In JS hosts, to allow interop with anything, use the following config:
 
 ### State
 
-Sci uses a context (internally implemented using an atom) to keep track of state
+SCI uses a context (internally implemented using an atom) to keep track of state
 changes like newly defined namespaces and vars. The contents of the context
 should be considered implementation detail. Every call to `eval-string` creates
 a fresh context. To preserve state over multiple evaluations, you can create a
@@ -577,6 +577,27 @@ To use SCI as a native shared library from e.g. C, C++, Rust, read this
 ## Limitations
 
 Currently SCI doesn't support `deftype` and `definterface`.
+
+### This-as
+
+Currently SCI does not support `this-as` in JS hosts. As a workaround you can program in this style:
+
+``` clojure
+(def obj
+  (let [;; construct the object:
+        this #js {:text "foo"}
+        ;; construct object functions:
+        setText (fn [text] (set! (.-text this) text))
+        getText (fn [] (.-text this))]
+    ;; attach object functions:
+    (set! (.-setText this) setText)
+    (set! (.-getText this) getText)
+    ;; return object:
+    this))
+
+(.setText obj "hello")
+(prn (.getText obj)) ;; "hello"
+```
 
 ## Laziness
 
