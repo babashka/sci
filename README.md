@@ -599,29 +599,29 @@ Currently SCI does not support `this-as` in JS hosts. As a workaround you can pr
 (prn (.getText obj)) ;; "hello"
 ```
 
-A drop-in replacement that covers a subset of `this-as` usage might be implemented like this:
+<!-- A drop-in replacement that covers a subset of `this-as` usage might be implemented like this: -->
 
-``` Clojure
-(defmacro ^:private new-var []
-  `(def ~(gensym)))
+<!-- ``` Clojure -->
+<!-- (defmacro ^:private new-var [] -->
+<!--   `(def ~(gensym))) -->
 
-(defmacro this-as [binding & body]
-  `(let [~binding (new-var)
-         obj# (do ~@body)]
-     (alter-var-root ~(list 'var binding) (constantly obj#))
-     ;; remove var from namespace
-     (ns-unmap *ns* (:name (meta ~binding)))
-     obj#))
+<!-- (defmacro this-as [binding & body] -->
+<!--   `(let [~binding (new-var) -->
+<!--          obj# (do ~@body)] -->
+<!--      (alter-var-root ~(list 'var binding) (constantly obj#)) -->
+<!--      ;; remove var from namespace -->
+<!--      (ns-unmap *ns* (:name (meta ~binding))) -->
+<!--      obj#)) -->
 
-(def obj
-  (this-as this
-    #js {:text ""
-         :setText (fn [t] (set! (.-text this) t))
-         :getText (fn [] (.-text this))}))
+<!-- (def obj -->
+<!--   (this-as this -->
+<!--     #js {:text "" -->
+<!--          :setText (fn [t] (set! (.-text this) t)) -->
+<!--          :getText (fn [] (.-text this))})) -->
 
-(.setText obj "hello")
-(prn (.getText obj)) ;; "hello"
-```
+<!-- (.setText obj "hello") -->
+<!-- (prn (.getText obj)) ;; "hello" -->
+<!-- ``` -->
 
 ## Laziness
 
