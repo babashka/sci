@@ -1413,6 +1413,10 @@
               (str/starts-with? (name var-meta-name) \"cljs.core.\")))
     (filter (complement #(and (= (:actual-ns %) (:var-meta-ns %)) (= (:actual-ns-symbol %) (:var-meta-name %)))))))")))))
 
+#?(:cljs
+   (deftest require-cljs-core-test
+     (= 3 (sci/eval-string "(require '[cljs.core :as c]) (c/inc 2)"))))
+
 ;;;; Scratch
 
 (comment
