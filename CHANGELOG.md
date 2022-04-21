@@ -4,11 +4,18 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## Unreleased
 
+- [#711](https://github.com/babashka/sci/issues/711): support *print-dup*
+- [#712](https://github.com/babashka/sci/issues/712): destructuring in protocol impl not working
+- [#715](https://github.com/babashka/sci/issues/715): allow property access on vars in CLJS
+- Add `->Eduction`
+- Expose `print-err-fn` in SCI core API
+- add `:name` metadata via helper functions and use metadata for var names
+- Improve error reporting for `let*` and `try`
+
 ## v0.3.4
 
 - Restore compatibiliy with self-hosted CLJS (e.g. planck)
 - Add CLJS `*print-err-fn*` var
-- fix [#715](https://github.com/babashka/sci/issues/715): allow property access on vars in CLJS
 
 ## v0.3.3
 
