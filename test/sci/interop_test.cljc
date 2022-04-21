@@ -1,8 +1,8 @@
 (ns sci.interop-test
   (:require
    [clojure.test :as test :refer [deftest is testing #?(:cljs async)]]
+   [sci.core :as sci]
    [sci.test-utils :as tu]
-   #?(:clj [sci.core :as sci])
    #?(:cljs [clojure.string :as str]))
   #?(:clj (:import PublicFields)))
 
@@ -179,7 +179,7 @@
                        (done)))))))
 
 #?(:cljs
-   (deftest dot-in-js-invocation
+   (deftest dot-in-js-invocation-test
      (when-not (tu/planck-env?)
        (is (str/includes?
             (tu/eval* "(first (js/process.argv.slice 0))"
@@ -189,3 +189,8 @@
      (is (tu/eval* "(js/Promise.all [])"
                    {:classes
                     {'js goog/global :allow :all}}))))
+
+#?(:cljs
+   (deftest dotted-var-reference-test
+     (is (= 1 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.a" {:classes {'js goog/global}})))
+     (is (= 2 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.b.c" {:classes {'js goog/global}})))))

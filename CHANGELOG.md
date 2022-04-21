@@ -8,6 +8,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Restore compatibiliy with self-hosted CLJS (e.g. planck)
 - Add CLJS `*print-err-fn*` var
+- fix [#715](https://github.com/babashka/sci/issues/715): allow property access on vars in CLJS
 
 ## v0.3.3
 

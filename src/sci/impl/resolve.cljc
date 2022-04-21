@@ -153,6 +153,29 @@
 ;; workaround for evaluator also needing this function
 (vreset! utils/lookup lookup)
 
+(declare resolve-symbol)
+
+#?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
+           #?(:cljs
+                  (let [ssym (str sym)]
+                    (when-let [prefix-idx (str/index-of (str sym) ".")]
+                      (when (pos? prefix-idx)
+                        (let [prefix (subs ssym 0 prefix-idx)
+                              resolved (resolve-symbol ctx (symbol prefix) call? tag)]
+                          (when (vars/var? resolved)
+                            (let [clazz (deref resolved)
+                                  path (subs ssym (inc prefix-idx))]
+                              [sym (if call?
+                                     (with-meta
+                                       [clazz path]
+                                       {:sci.impl.analyzer/static-access true})
+                                     (let [stack (assoc (meta sym)
+                                                        :file @vars/current-file
+                                                        :ns @vars/current-ns)]
+                                       (->Node
+                                        (interop/get-static-field [clazz path])
+                                        stack)))])))))))))
+
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
   ([ctx sym call?] (resolve-symbol ctx sym call? nil))
@@ -170,9 +193,10 @@
                         (str/ends-with? n ".")
                         (> (count n) 1))
                    [sym 'expand-constructor]
-                   :else
-                   (throw-error-with-location
-                    (str "Could not resolve symbol: " (str sym))
-                    sym)))))]
+                   ))
+               #?(:cljs (resolve-dotted-access ctx sym call? tag))
+               (throw-error-with-location
+                (str "Could not resolve symbol: " (str sym))
+                sym)))]
      ;; (prn 'resolve sym '-> res (meta res))
      res)))
