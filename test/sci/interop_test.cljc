@@ -3,7 +3,8 @@
    [clojure.test :as test :refer [deftest is testing #?(:cljs async)]]
    [sci.core :as sci]
    [sci.test-utils :as tu]
-   #?(:cljs [clojure.string :as str]))
+   #?(:cljs [clojure.string :as str])
+   #?(:cljs [goog.object :as gobj]))
   #?(:clj (:import PublicFields)))
 
 (defn eval* [expr]
@@ -190,13 +191,18 @@
                    {:classes
                     {'js goog/global :allow :all}}))))
 
+
+#?(:cljs (def persistent-queue (let [x PersistentQueue]
+                                 (gobj/set x "EMPTY" PersistentQueue.EMPTY)
+                                 x)))
+
 #?(:cljs
    (deftest dotted-reference-test
      (is (= 1 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.a" {:classes {'js goog/global}})))
      (is (= 2 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.b.c" {:classes {'js goog/global}})))
      (testing "var ref"
-       (is (= PersistentQueue.EMPTY (sci/eval-string "(def x PersistentQueue.EMPTY) x" {:namespaces {'clojure.core {'PersistentQueue (sci/new-var 'x PersistentQueue)}}}))))
+       (is (= PersistentQueue.EMPTY (sci/eval-string "(def x PersistentQueue.EMPTY) x" {:namespaces {'clojure.core {'PersistentQueue (sci/new-var 'x persistent-queue)}}}))))
      (testing "non-var ref"
        (is (= PersistentQueue.EMPTY
               (sci/eval-string "(def x PersistentQueue.EMPTY) x"
-                               {:namespaces {'clojure.core {'PersistentQueue PersistentQueue}}}))))))
+                               {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}}))))))
