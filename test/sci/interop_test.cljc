@@ -205,4 +205,8 @@
      (testing "non-var ref"
        (is (= PersistentQueue.EMPTY
               (sci/eval-string "(def x PersistentQueue.EMPTY) x"
+                               {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}}))))
+     (testing "with cljs.core prefix"
+       (is (= PersistentQueue.EMPTY
+              (sci/eval-string "(def x cljs.core/PersistentQueue.EMPTY) x"
                                {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}}))))))

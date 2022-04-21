@@ -157,24 +157,26 @@
 
 #?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
            #?(:cljs
-                  (let [ssym (str sym)]
-                    (when-let [prefix-idx (str/index-of (str sym) ".")]
-                      (when (pos? prefix-idx)
-                        (let [prefix (subs ssym 0 prefix-idx)
-                              resolved (resolve-symbol ctx (symbol prefix) call? tag)
-                              clazz (if (vars/var? resolved) (deref resolved) resolved)]
-                          (when clazz
-                            (let [path (subs ssym (inc prefix-idx))]
-                              [sym (if call?
-                                     (with-meta
-                                       [clazz path]
-                                       {:sci.impl.analyzer/static-access true})
-                                     (let [stack (assoc (meta sym)
-                                                        :file @vars/current-file
-                                                        :ns @vars/current-ns)]
-                                       (->Node
-                                        (interop/get-static-field [clazz path])
-                                        stack)))])))))))))
+              (let [sym-ns (namespace sym)
+                    sym-name (name sym)]
+                (when-let [prefix-idx (str/index-of sym-name ".")]
+                  (when (pos? prefix-idx)
+                    (let [prefix (subs sym-name 0 prefix-idx)
+                          new-sym (symbol sym-ns prefix)
+                          resolved (resolve-symbol ctx new-sym call? tag)
+                          clazz (if (vars/var? resolved) (deref resolved) resolved)]
+                      (when clazz
+                        (let [path (subs sym-name (inc prefix-idx))]
+                          [sym (if call?
+                                 (with-meta
+                                   [clazz path]
+                                   {:sci.impl.analyzer/static-access true})
+                                 (let [stack (assoc (meta sym)
+                                                    :file @vars/current-file
+                                                    :ns @vars/current-ns)]
+                                   (->Node
+                                    (interop/get-static-field [clazz path])
+                                    stack)))])))))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
