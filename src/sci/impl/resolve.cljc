@@ -161,10 +161,10 @@
                     (when-let [prefix-idx (str/index-of (str sym) ".")]
                       (when (pos? prefix-idx)
                         (let [prefix (subs ssym 0 prefix-idx)
-                              resolved (resolve-symbol ctx (symbol prefix) call? tag)]
-                          (when (vars/var? resolved)
-                            (let [clazz (deref resolved)
-                                  path (subs ssym (inc prefix-idx))]
+                              resolved (resolve-symbol ctx (symbol prefix) call? tag)
+                              clazz (if (vars/var? resolved) (deref resolved) resolved)]
+                          (when clazz
+                            (let [path (subs ssym (inc prefix-idx))]
                               [sym (if call?
                                      (with-meta
                                        [clazz path]

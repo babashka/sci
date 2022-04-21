@@ -191,6 +191,12 @@
                     {'js goog/global :allow :all}}))))
 
 #?(:cljs
-   (deftest dotted-var-reference-test
+   (deftest dotted-reference-test
      (is (= 1 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.a" {:classes {'js goog/global}})))
-     (is (= 2 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.b.c" {:classes {'js goog/global}})))))
+     (is (= 2 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.b.c" {:classes {'js goog/global}})))
+     (testing "var ref"
+       (is (= PersistentQueue.EMPTY (sci/eval-string "(def x PersistentQueue.EMPTY) x" {:namespaces {'clojure.core {'PersistentQueue (sci/new-var 'x PersistentQueue)}}}))))
+     (testing "non-var ref"
+       (is (= PersistentQueue.EMPTY
+              (sci/eval-string "(def x PersistentQueue.EMPTY) x"
+                               {:namespaces {'clojure.core {'PersistentQueue PersistentQueue}}}))))))
