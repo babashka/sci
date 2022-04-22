@@ -44,6 +44,29 @@
      (is (= 3 (sci/eval-string "(.-x (PublicFields.))" {:classes {'PublicFields PublicFields}})))))
 
 #?(:clj
+   (deftest clojure-parity-tests
+     (let [classes {:classes {'PublicFields PublicFields}}] 
+       (doseq [expr ['(.-x (PublicFields.))
+                     '(.x (PublicFields.))
+                     '(. (PublicFields.) instanceFoo)
+                     '(. (PublicFields.) -instanceFoo)
+                     '(.instanceFoo (PublicFields.))
+                     '(.-instanceFoo (PublicFields.))]]
+         (testing (pr-str expr)
+           (is (= (eval expr) (sci/eval-string (pr-str expr) classes)))))
+       (testing "non-zero arg count doesn't find field"
+         (is (thrown-with-msg? Exception #"No matching method" 
+                               (sci/eval-string "(.x (PublicFields.) 1)" classes)))))
+     (when-not tu/native?
+       (let [classes {:classes {'clojure.lang.Ratio 'clojure.lang.Ratio}}]
+         (doseq [expr ['(. 4/5 numerator)
+                       '(. 4/5 -numerator)
+                       '(.-numerator 4/5)
+                       '(.numerator 4/5)]]
+           (testing (pr-str expr)
+             (is (= (eval expr) (tu/eval* (pr-str expr) classes)))))))))
+
+#?(:clj
    (deftest static-fields
      (is (= 32 (eval* "Integer/SIZE")))
      (is (= 32 (eval* "(Integer/SIZE)")))

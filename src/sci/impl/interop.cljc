@@ -35,8 +35,11 @@
       [([obj ^Class target-class method args]
         (if-not target-class
           (Reflector/invokeInstanceMethod obj method (object-array args))
-          (let [methods (Reflector/getMethods target-class (count args) method false)]
-            (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
+          (let [arg-count (count args)
+                methods (Reflector/getMethods target-class arg-count method false)]
+            (if (and (zero? arg-count) (empty? methods))
+              (invoke-instance-field obj target-class method)
+              (Reflector/invokeMatchingMethod method methods obj (object-array args))))))]))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [[class field-name-sym]])
