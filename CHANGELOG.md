@@ -11,6 +11,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Expose `print-err-fn` in SCI core API
 - add `:name` metadata via helper functions and use metadata for var names
 - Improve error reporting for `let*` and `try`
+- [#714](https://github.com/babashka/sci/issues/714): Improve instance member call parity with Clojure/JVM
 
 ## v0.3.4
 
