@@ -37,7 +37,7 @@
           (Reflector/invokeInstanceMethod obj method (object-array args))
           (let [arg-count (count args)
                 methods (Reflector/getMethods target-class arg-count method false)]
-            (if (and (zero? arg-count) (empty? methods))
+            (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
               (invoke-instance-field obj target-class method)
               (Reflector/invokeMatchingMethod method methods obj (object-array args))))))]))
 
