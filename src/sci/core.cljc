@@ -16,7 +16,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros
-            [sci.core :refer [with-bindings with-out-str copy-var 
+            [sci.core :refer [with-bindings with-out-str copy-var
                               copy-ns require-cljs-analyzer-api]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -432,4 +432,21 @@
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
                           `(-copy-ns ~publics-map ~sci-ns)))))))
+
+(defn add-class
+  "Adds class (JVM class or JS object) to `ctx` as `class-name` (a
+  symbol). Returns new context."
+  [ctx class-name class]
+  ;; This relies on an internal format of the context and may change at any time.
+  (-> ctx
+      (assoc-in [:class->opts class-name :class] class)
+      (assoc-in [:raw-classes class-name] class)))
+
+(defn add-import
+  "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns new context."
+  [ctx ns-name class-name alias]
+  ;; This relies on an internal format of the context and may change at any time.
+  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
+  ctx)
+
 ;;;; Scratch
