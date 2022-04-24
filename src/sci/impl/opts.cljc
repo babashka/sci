@@ -12,7 +12,7 @@
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
 
-(defn init-env! [env bindings aliases namespaces imports load-fn]
+(defn init-env! [env bindings aliases namespaces classes raw-classes imports load-fn]
   (swap! env (fn [env]
                (let [env-nss (:namespaces env)
                      namespaces (merge-with merge
@@ -45,7 +45,10 @@
                    (assoc env
                           :namespaces namespaces
                           :imports imports
-                          :load-fn load-fn))))))
+                          :load-fn load-fn
+                          :public-class (:public-class classes)
+                          :class->opts (:class->opts classes)
+                          :raw-classes raw-classes))))))
 
 (defn process-permissions [prev-perms & permissions]
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
@@ -106,11 +109,11 @@
               (toString [this]
                 ((get methods 'toString) this))
               IReified
-              (getInterfaces [this]
+              (getInterfaces [_this]
                 interfaces)
-              (getMethods [this]
+              (getMethods [_this]
                 methods)
-              (getProtocols [this]
+              (getProtocols [_this]
                 protocols)))
      :cljs (fn [_ _ _])))
 
@@ -143,17 +146,14 @@
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
-        _ (init-env! env bindings aliases namespaces imports load-fn)
         raw-classes (merge default-classes classes)
         classes (normalize-classes raw-classes)
+        _ (init-env! env bindings aliases namespaces classes raw-classes imports load-fn)
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
-                   :public-class (:public-class classes)
-                   :raw-classes raw-classes ;; hold on for merge-opts
-                   :class->opts (:class->opts classes)
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
@@ -169,15 +169,12 @@
                 :readers
                 :reify-fn]} opts
         env (:env ctx)
-        _ (init-env! env bindings aliases namespaces imports load-fn)
-        raw-classes (merge (:raw-classes ctx) classes)
+        raw-classes (merge (:raw-classes @env) classes)
         classes (normalize-classes raw-classes)
+        _ (init-env! env bindings aliases namespaces classes raw-classes imports load-fn)
         ctx (assoc (->ctx {} env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
-                   :public-class (:public-class classes)
-                   :raw-classes raw-classes
-                   :class->opts (:class->opts classes)
                    :main-thread-id (:main-thread-id ctx))]
     ctx))

@@ -91,8 +91,10 @@
                lib)
               (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
           (if-let [load-fn (:load-fn env)]
-            (if-let [{:keys [:file :source]} (load-fn {:namespace lib
-                                                       :reload (or reload reload-all)})]
+            (if-let [{:keys [file source handled]}
+                     (load-fn {:namespace lib
+                               :opts opts
+                               :reload (or reload reload-all)})]
               (do
                 ;; (.println System/err "source")
                 ;; (.println System/err source)
@@ -103,19 +105,21 @@
                                                  (if (nil? loading)
                                                    [lib]
                                                    (conj loading lib)))))]
-                  (try (vars/with-bindings
-                         {vars/current-ns @vars/current-ns
-                          vars/current-file file}
-                         (@utils/eval-string* ctx source))
-                       (catch #?(:clj Exception :cljs js/Error) e
-                         (swap! env* update :namespaces dissoc lib)
-                         (throw e))))
-                (swap! env* (fn [env]
-                              (let [namespaces (get env :namespaces)
-                                    the-loaded-ns (get namespaces lib)]
-                                (handle-require-libspec-env ctx env cnn
-                                                            the-loaded-ns
-                                                            lib opts)))))
+                  (when source
+                    (try (vars/with-bindings
+                           {vars/current-ns @vars/current-ns
+                            vars/current-file file}
+                           (@utils/eval-string* ctx source))
+                         (catch #?(:clj Exception :cljs js/Error) e
+                           (swap! env* update :namespaces dissoc lib)
+                           (throw e)))))
+                (when-not handled
+                  (swap! env* (fn [env]
+                                (let [namespaces (get env :namespaces)
+                                      the-loaded-ns (get namespaces lib)]
+                                  (handle-require-libspec-env ctx env cnn
+                                                              the-loaded-ns
+                                                              lib opts))))))
               (or (when reload*
                     (when-let [the-loaded-ns (get namespaces lib)]
                       (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))

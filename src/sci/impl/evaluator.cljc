@@ -168,7 +168,8 @@
                            ;; TODO: strip leading dash in analyzer
                            method-str))
       (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
-            class->opts (:class->opts ctx)
+            env @(:env ctx)
+            class->opts (:class->opts env)
             allowed? (or
                       #?(:cljs allowed)
                       (get class->opts :allow)
@@ -178,7 +179,7 @@
                         (get class->opts instance-class-symbol))
                       #?(:cljs (.log js/console (str method-str))))
             ^Class target-class (if allowed? instance-class
-                                    (when-let [f (:public-class ctx)]
+                                    (when-let [f (:public-class env)]
                                       (f instance-expr*)))]
         ;; we have to check options at run time, since we don't know what the class
         ;; of instance-expr is at analysis time

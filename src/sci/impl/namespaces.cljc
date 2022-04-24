@@ -485,7 +485,7 @@
         env @(:env ctx)
         global-imports (:imports env)
         namespace-imports (get-in env [:namespaces name :imports])
-        class-opts (:class->opts ctx)
+        class-opts (:class->opts env)
         all-aliased (concat (keys global-imports) (keys namespace-imports))
         all-imports (concat (vals global-imports) (vals namespace-imports))]
     (zipmap all-aliased (map (comp :class #(get class-opts %)) all-imports))))

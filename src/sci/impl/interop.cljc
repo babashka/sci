@@ -74,27 +74,29 @@
                  ;; why is this here??
                  (apply field args))))))
 
-(defn fully-qualify-class [{:keys [:env :class->opts]} sym]
-  (or #?(:clj (when (contains? class->opts sym) sym)
-         :cljs (if-let [ns* (namespace sym)]
-                 (when (identical? "js" ns*)
-                   (when (contains? class->opts (symbol (name sym)))
-                     sym))
-                 (when (contains? class->opts sym)
-                   sym)))
-      (let [env @env]
+(defn fully-qualify-class [ctx sym]
+  (let [env @(:env ctx)
+        class->opts (:class->opts env)]
+    (or #?(:clj (when (contains? class->opts sym) sym)
+           :cljs (if-let [ns* (namespace sym)]
+                   (when (identical? "js" ns*)
+                     (when (contains? class->opts (symbol (name sym)))
+                       sym))
+                   (when (contains? class->opts sym)
+                     sym)))
         (or (get (:imports env) sym)
             (let [cnn (vars/current-ns-name)]
               (get-in env [:namespaces cnn :imports sym]))))))
 
-(defn resolve-class-opts [{:keys [:env :class->opts]} sym]
-  (let [class-opts (or #?(:clj (get class->opts sym)
+(defn resolve-class-opts [ctx sym]
+  (let [env @(:env ctx)
+        class->opts (:class->opts env)
+        class-opts (or #?(:clj (get class->opts sym)
                           :cljs (if-let [ns* (namespace sym)]
                                   (when (identical? "js" ns*)
                                     (get class->opts (symbol (name sym))))
                                   (get class->opts sym)))
-                       (let [env @env
-                             cnn (vars/current-ns-name)
+                       (let [cnn (vars/current-ns-name)
                              imports (get-in env [:namespaces cnn :imports])]
                          (if-let [[_ v] (find imports sym)]
                            ;; finding a nil v means the object was unmapped
