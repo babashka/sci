@@ -318,10 +318,11 @@
 
 (defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys ]
   (reduce (fn [ns-map [var-name var]]
-            (let [m (meta-fn var)]
+            (if-let [m (meta-fn var)]
               (if (some m skip-keys)
                 ns-map
-                (assoc ns-map (key-fn var-name) (val-fn var m)))))
+                (assoc ns-map (key-fn var-name) (val-fn var m)))
+              ns-map))
           {}
           publics-map))
 
