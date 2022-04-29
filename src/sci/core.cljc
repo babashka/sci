@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
                             intern ns create-ns set! *1 *2 *3 *e
-                            ns-name assert print-dup find-ns])
+                            ns-name assert print-dup find-ns all-ns ns-name])
   (:require
    [clojure.core :as c]
    [sci.impl.callstack :as cs]
@@ -457,5 +457,10 @@
   "Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sym`."
   [ctx ns-sym]
   (namespaces/sci-find-ns ctx ns-sym))
+
+(defn all-ns
+  "Returns all SCI ns objects in the `ctx`"
+  [ctx]
+  (namespaces/sci-all-ns ctx))
 
 ;;;; Scratch
