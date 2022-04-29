@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
                             intern ns create-ns set! *1 *2 *3 *e
-                            ns-name assert print-dup])
+                            ns-name assert print-dup find-ns])
   (:require
    [clojure.core :as c]
    [sci.impl.callstack :as cs]
@@ -452,5 +452,9 @@
   ;; This relies on an internal format of the context and may change at any time.
   (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
   ctx)
+
+(defn find-ns
+  [ctx ns-sym]
+  (namespaces/sci-find-ns ctx ns-sym))
 
 ;;;; Scratch
