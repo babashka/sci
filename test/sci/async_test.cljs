@@ -1,11 +1,11 @@
 (ns sci.async-test
-  (:require [sci.core :as sci]
-            [sci.async :as scia]
+  (:require [clojure.string :as str]
             [clojure.test :as test :refer [deftest is testing async]]
-            [clojure.string :as str]
-            [promesa.core :as p]))
+            [promesa.core :as p]
+            [sci.async :as scia]
+            [sci.core :as sci]))
 
-(deftest async-eval-string-test
+(deftest async-eval-string-js-lib-test
   (async done
    (p/let [ctx (sci/init {:async-load-fn
                           (fn [{:keys [libname opts ctx ns]}]
@@ -23,3 +23,30 @@
            res (scia/eval-string* ctx code)]
      (is (= "yes" res))
      (done))))
+
+(deftest async-eval-string-cljs-source-lib-test
+  (async done
+         (p/let [ctx (sci/init {:async-load-fn
+                                (fn [{:keys [libname opts ctx ns]}]
+                                  {:source "(ns foobar) (defn hello [] :hello)"})})
+                 code (str/join
+                       "\n"
+                       (map pr-str '[(ns dude (:require [foobar :as my-lib]))
+                                     (my-lib/hello)]))
+                 res (scia/eval-string* ctx code)]
+           (is (= :hello res))
+           (done))))
+
+(deftest async-eval-string-cljs-source-lib-error-test
+  (async done
+         (-> (p/let [ctx (sci/init {:async-load-fn
+                                    (fn [{:keys [libname opts ctx ns]}]
+                                      (js/Promise.reject (js/Error. "Not found")))})
+                     code (str/join
+                           "\n"
+                           (map pr-str '[(ns dude (:require [foobar :as my-lib]))
+                                         (my-lib/hello)]))
+                     res (scia/eval-string* ctx code)])
+             (p/catch (fn [err]
+                        (is (= "Not found" (.-message err)))
+                        (done))))))
