@@ -1730,7 +1730,3 @@
                  'read (copy-var edn/read clojure-edn-namespace)
                  'read-string (copy-var edn/read-string clojure-edn-namespace)}
    'sci.impl.records sci-impl-records})
-
-(def aliases
-  '{str clojure.string
-    set clojure.set})

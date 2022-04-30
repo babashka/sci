@@ -9,7 +9,9 @@
 (defn eval*
   ([form] (eval* nil form))
   ([binding form]
-   (tu/eval* form {:bindings {'*in* binding}})))
+   (tu/eval* form {:aliases {'str 'clojure.string
+                             'set 'clojure.set}
+                   :bindings {'*in* binding}})))
 
 (deftest require-test
   (is (= "1-2-3" (eval* "(str/join \"-\" [1 2 3])")))

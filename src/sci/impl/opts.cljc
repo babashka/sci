@@ -12,7 +12,8 @@
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
 
-(defn init-env! [env bindings aliases namespaces classes raw-classes imports load-fn]
+(defn init-env! [env bindings aliases namespaces classes raw-classes imports
+                 load-fn #?(:cljs async-load-fn)]
   (swap! env (fn [env]
                (let [env-nss (:namespaces env)
                      namespaces (merge-with merge
@@ -26,13 +27,13 @@
                                               {'user (assoc bindings
                                                             :obj vars/user-ns)})
                                             namespaces)
-                     aliases (merge namespaces/aliases aliases
+                     aliases (merge aliases
                                     (get-in env [:namespaces 'user :aliases]))
                      namespaces (-> namespaces
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc 'global-hierarchy
-                                            (vars/new-var 'global-hierarchy (make-hierarchy) 
-                                              {:ns vars/clojure-core-ns})))
+                                            (vars/new-var 'global-hierarchy (make-hierarchy)
+                                                          {:ns vars/clojure-core-ns})))
                      imports (if-let [env-imports (:imports env)]
                                (merge env-imports imports)
                                imports)]
@@ -41,11 +42,13 @@
                    #?(:clj (->Env namespaces imports load-fn)
                       :cljs {:namespaces namespaces
                              :imports imports
-                             :load-fn load-fn})
+                             :load-fn load-fn
+                             :async-load-fn async-load-fn})
                    (assoc env
                           :namespaces namespaces
                           :imports imports
                           :load-fn load-fn
+                          #?@(:cljs [:async-load-fn async-load-fn])
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes))))))
@@ -142,13 +145,15 @@
            :load-fn
            :readers
            :reify-fn
-           :proxy-fn]}]
+           :proxy-fn
+           #?(:cljs :async-load-fn)]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         bindings bindings
         raw-classes (merge default-classes classes)
         classes (normalize-classes raw-classes)
-        _ (init-env! env bindings aliases namespaces classes raw-classes imports load-fn)
+        _ (init-env! env bindings aliases namespaces classes raw-classes imports
+                     load-fn #?(:cljs async-load-fn))
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
@@ -167,11 +172,12 @@
                 :features
                 :load-fn
                 :readers
-                :reify-fn]} opts
+                :reify-fn
+                #?(:cljs :async-load-fn)]} opts
         env (:env ctx)
         raw-classes (merge (:raw-classes @env) classes)
         classes (normalize-classes raw-classes)
-        _ (init-env! env bindings aliases namespaces classes raw-classes imports load-fn)
+        _ (init-env! env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn))
         ctx (assoc (->ctx {} env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
