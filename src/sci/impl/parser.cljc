@@ -13,8 +13,8 @@
 (def ^:const eof :sci.impl.parser.edamame/eof)
 
 (def read-eval
-  (vars/new-var '*read-eval* true {:ns vars/clojure-core-ns
-                                  :dynamic true}))
+  (vars/new-var '*read-eval* false {:ns vars/clojure-core-ns
+                                    :dynamic true}))
 
 (def data-readers
   (vars/new-var '*data-readers* {}
@@ -34,7 +34,6 @@
 (def default-opts
   (edamame/normalize-opts
    {:all true
-    :read-eval false
     :row-key :line
     :col-key :column
     :read-cond :allow

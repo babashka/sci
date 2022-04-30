@@ -60,7 +60,8 @@ form
        (deftest read-eval-test
          (testing "read-eval"
            (is (= [1 2 6]
-                  (sci/eval-string "(with-in-str \"[1 2 #=(+ 1 2 3)]\" (read *in*))"))))
+                  (sci/binding [sci/read-eval true]
+                    (sci/eval-string "(with-in-str \"[1 2 #=(+ 1 2 3)]\" (read *in*))")))))
          (testing "read-eval disabled"
            (is (= "EvalReader not allowed when *read-eval* is false."
                   (sci/eval-string "
@@ -71,7 +72,8 @@ form
        (deftest read-string-test
          (testing "read-eval"
            (is (= [1 2 6]
-                  (sci/eval-string "(read-string \"[1 2 #=(+ 1 2 3)]\")"))))
+                  (sci/binding [sci/read-eval true]
+                    (sci/eval-string "(read-string \"[1 2 #=(+ 1 2 3)]\")")))))
          (testing "eof"
            (is (= :user/eof
                   (sci/eval-string "(read-string {:eof ::eof} \"\")")))))
