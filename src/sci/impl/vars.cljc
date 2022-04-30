@@ -429,10 +429,19 @@
          (finally
            (vars/pop-thread-bindings))))))
 
-(defn alter-var-root [v f & args]
-  #?(:clj
-     (locking v (bindRoot v (apply f (getRawRoot v) args)))
-     :cljs (bindRoot v (apply f (getRawRoot v) args))))
+(defn alter-var-root
+  ([v f]
+   #?(:clj
+      (locking v (bindRoot v (f (getRawRoot v))))
+      :cljs (bindRoot v (f (getRawRoot v)))))
+  ([v f & args]
+   #?(:clj
+      (locking v (bindRoot v (apply f (getRawRoot v) args)))
+      :cljs (bindRoot v (apply f (getRawRoot v) args)))))
+
+(defn set-var-root
+  ([^SciVar v x]
+   (bindRoot v x)))
 
 (defn new-var
   "Returns a new sci var."

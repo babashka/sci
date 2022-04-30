@@ -177,8 +177,15 @@
 (defn alter-var-root
   "Atomically alters the root binding of sci var v by applying f to its
   current value plus any args."
-  [v f & args]
-  (apply vars/alter-var-root v f args))
+  ([v f]
+   (vars/alter-var-root v f))
+  ([v f & args]
+   (apply vars/alter-var-root v f args)))
+
+(defn set-var-root
+  "Sets root of var v to x"
+  [v x]
+  (vars/set-var-root v x))
 
 (defn intern
   "Finds or creates a sci var named by the symbol name in the namespace
