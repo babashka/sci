@@ -34,7 +34,6 @@
 (def default-opts
   (edamame/normalize-opts
    {:all true
-    :read-eval false
     :row-key :line
     :col-key :column
     :read-cond :allow
