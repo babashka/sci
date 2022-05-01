@@ -34,23 +34,24 @@
                        (handle-libspecs ctx ns-obj (rest libspecs))
                        ;; TODO: handle return value
                        (let [handle-opts
-                             (fn []
-                               (swap! env*
-                                      (fn [env]
-                                        (let [namespaces (get env :namespaces)
-                                              the-loaded-ns (get namespaces libname)]
-                                          (load/handle-require-libspec-env ctx env cnn
-                                                                           the-loaded-ns
-                                                                           libname opts)))))]
+                             (fn [res]
+                               (let [libname (or (:libname res) libname)]
+                                 (swap! env*
+                                        (fn [env]
+                                          (let [namespaces (get env :namespaces)
+                                                the-loaded-ns (get namespaces libname)]
+                                            (load/handle-require-libspec-env ctx env cnn
+                                                                             the-loaded-ns
+                                                                             libname opts))))))]
                          (if-let [src (:source res)]
                            (let [curr-ns @last-ns]
                              (.then (eval-string* ctx src)
                                     (fn []
                                       (vreset! last-ns curr-ns)
-                                      (handle-opts)
+                                      (handle-opts res)
                                       (handle-libspecs ctx ns-obj (rest libspecs)))))
                            (do
-                             (handle-opts)
+                             (handle-opts res)
                              (handle-libspecs ctx ns-obj (rest libspecs)))))))))
           (do (apply load/load-lib ctx nil libname opts)
               (handle-libspecs ctx ns-obj (rest libspecs))))))
