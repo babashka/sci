@@ -64,7 +64,7 @@
    (def ^ThreadLocal dvals (proxy [ThreadLocal] []
                              (initialValue [] top-frame)))
    :cljs
-   (def dvals (atom top-frame)))
+   (def dvals (volatile! top-frame)))
 
 (defn get-thread-binding-frame ^Frame []
   #?(:clj (.get dvals)
@@ -84,7 +84,7 @@
 
 (defn reset-thread-binding-frame [frame]
   #?(:clj (.set dvals frame)
-     :cljs (reset! dvals frame)))
+     :cljs (vreset! dvals frame)))
 
 (declare var?)
 
@@ -122,7 +122,7 @@
   (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
     (if (identical? top-frame f)
       #?(:clj (.remove dvals)
-         :cljs (reset! dvals top-frame))
+         :cljs (vreset! dvals top-frame))
       (reset-thread-binding-frame f))
     (throw (new #?(:clj Exception :cljs js/Error) "No frame to pop."))))
 
