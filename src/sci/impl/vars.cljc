@@ -439,10 +439,6 @@
       (locking v (bindRoot v (apply f (getRawRoot v) args)))
       :cljs (bindRoot v (apply f (getRawRoot v) args)))))
 
-(defn set-var-root
-  ([^SciVar v x]
-   (bindRoot v x)))
-
 (defn new-var
   "Returns a new sci var."
   ([name] (doto (new-var name nil nil)

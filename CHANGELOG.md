@@ -2,9 +2,9 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.3.5
 
-- [#711](https://github.com/babashka/sci/issues/711): support *print-dup*
+- [#711](https://github.com/babashka/sci/issues/711): support `*print-dup*`
 - [#712](https://github.com/babashka/sci/issues/712): destructuring in protocol impl not working
 - [#715](https://github.com/babashka/sci/issues/715): allow property access on vars in CLJS
 - Add `->Eduction`
@@ -12,6 +12,11 @@ For a list of breaking changes, check [here](#breaking-changes)
 - add `:name` metadata via helper functions and use metadata for var names
 - Improve error reporting for `let*` and `try`
 - [#714](https://github.com/babashka/sci/issues/714): Improve instance member call parity with Clojure/JVM
+-  Default `*read-eval*` / `sci/read-eval` to false
+- Expose `all-ns` and `find-ns` in `sci/core`
+- Fix for `copy-ns` when var has no metadata
+- Add `add-class` and `add-import` API functions in `sci/core`
+- `sci.async`: EXPERIMENTAL namespace for async evaluation in CLJS
 
 ## v0.3.4
 

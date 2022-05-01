@@ -182,11 +182,6 @@
   ([v f & args]
    (apply vars/alter-var-root v f args)))
 
-(defn set-var-root
-  "Sets root of var v to x"
-  [v x]
-  (vars/set-var-root v x))
-
 (defn intern
   "Finds or creates a sci var named by the symbol name in the namespace
   ns (which can be a symbol or a sci namespace), setting its root
