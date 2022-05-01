@@ -1,7 +1,5 @@
 (ns sci.async
-  (:require [clojure.string :as str]
-            [goog.object :as gobj]
-            [sci.core :as sci]
+  (:require [sci.core :as sci]
             [sci.impl.load :as load]
             [sci.impl.vars]))
 
@@ -66,7 +64,6 @@
         ;; ignore all :require-macros for now
         other-forms (remove #(and (seq? %) (= :require-macros (first %)))
                             other-forms)
-        ;; TODO: there might be a more efficient way
         ns-obj (sci/binding [sci/ns @last-ns]
                  (sci/eval-form ctx (list 'do (list* 'ns ns-name other-forms) '*ns*)))
         _ (vreset! last-ns ns-obj)
