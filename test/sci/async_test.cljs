@@ -29,12 +29,17 @@
          (p/let [ctx (sci/init {:async-load-fn
                                 (fn [{:keys [libname opts ctx ns]}]
                                   {:source "(ns foobar) (defn hello [] :hello)"})})
+                 res (scia/eval-string* ctx "(str *ns*)")
+                 _ (is (= "user" res))
                  code (str/join
                        "\n"
                        (map pr-str '[(ns dude (:require [foobar :as my-lib]))
-                                     (my-lib/hello)]))
-                 res (scia/eval-string* ctx code)]
-           (is (= :hello res))
+                                     [(my-lib/hello) (str *ns*)]]))
+                 res (scia/eval-string* ctx code)
+                 _ (is (= [:hello "dude"] res))
+                 res (scia/eval-string* ctx "(str *ns*)")
+                 _ (is (= "user" res))
+                 ]
            (done))))
 
 (deftest async-eval-string-cljs-source-lib-error-test

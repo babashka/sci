@@ -73,20 +73,35 @@
         libspecs (mapcat rest require-forms)]
     (handle-libspecs ctx ns-obj libspecs)))
 
+(defn eval-sync [ctx init pending]
+  (sci/binding [sci/ns @last-ns]
+    (loop [exprs (seq pending)
+           ret init]
+      (if exprs
+        (let [form (first exprs)]
+          (recur (next exprs)
+                 (sci/eval-form ctx form)))
+        ret))))
+
 (defn eval-string* [ctx s]
   (let [rdr (sci/reader s)
-        eval-next (fn eval-next [res]
-                    (let [form<> (.then (js/Promise.resolve res) #(sci/parse-next ctx rdr))]
+        _ (vreset! last-ns @sci/ns)
+        eval-next (fn eval-next [async-res pending]
+                    (let [form<> (.then (js/Promise.resolve async-res) #(sci/parse-next ctx rdr))]
                       (.then form<>
                              (fn [form]
                                (if (= :sci.core/eof form)
-                                 (js/Promise.resolve res)
+                                 (.then async-res (fn [init]
+                                                    (eval-sync ctx init pending)))
                                  (if (seq? form)
                                    (if (= 'ns (first form))
-                                     (eval-next (eval-ns-form ctx form))
+                                     (eval-next (.then (js/Promise.resolve (eval-sync ctx nil pending))
+                                                       (fn [_]
+                                                         (eval-ns-form ctx form))) [])
                                      (sci/binding [sci/ns @last-ns]
                                        (eval-next
-                                        (js/Promise.resolve (sci/eval-form ctx form)))))
+                                        async-res
+                                        (conj pending form))))
                                    (sci/binding [sci/ns @last-ns]
-                                     (eval-next (js/Promise.resolve (sci/eval-form ctx form))))))))))]
-    (eval-next nil)))
+                                     (eval-next async-res (conj pending form)))))))))]
+    (eval-next (js/Promise.resolve nil) [])))
