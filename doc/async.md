@@ -42,4 +42,5 @@ practise the library could come in via an asynchronous HTTP Request, etc. but
 here we just simulate it by returning a promise with JavaScript object that has
 one function, `libfn`. In the async load fn, we check if the library was
 required and then register it as a class in the context and as an import in the
-current namespace.
+current namespace. The `:handled true` return value indicates that SCI will not
+do anything with aliases, as the `async-load-fn` has handled this already.
