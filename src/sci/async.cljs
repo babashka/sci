@@ -1,5 +1,7 @@
 (ns sci.async
-  (:require [sci.core :as sci]
+  (:require [clojure.string :as str]
+            [goog.object :as gobj]
+            [sci.core :as sci]
             [sci.impl.load :as load]
             [sci.impl.vars]))
 
@@ -64,41 +66,26 @@
         ;; ignore all :require-macros for now
         other-forms (remove #(and (seq? %) (= :require-macros (first %)))
                             other-forms)
+        ;; TODO: there might be a more efficient way
         ns-obj (sci/binding [sci/ns @last-ns]
                  (sci/eval-form ctx (list 'do (list* 'ns ns-name other-forms) '*ns*)))
         _ (vreset! last-ns ns-obj)
         libspecs (mapcat rest require-forms)]
     (handle-libspecs ctx ns-obj libspecs)))
 
-(defn eval-sync [ctx init pending]
-  (sci/binding [sci/ns @last-ns]
-    (loop [exprs (seq pending)
-           ret init]
-      (if exprs
-        (let [form (first exprs)]
-          (recur (next exprs)
-                 (sci/eval-form ctx form)))
-        ret))))
-
 (defn eval-string* [ctx s]
   (let [rdr (sci/reader s)
         _ (vreset! last-ns @sci/ns)
-        eval-next (fn eval-next [async-res pending]
-                    (let [form<> (.then (js/Promise.resolve async-res) #(sci/parse-next ctx rdr))]
-                      (.then form<>
-                             (fn [form]
-                               (if (= :sci.core/eof form)
-                                 (.then async-res (fn [init]
-                                                    (eval-sync ctx init pending)))
-                                 (if (seq? form)
-                                   (if (= 'ns (first form))
-                                     (eval-next (.then (js/Promise.resolve (eval-sync ctx nil pending))
-                                                       (fn [_]
-                                                         (eval-ns-form ctx form))) [])
-                                     (sci/binding [sci/ns @last-ns]
-                                       (eval-next
-                                        async-res
-                                        (conj pending form))))
-                                   (sci/binding [sci/ns @last-ns]
-                                     (eval-next async-res (conj pending form)))))))))]
-    (eval-next (js/Promise.resolve nil) [])))
+        eval-next (fn eval-next [res]
+                    (.then (js/Promise.resolve res)
+                           #(sci/binding [sci/ns @last-ns]
+                              (let [form (sci/parse-next ctx rdr)]
+                                (if (= :sci.core/eof form)
+                                  (js/Promise.resolve res)
+                                  (if (seq? form)
+                                    (if (= 'ns (first form))
+                                      (eval-next (eval-ns-form ctx form))
+                                      (eval-next
+                                       (js/Promise.resolve (sci/eval-form ctx form))))
+                                    (eval-next (js/Promise.resolve (sci/eval-form ctx form)))))))))]
+    (eval-next nil)))

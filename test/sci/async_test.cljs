@@ -55,3 +55,11 @@
              (p/catch (fn [err]
                         (is (= "Not found" (.-message err)))
                         (done))))))
+
+(deftest async-eval-string-reader-order-dependency-test
+  (async done
+         (p/let [ctx (sci/init {})
+                 code "(ns foo) (def x) (defn foo [] `x) (foo)"
+                 res (scia/eval-string* ctx code)]
+           (is (= 'foo/x res))
+           (done))))
