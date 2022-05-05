@@ -18,5 +18,5 @@
                     :task (shell "plk -A:test -K -m sci.test-runner")}
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
-            :task (api/quickdoc {:git/branch "main"
-                                 :github/repo "https://github.com/babashka/process"})}}}
+            :task (api/quickdoc {:git/branch "master"
+                                 :github/repo "https://github.com/babashka/sci"})}}}
