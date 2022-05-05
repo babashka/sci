@@ -13,23 +13,6 @@
 ### `last-ns`
 
 [Source](https://github.com/babashka/process/blob/main/src/sci/async.cljs#L10-L10)
-## sci.impl.test
-### `Foo`
-<code>[]</code><br>
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/impl/test.cljc#L31-L32)
-### `Foo`
-<code>[]</code><br>
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/impl/test.cljc#L31-L32)
-### `foo`
-<code>[]</code><br>
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/impl/test.cljc#L28-L29)
-### `foo`
-<code>[]</code><br>
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/impl/test.cljc#L28-L29)
 ## sci.core
 ### `*1`
 
