@@ -394,7 +394,3 @@ Evaluates exprs in a context in which sci's *out* is bound to a fresh
   calls.
 
 [Source](https://github.com/babashka/process/blob/main/src/sci/core.cljc#L132-L148)
-## sci.lang
-### `IVar`
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/lang.cljc#L4-L4)
