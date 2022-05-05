@@ -1,14 +1,3 @@
-## sci.async
-### `eval-string*`
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/async.cljs#L8-L8)
-### `handle-libspecs`
-<code>[ctx ns-obj libspecs]</code><br>
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/async.cljs#L12-L58)
-### `last-ns`
-
-[Source](https://github.com/babashka/process/blob/main/src/sci/async.cljs#L10-L10)
 ## sci.core
 ### `*1`
 
