@@ -1,4 +1,9 @@
-{:tasks
+{:pods {clj-kondo/clj-kondo {:version "2022.02.09"}}
+ :deps {io.github.borkdude/quickdoc
+        #_{:local/root "/Users/borkdude/dev/quickdoc"}
+        {:git/sha "f5eb985486dd2a6b624fddb41527b49ee25d54a7"}}
+
+ :tasks
  {test:jvm  {:doc "Run CLJ tests with leiningen"
              :task (shell "script/test/jvm")}
 
@@ -13,4 +18,7 @@
 
   test:self-hosted {:doc "Run CLJS test with self-hosted"
                     :task (shell "plk -A:test -K -m sci.test-runner")}
-  }}
+  quickdoc {:doc "Invoke quickdoc"
+            :requires ([quickdoc.api :as api])
+            :task (api/quickdoc {:git/branch "master"
+                                 :github/repo "https://github.com/babashka/sci"})}}}

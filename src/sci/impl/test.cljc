@@ -1,4 +1,5 @@
 (ns sci.impl.test
+  {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    [clojure.string :as str]
