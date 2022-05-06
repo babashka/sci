@@ -45,7 +45,6 @@
 </details>
 
 
-<hr>
 <details>
 
 
@@ -917,4 +916,3 @@ Evaluates exprs in a context in which sci's *out* is bound to a fresh
 </details>
 
 
-<hr>
