@@ -1,5 +1,4 @@
 (ns sci.async
-  {:no-doc true}
   (:require [clojure.string :as str]
             [goog.object :as gobj]
             [sci.core :as sci]
