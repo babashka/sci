@@ -17,31 +17,6 @@
 </details>
 
 
-<details>
-
-
-<summary><code>handle-libspecs</code> </summary>
-
-
-### `handle-libspecs`
-> <code>[ctx ns-obj libspecs]</code><br>
-
-[Source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L12-L58)
-</details>
-
-
-<details>
-
-
-<summary><code>last-ns</code> </summary>
-
-
-### `last-ns`
-
-[Source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L10-L10)
-</details>
-
-
 </details>
 
 

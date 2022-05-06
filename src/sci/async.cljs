@@ -7,9 +7,9 @@
 
 (declare eval-string*)
 
-(def last-ns (volatile! @sci/ns))
+(def ^:private last-ns (volatile! @sci/ns))
 
-(defn handle-libspecs [ctx ns-obj libspecs]
+(defn- handle-libspecs [ctx ns-obj libspecs]
   (if (seq libspecs)
     (let [fst (first libspecs)
           [libname & opts] (if (symbol? fst)
