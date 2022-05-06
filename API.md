@@ -1,7 +1,7 @@
 <details>
 
 
-<summary> sci.core </summary>
+<summary><code> sci.core </code></summary>
 
 
 ## sci.core
