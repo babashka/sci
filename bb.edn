@@ -22,4 +22,5 @@
             :requires ([quickdoc.api :as api])
             :task (api/quickdoc {:git/branch "master"
                                  :github/repo "https://github.com/babashka/sci"
+                                 :collapse-nss true
                                  :collapse-vars true})}}}

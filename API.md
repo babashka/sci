@@ -1,3 +1,9 @@
+<details>
+
+
+<summary><code> sci.core </code></summary>
+
+
 ## sci.core
 <details>
 
