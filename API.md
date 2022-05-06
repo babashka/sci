@@ -8,7 +8,7 @@
 <details>
 
 
-<summary> *1 </summary>
+<summary><code> *1 </code></summary>
 
 
 ### `*1`
@@ -20,7 +20,7 @@
 <details>
 
 
-<summary> *2 </summary>
+<summary><code> *2 </code></summary>
 
 
 ### `*2`
@@ -32,7 +32,7 @@
 <details>
 
 
-<summary> *3 </summary>
+<summary><code> *3 </code></summary>
 
 
 ### `*3`
@@ -44,7 +44,7 @@
 <details>
 
 
-<summary> *e </summary>
+<summary><code> *e </code></summary>
 
 
 ### `*e`
@@ -56,7 +56,7 @@
 <details>
 
 
-<summary> add-class! </summary>
+<summary><code> add-class! </code></summary>
 
 
 ### `add-class!`
@@ -72,7 +72,7 @@ Adds class (JVM class or JS object) to `ctx` as `class-name` (a
 <details>
 
 
-<summary> add-import! </summary>
+<summary><code> add-import! </code></summary>
 
 
 ### `add-import!`
@@ -87,7 +87,7 @@ Adds import of class named by `class-name` (a symbol) to namespace named by `ns-
 <details>
 
 
-<summary> all-ns </summary>
+<summary><code> all-ns </code></summary>
 
 
 ### `all-ns`
@@ -102,7 +102,7 @@ Returns all SCI ns objects in the `ctx`
 <details>
 
 
-<summary> alter-var-root </summary>
+<summary><code> alter-var-root </code></summary>
 
 
 ### `alter-var-root`
@@ -119,7 +119,7 @@ Atomically alters the root binding of sci var v by applying f to its
 <details>
 
 
-<summary> assert </summary>
+<summary><code> assert </code></summary>
 
 
 ### `assert`
@@ -133,7 +133,7 @@ SCI var that represents SCI's clojure.core/*assert*
 <details>
 
 
-<summary> binding </summary>
+<summary><code> binding </code></summary>
 
 
 ### `binding`
@@ -152,7 +152,7 @@ Macro for binding sci vars. Must be called with a vector of sci
 <details>
 
 
-<summary> cljs-ns-publics </summary>
+<summary><code> cljs-ns-publics </code></summary>
 
 
 ### `cljs-ns-publics`
@@ -164,7 +164,7 @@ Macro for binding sci vars. Must be called with a vector of sci
 <details>
 
 
-<summary> copy-ns </summary>
+<summary><code> copy-ns </code></summary>
 
 
 ### `copy-ns`
@@ -203,7 +203,7 @@ Returns map of names to SCI vars as a result of copying public
 <details>
 
 
-<summary> copy-var </summary>
+<summary><code> copy-var </code></summary>
 
 
 ### `copy-var`
@@ -224,7 +224,7 @@ Copies contents from var `sym` to a new sci var. The value `ns` is an
 <details>
 
 
-<summary> create-ns </summary>
+<summary><code> create-ns </code></summary>
 
 
 ### `create-ns`
@@ -240,7 +240,7 @@ Creates namespace object. Can be used in var metadata.
 <details>
 
 
-<summary> err </summary>
+<summary><code> err </code></summary>
 
 
 ### `err`
@@ -254,7 +254,7 @@ SCI var that represents SCI's `clojure.core/*err*`
 <details>
 
 
-<summary> eval-form </summary>
+<summary><code> eval-form </code></summary>
 
 
 ### `eval-form`
@@ -272,7 +272,7 @@ Evaluates form (as produced by `parse-string` or `parse-next`) in the
 <details>
 
 
-<summary> eval-string </summary>
+<summary><code> eval-string </code></summary>
 
 
 ### `eval-string`
@@ -309,7 +309,7 @@ Evaluates string `s` as one or multiple Clojure expressions using the Small Cloj
 <details>
 
 
-<summary> eval-string* </summary>
+<summary><code> eval-string* </code></summary>
 
 
 ### `eval-string*`
@@ -325,7 +325,7 @@ Evaluates string `s` in the context of `ctx` (as produced with
 <details>
 
 
-<summary> file </summary>
+<summary><code> file </code></summary>
 
 
 ### `file`
@@ -339,7 +339,7 @@ SCI var that represents SCI's `clojure.core/*file*`
 <details>
 
 
-<summary> find-ns </summary>
+<summary><code> find-ns </code></summary>
 
 
 ### `find-ns`
@@ -354,7 +354,7 @@ Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sy
 <details>
 
 
-<summary> fork </summary>
+<summary><code> fork </code></summary>
 
 
 ### `fork`
@@ -371,7 +371,7 @@ Forks a context (as produced with `init`) into a new context. Any new
 <details>
 
 
-<summary> format-stacktrace </summary>
+<summary><code> format-stacktrace </code></summary>
 
 
 ### `format-stacktrace`
@@ -386,7 +386,7 @@ Returns a list of formatted stack trace elements as strings from stacktrace.
 <details>
 
 
-<summary> future </summary>
+<summary><code> future </code></summary>
 
 
 ### `future`
@@ -404,7 +404,7 @@ Like clojure.core/future but also conveys sci bindings to the thread.
 <details>
 
 
-<summary> get-column-number </summary>
+<summary><code> get-column-number </code></summary>
 
 
 ### `get-column-number`
@@ -417,7 +417,7 @@ Like clojure.core/future but also conveys sci bindings to the thread.
 <details>
 
 
-<summary> get-line-number </summary>
+<summary><code> get-line-number </code></summary>
 
 
 ### `get-line-number`
@@ -430,7 +430,7 @@ Like clojure.core/future but also conveys sci bindings to the thread.
 <details>
 
 
-<summary> in </summary>
+<summary><code> in </code></summary>
 
 
 ### `in`
@@ -444,7 +444,7 @@ SCI var that represents SCI's `clojure.core/*in*`
 <details>
 
 
-<summary> init </summary>
+<summary><code> init </code></summary>
 
 
 ### `init`
@@ -462,7 +462,7 @@ Creates an initial sci context from given options `opts`. The context
 <details>
 
 
-<summary> intern </summary>
+<summary><code> intern </code></summary>
 
 
 ### `intern`
@@ -482,7 +482,7 @@ Finds or creates a sci var named by the symbol name in the namespace
 <details>
 
 
-<summary> merge-opts </summary>
+<summary><code> merge-opts </code></summary>
 
 
 ### `merge-opts`
@@ -497,7 +497,7 @@ Updates a context with opts merged in and returns it.
 <details>
 
 
-<summary> new-dynamic-var </summary>
+<summary><code> new-dynamic-var </code></summary>
 
 
 ### `new-dynamic-var`
@@ -514,7 +514,7 @@ Same as new-var but adds :dynamic true to meta.
 <details>
 
 
-<summary> new-macro-var </summary>
+<summary><code> new-macro-var </code></summary>
 
 
 ### `new-macro-var`
@@ -531,7 +531,7 @@ Same as new-var but adds :macro true to meta as well
 <details>
 
 
-<summary> new-var </summary>
+<summary><code> new-var </code></summary>
 
 
 ### `new-var`
@@ -548,7 +548,7 @@ Returns a new sci var.
 <details>
 
 
-<summary> ns </summary>
+<summary><code> ns </code></summary>
 
 
 ### `ns`
@@ -562,7 +562,7 @@ SCI var that represents SCI's `clojure.core/*ns*`
 <details>
 
 
-<summary> ns-name </summary>
+<summary><code> ns-name </code></summary>
 
 
 ### `ns-name`
@@ -577,7 +577,7 @@ Returns name of SCI ns as symbol.
 <details>
 
 
-<summary> out </summary>
+<summary><code> out </code></summary>
 
 
 ### `out`
@@ -591,7 +591,7 @@ SCI var that represents SCI's `clojure.core/*out*`
 <details>
 
 
-<summary> parse-next </summary>
+<summary><code> parse-next </code></summary>
 
 
 ### `parse-next`
@@ -607,7 +607,7 @@ Parses next form from reader
 <details>
 
 
-<summary> parse-string </summary>
+<summary><code> parse-string </code></summary>
 
 
 ### `parse-string`
@@ -623,7 +623,7 @@ Parses string `s` in the context of `ctx` (as produced with
 <details>
 
 
-<summary> pmap </summary>
+<summary><code> pmap </code></summary>
 
 
 ### `pmap`
@@ -639,7 +639,7 @@ Like clojure.core/pmap but also conveys sci bindings to the threads.
 <details>
 
 
-<summary> print-dup </summary>
+<summary><code> print-dup </code></summary>
 
 
 ### `print-dup`
@@ -653,7 +653,7 @@ SCI var that represents SCI's `clojure.core/*print-dup*`
 <details>
 
 
-<summary> print-err-fn </summary>
+<summary><code> print-err-fn </code></summary>
 
 
 ### `print-err-fn`
@@ -667,7 +667,7 @@ SCI var that represents SCI's `cljs.core/*print-err-fn*`
 <details>
 
 
-<summary> print-fn </summary>
+<summary><code> print-fn </code></summary>
 
 
 ### `print-fn`
@@ -681,7 +681,7 @@ SCI var that represents SCI's `cljs.core/*print-fn*`
 <details>
 
 
-<summary> print-length </summary>
+<summary><code> print-length </code></summary>
 
 
 ### `print-length`
@@ -695,7 +695,7 @@ SCI var that represents SCI's `clojure.core/*print-length*`
 <details>
 
 
-<summary> print-level </summary>
+<summary><code> print-level </code></summary>
 
 
 ### `print-level`
@@ -709,7 +709,7 @@ SCI var that represents SCI's `clojure.core/*print-level*`
 <details>
 
 
-<summary> print-meta </summary>
+<summary><code> print-meta </code></summary>
 
 
 ### `print-meta`
@@ -723,7 +723,7 @@ SCI var that represents SCI's `clojure.core/*print-meta*`
 <details>
 
 
-<summary> print-newline </summary>
+<summary><code> print-newline </code></summary>
 
 
 ### `print-newline`
@@ -737,7 +737,7 @@ SCI var that represents SCI's `cljs.core/*print-newline*`
 <details>
 
 
-<summary> print-readably </summary>
+<summary><code> print-readably </code></summary>
 
 
 ### `print-readably`
@@ -751,7 +751,7 @@ SCI var that represents SCI's `clojure.core/*print-readably*`
 <details>
 
 
-<summary> read-eval </summary>
+<summary><code> read-eval </code></summary>
 
 
 ### `read-eval`
@@ -765,7 +765,7 @@ SCI var that represents SCI's `clojure.core/*read-eval*`
 <details>
 
 
-<summary> reader </summary>
+<summary><code> reader </code></summary>
 
 
 ### `reader`
@@ -781,7 +781,7 @@ Coerces x into indexing pushback-reader to be used with
 <details>
 
 
-<summary> set! </summary>
+<summary><code> set! </code></summary>
 
 
 ### `set!`
@@ -796,7 +796,7 @@ Establish thread local binding of dynamic var
 <details>
 
 
-<summary> stacktrace </summary>
+<summary><code> stacktrace </code></summary>
 
 
 ### `stacktrace`
@@ -811,7 +811,7 @@ Returns list of stacktrace element maps from exception, if available.
 <details>
 
 
-<summary> with-bindings </summary>
+<summary><code> with-bindings </code></summary>
 
 
 ### `with-bindings`
@@ -830,7 +830,7 @@ Macro for binding sci vars. Must be called with map of sci dynamic
 <details>
 
 
-<summary> with-in-str </summary>
+<summary><code> with-in-str </code></summary>
 
 
 ### `with-in-str`
@@ -849,7 +849,7 @@ Evaluates body in a context in which sci's *in* is bound to a fresh
 <details>
 
 
-<summary> with-out-str </summary>
+<summary><code> with-out-str </code></summary>
 
 
 ### `with-out-str`
