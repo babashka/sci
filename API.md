@@ -1,6 +1,9 @@
 <details>
 
 
+<summary> sci.core </summary>
+
+
 ## sci.core
 <details>
 
