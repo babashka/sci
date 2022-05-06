@@ -21,4 +21,5 @@
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
             :task (api/quickdoc {:git/branch "master"
-                                 :github/repo "https://github.com/babashka/sci"})}}}
+                                 :github/repo "https://github.com/babashka/sci"
+                                 :collapse-vars true})}}}
