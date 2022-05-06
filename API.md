@@ -79,7 +79,7 @@
 <details>
 
 
-<summary><code>add-class!</code> - Adds class (JVM class or JS object) to <i>ctx` as `class-name</i> (a </summary>
+<summary><code>add-class!</code> - Adds class (JVM class or JS object) to <i>ctx</i> as <i>class-name</i> (a </summary>
 
 
 ### `add-class!`
@@ -95,7 +95,7 @@ Adds class (JVM class or JS object) to `ctx` as `class-name` (a
 <details>
 
 
-<summary><code>add-import!</code> - Adds import of class named by <i>class-name` (a symbol) to namespace named by </i>ns- </summary>
+<summary><code>add-import!</code> - Adds import of class named by <i>class-name</i> (a symbol) to namespace named by `ns- </summary>
 
 
 ### `add-import!`
@@ -277,7 +277,7 @@ SCI var that represents SCI's `clojure.core/*err*`
 <details>
 
 
-<summary><code>eval-form</code> - Evaluates form (as produced by <i>parse-string` or `parse-next</i>) in the </summary>
+<summary><code>eval-form</code> - Evaluates form (as produced by <i>parse-string</i> or <i>parse-next</i>) in the </summary>
 
 
 ### `eval-form`
@@ -332,7 +332,7 @@ Evaluates string `s` as one or multiple Clojure expressions using the Small Cloj
 <details>
 
 
-<summary><code>eval-string*</code> - Evaluates string <i>s` in the context of `ctx</i> (as produced with </summary>
+<summary><code>eval-string*</code> - Evaluates string <i>s</i> in the context of <i>ctx</i> (as produced with </summary>
 
 
 ### `eval-string*`
@@ -362,7 +362,7 @@ SCI var that represents SCI's `clojure.core/*file*`
 <details>
 
 
-<summary><code>find-ns</code> - Returns SCI ns object as created with <i>sci/create-ns` from `ctx` found by </i>ns-sy </summary>
+<summary><code>find-ns</code> - Returns SCI ns object as created with <i>sci/create-ns</i> from <i>ctx</i> found by `ns-sy </summary>
 
 
 ### `find-ns`
@@ -630,7 +630,7 @@ Parses next form from reader
 <details>
 
 
-<summary><code>parse-string</code> - Parses string <i>s` in the context of `ctx</i> (as produced with </summary>
+<summary><code>parse-string</code> - Parses string <i>s</i> in the context of <i>ctx</i> (as produced with </summary>
 
 
 ### `parse-string`
