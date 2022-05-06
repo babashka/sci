@@ -79,7 +79,7 @@
 <details>
 
 
-<summary><code>add-class!</code> - Adds class (JVM class or JS object) to <i>tx</i>as <i>lass-name</i>(a </summary>
+<summary><code>add-class!</code> - Adds class (JVM class or JS object) to `c<i>tx` </i>as `c<i>lass-name` </i>(a </summary>
 
 
 ### `add-class!`
@@ -95,7 +95,7 @@ Adds class (JVM class or JS object) to `ctx` as `class-name` (a
 <details>
 
 
-<summary><code>add-import!</code> - Adds import of class named by <i>lass-name</i>(a symbol) to namespace named by <i>s- </summary>
+<summary><code>add-import!</code> - Adds import of class named by `c<i>lass-name` </i>(a symbol) to namespace named by `n<i>s- </summary>
 
 
 ### `add-import!`
@@ -110,7 +110,7 @@ Adds import of class named by `class-name` (a symbol) to namespace named by `ns-
 <details>
 
 
-<summary><code>all-ns</code> - Returns all SCI ns objects in the <i>tx` </summary>
+<summary><code>all-ns</code> - Returns all SCI ns objects in the `c<i>tx` </summary>
 
 
 ### `all-ns`
@@ -226,7 +226,7 @@ Returns map of names to SCI vars as a result of copying public
 <details>
 
 
-<summary><code>copy-var</code> - Copies contents from var <i>ym</i>to a new sci var </summary>
+<summary><code>copy-var</code> - Copies contents from var `s<i>ym` </i>to a new sci var </summary>
 
 
 ### `copy-var`
@@ -263,7 +263,7 @@ Creates namespace object. Can be used in var metadata.
 <details>
 
 
-<summary><code>err</code> - SCI var that represents SCI's <i>lojure.core/*err*` </summary>
+<summary><code>err</code> - SCI var that represents SCI's `c<i>lojure.core/*err*` </summary>
 
 
 ### `err`
@@ -277,7 +277,7 @@ SCI var that represents SCI's `clojure.core/*err*`
 <details>
 
 
-<summary><code>eval-form</code> - Evaluates form (as produced by <i>arse-string</i>or <i>arse-next</i> in the </summary>
+<summary><code>eval-form</code> - Evaluates form (as produced by `p<i>arse-string` </i>or `p<i>arse-next`)</i> in the </summary>
 
 
 ### `eval-form`
@@ -295,7 +295,7 @@ Evaluates form (as produced by `parse-string` or `parse-next`) in the
 <details>
 
 
-<summary><code>eval-string</code> - Evaluates string <i></i>as one or multiple Clojure expressions using the Small Cloj </summary>
+<summary><code>eval-string</code> - Evaluates string `s<i>` </i>as one or multiple Clojure expressions using the Small Cloj </summary>
 
 
 ### `eval-string`
@@ -332,7 +332,7 @@ Evaluates string `s` as one or multiple Clojure expressions using the Small Cloj
 <details>
 
 
-<summary><code>eval-string*</code> - Evaluates string <i></i>in the context of <i>tx</i>(as produced with </summary>
+<summary><code>eval-string*</code> - Evaluates string `s<i>` </i>in the context of `c<i>tx` </i>(as produced with </summary>
 
 
 ### `eval-string*`
@@ -348,7 +348,7 @@ Evaluates string `s` in the context of `ctx` (as produced with
 <details>
 
 
-<summary><code>file</code> - SCI var that represents SCI's <i>lojure.core/*file*` </summary>
+<summary><code>file</code> - SCI var that represents SCI's `c<i>lojure.core/*file*` </summary>
 
 
 ### `file`
@@ -362,7 +362,7 @@ SCI var that represents SCI's `clojure.core/*file*`
 <details>
 
 
-<summary><code>find-ns</code> - Returns SCI ns object as created with <i>ci/create-ns</i>from <i>tx</i>found by <i>s-sy </summary>
+<summary><code>find-ns</code> - Returns SCI ns object as created with `s<i>ci/create-ns` </i>from `c<i>tx` </i>found by `n<i>s-sy </summary>
 
 
 ### `find-ns`
@@ -377,7 +377,7 @@ Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sy
 <details>
 
 
-<summary><code>fork</code> - Forks a context (as produced with <i>nit</i> into a new context </summary>
+<summary><code>fork</code> - Forks a context (as produced with `i<i>nit`)</i> into a new context </summary>
 
 
 ### `fork`
@@ -453,7 +453,7 @@ Like clojure.core/future but also conveys sci bindings to the thread.
 <details>
 
 
-<summary><code>in</code> - SCI var that represents SCI's <i>lojure.core/*in*` </summary>
+<summary><code>in</code> - SCI var that represents SCI's `c<i>lojure.core/*in*` </summary>
 
 
 ### `in`
@@ -467,7 +467,7 @@ SCI var that represents SCI's `clojure.core/*in*`
 <details>
 
 
-<summary><code>init</code> - Creates an initial sci context from given options <i>pts` </summary>
+<summary><code>init</code> - Creates an initial sci context from given options `o<i>pts` </summary>
 
 
 ### `init`
@@ -571,7 +571,7 @@ Returns a new sci var.
 <details>
 
 
-<summary><code>ns</code> - SCI var that represents SCI's <i>lojure.core/*ns*` </summary>
+<summary><code>ns</code> - SCI var that represents SCI's `c<i>lojure.core/*ns*` </summary>
 
 
 ### `ns`
@@ -600,7 +600,7 @@ Returns name of SCI ns as symbol.
 <details>
 
 
-<summary><code>out</code> - SCI var that represents SCI's <i>lojure.core/*out*` </summary>
+<summary><code>out</code> - SCI var that represents SCI's `c<i>lojure.core/*out*` </summary>
 
 
 ### `out`
@@ -630,7 +630,7 @@ Parses next form from reader
 <details>
 
 
-<summary><code>parse-string</code> - Parses string <i></i>in the context of <i>tx</i>(as produced with </summary>
+<summary><code>parse-string</code> - Parses string `s<i>` </i>in the context of `c<i>tx` </i>(as produced with </summary>
 
 
 ### `parse-string`
@@ -662,7 +662,7 @@ Like clojure.core/pmap but also conveys sci bindings to the threads.
 <details>
 
 
-<summary><code>print-dup</code> - SCI var that represents SCI's <i>lojure.core/*print-dup*` </summary>
+<summary><code>print-dup</code> - SCI var that represents SCI's `c<i>lojure.core/*print-dup*` </summary>
 
 
 ### `print-dup`
@@ -676,7 +676,7 @@ SCI var that represents SCI's `clojure.core/*print-dup*`
 <details>
 
 
-<summary><code>print-err-fn</code> - SCI var that represents SCI's <i>ljs.core/*print-err-fn*` </summary>
+<summary><code>print-err-fn</code> - SCI var that represents SCI's `c<i>ljs.core/*print-err-fn*` </summary>
 
 
 ### `print-err-fn`
@@ -690,7 +690,7 @@ SCI var that represents SCI's `cljs.core/*print-err-fn*`
 <details>
 
 
-<summary><code>print-fn</code> - SCI var that represents SCI's <i>ljs.core/*print-fn*` </summary>
+<summary><code>print-fn</code> - SCI var that represents SCI's `c<i>ljs.core/*print-fn*` </summary>
 
 
 ### `print-fn`
@@ -704,7 +704,7 @@ SCI var that represents SCI's `cljs.core/*print-fn*`
 <details>
 
 
-<summary><code>print-length</code> - SCI var that represents SCI's <i>lojure.core/*print-length*` </summary>
+<summary><code>print-length</code> - SCI var that represents SCI's `c<i>lojure.core/*print-length*` </summary>
 
 
 ### `print-length`
@@ -718,7 +718,7 @@ SCI var that represents SCI's `clojure.core/*print-length*`
 <details>
 
 
-<summary><code>print-level</code> - SCI var that represents SCI's <i>lojure.core/*print-level*` </summary>
+<summary><code>print-level</code> - SCI var that represents SCI's `c<i>lojure.core/*print-level*` </summary>
 
 
 ### `print-level`
@@ -732,7 +732,7 @@ SCI var that represents SCI's `clojure.core/*print-level*`
 <details>
 
 
-<summary><code>print-meta</code> - SCI var that represents SCI's <i>lojure.core/*print-meta*` </summary>
+<summary><code>print-meta</code> - SCI var that represents SCI's `c<i>lojure.core/*print-meta*` </summary>
 
 
 ### `print-meta`
@@ -746,7 +746,7 @@ SCI var that represents SCI's `clojure.core/*print-meta*`
 <details>
 
 
-<summary><code>print-newline</code> - SCI var that represents SCI's <i>ljs.core/*print-newline*` </summary>
+<summary><code>print-newline</code> - SCI var that represents SCI's `c<i>ljs.core/*print-newline*` </summary>
 
 
 ### `print-newline`
@@ -760,7 +760,7 @@ SCI var that represents SCI's `cljs.core/*print-newline*`
 <details>
 
 
-<summary><code>print-readably</code> - SCI var that represents SCI's <i>lojure.core/*print-readably*` </summary>
+<summary><code>print-readably</code> - SCI var that represents SCI's `c<i>lojure.core/*print-readably*` </summary>
 
 
 ### `print-readably`
@@ -774,7 +774,7 @@ SCI var that represents SCI's `clojure.core/*print-readably*`
 <details>
 
 
-<summary><code>read-eval</code> - SCI var that represents SCI's <i>lojure.core/*read-eval*` </summary>
+<summary><code>read-eval</code> - SCI var that represents SCI's `c<i>lojure.core/*read-eval*` </summary>
 
 
 ### `read-eval`
