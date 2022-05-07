@@ -1,9 +1,11 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  - push
+  - pull_request
 
+# TODO: Add the deploy if needed
 jobs:
-
   test-jvm:
     runs-on: ubuntu-latest
     steps:
@@ -11,18 +13,20 @@ jobs:
         with:
           fetch_depth: 0
 
-      - name: Setup Babashka
-        uses: turtlequeue/setup-babashka@v1.3.0
+      - name: Install clojure tools
+        uses: DeLaGuardo/setup-clojure@5.0
         with:
-          babashka-version: 0.8.0
+          cli: 1.10.1.763
+          lein: 2.9.3
+          bb: 0.8.2
 
       - name: Prepare java
         uses: actions/setup-java@v2
         with:
-          distribution: 'zulu'
-          java-version: '8'
+          distribution: 'adopt-hotspot'
+          java-version: '11'
 
-      - name: Run clj tests
+      - name: Run JVM tests
         run: bb test:jvm
 
   test-node:
@@ -32,41 +36,44 @@ jobs:
         with:
           fetch_depth: 0
 
-      - name: Setup Babashka
-        uses: turtlequeue/setup-babashka@v1.3.0
-        with:
-          babashka-version: 0.8.0
-
       - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@4.0
+        uses: DeLaGuardo/setup-clojure@5.0
         with:
-          cli: latest
+          cli: 1.10.1.763
+          lein: 2.9.3
+          bb: 0.8.2
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14
 
       - name: Prepare java
         uses: actions/setup-java@v2
         with:
-          distribution: 'zulu'
-          java-version: '8'
+          distribution: 'adopt-hotspot'
+          java-version: '11'
 
       - name: Run node tests
         run: bb test:node
 
   test-native:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
         with:
           fetch_depth: 0
 
-      - name: Setup Babashka
-        uses: turtlequeue/setup-babashka@v1.3.0
-        with:
-          babashka-version: 0.8.0
-
       - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@4.0
+        uses: DeLaGuardo/setup-clojure@5.0
         with:
-          cli: latest
+          cli: 1.10.1.763
+          lein: 2.9.3
+          bb: 0.8.2
 
       - uses: graalvm/setup-graalvm@v1
         with:
@@ -85,15 +92,12 @@ jobs:
         with:
           fetch_depth: 0
 
-      - name: Setup Babashka
-        uses: turtlequeue/setup-babashka@v1.3.0
-        with:
-          babashka-version: 0.8.0
-
       - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@4.0
+        uses: DeLaGuardo/setup-clojure@5.0
         with:
-          cli: latest
+          cli: 1.10.1.763
+          lein: 2.9.3
+          bb: 0.8.2
 
       - name: Install planck
         run: HOMEBREW_NO_AUTO_UPDATE=1 brew install planck
