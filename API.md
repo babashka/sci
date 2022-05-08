@@ -6,55 +6,55 @@
     -  [`*2`](#2)
     -  [`*3`](#3)
     -  [`*e`](#e)
-    -  [`add-class!`](#add-class):  - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
-    -  [`add-import!`](#add-import):  - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
-    -  [`all-ns`](#all-ns):  - Returns all SCI ns objects in the <code>ctx</code>
-    -  [`alter-var-root`](#alter-var-root):  - Atomically alters the root binding of sci var v by applying f to its
-    -  [`assert`](#assert):  - SCI var that represents SCI's clojure.core/*assert*
-    -  [`binding`](#binding):  - Macro for binding sci vars
+    -  [`add-class!`](#add-class) - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
+    -  [`add-import!`](#add-import) - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
+    -  [`all-ns`](#all-ns) - Returns all SCI ns objects in the <code>ctx</code>
+    -  [`alter-var-root`](#alter-var-root) - Atomically alters the root binding of sci var v by applying f to its
+    -  [`assert`](#assert) - SCI var that represents SCI's clojure.core/*assert*
+    -  [`binding`](#binding) - Macro for binding sci vars
     -  [`cljs-ns-publics`](#cljs-ns-publics)
-    -  [`copy-ns`](#copy-ns):  - Returns map of names to SCI vars as a result of copying public
-    -  [`copy-var`](#copy-var):  - Copies contents from var <code>sym</code> to a new sci var
-    -  [`create-ns`](#create-ns):  - Creates namespace object
-    -  [`err`](#err):  - SCI var that represents SCI's <code>clojure.core/*err*</code>
-    -  [`eval-form`](#eval-form):  - Evaluates form (as produced by <code>parse-string</code> or <code>parse-next</code>) in the
-    -  [`eval-string`](#eval-string-1):  - Evaluates string <code>s</code> as one or multiple Clojure expressions using the Small Cloj
-    -  [`eval-string*`](#eval-string-2):  - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
-    -  [`file`](#file):  - SCI var that represents SCI's <code>clojure.core/*file*</code>
-    -  [`find-ns`](#find-ns):  - Returns SCI ns object as created with <code>sci/create-ns</code> from <code>ctx</code> found by `ns-sy
-    -  [`fork`](#fork):  - Forks a context (as produced with <code>init</code>) into a new context
-    -  [`format-stacktrace`](#format-stacktrace):  - Returns a list of formatted stack trace elements as strings from stacktrace.
-    -  [`future`](#future):  - Like clojure.core/future but also conveys sci bindings to the thread.
+    -  [`copy-ns`](#copy-ns) - Returns map of names to SCI vars as a result of copying public
+    -  [`copy-var`](#copy-var) - Copies contents from var <code>sym</code> to a new sci var
+    -  [`create-ns`](#create-ns) - Creates namespace object
+    -  [`err`](#err) - SCI var that represents SCI's <code>clojure.core/*err*</code>
+    -  [`eval-form`](#eval-form) - Evaluates form (as produced by <code>parse-string</code> or <code>parse-next</code>) in the
+    -  [`eval-string`](#eval-string-1) - Evaluates string <code>s</code> as one or multiple Clojure expressions using the Small Cloj
+    -  [`eval-string*`](#eval-string-2) - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
+    -  [`file`](#file) - SCI var that represents SCI's <code>clojure.core/*file*</code>
+    -  [`find-ns`](#find-ns) - Returns SCI ns object as created with <code>sci/create-ns</code> from <code>ctx</code> found by `ns-sy
+    -  [`fork`](#fork) - Forks a context (as produced with <code>init</code>) into a new context
+    -  [`format-stacktrace`](#format-stacktrace) - Returns a list of formatted stack trace elements as strings from stacktrace.
+    -  [`future`](#future) - Like clojure.core/future but also conveys sci bindings to the thread.
     -  [`get-column-number`](#get-column-number)
     -  [`get-line-number`](#get-line-number)
-    -  [`in`](#in):  - SCI var that represents SCI's <code>clojure.core/*in*</code>
-    -  [`init`](#init):  - Creates an initial sci context from given options <code>opts</code>
-    -  [`intern`](#intern):  - Finds or creates a sci var named by the symbol name in the namespace
-    -  [`merge-opts`](#merge-opts):  - Updates a context with opts merged in and returns it.
-    -  [`new-dynamic-var`](#new-dynamic-var):  - Same as new-var but adds :dynamic true to meta.
-    -  [`new-macro-var`](#new-macro-var):  - Same as new-var but adds :macro true to meta as well
-    -  [`new-var`](#new-var):  - Returns a new sci var.
-    -  [`ns`](#ns):  - SCI var that represents SCI's <code>clojure.core/*ns*</code>
-    -  [`ns-name`](#ns-name):  - Returns name of SCI ns as symbol.
-    -  [`out`](#out):  - SCI var that represents SCI's <code>clojure.core/*out*</code>
-    -  [`parse-next`](#parse-next):  - Parses next form from reader
-    -  [`parse-string`](#parse-string):  - Parses string <code>s</code> in the context of <code>ctx</code> (as produced with
-    -  [`pmap`](#pmap):  - Like clojure.core/pmap but also conveys sci bindings to the threads.
-    -  [`print-dup`](#print-dup):  - SCI var that represents SCI's <code>clojure.core/*print-dup*</code>
-    -  [`print-err-fn`](#print-err-fn):  - SCI var that represents SCI's <code>cljs.core/*print-err-fn*</code>
-    -  [`print-fn`](#print-fn):  - SCI var that represents SCI's <code>cljs.core/*print-fn*</code>
-    -  [`print-length`](#print-length):  - SCI var that represents SCI's <code>clojure.core/*print-length*</code>
-    -  [`print-level`](#print-level):  - SCI var that represents SCI's <code>clojure.core/*print-level*</code>
-    -  [`print-meta`](#print-meta):  - SCI var that represents SCI's <code>clojure.core/*print-meta*</code>
-    -  [`print-newline`](#print-newline):  - SCI var that represents SCI's <code>cljs.core/*print-newline*</code>
-    -  [`print-readably`](#print-readably):  - SCI var that represents SCI's <code>clojure.core/*print-readably*</code>
-    -  [`read-eval`](#read-eval):  - SCI var that represents SCI's <code>clojure.core/*read-eval*</code>
-    -  [`reader`](#reader):  - Coerces x into indexing pushback-reader to be used with
-    -  [`set!`](#set):  - Establish thread local binding of dynamic var
-    -  [`stacktrace`](#stacktrace):  - Returns list of stacktrace element maps from exception, if available.
-    -  [`with-bindings`](#with-bindings):  - Macro for binding sci vars
-    -  [`with-in-str`](#with-in-str):  - Evaluates body in a context in which sci's *in* is bound to a fresh
-    -  [`with-out-str`](#with-out-str):  - Evaluates exprs in a context in which sci's *out* is bound to a fresh
+    -  [`in`](#in) - SCI var that represents SCI's <code>clojure.core/*in*</code>
+    -  [`init`](#init) - Creates an initial sci context from given options <code>opts</code>
+    -  [`intern`](#intern) - Finds or creates a sci var named by the symbol name in the namespace
+    -  [`merge-opts`](#merge-opts) - Updates a context with opts merged in and returns it.
+    -  [`new-dynamic-var`](#new-dynamic-var) - Same as new-var but adds :dynamic true to meta.
+    -  [`new-macro-var`](#new-macro-var) - Same as new-var but adds :macro true to meta as well
+    -  [`new-var`](#new-var) - Returns a new sci var.
+    -  [`ns`](#ns) - SCI var that represents SCI's <code>clojure.core/*ns*</code>
+    -  [`ns-name`](#ns-name) - Returns name of SCI ns as symbol.
+    -  [`out`](#out) - SCI var that represents SCI's <code>clojure.core/*out*</code>
+    -  [`parse-next`](#parse-next) - Parses next form from reader
+    -  [`parse-string`](#parse-string) - Parses string <code>s</code> in the context of <code>ctx</code> (as produced with
+    -  [`pmap`](#pmap) - Like clojure.core/pmap but also conveys sci bindings to the threads.
+    -  [`print-dup`](#print-dup) - SCI var that represents SCI's <code>clojure.core/*print-dup*</code>
+    -  [`print-err-fn`](#print-err-fn) - SCI var that represents SCI's <code>cljs.core/*print-err-fn*</code>
+    -  [`print-fn`](#print-fn) - SCI var that represents SCI's <code>cljs.core/*print-fn*</code>
+    -  [`print-length`](#print-length) - SCI var that represents SCI's <code>clojure.core/*print-length*</code>
+    -  [`print-level`](#print-level) - SCI var that represents SCI's <code>clojure.core/*print-level*</code>
+    -  [`print-meta`](#print-meta) - SCI var that represents SCI's <code>clojure.core/*print-meta*</code>
+    -  [`print-newline`](#print-newline) - SCI var that represents SCI's <code>cljs.core/*print-newline*</code>
+    -  [`print-readably`](#print-readably) - SCI var that represents SCI's <code>clojure.core/*print-readably*</code>
+    -  [`read-eval`](#read-eval) - SCI var that represents SCI's <code>clojure.core/*read-eval*</code>
+    -  [`reader`](#reader) - Coerces x into indexing pushback-reader to be used with
+    -  [`set!`](#set) - Establish thread local binding of dynamic var
+    -  [`stacktrace`](#stacktrace) - Returns list of stacktrace element maps from exception, if available.
+    -  [`with-bindings`](#with-bindings) - Macro for binding sci vars
+    -  [`with-in-str`](#with-in-str) - Evaluates body in a context in which sci's *in* is bound to a fresh
+    -  [`with-out-str`](#with-out-str) - Evaluates exprs in a context in which sci's *out* is bound to a fresh
 # sci.async 
 
 
