@@ -1,9 +1,6 @@
 # Table of contents
 -  [`sci.async`](#sciasync)
     -  [eval-string*](#eval-string)
-    -  [last-ns](#last-ns)
-    -  [handle-libspecs](#handle-libspecs)
-    -  [eval-ns-form](#eval-ns-form)
     -  [eval-string*](#eval-string)
 -  [`sci.core`](#scicore)
     -  [new-var](#new-var):  - Returns a new sci var.
@@ -50,13 +47,8 @@
     -  [stacktrace](#stacktrace):  - Returns list of stacktrace element maps from exception, if available.
     -  [format-stacktrace](#format-stacktrace):  - Returns a list of formatted stack trace elements as strings from stacktrace.
     -  [ns-name](#ns-name):  - Returns name of SCI ns as symbol.
-    -  [-copy-ns](#-copy-ns)
-    -  [process-publics](#process-publics)
-    -  [exclude-when-meta](#exclude-when-meta)
-    -  [meta-fn](#meta-fn)
     -  [cljs-ns-publics](#cljs-ns-publics)
     -  [cljs-ns-publics](#cljs-ns-publics)
-    -  [require-cljs-analyzer-api](#require-cljs-analyzer-api)
     -  [copy-ns](#copy-ns):  - Returns map of names to SCI vars as a result of copying public
     -  [add-class!](#add-class!):  - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
     -  [add-import!](#add-import!):  - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
@@ -108,11 +100,6 @@
     -  [stacktrace](#stacktrace):  - Returns list of stacktrace element maps from exception, if available.
     -  [format-stacktrace](#format-stacktrace):  - Returns a list of formatted stack trace elements as strings from stacktrace.
     -  [ns-name](#ns-name):  - Returns name of SCI ns as symbol.
-    -  [-copy-ns](#-copy-ns)
-    -  [process-publics](#process-publics)
-    -  [exclude-when-meta](#exclude-when-meta)
-    -  [meta-fn](#meta-fn)
-    -  [require-cljs-analyzer-api](#require-cljs-analyzer-api)
     -  [copy-ns](#copy-ns):  - Returns map of names to SCI vars as a result of copying public
     -  [add-class!](#add-class!):  - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
     -  [add-import!](#add-import!):  - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
