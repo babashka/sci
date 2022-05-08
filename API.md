@@ -1,11 +1,11 @@
 # Table of contents
--  `sci.async`
+-  `[sci.async](#sci.async)`
     -  [eval-string*](#eval-string*)
     -  [last-ns](#last-ns)
     -  [handle-libspecs](#handle-libspecs)
     -  [eval-ns-form](#eval-ns-form)
     -  [eval-string*](#eval-string*)
--  `sci.core`
+-  `[sci.core](#sci.core)`
     -  [new-var](#new-var):  - Returns a new sci var.
     -  [new-dynamic-var](#new-dynamic-var):  - Same as new-var but adds :dynamic true to meta.
     -  [set!](#set!):  - Establish thread local binding of dynamic var
