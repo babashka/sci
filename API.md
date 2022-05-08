@@ -58,8 +58,13 @@
 # sci.async 
 
 ## `eval-string*`
+``` clojure
 
-[Source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L8-L8)
+(eval-string* [ctx s])
+```
+
+
+[Source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L77-L92)
 <hr>
 # sci.core 
 
@@ -139,7 +144,7 @@ Macro for binding sci vars. Must be called with a vector of sci
 [Source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L87-L94)
 ## `cljs-ns-publics`
 
-[Source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L341-L341)
+[Source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L350-L350)
 ## `copy-ns`
 ``` clojure
 
