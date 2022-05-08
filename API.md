@@ -6,8 +6,8 @@
     -  [`*2`](#2)
     -  [`*3`](#3)
     -  [`*e`](#e)
-    -  [`add-class!`](#add-class!):  - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
-    -  [`add-import!`](#add-import!):  - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
+    -  [`add-class!`](#add-class):  - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
+    -  [`add-import!`](#add-import):  - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
     -  [`all-ns`](#all-ns):  - Returns all SCI ns objects in the <code>ctx</code>
     -  [`alter-var-root`](#alter-var-root):  - Atomically alters the root binding of sci var v by applying f to its
     -  [`assert`](#assert):  - SCI var that represents SCI's clojure.core/*assert*
@@ -50,7 +50,7 @@
     -  [`print-readably`](#print-readably):  - SCI var that represents SCI's <code>clojure.core/*print-readably*</code>
     -  [`read-eval`](#read-eval):  - SCI var that represents SCI's <code>clojure.core/*read-eval*</code>
     -  [`reader`](#reader):  - Coerces x into indexing pushback-reader to be used with
-    -  [`set!`](#set!):  - Establish thread local binding of dynamic var
+    -  [`set!`](#set):  - Establish thread local binding of dynamic var
     -  [`stacktrace`](#stacktrace):  - Returns list of stacktrace element maps from exception, if available.
     -  [`with-bindings`](#with-bindings):  - Macro for binding sci vars
     -  [`with-in-str`](#with-in-str):  - Evaluates body in a context in which sci's *in* is bound to a fresh
