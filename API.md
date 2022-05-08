@@ -1,10 +1,10 @@
 # Table of contents
 -  sci.async
-    -  eval-string*: 
-    -  last-ns: 
-    -  handle-libspecs: 
-    -  eval-ns-form: 
-    -  eval-string*: 
+    -  eval-string*
+    -  last-ns
+    -  handle-libspecs
+    -  eval-ns-form
+    -  eval-string*
 -  sci.core
     -  new-var:  - Returns a new sci var.
     -  new-dynamic-var:  - Same as new-var but adds :dynamic true to meta.
@@ -25,10 +25,10 @@
     -  print-readably:  - SCI var that represents SCI's <code>clojure.core/*print-readably*</code>
     -  print-dup:  - SCI var that represents SCI's <code>clojure.core/*print-dup*</code>
     -  assert:  - SCI var that represents SCI's clojure.core/*assert*
-    -  *1: 
-    -  *2: 
-    -  *3: 
-    -  *e: 
+    -  *1
+    -  *2
+    -  *3
+    -  *e
     -  with-in-str:  - Evaluates body in a context in which sci's *in* is bound to a fresh
     -  with-out-str:  - Evaluates exprs in a context in which sci's *out* is bound to a fresh
     -  future:  - Like clojure.core/future but also conveys sci bindings to the thread.
@@ -43,20 +43,20 @@
     -  create-ns:  - Creates namespace object
     -  parse-string:  - Parses string <code>s</code> in the context of <code>ctx</code> (as produced with
     -  reader:  - Coerces x into indexing pushback-reader to be used with
-    -  get-line-number: 
-    -  get-column-number: 
+    -  get-line-number
+    -  get-column-number
     -  parse-next:  - Parses next form from reader
     -  eval-form:  - Evaluates form (as produced by <code>parse-string</code> or <code>parse-next</code>) in the
     -  stacktrace:  - Returns list of stacktrace element maps from exception, if available.
     -  format-stacktrace:  - Returns a list of formatted stack trace elements as strings from stacktrace.
     -  ns-name:  - Returns name of SCI ns as symbol.
-    -  -copy-ns: 
-    -  process-publics: 
-    -  exclude-when-meta: 
-    -  meta-fn: 
-    -  cljs-ns-publics: 
-    -  cljs-ns-publics: 
-    -  require-cljs-analyzer-api: 
+    -  -copy-ns
+    -  process-publics
+    -  exclude-when-meta
+    -  meta-fn
+    -  cljs-ns-publics
+    -  cljs-ns-publics
+    -  require-cljs-analyzer-api
     -  copy-ns:  - Returns map of names to SCI vars as a result of copying public
     -  add-class!:  - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
     -  add-import!:  - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
@@ -84,10 +84,10 @@
     -  print-err-fn:  - SCI var that represents SCI's <code>cljs.core/*print-err-fn*</code>
     -  print-newline:  - SCI var that represents SCI's <code>cljs.core/*print-newline*</code>
     -  assert:  - SCI var that represents SCI's clojure.core/*assert*
-    -  *1: 
-    -  *2: 
-    -  *3: 
-    -  *e: 
+    -  *1
+    -  *2
+    -  *3
+    -  *e
     -  with-in-str:  - Evaluates body in a context in which sci's *in* is bound to a fresh
     -  with-out-str:  - Evaluates exprs in a context in which sci's *out* is bound to a fresh
     -  future:  - Like clojure.core/future but also conveys sci bindings to the thread.
@@ -101,18 +101,18 @@
     -  create-ns:  - Creates namespace object
     -  parse-string:  - Parses string <code>s</code> in the context of <code>ctx</code> (as produced with
     -  reader:  - Coerces x into indexing pushback-reader to be used with
-    -  get-line-number: 
-    -  get-column-number: 
+    -  get-line-number
+    -  get-column-number
     -  parse-next:  - Parses next form from reader
     -  eval-form:  - Evaluates form (as produced by <code>parse-string</code> or <code>parse-next</code>) in the
     -  stacktrace:  - Returns list of stacktrace element maps from exception, if available.
     -  format-stacktrace:  - Returns a list of formatted stack trace elements as strings from stacktrace.
     -  ns-name:  - Returns name of SCI ns as symbol.
-    -  -copy-ns: 
-    -  process-publics: 
-    -  exclude-when-meta: 
-    -  meta-fn: 
-    -  require-cljs-analyzer-api: 
+    -  -copy-ns
+    -  process-publics
+    -  exclude-when-meta
+    -  meta-fn
+    -  require-cljs-analyzer-api
     -  copy-ns:  - Returns map of names to SCI vars as a result of copying public
     -  add-class!:  - Adds class (JVM class or JS object) to <code>ctx</code> as <code>class-name</code> (a
     -  add-import!:  - Adds import of class named by <code>class-name</code> (a symbol) to namespace named by `ns-
