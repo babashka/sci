@@ -1,10 +1,10 @@
 # Table of contents
 -  [`sci.async`](#sciasync)
-    -  [eval-string*](#eval-string*)
+    -  [eval-string*](#eval-string)
     -  [last-ns](#last-ns)
     -  [handle-libspecs](#handle-libspecs)
     -  [eval-ns-form](#eval-ns-form)
-    -  [eval-string*](#eval-string*)
+    -  [eval-string*](#eval-string)
 -  [`sci.core`](#scicore)
     -  [new-var](#new-var):  - Returns a new sci var.
     -  [new-dynamic-var](#new-dynamic-var):  - Same as new-var but adds :dynamic true to meta.
@@ -25,10 +25,10 @@
     -  [print-readably](#print-readably):  - SCI var that represents SCI's <code>clojure.core/*print-readably*</code>
     -  [print-dup](#print-dup):  - SCI var that represents SCI's <code>clojure.core/*print-dup*</code>
     -  [assert](#assert):  - SCI var that represents SCI's clojure.core/*assert*
-    -  [*1](#*1)
-    -  [*2](#*2)
-    -  [*3](#*3)
-    -  [*e](#*e)
+    -  [*1](#1)
+    -  [*2](#2)
+    -  [*3](#3)
+    -  [*e](#e)
     -  [with-in-str](#with-in-str):  - Evaluates body in a context in which sci's *in* is bound to a fresh
     -  [with-out-str](#with-out-str):  - Evaluates exprs in a context in which sci's *out* is bound to a fresh
     -  [future](#future):  - Like clojure.core/future but also conveys sci bindings to the thread.
@@ -39,7 +39,7 @@
     -  [init](#init):  - Creates an initial sci context from given options <code>opts</code>
     -  [merge-opts](#merge-opts):  - Updates a context with opts merged in and returns it.
     -  [fork](#fork):  - Forks a context (as produced with <code>init</code>) into a new context
-    -  [eval-string*](#eval-string*):  - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
+    -  [eval-string*](#eval-string):  - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
     -  [create-ns](#create-ns):  - Creates namespace object
     -  [parse-string](#parse-string):  - Parses string <code>s</code> in the context of <code>ctx</code> (as produced with
     -  [reader](#reader):  - Coerces x into indexing pushback-reader to be used with
@@ -84,10 +84,10 @@
     -  [print-err-fn](#print-err-fn):  - SCI var that represents SCI's <code>cljs.core/*print-err-fn*</code>
     -  [print-newline](#print-newline):  - SCI var that represents SCI's <code>cljs.core/*print-newline*</code>
     -  [assert](#assert):  - SCI var that represents SCI's clojure.core/*assert*
-    -  [*1](#*1)
-    -  [*2](#*2)
-    -  [*3](#*3)
-    -  [*e](#*e)
+    -  [*1](#1)
+    -  [*2](#2)
+    -  [*3](#3)
+    -  [*e](#e)
     -  [with-in-str](#with-in-str):  - Evaluates body in a context in which sci's *in* is bound to a fresh
     -  [with-out-str](#with-out-str):  - Evaluates exprs in a context in which sci's *out* is bound to a fresh
     -  [future](#future):  - Like clojure.core/future but also conveys sci bindings to the thread.
@@ -97,7 +97,7 @@
     -  [init](#init):  - Creates an initial sci context from given options <code>opts</code>
     -  [merge-opts](#merge-opts):  - Updates a context with opts merged in and returns it.
     -  [fork](#fork):  - Forks a context (as produced with <code>init</code>) into a new context
-    -  [eval-string*](#eval-string*):  - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
+    -  [eval-string*](#eval-string):  - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
     -  [create-ns](#create-ns):  - Creates namespace object
     -  [parse-string](#parse-string):  - Parses string <code>s</code> in the context of <code>ctx</code> (as produced with
     -  [reader](#reader):  - Coerces x into indexing pushback-reader to be used with
