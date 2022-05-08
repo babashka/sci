@@ -18,8 +18,8 @@
     -  [`create-ns`](#create-ns):  - Creates namespace object
     -  [`err`](#err):  - SCI var that represents SCI's <code>clojure.core/*err*</code>
     -  [`eval-form`](#eval-form):  - Evaluates form (as produced by <code>parse-string</code> or <code>parse-next</code>) in the
-    -  [`eval-string`](#eval-string):  - Evaluates string <code>s</code> as one or multiple Clojure expressions using the Small Cloj
-    -  [`eval-string*`](#eval-string):  - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
+    -  [`eval-string`](#eval-string-1):  - Evaluates string <code>s</code> as one or multiple Clojure expressions using the Small Cloj
+    -  [`eval-string*`](#eval-string-2):  - Evaluates string <code>s</code> in the context of <code>ctx</code> (as produced with
     -  [`file`](#file):  - SCI var that represents SCI's <code>clojure.core/*file*</code>
     -  [`find-ns`](#find-ns):  - Returns SCI ns object as created with <code>sci/create-ns</code> from <code>ctx</code> found by `ns-sy
     -  [`fork`](#fork):  - Forks a context (as produced with <code>init</code>) into a new context
