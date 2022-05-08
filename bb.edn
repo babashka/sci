@@ -1,7 +1,7 @@
 {:pods {clj-kondo/clj-kondo {:version "2022.02.09"}}
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
-        {:git/sha "a6d240b28d1a32880bff5ddec833cd8282312537"}}
+        {:git/sha "a147bac0bc61cb501936d02d42703517c3512986"}}
 
  :tasks
  {test:jvm  {:doc "Run CLJ tests with leiningen"
@@ -20,5 +20,6 @@
                     :task (shell "plk -A:test -K -m sci.test-runner")}
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
-            :task (api/quickdoc {:git/branch "master"
+            :task (api/quickdoc {:toc true
+                                 :git/branch "master"
                                  :github/repo "https://github.com/babashka/sci"})}}}
