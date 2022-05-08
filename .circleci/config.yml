@@ -215,9 +215,9 @@ workflows:
     jobs:
       - jvm
       - node
-      - planck
+#      - planck
       - linux
-      - mac
+#      - mac
       - deploy:
           filters:
             branches:
@@ -226,7 +226,7 @@ workflows:
             - jvm
             - node
             - linux
-            - mac
+#            - mac
       # - docker:
       #     filters:
       #       branches:
