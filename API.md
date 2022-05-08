@@ -57,6 +57,7 @@
     -  [`with-out-str`](#with-out-str):  - Evaluates exprs in a context in which sci's *out* is bound to a fresh
 # sci.async 
 
+
 ## `eval-string*`
 ``` clojure
 
@@ -65,8 +66,8 @@
 
 
 [Source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L77-L92)
-<hr>
 # sci.core 
+
 
 ## `*1`
 
@@ -584,4 +585,3 @@ Evaluates exprs in a context in which sci's *out* is bound to a fresh
   calls.
 
 [Source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L132-L148)
-<hr>
