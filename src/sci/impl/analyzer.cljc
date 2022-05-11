@@ -1291,7 +1291,7 @@
 
                                                @f
                                                f)
-                                           f (or (.-afn f) f)])
+                                           f (or (.-afn ^js f) f)])
                                 v (if needs-ctx?
                                     (apply f expr
                                            (:bindings ctx)
