@@ -1058,6 +1058,8 @@
    'defonce (macrofy 'defonce defonce*)
    'defrecord (macrofy 'defrecord records/defrecord
                        clojure-core-ns true)
+   'deftype (macrofy 'defrecord records/defrecord
+                     clojure-core-ns true)
    'delay (macrofy 'delay delay*)
    'delay? (copy-core-var delay?)
    #?@(:clj ['deliver (copy-core-var deliver)])
