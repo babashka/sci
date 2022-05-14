@@ -1287,7 +1287,11 @@
                           (let [needs-ctx? (identical? utils/needs-ctx
                                                        (:sci.impl/op (meta f)))
                                 ;; Fix for #603
-                                #?@(:cljs [f (if (vars/var? f) @f f)])
+                                #?@(:cljs [f (if (vars/var? f)
+
+                                               @f
+                                               f)
+                                           f (or (.-afn ^js f) f)])
                                 v (if needs-ctx?
                                     (apply f expr
                                            (:bindings ctx)
