@@ -172,3 +172,12 @@
    (deftest print-method-test
      (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str (->A 1))"]
        (is (= "<A>" (tu/eval* prog {}))))))
+
+(deftest deftype-test
+  (let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]
+    (is (= [:a :b] (tu/eval* prog {}))))
+  (let [prog #?(:clj "(deftype Foo [^:unsynchronized-mutable a b])"
+                :cljs "(deftype Foo [^:mutable a b])" )]
+    (is (thrown-with-msg?
+         #?(:clj Exception :cljs js/Error) #"mutable"
+         (tu/eval* prog {})))))
