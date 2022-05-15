@@ -106,10 +106,10 @@
      (if (= 'print-method multifn) ;; TODO, we could do a better job resolving
        ;; print-method if it was :excluded or full
        ;; qualified
-       `(if-let [v# (resolve ~(list 'quote dispatch-val))]
-          (if (and (var? v#) (:sci.impl/record (meta @v#)))
-            (alter-var-root v# vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))
-            (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
-          (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
+       `(let [v# ~dispatch-val
+              m# (meta v#)]
+          (if (:sci.impl/record m#)
+            (alter-var-root (:sci.impl/record-var m#) vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))
+            (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
        `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
      :cljs `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
