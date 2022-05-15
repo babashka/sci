@@ -103,9 +103,9 @@
   "Creates and installs a new method of multimethod associated with dispatch-value. "
   [_x _y multifn dispatch-val & fn-tail]
   #?(:clj
-     (if (= 'print-method multifn) ;; TODO, we could do a better job resolving
-       ;; print-method if it was :excluded or full
-       ;; qualified
+     ;; TODO, we could do a better job resolving print-method if it
+     ;; was :excluded or full qualified
+     (if (= 'print-method multifn)
        `(let [v# ~dispatch-val
               m# (meta v#)]
           (if (:sci.impl/record m#)
