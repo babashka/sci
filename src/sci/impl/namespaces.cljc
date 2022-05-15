@@ -8,7 +8,8 @@
                             vswap!
                             #?(:cljs this-as)
                             clojure-version
-                            print-method])
+                            print-method
+                            print-dup])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -839,6 +840,13 @@
      (reify clojure.lang.IRef
        (deref [_] (throw (java.lang.SecurityException.
                           "Print-method is not allowed by default since it mutates the global runtime. Add it to SCI ctx via {:namespaces {'clojure.core print-method}}"))))))
+
+#?(:clj
+   (defmulti print-dup (fn [x _w] (class x))
+     :hierarchy
+     (reify clojure.lang.IRef
+       (deref [_] (throw (java.lang.SecurityException.
+                          "Print-dup is not allowed by default since it mutates the global runtime. Add it to SCI ctx via {:namespaces {'clojure.core print-dup}}"))))))
 
 (def core-var
   (ns-new-var clojure-core-ns))
