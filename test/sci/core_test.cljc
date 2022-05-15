@@ -1421,11 +1421,11 @@
    (deftest sandbox-print-method-test
      (is (thrown-with-msg?
           Exception #"allowed"
-          (sci/eval-string "(defmethod print-method Integer [x w])"))))
+          (sci/eval-string "(defmethod print-method Integer [x w])")))))
 
 ;;;; Scratch
 
-   (comment
-     (eval* 1 '(inc *in*))
-     (test-difference "foo" "[10 10]" 0 10)
-     (test-difference "rand" #(rand) 0 10)))
+(comment
+  (eval* 1 '(inc *in*))
+  (test-difference "foo" "[10 10]" 0 10)
+  (test-difference "rand" #(rand) 0 10))
