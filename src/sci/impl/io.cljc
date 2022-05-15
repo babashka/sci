@@ -14,8 +14,7 @@
    (defmulti print-method (fn [x _writer]
                             (let [t (-> x meta :type)]
                               (if (and t
-                                       (or (instance? sci.impl.records.SciRecord x)
-                                           (keyword? t)))
+                                       (instance? sci.impl.records.SciRecord x))
                                 t
                                 (class x))))))
 
