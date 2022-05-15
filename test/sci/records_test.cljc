@@ -170,8 +170,8 @@
 
 #?(:clj
    (deftest print-method-test
-     (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str (->A 1))"]
-       (is (= "<A>" (tu/eval* prog {}))))))
+     (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str [(->A 1)])"]
+       (is (= "[<A>]" (tu/eval* prog {}))))))
 
 (deftest deftype-test
   (let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]

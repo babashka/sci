@@ -101,5 +101,13 @@
 
 (defn defmethod
   "Creates and installs a new method of multimethod associated with dispatch-value. "
-  [_ _ multifn dispatch-val & fn-tail]
-  `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
+  [_x _y multifn dispatch-val & fn-tail]
+  (if (= 'print-method multifn) ;; TODO, we could do a better job resolving
+                                ;; print-method if it was :excluded or full
+                                ;; qualified
+    `(if-let [v# (resolve ~(list 'quote dispatch-val))]
+       (if (and (var? v#) (:sci.impl/record (meta @v#)))
+         (alter-var-root v# vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))
+         (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
+       (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
+    `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))

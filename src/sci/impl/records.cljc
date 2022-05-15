@@ -28,14 +28,26 @@
     (str "#" (namespace t) "." (name t)
          (into {} v))))
 
+(defprotocol SciPrintMethod
+  (-sci-print-method [x w]))
+
 (clojure.core/defrecord SciRecord []
   Object
   (toString [this]
-    (to-string this)))
+    (to-string this))
+  SciPrintMethod
+  (-sci-print-method [this w]
+    (let [m (meta this)]
+      (if-let [rv (:sci.impl/record-var m)]
+        (let [m (meta @rv)]
+          (if-let [pm (:sci.impl/print-method m)]
+            (pm this w)
+            (.write ^java.io.Writer w ^String (clojure-str this))))
+        (.write ^java.io.Writer w ^String (clojure-str this))))))
 
 #?(:clj
-   (defmethod print-method SciRecord [v ^java.io.Writer w]
-     (.write w ^String (clojure-str v))))
+   (defmethod print-method SciRecord [v w]
+     (-sci-print-method v w)))
 
 #?(:cljs ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
    (extend-type SciRecord
@@ -126,6 +138,7 @@
              protocol-impls
              raw-protocol-impls)]
         `(do
+           (declare ~record-name)
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
                  (vary-meta (clojure.core/->record-impl m#)
@@ -137,7 +150,8 @@
              (vary-meta (clojure.core/->record-impl (zipmap ~keys args#))
                         assoc
                         :sci.impl/record true
-                        :type '~rec-type))
+                        :type '~rec-type
+                        :sci.impl/record-var ~(list 'var record-name)))
            (def ~record-name (with-meta '~rec-type
                                ~(cond-> {:sci.impl/record true
                                          :sci.impl.record/constructor factory-fn-sym}
