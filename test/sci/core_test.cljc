@@ -1417,6 +1417,12 @@
    (deftest require-cljs-core-test
      (= 3 (sci/eval-string "(require '[cljs.core :as c]) (c/inc 2)"))))
 
+#?(:clj
+   (deftest sandbox-print-method-test
+     (is (thrown-with-msg?
+          Exception #"allowed"
+          (sci/eval-string "(defmethod print-method Integer [x w])")))))
+
 ;;;; Scratch
 
 (comment

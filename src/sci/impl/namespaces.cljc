@@ -7,7 +7,8 @@
                             bound-fn* with-bindings*
                             vswap!
                             #?(:cljs this-as)
-                            clojure-version])
+                            clojure-version
+                            print-method])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -832,6 +833,13 @@
                  (when (:interim *clojure-version*)
                    "-SNAPSHOT")))))
 
+#?(:clj
+   (defmulti print-method (fn [x _w] (type x))
+     :hierarchy
+     (reify clojure.lang.IRef
+       (deref [_] (throw (java.lang.SecurityException.
+                          "Print-method is not allowed by default since it mutates the global runtime. Add it to SCI ctx via {:namespaces {'clojure.core print-method}}"))))))
+
 (def core-var
   (ns-new-var clojure-core-ns))
 
@@ -862,7 +870,7 @@
    'pr-str (copy-core-var io/pr-str)
    'prn-str (copy-core-var io/prn-str)
    'print-str (copy-core-var #?(:cljs io/print-str :clj print-str))
-   #?@(:clj ['print-method (copy-core-var io/print-method)])
+   #?@(:clj ['print-method (copy-core-var print-method)])
    #?@(:clj ['print-dup (copy-core-var print-dup)])
    #?@(:clj ['printf (copy-core-var io/printf)])
    'with-out-str (macrofy 'with-out-str io/with-out-str)
