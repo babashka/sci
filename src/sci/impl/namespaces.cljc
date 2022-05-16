@@ -9,7 +9,8 @@
                             #?(:cljs this-as)
                             clojure-version
                             print-method
-                            print-dup])
+                            print-dup
+                            #?(:cljs alter-meta!)])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -91,14 +92,16 @@
   ([sym f ns] (macrofy sym f ns false))
   ([sym f ns ctx?]
    (vars/new-var sym f (cond-> {:ns    ns
-                                :macro true}
+                                :macro true
+                                :sci/built-in true}
                          ctx? (assoc :sci.impl/op needs-ctx)))))
 
 (defn ns-new-var [ns]
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
-     (vars/new-var sym v (cond-> {:ns ns}
+     (vars/new-var sym v (cond-> {:ns ns
+                                  :sci/built-in true}
                            ctx? (assoc :sci.impl/op needs-ctx))))))
 
 (defn ->*
@@ -847,6 +850,20 @@
      (reify clojure.lang.IRef
        (deref [_] (throw (java.lang.SecurityException.
                           "Print-dup is not allowed by default since it mutates the global runtime. Add it to SCI ctx via {:namespaces {'clojure.core print-dup}}"))))))
+
+#?(:cljs
+   (defn alter-meta!
+     "Atomically sets the metadata for a namespace/var/ref/agent/atom to be:
+
+  (apply f its-current-meta args)
+
+  f must be free of side-effects"
+     [iref f & args]
+     (let [m (.-meta iref)]
+       (if-not (:sci/built-in m)
+         (set! (.-meta iref) (apply f (.-meta iref) args))
+         (throw (ex-info (str "Built-in var " iref " is read-only.")
+                         {:var iref}))))))
 
 (def core-var
   (ns-new-var clojure-core-ns))

@@ -1051,7 +1051,13 @@
 (deftest built-in-vars-are-read-only-test
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error) #"read-only"
-       (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {}))))
+       (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {})))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"read-only"
+       (tu/eval*  "(alter-meta! #'clojure.core/inc assoc :foo)" {})))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error) #"read-only"
+       (tu/eval*  "(alter-meta! #'-> dissoc :macro)" {}))))
 
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
