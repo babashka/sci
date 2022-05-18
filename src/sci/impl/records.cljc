@@ -106,41 +106,41 @@
               (when (identical? rec-name (.-rec-name ^SciRecord gs))
                 (= ext-map (.-ext-map ^SciRecord gs)))
               (= ext-map gs)))))
-     (containsKey [this k]
+     (containsKey [_this k]
        (.containsKey ^clojure.lang.IPersistentMap ext-map k))
-     (entryAt [this k]
+     (entryAt [_this k]
        (.entryAt ^clojure.lang.IPersistentMap ext-map k))
-     (seq [this] (.seq ^clojure.lang.IPersistentMap ext-map))
-     (iterator [this]
+     (seq [_this] (.seq ^clojure.lang.IPersistentMap ext-map))
+     (iterator [_this]
        (clojure.lang.RT/iter ext-map))
-     (assoc [this k v]
+     (assoc [_this k v]
        (SciRecord. rec-name var (assoc ext-map k v) 0 0))
-     (without [this k]
+     (without [_this k]
        (SciRecord. rec-name var (dissoc ext-map k) 0 0))
 
      java.util.Map
      java.io.Serializable
-     (size [this]
+     (size [_this]
        (.size ^java.util.Map ext-map))
-     (isEmpty [this]
+     (isEmpty [_this]
        (.isEmpty ^java.util.Map ext-map))
-     (containsValue [this v]
+     (containsValue [_this v]
        (.containsValue ^java.util.Map ext-map v))
-     (get [this k]
+     (get [_this k]
        (.get ^java.util.Map ext-map k))
-     (put [this k v]
+     (put [_this _k _v]
        (throw (UnsupportedOperationException.)))
-     (remove [this k]
+     (remove [_this _k]
        (throw (UnsupportedOperationException.)))
-     (putAll [this m]
+     (putAll [_this _m]
        (throw (UnsupportedOperationException.)))
-     (clear [this]
+     (clear [_this]
        (throw (UnsupportedOperationException.)))
-     (keySet [this]
+     (keySet [_this]
        (.keySet ^java.util.Map ext-map))
-     (values [this]
+     (values [_this]
        (.values ^java.util.Map ext-map))
-     (entrySet [this]
+     (entrySet [_this]
        (.entrySet ^java.util.Map ext-map))
 
      Object
