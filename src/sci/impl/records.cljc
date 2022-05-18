@@ -69,7 +69,8 @@
              (set! my_hash h)
              h)
            hq)))
-     (equals [this other] false)
+     (equals [this other]
+       (clojure.lang.APersistentMap/mapEquals this other))
 
      clojure.lang.IObj
      (meta [this])
@@ -86,7 +87,11 @@
      (count [this])
      (empty [this])
      (cons [this e])
-     (equiv [this gs])
+     (equiv [this gs]
+       (boolean
+        (or (identical? this gs)
+            (when (identical? rec-name (.-rec-name ^SciRecord2 gs))
+              (= ext-map (.-ext-map ^SciRecord2 gs))))))
      (containsKey [this k])
      (entryAt [this k]
        (.entryAt ^clojure.lang.IPersistentMap ext-map k))
