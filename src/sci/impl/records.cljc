@@ -47,12 +47,28 @@
 
 ;; see https://gist.github.com/borkdude/19ac04ea0b2ef9d6643ba3de6817de57
 #?(:clj
-   (deftype SciRecord2 [var ext-map]
+   (deftype SciRecord2 [rec-name
+                        var ext-map
+                        ^:unsynchronized-mutable my_hash
+                        ^:unsynchronized-mutable my_hasheq]
      clojure.lang.IRecord ;; marker interface
 
      clojure.lang.IHashEq
-     (hasheq [this])
-     (hashCode [this])
+     (hasheq [_]
+       (let [hq my_hasheq]
+         (if (zero? hq)
+           (let [type-hash (hash rec-name)
+                 h (int (bit-xor type-hash (clojure.lang.APersistentMap/mapHasheq ext-map)))]
+             (set! my_hasheq h)
+             h)
+           hq)))
+     (hashCode [_]
+       (let [hq my_hash]
+         (if (zero? hq)
+           (let [h (int (clojure.lang.APersistentMap/mapHash ext-map))]
+             (set! my_hash h)
+             h)
+           hq)))
      (equals [this other] false)
 
      clojure.lang.IObj
@@ -72,9 +88,11 @@
      (cons [this e])
      (equiv [this gs])
      (containsKey [this k])
-     (entryAt [this k])
-     (seq [this])
-     (iterator [this])
+     (entryAt [this k]
+       (.entryAt ^clojure.lang.IPersistentMap ext-map k))
+     (seq [this] (seq ext-map))
+     (iterator [this]
+       (clojure.lang.RT/iter ext-map))
      (assoc [this k v])
      (without [this k])
 
