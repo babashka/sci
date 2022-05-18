@@ -47,6 +47,7 @@
            (.write ^java.io.Writer w ^String (clojure-str this)))))))
 
 ;; see https://gist.github.com/borkdude/19ac04ea0b2ef9d6643ba3de6817de57
+;; TODO, port CLJS side too https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
 #?(:clj
    (deftype SciRecord [rec-name
                        var ext-map
