@@ -101,8 +101,10 @@
      (equiv [this gs]
        (boolean
         (or (identical? this gs)
-            (when (identical? rec-name (.-rec-name ^SciRecord gs))
-              (= ext-map (.-ext-map ^SciRecord gs))))))
+            (if (instance? SciRecord gs)
+              (when (identical? rec-name (.-rec-name ^SciRecord gs))
+                (= ext-map (.-ext-map ^SciRecord gs)))
+              (= ext-map gs)))))
      (containsKey [this k]
        (.containsKey ^clojure.lang.IPersistentMap ext-map k))
      (entryAt [this k]
