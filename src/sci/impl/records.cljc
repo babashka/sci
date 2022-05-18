@@ -31,6 +31,18 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
+(defn preserve-own-meta
+  "TODO: now that we are using our own record implementation, we can move away from metadata."
+  [m old-meta]
+  (if (:sci.impl/record m)
+    m
+    (assoc m
+           :type (:type old-meta)
+           :sci.impl/record (:sci.impl/record old-meta)
+           :sci.impl.record/constructor (:sci.impl.record/constructor old-meta)
+           :sci.impl/record-var (:sci.imp/record-var old-meta)
+           :sci.impl.record/map-constructor (:sci.impl.record/map-constructor old-meta))))
+
 #?(:clj
    (deftype SciRecord [rec-name
                        var ext-map
@@ -59,11 +71,10 @@
 
      clojure.lang.IObj
      (meta [_]
-       (or (meta ext-map)
-           {:type rec-name}))
+       (meta ext-map))
      (withMeta [_ m]
        (SciRecord.
-        rec-name var (with-meta ext-map (assoc m :type rec-name)) 0 0))
+        rec-name var (with-meta ext-map (preserve-own-meta m (meta ext-map))) 0 0))
 
      clojure.lang.ILookup
      (valAt [_this k]
@@ -169,13 +180,12 @@
 
      IMeta
      (-meta [_]
-       (or (meta ext-map)
-           {:type rec-name}))
+       (meta ext-map))
 
      IWithMeta
      (-with-meta [_ m]
        (new SciRecord
-            rec-name var (with-meta ext-map (assoc m :type rec-name)) my_hash))
+            rec-name var (with-meta ext-map (preserve-own-meta m (meta ext-map))) my_hash))
 
      ILookup
      (-lookup [_ k]
