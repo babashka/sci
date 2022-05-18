@@ -73,33 +73,44 @@
        (clojure.lang.APersistentMap/mapEquals this other))
 
      clojure.lang.IObj
-     (meta [this])
-     (withMeta [this m])
+     (meta [_]
+       (meta ext-map))
+     (withMeta [_ m]
+       (SciRecord2. rec-name var (with-meta ext-map m) nil nil))
 
      clojure.lang.ILookup
-     clojure.lang.IKeywordLookup
+     (valAt [_this k]
+       (.valAt ^clojure.lang.ILookup ext-map k))
+     (valAt [_ k else]
+       (.valAt ^clojure.lang.ILookup ext-map k else))
 
-     (valAt [this k])
-     (valAt [this k else])
-     (getLookupThunk [this k])
+     ;; clojure.lang.IKeywordLookup
+     ;; (getLookupThunk [_ k]
+     ;;   (.getLookupThunk ^clojure.lang.ILookup ext-map k))
 
      clojure.lang.IPersistentMap
-     (count [this])
-     (empty [this])
-     (cons [this e])
+     (count [_]
+       (count ext-map))
+     (empty [_]
+       (throw (UnsupportedOperationException. (str "Can't create empty: " (str rec-name)))))
+     (cons [this e]
+       ((var clojure.core/imap-cons) this e))
      (equiv [this gs]
        (boolean
         (or (identical? this gs)
             (when (identical? rec-name (.-rec-name ^SciRecord2 gs))
               (= ext-map (.-ext-map ^SciRecord2 gs))))))
-     (containsKey [this k])
+     (containsKey [this k]
+       (.containsKey ^clojure.lang.IPersistentMap ext-map k))
      (entryAt [this k]
        (.entryAt ^clojure.lang.IPersistentMap ext-map k))
-     (seq [this] (seq ext-map))
+     (seq [this] (.seq ^clojure.lang.IPersistentMap ext-map))
      (iterator [this]
        (clojure.lang.RT/iter ext-map))
-     (assoc [this k v])
-     (without [this k])
+     (assoc [this k v]
+       (SciRecord2. rec-name var (assoc ext-map k v) nil nil))
+     (without [this k]
+       (SciRecord2. rec-name var (dissoc ext-map k) nil nil))
 
      java.util.Map
      java.io.Serializable
