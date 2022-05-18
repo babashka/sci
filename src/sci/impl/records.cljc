@@ -45,6 +45,53 @@
             (.write ^java.io.Writer w ^String (clojure-str this))))
         (.write ^java.io.Writer w ^String (clojure-str this))))))
 
+;; see https://gist.github.com/borkdude/19ac04ea0b2ef9d6643ba3de6817de57
+#?(:clj
+   (deftype SciRecord2 [var ext-map]
+     clojure.lang.IRecord ;; marker interface
+
+     clojure.lang.IHashEq
+     (hasheq [this])
+     (hashCode [this])
+     (equals [this other] false)
+
+     clojure.lang.IObj
+     (meta [this])
+     (withMeta [this m])
+
+     clojure.lang.ILookup
+     clojure.lang.IKeywordLookup
+
+     (valAt [this k])
+     (valAt [this k else])
+     (getLookupThunk [this k])
+
+     clojure.lang.IPersistentMap
+     (count [this])
+     (empty [this])
+     (cons [this e])
+     (equiv [this gs])
+     (containsKey [this k])
+     (entryAt [this k])
+     (seq [this])
+     (iterator [this])
+     (assoc [this k v])
+     (without [this k])
+
+     java.util.Map
+     java.io.Serializable
+     (size [this])
+     (isEmpty [this])
+     (containsValue [this v])
+     (get [this k])
+     (put [this k v])
+     (remove [this k])
+     (putAll [this m])
+     (clear [this])
+     (keySet [this])
+     (values [this])
+     (entrySet [this])))
+
 #?(:clj
    (defmethod print-method SciRecord [v w]
      (-sci-print-method v w)))
