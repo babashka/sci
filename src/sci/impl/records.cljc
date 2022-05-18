@@ -31,33 +31,220 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
-(clojure.core/defrecord SciRecord []
-  Object
-  (toString [this]
-    (to-string this))
-  SciPrintMethod
-  (-sci-print-method [this w]
-    (let [m (meta this)]
-      (if-let [rv (:sci.impl/record-var m)]
-        (let [m (meta @rv)]
-          (if-let [pm (:sci.impl/print-method m)]
-            (pm this w)
-            (.write ^java.io.Writer w ^String (clojure-str this))))
-        (.write ^java.io.Writer w ^String (clojure-str this))))))
+(defn preserve-own-meta
+  "TODO: now that we are using our own record implementation, we can move away from metadata."
+  [m old-meta]
+  (if (:sci.impl/record m)
+    m
+    (assoc m
+           :type (:type old-meta)
+           :sci.impl/record (:sci.impl/record old-meta)
+           :sci.impl.record/constructor (:sci.impl.record/constructor old-meta)
+           :sci.impl/record-var (:sci.imp/record-var old-meta)
+           :sci.impl.record/map-constructor (:sci.impl.record/map-constructor old-meta))))
+
+#?(:clj
+   (deftype SciRecord [rec-name
+                       var ext-map
+                       ^:unsynchronized-mutable my_hash
+                       ^:unsynchronized-mutable my_hasheq]
+     clojure.lang.IRecord ;; marker interface
+
+     clojure.lang.IHashEq
+     (hasheq [_]
+       (let [hq my_hasheq]
+         (if (zero? hq)
+           (let [type-hash (hash rec-name)
+                 h (int (bit-xor type-hash (clojure.lang.APersistentMap/mapHasheq ext-map)))]
+             (set! my_hasheq h)
+             h)
+           hq)))
+     (hashCode [_]
+       (let [hq my_hash]
+         (if (zero? hq)
+           (let [h (int (clojure.lang.APersistentMap/mapHash ext-map))]
+             (set! my_hash h)
+             h)
+           hq)))
+     (equals [this other]
+       (clojure.lang.APersistentMap/mapEquals this other))
+
+     clojure.lang.IObj
+     (meta [_]
+       (meta ext-map))
+     (withMeta [_ m]
+       (SciRecord.
+        rec-name var (with-meta ext-map (preserve-own-meta m (meta ext-map))) 0 0))
+
+     clojure.lang.ILookup
+     (valAt [_this k]
+       (.valAt ^clojure.lang.ILookup ext-map k))
+     (valAt [_ k else]
+       (.valAt ^clojure.lang.ILookup ext-map k else))
+
+     ;; clojure.lang.IKeywordLookup
+     ;; (getLookupThunk [_ k]
+     ;;   (.getLookupThunk ^clojure.lang.ILookup ext-map k))
+
+     clojure.lang.IPersistentMap
+     (count [_]
+       (.count ^clojure.lang.IPersistentMap ext-map))
+     (empty [_]
+       (throw (UnsupportedOperationException. (str "Can't create empty: " (str rec-name)))))
+     (cons [this e]
+       ((var clojure.core/imap-cons) this e))
+     (equiv [this gs]
+       (boolean
+        (or (identical? this gs)
+            (when (instance? SciRecord gs)
+              (and (identical? rec-name (.-rec-name ^SciRecord gs))
+                   (= ext-map (.-ext-map ^SciRecord gs)))))))
+     (containsKey [_this k]
+       (.containsKey ^clojure.lang.IPersistentMap ext-map k))
+     (entryAt [_this k]
+       (.entryAt ^clojure.lang.IPersistentMap ext-map k))
+     (seq [_this] (.seq ^clojure.lang.IPersistentMap ext-map))
+     (iterator [_this]
+       (clojure.lang.RT/iter ext-map))
+     (assoc [_this k v]
+       (SciRecord. rec-name var (assoc ext-map k v) 0 0))
+     (without [_this k]
+       (SciRecord. rec-name var (dissoc ext-map k) 0 0))
+
+     java.util.Map
+     java.io.Serializable
+     (size [_this]
+       (.size ^java.util.Map ext-map))
+     (isEmpty [_this]
+       (.isEmpty ^java.util.Map ext-map))
+     (containsValue [_this v]
+       (.containsValue ^java.util.Map ext-map v))
+     (get [_this k]
+       (.get ^java.util.Map ext-map k))
+     (put [_this _k _v]
+       (throw (UnsupportedOperationException.)))
+     (remove [_this _k]
+       (throw (UnsupportedOperationException.)))
+     (putAll [_this _m]
+       (throw (UnsupportedOperationException.)))
+     (clear [_this]
+       (throw (UnsupportedOperationException.)))
+     (keySet [_this]
+       (.keySet ^java.util.Map ext-map))
+     (values [_this]
+       (.values ^java.util.Map ext-map))
+     (entrySet [_this]
+       (.entrySet ^java.util.Map ext-map))
+
+     Object
+     (toString [this]
+       (to-string this))
+
+     SciPrintMethod
+     (-sci-print-method [this w]
+       (if-let [rv var]
+         (let [m (meta @rv)]
+           (if-let [pm (:sci.impl/print-method m)]
+             (pm this w)
+             (.write ^java.io.Writer w ^String (clojure-str this))))
+         (.write ^java.io.Writer w ^String (clojure-str this))))))
+
+;; see https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
+#?(:cljs
+   (deftype SciRecord [rec-name
+                       var ext-map
+                       ^:mutable my_hash]
+     IRecord ;; marker interface
+
+     ICloneable
+     (-clone [_]
+       (new SciRecord rec-name var ext-map my_hash))
+
+     IHash
+     (-hash [_]
+       (let [hq my_hash]
+         (if (not (nil? hq))
+           (let [type-hash (hash (-> rec-name munge str))
+                 h (bit-xor type-hash (hash-unordered-coll ext-map))]
+             (set! my_hash h)
+             h)
+           hq)))
+
+     IEquiv
+     (-equiv [this other]
+       (and (some? other)
+            (identical? (.-constructor this)
+                        (.-constructor other))
+            (= rec-name (.-rec-name other))
+            (= (.-ext-map this) (.-ext-map other))))
+
+     IMeta
+     (-meta [_]
+       (meta ext-map))
+
+     IWithMeta
+     (-with-meta [_ m]
+       (new SciRecord
+            rec-name var (with-meta ext-map (preserve-own-meta m (meta ext-map))) my_hash))
+
+     ILookup
+     (-lookup [_ k]
+       (-lookup ext-map k))
+     (-lookup [_ k else]
+       (-lookup ext-map k else))
+
+     ICounted
+     (-count [_]
+       (count ext-map))
+
+     ICollection
+     (-conj [this entry]
+       (if (vector? entry)
+         (-assoc this (-nth entry 0) (-nth entry 1))
+         (reduce -conj
+                 this
+                 entry)))
+
+     IAssociative
+     (-contains-key? [_ k]
+       (-contains-key? ext-map k))
+     (-assoc [_ k v]
+       (new SciRecord rec-name var (assoc ext-map k v) nil))
+
+     IMap
+     (-dissoc [_ k]
+       (new SciRecord rec-name var (dissoc ext-map k) nil))
+
+     ISeqable
+     (-seq [_]
+       (-seq ext-map))
+
+     IIterable
+     (-iterator [_]
+       (-iterator ext-map))
+
+     IPrintWithWriter
+     ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
+     (-pr-writer [new-obj writer _]
+       (write-all writer (clojure-str new-obj)))
+
+     IKVReduce
+     (-kv-reduce [this f init]
+       (reduce (fn [ret [k v]]
+                 (f ret k v)) init this))
+
+     Object
+     (toString [this]
+       (to-string this))))
 
 #?(:clj
    (defmethod print-method SciRecord [v w]
      (-sci-print-method v w)))
 
-#?(:cljs ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
-   (extend-type SciRecord
-     IPrintWithWriter
-     (-pr-writer [new-obj writer _]
-       (write-all writer (clojure-str new-obj)))))
-
-(defn ->record-impl [m]
-  (map->SciRecord m))
-
+#?(:clj (defn ->record-impl [rec-name var m]
+          (SciRecord. rec-name var m 0 0))
+   :cljs (defn ->record-impl [rec-name var m]
+           (SciRecord. rec-name var m nil)))
 
 (defn assert-immutable-fields [fields expr]
   (run! (fn [field]
@@ -141,13 +328,13 @@
            (declare ~record-name)
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
-                 (vary-meta (clojure.core/->record-impl m#)
+                 (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) m#)
                             assoc
                             ;; TODO: now that we're using the SciRecord type, we could move away from these metadata keys
                             :sci.impl/record true
                             :type '~rec-type)))
            (defn ~factory-fn-sym [& args#]
-             (vary-meta (clojure.core/->record-impl (zipmap ~keys args#))
+             (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
                         assoc
                         :sci.impl/record true
                         :type '~rec-type

@@ -181,3 +181,11 @@
     (is (thrown-with-msg?
          #?(:clj Exception :cljs js/Error) #"mutable"
          (tu/eval* prog {})))))
+
+(deftest equiv-test
+  (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]
+    (is (= [true false false] (tu/eval* prog {})))))
+
+(deftest with-meta-preserves-type-test
+  (let [prog "(defrecord Foo [a] Object (toString [_] \"!!FOO!!\")) [(str (with-meta (->Foo 1) {:a 1}))]"]
+    (is (= ["!!FOO!!"] (tu/eval* prog {})))))
