@@ -26,7 +26,8 @@
 (defn clojure-str [v]
   (let [t (types/type-impl v)]
     (str "#" (namespace t) "." (name t)
-         (into {} v))))
+         (-> (into {} v)
+             (dissoc :__sci_type)))))
 
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
