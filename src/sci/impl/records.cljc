@@ -31,14 +31,22 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
-(clojure.core/defrecord SciRecord []
+(clojure.core/defrecord SciType
+    [constructor
+     map-constructor
+     var])
+
+#?(:clj (defmethod print-method SciType [this w]
+          (.write ^java.io.Writer w (str (:var this)))))
+
+(clojure.core/defrecord SciRecord [__sci_type]
   Object
   (toString [this]
     (to-string this))
   SciPrintMethod
   (-sci-print-method [this w]
-    (let [m (meta this)]
-      (if-let [rv (:sci.impl/record-var m)]
+    (let [t (:__sci_type this)]
+      (if-let [rv (:var t)]
         (let [m (meta @rv)]
           (if-let [pm (:sci.impl/print-method m)]
             (pm this w)
@@ -58,6 +66,8 @@
 (defn ->record-impl [m]
   (map->SciRecord m))
 
+(defn ->type-impl [m]
+  (map->SciType m))
 
 (defn assert-immutable-fields [fields expr]
   (run! (fn [field]
@@ -141,17 +151,21 @@
            (declare ~record-name)
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
-                 (vary-meta (clojure.core/->record-impl m#)
-                            assoc
-                            ;; TODO: now that we're using the SciRecord type, we could move away from these metadata keys
-                            :sci.impl/record true
-                            :type '~rec-type)))
+                 (-> (vary-meta (clojure.core/->record-impl m#)
+                                assoc
+                                ;; TODO: now that we're using the SciRecord type, we could move away from these metadata keys
+                                :sci.impl/record true
+                                :type '~rec-type)
+                     (assoc :__sci_type
+                            (clojure.core/->type-impl {:var (var ~record-name)})))))
            (defn ~factory-fn-sym [& args#]
-             (vary-meta (clojure.core/->record-impl (zipmap ~keys args#))
-                        assoc
-                        :sci.impl/record true
-                        :type '~rec-type
-                        :sci.impl/record-var ~(list 'var record-name)))
+             (-> (vary-meta (clojure.core/->record-impl (zipmap ~keys args#))
+                            assoc
+                            :sci.impl/record true
+                            :type '~rec-type
+                            :sci.impl/record-var ~(list 'var record-name))
+                 (assoc :__sci_type
+                        (clojure.core/->type-impl {:var (var ~record-name)}))))
            (def ~record-name (with-meta '~rec-type
                                ~(cond-> {:sci.impl/record true
                                          :sci.impl.record/constructor factory-fn-sym

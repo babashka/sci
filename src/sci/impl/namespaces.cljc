@@ -976,6 +976,7 @@
    ;; used in let-fn
    '-new-var (core-var '-new-var #(vars/new-var (gensym) nil))
    '->record-impl (copy-core-var records/->record-impl)
+   '->type-impl (copy-core-var records/->type-impl)
    ;; end private
    '.. (macrofy '.. double-dot)
    '= (copy-core-var =)
