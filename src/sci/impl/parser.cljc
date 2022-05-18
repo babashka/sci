@@ -6,7 +6,8 @@
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -74,7 +75,9 @@
                     (symbol "clojure.core" sym-name-str))
                   (interop/fully-qualify-class ctx sym)
                   ;; all unresolvable symbols all resolved in the current namespace
-                  (symbol current-ns-str sym-name-str))
+                  (if (str/includes? sym-name-str ".")
+                    sym ;; unresolved class
+                    (symbol current-ns-str sym-name-str)))
               (if (get-in env [:namespaces sym-ns])
                 sym
                 (if-let [ns (get aliases sym-ns)]
