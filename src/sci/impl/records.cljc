@@ -90,7 +90,7 @@
 
      clojure.lang.IPersistentMap
      (count [_]
-       (count ext-map))
+       (.count ^clojure.lang.IPersistentMap ext-map))
      (empty [_]
        (throw (UnsupportedOperationException. (str "Can't create empty: " (str rec-name)))))
      (cons [this e]
@@ -114,17 +114,28 @@
 
      java.util.Map
      java.io.Serializable
-     (size [this])
-     (isEmpty [this])
-     (containsValue [this v])
-     (get [this k])
-     (put [this k v])
-     (remove [this k])
-     (putAll [this m])
-     (clear [this])
-     (keySet [this])
-     (values [this])
-     (entrySet [this])))
+     (size [this]
+       (.size ^java.util.Map ext-map))
+     (isEmpty [this]
+       (.isEmpty ^java.util.Map ext-map))
+     (containsValue [this v]
+       (.containsValue ^java.util.Map ext-map v))
+     (get [this k]
+       (.get ^java.util.Map ext-map k))
+     (put [this k v]
+       (throw (UnsupportedOperationException.)))
+     (remove [this k]
+       (throw (UnsupportedOperationException.)))
+     (putAll [this m]
+       (throw (UnsupportedOperationException.)))
+     (clear [this]
+       (throw (UnsupportedOperationException.)))
+     (keySet [this]
+       (.keySet ^java.util.Map ext-map))
+     (values [this]
+       (.values ^java.util.Map ext-map))
+     (entrySet [this]
+       (.entrySet ^java.util.Map ext-map))))
 
 #?(:clj
    (defmethod print-method SciRecord [v w]
