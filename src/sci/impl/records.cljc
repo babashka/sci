@@ -74,9 +74,11 @@
 
      clojure.lang.IObj
      (meta [_]
-       (meta ext-map))
+       (or (meta ext-map)
+           {:type rec-name}))
      (withMeta [_ m]
-       (SciRecord2. rec-name var (with-meta ext-map m) nil nil))
+       (SciRecord2.
+        rec-name var (with-meta ext-map (assoc m :type rec-name)) 0 0))
 
      clojure.lang.ILookup
      (valAt [_this k]
@@ -108,9 +110,9 @@
      (iterator [this]
        (clojure.lang.RT/iter ext-map))
      (assoc [this k v]
-       (SciRecord2. rec-name var (assoc ext-map k v) nil nil))
+       (SciRecord2. rec-name var (assoc ext-map k v) 0 0))
      (without [this k]
-       (SciRecord2. rec-name var (dissoc ext-map k) nil nil))
+       (SciRecord2. rec-name var (dissoc ext-map k) 0 0))
 
      java.util.Map
      java.io.Serializable
@@ -135,7 +137,11 @@
      (values [this]
        (.values ^java.util.Map ext-map))
      (entrySet [this]
-       (.entrySet ^java.util.Map ext-map))))
+       (.entrySet ^java.util.Map ext-map))
+
+     Object
+     (toString [this]
+       (to-string this))))
 
 #?(:clj
    (defmethod print-method SciRecord [v w]
