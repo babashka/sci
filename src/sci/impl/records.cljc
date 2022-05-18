@@ -31,23 +31,6 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
-;; #?(:cljs
-;;    (clojure.core/defrecord SciRecord []
-;;      Object
-;;      (toString [this]
-;;        (to-string this))
-;;      SciPrintMethod
-;;      (-sci-print-method [this w]
-;;        (let [m (meta this)]
-;;          (if-let [rv (:sci.impl/record-var m)]
-;;            (let [m (meta @rv)]
-;;              (if-let [pm (:sci.impl/print-method m)]
-;;                (pm this w)
-;;                (.write ^java.io.Writer w ^String (clojure-str this))))
-;;            (.write ^java.io.Writer w ^String (clojure-str this)))))))
-
-;; see https://gist.github.com/borkdude/19ac04ea0b2ef9d6643ba3de6817de57
-;; TODO, port CLJS side too https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
 #?(:clj
    (deftype SciRecord [rec-name
                        var ext-map
@@ -155,6 +138,7 @@
              (.write ^java.io.Writer w ^String (clojure-str this))))
          (.write ^java.io.Writer w ^String (clojure-str this))))))
 
+;; see https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
 #?(:cljs
    (deftype SciRecord [rec-name
                        var ext-map
@@ -230,6 +214,7 @@
        (-iterator ext-map))
 
      IPrintWithWriter
+     ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
      (-pr-writer [new-obj writer _]
        (write-all writer (clojure-str new-obj)))
 
@@ -245,12 +230,6 @@
 #?(:clj
    (defmethod print-method SciRecord [v w]
      (-sci-print-method v w)))
-
-;; #?(:cljs ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
-;;    (extend-type SciRecord
-;;      IPrintWithWriter
-;;      (-pr-writer [new-obj writer _]
-;;        (write-all writer (clojure-str new-obj)))))
 
 #?(:clj (defn ->record-impl [rec-name var m]
           (SciRecord. rec-name var m 0 0))
