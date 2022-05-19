@@ -46,7 +46,8 @@
                                           {:methods #{}
                                            :name '~fq-name
                                            :ns *ns*
-                                           :sigs ~(list 'quote sigs-map)}
+                                           :sigs ~(list 'quote sigs-map)
+                                           :var (var ~fq-name)}
                                         ~extend-meta (assoc :extend-via-metadata true)))
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))
@@ -209,6 +210,7 @@
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 
 (defn find-matching-non-default-method [protocol obj]
+  ;; (prn :protocol protocol)
   (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                     (let [ms (methods %)
                           default (get ms :default)]

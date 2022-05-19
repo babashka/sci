@@ -278,6 +278,7 @@
              (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
                (let [impls (group-by first impls)
                      protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
+                     ;; _ (prn :protocol protocol)
                      #?@(:cljs [protocol (or protocol
                                              (when (= 'Object protocol-name)
                                                ::object))])
