@@ -13,7 +13,7 @@ Code examples below use
 [promesa](https://cljdoc.org/d/funcool/promesa/8.0.450/doc/user-guide) to make
 working with promises more convenient.
 
-## Lazy loading a Clojure namespace
+## Lazy loading a namespace
 
 ``` clojure
 (ns example2
