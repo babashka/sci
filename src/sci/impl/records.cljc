@@ -344,12 +344,14 @@
                         :sci.impl/record true
                         :type '~rec-type
                         :sci.impl/record-var ~(list 'var record-name)))
-           (def ~record-name (with-meta '~rec-type
-                               ~(cond-> {:sci.impl/record true
-                                         :sci.impl.record/constructor factory-fn-sym
-                                         :sci.impl/record-var (list 'var record-name)}
-                                  (not deftype?)
-                                  (assoc :sci.impl.record/map-constructor map-factory-sym))))
+           (def ~(with-meta record-name
+                   {:sci/record true})
+             (with-meta '~rec-type
+               ~(cond-> {:sci.impl/record true
+                         :sci.impl.record/constructor factory-fn-sym
+                         :sci.impl/record-var (list 'var record-name)}
+                  (not deftype?)
+                  (assoc :sci.impl.record/map-constructor map-factory-sym))))
            ~@protocol-impls
            ~record-name)))))
 

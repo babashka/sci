@@ -43,10 +43,12 @@
 
 (defn var->sym [v]
   (when-let [m (meta v)]
-    (when-let [var-name (:name m)]
-      (when-let [ns (:ns m)]
-        (symbol (str (vars/getName ns))
-                (str var-name))))))
+    (if (:sci/record m)
+      (deref v)
+      (when-let [var-name (:name m)]
+        (when-let [ns (:ns m)]
+          (symbol (str (vars/getName ns))
+                  (str var-name)))))))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)

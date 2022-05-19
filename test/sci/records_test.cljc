@@ -189,3 +189,6 @@
 (deftest with-meta-preserves-type-test
   (let [prog "(defrecord Foo [a] Object (toString [_] \"!!FOO!!\")) [(str (with-meta (->Foo 1) {:a 1}))]"]
     (is (= ["!!FOO!!"] (tu/eval* prog {})))))
+
+(deftest syntax-quote-test
+  (is (= 'foo.Foo (tu/eval* "(ns foo) (defrecord Foo []) `Foo" {}))))
