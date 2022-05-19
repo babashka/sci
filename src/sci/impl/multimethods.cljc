@@ -1,7 +1,8 @@
 (ns sci.impl.multimethods
   {:no-doc true}
   (:refer-clojure :exclude [defmulti defmethod])
-  (:require [sci.impl.hierarchies :refer [global-hierarchy]]))
+  (:require [sci.impl.hierarchies :refer [global-hierarchy]]
+            [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -103,13 +104,22 @@
   "Creates and installs a new method of multimethod associated with dispatch-value. "
   [_x _y multifn dispatch-val & fn-tail]
   #?(:clj
-     ;; TODO, we could do a better job resolving print-method if it
-     ;; was :excluded or full qualified
-     (if (= 'print-method multifn)
-       `(let [v# ~dispatch-val
-              m# (meta v#)]
-          (if (:sci.impl/record m#)
-            (alter-var-root (:sci.impl/record-var m#) vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))
-            (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
-       `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
+     (let [multifn-str (str multifn)]
+       (if (or (str/ends-with? multifn-str "print-method")
+               (str/ends-with? multifn-str "simple-dispatch"))
+         `(let [v# ~dispatch-val
+                m# (meta v#)
+                mf# (resolve '~multifn)]
+            (if (:sci.impl/record m#)
+              (cond
+                (= (resolve 'clojure.pprint/simple-dispatch) mf#)
+                (do
+                  (alter-var-root (:sci.impl/record-var m#)
+                                  vary-meta assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail)))
+                (= (resolve 'clojure.core/print-method) mf#)
+                (alter-var-root (:sci.impl/record-var m#)
+                                vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))
+                :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
+              (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
+         `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
      :cljs `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
