@@ -210,12 +210,14 @@
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 
 (defn find-matching-non-default-method [protocol obj]
-  ;; (prn :protocol protocol)
-  (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
-                    (let [ms (methods %)
-                          default (get ms :default)]
-                      (not (identical? m default))))
-                 (:methods protocol))))
+  (or (when-let [sats (:satisfies protocol)]
+        (when-let [t (:type (meta obj))]
+          (contains? sats t)))
+      (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
+                        (let [ms (methods %)
+                              default (get ms :default)]
+                          (not (identical? m default))))
+                     (:methods protocol)))))
 
 (defn satisfies? [protocol obj]
   (if #?(:clj (instance? sci.impl.types.IReified obj)

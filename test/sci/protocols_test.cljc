@@ -1,9 +1,10 @@
 (ns sci.protocols-test
-  (:require [clojure.core.protocols :as p]
-            [clojure.string :as str]
-            [clojure.test :refer [deftest is testing]]
-            [sci.core :as sci]
-            [sci.test-utils :as tu]))
+  (:require
+   [clojure.core.protocols :as p]
+   [clojure.string :as str]
+   [clojure.test :refer [deftest is testing]]
+   [sci.core :as sci]
+   [sci.test-utils :as tu]))
 
 (deftest protocol-test
   (let [prog "
@@ -284,3 +285,12 @@
          (eval* "(defprotocol Dude (foo [_] [_ x])) (:sigs Dude)")))
   (is (= '{:foo {:name foo, :arglists ([_] [_ x]), :doc "docstring"}}
          (eval* "(defprotocol Dude (foo [_] [_ x] \"docstring\")) (:sigs Dude)"))))
+
+(deftest marker-protocol-test
+  (is (true? (eval* "(defprotocol Marker)
+
+(defrecord Foo []
+  Marker)
+
+(satisfies? Marker (->Foo))
+"))))

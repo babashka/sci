@@ -288,6 +288,11 @@
                           expr))
                      #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
                      protocol (if (vars/var? protocol) @protocol protocol)
+                     protocol-var (:var protocol)
+                     _ (when protocol-var
+                         ;; TODO: not all externally defined protocols might have the :var already
+                         (vars/alter-var-root protocol-var update :satisfies
+                                              (fnil conj #{}) rec-type))
                      protocol-ns (:ns protocol)
                      pns (cond protocol-ns (str (vars/getName protocol-ns))
                                (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
