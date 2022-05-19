@@ -1,4 +1,5 @@
 (ns sci.pprint
+  "Extensible pprinting for built-in SCI types."
   (:require [clojure.pprint :as pprint]
             [sci.impl.records]))
 
