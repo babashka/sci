@@ -25,8 +25,7 @@
 
 (defn clojure-str [v]
   (let [t (types/type-impl v)]
-    (str "#" (namespace t) "." (name t)
-         (into {} v))))
+    (str "#" t (into {} v))))
 
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
@@ -270,7 +269,7 @@
             map-factory-sym (when-not deftype?
                               (symbol (str "map" factory-fn-str)))
             keys (mapv keyword fields)
-            rec-type (symbol (str (vars/current-ns-name)) (str record-name))
+            rec-type (symbol (str (munge (vars/current-ns-name)) "." (str record-name)))
             protocol-impls (utils/split-when symbol? raw-protocol-impls)
             field-set (set fields)
             protocol-impls
@@ -351,7 +350,8 @@
                                          :sci.impl/record-var (list 'var record-name)}
                                   (not deftype?)
                                   (assoc :sci.impl.record/map-constructor map-factory-sym))))
-           ~@protocol-impls)))))
+           ~@protocol-impls
+           ~record-name)))))
 
 (defn sci-record? [x]
   (or
