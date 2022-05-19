@@ -456,6 +456,11 @@
   (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
   ctx)
 
+(defn add-namespace!
+  [ctx ns-name ns-map]
+  (swap! (:env ctx) update-in [:namespaces ns-name] merge ns-map)
+  ctx)
+
 (defn find-ns
   "Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sym`."
   [ctx ns-sym]

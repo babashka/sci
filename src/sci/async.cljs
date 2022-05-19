@@ -30,29 +30,31 @@
                                                  :libname libname
                                                  :opts opts}))
                    (fn [res]
-                     (if (:handled res)
-                       (handle-libspecs ctx ns-obj (rest libspecs))
-                       ;; TODO: handle return value
-                       (let [handle-opts
-                             (fn [res]
-                               (let [libname (or (:libname res) libname)]
-                                 (swap! env*
-                                        (fn [env]
-                                          (let [namespaces (get env :namespaces)
-                                                the-loaded-ns (get namespaces libname)]
-                                            (load/handle-require-libspec-env ctx env cnn
-                                                                             the-loaded-ns
-                                                                             libname opts))))))]
-                         (if-let [src (:source res)]
-                           (let [curr-ns @last-ns]
-                             (.then (eval-string* ctx src)
-                                    (fn []
-                                      (vreset! last-ns curr-ns)
-                                      (handle-opts res)
-                                      (handle-libspecs ctx ns-obj (rest libspecs)))))
-                           (do
-                             (handle-opts res)
-                             (handle-libspecs ctx ns-obj (rest libspecs)))))))))
+                     (let [ctx (or (:ctx res) ctx)]
+                       (if (:handled res)
+                         (handle-libspecs ctx ns-obj (rest libspecs))
+                         ;; TODO: handle return value
+                         (let [handle-opts
+                               (fn [ctx res]
+                                 (let [libname (or (:libname res) libname)
+                                       env* (:env ctx)]
+                                   (swap! env*
+                                          (fn [env]
+                                            (let [namespaces (get env :namespaces)
+                                                  the-loaded-ns (get namespaces libname)]
+                                              (load/handle-require-libspec-env ctx env cnn
+                                                                               the-loaded-ns
+                                                                               libname opts))))))]
+                           (if-let [src (:source res)]
+                             (let [curr-ns @last-ns]
+                               (.then (eval-string* ctx src)
+                                      (fn []
+                                        (vreset! last-ns curr-ns)
+                                        (handle-opts ctx res)
+                                        (handle-libspecs ctx ns-obj (rest libspecs)))))
+                             (do
+                               (handle-opts ctx res)
+                               (handle-libspecs ctx ns-obj (rest libspecs))))))))))
           (do (apply load/load-lib ctx nil libname opts)
               (handle-libspecs ctx ns-obj (rest libspecs))))))
     (js/Promise.resolve nil #_ns-obj)))

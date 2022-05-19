@@ -34,9 +34,11 @@
                  code (str/join
                        "\n"
                        (map pr-str '[(ns dude (:require [foobar :as my-lib]))
-                                     [(my-lib/hello) (str *ns*)]]))
+                                     [(my-lib/hello)
+                                      (foobar/hello)
+                                      (str *ns*)]]))
                  res (scia/eval-string* ctx code)
-                 _ (is (= [:hello "dude"] res))
+                 _ (is (= [:hello :hello "dude"] res))
                  res (scia/eval-string* ctx "(str *ns*)")
                  _ (is (= "user" res))
                  ]
@@ -62,4 +64,21 @@
                  code "(ns foo) (def x) (defn foo [] `x) (foo)"
                  res (scia/eval-string* ctx code)]
            (is (= 'foo/x res))
+           (done))))
+
+(defn my-lazy-loaded-fn []
+  :hello)
+
+(deftest async-eval-load-clojure-ns-test
+  (async done
+         (p/let [sci-ns (sci/create-ns 'my.lazy-ns)
+                 lazy-ns {'my-lazy-fn (sci/copy-var my-lazy-loaded-fn sci-ns)}
+                 ctx (sci/init {:async-load-fn
+                                (fn [{:keys [libname opts ctx ns]}]
+                                  (js/Promise.resolve
+                                   (sci/add-namespace! ctx libname lazy-ns)
+                                   {}))})
+                 code "(ns foo (:require [my.lazy-ns :refer [my-lazy-fn]])) (my-lazy-fn)"
+                 res (scia/eval-string* ctx code)]
+           (is (= :hello res))
            (done))))
