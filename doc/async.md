@@ -16,26 +16,22 @@ working with promises more convenient.
 ## Lazy loading a Clojure namespace
 
 ``` clojure
-(ns example
+(ns example2
   (:require [promesa.core :as p]
             [sci.async :as scia]
             [sci.core :as sci]))
-
-(def mlns (sci/create-ns 'my.lazy-ns))
-
-(defn lazy-greet [x]
-  (str "Hello " x "!"))
-
-(def lazy-ns {'lazy-greet (sci/copy-var lazy-greet mlns)})
 
 (defn async-load-fn
   [{:keys [libname ctx]}]
   (p/resolved
    (case libname
      my.lazy-ns
-     (do (sci/add-namespace! ctx libname lazy-ns)
-         ;; empty map return value, SCI will still process `:as` and `:refer`
-         {}))))
+     (let [mlns (sci/create-ns 'my.lazy-ns)
+           lazy-greet (fn [x] (str "Hello " x "!"))
+           lazy-ns {'lazy-greet (sci/new-var 'lazy-greet lazy-greet {:ns mlns})}]
+       (sci/add-namespace! ctx libname lazy-ns)
+       ;; empty map return value, SCI will still process `:as` and `:refer`
+       {}))))
 
 (def ctx (sci/init {:async-load-fn async-load-fn}))
 
