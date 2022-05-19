@@ -16,7 +16,7 @@ working with promises more convenient.
 ## Lazy loading a namespace
 
 ``` clojure
-(ns example2
+(ns example
   (:require [promesa.core :as p]
             [sci.async :as scia]
             [sci.core :as sci]))
