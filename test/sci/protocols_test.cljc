@@ -247,7 +247,7 @@
                                    {:namespaces {'clojure.core.protocols
                                                  {'IKVReduce (sci/new-var 'clojure.core.protocols/IKVReduce
                                                                           {:protocol p/IKVReduce
-                                                                          :ns ns}
+                                                                           :ns ns}
                                                                           {:ns ns})}}}))))))
 
 (deftest fallback-on-reified-object-test
@@ -293,4 +293,32 @@
   Marker)
 
 (satisfies? Marker (->Foo))
-"))))
+")))
+  (is (true? (eval* "
+(defprotocol Marker)
+
+(defrecord Foo [])
+
+(extend-type Foo Marker)
+(satisfies? Marker (->Foo))
+")))
+  (is (true? (eval* "
+(defprotocol Marker)
+
+(defrecord Foo [])
+
+(extend-protocol Marker Foo)
+(satisfies? Marker (->Foo))
+")))
+  #?(:clj (is (true? (sci/binding [sci/out *out*](sci/eval-string "
+(defprotocol Marker)
+
+(extend-type java.lang.Long Marker)
+(satisfies? Marker 1)
+" {:classes '{java.lang.Long java.lang.Long}})))))
+  #?(:clj (is (true? (sci/binding [sci/out *out*](sci/eval-string "
+(defprotocol Marker)
+
+(extend-protocol Marker java.lang.Long)
+(satisfies? Marker 1)
+" {:classes '{java.lang.Long java.lang.Long}}))))))

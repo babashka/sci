@@ -3,8 +3,9 @@
   (:refer-clojure :exclude [defprotocol extend-protocol
                             extend extend-type reify satisfies?
                             extends? implements?])
-  (:require [sci.impl.multimethods :as mms]
-            #?(:clj [sci.impl.interop :as interop])
+  (:require #?(:clj [sci.impl.interop :as interop])
+            [sci.impl.multimethods :as mms]
+            [sci.impl.parser :as parser]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -189,13 +190,16 @@
         protocol-ns (:ns protocol-data)
         pns (str (vars/getName protocol-ns))
         expansion
-        `(do ~@(map (fn [[type & meths]]
-                      `(do
-                         ~@(process-methods ctx type meths pns extend-via-metadata)))
+        `(do
+           ~@(map (fn [[type & meths]]
+                    `(do
+                       (clojure.core/alter-var-root
+                        (var ~protocol-name) update :satisfies (fnil conj #{}) ~type)
+                       ~@(process-methods ctx type meths pns extend-via-metadata)))
                     impls))]
     expansion))
 
-(defn extend-type [_ _ ctx atype & proto+meths]
+(defn extend-type [_form _env ctx atype & proto+meths]
   (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
             (fn [[proto & meths]]
@@ -205,14 +209,20 @@
                     pns (str (vars/getName protocol-ns))
                     extend-via-metadata (:extend-via-metadata proto-data)]
                 `(do
+                   (clojure.core/alter-var-root
+                    (var ~proto) update :satisfies (fnil conj #{}) ~atype)
                    ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 
 (defn find-matching-non-default-method [protocol obj]
   (or (when-let [sats (:satisfies protocol)]
-        (when-let [t (:type (meta obj))]
-          (contains? sats t)))
+        (when-let [t (types/type-impl obj)]
+          #_{:clj-kondo/ignore [:redundant-let]}
+          (let [#?@(:clj [t (if (class? t)
+                              (symbol (.getName ^Class t))
+                              t)])]
+            (contains? sats t))))
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                         (let [ms (methods %)
                               default (get ms :default)]
