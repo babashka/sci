@@ -291,7 +291,7 @@
         bindings (:bindings ctx)
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
-        ctx (update ctx :parents conj fixed-arity)
+        ctx (update ctx :parents conj (or var-arg-name fixed-arity))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         body (return-do (with-recur-target ctx true) fn-expr body)
