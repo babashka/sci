@@ -457,6 +457,8 @@
   ctx)
 
 (defn add-namespace!
+  "Adds namespace map `ns-map` named by the symbol `ns-name` to
+  `ctx`. Returns mutated context."
   [ctx ns-name ns-map]
   (swap! (:env ctx) update-in [:namespaces ns-name] merge ns-map)
   ctx)
