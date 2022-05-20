@@ -1,6 +1,6 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:refer-clojure :exclude [eval])
+  (:refer-clojure :exclude [eval demunge])
   (:require [clojure.string :as str]
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
@@ -50,6 +50,10 @@
 #?(:cljs
    (def allowed-append "used for allowing interop in with-out-str"
      (symbol "append")))
+
+(defn demunge [s]
+  #?(:clj (clojure.lang.Compiler/demunge s)
+     :cljs (cljs.core/demunge s)))
 
 #?(:clj
    (defn rewrite-ex-msg [ex-msg env fm]

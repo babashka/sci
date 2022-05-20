@@ -377,7 +377,9 @@
      (resolve-record-or-protocol-class ctx namespace (symbol class-name))))
   ([ctx package class]
    (let [namespace (-> package str (str/replace "_" "-") symbol)]
-     (when-let [sci-var (get-in @(:env ctx) [:namespaces namespace class])]
+     (when-let [sci-var (let [ns (get-in @(:env ctx) [:namespaces namespace])]
+                          (or (get ns class)
+                              (get (:refers ns) class)))]
        (if (vars/var? sci-var)
          @sci-var
          sci-var)))))

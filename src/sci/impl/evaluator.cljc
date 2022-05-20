@@ -241,10 +241,13 @@
                               (let [cnn (vars/current-ns-name)]
                                 (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name)
                                 clazz)
-                              (if-let [rec (records/resolve-record-or-protocol-class ctx package class)]
+                              (if-let [rec-var
+                                       (let [rec-ns (symbol (utils/demunge (str package)))
+                                             rec-var (get-in @env [:namespaces rec-ns class])]
+                                         rec-var)]
                                 (let [cnn (vars/current-ns-name)]
-                                  (swap! env assoc-in [:namespaces cnn class] rec)
-                                  rec)
+                                  (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
+                                  @rec-var)
                                 (throw (new #?(:clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil
