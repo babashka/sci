@@ -79,6 +79,16 @@
                                    (sci/add-namespace! ctx libname lazy-ns)
                                    {}))})
                  code "(ns foo (:require [my.lazy-ns :refer [my-lazy-fn]])) (my-lazy-fn)"
-                 res (scia/eval-string* ctx code)]
-           (is (= :hello res))
+                 res (scia/eval-string* ctx code)
+                 _ (is (= :hello res))
+                 code "
+
+(ns foo1 (:require [my.lazy-ns]))
+(my.lazy-ns/my-lazy-fn)
+
+(ns foo2 (:require [my.lazy-ns :refer [my-lazy-fn]]))
+(my-lazy-fn)
+"
+                 res (scia/eval-string* ctx code)
+                 _ (is (= :hello res))]
            (done))))

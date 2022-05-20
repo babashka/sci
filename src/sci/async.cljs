@@ -1,9 +1,8 @@
 (ns sci.async
-  (:require [clojure.string :as str]
-            [goog.object :as gobj]
-            [sci.core :as sci]
-            [sci.impl.load :as load]
-            [sci.impl.vars]))
+  (:require
+   [sci.core :as sci]
+   [sci.impl.load :as load]
+   [sci.impl.vars]))
 
 (declare eval-string*)
 
@@ -21,7 +20,8 @@
       (if (and (symbol? libname)
                (sci/find-ns ctx libname))
         ;; library already loaded, the only thing left to do is process the options, we can defer to load
-        (do (apply load/load-lib ctx nil libname opts)
+        (do (sci/binding [sci/ns @last-ns]
+              (apply load/load-lib ctx nil libname opts))
             (handle-libspecs ctx ns-obj (rest libspecs)))
         (if-let [load-fn (:async-load-fn @env*)]
           (let [opts (apply hash-map opts)]
@@ -55,7 +55,8 @@
                              (do
                                (handle-opts ctx res)
                                (handle-libspecs ctx ns-obj (rest libspecs))))))))))
-          (do (apply load/load-lib ctx nil libname opts)
+          (do (sci/binding [sci/ns @last-ns]
+                (apply load/load-lib ctx nil libname opts))
               (handle-libspecs ctx ns-obj (rest libspecs))))))
     (js/Promise.resolve nil #_ns-obj)))
 
