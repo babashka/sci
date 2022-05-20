@@ -3,6 +3,10 @@
   (:require [clojure.pprint :as pprint]
             [sci.impl.records]))
 
+#?(:clj (prefer-method pprint/simple-dispatch sci.impl.records.SciRecord clojure.lang.IRecord))
+#?(:clj (prefer-method pprint/simple-dispatch sci.impl.records.SciRecord java.util.Map))
+#?(:clj (prefer-method pprint/simple-dispatch sci.impl.records.SciRecord clojure.lang.IPersistentMap))
+
 (defprotocol SciPrettyPrint
   (-sci-pprint-simple-dispatch [obj]))
 

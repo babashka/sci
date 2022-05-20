@@ -43,13 +43,15 @@
         expansion
         `(do
            (def  ~(with-meta protocol-name
-                    {:doc docstring}) (cond->
-                                          {:methods #{}
-                                           :name '~fq-name
-                                           :ns *ns*
-                                           :sigs ~(list 'quote sigs-map)
-                                           :var (var ~fq-name)}
-                                        ~extend-meta (assoc :extend-via-metadata true)))
+                    {:doc docstring
+                     :sci/protocol true})
+             (cond->
+                 {:methods #{}
+                  :name '~fq-name
+                  :ns *ns*
+                  :sigs ~(list 'quote sigs-map)
+                  :var (var ~fq-name)}
+               ~extend-meta (assoc :extend-via-metadata true)))
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))
                           impls [`(defmulti ~method-name clojure.core/protocol-type-impl)

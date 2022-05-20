@@ -110,12 +110,14 @@
          `(let [v# ~dispatch-val
                 m# (meta v#)
                 mf# (resolve '~multifn)]
-            (if (:sci.impl/record m#)
+            (prn v# m#)
+            (if (or (:sci.impl/record m#)
+                    (:sci/protocol m#))
               (cond
                 (= (resolve 'clojure.pprint/simple-dispatch) mf#)
-                (do
-                  (alter-var-root (:sci.impl/record-var m#)
-                                  vary-meta assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail)))
+                (alter-var-root (or (:sci.impl/record-var m#)
+                                    (:var v#))
+                                vary-meta assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
                 (= (resolve 'clojure.core/print-method) mf#)
                 (alter-var-root (:sci.impl/record-var m#)
                                 vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))
