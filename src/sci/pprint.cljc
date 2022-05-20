@@ -15,8 +15,8 @@
         (let [m (meta @rv)]
           (if-let [pm (:sci.impl/pprint-simple-dispatch m)]
             (pm obj)
-            (pprint/simple-dispatch obj)))
-        (pprint/simple-dispatch obj)))))
+            (pprint/simple-dispatch (into {} obj))))
+        (pprint/simple-dispatch (into {} obj))))))
 
 (defmethod pprint/simple-dispatch sci.impl.records.SciRecord [obj]
   (-sci-pprint-simple-dispatch obj))

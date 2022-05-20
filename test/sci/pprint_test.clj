@@ -10,6 +10,10 @@
   (binding [*out* @sci/out]
     (pp/pprint o)))
 
+(def conf {:namespaces
+           {'clojure.pprint {'pprint pprint
+                             'simple-dispatch pp/simple-dispatch}}})
+
 (deftest pprint-simple-dispatch-test
   (is (= "<6>"
          (str/trim
@@ -24,6 +28,17 @@
 
 (pprint/pprint (->Foo 6))
 "
-                             {:namespaces
-                              {'clojure.pprint {'pprint pprint
-                                                'simple-dispatch pp/simple-dispatch}}}))))))
+                             conf))))))
+
+(deftest pprint-default-impl-test
+  (is (= "{:x 6}"
+         (str/trim
+          (sci/with-out-str
+            (sci/eval-string "
+(require '[clojure.pprint :as pprint])
+
+(defrecord Foo [x])
+
+(pprint/pprint (->Foo 6))
+"
+                             conf))))))
