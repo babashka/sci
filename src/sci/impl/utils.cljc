@@ -154,28 +154,6 @@
 (def var-unbound #?(:clj (Object.)
                     :cljs (js/Object.)))
 
-(defn walk*
-  [inner form]
-  (cond
-    (:sci.impl/op (meta form)) form
-    (list? form) (with-meta (apply list (map inner form))
-                   (meta form))
-    #?(:clj (instance? clojure.lang.IMapEntry form) :cljs (map-entry? form))
-    #?(:clj (clojure.lang.MapEntry/create (inner (key form)) (inner (val form)))
-       :cljs (MapEntry. (inner (key form)) (inner (val form)) nil))
-    (seq? form) (with-meta (doall (map inner form))
-                  (meta form))
-    #?(:clj (instance? clojure.lang.IRecord form)
-       :cljs (record? form))
-    (reduce (fn [r x] (conj r (inner x))) form form)
-    (coll? form) (into (empty form) (map inner form))
-    :else form))
-
-(defn prewalk
-  "Prewalk with metadata preservation. Does not prewalk :sci.impl/op nodes."
-  [f form]
-  (walk* (partial prewalk f) (f form)))
-
 (defn namespace-object
   "Fetches namespaces from env if it exists. Else, if `create?`,
   produces one regardless of the existince of the namespace in env and
