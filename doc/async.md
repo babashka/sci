@@ -126,3 +126,16 @@ an asynchronous `require` which can be substituted in a context:
 
 Like the `ns` form, a top level `require` is handled as if it happened
 synchronously: the next expression is scheduled after the require finishes.
+
+SCI does not limit `require` only to the top of the file, it may be used
+anywhere, as long as the returned value occurs top level:
+
+``` clojure
+(ns foo)
+
+(+ 1 2 3)
+
+(require '[some.async-ns :as ans])
+
+(ans/the-fn)
+```
