@@ -82,7 +82,7 @@
          (p/let [sci-ns (sci/create-ns 'my.lazy-ns)
                  lazy-ns {'my-lazy-fn (sci/copy-var my-lazy-loaded-fn sci-ns)}
                  ctx (sci/init {:async-load-fn
-                                (fn [{:keys [libname opts ctx ns]}]
+                                (fn [{:keys [libname ctx]}]
                                   (js/Promise.resolve
                                    (sci/add-namespace! ctx libname lazy-ns)
                                    {}))})
@@ -99,4 +99,19 @@
 "
                  res (scia/eval-string* ctx code)
                  _ (is (= :hello res))]
+           (done))))
+
+(deftest no-flatten-promises
+  (async done
+         (p/let [ctx (sci/init {:async-load-fn
+                                (fn [_]
+                                  {})
+                                :namespaces {'promesa.core {'delay p/delay}}
+                                :classes {:allow :all 'js goog/global}})
+                 code "(require '[promesa.core :as p])
+                       (def a (atom :init))
+                       (.then (p/delay 1000 :x) (fn [] (reset! a :yolo)))
+                       @a"
+                 res (scia/eval-string* ctx code)
+                 _ (is (= :init res))]
            (done))))

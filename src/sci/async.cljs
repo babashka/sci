@@ -103,11 +103,16 @@
                         (continue))))]
     (eval-next nil)))
 
-(defn await [promise]
+(defn await
+  "Mark promise to be flatteded into top level async evaluation, similar
+  to top level await."
+  [promise]
   (set! (.-__sci_await promise) true)
   promise)
 
-(defn await? [promise]
+(defn await?
+  "Check if promise was marked with `await`."
+  [promise]
   (.-__sci_await promise))
 
 (defn- require* [ctx & libspecs]
@@ -116,4 +121,6 @@
     (await p)))
 
 (def require
+  "Async require that can be substituted for sync require by
+  `{:namespaces {'clojure.core {'require scia/require}}}`"
   (sci.impl.namespaces/core-var 'require require* true))
