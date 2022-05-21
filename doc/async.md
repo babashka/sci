@@ -101,7 +101,8 @@ do anything with aliases, as the `async-load-fn` has handled this already.
 
 ## Require
 
-By default `require` is synchronous in SCI. The `sci.async` namespace contains an asynchronous require which can be substituted:
+By default `require` is synchronous in SCI. The `sci.async` namespace contains
+an asynchronous `require` which can be substituted in a context:
 
 ``` clojure
 (ns example
