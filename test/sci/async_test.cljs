@@ -110,8 +110,10 @@
                                 :classes {:allow :all 'js goog/global}})
                  code "(require '[promesa.core :as p])
                        (def a (atom :init))
-                       (.then (p/delay 1000 :x) (fn [] (reset! a :yolo)))
-                       @a"
+                       (.then (p/delay 10 :x) (fn [] (reset! a :yolo)))
+                       a"
                  res (scia/eval-string* ctx code)
-                 _ (is (= :init res))]
+                 _ (is (= :init @res))
+                 _ (p/delay 11)
+                 _ (is (= :yolo @res))]
            (done))))
