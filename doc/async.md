@@ -111,9 +111,10 @@ an asynchronous `require` which can be substituted in a context:
             [sci.core :as sci]))
 
 (def async-load-fn (fn [{:keys [libname]}]
-                     (case libname
-                       acme.foo {:source "(ns acme.foo) (defn the-fn [] :hello)"}
-                       acme.bar {:source "(ns acme.bar) (defn the-fn [] :bye)"})))
+                     (p/resolved
+                      (case libname
+                        acme.foo {:source "(ns acme.foo) (defn the-fn [] :hello)"}
+                        acme.bar {:source "(ns acme.bar) (defn the-fn [] :bye)"}))))
 
 (def ctx (sci/init {:namespaces {'clojure.core {'require scia/require}}
                     :async-load-fn async-load-fn}))
