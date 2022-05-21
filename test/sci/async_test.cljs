@@ -27,8 +27,13 @@
 (deftest async-eval-string-cljs-source-lib-test
   (async done
          (p/let [ctx (sci/init {:async-load-fn
-                                (fn [{:keys [libname opts ctx ns]}]
-                                  {:source "(ns foobar) (defn hello [] :hello)"})})
+                                (fn [{:keys [libname]}]
+                                  (case libname
+                                    foobar
+                                    {:source "(ns foobar) (defn hello [] :hello)"}
+                                    foobar2
+                                    {:source "(ns foobar2) (defn hello [] :bye)"}))
+                                :namespaces {'clojure.core {'require scia/require}}})
                  res (scia/eval-string* ctx "(str *ns*)")
                  _ (is (= "user" res))
                  code (str/join
@@ -41,19 +46,22 @@
                  _ (is (= [:hello :hello "dude"] res))
                  res (scia/eval-string* ctx "(str *ns*)")
                  _ (is (= "user" res))
-                 ]
+                 code "(require '[foobar2 :as foo]) (foo/hello)"
+                 res (scia/eval-string* ctx code)
+                 _ (is (= :bye res))]
            (done))))
 
 (deftest async-eval-string-cljs-source-lib-error-test
   (async done
          (-> (p/let [ctx (sci/init {:async-load-fn
-                                    (fn [{:keys [libname opts ctx ns]}]
+                                    (fn [_]
                                       (js/Promise.reject (js/Error. "Not found")))})
                      code (str/join
                            "\n"
                            (map pr-str '[(ns dude (:require [foobar :as my-lib]))
                                          (my-lib/hello)]))
-                     res (scia/eval-string* ctx code)])
+                     _res (scia/eval-string* ctx code)
+                     _ (is false "Should not reach here")])
              (p/catch (fn [err]
                         (is (= "Not found" (.-message err)))
                         (done))))))
@@ -74,7 +82,7 @@
          (p/let [sci-ns (sci/create-ns 'my.lazy-ns)
                  lazy-ns {'my-lazy-fn (sci/copy-var my-lazy-loaded-fn sci-ns)}
                  ctx (sci/init {:async-load-fn
-                                (fn [{:keys [libname opts ctx ns]}]
+                                (fn [{:keys [libname ctx]}]
                                   (js/Promise.resolve
                                    (sci/add-namespace! ctx libname lazy-ns)
                                    {}))})
@@ -91,4 +99,21 @@
 "
                  res (scia/eval-string* ctx code)
                  _ (is (= :hello res))]
+           (done))))
+
+(deftest no-flatten-promises
+  (async done
+         (p/let [ctx (sci/init {:async-load-fn
+                                (fn [_]
+                                  {})
+                                :namespaces {'promesa.core {'delay p/delay}}
+                                :classes {:allow :all 'js goog/global}})
+                 code "(require '[promesa.core :as p])
+                       (def a (atom :init))
+                       (.then (p/delay 10 :x) (fn [] (reset! a :yolo)))
+                       a"
+                 res (scia/eval-string* ctx code)
+                 _ (is (= :init @res))
+                 _ (p/delay 11)
+                 _ (is (= :yolo @res))]
            (done))))

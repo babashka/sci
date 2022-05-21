@@ -8,6 +8,7 @@ Difference with the synchronous evaluation in `sci.core`:
 - `(ns ...)` forms are evaluated asynchronously - loading can be configured
   via the `:async-load-fn` option.
 - The return value from evaluation is a JavaScript promise.
+- Optionally `require` can be made async using `sci/require`, see [Require](#require).
 
 Code examples below use
 [promesa](https://cljdoc.org/d/funcool/promesa/8.0.450/doc/user-guide) to make
@@ -97,3 +98,30 @@ one function, `libfn`. In the async load fn, we check if the library was
 required and then register it as a class in the context and as an import in the
 current namespace. The `:handled true` return value indicates that SCI will not
 do anything with aliases, as the `async-load-fn` has handled this already.
+
+## Require
+
+By default `require` is synchronous in SCI. The `sci.async` namespace contains an asynchronous require which can be substituted:
+
+``` clojure
+(ns example
+  (:require [promesa.core :as p]
+            [sci.async :as scia]
+            [sci.core :as sci]))
+
+(def async-load-fn (fn [{:keys [libname]}]
+                     (case libname
+                       acme.foo {:source "(ns acme.foo) (defn the-fn [] :hello)"}
+                       acme.bar {:source "(ns acme.bar) (defn the-fn [] :bye)"})))
+
+(def ctx (sci/init {:namespaces {'clojure.core {'require scia/require}}
+                    :async-load-fn async-load-fn}))
+
+(p/let [res (scia/eval-string* ctx "(require '[acme.foo :as foo]) (foo/the-fn)")
+        _ (assert (= :hello res))
+        res (scia/eval-string* ctx "(require '[acme.bar :as bar]) (bar/the-fn)")
+        _ (assert (= :bye res))])
+```
+
+Like the `ns` form, a top level `require` is handled as if it happened
+synchronously: the next expression is scheduled after the require finishes.

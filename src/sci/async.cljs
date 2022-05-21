@@ -2,7 +2,9 @@
   (:require
    [sci.core :as sci]
    [sci.impl.load :as load]
-   [sci.impl.vars]))
+   [sci.impl.namespaces]
+   [sci.impl.vars])
+  (:refer-clojure :exclude [require]))
 
 (declare eval-string*)
 
@@ -77,19 +79,48 @@
         libspecs (mapcat rest require-forms)]
     (handle-libspecs ctx ns-obj libspecs)))
 
+(declare await await?)
+
 (defn eval-string* [ctx s]
   (let [rdr (sci/reader s)
         _ (vreset! last-ns @sci/ns)
         eval-next (fn eval-next [res]
-                    (.then (js/Promise.resolve res)
-                           #(sci/binding [sci/ns @last-ns]
-                              (let [form (sci/parse-next ctx rdr)]
-                                (if (= :sci.core/eof form)
-                                  (js/Promise.resolve res)
-                                  (if (seq? form)
-                                    (if (= 'ns (first form))
-                                      (eval-next (eval-ns-form ctx form))
-                                      (eval-next
-                                       (js/Promise.resolve (sci/eval-form ctx form))))
-                                    (eval-next (js/Promise.resolve (sci/eval-form ctx form)))))))))]
+                    (let [continue #(sci/binding [sci/ns @last-ns]
+                                      (let [form (sci/parse-next ctx rdr)]
+                                        (if (= :sci.core/eof form)
+                                          (js/Promise.resolve res)
+                                          (if (seq? form)
+                                            (if (= 'ns (first form))
+                                              (eval-next (await (eval-ns-form ctx form)))
+                                              (eval-next (sci/eval-form ctx form)))
+                                            (eval-next (sci/eval-form ctx form))))))]
+                      (if (or (not (instance? js/Promise res))
+                              (await? res))
+                        ;; flatten awaited promise or non-promise
+                        (.then (js/Promise.resolve res)
+                               continue)
+                        ;; do not flatten promise results from evaluated results
+                        (continue))))]
     (eval-next nil)))
+
+(defn await
+  "Mark promise to be flatteded into top level async evaluation, similar
+  to top level await."
+  [promise]
+  (set! (.-__sci_await promise) true)
+  promise)
+
+(defn await?
+  "Check if promise was marked with `await`."
+  [promise]
+  (.-__sci_await promise))
+
+(defn- require* [ctx & libspecs]
+  (vreset! last-ns @sci/ns)
+  (let [p (handle-libspecs ctx @last-ns libspecs)]
+    (await p)))
+
+(def require
+  "Async require that can be substituted for sync require by
+  `{:namespaces {'clojure.core {'require scia/require}}}`"
+  (sci.impl.namespaces/core-var 'require require* true))
