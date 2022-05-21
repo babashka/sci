@@ -8,7 +8,7 @@ Difference with the synchronous evaluation in `sci.core`:
 - `(ns ...)` forms are evaluated asynchronously - loading can be configured
   via the `:async-load-fn` option.
 - The return value from evaluation is a JavaScript promise.
-- Optionally `require` can be made async using `sci/require`, see [Require](#require).
+- Optionally `require` can be made async using `scia/require`, see [Require](#require).
 
 Code examples below use
 [promesa](https://cljdoc.org/d/funcool/promesa/8.0.450/doc/user-guide) to make
