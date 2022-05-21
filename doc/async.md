@@ -130,7 +130,7 @@ Like the `ns` form, a top level `require` is handled as if it happened
 synchronously: the next expression is scheduled after the require finishes.
 
 SCI does not limit `require` to occur at the beginning of a file, it may be used
-anywhere:
+anywhere, as long a the result is visible as a top level value:
 
 ``` clojure
 (ns foo)
@@ -140,4 +140,7 @@ anywhere:
 (require '[some.lazy-ns :as slns])
 
 (slns/the-fn)
+
+(when (odd? 2)
+  (require '[some.other-lazy-ns :as solns]))
 ```
