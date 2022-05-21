@@ -116,6 +116,7 @@ an asynchronous `require` which can be substituted in a context:
                         acme.foo {:source "(ns acme.foo) (defn the-fn [] :hello)"}
                         acme.bar {:source "(ns acme.bar) (defn the-fn [] :bye)"}))))
 
+;; Substitute scia/require for require:
 (def ctx (sci/init {:namespaces {'clojure.core {'require scia/require}}
                     :async-load-fn async-load-fn}))
 
