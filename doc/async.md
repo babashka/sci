@@ -135,7 +135,7 @@ anywhere:
 
 (+ 1 2 3)
 
-(require '[some.async-ns :as ans])
+(require '[some.lazy-ns :as slns])
 
-(ans/the-fn)
+(slns/the-fn)
 ```
