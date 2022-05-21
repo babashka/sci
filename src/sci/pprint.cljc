@@ -6,6 +6,8 @@
 (defprotocol SciPrettyPrint
   (-sci-pprint-simple-dispatch [obj]))
 
+;; TODO, if record implements protocol and protocol has pprint method, we use that
+
 (extend-protocol SciPrettyPrint
   sci.impl.records.SciRecord
   (-sci-pprint-simple-dispatch [obj]

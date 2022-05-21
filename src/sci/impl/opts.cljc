@@ -163,7 +163,9 @@
     ctx))
 
 (defn merge-opts [ctx opts]
-  (let [{:keys [:bindings
+  (let [!env (:env ctx)
+        env @!env
+        {:keys [:bindings
                 :allow :deny
                 :aliases
                 :namespaces
@@ -173,12 +175,13 @@
                 :load-fn
                 :readers
                 :reify-fn
-                #?(:cljs :async-load-fn)]} opts
-        env (:env ctx)
-        raw-classes (merge (:raw-classes @env) classes)
+                #?(:cljs :async-load-fn)]
+         :or {load-fn (:load-fn env)
+              #?@(:cljs [async-load-fn (:async-load-fn env)])}} opts
+        raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
-        _ (init-env! env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn))
-        ctx (assoc (->ctx {} env features readers (or (:check-permissions ctx) allow deny))
+        _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn))
+        ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
