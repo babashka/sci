@@ -408,7 +408,7 @@
 (def user-ns (->SciNamespace 'user nil))
 
 (def clojure-core-ns (->SciNamespace 'clojure.core nil))
-
+(def runtime-ns (->SciNamespace 'sci.runtime nil))
 
 (def current-file (dynamic-var '*file* nil {:ns clojure-core-ns}))
 

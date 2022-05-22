@@ -1720,8 +1720,22 @@
    'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)
    'macroexpand-all macroexpand-all})
 
+(defn record-type? [x]
+  (and (symbol? x)
+       (-> x meta :sci.impl/record)))
+
+(defn record-type-name [x]
+  (when (record-type? x)
+    (str x)))
+
+(def sci-runtime-namespace
+  {:obj vars/runtime-ns
+   'record-type? (copy-var record-type? vars/runtime-ns)
+   'record-type-name (copy-var record-type-name vars/runtime-ns)})
+
 (def namespaces
   {#?@(:clj ['clojure.lang clojure-lang])
+   'sci.runtime sci-runtime-namespace
    'clojure.core clojure-core
    'clojure.string {:obj clojure-string-namespace
                     'blank? (copy-var str/blank? clojure-string-namespace)
