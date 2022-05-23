@@ -4,7 +4,8 @@
   (:require [clojure.string :as str]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.lang]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -346,12 +347,13 @@
                         :sci.impl/record-var ~(list 'var record-name)))
            (def ~(with-meta record-name
                    {:sci/record true})
-             (with-meta '~rec-type
-               ~(cond-> {:sci.impl/record true
-                         :sci.impl.record/constructor factory-fn-sym
-                         :sci.impl/record-var (list 'var record-name)}
-                  (not deftype?)
-                  (assoc :sci.impl.record/map-constructor map-factory-sym))))
+             (sci.impl.records/-create-record-type
+              ~(cond-> {:sci.impl/type-name (list 'quote rec-type)
+                        :sci.impl/record true
+                        :sci.impl.record/constructor factory-fn-sym
+                        :sci.impl/record-var (list 'var record-name)}
+                 (not deftype?)
+                 (assoc :sci.impl.record/map-constructor map-factory-sym))))
            ~@protocol-impls
            ~record-name)))))
 
@@ -387,4 +389,4 @@
 (defn resolve-record-class
   [ctx class-sym]
   (when-let [x (resolve-record-or-protocol-class ctx class-sym)]
-    (when (symbol? x) x)))
+    (when (instance? sci.lang.SciType x) x)))
