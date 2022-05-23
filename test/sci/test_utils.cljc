@@ -12,20 +12,18 @@
 
 (when native? (println "Testing native version."))
 
-(defn eval*
-  ([form] (eval* form {}))
-  ([form ctx]
-   (if #?(:clj (not native?)
-          :cljs true)
-     (eval-string (str form) ctx)
-     #?(:clj
-        (let [v (let-programs [sci "./sci"]
-                  (try (sci (str form) (str ctx))
-                       (catch #?(:clj Exception :cljs :default) e
-                         (throw (ex-info (:stderr (ex-data e))
-                                         (or (ex-data e) {}))))))]
-          (edamame/parse-string v {:all true}))
-        :cljs nil))))
+(defn eval* [form ctx]
+  (if #?(:clj (not native?)
+         :cljs true)
+    (eval-string (str form) ctx)
+    #?(:clj
+       (let [v (let-programs [sci "./sci"]
+                 (try (sci (str form) (str ctx))
+                      (catch #?(:clj Exception :cljs :default) e
+                        (throw (ex-info (:stderr (ex-data e))
+                                        (or (ex-data e) {}))))))]
+         (edamame/parse-string v {:all true}))
+       :cljs nil)))
 
 (def submap? u/submap?)
 

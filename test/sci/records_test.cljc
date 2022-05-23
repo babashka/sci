@@ -193,8 +193,3 @@
 (deftest syntax-quote-test
   (is (= 'foo.Foo (tu/eval* "(ns foo) (defrecord Foo []) `Foo" {})))
   (is (= 'foo.Foo (tu/eval* "(ns foo) (defrecord Foo []) (ns bar) (import foo.Foo) `Foo" {}))))
-
-(deftest runtime-test
-  (is (true? (tu/eval* "(defrecord Foo []) (sci.runtime/record-type? Foo)")))
-  (is (= "foo.Foo"
-         (tu/eval* "(ns foo) (defrecord Foo []) (sci.runtime/record-type-name Foo)"))))
