@@ -354,7 +354,7 @@
                             assoc
                             ;; TODO: now that we're using the SciRecord type, we could move away from these metadata keys
                             :sci.impl/record true
-                            :type '~rec-type)))
+                            :type ~rec-type)))
            ~@protocol-impls
            ~record-name)))))
 
