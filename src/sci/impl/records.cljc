@@ -342,7 +342,7 @@
                         :sci.impl.record/constructor (list 'var factory-fn-sym)
                         :sci.impl/record-var (list 'var record-name)}
                  (not deftype?)
-                 (assoc :sci.impl.record/map-constructor map-factory-sym))))
+                 (assoc :sci.impl.record/map-constructor (list 'var map-factory-sym)))))
            (defn ~factory-fn-sym [& args#]
              (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
                         assoc
