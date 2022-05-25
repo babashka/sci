@@ -347,8 +347,7 @@
              (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
                         assoc
                         :sci.impl/record true
-                        :type ~rec-type
-                        :sci.impl/record-var ~record-name))
+                        :type ~rec-type))
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
                  (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) m#)
