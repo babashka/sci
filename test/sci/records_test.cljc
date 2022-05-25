@@ -142,7 +142,7 @@
 (deftest repr-test
   (let [prog "
 (ns foo) (defrecord Foo []) (ns bar (:import [foo Foo])) Foo"]
-    (is (= 'foo.Foo (tu/eval* prog {})))))
+    (is (= (str 'foo.Foo) (str (tu/eval* prog {}))))))
 
 (deftest type-test
   (let [prog "
