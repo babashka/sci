@@ -326,7 +326,7 @@
                                                `(~args
                                                  (let ~bindings
                                                    ~@body)))) bodies)]
-                          `(defmethod ~(fq-meth-name method-name) '~rec-type ~@bodies)))
+                          `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
                       impls)))
              protocol-impls
              raw-protocol-impls)]
