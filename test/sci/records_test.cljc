@@ -1,7 +1,7 @@
 (ns sci.records-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [sci.test-utils :as tu]
-            [clojure.string :as str]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [sci.test-utils :as tu]))
 
 (deftest protocol-test
   (let [prog "

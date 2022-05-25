@@ -1,29 +1,39 @@
 (ns sci.impl.hierarchies
   {:no-doc true}
-  (:require [sci.impl.vars :as vars]))
+  (:require [sci.impl.vars :as vars]
+            [sci.lang]))
 
 ;;;; Hierarchies
 
 (defn global-hierarchy [ctx]
   (get-in @(:env ctx) [:namespaces 'clojure.core 'global-hierarchy]))
 
+(defn ->tag [x]
+  (if (instance? sci.lang.SciType x)
+    (symbol (namespace x) (name x))
+    x))
+
 (defn derive*
   ([ctx tag parent]
-   (vars/alter-var-root (global-hierarchy ctx)
-                        (fn [h]
-                          (derive h tag parent)))
+   (let [tag (->tag tag)]
+     (vars/alter-var-root (global-hierarchy ctx)
+                          (fn [h]
+                            (derive h tag parent))))
    nil)
   ([_ctx h tag parent]
-   (derive h tag parent)))
+   (let [tag (->tag tag)]
+     (derive h tag parent))))
 
 (defn underive*
   ([ctx tag parent]
-   (vars/alter-var-root (global-hierarchy ctx)
-                        (fn [h]
-                          (underive h tag parent)))
+   (let [tag (->tag tag)]
+     (vars/alter-var-root (global-hierarchy ctx)
+                          (fn [h]
+                            (underive h tag parent))))
    nil)
   ([_ctx h tag parent]
-   (underive h tag parent)))
+   (let [tag (->tag tag)]
+     (underive h tag parent))))
 
 (defn isa?*
   ([ctx child parent]
