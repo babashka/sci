@@ -113,9 +113,8 @@
             (if (:sci.impl/record m#)
               (cond
                 (= (resolve 'clojure.pprint/simple-dispatch) mf#)
-                (do
-                  (alter-var-root (:sci.impl/record-var m#)
-                                  vary-meta assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail)))
+                (alter-var-root (:sci.impl/record-var m#)
+                                vary-meta assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
                 (= (resolve 'clojure.core/print-method) mf#)
                 (alter-var-root (:sci.impl/record-var m#)
                                 vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))

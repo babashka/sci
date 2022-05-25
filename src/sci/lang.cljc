@@ -19,7 +19,10 @@
        (meta [_] __data)])
   #?@(:clj
       [clojure.lang.IObj
-       (withMeta [_ m] (set! __data m))]))
+       (withMeta
+        [this m]
+        (set! __data m)
+        this)]))
 
 #?(:clj (defmethod print-method SciType [this w]
           (.write w (str this))))
