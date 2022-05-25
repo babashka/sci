@@ -191,5 +191,5 @@
     (is (= ["!!FOO!!"] (tu/eval* prog {})))))
 
 (deftest syntax-quote-test
-  (is (= 'foo.Foo (tu/eval* "(ns foo) (defrecord Foo []) `Foo" {})))
-  (is (= 'foo.Foo (tu/eval* "(ns foo) (defrecord Foo []) (ns bar) (import foo.Foo) `Foo" {}))))
+  (is (= "foo.Foo" (str (tu/eval* "(ns foo) (defrecord Foo []) `Foo" {}))))
+  (is (= "foo.Foo" (str (tu/eval* "(ns foo) (defrecord Foo []) (ns bar) (import foo.Foo) `Foo" {})))))
