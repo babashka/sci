@@ -8,7 +8,8 @@
             [sci.impl.parser :as parser]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.lang]))
 
 (defn default? [#?(:clj ctx
                    :cljs _ctx) sym]
@@ -259,8 +260,9 @@
     #?@(:clj [(class? clazz)
               (instance? clazz x)])
     ;; records are currently represented as a symbol with metadata
-    (and (symbol? clazz) (some-> clazz meta :sci.impl/record))
-    (= clazz (-> x meta :type))
+    (and (instance? sci.lang.SciType clazz)
+         (some-> clazz meta :sci.impl/record))
+    (= (str clazz) (str (-> x meta :type)))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]
