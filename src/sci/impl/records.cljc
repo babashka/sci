@@ -331,7 +331,18 @@
              protocol-impls
              raw-protocol-impls)]
         `(do
-           (declare ~record-name)
+           (declare ~record-name ~factory-fn-sym)
+           ~(when-not deftype?
+              `(declare ~map-factory-sym))
+           (def ~(with-meta record-name
+                   {:sci/record true})
+             (sci.impl.records/-create-record-type
+              ~(cond-> {:sci.impl/type-name (list 'quote rec-type)
+                        :sci.impl/record true
+                        :sci.impl.record/constructor factory-fn-sym
+                        :sci.impl/record-var (list 'var record-name)}
+                 (not deftype?)
+                 (assoc :sci.impl.record/map-constructor map-factory-sym))))
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
                  (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) m#)
@@ -343,17 +354,8 @@
              (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
                         assoc
                         :sci.impl/record true
-                        :type '~rec-type
+                        :type ~rec-type
                         :sci.impl/record-var ~(list 'var record-name)))
-           (def ~(with-meta record-name
-                   {:sci/record true})
-             (sci.impl.records/-create-record-type
-              ~(cond-> {:sci.impl/type-name (list 'quote rec-type)
-                        :sci.impl/record true
-                        :sci.impl.record/constructor factory-fn-sym
-                        :sci.impl/record-var (list 'var record-name)}
-                 (not deftype?)
-                 (assoc :sci.impl.record/map-constructor map-factory-sym))))
            ~@protocol-impls
            ~record-name)))))
 
