@@ -3,13 +3,13 @@
   (:refer-clojure :exclude [defprotocol extend-protocol
                             extend extend-type reify satisfies?
                             extends? implements?])
-  (:require #?(:clj [sci.impl.interop :as interop])
-            [sci.impl.multimethods :as mms]
-            [sci.impl.parser :as parser]
-            [sci.impl.types :as types]
-            [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]
-            [sci.lang]))
+  (:require
+   #?(:clj [sci.impl.interop :as interop])
+   [sci.impl.multimethods :as mms]
+   [sci.impl.types :as types]
+   [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]
+   [sci.lang]))
 
 (defn default? [#?(:clj ctx
                    :cljs _ctx) sym]
@@ -114,9 +114,7 @@
             multi-method-var (get-in env [:namespaces pns meth-sym])
             multi-method @multi-method-var]
         (mms/multi-fn-add-method-impl
-         multi-method (if (instance? sci.lang.SciType atype)
-                        (symbol (str atype))
-                        atype)
+         multi-method atype
          (if extend-via-metadata
            (let [fq (symbol pns-str meth-str)]
              (fn [this & args]
