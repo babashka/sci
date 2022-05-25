@@ -38,9 +38,9 @@
 (defn isa?*
   ([ctx child parent]
    (let [h @(global-hierarchy ctx)]
-     (isa? h child parent)))
+     (isa? h (->tag child) parent)))
   ([_ctx h child parent]
-   (isa? h child parent)))
+   (isa? h (->tag child) parent)))
 
 (defn ancestors*
   ([ctx tag]

@@ -8,7 +8,7 @@
 
 (defn- class-name [s]
   (if-let [i (str/last-index-of s ".")]
-    (subs s i)
+    (subs s (inc i))
     s))
 
 (defn- package-name [s]
