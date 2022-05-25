@@ -114,7 +114,9 @@
             multi-method-var (get-in env [:namespaces pns meth-sym])
             multi-method @multi-method-var]
         (mms/multi-fn-add-method-impl
-         multi-method atype
+         multi-method (if (instance? sci.lang.SciType atype)
+                        (symbol (str atype))
+                        atype)
          (if extend-via-metadata
            (let [fq (symbol pns-str meth-str)]
              (fn [this & args]
