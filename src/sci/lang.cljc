@@ -1,7 +1,7 @@
 (ns sci.lang
   {:no-doc true}
-  (:require [sci.impl.types]
-            [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [sci.impl.types]))
 
 ;; marker interface for vars, clj only for now
 #?(:clj (definterface IVar))
@@ -16,10 +16,10 @@
     (subs s 0 i)
     s))
 
-(deftype SciType [^:volatile-mutable
+(deftype Type [^:volatile-mutable
                   #_:clj-kondo/ignore
                   __data]
-  sci.impl.types.IBox
+  sci.impl.types/IBox
   (getVal [_] __data)
   (setVal [_ v] (set! __data v))
   Object
@@ -41,5 +41,5 @@
        (getName [this]
                 (class-name (str this)))]))
 
-#?(:clj (defmethod print-method SciType [this w]
+#?(:clj (defmethod print-method Type [this w]
           (.write w (str this))))

@@ -149,7 +149,7 @@
 (ns foo) (defrecord Foo []) (= foo.Foo (type (->Foo)))"]
     (is (true? (tu/eval* prog {}))))
   (let [prog "
-(ns foo) (defrecord Foo []) (instance? sci.lang.SciType (type (->Foo)))"]
+(ns foo) (defrecord Foo []) (instance? sci.lang.Type (type (->Foo)))"]
     (is (true? (tu/eval* prog {})))))
 
 (deftest derive-test

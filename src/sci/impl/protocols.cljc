@@ -224,7 +224,7 @@
           (let [t (cond
                     #?(:clj (class? t))
                     #?(:clj (symbol (.getName ^Class t)))
-                    (instance? sci.lang.SciType t)
+                    (instance? sci.lang.Type t)
                     (symbol (str t))
                     :else t)]
             (contains? sats t))))
@@ -264,9 +264,8 @@
     #?@(:clj [(class? clazz)
               (instance? clazz x)])
     ;; records are currently represented as a symbol with metadata
-    (and (instance? sci.lang.SciType clazz)
-         (some-> clazz meta :sci.impl/record))
-    (= (str clazz) (str (-> x meta :type)))
+    (instance? sci.lang.Type clazz)
+    (= clazz (-> x meta :type))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]

@@ -763,7 +763,7 @@
 ;;;; Record impl
 
 (defn -create-record-type [data]
-  (sci.lang/->SciType data))
+  (sci.lang/->Type data))
 
 (def sci-impl-records
   {:obj (vars/->SciNamespace 'sci.impl.records nil)
