@@ -57,4 +57,4 @@
               (class-name (str this)))]))
 
 #?(:clj (defmethod print-method Type [this w]
-          (.write w (str this))))
+          (.write ^java.io.Writer w (str this))))
