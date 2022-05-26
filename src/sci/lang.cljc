@@ -3,6 +3,8 @@
   (:require [clojure.string :as str]
             [sci.impl.types]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 ;; marker interface for vars, clj only for now
 #?(:clj (definterface IVar))
 
