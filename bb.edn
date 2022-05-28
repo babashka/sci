@@ -1,7 +1,7 @@
 {:pods {clj-kondo/clj-kondo {:version "2022.02.09"}}
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
-        {:git/sha "510d3d8d0a690f7f5c01b6e4df385189e0af7ea3"}}
+        {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
 
  :tasks
  {test:jvm  {:doc "Run CLJ tests with leiningen"

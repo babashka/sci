@@ -763,13 +763,19 @@
 ;;;; Record impl
 
 (defn -create-record-type [data]
-  (sci.lang/->Type data))
+  (sci.lang/->Type data nil nil))
+
+(defn -reg-key! [rec-type k v]
+  (when (instance? sci.lang.Type rec-type)
+    (types/setVal rec-type (assoc (types/getVal rec-type) k v))
+    rec-type))
 
 (def sci-impl-records
   {:obj (vars/->SciNamespace 'sci.impl.records nil)
    :private true
    'toString records/to-string
-   '-create-record-type -create-record-type})
+   '-create-record-type -create-record-type
+   '-reg-key! -reg-key!})
 
 ;;;; REPL vars
 

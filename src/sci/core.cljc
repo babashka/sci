@@ -1,4 +1,10 @@
 (ns sci.core
+  "The main SCI API namespace.
+
+  Anything in the SCI repository with `impl` in the name should be
+  regarded implementation detail and may change at any time. Please
+  reach out if you end up needing something from the dark `impl`
+  side."
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
                             intern ns create-ns set! *1 *2 *3 *e

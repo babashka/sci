@@ -113,11 +113,9 @@
             (if (:sci.impl/record m#)
               (cond
                 (= (resolve 'clojure.pprint/simple-dispatch) mf#)
-                (alter-var-root (:sci.impl/record-var m#)
-                                vary-meta assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
+                (sci.impl.records/-reg-key! @(:sci.impl/record-var m#) :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
                 (= (resolve 'clojure.core/print-method) mf#)
-                (alter-var-root (:sci.impl/record-var m#)
-                                vary-meta assoc :sci.impl/print-method (fn ~@fn-tail))
+                (sci.impl.records/-reg-key! @(:sci.impl/record-var m#) :sci.impl/print-method (fn ~@fn-tail))
                 :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
               (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
          `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))

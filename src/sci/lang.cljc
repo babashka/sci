@@ -18,45 +18,54 @@
     (subs s 0 i)
     s))
 
-(deftype Type [^:volatile-mutable
-                  #_:clj-kondo/ignore
-                  __data]
+(deftype Type [^:volatile-mutable --data-impl
+               ^:volatile-mutable --namespace-impl
+               ^:volatile-mutable --name-impl]
   sci.impl.types/IBox
-  (getVal [_] __data)
-  (setVal [_ v] (set! __data v))
+  (getVal [_] --data-impl)
+  (setVal [_ v] (set! --data-impl v))
   Object
   (toString [_]
-    (str (:sci.impl/type-name __data)))
+    (str (:sci.impl/type-name --data-impl)))
+
+  ;; meta is only supported to get our implementation! keys out
   #?@(:clj
       [clojure.lang.IMeta
-       (meta [_] __data)]
+       (meta [_] --data-impl)]
       :cljs
       [IMeta
-       (-meta [_] __data)])
-  #?@(:clj
-      [clojure.lang.IObj
-       (withMeta
-        [this m]
-        (set! __data m)
-        this)]
-      :cljs
-      [IWithMeta
-       (-with-meta
-        [this m]
-        (set! __data m)
-        this)])
+       (-meta [_] --data-impl)])
+
+  ;; we need to support Named for `derive`
   #?@(:clj
       [clojure.lang.Named
        (getNamespace [this]
-                     (package-name (str this)))
+                     (if (nil? --namespace-impl)
+                       (let [ns (package-name (str this))]
+                         (set! --namespace-impl ns)
+                         ns)
+                       --namespace-impl))
        (getName [this]
-                (class-name (str this)))]
+                (if (nil? --name-impl)
+                  (let [nom (class-name (str this))]
+                    (set! --name-impl nom)
+                    nom)
+                  --name-impl))]
       :cljs
       [INamed
        (-namespace [this]
-                     (package-name (str this)))
+                   (if (nil? --namespace-impl)
+                     (let [ns (package-name (str this))]
+                       (set! --namespace-impl ns)
+                       ns)
+                     --namespace-impl))
        (-name [this]
-              (class-name (str this)))]))
+              (if (nil? --name-impl)
+                (let [nom (class-name (str this))]
+                  (set! --name-impl nom)
+                  nom)
+                --name-impl))])
+  )
 
 #?(:clj (defmethod print-method Type [this w]
           (.write ^java.io.Writer w (str this))))
