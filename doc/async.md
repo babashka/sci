@@ -122,7 +122,7 @@ anywhere, as long as the result is visible as a top level value:
        (case libname
          "some_js_lib"
          (p/let [js-lib (p/resolved #js {:add +
-                                     :subtract -
+                                       :subtract -
                                      :multiply *
                                      :default *})]
            (let [js-lib (if suffix
@@ -161,6 +161,7 @@ anywhere, as long as the result is visible as a top level value:
 [(my-lib/add 1 2) (subtract 3 2)]
 ")
 
+;; Library property namespaces:
 (def code-2 "
 (require '[\"some_js_lib$default\" :as awesome])
 (require '[\"some_js_lib$add\" :as add])
@@ -181,3 +182,10 @@ here we just simulate it by returning a promise with JavaScript object that has
 a couple of functions. In the async load fn we register the JS library as a
 global class in the context and as an import in the current namespace. The
 `:handled true` key/value in the return value indicates that SCI will handle `:refer` and `:as`, because we already did that ourselves in the `async-load-fn`.
+
+In the `code-2` fragment we use library property namespaces. These were
+introduced in ClojureScript `1.10.844`. You can read about that
+[here](https://clojurescript.org/news/2021-04-06-release#_library_property_namespaces).
+We support that in `async-load-fn` by splitting the libname on `$` and getting
+the properties out of the JS library, then registering that as a class and
+import.
