@@ -1,3 +1,8 @@
+# API
+
+Anything in the SCI repository with `impl` in the name should be regarded
+implementation detail and may change at any time. Please reach out if you end up
+needing something from the dark `impl` side!
 # Table of contents
 -  [`sci.async`](#sciasync) 
     -  [`await`](#await) - Mark promise to be flatteded into top level async evaluation, similar
@@ -59,9 +64,10 @@
     -  [`with-bindings`](#with-bindings) - Macro for binding sci vars
     -  [`with-in-str`](#with-in-str) - Evaluates body in a context in which sci's *in* is bound to a fresh
     -  [`with-out-str`](#with-out-str) - Evaluates exprs in a context in which sci's *out* is bound to a fresh
--  [`sci.pprint`](#scipprint)  - Extensible pprinting for built-in SCI types.
-    -  [`-sci-pprint-simple-dispatch`](#-sci-pprint-simple-dispatch)
-    -  [`SciPrettyPrint`](#SciPrettyPrint)
+-  [`sci.lang`](#scilang) 
+    -  [`->Type`](#->Type) - Representation of a SCI custom type, created e.g
+    -  [`IVar`](#IVar) - Marker interface for SCI vars.
+    -  [`Type`](#Type) - Representation of a SCI custom type, created e.g
 # sci.async 
 
 
@@ -77,7 +83,7 @@
 
 Mark promise to be flatteded into top level async evaluation, similar
   to top level await.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L106-L111)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L107-L112)</sub>
 ## `await?`
 ``` clojure
 
@@ -86,14 +92,14 @@ Mark promise to be flatteded into top level async evaluation, similar
 
 
 Check if promise was marked with `await`.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L113-L116)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L114-L117)</sub>
 ## `eval-string*`
 ``` clojure
 
 (eval-string* ctx s)
 ```
 
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L84-L104)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/async.cljs#L84-L105)</sub>
 ## `require`
 
 Async require that can be substituted for sync require by
@@ -104,21 +110,16 @@ Async require that can be substituted for sync require by
 
 The main SCI API namespace.
 
-  Anything in the SCI repository with `impl` in the name should be
-  regarded implementation detail and may change at any time. Please
-  reach out if you end up needing something from the dark `impl`
-  side.
-
 
 
 ## `*1`
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L119-L119)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L114-L114)</sub>
 ## `*2`
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L120-L120)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L115-L115)</sub>
 ## `*3`
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L121-L121)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L116-L116)</sub>
 ## `*e`
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L122-L122)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L117-L117)</sub>
 ## `add-class!`
 ``` clojure
 
@@ -128,7 +129,7 @@ The main SCI API namespace.
 
 Adds class (JVM class or JS object) to `ctx` as `class-name` (a
   symbol). Returns mutated context.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L446-L456)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L441-L451)</sub>
 ## `add-import!`
 ``` clojure
 
@@ -137,7 +138,7 @@ Adds class (JVM class or JS object) to `ctx` as `class-name` (a
 
 
 Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L458-L463)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L453-L458)</sub>
 ## `add-namespace!`
 ``` clojure
 
@@ -147,7 +148,7 @@ Adds import of class named by `class-name` (a symbol) to namespace named by `ns-
 
 Adds namespace map `ns-map` named by the symbol `ns-name` to
   `ctx`. Returns mutated context.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L465-L470)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L460-L465)</sub>
 ## `all-ns`
 ``` clojure
 
@@ -156,7 +157,7 @@ Adds namespace map `ns-map` named by the symbol `ns-name` to
 
 
 Returns all SCI ns objects in the `ctx`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L477-L480)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L472-L475)</sub>
 ## `alter-var-root`
 ``` clojure
 
@@ -167,11 +168,11 @@ Returns all SCI ns objects in the `ctx`
 
 Atomically alters the root binding of sci var v by applying f to its
   current value plus any args.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L183-L189)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L178-L184)</sub>
 ## `assert`
 
 SCI var that represents SCI's clojure.core/*assert*
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L117-L117)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L112-L112)</sub>
 ## `binding`
 ``` clojure
 
@@ -184,9 +185,9 @@ Macro.
 
 Macro for binding sci vars. Must be called with a vector of sci
   dynamic vars to values.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L93-L100)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L88-L95)</sub>
 ## `cljs-ns-publics`
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L356-L356)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L351-L351)</sub>
 ## `copy-ns`
 ``` clojure
 
@@ -219,7 +220,7 @@ Returns map of names to SCI vars as a result of copying public
   important for ClojureScript to not pull in vars into the compiled
   JS. Any additional vars can be added after the fact with sci/copy-var
   manually.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L364-L444)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L359-L439)</sub>
 ## `copy-var`
 ``` clojure
 
@@ -234,7 +235,7 @@ Macro.
 Copies contents from var `sym` to a new sci var. The value `ns` is an
   object created with `sci.core/create-ns`. If new-name is supplied, the 
   copied var will be named new-name.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L58-L79)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L53-L74)</sub>
 ## `create-ns`
 ``` clojure
 
@@ -244,11 +245,11 @@ Copies contents from var `sym` to a new sci var. The value `ns` is an
 
 
 Creates namespace object. Can be used in var metadata.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L255-L259)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L250-L254)</sub>
 ## `err`
 
 SCI var that represents SCI's `clojure.core/*err*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L105-L105)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L100-L100)</sub>
 ## `eval-form`
 ``` clojure
 
@@ -260,7 +261,7 @@ Evaluates form (as produced by `parse-string` or `parse-next`) in the
   context of `ctx` (as produced with `init`). To allow namespace
   switches, establish root binding of `sci/ns` with `sci/binding` or
   `sci/with-bindings.`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L289-L296)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L284-L291)</sub>
 ## `eval-string`
 ``` clojure
 
@@ -291,7 +292,7 @@ Evaluates string `s` as one or multiple Clojure expressions using the Small Cloj
   - `:env`: an atom with a map in which state from the
   evaluation (defined namespaced and vars) will be persisted for
   re-use over multiple calls.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L202-L227)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L197-L222)</sub>
 ## `eval-string*`
 ``` clojure
 
@@ -301,11 +302,11 @@ Evaluates string `s` as one or multiple Clojure expressions using the Small Cloj
 
 Evaluates string `s` in the context of `ctx` (as produced with
   `init`).
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L249-L253)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L244-L248)</sub>
 ## `file`
 
 SCI var that represents SCI's `clojure.core/*file*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L107-L107)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L102-L102)</sub>
 ## `find-ns`
 ``` clojure
 
@@ -314,7 +315,7 @@ SCI var that represents SCI's `clojure.core/*file*`
 
 
 Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sym`.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L472-L475)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L467-L470)</sub>
 ## `fork`
 ``` clojure
 
@@ -325,7 +326,7 @@ Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sy
 Forks a context (as produced with `init`) into a new context. Any new
   vars created in the new context won't be visible in the original
   context.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L242-L247)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L237-L242)</sub>
 ## `format-stacktrace`
 ``` clojure
 
@@ -334,7 +335,7 @@ Forks a context (as produced with `init`) into a new context. Any new
 
 
 Returns a list of formatted stack trace elements as strings from stacktrace.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L303-L306)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L298-L301)</sub>
 ## `future`
 ``` clojure
 
@@ -346,25 +347,25 @@ Macro.
 
 
 Like clojure.core/future but also conveys sci bindings to the thread.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L157-L162)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L152-L157)</sub>
 ## `get-column-number`
 ``` clojure
 
 (get-column-number reader)
 ```
 
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L276-L277)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L271-L272)</sub>
 ## `get-line-number`
 ``` clojure
 
 (get-line-number reader)
 ```
 
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L273-L274)</sub>
+<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L268-L269)</sub>
 ## `in`
 
 SCI var that represents SCI's `clojure.core/*in*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L103-L103)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L98-L98)</sub>
 ## `init`
 ``` clojure
 
@@ -376,7 +377,7 @@ Creates an initial sci context from given options `opts`. The context
   can be used with `eval-string*`. See `eval-string` for available
   options. The internal organization of the context is implementation
   detail and may change in the future.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L229-L235)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L224-L230)</sub>
 ## `intern`
 ``` clojure
 
@@ -390,7 +391,7 @@ Finds or creates a sci var named by the symbol name in the namespace
   binding to val if supplied. The namespace must exist in the ctx. The
   sci var will adopt any metadata from the name symbol.  Returns the
   sci var.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L191-L200)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L186-L195)</sub>
 ## `merge-opts`
 ``` clojure
 
@@ -399,7 +400,7 @@ Finds or creates a sci var named by the symbol name in the namespace
 
 
 Updates a context with opts merged in and returns it.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L237-L240)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L232-L235)</sub>
 ## `new-dynamic-var`
 ``` clojure
 
@@ -410,7 +411,7 @@ Updates a context with opts merged in and returns it.
 
 
 Same as new-var but adds :dynamic true to meta.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L37-L42)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L32-L37)</sub>
 ## `new-macro-var`
 ``` clojure
 
@@ -421,7 +422,7 @@ Same as new-var but adds :dynamic true to meta.
 
 Same as new-var but adds :macro true to meta as well
   as :sci/macro true to meta of the fn itself.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L49-L56)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L44-L51)</sub>
 ## `new-var`
 ``` clojure
 
@@ -432,11 +433,11 @@ Same as new-var but adds :macro true to meta as well
 
 
 Returns a new sci var.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L30-L35)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L25-L30)</sub>
 ## `ns`
 
 SCI var that represents SCI's `clojure.core/*ns*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L106-L106)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L101-L101)</sub>
 ## `ns-name`
 ``` clojure
 
@@ -445,11 +446,11 @@ SCI var that represents SCI's `clojure.core/*ns*`
 
 
 Returns name of SCI ns as symbol.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L308-L311)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L303-L306)</sub>
 ## `out`
 
 SCI var that represents SCI's `clojure.core/*out*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L104-L104)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L99-L99)</sub>
 ## `parse-next`
 ``` clojure
 
@@ -459,7 +460,7 @@ SCI var that represents SCI's `clojure.core/*out*`
 
 
 Parses next form from reader
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L279-L287)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L274-L282)</sub>
 ## `parse-string`
 ``` clojure
 
@@ -469,7 +470,7 @@ Parses next form from reader
 
 Parses string `s` in the context of `ctx` (as produced with
   `init`).
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L261-L265)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L256-L260)</sub>
 ## `pmap`
 ``` clojure
 
@@ -479,43 +480,43 @@ Parses string `s` in the context of `ctx` (as produced with
 
 
 Like clojure.core/pmap but also conveys sci bindings to the threads.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L164-L181)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L159-L176)</sub>
 ## `print-dup`
 
 SCI var that represents SCI's `clojure.core/*print-dup*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L113-L113)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L108-L108)</sub>
 ## `print-err-fn`
 
 SCI var that represents SCI's `cljs.core/*print-err-fn*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L115-L115)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L110-L110)</sub>
 ## `print-fn`
 
 SCI var that represents SCI's `cljs.core/*print-fn*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L114-L114)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L109-L109)</sub>
 ## `print-length`
 
 SCI var that represents SCI's `clojure.core/*print-length*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L109-L109)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L104-L104)</sub>
 ## `print-level`
 
 SCI var that represents SCI's `clojure.core/*print-level*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L110-L110)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L105-L105)</sub>
 ## `print-meta`
 
 SCI var that represents SCI's `clojure.core/*print-meta*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L111-L111)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L106-L106)</sub>
 ## `print-newline`
 
 SCI var that represents SCI's `cljs.core/*print-newline*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L116-L116)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L111-L111)</sub>
 ## `print-readably`
 
 SCI var that represents SCI's `clojure.core/*print-readably*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L112-L112)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L107-L107)</sub>
 ## `read-eval`
 
 SCI var that represents SCI's `clojure.core/*read-eval*`
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L108-L108)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L103-L103)</sub>
 ## `reader`
 ``` clojure
 
@@ -525,7 +526,7 @@ SCI var that represents SCI's `clojure.core/*read-eval*`
 
 Coerces x into indexing pushback-reader to be used with
   parse-next. Accepts: string or java.io.Reader.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L267-L271)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L262-L266)</sub>
 ## `set!`
 ``` clojure
 
@@ -534,7 +535,7 @@ Coerces x into indexing pushback-reader to be used with
 
 
 Establish thread local binding of dynamic var
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L44-L47)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L39-L42)</sub>
 ## `stacktrace`
 ``` clojure
 
@@ -543,7 +544,7 @@ Establish thread local binding of dynamic var
 
 
 Returns list of stacktrace element maps from exception, if available.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L298-L301)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L293-L296)</sub>
 ## `with-bindings`
 ``` clojure
 
@@ -556,7 +557,7 @@ Macro.
 
 Macro for binding sci vars. Must be called with map of sci dynamic
   vars to values. Used in babashka.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L82-L91)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L77-L86)</sub>
 ## `with-in-str`
 ``` clojure
 
@@ -569,7 +570,7 @@ Macro.
 
 Evaluates body in a context in which sci's *in* is bound to a fresh
   StringReader initialized with the string s.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L128-L135)</sub>
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L123-L130)</sub>
 ## `with-out-str`
 ``` clojure
 
@@ -583,20 +584,27 @@ Macro.
 Evaluates exprs in a context in which sci's *out* is bound to a fresh
   StringWriter.  Returns the string created by any nested printing
   calls.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L138-L154)</sub>
-# sci.pprint 
-
-
-Extensible pprinting for built-in SCI types.
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/core.cljc#L133-L149)</sub>
+# sci.lang 
 
 
 
-## `-sci-pprint-simple-dispatch`
+
+
+## `->Type`
 ``` clojure
 
-(-sci-pprint-simple-dispatch obj)
+(->Type --data-impl --namespace-impl --name-impl)
 ```
 
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/pprint.cljc#L7-L8)</sub>
-## `SciPrettyPrint`
-<sub>[source](https://github.com/babashka/sci/blob/master/src/sci/pprint.cljc#L7-L8)</sub>
+
+Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`.
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L20-L67)</sub>
+## `IVar`
+
+Marker interface for SCI vars.
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L8-L8)</sub>
+## `Type`
+
+Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`.
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L20-L67)</sub>

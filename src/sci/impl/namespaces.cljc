@@ -763,7 +763,7 @@
 ;;;; Record impl
 
 (defn -create-record-type [data]
-  (sci.lang/->Type data nil nil))
+  (new sci.lang.Type data nil nil))
 
 (defn -reg-key! [rec-type k v]
   (when (instance? sci.lang.Type rec-type)

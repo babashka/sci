@@ -1,12 +1,11 @@
 (ns sci.lang
-  {:no-doc true}
   (:require [clojure.string :as str]
             [sci.impl.types]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 ;; marker interface for vars, clj only for now
-#?(:clj (definterface IVar))
+#?(:clj (definterface ^{:doc "Marker interface for SCI vars."} IVar))
 
 (defn- class-name [s]
   (if-let [i (str/last-index-of s ".")]
@@ -18,9 +17,10 @@
     (subs s 0 i)
     s))
 
-(deftype Type [^:volatile-mutable --data-impl
-               ^:volatile-mutable --namespace-impl
-               ^:volatile-mutable --name-impl]
+(deftype ^{:doc "Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`."}
+    Type [^:volatile-mutable --data-impl
+          ^:volatile-mutable --namespace-impl
+          ^:volatile-mutable --name-impl]
   sci.impl.types/IBox
   (getVal [_] --data-impl)
   (setVal [_ v] (set! --data-impl v))
@@ -64,8 +64,7 @@
                 (let [nom (class-name (str this))]
                   (set! --name-impl nom)
                   nom)
-                --name-impl))])
-  )
+                --name-impl))]))
 
 #?(:clj (defmethod print-method Type [this w]
           (.write ^java.io.Writer w (str this))))

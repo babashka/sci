@@ -20,6 +20,10 @@
                     :task (shell "plk -A:test -K -m sci.test-runner")}
   quickdoc {:doc "Invoke quickdoc"
             :requires ([quickdoc.api :as api])
-            :task (api/quickdoc {:toc true
-                                 :git/branch "master"
-                                 :github/repo "https://github.com/babashka/sci"})}}}
+            :task (let [{:keys [markdown]}
+                        (api/quickdoc {:outfile nil
+                                       :toc true
+                                       :git/branch "master"
+                                       :github/repo "https://github.com/babashka/sci"})
+                        markdown (str (slurp "test-resources/API-prelude.md") markdown)]
+                    (spit "API.md" markdown))}}}
