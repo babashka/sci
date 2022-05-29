@@ -117,3 +117,17 @@
                  _ (p/delay 11)
                  _ (is (= :yolo @res))]
            (done))))
+
+(deftest multiple-async-evals
+  (async done
+         (let [ctx (sci/init {:namespaces    {'clojure.core {'require scia/require}}
+                              :async-load-fn (fn [{:keys [libname ns]}]
+                                               (prn libname ns)
+                                               (p/resolved
+                                                (case libname
+                                                  acme.foo {:source "(ns acme.foo) (defn the-fn [] :hello)"}
+                                                  acme.bar {:source "(ns acme.bar) (defn the-fn [] :bye)"})))})]
+           (-> (p/let [x (p/all [(scia/eval-string* ctx "(ns test (:require [acme.foo :as foo])) (foo/the-fn)")
+                                 (scia/eval-string* ctx "(require '[acme.bar :as bar]) (bar/the-fn)")])]
+                 (prn :x x))
+               (p/finally done)))))
