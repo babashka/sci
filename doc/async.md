@@ -59,46 +59,6 @@ Additionally supported return values:
 
 - `:source "..."`, CLJS source to be evaluated
 
-## Registering a JS library as a class
-
-``` clojure
-(ns example
-  (:require [clojure.string :as str]
-            [promesa.core :as p]
-            [sci.async :as scia]
-            [sci.core :as sci]))
-
-(defn async-load-fn
-  [{:keys [libname opts ctx ns]}]
-  (case libname
-    "some_js_lib"
-    (p/let [js-lib (p/resolved #js {:add +})]
-      (sci/add-class! ctx (:as opts) js-lib)
-      (sci/add-import! ctx ns (:as opts) (:as opts))
-      {:handled true})))
-
-(def ctx (sci/init {:async-load-fn async-load-fn}))
-
-(defn codify [exprs]
-  (str/join "\n" (map pr-str exprs)))
-
-(def code
-  (codify
-   '[(ns example (:require ["some_js_lib" :as my-lib]))
-     (my-lib/add 1 2)]))
-
-(p/let [result (scia/eval-string* ctx code)]
-  (println "Result:" result)) ;; Promise that prints "Result: 3"
-```
-
-In this example we simulate loading a JavaScript library asynchronously. In
-practise the library could come in via an asynchronous HTTP Request, etc. but
-here we just simulate it by returning a promise with JavaScript object that has
-one function, `libfn`. In the async load fn, we check if the library was
-required and then register it as a class in the context and as an import in the
-current namespace. The `:handled true` return value indicates that SCI will not
-do anything with aliases, as the `async-load-fn` has handled this already.
-
 ## Require
 
 By default `require` is synchronous in SCI. The `sci.async` namespace contains
@@ -144,3 +104,88 @@ anywhere, as long as the result is visible as a top level value:
 (when (odd? 3)
   (require '[some.other-lazy-ns]))
 ```
+
+## Registering a JS library as a class
+
+``` clojure
+(ns example
+  (:require
+   [clojure.string :as str]
+   [goog.object :as gobject]
+   [promesa.core :as p]
+   [sci.async :as scia]
+   [sci.core :as sci]))
+
+(defn async-load-fn
+  [{:keys [libname opts ctx ns]}]
+  (let [[libname suffix] (str/split libname "$")]
+       (case libname
+         "some_js_lib"
+         (p/let [js-lib (p/resolved #js {:add +
+                                       :subtract -
+                                     :multiply *
+                                     :default *})]
+           (let [js-lib (if suffix
+                          (gobject/getValueByKeys js-lib (.split suffix "."))
+                          js-lib)
+                 munged (symbol (munge libname))]
+             ;; register class globally in context
+             (sci/add-class! ctx munged js-lib)
+             (let [{:keys [as refer]} opts]
+               (when as
+                 ;; import class in current namespace with reference to globally
+                 ;; registed class
+                 (sci/add-import! ctx ns munged as))
+               (when refer
+                 (doseq [sym refer]
+                   (let [prop (gobject/get js-lib sym)
+                         sub-libname (str munged "$" prop)]
+                     ;; register sub-library globally
+                     (sci/add-class! ctx sub-libname prop)
+                     ;; add import to sub-library in current namespace
+                     (sci/add-import! ctx ns sub-libname sym))))))
+           {:handled true}))))
+
+(def ctx (sci/init {:async-load-fn async-load-fn
+                    ;; async require override
+                    :namespaces {'clojure.core {'require scia/require}}
+                    ;; allow JS interop globally
+                    :classes {'js goog/global :allow :all}}))
+
+;; allow printing
+(sci/alter-var-root sci/print-fn (constantly *print-fn*))
+
+(def code-1
+  "
+(ns example (:require [\"some_js_lib\" :as my-lib :refer [subtract]]))
+[(my-lib/add 1 2) (subtract 3 2)]
+")
+
+;; Library property namespaces:
+(def code-2 "
+(require '[\"some_js_lib$default\" :as awesome])
+(require '[\"some_js_lib$add\" :as add])
+[(awesome 3 2) (add 4 5)]
+")
+
+(p/let [result (scia/eval-string* ctx code-1)
+        _ (println "Result:" result) ;; [3 1]
+        result (scia/eval-string* ctx code-2)
+        _ (println "Result:" result) ;; [5 9]
+        ]
+  )
+```
+
+In this example we simulate loading a JavaScript library asynchronously. In
+practise the library could come in via an asynchronous HTTP Request, etc. but
+here we just simulate it by returning a promise with JavaScript object that has
+a couple of functions. In the async load fn we register the JS library as a
+global class in the context and as an import in the current namespace. The
+`:handled true` key/value in the return value indicates that SCI will handle `:refer` and `:as`, because we already did that ourselves in the `async-load-fn`.
+
+In the `code-2` fragment we use library property namespaces. These were
+introduced in ClojureScript `1.10.844`. You can read about that
+[here](https://clojurescript.org/news/2021-04-06-release#_library_property_namespaces).
+We support that in `async-load-fn` by splitting the libname on `$` and getting
+the properties out of the JS library, then registering that as a class and
+import.

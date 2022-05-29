@@ -8,62 +8,62 @@
 
 (declare eval-string*)
 
-(def ^:private last-ns (volatile! @sci/ns))
-
-(defn- handle-libspecs [ctx ns-obj libspecs]
-  (if (seq libspecs)
-    (let [fst (first libspecs)
-          [libname & opts] (if (symbol? fst)
-                             [fst] fst)
-          libname (if (= 'cljs.core libname)
-                    'clojure.core libname)
-          env* (:env ctx)
-          cnn (sci/ns-name ns-obj)]
-      (if (and (symbol? libname)
-               (sci/find-ns ctx libname))
-        ;; library already loaded, the only thing left to do is process the options, we can defer to load
-        (do (sci/binding [sci/ns @last-ns]
-              (apply load/load-lib ctx nil libname opts))
-            (handle-libspecs ctx ns-obj (rest libspecs)))
-        (if-let [load-fn (:async-load-fn @env*)]
-          (let [opts (apply hash-map opts)]
-            (.then (js/Promise.resolve (load-fn {:ns (sci/ns-name ns-obj)
-                                                 :ctx ctx
-                                                 :libname libname
-                                                 :opts opts}))
-                   (fn [res]
-                     (let [ctx (or (:ctx res) ctx)]
-                       (if (:handled res)
-                         (handle-libspecs ctx ns-obj (rest libspecs))
-                         ;; TODO: handle return value
-                         (let [handle-opts
-                               (fn [ctx res]
-                                 (let [libname (or (:libname res) libname)
-                                       env* (:env ctx)]
-                                   (swap! env*
-                                          (fn [env]
-                                            (let [namespaces (get env :namespaces)
-                                                  the-loaded-ns (get namespaces libname)]
-                                              (load/handle-require-libspec-env ctx env cnn
-                                                                               the-loaded-ns
-                                                                               libname opts))))))]
-                           (if-let [src (:source res)]
-                             (let [curr-ns @last-ns]
-                               (.then (eval-string* ctx src)
-                                      (fn []
-                                        (vreset! last-ns curr-ns)
-                                        (handle-opts ctx res)
-                                        (handle-libspecs ctx ns-obj (rest libspecs)))))
-                             (do
-                               (handle-opts ctx res)
-                               (handle-libspecs ctx ns-obj (rest libspecs))))))))))
+(defn- handle-libspecs [ctx libspecs]
+  (let [last-ns (:last-ns ctx)]
+    (if (seq libspecs)
+      (let [fst (first libspecs)
+            [libname & opts] (if (symbol? fst)
+                               [fst] fst)
+            libname (if (= 'cljs.core libname)
+                      'clojure.core libname)
+            env* (:env ctx)
+            cnn (sci/ns-name @last-ns)]
+        (if (and (symbol? libname)
+                 (sci/find-ns ctx libname))
+          ;; library already loaded, the only thing left to do is process the options, we can defer to load
           (do (sci/binding [sci/ns @last-ns]
                 (apply load/load-lib ctx nil libname opts))
-              (handle-libspecs ctx ns-obj (rest libspecs))))))
-    (js/Promise.resolve nil #_ns-obj)))
+              (handle-libspecs ctx (rest libspecs)))
+          (if-let [load-fn (:async-load-fn @env*)]
+            (let [opts (apply hash-map opts)]
+              (.then (js/Promise.resolve (load-fn {:ns (sci/ns-name @last-ns)
+                                                   :ctx ctx
+                                                   :libname libname
+                                                   :opts opts}))
+                     (fn [res]
+                       (let [ctx (or (:ctx res) ctx)]
+                         (if (:handled res)
+                           (handle-libspecs ctx (rest libspecs))
+                           ;; TODO: handle return value
+                           (let [handle-opts
+                                 (fn [ctx res]
+                                   (let [libname (or (:libname res) libname)
+                                         env* (:env ctx)]
+                                     (swap! env*
+                                            (fn [env]
+                                              (let [namespaces (get env :namespaces)
+                                                    the-loaded-ns (get namespaces libname)]
+                                                (load/handle-require-libspec-env ctx env cnn
+                                                                                 the-loaded-ns
+                                                                                 libname opts))))))]
+                             (if-let [src (:source res)]
+                               (let [curr-ns @last-ns]
+                                 (.then (eval-string* ctx src)
+                                        (fn []
+                                          (vreset! last-ns curr-ns)
+                                          (handle-opts ctx res)
+                                          (handle-libspecs ctx (rest libspecs)))))
+                               (do
+                                 (handle-opts ctx res)
+                                 (handle-libspecs ctx (rest libspecs))))))))))
+            (do (sci/binding [sci/ns @last-ns]
+                  (apply load/load-lib ctx nil libname opts))
+                (handle-libspecs ctx (rest libspecs))))))
+      (js/Promise.resolve nil #_ns-obj))))
 
 (defn ^:private eval-ns-form [ctx ns-form]
-  (let [[_ns ns-name & ns-forms] ns-form
+  (let [last-ns (:last-ns ctx)
+        [_ns ns-name & ns-forms] ns-form
         grouped (group-by (fn [ns-form]
                             (and (seq? ns-form)
                                  (= :require (first ns-form)))) ns-forms)
@@ -77,13 +77,14 @@
                  (sci/eval-form ctx (list 'do (list* 'ns ns-name other-forms) '*ns*)))
         _ (vreset! last-ns ns-obj)
         libspecs (mapcat rest require-forms)]
-    (handle-libspecs ctx ns-obj libspecs)))
+    (handle-libspecs ctx libspecs)))
 
 (declare await await?)
 
 (defn eval-string* [ctx s]
   (let [rdr (sci/reader s)
-        _ (vreset! last-ns @sci/ns)
+        last-ns (volatile! @sci/ns)
+        ctx (assoc ctx :last-ns last-ns)
         eval-next (fn eval-next [res]
                     (let [continue #(sci/binding [sci/ns @last-ns]
                                       (let [form (sci/parse-next ctx rdr)]
@@ -116,8 +117,7 @@
   (.-__sci_await promise))
 
 (defn- require* [ctx & libspecs]
-  (vreset! last-ns @sci/ns)
-  (let [p (handle-libspecs ctx @last-ns libspecs)]
+  (let [p (handle-libspecs ctx libspecs)]
     (await p)))
 
 (def require
