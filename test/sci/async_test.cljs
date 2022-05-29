@@ -7,22 +7,22 @@
 
 (deftest async-eval-string-js-lib-test
   (async done
-   (p/let [ctx (sci/init {:async-load-fn
-                          (fn [{:keys [libname opts ctx ns]}]
-                            (case libname
-                              "some_js_lib"
-                              (-> (js/Promise.resolve #js {:libfn (fn [] "yes")})
-                                  (.then (fn [mod]
-                                           (sci/add-class! ctx (:as opts) mod)
-                                           (sci/add-import! ctx ns (:as opts) (:as opts))
-                                           {:handled true})))))})
-           code (str/join
-                 "\n"
-                 (map pr-str '[(ns dude (:require ["some_js_lib" :as my-lib]))
-                               (my-lib/libfn)]))
-           res (scia/eval-string* ctx code)]
-     (is (= "yes" res))
-     (done))))
+         (p/let [ctx (sci/init {:async-load-fn
+                                (fn [{:keys [libname opts ctx ns]}]
+                                  (case libname
+                                    "some_js_lib"
+                                    (-> (js/Promise.resolve #js {:libfn (fn [] "yes")})
+                                        (.then (fn [mod]
+                                                 (sci/add-class! ctx (:as opts) mod)
+                                                 (sci/add-import! ctx ns (:as opts) (:as opts))
+                                                 {:handled true})))))})
+                 code (str/join
+                       "\n"
+                       (map pr-str '[(ns dude (:require ["some_js_lib" :as my-lib]))
+                                     (my-lib/libfn)]))
+                 res (scia/eval-string* ctx code)]
+           (is (= "yes" res))
+           (done))))
 
 (deftest async-eval-string-cljs-source-lib-test
   (async done
@@ -120,14 +120,22 @@
 
 (deftest multiple-async-evals
   (async done
-         (let [ctx (sci/init {:namespaces    {'clojure.core {'require scia/require}}
+         (let [ctx (sci/init {:namespaces  {'clojure.core {'require scia/require}}
                               :async-load-fn (fn [{:keys [libname ns]}]
-                                               (prn libname ns)
+                                               (cond (= 'acme.foo libname)
+                                                     (is (= 'test (symbol ns)))
+                                                     (= 'acme.bar libname)
+                                                     (is (= 'user (symbol ns)))
+                                                     (= 'acme.baz libname)
+                                                     (is (= 'test2 (symbol ns)))
+                                                     :else (throw (ex-info "Should not reach here" {})))
                                                (p/resolved
                                                 (case libname
-                                                  acme.foo {:source "(ns acme.foo) (defn the-fn [] :hello)"}
-                                                  acme.bar {:source "(ns acme.bar) (defn the-fn [] :bye)"})))})]
+                                                  acme.foo {:source "(ns acme.foo) (defn the-fn [] :foo)"}
+                                                  acme.bar {:source "(ns acme.bar) (defn the-fn [] :bar)"}
+                                                  acme.baz {:source "(ns acme.baz) (defn the-fn [] :baz)"})))})]
            (-> (p/let [x (p/all [(scia/eval-string* ctx "(ns test (:require [acme.foo :as foo])) (foo/the-fn)")
-                                 (scia/eval-string* ctx "(require '[acme.bar :as bar]) (bar/the-fn)")])]
-                 (prn :x x))
+                                 (scia/eval-string* ctx "(require '[acme.bar :as bar]) (bar/the-fn)")
+                                 (scia/eval-string* ctx "(ns test2) (require '[acme.baz :as baz]) (baz/the-fn)")])]
+                 (is (= [:foo :bar :baz] x)))
                (p/finally done)))))
