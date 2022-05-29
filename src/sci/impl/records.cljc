@@ -4,7 +4,8 @@
   (:require [clojure.string :as str]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.lang]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -291,7 +292,7 @@
                      _ (when protocol-var
                          ;; TODO: not all externally defined protocols might have the :var already
                          (vars/alter-var-root protocol-var update :satisfies
-                                              (fnil conj #{}) rec-type))
+                                              (fnil conj #{}) (symbol (str rec-type))))
                      protocol-ns (:ns protocol)
                      pns (cond protocol-ns (str (vars/getName protocol-ns))
                                (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
@@ -325,33 +326,35 @@
                                                `(~args
                                                  (let ~bindings
                                                    ~@body)))) bodies)]
-                          `(defmethod ~(fq-meth-name method-name) '~rec-type ~@bodies)))
+                          `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
                       impls)))
              protocol-impls
              raw-protocol-impls)]
         `(do
-           (declare ~record-name)
+           (declare ~record-name ~factory-fn-sym)
+           ~(when-not deftype?
+              `(declare ~map-factory-sym))
+           (def ~(with-meta record-name
+                   {:sci/record true})
+             (sci.impl.records/-create-record-type
+              ~(cond-> {:sci.impl/type-name (list 'quote rec-type)
+                        :sci.impl/record true
+                        :sci.impl.record/constructor (list 'var factory-fn-sym)
+                        :sci.impl/record-var (list 'var record-name)}
+                 (not deftype?)
+                 (assoc :sci.impl.record/map-constructor (list 'var map-factory-sym)))))
+           (defn ~factory-fn-sym [& args#]
+             (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
+                        assoc
+                        :sci.impl/record true
+                        :type ~rec-type))
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
                  (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) m#)
                             assoc
                             ;; TODO: now that we're using the SciRecord type, we could move away from these metadata keys
                             :sci.impl/record true
-                            :type '~rec-type)))
-           (defn ~factory-fn-sym [& args#]
-             (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
-                        assoc
-                        :sci.impl/record true
-                        :type '~rec-type
-                        :sci.impl/record-var ~(list 'var record-name)))
-           (def ~(with-meta record-name
-                   {:sci/record true})
-             (with-meta '~rec-type
-               ~(cond-> {:sci.impl/record true
-                         :sci.impl.record/constructor factory-fn-sym
-                         :sci.impl/record-var (list 'var record-name)}
-                  (not deftype?)
-                  (assoc :sci.impl.record/map-constructor map-factory-sym))))
+                            :type ~rec-type)))
            ~@protocol-impls
            ~record-name)))))
 
@@ -387,4 +390,4 @@
 (defn resolve-record-class
   [ctx class-sym]
   (when-let [x (resolve-record-or-protocol-class ctx class-sym)]
-    (when (symbol? x) x)))
+    (when (instance? sci.lang.Type x) x)))

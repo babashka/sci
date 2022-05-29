@@ -3,12 +3,13 @@
   (:refer-clojure :exclude [defprotocol extend-protocol
                             extend extend-type reify satisfies?
                             extends? implements?])
-  (:require #?(:clj [sci.impl.interop :as interop])
-            [sci.impl.multimethods :as mms]
-            [sci.impl.parser :as parser]
-            [sci.impl.types :as types]
-            [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+  (:require
+   #?(:clj [sci.impl.interop :as interop])
+   [sci.impl.multimethods :as mms]
+   [sci.impl.types :as types]
+   [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]
+   [sci.lang]))
 
 (defn default? [#?(:clj ctx
                    :cljs _ctx) sym]
@@ -194,7 +195,8 @@
            ~@(map (fn [[type & meths]]
                     `(do
                        (clojure.core/alter-var-root
-                        (var ~protocol-name) update :satisfies (fnil conj #{}) ~type)
+                        (var ~protocol-name) update :satisfies (fnil conj #{})
+                        (symbol (str ~type)))
                        ~@(process-methods ctx type meths pns extend-via-metadata)))
                     impls))]
     expansion))
@@ -210,7 +212,7 @@
                     extend-via-metadata (:extend-via-metadata proto-data)]
                 `(do
                    (clojure.core/alter-var-root
-                    (var ~proto) update :satisfies (fnil conj #{}) ~atype)
+                    (var ~proto) update :satisfies (fnil conj #{}) (symbol (str ~atype)))
                    ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
@@ -219,9 +221,12 @@
   (or (when-let [sats (:satisfies protocol)]
         (when-let [t (types/type-impl obj)]
           #_{:clj-kondo/ignore [:redundant-let]}
-          (let [#?@(:clj [t (if (class? t)
-                              (symbol (.getName ^Class t))
-                              t)])]
+          (let [t (cond
+                    #?(:clj (class? t))
+                    #?(:clj (symbol (.getName ^Class t)))
+                    (instance? sci.lang.Type t)
+                    (symbol (str t))
+                    :else t)]
             (contains? sats t))))
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                         (let [ms (methods %)
@@ -259,7 +264,7 @@
     #?@(:clj [(class? clazz)
               (instance? clazz x)])
     ;; records are currently represented as a symbol with metadata
-    (and (symbol? clazz) (some-> clazz meta :sci.impl/record))
+    (instance? sci.lang.Type clazz)
     (= clazz (-> x meta :type))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)

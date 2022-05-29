@@ -33,7 +33,8 @@
    #?(:clj [sci.impl.proxy :as proxy])
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval needs-ctx]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.lang])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -761,10 +762,20 @@
 
 ;;;; Record impl
 
+(defn -create-record-type [data]
+  (new sci.lang.Type data nil nil))
+
+(defn -reg-key! [rec-type k v]
+  (when (instance? sci.lang.Type rec-type)
+    (types/setVal rec-type (assoc (types/getVal rec-type) k v))
+    rec-type))
+
 (def sci-impl-records
   {:obj (vars/->SciNamespace 'sci.impl.records nil)
    :private true
-   'toString records/to-string})
+   'toString records/to-string
+   '-create-record-type -create-record-type
+   '-reg-key! -reg-key!})
 
 ;;;; REPL vars
 

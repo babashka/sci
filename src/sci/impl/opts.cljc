@@ -71,7 +71,8 @@
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException
            'java.lang.Object Object
-           'sci.lang.IVar sci.lang.IVar}
+           'sci.lang.IVar sci.lang.IVar
+           'sci.lang.Type sci.lang.Type}
      :cljs {'Error {:class js/Error :constructor (fn
                                                    ([msg] (js/Error. msg))
                                                    ([msg filename] (js/Error. msg filename))
@@ -79,7 +80,8 @@
             'cljs.core.Delay {:class cljs.core/Delay
                               :constructor #(cljs.core/Delay. % nil)}
             'goog.string.StringBuffer {:class goog.string/StringBuffer
-                                       :constructor #(goog.string/StringBuffer. %)}}))
+                                       :constructor #(goog.string/StringBuffer. %)}
+            'sci.lang.Type sci.lang.Type}))
 
 (def default-imports
   #?(:clj '{AssertionError java.lang.AssertionError
