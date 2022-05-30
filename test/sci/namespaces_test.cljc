@@ -271,3 +271,15 @@ bar/bar"}
 (deftest as-alias-test
   (is (= :dude/bar (sci/eval-string "(ns my-ns (:require [dude :as-alias foo])) ::foo/bar")))
   (is (= :dude/bar (sci/eval-string "(require '[dude :as-alias foo]) ::foo/bar"))))
+
+(deftest exposed-vals-test
+  (let [success? (atom false)
+        the-ctx (sci/init {:load-fn (fn [{:keys [libname ctx ns opts]}]
+                                      (is (= libname 'bar))
+                                      (is ctx)
+                                      (is (= 'foo ns))
+                                      (is (= 'b (:as opts)))
+                                      (reset! success? true)
+                                      {:handled true})})]
+    (sci/eval-string* the-ctx "(ns foo) (require '[bar :as b])")
+    (is @success?)))
