@@ -38,6 +38,10 @@ This library works with:
 - Clojure compiled with GraalVM native
 - ClojureScript, even when compiled with `:advanced`, and JavaScript
 
+## API docs
+
+See [API.md](API.md).
+
 ## Projects using SCI
 
 SCI is used in:
@@ -76,11 +80,6 @@ Are you using SCI in your company or projects? Let us know [here](https://github
 Use as a dependency:
 
 [![Clojars Project](https://img.shields.io/clojars/v/org.babashka/sci.svg)](https://clojars.org/org.babashka/sci)
-
-## API docs
-
-See the generated [codox](https://babashka.org/sci/doc/codox)
-documentation.
 
 ## Usage
 
