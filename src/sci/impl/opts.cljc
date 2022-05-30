@@ -71,8 +71,9 @@
            'java.lang.Double Double
            'java.lang.ArithmeticException ArithmeticException
            'java.lang.Object Object
-           'sci.lang.IVar sci.lang.IVar
-           'sci.lang.Type sci.lang.Type}
+           'sci.lang.IVar sci.lang.IVar ;; deprecated
+           'sci.lang.Type sci.lang.Type
+           'sci.lang.Var sci.lang.Var}
      :cljs {'Error {:class js/Error :constructor (fn
                                                    ([msg] (js/Error. msg))
                                                    ([msg filename] (js/Error. msg filename))
