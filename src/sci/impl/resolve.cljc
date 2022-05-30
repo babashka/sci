@@ -6,8 +6,7 @@
             [sci.impl.records :as records]
             [sci.impl.types :refer [->Node]]
             [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros]]
-            [sci.impl.vars :as vars]))
+                                              ana-macros]]))
 
 (defn throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -26,7 +25,7 @@
       (identical? utils/allowed-recur sym)
       (let [check-sym (strip-core-ns check-sym)
             allow (:allow ctx)]
-        (when-not (if allow (or (and (vars/var? v) (not (:sci/built-in (meta v))))
+        (when-not (if allow (or (and (utils/var? v) (not (:sci/built-in (meta v))))
                                 (contains? allow check-sym))
                       true)
           (throw-error-with-location (str sym " is not allowed!") sym))
@@ -42,7 +41,7 @@
          sym-name (symbol (name sym))
          env (faster/get-2 ctx :env)
          env @env
-         cnn (vars/current-ns-name)
+         cnn (utils/current-ns-name)
          the-current-ns (-> env :namespaces cnn)
          ;; resolve alias
          sym-ns (when sym-ns (or (get-in the-current-ns [:aliases sym-ns])
@@ -61,8 +60,8 @@
                          [clazz sym-name]
                          {:sci.impl.analyzer/static-access true})
                        (let [stack (assoc (meta sym)
-                                          :file @vars/current-file
-                                          :ns @vars/current-ns)]
+                                          :file @utils/current-file
+                                          :ns @utils/current-ns)]
                          (->Node
                           (interop/get-static-field [clazz sym-name])
                           stack)))]))))
@@ -164,7 +163,7 @@
                     (let [prefix (subs sym-name 0 prefix-idx)
                           new-sym (symbol sym-ns prefix)
                           resolved (resolve-symbol ctx new-sym call? tag)
-                          clazz (if (vars/var? resolved) (deref resolved) resolved)]
+                          clazz (if (utils/var? resolved) (deref resolved) resolved)]
                       (when clazz
                         (let [path (subs sym-name (inc prefix-idx))]
                           [sym (if call?
@@ -172,8 +171,8 @@
                                    [clazz path]
                                    {:sci.impl.analyzer/static-access true})
                                  (let [stack (assoc (meta sym)
-                                                    :file @vars/current-file
-                                                    :ns @vars/current-ns)]
+                                                    :file @utils/current-file
+                                                    :ns @utils/current-ns)]
                                    (->Node
                                     (interop/get-static-field [clazz path])
                                     stack)))])))))))))

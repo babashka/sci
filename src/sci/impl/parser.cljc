@@ -2,34 +2,34 @@
   {:no-doc true}
   (:refer-clojure :exclude [read-string eval])
   (:require
+   [clojure.string :as str]
    [clojure.tools.reader.reader-types :as r]
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
-   [clojure.string :as str]))
+   [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 (def ^:const eof :sci.impl.parser.edamame/eof)
 
 (def read-eval
-  (vars/new-var '*read-eval* false {:ns vars/clojure-core-ns
+  (utils/new-var '*read-eval* false {:ns utils/clojure-core-ns
                                     :dynamic true}))
 
 (def data-readers
-  (vars/new-var '*data-readers* {}
-                {:ns vars/clojure-core-ns
+  (utils/new-var '*data-readers* {}
+                {:ns utils/clojure-core-ns
                  :dynamic true}))
 
 (def default-data-reader-fn
-  (vars/new-var '*default-data-reader-fn* nil
-                {:ns vars/clojure-core-ns
+  (utils/new-var '*default-data-reader-fn* nil
+                {:ns utils/clojure-core-ns
                  :dynamic true}))
 
 (def reader-resolver
-  (vars/new-var '*reader-resolver* nil
-                {:ns vars/clojure-core-ns
+  (utils/new-var '*reader-resolver* nil
+                {:ns utils/clojure-core-ns
                  :dynamic true}))
 
 (def default-opts
@@ -55,7 +55,7 @@
         sym-ns (when-let [n (namespace sym)]
                  (symbol n))
         sym-name-str (name sym)
-        current-ns (vars/current-ns-name)
+        current-ns (utils/current-ns-name)
         current-ns-str (str current-ns)
         namespaces (get env :namespaces)
         the-current-ns (get namespaces current-ns)
@@ -95,7 +95,7 @@
   (or (:auto-resolve opts)
       (let [env (:env ctx)
             env-val @env
-            current-ns (vars/current-ns-name)
+            current-ns (utils/current-ns-name)
             the-current-ns (get-in env-val [:namespaces current-ns])
             aliases (:aliases the-current-ns)
             auto-resolve (assoc aliases :current current-ns)]
@@ -113,7 +113,7 @@
   ([ctx r opts]
    (let [features (:features ctx)
          readers (:readers ctx)
-         readers (if (vars/var? readers) @readers readers)
+         readers (if (utils/var? readers) @readers readers)
          auto-resolve (auto-resolve ctx opts)
          parse-opts (cond-> (assoc default-opts
                                    :features features
@@ -150,7 +150,7 @@
                                     (assoc (ex-data e)
                                            :type :sci.error/parse
                                            :phase "parse"
-                                           :file @vars/current-file)
+                                           :file @utils/current-file)
                                     e))))]
      ret)))
 

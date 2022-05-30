@@ -1,10 +1,11 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:refer-clojure :exclude [eval demunge])
+  (:refer-clojure :exclude [eval demunge var?])
   (:require [clojure.string :as str]
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
-            [sci.impl.vars :as vars])
+            [sci.impl.vars :as vars]
+            [sci.lang])
   #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical?]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -28,11 +29,13 @@
    :clj `(identical? ~k ~v)
    :cljs `(cljs.core/keyword-identical? ~k ~v)))
 
+(declare current-file current-ns)
+
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
    (let [{:keys [:line :column :file]
-          :or {file @vars/current-file}} (meta iobj)]
+          :or {file @current-file}} (meta iobj)]
      (throw (ex-info msg (merge {:type :sci/error
                                  :line line
                                  :column column
@@ -171,7 +174,7 @@
   (let [env (:env ctx)
         attr-map (merge (meta ns-sym) attr-map)
         ns-obj (namespace-object env ns-sym true attr-map)]
-    (t/setVal vars/current-ns ns-obj)))
+    (t/setVal current-ns ns-obj)))
 
 (def eval-form-state (volatile! nil))
 (def eval-require-state (volatile! nil))
@@ -229,10 +232,41 @@
   ([expr-meta] (make-stack expr-meta false))
   ([expr-meta special?]
    (cond-> (assoc expr-meta
-             :ns @vars/current-ns
-             :file @vars/current-file)
+             :ns @current-ns
+             :file @current-file)
      special? (assoc :special true))))
 
 (defn log [& xs]
   #?(:clj (.println System/err (str/join " " xs))
      :cljs (.log js/console (str/join " " xs))))
+
+(defn dynamic-var
+  ([name]
+   (dynamic-var name nil (meta name)))
+  ([name init-val]
+   (dynamic-var name init-val (meta name)))
+  ([name init-val meta]
+   (let [meta (assoc meta :dynamic true :name (unqualify-symbol name))]
+     (sci.lang.Var. init-val name meta false))))
+
+;; foundational namespaces
+(def user-ns (vars/->SciNamespace 'user nil))
+
+(def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
+
+(def current-file (dynamic-var '*file* nil {:ns clojure-core-ns}))
+
+(def current-ns (dynamic-var '*ns* user-ns {:ns clojure-core-ns}))
+
+(defn current-ns-name []
+  (vars/getName @current-ns))
+
+(defn new-var
+  "Returns a new sci var."
+  ([name] (doto (new-var name nil nil)
+            (vars/unbind)))
+  ([name init-val] (new-var name init-val (meta name)))
+  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :name (unqualify-symbol name)) false)))
+
+(defn var? [x]
+  (instance? sci.lang.Var x))

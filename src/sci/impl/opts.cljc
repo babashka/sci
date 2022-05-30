@@ -5,9 +5,9 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
-   [sci.impl.vars :as vars]
    [sci.lang])
-  #?(:clj (:import [sci.impl.types IReified])))
+  #?(:clj (:import
+           [sci.impl.types IReified])))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -25,15 +25,15 @@
                                             (when-not env-nss
                                               ;; can skip when env has already got namespaces
                                               {'user (assoc bindings
-                                                            :obj vars/user-ns)})
+                                                            :obj utils/user-ns)})
                                             namespaces)
                      aliases (merge aliases
                                     (get-in env [:namespaces 'user :aliases]))
                      namespaces (-> namespaces
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc 'global-hierarchy
-                                            (vars/new-var 'global-hierarchy (make-hierarchy)
-                                                          {:ns vars/clojure-core-ns})))
+                                            (utils/new-var 'global-hierarchy (make-hierarchy)
+                                                          {:ns utils/clojure-core-ns})))
                      imports (if-let [env-imports (:imports env)]
                                (merge env-imports imports)
                                imports)]

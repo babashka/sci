@@ -6,7 +6,7 @@
   (:require #?(:cljs [goog.string])
             [sci.impl.records]
             [sci.impl.unrestrict :refer [*unrestricted*]]
-            #?(:cljs [sci.impl.utils :as utils])
+            [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -14,7 +14,7 @@
 (defn core-dynamic-var
   "create a dynamic var with clojure.core :ns meta"
   ([name] (core-dynamic-var name nil))
-  ([name init-val] (vars/dynamic-var name init-val {:ns vars/clojure-core-ns})))
+  ([name init-val] (utils/dynamic-var name init-val {:ns utils/clojure-core-ns})))
 
 (def in (binding [*unrestricted* true]
           (doto (core-dynamic-var '*in*)

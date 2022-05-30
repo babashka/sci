@@ -1,6 +1,6 @@
 (ns sci.impl.vars
   {:no-doc true}
-  (:refer-clojure :exclude [var? binding
+  (:refer-clojure :exclude [binding
                             push-thread-bindings
                             get-thread-bindings
                             pop-thread-bindings
@@ -13,8 +13,7 @@
                             bound-fn*])
   (:require [sci.impl.macros :as macros]
             [sci.impl.types :as t]
-            [sci.impl.unrestrict :refer [*unrestricted*]]
-            [sci.lang])
+            [sci.impl.unrestrict :refer [*unrestricted*]])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
                                                    with-writeable-namespace
                                                    with-writeable-var]])))
@@ -86,13 +85,6 @@
   #?(:clj (.set dvals frame)
      :cljs (vreset! dvals frame)))
 
-(declare var?)
-
-(defn dynamic-var? [v]
-  ;; TODO: make separate field
-  (and (var? v)
-       (:dynamic (meta v))))
-
 (defprotocol IVar
   (bindRoot [this v])
   (getRawRoot [this])
@@ -102,11 +94,20 @@
   (setThreadBound [this v])
   (unbind [this]))
 
+(defprotocol DynVar
+  (dynamic? [this]))
+
+(extend-type #?(:clj Object :cljs default)
+  DynVar
+  (dynamic? [_] false))
+
 (defn push-thread-bindings [bindings]
   (let [^Frame frame (get-thread-binding-frame)
         bmap (.-bindings frame)
         bmap (reduce (fn [acc [var* val*]]
-                       (when-not (dynamic-var? var*)
+                       (when (not (do (time (dotimes [_ 1000000]
+                                              (dynamic? var*)))
+                                      (dynamic? var*)))
                          (throw (new #?(:clj IllegalStateException
                                         :cljs js/Error)
                                      (str "Can't dynamically bind non-dynamic var " var*))))
@@ -240,153 +241,11 @@
            (throw (ex-info (str "Built-in var #'" ns-name# "/" name# " is read-only.")
                            {:var ~the-var})))))))
 
-(deftype SciVar [#?(:clj ^:volatile-mutable root
-                    :cljs ^:mutable root)
-                 sym
-                 #?(:clj ^:volatile-mutable meta
-                    :cljs ^:mutable meta)
-                 #?(:clj ^:volatile-mutable thread-bound
-                    :cljs ^:mutable thread-bound)]
-  #?(:clj
-     ;; marker interface, clj only for now
-     sci.lang.IVar)
-  HasName
-  (getName [this]
-    (or (:name meta) sym))
-  IVar
-  (bindRoot [this v]
-    (with-writeable-var this meta
-      (set! (.-root this) v)))
-  (getRawRoot [this]
-    root)
-  (toSymbol [this]
-    ; if we have at least a name from metadata, then build the symbol from that
-    (if-let [sym-name (some-> (:name meta) name)]
-      (symbol (some-> (:ns meta) getName name) sym-name)
-      ; otherwise, fall back to the symbol
-      sym))
-  (isMacro [_]
-    (or (:macro meta)
-        (when-some [m (clojure.core/meta root)]
-          (:sci/macro m))))
-  (setThreadBound [this v]
-    (set! (.-thread-bound this) v))
-  (unbind [this]
-    (with-writeable-var this meta
-      (set! (.-root this) (SciUnbound. this))))
-  (hasRoot [this]
-    (not (instance? SciUnbound root)))
-  t/IBox
-  (setVal [this v]
-    (if-let [b (get-thread-binding this)]
-      #?(:clj
-         (let [t (.-thread b)]
-           (if (not (identical? t (Thread/currentThread)))
-             (throw (new IllegalStateException
-                         (format "Can't set!: %s from non-binding thread" (toSymbol this))))
-             (t/setVal b v)))
-         :cljs (t/setVal b v))
-      (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                  (str "Can't change/establish root binding of " this " with set")))))
-  (getVal [this] root)
-  #?(:clj clojure.lang.IDeref :cljs IDeref)
-  (#?(:clj deref
-      :cljs -deref) [this]
-    (if thread-bound
-      (if-let [tbox (get-thread-binding this)]
-        (t/getVal tbox)
-        root)
-      root))
-  Object
-  (toString [this]
-    (str "#'" (toSymbol this)))
-  #?(:cljs IPrintWithWriter)
-  #?(:cljs (-pr-writer [a writer opts]
-                       (-write writer "#'")
-                       (pr-writer (toSymbol a) writer opts)))
-  #?(:clj clojure.lang.IMeta :cljs IMeta)
-  #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
-  ;; #?(:clj Comparable :cljs IEquiv)
-  ;; (-equiv [this other]
-  ;;   (if (instance? Var other)
-  ;;     (= (.-sym this) (.-sym other))
-  ;;     false))
-  ;; #?(:clj clojure.lang.IHashEq :cljs IHash)
-  ;; (-hash [_]
-  ;;   (hash-symbol sym))
-  #?(:clj clojure.lang.IReference)
-  #?(:clj (alterMeta [this f args]
-                     (with-writeable-var this meta
-                       (locking (set! meta (apply f meta args))))))
-  #?(:clj (resetMeta [this m]
-                     (with-writeable-var this meta
-                       (locking (set! meta m)))))
-  #?(:clj clojure.lang.IRef) ;; added for multi-methods
-  ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
-  #?(:clj clojure.lang.IFn :cljs IFn)
-  (#?(:clj invoke :cljs -invoke) [this]
-    (@this))
-  (#?(:clj invoke :cljs -invoke) [this a]
-    (@this a))
-  (#?(:clj invoke :cljs -invoke) [this a b]
-    (@this a b))
-  (#?(:clj invoke :cljs -invoke) [this a b c]
-    (@this a b c))
-  (#?(:clj invoke :cljs -invoke) [this a b c d]
-    (@this a b c d))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e]
-    (@this a b c d e))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f]
-    (@this a b c d e f))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g]
-    (@this a b c d e f g))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h]
-    (@this a b c d e f g h))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i]
-    (@this a b c d e f g h i))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j]
-    (@this a b c d e f g h i j))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k]
-    (@this a b c d e f g h i j k))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l]
-    (@this a b c d e f g h i j k l))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m]
-    (@this a b c d e f g h i j k l m))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n]
-    (@this a b c d e f g h i j k l m n))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o]
-    (@this a b c d e f g h i j k l m n o))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p]
-    (@this a b c d e f g h i j k l m n o p))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q]
-    (@this a b c d e f g h i j k l m n o p q))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r]
-    (@this a b c d e f g h i j k l m n o p q r))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s]
-    (@this a b c d e f g h i j k l m n o p q r s))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t]
-    (@this a b c d e f g h i j k l m n o p q r s t))
-  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t rest]
-    (apply @this a b c d e f g h i j k l m n o p q r s t rest))
-  #?(:clj
-     (applyTo [this args]
-              (apply @this args))))
-
-#?(:clj
-   ;; Use public interface for print-method so it can be overriden in bb itself
-   (do (defmethod print-method sci.lang.IVar [o ^java.io.Writer w]
-         (.write w (str "#'" (toSymbol ^sci.impl.vars.IVar o))))
-       (prefer-method print-method sci.lang.IVar clojure.lang.IDeref)))
-
 (defn var-get [v]
   (deref v))
 
 (defn var-set [v val]
   (t/setVal v val))
-
-(defn var? [x]
-  (instance? #?(:clj sci.impl.vars.SciVar
-                :cljs sci.impl.vars/SciVar) x))
 
 (defn unqualify-symbol 
   "If sym is namespace-qualified, remove the namespace, else return sym"
@@ -394,28 +253,6 @@
   (if (qualified-symbol? sym)
     (symbol (name sym))
     sym))
-
-(defn dynamic-var
-  ([name]
-   (dynamic-var name nil (meta name)))
-  ([name init-val]
-   (dynamic-var name init-val (meta name)))
-  ([name init-val meta]
-   (let [meta (assoc meta :dynamic true :name (unqualify-symbol name))]
-     (SciVar. init-val name meta false))))
-
-;; foundational namespaces
-(def user-ns (->SciNamespace 'user nil))
-
-(def clojure-core-ns (->SciNamespace 'clojure.core nil))
-
-
-(def current-file (dynamic-var '*file* nil {:ns clojure-core-ns}))
-
-(def current-ns (dynamic-var '*ns* user-ns {:ns clojure-core-ns}))
-
-(defn current-ns-name []
-  (getName @current-ns))
 
 (macros/deftime
   (defmacro with-bindings
@@ -438,13 +275,6 @@
    #?(:clj
       (locking v (bindRoot v (apply f (getRawRoot v) args)))
       :cljs (bindRoot v (apply f (getRawRoot v) args)))))
-
-(defn new-var
-  "Returns a new sci var."
-  ([name] (doto (new-var name nil nil)
-            (unbind)))
-  ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (->SciVar init-val name (assoc meta :name (unqualify-symbol name)) false)))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))

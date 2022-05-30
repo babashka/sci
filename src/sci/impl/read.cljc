@@ -65,7 +65,7 @@
      (read sci-ctx opts reader))))
 
 (defn load-string [sci-ctx s]
-  (vars/with-bindings {vars/current-ns @vars/current-ns}
+  (vars/with-bindings {utils/current-ns @utils/current-ns}
     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
         (let [x (parser/parse-next sci-ctx reader)]
