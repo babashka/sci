@@ -21,7 +21,7 @@
         fm (if (= :resolve-sym (:sci.impl/op fm))
              (assoc fm :ns (:ns m))
              fm)]
-    (filter not-empty [(select m) (select fm)])))
+    (seq (filter not-empty [(select m) (select fm)]))))
 
 (defn clean-ns [m]
   (if-let [ns (:ns m)]
