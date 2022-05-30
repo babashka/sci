@@ -82,8 +82,8 @@
         (fn [env]
           (let [the-current-ns (get (get env :namespaces) cnn)
                 prev (get the-current-ns var-name)
-                prev (if-not (vars/var? prev)
-                       (vars/->SciVar prev (symbol (str cnn) (str var-name))
+                prev (if-not (utils/var? prev)
+                       (sci.lang.Var. prev (symbol (str cnn) (str var-name))
                                       (meta prev)
                                       false)
                        prev)
@@ -238,14 +238,14 @@
                           (let [fq-class-name (symbol (if package (str package "." class)
                                                           class))]
                             (if-let [clazz (interop/resolve-class ctx fq-class-name)]
-                              (let [cnn (vars/current-ns-name)]
+                              (let [cnn (utils/current-ns-name)]
                                 (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name)
                                 clazz)
                               (if-let [rec-var
                                        (let [rec-ns (symbol (utils/demunge (str package)))
                                              rec-var (get-in @env [:namespaces rec-ns class])]
                                          rec-var)]
-                                (let [cnn (vars/current-ns-name)]
+                                (let [cnn (utils/current-ns-name)]
                                   (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
                                   @rec-var)
                                 (throw (new #?(:clj Exception :cljs js/Error)
@@ -327,7 +327,7 @@
           sci.impl.vars.SciNamespace
           (eval [expr _ _]
             expr)
-          sci.impl.vars.SciVar
+          sci.lang.Var
           (eval [expr _ _]
             expr)
           clojure.lang.MultiFn

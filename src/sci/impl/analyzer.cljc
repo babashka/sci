@@ -72,7 +72,7 @@
                                  _ ::unresolved))]
                   (if (kw-identical? ::unresolved f)
                     expr
-                    (let [macro-var? (and (vars/var? f)
+                    (let [macro-var? (and (utils/var? f)
                                           (vars/isMacro f))
                           needs-ctx? (kw-identical? utils/needs-ctx (some-> f meta :sci.impl/op))
                           f (if macro-var? @f f)]
@@ -512,7 +512,7 @@
     (analyze-let* ctx expr let-bindings exprs)))
 
 (defn init-var! [ctx name expr]
-  (let [cnn (vars/current-ns-name)
+  (let [cnn (utils/current-ns-name)
         env (:env ctx)
         the-current-ns (get-in @env [:namespaces cnn])
         refers (:refers the-current-ns)
@@ -525,12 +525,12 @@
                          (if-not #?(:clj (.containsKey ^java.util.Map the-current-ns name)
                                     :cljs (get the-current-ns name))
                            (assoc the-current-ns name
-                                  (doto (vars/->SciVar nil (symbol (str cnn)
+                                  (doto (sci.lang.Var. nil (symbol (str cnn)
                                                                    (str name))
                                                        (assoc (meta name)
                                                               :name name
-                                                              :ns @vars/current-ns
-                                                              :file @vars/current-file)
+                                                              :ns @utils/current-ns
+                                                              :file @utils/current-file)
                                                        false)
                                     (vars/unbind)))
                            the-current-ns))]
@@ -561,7 +561,7 @@
                    (analyze ctx init))
             m (meta var-name)
             m-needs-eval? m
-            m (assoc m :ns @vars/current-ns)
+            m (assoc m :ns @utils/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             m (if m-needs-eval?
                 (analyze ctx m)
@@ -597,7 +597,7 @@
         f (analyze-fn* ctx fn-body macro?)
         arglists (list 'quote (seq (:sci.impl/arglists f)))
         meta-map (assoc meta-map
-                        :ns @vars/current-ns
+                        :ns @utils/current-ns
                         :arglists arglists)
         meta-map (cond-> meta-map
                    docstring (assoc :doc docstring)
@@ -645,8 +645,8 @@
   (let [exprs (rest expr)
         children (analyze-children ctx exprs)
         stack (assoc (meta expr)
-                     :ns @vars/current-ns
-                     :file @vars/current-file
+                     :ns @utils/current-ns
+                     :file @utils/current-file
                      :special true)]
     (case (count children)
       (0 1) (throw-error-with-location "Too few arguments to if" expr)
@@ -770,8 +770,8 @@
   (let [ctx (without-recur-target ctx)
         ana (analyze ctx ex)
         stack (assoc (meta expr)
-                     :ns @vars/current-ns
-                     :file @vars/current-file
+                     :ns @utils/current-ns
+                     :file @utils/current-file
                      :special true)]
     (sci.impl.types/->Node
      (rethrow-with-location-of-node ctx bindings (types/eval ana ctx bindings) this)
@@ -822,23 +822,23 @@
                            (interop/get-static-field [instance-expr method-name])
                            nil)
                           (let [stack (assoc (meta expr)
-                                             :ns @vars/current-ns
-                                             :file @vars/current-file)]
+                                             :ns @utils/current-ns
+                                             :file @utils/current-file)]
                             (sci.impl.types/->Node
                              (eval/eval-static-method-invocation
                               ctx bindings
                               (cons [instance-expr method-name] args))
                              stack))))
                       (let [stack (assoc (meta expr)
-                                         :ns @vars/current-ns
-                                         :file @vars/current-file)]
+                                         :ns @utils/current-ns
+                                         :file @utils/current-file)]
                         (sci.impl.types/->Node
                          (eval/eval-static-method-invocation
                           ctx bindings (cons [instance-expr method-name] args))
                          stack)))
                     (let [stack (assoc (meta expr)
-                                       :ns @vars/current-ns
-                                       :file @vars/current-file)]
+                                       :ns @utils/current-ns
+                                       :file @utils/current-file)]
                       (with-meta (sci.impl.types/->Node
                                   (eval/eval-instance-method-invocation
                                    ctx bindings instance-expr meth-name field-access args)
@@ -846,8 +846,8 @@
                         {::instance-expr instance-expr
                          ::method-name method-name})))
              :cljs (let [stack (assoc (meta expr)
-                                      :ns @vars/current-ns
-                                      :file @vars/current-file)
+                                      :ns @utils/current-ns
+                                      :file @utils/current-file)
                          allowed? (identical? method-expr utils/allowed-append)]
                      (with-meta (sci.impl.types/->Node
                                  (eval/eval-instance-method-invocation
@@ -889,8 +889,8 @@
                                (:sci.impl.record/constructor (meta record))
                                args
                                (assoc (meta expr)
-                                      :ns @vars/current-ns
-                                      :file @vars/current-file
+                                      :ns @utils/current-ns
+                                      :file @utils/current-file
                                       )
                                nil))
                 (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
@@ -905,7 +905,7 @@
                                  clazz)
                                (resolve/resolve-symbol ctx class-sym false))]
                  (let [args (analyze-children ctx args)
-                       var? (vars/var? class)
+                       var? (utils/var? class)
                        maybe-var (when var? class)
                        maybe-record (cond
                                       var?
@@ -924,8 +924,8 @@
                                       maybe-record-constructor
                                       args
                                       (assoc (meta expr)
-                                             :ns @vars/current-ns
-                                             :file @vars/current-file)
+                                             :ns @utils/current-ns
+                                             :file @utils/current-file)
                                       nil)
                          var?
                          (sci.impl.types/->Node
@@ -950,8 +950,8 @@
                                   (:sci.impl.record/constructor (meta record))
                                   args
                                   (assoc (meta expr)
-                                         :ns @vars/current-ns
-                                         :file @vars/current-file
+                                         :ns @utils/current-ns
+                                         :file @utils/current-file
                                          )
                                   nil))
                    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
@@ -976,8 +976,8 @@
 
 (defn return-ns-op [_ctx f expr analyzed-args]
   (let [stack (assoc (meta expr)
-                     :file @vars/current-file
-                     :ns @vars/current-ns)]
+                     :file @utils/current-file
+                     :ns @utils/current-ns)]
     (sci.impl.types/->Node
      (try
        (apply f ctx analyzed-args)
@@ -1042,7 +1042,7 @@
 (defn analyze-set! [ctx [_ obj v :as expr]]
   (cond (symbol? obj) ;; assume dynamic var
         (let [obj (resolve/resolve-symbol ctx obj)
-              _ (when-not (vars/var? obj)
+              _ (when-not (utils/var? obj)
                   (throw-error-with-location "Invalid assignment target" expr))
               v (analyze ctx v)]
           (sci.impl.types/->Node
@@ -1111,8 +1111,8 @@
       `(defn ~'return-needs-ctx-call
          ~'[_ctx expr f analyzed-children]
          (let [~'stack (assoc (meta ~'expr)
-                              :file @vars/current-file
-                              :ns @vars/current-ns)]
+                              :file @utils/current-file
+                              :ns @utils/current-ns)]
            (case (count ~'analyzed-children)
              ~@(concat
                 (mapcat (fn [[i binds]]
@@ -1198,8 +1198,8 @@
 (defn analyze-import [_ctx expr]
   (let [args (rest expr)
         stack (assoc (meta expr)
-                     :ns @vars/current-ns
-                     :file @vars/current-file)]
+                     :ns @utils/current-ns
+                     :file @utils/current-file)]
     (sci.impl.types/->Node
      (try (apply eval/eval-import ctx args)
           (catch #?(:clj Throwable :cljs js/Error) e
@@ -1209,7 +1209,7 @@
 (defn analyze-call [ctx expr m top-level?]
   (let [eval-file (:clojure.core/eval-file m)]
     (when eval-file
-      (vars/push-thread-bindings {vars/current-file eval-file}))
+      (vars/push-thread-bindings {utils/current-file eval-file}))
     (try
       (let [f (first expr)]
         (cond (symbol? f)
@@ -1287,7 +1287,7 @@
                           (let [needs-ctx? (identical? utils/needs-ctx
                                                        (:sci.impl/op (meta f)))
                                 ;; Fix for #603
-                                #?@(:cljs [f (if (vars/var? f)
+                                #?@(:cljs [f (if (utils/var? f)
 
                                                @f
                                                f)
@@ -1316,8 +1316,8 @@
                                          expr
                                          f (analyze-children ctx (rest expr))
                                          (assoc m
-                                                :ns @vars/current-ns
-                                                :file @vars/current-file
+                                                :ns @utils/current-ns
+                                                :file @utils/current-file
                                                 :sci.impl/f-meta f-meta)
                                          nil)
                             (if-let [op (:sci.impl/op (meta f))]
@@ -1332,8 +1332,8 @@
                                                  expr
                                                  f children
                                                  (assoc m
-                                                        :ns @vars/current-ns
-                                                        :file @vars/current-file
+                                                        :ns @utils/current-ns
+                                                        :file @utils/current-file
                                                         :sci.impl/f-meta f-meta)
                                                  nil)))
                                 :resolve-sym
@@ -1342,15 +1342,15 @@
                                                      (:sci.impl/idx (meta f))
                                                      f (analyze-children ctx (rest expr))
                                                      (assoc m
-                                                            :ns @vars/current-ns
-                                                            :file @vars/current-file
+                                                            :ns @utils/current-ns
+                                                            :file @utils/current-file
                                                             :sci.impl/f-meta f-meta))
                                 (let [children (analyze-children ctx (rest expr))]
                                   (return-call ctx
                                                expr
                                                f children (assoc m
-                                                                 :ns @vars/current-ns
-                                                                 :file @vars/current-file
+                                                                 :ns @utils/current-ns
+                                                                 :file @utils/current-file
                                                                  :sci.impl/f-meta f-meta)
                                                nil)))
                               (let [self-ref? (:self-ref? ctx)]
@@ -1359,8 +1359,8 @@
                                     (return-call ctx
                                                  expr
                                                  f children (assoc m
-                                                                   :ns @vars/current-ns
-                                                                   :file @vars/current-file
+                                                                   :ns @utils/current-ns
+                                                                   :file @utils/current-file
                                                                    :sci.impl/f-meta f-meta)
                                                  (fn [bindings _]
                                                    (deref
@@ -1369,10 +1369,10 @@
                                     (return-call ctx
                                                  expr
                                                  f children (assoc m
-                                                                   :ns @vars/current-ns
-                                                                   :file @vars/current-file
+                                                                   :ns @utils/current-ns
+                                                                   :file @utils/current-file
                                                                    :sci.impl/f-meta f-meta)
-                                                 #?(:cljs (when (vars/var? f) (fn [_ v]
+                                                 #?(:cljs (when (utils/var? f) (fn [_ v]
                                                                                 (deref v))) :clj nil))))))))
                         (catch #?(:clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
@@ -1380,8 +1380,8 @@
                           ;; with :ns and :file
                           (rethrow-with-location-of-node ctx e
                                                          (let [stack (assoc m
-                                                                            :ns @vars/current-ns
-                                                                            :file @vars/current-file
+                                                                            :ns @utils/current-ns
+                                                                            :file @utils/current-file
                                                                             :sci.impl/f-meta f-meta)]
                                                            (sci.impl.types/->Node nil stack)))))))
               (keyword? f)
@@ -1403,8 +1403,8 @@
               (let [f (analyze ctx f)
                     children (analyze-children ctx (rest expr))
                     stack (assoc m
-                                 :ns @vars/current-ns
-                                 :file @vars/current-file)]
+                                 :ns @utils/current-ns
+                                 :file @utils/current-file)]
                 (sci.impl.types/->Node
                  (let [f (types/eval f ctx bindings)]
                    (if (ifn? f)
@@ -1529,7 +1529,7 @@
                         (cond (constant? v) (->constant v)
                               (identical? utils/needs-ctx (:sci.impl/op mv))
                               (partial v ctx)
-                              (vars/var? v)
+                              (utils/var? v)
                               (if (:const mv)
                                 @v
                                 (if (vars/isMacro v)

@@ -76,7 +76,7 @@
         body (:body fn-body)
         invoc-size (:invoc-size fn-body)
         self-ref-idx (:self-ref-idx fn-body)
-        #_:clj-kondo/ignore nsm (vars/current-ns-name)
+        #_:clj-kondo/ignore nsm (utils/current-ns-name)
         vararg-idx (:vararg-idx fn-body)
         f (if vararg-idx
             (case (int fixed-arity)

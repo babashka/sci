@@ -270,7 +270,7 @@
             map-factory-sym (when-not deftype?
                               (symbol (str "map" factory-fn-str)))
             keys (mapv keyword fields)
-            rec-type (symbol (str (munge (vars/current-ns-name)) "." (str record-name)))
+            rec-type (symbol (str (munge (utils/current-ns-name)) "." (str record-name)))
             protocol-impls (utils/split-when symbol? raw-protocol-impls)
             field-set (set fields)
             protocol-impls
@@ -287,7 +287,7 @@
                           (str "Protocol not found: " protocol-name)
                           expr))
                      #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
-                     protocol (if (vars/var? protocol) @protocol protocol)
+                     protocol (if (utils/var? protocol) @protocol protocol)
                      protocol-var (:var protocol)
                      _ (when protocol-var
                          ;; TODO: not all externally defined protocols might have the :var already
@@ -376,14 +376,14 @@
                       sym-str)
          namespace (if last-dot
                      (symbol (subs sym-str 0 last-dot))
-                     (vars/current-ns-name))]
+                     (utils/current-ns-name))]
      (resolve-record-or-protocol-class ctx namespace (symbol class-name))))
   ([ctx package class]
    (let [namespace (-> package str (str/replace "_" "-") symbol)]
      (when-let [sci-var (let [ns (get-in @(:env ctx) [:namespaces namespace])]
                           (or (get ns class)
                               (get (:refers ns) class)))]
-       (if (vars/var? sci-var)
+       (if (utils/var? sci-var)
          @sci-var
          sci-var)))))
 

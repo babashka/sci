@@ -38,7 +38,7 @@
           (if (keyword? opt) [{opt (second signatures)} (nnext signatures)]
               [nil signatures]))
         sigs-map (->sigs signatures)
-        current-ns (str (vars/current-ns-name))
+        current-ns (str (utils/current-ns-name))
         fq-name (symbol current-ns (str protocol-name))
         extend-meta (:extend-via-metadata opts)
         expansion

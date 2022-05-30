@@ -65,9 +65,8 @@ needing something from the dark `impl` side!
     -  [`with-in-str`](#with-in-str) - Evaluates body in a context in which sci's *in* is bound to a fresh
     -  [`with-out-str`](#with-out-str) - Evaluates exprs in a context in which sci's *out* is bound to a fresh
 -  [`sci.lang`](#scilang) 
-    -  [`->Type`](#->Type) - Representation of a SCI custom type, created e.g
-    -  [`IVar`](#IVar) - Marker interface for SCI vars.
     -  [`Type`](#Type) - Representation of a SCI custom type, created e.g
+    -  [`Var`](#Var) - Representation of a SCI var, created e.g
 # sci.async 
 
 
@@ -591,20 +590,13 @@ Evaluates exprs in a context in which sci's *out* is bound to a fresh
 
 
 
-## `->Type`
-``` clojure
-
-(->Type --data-impl --namespace-impl --name-impl)
-```
-
-
-Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L20-L67)</sub>
-## `IVar`
-
-Marker interface for SCI vars.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L8-L8)</sub>
 ## `Type`
 
-Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`.
-<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L20-L67)</sub>
+Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`. The fields of this type are implementation detail and should not be accessed directly.
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L22-L69)</sub>
+## `Var`
+
+Representation of a SCI var, created e.g. with `(defn foo [])`
+    The fields of this type are implementation detail and should not be accessed
+    directly.
+<br><sub>[source](https://github.com/babashka/sci/blob/master/src/sci/lang.cljc#L74-L210)</sub>

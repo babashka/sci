@@ -2,7 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [deref -deref -swap! -reset!])
   (:require [sci.impl.types :as types]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.impl.utils :as utils]))
 
 
 ;;;; IDeref
@@ -32,14 +33,14 @@
 
 (def deref-protocol
   #?(:clj
-     (vars/new-var
+     (utils/new-var
       'clojure.lang.IDeref
       {:class clojure.lang.IDeref
        :methods #{deref}
        :ns clj-lang-ns}
       {:ns clj-lang-ns})
      :cljs
-     (vars/new-var
+     (utils/new-var
       'cljs.core.IDeref
       {:protocol IDeref
        :methods #{-deref}
@@ -163,14 +164,14 @@
 
 (def swap-protocol
   #?(:clj
-     (vars/new-var
+     (utils/new-var
       'clojure.lang.IAtom
       {:class clojure.lang.IAtom
        :methods #{swap, reset, compareAndSet}
        :ns clj-lang-ns}
       {:ns clj-lang-ns})
      :cljs
-     (vars/new-var
+     (utils/new-var
       'cljs.core.ISwap
       {:protocol ISwap
        :methods #{-swap!}
@@ -179,7 +180,7 @@
 
 #?(:cljs
    (def reset-protocol
-     (vars/new-var
+     (utils/new-var
       'cljs.core.IReset
       {:protocol IReset
        :methods #{-reset!}
@@ -188,7 +189,7 @@
 
 #?(:clj
    (def iatom2-protocol
-     (vars/new-var
+     (utils/new-var
       'clojure.lang.IAtom2
       {:class clojure.lang.IAtom2
        :methods #{swap, reset, compareAndSet, swapVals, resetVals}

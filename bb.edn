@@ -1,7 +1,7 @@
 {:pods {clj-kondo/clj-kondo {:version "2022.02.09"}}
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
-        {:git/sha "ca5893c0d81f26443dd178a747d0851e75d39eca"}}
+        {:git/sha "d5313344c97b79f014a90634313b5fd2205938af"}}
 
  :tasks
  {test:jvm  {:doc "Run CLJ tests with leiningen"
@@ -24,6 +24,9 @@
                         (api/quickdoc {:outfile nil
                                        :toc true
                                        :git/branch "master"
-                                       :github/repo "https://github.com/babashka/sci"})
+                                       :github/repo "https://github.com/babashka/sci"
+                                       :overrides {'sci.lang {'->Type {:no-doc true}
+                                                              '->Var {:no-doc true}
+                                                              'IVar {:no-doc true}}}})
                         markdown (str (slurp "test-resources/API-prelude.md") markdown)]
                     (spit "API.md" markdown))}}}

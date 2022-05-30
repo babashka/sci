@@ -4,7 +4,8 @@
                    [java.lang.reflect Field Modifier]))
   (:require #?(:cljs [goog.object :as gobject])
             #?(:cljs [clojure.string :as str])
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.impl.utils :as utils]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -85,7 +86,7 @@
                    (when (contains? class->opts sym)
                      sym)))
         (or (get (:imports env) sym)
-            (let [cnn (vars/current-ns-name)]
+            (let [cnn (utils/current-ns-name)]
               (get-in env [:namespaces cnn :imports sym]))))))
 
 (defn resolve-class-opts [ctx sym]
@@ -96,7 +97,7 @@
                                   (when (identical? "js" ns*)
                                     (get class->opts (symbol (name sym))))
                                   (get class->opts sym)))
-                       (let [cnn (vars/current-ns-name)
+                       (let [cnn (utils/current-ns-name)
                              imports (get-in env [:namespaces cnn :imports])]
                          (if-let [[_ v] (find imports sym)]
                            ;; finding a nil v means the object was unmapped

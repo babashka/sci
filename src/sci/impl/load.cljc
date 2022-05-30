@@ -70,7 +70,7 @@
   [ctx lib opts]
   (let [env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
-        cnn (vars/current-ns-name)
+        cnn (utils/current-ns-name)
         #?@(:cljs [lib (if (= 'cljs.core lib) 'clojure.core lib)])]
     (if-let [as-alias (:as-alias opts)]
       (reset! env* (handle-require-libspec-env ctx env cnn nil lib {:as as-alias}))
@@ -91,7 +91,7 @@
                lib)
               (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
           (if-let [load-fn (:load-fn env)]
-            (let [curr-ns @vars/current-ns]
+            (let [curr-ns @utils/current-ns]
               (if-let [{:keys [file source handled]}
                        (load-fn {:namespace lib ;; old name
                                  :libname lib
@@ -111,8 +111,8 @@
                                                      (conj loading lib)))))]
                     (when source
                       (try (vars/with-bindings
-                             {vars/current-ns curr-ns
-                              vars/current-file file}
+                             {utils/current-ns curr-ns
+                              utils/current-file file}
                              (@utils/eval-string* ctx source))
                            (catch #?(:clj Exception :cljs js/Error) e
                              (swap! env* update :namespaces dissoc lib)
@@ -212,13 +212,13 @@
             :exclude
             (swap! (:env ctx)
                    (fn [env]
-                     (let [cnn (vars/current-ns-name)]
+                     (let [cnn (utils/current-ns-name)]
                        (update-in env [:namespaces cnn :refer ns-sym :exclude]
                                   (fnil into #{}) v))))
             :only
             (swap! (:env ctx)
                    (fn [env]
-                     (let [cnn (vars/current-ns-name)
+                     (let [cnn (utils/current-ns-name)
                            other-ns (get-in env [:namespaces ns-sym])
                            other-vars (select-keys other-ns v)]
                        ;; TODO: this is wrong, don't merge these vars into the current namespace
@@ -227,7 +227,7 @@
             :rename
             (swap! (:env ctx)
                    (fn [env]
-                     (let [cnn (vars/current-ns-name)
+                     (let [cnn (utils/current-ns-name)
                            namespaces (:namespaces env)
                            the-current-ns (get namespaces cnn)
                            other-ns (get-in env [:namespaces ns-sym])
@@ -243,7 +243,7 @@
 
 (defn eval-refer* [env ns-sym filters]
   env
-  (let [cnn (vars/current-ns-name)
+  (let [cnn (utils/current-ns-name)
         namespaces (:namespaces env)
         ns (or (get namespaces ns-sym)
                (throw (new #?(:clj Exception :cljs js/Error)

@@ -39,7 +39,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def clojure-core-ns vars/clojure-core-ns)
+(def clojure-core-ns utils/clojure-core-ns)
 
 ;; The following is produced with:
 ;; (def inlined (filter (comp :inline meta) (vals (ns-publics 'clojure.core))))
@@ -73,7 +73,7 @@
                  m# (-> (var ~sym) meta)
                  name# (or ~nm (:name m#))
                  val# ~sym]
-             (vars/->SciVar val# name# (cond->
+             (sci.lang.Var. val# name# (cond->
                                            {:doc (:doc m#)
                                             :name name#
                                             :arglists (:arglists m#)
@@ -92,7 +92,7 @@
   ([sym f] (macrofy sym f clojure-core-ns false))
   ([sym f ns] (macrofy sym f ns false))
   ([sym f ns ctx?]
-   (vars/new-var sym f (cond-> {:ns    ns
+   (utils/new-var sym f (cond-> {:ns    ns
                                 :macro true
                                 :sci/built-in true}
                          ctx? (assoc :sci.impl/op needs-ctx)))))
@@ -101,7 +101,7 @@
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
-     (vars/new-var sym v (cond-> {:ns ns
+     (utils/new-var sym v (cond-> {:ns ns
                                   :sci/built-in true}
                            ctx? (assoc :sci.impl/op needs-ctx))))))
 
@@ -300,7 +300,7 @@
         #?(:clj (.getCause ^Throwable ex)
            :cljs (.-cause ex))))))
 
-(def assert-var (vars/dynamic-var '*assert* true {:ns clojure-core-ns}))
+(def assert-var (utils/dynamic-var '*assert* true {:ns clojure-core-ns}))
 
 (defn assert*
   ([_&form _ x]
@@ -438,7 +438,7 @@
 (defn sci-alias [ctx alias-sym ns-sym]
   (swap! (:env ctx)
          (fn [env]
-           (let [current-ns (vars/current-ns-name)]
+           (let [current-ns (utils/current-ns-name)]
              (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
   nil)
 
@@ -553,7 +553,7 @@
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
          (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (vars/new-var var-name nil (assoc (meta var-sym) :ns ns))]
+               new-var (utils/new-var var-name nil (assoc (meta var-sym) :ns ns))]
            (vars/unbind new-var)
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var))))
@@ -565,7 +565,7 @@
            (vars/bindRoot v val)
            v)
          (let [var-name (symbol (str ns-name) (str var-sym))
-               new-var (vars/new-var var-name val (assoc (meta var-sym) :ns ns))]
+               new-var (utils/new-var var-name val (assoc (meta var-sym) :ns ns))]
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var)))))
 
@@ -600,10 +600,10 @@
 
 (defn sci-ns-resolve
   ([sci-ctx ns sym]
-   (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
+   (vars/with-bindings {utils/current-ns (sci-the-ns sci-ctx ns)}
      (sci-resolve sci-ctx sym)))
   ([sci-ctx ns env sym]
-   (vars/with-bindings {vars/current-ns (sci-the-ns sci-ctx ns)}
+   (vars/with-bindings {utils/current-ns (sci-the-ns sci-ctx ns)}
      (sci-resolve sci-ctx env sym))))
 
 (defn sci-requiring-resolve
@@ -721,7 +721,7 @@
   "Returns a Symbol with the given namespace and name. Arity-1 works
   on strings, keywords, and vars."
   ([name]
-   (if (vars/var? name) (let [m (meta name)
+   (if (utils/var? name) (let [m (meta name)
                               ns (:ns m)
                               nm (:name m)]
                           (when (and ns nm)
@@ -779,13 +779,13 @@
 
 ;;;; REPL vars
 
-(def *1 (vars/dynamic-var '*1 nil {:ns clojure-core-ns}))
+(def *1 (utils/dynamic-var '*1 nil {:ns clojure-core-ns}))
 
-(def *2 (vars/dynamic-var '*2 nil {:ns clojure-core-ns}))
+(def *2 (utils/dynamic-var '*2 nil {:ns clojure-core-ns}))
 
-(def *3 (vars/dynamic-var '*3 nil {:ns clojure-core-ns}))
+(def *3 (utils/dynamic-var '*3 nil {:ns clojure-core-ns}))
 
-(def *e (vars/dynamic-var '*e nil {:ns clojure-core-ns}))
+(def *e (utils/dynamic-var '*e nil {:ns clojure-core-ns}))
 
 
 ;;;; Patch for CLJS type
@@ -825,7 +825,7 @@
 ;;      `(let [~name (clojure.core/-js-this)]
 ;;         ~@body)))
 
-#?(:clj (def clojure-version-var (vars/dynamic-var
+#?(:clj (def clojure-version-var (utils/dynamic-var
                                   '*clojure-version* (update clojure.core/*clojure-version*
                                                              :qualifier (fn [qualifier]
                                                                           (if qualifier
@@ -881,12 +881,12 @@
 
 (def clojure-core
   {:obj clojure-core-ns
-   '*ns* vars/current-ns
+   '*ns* utils/current-ns
    ;; io
    '*in* io/in
    '*out* io/out
    '*err* io/err
-   '*file* vars/current-file
+   '*file* utils/current-file
    '*flush-on-newline* io/flush-on-newline
    #?@(:cljs ['*print-fn* io/print-fn
               '*print-err-fn* io/print-err-fn])
@@ -983,9 +983,9 @@
    ;; private
    'has-root-impl (copy-core-var has-root-impl)
    ;; used in with-local-vars
-   '-new-dynamic-var (core-var '-new-dynamic-var #(vars/new-var (gensym) nil {:dynamic true}))
+   '-new-dynamic-var (core-var '-new-dynamic-var #(utils/new-var (gensym) nil {:dynamic true}))
    ;; used in let-fn
-   '-new-var (core-var '-new-var #(vars/new-var (gensym) nil))
+   '-new-var (core-var '-new-var #(utils/new-var (gensym) nil))
    '->record-impl (copy-core-var records/->record-impl)
    ;; end private
    '.. (macrofy '.. double-dot)
@@ -1022,7 +1022,7 @@
              'aset-int (copy-core-var aset-int)
              'aset-long (copy-core-var aset-long)
              'aset-short (copy-core-var aset-short)])
-   'alength #?(:clj (vars/new-var 'alength (fn [arr]
+   'alength #?(:clj (utils/new-var 'alength (fn [arr]
                                              (java.lang.reflect.Array/getLength arr))
                                   {:ns clojure-core-ns})
                :cljs (copy-core-var alength))
@@ -1413,12 +1413,12 @@
    'unchecked-short (copy-core-var unchecked-short)
    #?@(:cljs ['undefined? (copy-core-var undefined?)])
    'underive (core-var 'underive hierarchies/underive* true)
-   'unquote (doto (vars/new-var 'unquote nil {:ns clojure-core-ns})
+   'unquote (doto (utils/new-var 'unquote nil {:ns clojure-core-ns})
               (vars/unbind))
    'use (core-var 'use use true)
    'val (copy-core-var val)
    'vals (copy-core-var vals)
-   'var? (copy-var vars/var? clojure-core-ns)
+   'var? (copy-var utils/var? clojure-core-ns)
    'var-get (copy-var vars/var-get clojure-core-ns)
    'var-set (copy-var vars/var-set clojure-core-ns)
    'vary-meta (copy-core-var vary-meta)
@@ -1475,7 +1475,7 @@
 
 (defn dir-fn
   [ctx ns]
-  (let [current-ns (vars/current-ns-name)
+  (let [current-ns (utils/current-ns-name)
         the-ns (sci-the-ns ctx
                            (get (sci-ns-aliases ctx current-ns) ns ns))]
     (sort (map first (sci-ns-publics ctx the-ns)))))
@@ -1705,7 +1705,7 @@
 (def clojure-edn-namespace (vars/->SciNamespace 'clojure.edn nil))
 
 (def macroexpand-all
-  (vars/->SciVar (fn [ctx form]
+  (sci.lang.Var. (fn [ctx form]
                    (clojure.walk/prewalk
                     (fn [x]
                       (if (seq? x)

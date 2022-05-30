@@ -27,14 +27,14 @@
   ([name] (doto (new-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :name (utils/unqualify-symbol name)) false)))
+  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :name (utils/unqualify-symbol name)) false)))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
   ([name] (doto (new-dynamic-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
-  ([name init-val meta] (sci.impl.vars.SciVar. init-val name (assoc meta :dynamic true :name (utils/unqualify-symbol name)) false)))
+  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :dynamic true :name (utils/unqualify-symbol name)) false)))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -45,7 +45,7 @@
   "Same as new-var but adds :macro true to meta as well
   as :sci/macro true to meta of the fn itself."
   ([name init-val] (new-macro-var name init-val (meta name)))
-  ([name init-val meta] (sci.impl.vars.SciVar.
+  ([name init-val meta] (sci.lang.Var.
                          (vary-meta init-val
                                     assoc :sci/macro true)
                          name (assoc meta :macro true :name (utils/unqualify-symbol name)) false)))
@@ -98,8 +98,8 @@
 (def in "SCI var that represents SCI's `clojure.core/*in*`" sio/in)
 (def out "SCI var that represents SCI's `clojure.core/*out*`" sio/out)
 (def err "SCI var that represents SCI's `clojure.core/*err*`" sio/err)
-(def ns "SCI var that represents SCI's `clojure.core/*ns*`" vars/current-ns)
-(def file "SCI var that represents SCI's `clojure.core/*file*`" vars/current-file)
+(def ns "SCI var that represents SCI's `clojure.core/*ns*`" utils/current-ns)
+(def file "SCI var that represents SCI's `clojure.core/*file*`" utils/current-file)
 (def read-eval "SCI var that represents SCI's `clojure.core/*read-eval*`" parser/read-eval)
 (def print-length "SCI var that represents SCI's `clojure.core/*print-length*`" sio/print-length)
 (def print-level "SCI var that represents SCI's `clojure.core/*print-level*`" sio/print-level)

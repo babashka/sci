@@ -54,7 +54,7 @@
 (vreset! utils/eval-form-state eval-form)
 
 (defn eval-string* [ctx s]
-  (vars/with-bindings {vars/current-ns @vars/current-ns}
+  (vars/with-bindings {utils/current-ns @utils/current-ns}
     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
         (let [expr (p/parse-next ctx reader)]
