@@ -19,65 +19,68 @@
     (subs s 0 i)
     s))
 
-(deftype ^{:doc "Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`."}
-    Type [^:volatile-mutable --data-impl
-          ^:volatile-mutable --namespace-impl
-          ^:volatile-mutable --name-impl]
+(deftype ^{:doc "Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`. The fields of this type are implementation detail and should not be accessed directly."}
+    Type [^:volatile-mutable data
+          ^:volatile-mutable namespace
+          ^:volatile-mutable name]
   sci.impl.types/IBox
-  (getVal [_] --data-impl)
-  (setVal [_ v] (set! --data-impl v))
+  (getVal [_] data)
+  (setVal [_ v] (set! data v))
   Object
   (toString [_]
-    (str (:sci.impl/type-name --data-impl)))
+    (str (:sci.impl/type-name data)))
 
   ;; meta is only supported to get our implementation! keys out
   #?@(:clj
       [clojure.lang.IMeta
-       (meta [_] --data-impl)]
+       (meta [_] data)]
       :cljs
       [IMeta
-       (-meta [_] --data-impl)])
+       (-meta [_] data)])
 
   ;; we need to support Named for `derive`
   #?@(:clj
       [clojure.lang.Named
        (getNamespace [this]
-                     (if (nil? --namespace-impl)
+                     (if (nil? namespace)
                        (let [ns (package-name (str this))]
-                         (set! --namespace-impl ns)
+                         (set! namespace ns)
                          ns)
-                       --namespace-impl))
+                       namespace))
        (getName [this]
-                (if (nil? --name-impl)
+                (if (nil? name)
                   (let [nom (class-name (str this))]
-                    (set! --name-impl nom)
+                    (set! name nom)
                     nom)
-                  --name-impl))]
+                  name))]
       :cljs
       [INamed
        (-namespace [this]
-                   (if (nil? --namespace-impl)
+                   (if (nil? namespace)
                      (let [ns (package-name (str this))]
-                       (set! --namespace-impl ns)
+                       (set! namespace ns)
                        ns)
-                     --namespace-impl))
+                     namespace))
        (-name [this]
-              (if (nil? --name-impl)
+              (if (nil? name)
                 (let [nom (class-name (str this))]
-                  (set! --name-impl nom)
+                  (set! name nom)
                   nom)
-                --name-impl))]))
+                name))]))
 
 #?(:clj (defmethod print-method Type [this w]
           (.write ^java.io.Writer w (str this))))
 
-(deftype Var [#?(:clj ^:volatile-mutable root
-                 :cljs ^:mutable root)
-              sym
-              #?(:clj ^:volatile-mutable meta
-                 :cljs ^:mutable meta)
-              #?(:clj ^:volatile-mutable thread-bound
-                 :cljs ^:mutable thread-bound)]
+(deftype ^{:doc "Representation of a SCI var, created e.g. with `(defn foo [])`
+    The fields of this type are implementation detail and should not be accessed
+    directly."}
+    Var [#?(:clj ^:volatile-mutable root
+            :cljs ^:mutable root)
+         sym
+         #?(:clj ^:volatile-mutable meta
+            :cljs ^:mutable meta)
+         #?(:clj ^:volatile-mutable thread-bound
+            :cljs ^:mutable thread-bound)]
   #?(:clj
      ;; marker interface, clj only for now
      sci.lang.IVar)

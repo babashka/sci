@@ -105,9 +105,7 @@
   (let [^Frame frame (get-thread-binding-frame)
         bmap (.-bindings frame)
         bmap (reduce (fn [acc [var* val*]]
-                       (when (not (do (time (dotimes [_ 1000000]
-                                              (dynamic? var*)))
-                                      (dynamic? var*)))
+                       (when (not (dynamic? var*))
                          (throw (new #?(:clj IllegalStateException
                                         :cljs js/Error)
                                      (str "Can't dynamically bind non-dynamic var " var*))))
