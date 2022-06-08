@@ -27,6 +27,7 @@
                                        :github/repo "https://github.com/babashka/sci"
                                        :overrides {'sci.lang {'->Type {:no-doc true}
                                                               '->Var {:no-doc true}
+                                                              '->Namespace {:no-doc true}
                                                               'IVar {:no-doc true}}}})
                         markdown (str (slurp "test-resources/API-prelude.md") markdown)]
                     (spit "API.md" markdown))}}}

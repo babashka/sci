@@ -215,8 +215,13 @@
          (.write w (str "#'" (vars/toSymbol ^sci.impl.vars.IVar o))))
        (prefer-method print-method sci.lang.IVar clojure.lang.IDeref)))
 
-(deftype Namespace [name #?(:clj ^:volatile-mutable meta
-                               :cljs ^:mutable meta)]
+(deftype
+    ^{:doc
+      "Representation of a SCI namespace, created e.g. with `(create-ns 'foo)`.
+      The fields of this type are implementation detail and should not be accessed
+      directly."}
+    Namespace [name #?(:clj ^:volatile-mutable meta
+                       :cljs ^:mutable meta)]
   Object
   (toString [_]
     (str name))
