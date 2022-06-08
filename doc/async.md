@@ -189,3 +189,22 @@ introduced in ClojureScript `1.10.844`. You can read about that
 We support that in `async-load-fn` by splitting the libname on `$` and getting
 the properties out of the JS library, then registering that as a class and
 import.
+
+## Preserving namespace state
+
+To preserve namespace state, use `scia/eval-string+` which is similar to
+`scia/eval-string*` but returns a map with `:val` and `:ns` in a promise. To
+keep the namespace state of the previous evaluation intact, you can feed the
+entire return value back into the next evaluation:
+
+``` clojure
+(p/let [ctx (sci/init {})
+        {:keys [_ ns] :as ret} (scia/eval-string+ ctx "(ns foo)")
+        _ (is (= "foo" (str ns)))
+        {:keys [val ns]} (scia/eval-string+ ctx "(defn foo [] :hello) (foo/foo)" ret)
+        _ (is (= :hello val))
+        _ (is (= "foo" (str ns)))
+        {:keys [val ns]} (scia/eval-string+ ctx "(defn bar []) (symbol #'bar)")
+        _ (is (= 'user/bar val))
+        _ (is (= "user" (str ns)))])
+```
