@@ -152,3 +152,11 @@
                  _ (is (= 'user/bar val))
                  _ (is (= "user" (str ns)))]
            (done))))
+
+(deftest require-test
+  (async done
+         (p/let [ctx (sci/init {})
+                 _ (scia/require ctx '[clojure.set :as set])
+                 _ (scia/eval-string* ctx "set/union")]
+           (is true)
+           (done))))

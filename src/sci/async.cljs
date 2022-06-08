@@ -94,7 +94,8 @@
                                           (if (seq? form)
                                             (if (= 'ns (first form))
                                               (eval-next (await (eval-ns-form ctx form)))
-                                              (eval-next (sci/eval-form ctx form)))
+                                              (eval-next
+                                               (sci/eval-form ctx form)))
                                             (eval-next (sci/eval-form ctx form))))))]
                       (if (or (not (instance? js/Promise res))
                               (await? res))
@@ -132,7 +133,9 @@
   (.-__sci_await promise))
 
 (defn- require* [ctx & libspecs]
-  (let [p (handle-libspecs ctx libspecs)]
+  (let [ctx (assoc ctx :last-ns (or (:last-ns ctx)
+                                    (volatile! @sci/ns)))
+        p (handle-libspecs ctx libspecs)]
     (await p)))
 
 (def require
