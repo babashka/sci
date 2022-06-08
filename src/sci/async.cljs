@@ -81,9 +81,10 @@
 
 (declare await await?)
 
-(defn eval-string* [ctx s]
+(defn eval-string*
+  [ctx s]
   (let [rdr (sci/reader s)
-        last-ns (volatile! @sci/ns)
+        last-ns (or (:last-ns ctx) (volatile! @sci/ns))
         ctx (assoc ctx :last-ns last-ns)
         eval-next (fn eval-next [res]
                     (let [continue #(sci/binding [sci/ns @last-ns]
@@ -103,6 +104,20 @@
                         ;; do not flatten promise results from evaluated results
                         (continue))))]
     (eval-next nil)))
+
+(defn eval-string+
+  "Same as eval-string* but returns map with `:val`, the evaluation
+  result, and `:ns`, the last active namespace. The return value can
+  be passed back into `opts` to preserve the namespace state."
+  ([ctx s] (eval-string+ ctx s nil))
+  ([ctx s opts]
+   (let [last-ns (volatile! (or (when opts (:ns opts))
+                                @sci/ns))
+         ctx (assoc ctx :last-ns last-ns)]
+     (.then (eval-string* ctx s)
+            (fn [v]
+              {:val v
+               :ns @last-ns})))))
 
 (defn await
   "Mark promise to be flatteded into top level async evaluation, similar

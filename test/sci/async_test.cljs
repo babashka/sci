@@ -139,3 +139,16 @@
                                  (scia/eval-string* ctx "(ns test2) (require '[acme.baz :as baz]) (baz/the-fn)")])]
                  (is (= [:foo :bar :baz] x)))
                (p/finally done)))))
+
+(deftest eval-string+-test
+  (async done
+         (p/let [ctx (sci/init {})
+                 {:keys [_ ns] :as ret} (scia/eval-string+ ctx "(ns foo)")
+                 _ (is (= "foo" (str ns)))
+                 {:keys [val ns]} (scia/eval-string+ ctx "(defn foo [] :hello) (foo/foo)" ret)
+                 _ (is (= :hello val))
+                 _ (is (= "foo" (str ns)))
+                 {:keys [val ns]} (scia/eval-string+ ctx "(defn bar []) (symbol #'bar)")
+                 _ (is (= 'user/bar val))
+                 _ (is (= "user" (str ns)))]
+           (done))))
