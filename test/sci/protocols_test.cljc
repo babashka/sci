@@ -322,3 +322,6 @@
 (extend-protocol Marker java.lang.Long)
 (satisfies? Marker 1)
 " {:classes '{java.lang.Long java.lang.Long}}))))))
+
+(deftest return-value-test
+  (is (true? (eval* "(= 'P (defprotocol P))"))))

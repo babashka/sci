@@ -97,7 +97,9 @@
                                                  update :methods conj ~method-name)
                             :cljs (def ~protocol-name
                                     (update ~protocol-name :methods conj ~method-name))))))
-                  signatures))]
+                  signatures
+                  )
+           ~(list 'quote protocol-name))]
     expansion))
 
 ;; TODO: apply patches for default override for records
