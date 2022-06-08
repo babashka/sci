@@ -45,7 +45,9 @@
 (defn var->sym [v]
   (when-let [m (meta v)]
     (if (:sci/record m)
-      (deref v)
+      (-> (deref v)
+          str
+          symbol)
       (when-let [var-name (:name m)]
         (when-let [ns (:ns m)]
           (symbol (str (types/getName ns))
