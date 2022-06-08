@@ -432,8 +432,8 @@
 
 ;;;; Namespaces / vars
 
-(defn sci-ns-name [^sci.impl.vars.SciNamespace ns]
-  (vars/getName ns))
+(defn sci-ns-name [^sci.lang.Namespace ns]
+  (types/getName ns))
 
 (defn sci-alias [ctx alias-sym ns-sym]
   (swap! (:env ctx)
@@ -450,8 +450,8 @@
   (utils/namespace-object (:env ctx) ns-sym false nil))
 
 (defn sci-the-ns [ctx x]
-  (if (instance? #?(:clj sci.impl.vars.SciNamespace
-                    :cljs sci.impl.vars/SciNamespace) x) x
+  (if (instance? #?(:clj sci.lang.Namespace
+                    :cljs sci.lang/Namespace) x) x
       (or (sci-find-ns ctx x)
           (throw (new #?(:clj Exception :cljs js/Error)
                       (str "No namespace: " x " found"))))))
@@ -462,7 +462,7 @@
         aliases (get-in @(:env ctx) [:namespaces name :aliases])]
     (zipmap (keys aliases)
             (map (fn [sym]
-                   (vars/->SciNamespace sym nil))
+                   (sci.lang/->Namespace sym nil))
                  (vals aliases)))))
 
 (defn clean-ns [m]
@@ -746,7 +746,7 @@
 #?(:clj
    (def clojure-lang
      {:private true
-      :obj (vars/->SciNamespace 'clojure.lang nil)
+      :obj (sci.lang/->Namespace 'clojure.lang nil)
       ;; IDeref as protocol instead of class
       'IDeref core-protocols/deref-protocol
       'deref core-protocols/deref
@@ -771,7 +771,7 @@
     rec-type))
 
 (def sci-impl-records
-  {:obj (vars/->SciNamespace 'sci.impl.records nil)
+  {:obj (sci.lang/->Namespace 'sci.impl.records nil)
    :private true
    'toString records/to-string
    '-create-record-type -create-record-type
@@ -1661,7 +1661,7 @@
                             (+ 2 (- (count (.getStackTrace cause))
                                     (count st)))))))))))
 
-(def clojure-repl-namespace (vars/->SciNamespace 'clojure.repl nil))
+(def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
 
 (def repl-var
   (ns-new-var clojure-repl-namespace))
@@ -1692,17 +1692,17 @@
     `(do ~@(map (fn [a] (apply-template argv expr a))
                 (partition c values)))))
 
-(def clojure-template-namespace (vars/->SciNamespace 'clojure.template nil))
+(def clojure-template-namespace (sci.lang/->Namespace 'clojure.template nil))
 
 (def clojure-template
   {:obj clojure-template-namespace
    'apply-template (copy-var apply-template clojure-template-namespace)
    'do-template (macrofy 'do-template do-template clojure-template-namespace)})
 
-(def clojure-string-namespace (vars/->SciNamespace 'clojure.string nil))
-(def clojure-set-namespace (vars/->SciNamespace 'clojure.set nil))
-(def clojure-walk-namespace (vars/->SciNamespace 'clojure.walk nil))
-(def clojure-edn-namespace (vars/->SciNamespace 'clojure.edn nil))
+(def clojure-string-namespace (sci.lang/->Namespace 'clojure.string nil))
+(def clojure-set-namespace (sci.lang/->Namespace 'clojure.set nil))
+(def clojure-walk-namespace (sci.lang/->Namespace 'clojure.walk nil))
+(def clojure-edn-namespace (sci.lang/->Namespace 'clojure.edn nil))
 
 (def macroexpand-all
   (sci.lang.Var. (fn [ctx form]

@@ -1,12 +1,13 @@
 (ns sci.impl.callstack
   {:no-doc true}
   (:require [clojure.string :as str]
-            [sci.impl.vars :as vars]))
+            [sci.impl.types :as types]
+            [sci.lang]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn sci-ns-name [^sci.impl.vars.SciNamespace ns]
-  (vars/getName ns))
+(defn sci-ns-name [^sci.lang.Namespace ns]
+  (types/getName ns))
 
 (defn select [m]
   (let [new-m (select-keys m [:ns :name :local :file :line :column

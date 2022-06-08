@@ -2,8 +2,8 @@
   {:no-doc true}
   (:require
    [clojure.string :as str]
-   [sci.impl.utils :as utils :refer [throw-error-with-location
-                                     kw-identical?]]
+   [sci.impl.types :as types]
+   [sci.impl.utils :as utils :refer [kw-identical? throw-error-with-location]]
    [sci.impl.vars :as vars]))
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
@@ -97,7 +97,7 @@
                                  :libname lib
                                  :ctx ctx
                                  :opts opts
-                                 :ns (vars/getName curr-ns)
+                                 :ns (types/getName curr-ns)
                                  :reload (or reload reload-all)})]
                 (do
                   ;; (.println System/err "source")

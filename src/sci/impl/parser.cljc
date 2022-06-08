@@ -7,7 +7,8 @@
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [sci.impl.types :as types]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -47,7 +48,7 @@
       (deref v)
       (when-let [var-name (:name m)]
         (when-let [ns (:ns m)]
-          (symbol (str (vars/getName ns))
+          (symbol (str (types/getName ns))
                   (str var-name)))))))
 
 (defn fully-qualify [ctx sym]

@@ -1,9 +1,11 @@
 (ns sci.impl.core-protocols
   {:no-doc true}
   (:refer-clojure :exclude [deref -deref -swap! -reset!])
-  (:require [sci.impl.types :as types]
-            [sci.impl.vars :as vars]
-            [sci.impl.utils :as utils]))
+  (:require
+   [sci.impl.types :as types]
+   [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]
+   [sci.lang :as lang]))
 
 
 ;;;; IDeref
@@ -27,9 +29,9 @@
       (apply clojure.core/deref x args))))
 
 #?(:clj
-   (def clj-lang-ns (vars/->SciNamespace 'clojure.lang nil)))
+   (def clj-lang-ns (lang/->Namespace 'clojure.lang nil)))
 #?(:cljs
-   (def cljs-core-ns (vars/->SciNamespace 'cljs.core nil)))
+   (def cljs-core-ns (lang/->Namespace 'cljs.core nil)))
 
 (def deref-protocol
   #?(:clj

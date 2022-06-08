@@ -20,9 +20,6 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defprotocol HasName ;; INamed was already taken by CLJS
-  (getName [_]))
-
 (macros/deftime
   (defmacro with-writeable-namespace
     [the-ns-object ns-meta & body]
@@ -30,28 +27,11 @@
        (if (or *unrestricted* (not (:sci/built-in m#)))
          (do ~@body)
          (let [ns-obj# ~the-ns-object
-               name# (getName ns-obj#)]
+               name# (t/getName ns-obj#)]
            (throw (ex-info (str "Built-in namespace " name# " is read-only.")
                            {:ns ns-obj#})))))))
 
-(deftype SciNamespace [name #?(:clj ^:volatile-mutable meta
-                               :cljs ^:mutable meta)]
-  Object
-  (toString [_]
-    (str name))
-  HasName
-  (getName [_] name)
-  #?(:clj clojure.lang.IMeta :cljs IMeta)
-  #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
-  #?(:clj clojure.lang.IReference)
-  #?(:clj (alterMeta [this f args]
-                     (with-writeable-namespace this meta
-                       (locking (set! meta (apply f meta args))))))
-  #?(:clj (resetMeta [this m]
-                     (with-writeable-namespace this meta
-                       (locking (set! meta m))))))
-
-(defn namespace? [x]
+#_(defn namespace? [x]
   (instance? #?(:clj sci.impl.vars.SciNamespace
                 :cljs sci.impl.vars/SciNamespace) x))
 
@@ -234,8 +214,8 @@
          (do ~@body)
          (let [the-var# ~the-var
                ns# (:ns vm#)
-               ns-name# (getName ns#)
-               name# (getName the-var#)]
+               ns-name# (t/getName ns#)
+               name# (t/getName the-var#)]
            (throw (ex-info (str "Built-in var #'" ns-name# "/" name# " is read-only.")
                            {:var ~the-var})))))))
 

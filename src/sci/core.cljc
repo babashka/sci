@@ -15,7 +15,8 @@
    [sci.impl.parser :as parser]
    [sci.impl.types :as t]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.lang])
   #?(:cljs (:require-macros
             [sci.core :refer [with-bindings with-out-str copy-var
                               copy-ns require-cljs-analyzer-api]])))
@@ -251,7 +252,7 @@
   "Creates namespace object. Can be used in var metadata."
   ([sym] (create-ns sym nil))
   ([sym meta]
-   (vars/->SciNamespace sym meta)))
+   (sci.lang/->Namespace sym meta)))
 
 (defn parse-string
   "Parses string `s` in the context of `ctx` (as produced with

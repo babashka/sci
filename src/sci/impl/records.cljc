@@ -294,7 +294,7 @@
                          (vars/alter-var-root protocol-var update :satisfies
                                               (fnil conj #{}) (symbol (str rec-type))))
                      protocol-ns (:ns protocol)
-                     pns (cond protocol-ns (str (vars/getName protocol-ns))
+                     pns (cond protocol-ns (str (types/getName protocol-ns))
                                (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
                      fq-meth-name #(if (simple-symbol? %)
                                      (symbol pns (str %))
