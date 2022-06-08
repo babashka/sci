@@ -204,6 +204,7 @@ entire return value back into the next evaluation:
         {:keys [val ns]} (scia/eval-string+ ctx "(defn foo [] :hello) (foo/foo)" ret)
         _ (is (= :hello val))
         _ (is (= "foo" (str ns)))
+        ;; no passing of previous state: ns is back to user again:
         {:keys [val ns]} (scia/eval-string+ ctx "(defn bar []) (symbol #'bar)")
         _ (is (= 'user/bar val))
         _ (is (= "user" (str ns)))])
