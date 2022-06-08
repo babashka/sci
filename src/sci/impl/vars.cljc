@@ -31,10 +31,6 @@
            (throw (ex-info (str "Built-in namespace " name# " is read-only.")
                            {:ns ns-obj#})))))))
 
-#_(defn namespace? [x]
-  (instance? #?(:clj sci.impl.vars.SciNamespace
-                :cljs sci.impl.vars/SciNamespace) x))
-
 (deftype Frame [bindings prev])
 
 (def top-frame (Frame. {} nil))
