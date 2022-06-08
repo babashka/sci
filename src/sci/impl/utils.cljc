@@ -5,7 +5,7 @@
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
             [sci.impl.vars :as vars]
-            [sci.lang])
+            [sci.lang :as lang])
   #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical?]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -166,7 +166,7 @@
         ns-map (get-in env* [:namespaces ns-sym])]
     (or (:obj ns-map)
         (when (or ns-map create?)
-          (let [ns-obj (vars/->SciNamespace ns-sym attr-map)]
+          (let [ns-obj (lang/->Namespace ns-sym attr-map)]
             (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
             ns-obj)))))
 
@@ -250,16 +250,16 @@
      (sci.lang.Var. init-val name meta false))))
 
 ;; foundational namespaces
-(def user-ns (vars/->SciNamespace 'user nil))
+(def user-ns (lang/->Namespace 'user nil))
 
-(def clojure-core-ns (vars/->SciNamespace 'clojure.core nil))
+(def clojure-core-ns (lang/->Namespace 'clojure.core nil))
 
 (def current-file (dynamic-var '*file* nil {:ns clojure-core-ns}))
 
 (def current-ns (dynamic-var '*ns* user-ns {:ns clojure-core-ns}))
 
 (defn current-ns-name []
-  (vars/getName @current-ns))
+  (t/getName @current-ns))
 
 (defn new-var
   "Returns a new sci var."
@@ -270,3 +270,7 @@
 
 (defn var? [x]
   (instance? sci.lang.Var x))
+
+(defn namespace? [x]
+  (instance? #?(:clj sci.lang.Namespace
+                :cljs sci.lang/Namespace) x))

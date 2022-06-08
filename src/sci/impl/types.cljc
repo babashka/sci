@@ -89,3 +89,6 @@
 (defn ->constant [x]
   #?(:clj (->ConstantNode x)
      :cljs x))
+
+(defprotocol HasName ;; INamed was already taken by CLJS
+  (getName [_]))

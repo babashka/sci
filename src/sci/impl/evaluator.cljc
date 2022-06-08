@@ -77,7 +77,7 @@
   [ctx bindings var-name init m]
   (let [init (types/eval init ctx bindings)
         m (types/eval m ctx bindings)
-        cnn (vars/getName (:ns m))
+        cnn (types/getName (:ns m))
         assoc-in-env
         (fn [env]
           (let [the-current-ns (get (get env :namespaces) cnn)
@@ -324,7 +324,7 @@
           clojure.lang.Symbol
           (eval [expr _ _]
             expr)
-          sci.impl.vars.SciNamespace
+          sci.lang.Namespace
           (eval [expr _ _]
             expr)
           sci.lang.Var

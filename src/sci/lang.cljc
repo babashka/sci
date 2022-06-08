@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [sci.impl.types :as types]
             [sci.impl.vars :as vars])
-  (:refer-clojure :exclude [Var ->Var var?]))
+  (:refer-clojure :exclude [Var ->Var var? Namespace ->Namespace]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -84,7 +84,7 @@
   #?(:clj
      ;; marker interface, clj only for now
      sci.lang.IVar)
-  vars/HasName
+  types/HasName
   (getName [_this]
     (or (:name meta) sym))
   vars/IVar
@@ -94,10 +94,10 @@
   (getRawRoot [_this]
     root)
   (toSymbol [_this]
-                                        ; if we have at least a name from metadata, then build the symbol from that
+    ;; if we have at least a name from metadata, then build the symbol from that
     (if-let [sym-name (some-> (:name meta) name)]
-      (symbol (some-> (:ns meta) vars/getName name) sym-name)
-                                        ; otherwise, fall back to the symbol
+      (symbol (some-> (:ns meta) types/getName name) sym-name)
+      ;; otherwise, fall back to the symbol
       sym))
   (isMacro [_]
     (or (:macro meta)
@@ -214,3 +214,25 @@
    (do (defmethod print-method sci.lang.IVar [o ^java.io.Writer w]
          (.write w (str "#'" (vars/toSymbol ^sci.impl.vars.IVar o))))
        (prefer-method print-method sci.lang.IVar clojure.lang.IDeref)))
+
+(deftype
+    ^{:doc
+      "Representation of a SCI namespace, created e.g. with `(create-ns 'foo)`.
+      The fields of this type are implementation detail and should not be accessed
+      directly."}
+    Namespace [name #?(:clj ^:volatile-mutable meta
+                       :cljs ^:mutable meta)]
+  Object
+  (toString [_]
+    (str name))
+  types/HasName
+  (getName [_] name)
+  #?(:clj clojure.lang.IMeta :cljs IMeta)
+  #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
+  #?(:clj clojure.lang.IReference)
+  #?(:clj (alterMeta [this f args]
+                     (vars/with-writeable-namespace this meta
+                       (locking (set! meta (apply f meta args))))))
+  #?(:clj (resetMeta [this m]
+                     (vars/with-writeable-namespace this meta
+                       (locking (set! meta m))))))

@@ -105,7 +105,7 @@
   (doseq [[proto mmap] (partition 2 proto+mmaps)
           :let [extend-via-metadata (:extend-via-metadata proto)
                 proto-ns (:ns proto)
-                pns (vars/getName proto-ns)
+                pns (types/getName proto-ns)
                 pns-str (when extend-via-metadata (str pns))]]
     (doseq [[meth-name f] mmap]
       (let [meth-str (name meth-name)
@@ -189,7 +189,7 @@
         protocol-data (deref protocol-var)
         extend-via-metadata (:extend-via-metadata protocol-data)
         protocol-ns (:ns protocol-data)
-        pns (str (vars/getName protocol-ns))
+        pns (str (types/getName protocol-ns))
         expansion
         `(do
            ~@(map (fn [[type & meths]]
@@ -208,7 +208,7 @@
               (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
                     proto-data (deref protocol-var)
                     protocol-ns (:ns proto-data)
-                    pns (str (vars/getName protocol-ns))
+                    pns (str (types/getName protocol-ns))
                     extend-via-metadata (:extend-via-metadata proto-data)]
                 `(do
                    (clojure.core/alter-var-root
