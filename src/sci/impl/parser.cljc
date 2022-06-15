@@ -6,9 +6,8 @@
    [clojure.tools.reader.reader-types :as r]
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
-   [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
-   [sci.impl.types :as types]))
+   [sci.impl.types :as types]
+   [sci.impl.utils :as utils]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
