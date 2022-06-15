@@ -870,9 +870,9 @@
 
   f must be free of side-effects"
      [iref f & args]
-     (let [m (.-meta iref)]
+     (let [m (meta iref)]
        (if-not (:sci/built-in m)
-         (set! (.-meta iref) (apply f (.-meta iref) args))
+         (apply cljs.core/alter-meta! iref f args)
          (throw (ex-info (str "Built-in var " iref " is read-only.")
                          {:var iref}))))))
 

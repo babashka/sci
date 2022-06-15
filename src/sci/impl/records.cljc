@@ -175,8 +175,8 @@
        (and (some? other)
             (identical? (.-constructor this)
                         (.-constructor other))
-            (= rec-name (.-rec-name other))
-            (= (.-ext-map this) (.-ext-map other))))
+            (= rec-name (.-rec-name ^SciRecord other))
+            (= (.-ext-map this) (.-ext-map ^SciRecord other))))
 
      IMeta
      (-meta [_]
