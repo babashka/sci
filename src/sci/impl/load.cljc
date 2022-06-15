@@ -70,14 +70,14 @@
   [ctx lib opts]
   (let [env* (:env ctx)
         env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
-        cnn (utils/current-ns-name)
-        #?@(:cljs [lib (if (= 'cljs.core lib) 'clojure.core lib)])]
+        cnn (utils/current-ns-name)]
     (if-let [as-alias (:as-alias opts)]
       (reset! env* (handle-require-libspec-env ctx env cnn nil lib {:as as-alias}))
       (let [{:keys [:reload :reload-all]} opts
             namespaces (get env :namespaces)
             reload* (or reload reload-all (:reload-all ctx))]
-        (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
+        (if-let [the-loaded-ns (when-not reload* (or (get namespaces lib)
+                                                     (get (:ns-aliases env) lib)))]
           (let [loading (:loading ctx)]
             (if (and loading
                      (not (contains? (:loaded-libs env) lib))

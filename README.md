@@ -507,16 +507,14 @@ Another option for loading code is to provide an implementation of
 (spit "example1.clj" "(defn foo [] :foo)")
 (spit "example2.clj" "(load-file \"example1.clj\")")
 
-(let [env (atom {})
-      opts {:env env}
-      load-file (fn [file]
+(let [load-file (fn [file]
                   (let [file (io/file file)
                         source (slurp file)]
                     (sci/with-bindings
                       {sci/ns @sci/ns
                        sci/file (.getAbsolutePath file)}
                       (sci/eval-string source opts))))
-      opts (assoc-in opts [:namespaces 'clojure.core 'load-file] load-file)]
+      opts {:namespaces {'clojure.core {'load-file load-file}}}]
   (sci/eval-string "(load-file \"example2.clj\") (foo)" opts))
 ;;=> :foo
 ```

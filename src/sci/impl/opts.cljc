@@ -13,7 +13,7 @@
    (defrecord Env [namespaces imports load-fn]))
 
 (defn init-env! [env bindings aliases namespaces classes raw-classes imports
-                 load-fn #?(:cljs async-load-fn)]
+                 load-fn #?(:cljs async-load-fn) ns-aliases]
   (swap! env (fn [env]
                (let [env-nss (:namespaces env)
                      namespaces (merge-with merge
@@ -36,7 +36,8 @@
                                                           {:ns utils/clojure-core-ns})))
                      imports (if-let [env-imports (:imports env)]
                                (merge env-imports imports)
-                               imports)]
+                               imports)
+                     ns-aliases (merge (:ns-aliases env) ns-aliases)]
                  ;; TODO: is the first case ever hit?
                  (if-not env
                    #?(:clj (->Env namespaces imports load-fn)
@@ -51,7 +52,8 @@
                           #?@(:cljs [:async-load-fn async-load-fn])
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
-                          :raw-classes raw-classes))))))
+                          :raw-classes raw-classes
+                          :ns-aliases ns-aliases))))))
 
 (defn process-permissions [prev-perms & permissions]
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
@@ -136,6 +138,11 @@
             :check-permissions check-permissions?}
      :clj (->Ctx bindings env features readers false check-permissions?)))
 
+(def default-ns-aliases
+  #?(:clj {}
+     :cljs {;; in SCI the core namespace is always called clojure.core
+            'cljs.core 'clojure.core}))
+
 (defn init
   "Initializes options"
   [{:keys [:bindings :env
@@ -149,14 +156,16 @@
            :readers
            :reify-fn
            :proxy-fn
-           #?(:cljs :async-load-fn)]}]
+           #?(:cljs :async-load-fn)
+           :ns-aliases]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
+        ns-aliases (merge default-ns-aliases ns-aliases)
         bindings bindings
         raw-classes (merge default-classes classes)
         classes (normalize-classes raw-classes)
         _ (init-env! env bindings aliases namespaces classes raw-classes imports
-                     load-fn #?(:cljs async-load-fn))
+                     load-fn #?(:cljs async-load-fn) ns-aliases)
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
@@ -178,12 +187,13 @@
                 :load-fn
                 :readers
                 :reify-fn
-                #?(:cljs :async-load-fn)]
+                #?(:cljs :async-load-fn)
+                :ns-aliases]
          :or {load-fn (:load-fn env)
               #?@(:cljs [async-load-fn (:async-load-fn env)])}} opts
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
-        _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn))
+        _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) ns-aliases)
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
