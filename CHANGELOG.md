@@ -2,6 +2,10 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## v0.3.31
+
+- Fix `sci/copy-ns*`, the name was not copied correctly :(
+
 ## v0.3.30
 
 - Support globally valid `:ns-aliases` for mapping e.g. `clojure.test` to `cljs.test`

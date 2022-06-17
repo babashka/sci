@@ -186,8 +186,8 @@
 
 (deftest fn-test
   #_(is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error) #"arg"
-       (eval* '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0))))
+         #?(:clj Exception :cljs js/Error) #"arg"
+         (eval* '((fn foo [x] (if (< x 3) (foo 1 (inc x)) x)) 0))))
   (is (= 3 (eval* '((fn foo [x] (if (< x 3) (foo (inc x)) x)) 0))))
   (is (= [2 3] (eval* '((fn foo [[x & xs]] xs) [1 2 3]))))
   (is (= [2 3] (eval* '((fn foo [x & xs] xs) 1 2 3))))
@@ -429,12 +429,12 @@
                              (let [d (ex-data ex)]
                                d))))
     #_(tu/assert-submap {:type :sci/error, :line 1, :column 25,
-                       :message #"Wrong number of args \(0\) passed to: user/foo"}
-                      (try (eval* (str "(defmacro foo [x & xs]) "
-                                       "(foo)"))
-                           (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
-                             (let [d (ex-data ex)]
-                               d))))))
+                         :message #"Wrong number of args \(0\) passed to: user/foo"}
+                        (try (eval* (str "(defmacro foo [x & xs]) "
+                                         "(foo)"))
+                             (catch #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
+                               (let [d (ex-data ex)]
+                                 d))))))
 
 (deftest disable-arity-checks-test
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
@@ -1153,7 +1153,9 @@
         sci-ns (update-vals* publics #(sci/copy-var* % ens))
         ctx (sci/init {:namespaces {'edamame.core sci-ns}})
         output (sci/eval-string* ctx "(require '[edamame.core :as e]) (e/parse-string \"1\")")]
-    (is (= 1 output))))
+    (is (= 1 output)))
+  (is (= 'inc (-> (sci/copy-var* #'inc (sci/create-ns 'clojure.core))
+                  meta :name))))
 
 (deftest data-readers-test
   (is (= 2 (sci/eval-string "#t/tag 1" {:readers {'t/tag inc}})))
@@ -1373,9 +1375,9 @@
 (deftest copy-ns-default-meta-test
   (testing "copy-ns default meta includes name"
     (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
-                   (sci/create-ns 'sci.copy-ns-test-ns))]
+                              (sci/create-ns 'sci.copy-ns-test-ns))]
       (is (every? (fn [[var-name meta]] (and (symbol? var-name) (= var-name (:name meta))))
-            (map (fn [[name var]] (vector name (meta var))) sci-ns))))))
+                  (map (fn [[name var]] (vector name (meta var))) sci-ns))))))
 
 (deftest vswap-test
   (is (= 2 (sci/eval-string
@@ -1425,7 +1427,7 @@
 
 (deftest var-name-test
   (testing "var name strings match their namespace and symbol"
-      (is (empty? (sci/eval-string "
+    (is (empty? (sci/eval-string "
  (require '[clojure.string :as str])
  (let [ns-maps  (->> (all-ns)
                     (map (fn [nmspc] [(ns-name nmspc) (ns-publics nmspc)]))
@@ -1437,7 +1439,7 @@
               var-meta-ns-name ((fnil ns-name (create-ns \"missing-ns\")) var-meta-ns)]]
       ; build a seq of maps containing the ns/symbol from the ns and the ns/symbol from the var's metadata
       {:actual-ns ns-nm :actual-ns-symbol sym :var-meta-ns var-meta-ns-name :var-meta-name var-meta-name})
-    ; remove the protocol/interface-ish vars whose metas don't really match  
+    ; remove the protocol/interface-ish vars whose metas don't really match
     (remove (fn [{:keys [var-meta-name]}]
               (str/starts-with? (name var-meta-name) \"cljs.core.\")))
     (filter (complement #(and (= (:actual-ns %) (:var-meta-ns %)) (= (:actual-ns-symbol %) (:var-meta-name %)))))))")))))

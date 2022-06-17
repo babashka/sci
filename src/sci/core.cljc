@@ -89,11 +89,7 @@
                 doc (assoc :doc doc)
                 arglists (assoc :arglists arglists)
                 dynamic (assoc :dynamic dynamic))]
-    (cond dynamic
-          (new-dynamic-var @clojure-var new-m)
-          macro
-          (new-macro-var @clojure-var new-m)
-          :else (new-var nm @clojure-var new-m))))
+    (new-var nm @clojure-var new-m)))
 
 (macros/deftime
   (defmacro with-bindings
