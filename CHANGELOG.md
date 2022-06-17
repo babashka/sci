@@ -8,7 +8,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - New [`copy-var*`](https://github.com/babashka/sci/blob/master/API.md#copy-var-1) API function
 - [#755](https://github.com/babashka/sci/issues/755): make `sci.lang.Var` part of public API
 - [#755](https://github.com/babashka/sci/issues/755): make `sci.lang.Namespace` part of public API
-- Add [`add-namespace!`](https://github.com/babashka/sci/blob/master/API.md#add-namespace) API
+- Add [`add-namespace!`](https://github.com/babashka/sci/blob/master/API.md#add-namespace) API function
 - Fix invalid arity problem in CLJS macros
 - Bump [edamame](https://github.com/borkdude/edamame) to v1.0.0
 - [#762](https://github.com/babashka/sci/issues/762), [#731](https://github.com/babashka/sci/issues/731): print via global `print-method` and `print-dup` methods, don't allow by default
