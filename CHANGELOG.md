@@ -6,27 +6,27 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Support globally valid `:ns-aliases` for mapping e.g. `clojure.test` to `cljs.test`
 - New [`copy-var*`](https://github.com/babashka/sci/blob/master/API.md#copy-var-1) API function
-- #755: make `sci.lang.Var` part of public API
-- #755: make `sci.lang.Namespace` part of public API
+- [#755](https://github.com/babashka/sci/issues/755): make `sci.lang.Var` part of public API
+- [#755](https://github.com/babashka/sci/issues/755): make `sci.lang.Namespace` part of public API
 - Add [`add-namespace!`](https://github.com/babashka/sci/blob/master/API.md#add-namespace) API
 - Fix invalid arity problem in CLJS macros
 - Bump [edamame](https://github.com/borkdude/edamame) to v1.0.0
-- #762, #731: print via global `print-method` and `print-dup` methods, don't allow by default
-- #733: do not allow to change meta on built-in macro
+- [#762](https://github.com/babashka/sci/issues/762), [#731](https://github.com/babashka/sci/issues/731): print via global `print-method` and `print-dup` methods, don't allow by default
+- [#733](https://github.com/babashka/sci/issues/733): do not allow to change meta on built-in macro
 - Various `defrecord` improvements (equality, metadata preservation)
-- #738: dotted simple symbol should remain unresolved
-- #741: preserve closed over value analysis when using fixed + varargs arity
-- #739: `satisfies?` does not recognize marker protocol on record
-- #740: simple-dispatch on records
-- #743: `satisfies?` of marker protocol via `extend-`{`type`, `protocol`}
-- #744: syntax quote for records should return class representation
-- #745: syntax quote of imported class
-- #747: provide default pprint impl for SCI records
-- #748: fix async refer
-- #757: fix simultaneous async evaluations
+- [#738](https://github.com/babashka/sci/issues/738): dotted simple symbol should remain unresolved
+- [#741](https://github.com/babashka/sci/issues/741): preserve closed over value analysis when using fixed + varargs arity
+- [#739](https://github.com/babashka/sci/issues/739): `satisfies?` does not recognize marker protocol on record
+- [#740](https://github.com/babashka/sci/issues/740): simple-dispatch on records
+- [#743](https://github.com/babashka/sci/issues/743): `satisfies?` of marker protocol via `extend-`{`type`, `protocol`}
+- [#744](https://github.com/babashka/sci/issues/744): syntax quote for records should return class representation
+- [#745](https://github.com/babashka/sci/issues/745): syntax quote of imported class
+- [#747](https://github.com/babashka/sci/issues/747): provide default pprint impl for SCI records
+- [#748](https://github.com/babashka/sci/issues/748): fix async refer
+- [#757](https://github.com/babashka/sci/issues/757): fix simultaneous async evaluations
 - Record types are now an instance of `sci.lang.Type`
-- #763: record in syntax quote resolves to `sci.lang.Type`
-- #751: defprotocol returns symbol
+- [#763](https://github.com/babashka/sci/issues/763): record in syntax quote resolves to `sci.lang.Type`
+- [#751](https://github.com/babashka/sci/issues/751): defprotocol returns symbol
 
 ## v0.3.5
 
