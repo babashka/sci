@@ -64,6 +64,7 @@ SCI is used in:
 - [Lighthouse](https://github.com/barracudanetworks/lighthouse). A data-driven Kubernetes pre-processor.
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
+- [nbb](https://github.com/babashka/babashka). Ad-hoc CLJS scripting on Node.js. (Node.js babashka)
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [PGMig](https://github.com/leafclick/pgmig). Fast Standalone PostgreSQL Migration Runner.
 - [Portal](https://github.com/djblue/portal). A clojure tool to navigate through your data.
