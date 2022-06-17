@@ -1133,6 +1133,28 @@
     (is (= "-------------------------\nfoo/do-twice\n([x])\nMacro\n" do-twice-doc))
     (is (= "-------------------------\nfoo/always-foo\n([& _args])\n" always-foo-doc))))
 
+(defn update-vals*
+  "Same as `update-vals` from clojure 1.11 but included here so tests
+  can run with older versions of Clojure/Script."
+  [m f]
+  (with-meta
+    (persistent!
+     (reduce-kv (fn [acc k v] (assoc! acc k (f v)))
+                (if #?(:clj (instance? clojure.lang.IEditableCollection m)
+                       :cljs (implements? IEditableCollection m))
+                  (transient m)
+                  (transient {}))
+                m))
+    (meta m)))
+
+(deftest copy-var*-test
+  (let [ens (sci/create-ns 'edamame.core)
+        publics (ns-publics 'edamame.core)
+        sci-ns (update-vals* publics #(sci/copy-var* % ens))
+        ctx (sci/init {:namespaces {'edamame.core sci-ns}})
+        output (sci/eval-string* ctx "(require '[edamame.core :as e]) (e/parse-string \"1\")")]
+    (is (= 1 output))))
+
 (deftest data-readers-test
   (is (= 2 (sci/eval-string "#t/tag 1" {:readers {'t/tag inc}})))
   (is (= 2 (sci/eval-string "#t/tag 1" {:readers (sci/new-var 'readers {'t/tag inc})}))))

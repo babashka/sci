@@ -53,7 +53,7 @@
 
 (defmacro copy-var
   "Copies contents from var `sym` to a new sci var. The value `ns` is an
-  object created with `sci.core/create-ns`. If new-name is supplied, the 
+  object created with `sci.core/create-ns`. If new-name is supplied, the
   copied var will be named new-name."
   ([sym ns]
    `(copy-var ~sym ~ns nil))
@@ -73,6 +73,27 @@
               (:macro m#)
               (new-macro-var name# val# new-m#)
               :else (new-var name# val# new-m#))))))
+
+(defn copy-var*
+  "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`."
+  [clojure-var sci-ns]
+  (let [m (meta clojure-var)
+        nm (:name m)
+        doc (:doc m)
+        arglists (:arglists m)
+        dynamic (:dynamic m)
+        macro (:macro m)
+        new-m (cond-> {:ns sci-ns
+                       :name nm}
+                macro (assoc :macro true)
+                doc (assoc :doc doc)
+                arglists (assoc :arglists arglists)
+                dynamic (assoc :dynamic dynamic))]
+    (cond dynamic
+          (new-dynamic-var @clojure-var new-m)
+          macro
+          (new-macro-var @clojure-var new-m)
+          :else (new-var nm @clojure-var new-m))))
 
 (macros/deftime
   (defmacro with-bindings

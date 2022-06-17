@@ -218,9 +218,10 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 To copy the public vars of a Clojure namespace and to reify the Clojure vars into
 corresponding SCI vars, you can use `ns-publics` in Clojure and the following API functions:
 
-- `sci/create-ns`: creates an object that identifies a SCI namespace and carries the metadata of a SCI namespaces
-- `sci/copy-var`: macro that copies a Clojure var to a SCI namespace (created through `sci/create-ns`). Automatically converts dynamic vars and macros. Captures docstrings and arglists. Takes an optional third arguments of an options map, which currently supports `:name` to set the name of the copied var. 
-
+- [`sci/create-ns`](https://github.com/babashka/sci/blob/master/API.md#create-ns)
+- [`sci/copy-var`](https://github.com/babashka/sci/blob/master/API.md#copy-var)
+- [`sci/copy-var*`](https://github.com/babashka/sci/blob/master/API.md#copy-var)
+- [`sci/copy-ns`](https://github.com/babashka/sci/blob/master/API.md#copy-ns)
 
 E.g. given the following Clojure namespace:
 
@@ -231,7 +232,7 @@ E.g. given the following Clojure namespace:
 
 (defn times-two [x]
   (* x 2))
-  
+
 (defn silly-name [x] (* x x))
 ```
 
@@ -262,24 +263,31 @@ nil
 ```
 
 To copy an entire namespace without enumerating all vars explicitly with
-`sci/copy-var` you can use the following approach using `ns-publics` and `sci/new-var`:
+`sci/copy-var` you can use the following approach using `ns-publics` and
+`sci/copy-var*`, which works the same in Clojure and ClojureScript:
 
 ``` Clojure
-(reduce (fn [ns-map [var-name var]]
-            (let [m (meta var)
-                  no-doc (:no-doc m)
-                  doc (:doc m)
-                  arglists (:arglists m)]
-              (if no-doc ns-map
-                  (assoc ns-map var-name
-                         (sci/new-var (symbol var-name) @var
-                                      (cond-> {:ns fns
-                                               :name (:name m)}
-                                        (:macro m) (assoc :macro true)
-                                        doc (assoc :doc doc)
-                                        arglists (assoc :arglists arglists)))))))
-          {}
-          (ns-publics 'foobar))
+(let [ens (sci/create-ns 'edamame.core)
+      publics (ns-publics 'edamame.core)
+      sci-ns (update-vals publics #(sci/copy-var* % ens))
+      ctx (sci/init {:namespaces {'edamame.core sci-ns}})]
+  (prn (sci/eval-string* ctx "(require '[edamame.core :as e]) (e/parse-string \"1\")"))
+  ;;=> 1
+  )
+```
+
+Because part of copying of the namespace could be done at compile time, which in
+ClojureScript has the benefit that some vars are not part of the compiled output
+and may result in smaller JS output, there is also the `sci/copy-ns` _macro_
+which allows you to exclude vars at compile-time:
+
+``` Clojure
+(let [ens (sci/create-ns 'edamame.core)
+      sci-ns (sci/copy-ns edamame.core ens {:exclude [iobj?]})
+      ctx (sci/init {:namespaces {'edamame.core sci-ns}})]
+  (prn (sci/eval-string* ctx "(require '[edamame.core :as e]) (e/parse-string \"1\")"))
+  ;;=> 1
+  )
 ```
 
 ### Stdout and stdin
