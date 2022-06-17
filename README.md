@@ -220,7 +220,7 @@ corresponding SCI vars, you can use `ns-publics` in Clojure and the following AP
 
 - [`sci/create-ns`](https://github.com/babashka/sci/blob/master/API.md#create-ns)
 - [`sci/copy-var`](https://github.com/babashka/sci/blob/master/API.md#copy-var)
-- [`sci/copy-var*`](https://github.com/babashka/sci/blob/master/API.md#copy-var)
+- [`sci/copy-var*`](https://github.com/babashka/sci/blob/master/API.md#copy-var-1)
 - [`sci/copy-ns`](https://github.com/babashka/sci/blob/master/API.md#copy-ns)
 
 E.g. given the following Clojure namespace:
