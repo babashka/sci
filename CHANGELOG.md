@@ -9,7 +9,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - [#755](https://github.com/babashka/sci/issues/755): make `sci.lang.Var` part of public API
 - [#755](https://github.com/babashka/sci/issues/755): make `sci.lang.Namespace` part of public API
 - Add [`add-namespace!`](https://github.com/babashka/sci/blob/master/API.md#add-namespace) API function
-- Fix invalid arity problem in CLJS macros
+- Fix invalid arity problem in CLJS macros with arity >= 20
 - Bump [edamame](https://github.com/borkdude/edamame) to v1.0.0
 - [#762](https://github.com/babashka/sci/issues/762), [#731](https://github.com/babashka/sci/issues/731): print via global `print-method` and `print-dup` methods, don't allow by default
 - [#733](https://github.com/babashka/sci/issues/733): do not allow to change meta on built-in macro
