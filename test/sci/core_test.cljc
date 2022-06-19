@@ -1458,6 +1458,9 @@
           Exception #"allowed"
           (sci/eval-string "(defmethod print-method Integer [x w])")))))
 
+(deftest memfn-test
+  (is (true? (sci/eval-string "((memfn startsWith prefix) \"abc\" \"a\")" {:classes {:allow :all}}))))
+
 ;;;; Scratch
 
 (comment
