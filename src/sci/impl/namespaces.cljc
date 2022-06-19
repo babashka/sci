@@ -10,7 +10,8 @@
                             clojure-version
                             print-method
                             print-dup
-                            #?(:cljs alter-meta!)])
+                            #?(:cljs alter-meta!)
+                            #?(:cljs memfn)])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -68,11 +69,15 @@
     (do
       (defmacro copy-var
         [sym ns & [opts]]
-        (let [nm (:name opts)]
+        (let [nm (when opts (:name opts))
+              macro (when opts (:macro opts))]
           `(let [ns# ~ns
-                 m# (-> (var ~sym) meta)
+                 ~'the-var (var ~sym)
+                 m# (-> ~'the-var meta)
                  name# (or ~nm (:name m#))
-                 val# ~sym]
+                 val# ~(if macro
+                         (list 'clojure.core/deref 'the-var)
+                         sym)]
              (sci.lang.Var. val# name# (cond->
                                            {:doc (:doc m#)
                                             :name name#
@@ -81,7 +86,8 @@
                                             :sci/built-in true}
                                          (and (identical? clojure-core-ns ns#)
                                               (contains? inlined-vars name#))
-                                         (assoc :sci.impl/inlined val#))
+                                         (assoc :sci.impl/inlined val#)
+                                         ~macro (assoc :macro true))
                             false))))
       (defmacro copy-core-var
         ([sym]
@@ -93,17 +99,17 @@
   ([sym f ns] (macrofy sym f ns false))
   ([sym f ns ctx?]
    (utils/new-var sym f (cond-> {:ns    ns
-                                :macro true
-                                :sci/built-in true}
-                         ctx? (assoc :sci.impl/op needs-ctx)))))
+                                 :macro true
+                                 :sci/built-in true}
+                          ctx? (assoc :sci.impl/op needs-ctx)))))
 
 (defn ns-new-var [ns]
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
      (utils/new-var sym v (cond-> {:ns ns
-                                  :sci/built-in true}
-                           ctx? (assoc :sci.impl/op needs-ctx))))))
+                                   :sci/built-in true}
+                            ctx? (assoc :sci.impl/op needs-ctx))))))
 
 (defn ->*
   [_ _ x & forms]
@@ -375,23 +381,17 @@
   (let [v vol]
     `(vreset! ~v (~f (deref ~v) ~@args))))
 
-(defn memfn*
-  #?(:clj
-     "Expands into code that creates a fn that expects to be passed an
-  object and any args and calls the named instance method on the
-  object passing the args. Use when you want to treat a Java method as
-  a first-class fn. name may be type-hinted with the method receiver's
-  type in order to avoid reflective calls."
-     :cljs
+#?(:cljs
+   (defn ^:macro memfn
      "Expands into code that creates a fn that expects to be passed an
   object and any args and calls the named instance method on the
   object passing the args. Use when you want to treat a JavaScript
-  method as a first-class fn.")
-  [_ _ name & args]
-  (let [t (with-meta (gensym "target")
-            (meta name))]
-    `(fn [~t ~@args]
-       (. ~t (~name ~@args)))))
+  method as a first-class fn."
+     [_ _ name & args]
+     (let [t (with-meta (gensym "target")
+               (meta name))]
+       `(fn [~t ~@args]
+          (. ~t (~name ~@args))))))
 
 (defn delay*
   [_ _ & body]
@@ -740,11 +740,11 @@
   on strings, keywords, and vars."
   ([name]
    (if (utils/var? name) (let [m (meta name)
-                              ns (:ns m)
-                              nm (:name m)]
-                          (when (and ns nm)
-                            (symbol (str (sci-ns-name ns))
-                                    (str (clojure.core/name nm)))))
+                               ns (:ns m)
+                               nm (:name m)]
+                           (when (and ns nm)
+                             (symbol (str (sci-ns-name ns))
+                                     (str (clojure.core/name nm)))))
        (symbol name)))
   ([ns name] (symbol ns name)))
 
@@ -1041,8 +1041,8 @@
              'aset-long (copy-core-var aset-long)
              'aset-short (copy-core-var aset-short)])
    'alength #?(:clj (utils/new-var 'alength (fn [arr]
-                                             (java.lang.reflect.Array/getLength arr))
-                                  {:ns clojure-core-ns})
+                                              (java.lang.reflect.Array/getLength arr))
+                                   {:ns clojure-core-ns})
                :cljs (copy-core-var alength))
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
@@ -1248,7 +1248,7 @@
    'max (copy-core-var max)
    'max-key (copy-core-var max-key)
    'meta (copy-core-var meta)
-   'memfn (macrofy 'memfn memfn*)
+   'memfn (copy-var memfn clojure-core-ns {:macro true})
    'memoize (copy-core-var memoize)
    'merge (copy-core-var merge)
    'merge-with (copy-core-var merge-with)
