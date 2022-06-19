@@ -98,6 +98,9 @@
                         (eval* "(defmacro foo []) foo")))
   (is (some? (eval* "(defmacro foo []) #'foo"))))
 
+(deftest memfn-test
+  (is (= "2" (eval* "((memfn toString) 3)"))))
+
 (deftest unbound-call-test
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"unbound fn: #'user/x"
