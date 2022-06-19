@@ -376,7 +376,7 @@
     `(vreset! ~v (~f (deref ~v) ~@args))))
 
 (defn memfn*
-  [name & args]
+  [_ _ name & args]
   (let [t (with-meta (gensym "target")
             (meta name))]
     `(fn [~t ~@args]
