@@ -375,6 +375,13 @@
   (let [v vol]
     `(vreset! ~v (~f (deref ~v) ~@args))))
 
+(defn memfn*
+  [_ _ name & args]
+  (let [t (with-meta (gensym "target")
+            (meta name))]
+    `(fn [~t ~@args]
+       (. ~t (~name ~@args)))))
+
 (defn delay*
   [_ _ & body]
   #?(:clj `(new clojure.lang.Delay (fn [] ~@body))
@@ -1230,6 +1237,7 @@
    'max (copy-core-var max)
    'max-key (copy-core-var max-key)
    'meta (copy-core-var meta)
+   'memfn (macrofy 'memfn memfn*)
    'memoize (copy-core-var memoize)
    'merge (copy-core-var merge)
    'merge-with (copy-core-var merge-with)
