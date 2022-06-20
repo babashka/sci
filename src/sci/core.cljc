@@ -352,7 +352,8 @@
         :else #(select-keys % [:arglists
                                :no-doc
                                :macro
-                               :doc])))
+                               :doc
+                               :dynamic])))
 
 (macros/deftime
   #?(:clj (declare ^:private cljs-ns-publics))
