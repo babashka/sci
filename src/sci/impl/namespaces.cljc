@@ -95,11 +95,12 @@
                             :cljs sym)
                          sym)]
              (sci.lang.Var. val# name# (cond->
-                                           {:doc (:doc m#)
+                                           (assoc m#
+                                                  :ns ns#
+                                                  :sci/built-in true) #_{:doc (:doc m#)
                                             :name name#
                                             :arglists (:arglists m#)
-                                            :ns ns#
-                                            :sci/built-in true}
+                                            }
                                          (and (identical? clojure-core-ns ns#)
                                               (contains? inlined-vars name#))
                                          (assoc :sci.impl/inlined val#)
