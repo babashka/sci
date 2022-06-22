@@ -13,12 +13,14 @@
                             #?(:cljs alter-meta!)
                             #?(:cljs memfn)])
   (:require
-   #?(:clj [clojure.edn :as edn]
-      :cljs [cljs.reader :as edn])
    [clojure.set :as set]
    [clojure.string :as str]
-   #?(:clj [clojure.java.io :as jio])
    [clojure.walk :as walk]
+   #?(:clj [clojure.edn :as edn]
+      :cljs [cljs.reader :as edn])
+   #?(:clj [clojure.java.io :as jio])
+   #?(:clj [sci.impl.proxy :as proxy])
+   [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.for-macro :as for-macro]
@@ -31,7 +33,6 @@
    [sci.impl.read :as read :refer [load-string read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
-   #?(:clj [sci.impl.proxy :as proxy])
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval needs-ctx]]
    [sci.impl.vars :as vars]
@@ -52,6 +53,8 @@
    ;; for self-hosted
    :cljs (def elide-vars false))
 
+(def cljs-resolve (resolve 'cljs.analyzer.api/resolve))
+
 (macros/deftime
   (defmacro if-vars-elided [then else]
     (if elide-vars
@@ -70,13 +73,17 @@
       (defmacro copy-var
         [sym ns & [opts]]
         (let [nm (when opts (:name opts))
-              macro (when opts (:macro opts))]
+              macro (when opts (:macro opts))
+              varm (meta (macros/? :clj (resolve sym)
+                                   :cljs (cljs-resolve {} sym)))
+              varm (list 'quote varm)]
           `(let [ns# ~ns
-                 ~'the-var (var ~sym)
-                 m# (-> ~'the-var meta)
+                 ;; ~'the-var (var ~sym)
+                 m# nil #_~varm
                  name# (or ~nm (:name m#))
                  val# ~(if macro
-                         (list 'clojure.core/deref 'the-var)
+                         #?(:clj (list 'clojure.core/deref (list 'var sym))
+                            :cljs sym)
                          sym)]
              (sci.lang.Var. val# name# (cond->
                                            {:doc (:doc m#)

@@ -9,6 +9,7 @@
                       org.clojure/clojurescript {:mvn/version "1.10.866"}
                       clj-commons/conch {:mvn/version "0.9.2"}
                       funcool/promesa {:mvn/version "8.0.450"}}}
+  :shadow {:extra-deps {thheller/shadow-cljs {:mvn/version "2.19.4"}}}
   :clj-test-runner
   {:extra-deps {com.cognitect/test-runner
                 {:git/url "https://github.com/cognitect-labs/test-runner"
