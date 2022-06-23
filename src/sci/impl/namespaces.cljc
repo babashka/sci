@@ -75,37 +75,34 @@
         (let [macro (when opts (:macro opts))
               nm (when opts (:name opts))
               inline? (contains? inlined-vars sym)
-              varm (macros/? :clj (let [m (meta (resolve sym))]
-                                    (list 'quote (cond-> {:name (or nm (:name m))
-                                                          :arglists (:arglists m)
-                                                          :doc (:doc m)}
-                                                   inline? (assoc :sci.impl/inlined sym))))
-                                  :cljs (let [r (cljs-resolve {} sym)
-                                              nm (or nm (symbol (name sym)))
-                                              m (:meta r)
-                                              arglists (:arglists m)]
-                                          (cond-> {:name (list 'quote nm)
-                                                   :arglists arglists
-                                                   :doc (:doc m)}
-                                            inline? (assoc :sci.impl/inlined sym))))]
-          #_(when inline? (.println System/err [sym inline?]))
-          `(let [ns# ~ns
-                 ;; ~'the-var (var ~sym)
-                 m# ~varm
-                 name# (or ~nm (:name m#))
-                 val# ~(if macro
-                         #?(:clj (list 'clojure.core/deref (list 'var sym))
-                            :cljs sym)
-                         sym)]
-             (sci.lang.Var. val# name# (cond->
-                                           (assoc m#
-                                                  :ns ns#
-                                                  :sci/built-in true) #_{:doc (:doc m#)
-                                                                         :name name#
-                                                                         :arglists (:arglists m#)
-                                                                         }
-                                           ~macro (assoc :macro true))
-                            false))))
+              #?@(:clj [the-var (macros/? :clj (resolve sym)
+                                          :cljs (atom nil))])
+              varm (macros/? :clj #?(:clj (let [m (meta the-var)]
+                                            (cond-> {:name (list 'quote (or nm (:name m)))
+                                                     :arglists (list 'quote (:arglists m))
+                                                     :doc (:doc m)
+                                                     :sci/built-in true
+                                                     :ns ns}
+                                              inline? (assoc :sci.impl/inlined sym)
+                                              macro (assoc :macro true))))
+                             :cljs (let [r (cljs-resolve {} sym)
+                                         nm (or nm (symbol (name sym)))
+                                         m (:meta r)
+                                         arglists (:arglists m)]
+                                     (cond-> {:name (list 'quote nm)
+                                              :arglists arglists
+                                              :doc (:doc m)
+                                              :sci/built-in true
+                                              :ns ns}
+                                       inline? (assoc :sci.impl/inlined sym)
+                                       macro (assoc :macro true))))
+              nm (:name varm)]
+          (if macro
+            (macros/? :clj
+                      #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false)
+                         :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
+                      :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
+            `(sci.lang.Var. ~sym ~nm ~varm false))))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
