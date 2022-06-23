@@ -72,20 +72,23 @@
     (do
       (defmacro copy-var
         [sym ns & [opts]]
-        (let [nm (when opts (:name opts))
-              macro (when opts (:macro opts))
+        (let [macro (when opts (:macro opts))
+              nm (when opts (:name opts))
+              inline? (contains? inlined-vars sym)
               varm (macros/? :clj (let [m (meta (resolve sym))]
-                                    (list 'quote {:name nm
-                                                  :arglists (:arglists m)
-                                                  :doc (:doc m)}))
-                             :cljs (let [r (cljs-resolve {} sym)
-                                         nm (:name r)
-                                         nm (when nm (symbol (name nm)))
-                                         m (:meta r)
-                                         arglists (:arglists m)]
-                                     {:name (list 'quote nm)
-                                      :arglists arglists
-                                      :doc (:doc m)}))]
+                                    (list 'quote (cond-> {:name (or nm (:name m))
+                                                          :arglists (:arglists m)
+                                                          :doc (:doc m)}
+                                                   inline? (assoc :sci.impl/inlined sym))))
+                                  :cljs (let [r (cljs-resolve {} sym)
+                                              nm (or nm (symbol (name sym)))
+                                              m (:meta r)
+                                              arglists (:arglists m)]
+                                          (cond-> {:name (list 'quote nm)
+                                                   :arglists arglists
+                                                   :doc (:doc m)}
+                                            inline? (assoc :sci.impl/inlined sym))))]
+          #_(when inline? (.println System/err [sym inline?]))
           `(let [ns# ~ns
                  ;; ~'the-var (var ~sym)
                  m# ~varm
@@ -98,13 +101,10 @@
                                            (assoc m#
                                                   :ns ns#
                                                   :sci/built-in true) #_{:doc (:doc m#)
-                                            :name name#
-                                            :arglists (:arglists m#)
-                                            }
-                                         (and (identical? clojure-core-ns ns#)
-                                              (contains? inlined-vars name#))
-                                         (assoc :sci.impl/inlined val#)
-                                         ~macro (assoc :macro true))
+                                                                         :name name#
+                                                                         :arglists (:arglists m#)
+                                                                         }
+                                           ~macro (assoc :macro true))
                             false))))
       (defmacro copy-core-var
         ([sym]
@@ -116,17 +116,17 @@
   ([sym f ns] (macrofy sym f ns false))
   ([sym f ns ctx?]
    (sci.impl.utils/new-var sym f (cond-> {:ns    ns
-                                 :macro true
-                                 :sci/built-in true}
-                          ctx? (assoc :sci.impl/op needs-ctx)))))
+                                          :macro true
+                                          :sci/built-in true}
+                                   ctx? (assoc :sci.impl/op needs-ctx)))))
 
 (defn ns-new-var [ns]
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
      (sci.impl.utils/new-var sym v (cond-> {:ns ns
-                                   :sci/built-in true}
-                            ctx? (assoc :sci.impl/op needs-ctx))))))
+                                            :sci/built-in true}
+                                     ctx? (assoc :sci.impl/op needs-ctx))))))
 
 (defn ->*
   [_ _ x & forms]
@@ -379,10 +379,10 @@
 (defn with-local-vars* [form _ name-vals-vec & body]
   (when-not (vector? name-vals-vec)
     (sci.impl.utils/throw-error-with-location (str "with-local-vars requires a vector for its bindings")
-                                     form))
+                                              form))
   (when-not (even? (count name-vals-vec))
     (sci.impl.utils/throw-error-with-location (str "with-local-vars requires an even number of forms in binding vector")
-                                     form))
+                                              form))
   `(let [~@(interleave (take-nth 2 name-vals-vec)
                        (repeat '(clojure.core/-new-dynamic-var)))]
      (clojure.core/push-thread-bindings (hash-map ~@name-vals-vec))
@@ -689,10 +689,10 @@
   [form _ bindings & body]
   (when-not (vector? bindings)
     (sci.impl.utils/throw-error-with-location (str "binding requires a vector for its bindings")
-                                     form))
+                                              form))
   (when-not (even? (count bindings))
     (sci.impl.utils/throw-error-with-location (str "binding requires an even number of forms in binding vector")
-                                     form))
+                                              form))
   (let [var-ize (fn [var-vals]
                   (loop [ret [] vvs (seq var-vals)]
                     (if vvs
@@ -757,11 +757,11 @@
   on strings, keywords, and vars."
   ([name]
    (if (sci.impl.utils/var? name) (let [m (meta name)
-                               ns (:ns m)
-                               nm (:name m)]
-                           (when (and ns nm)
-                             (symbol (str (sci-ns-name ns))
-                                     (str (clojure.core/name nm)))))
+                                        ns (:ns m)
+                                        nm (:name m)]
+                                    (when (and ns nm)
+                                      (symbol (str (sci-ns-name ns))
+                                              (str (clojure.core/name nm)))))
        (symbol name)))
   ([ns name] (symbol ns name)))
 
@@ -1058,8 +1058,8 @@
              'aset-long (copy-core-var aset-long)
              'aset-short (copy-core-var aset-short)])
    'alength #?(:clj (sci.impl.utils/new-var 'alength (fn [arr]
-                                              (java.lang.reflect.Array/getLength arr))
-                                   {:ns clojure-core-ns})
+                                                       (java.lang.reflect.Array/getLength arr))
+                                            {:ns clojure-core-ns})
                :cljs (copy-core-var alength))
    'any? (copy-core-var any?)
    'apply (copy-core-var apply)
@@ -1528,8 +1528,8 @@
         macro? (:macro m)]
     (sci.impl.io/println "-------------------------")
     (sci.impl.io/println (str (when-let [ns* (:ns m)]
-                       (str (sci-ns-name ns*) "/"))
-                     (:name m)))
+                                (str (sci-ns-name ns*) "/"))
+                              (:name m)))
     (when arglists (sci.impl.io/println arglists))
     (when macro? (sci.impl.io/println "Macro"))
     (when doc (sci.impl.io/println " " doc))))
@@ -1682,8 +1682,8 @@
      ([_ctx ^Throwable e depth]
       (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
         (sci.impl.io/println (str (-> e class .getSimpleName) " "
-                         (.getMessage e)
-                         (when-let [info (ex-data e)] (str " " (pr-str info)))))
+                                  (.getMessage e)
+                                  (when-let [info (ex-data e)] (str " " (pr-str info)))))
         (let [st (.getStackTrace e)
               cause (.getCause e)]
           (doseq [el (take depth

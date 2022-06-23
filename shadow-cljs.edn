@@ -5,4 +5,4 @@
    :modules
    {:sci {:entries [sci.core]}}
    :build-hooks [(shadow.cljs.build-report/hook
-                  {:output-to "report-resolve.html"})]}}}
+                  {:output-to "report-resolve2.html"})]}}}
