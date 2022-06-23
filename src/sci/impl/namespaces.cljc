@@ -1280,7 +1280,7 @@
    'max (copy-core-var max)
    'max-key (copy-core-var max-key)
    'meta (copy-core-var meta)
-   ;; 'memfn (copy-var memfn clojure-core-ns {:macro true})
+   'memfn (copy-var memfn clojure-core-ns {:macro true})
    'memoize (copy-core-var memoize)
    'merge (copy-core-var merge)
    'merge-with (copy-core-var merge-with)
