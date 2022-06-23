@@ -71,50 +71,35 @@
     (do
       (defmacro copy-var
         [sym ns & [opts]]
-        (let [macro (when opts (:macro opts))
-              nm (when opts (:name opts))
-              inline? (contains? inlined-vars sym)
-              #?@(:clj [the-var (macros/? :clj (resolve sym)
-                                          :cljs (atom nil))])
-              varm (macros/? :clj #?(:clj (let [m (meta the-var)]
-                                            (cond-> {:name (or nm
-                                                               (list 'quote (:name m)))
-                                                     :arglists (list 'quote (:arglists m))
-                                                     :doc (:doc m)
-                                                     :sci/built-in true
-                                                     :ns ns}
-                                              inline? (assoc :sci.impl/inlined sym)
-                                              macro (assoc :macro true)))
-                                     :cljs nil)
-                             :cljs #?(:clj (let [r (cljs-resolve {} sym)
-                                                 nm (or nm (list 'quote (symbol (name sym))))
-                                                 m (:meta r)
-                                                 arglists (:arglists m)]
-                                             (cond-> {:name nm
-                                                      :arglists arglists
-                                                      :doc (:doc m)
-                                                      :sci/built-in true
-                                                      :ns ns}
-                                               inline? (assoc :sci.impl/inlined sym)
-                                               macro (assoc :macro true)))
-                                      :cljs
-                                      ;; in self-hosted this macro is ran twice...?
-                                      (when (symbol? sym)
-                                        (let [r (cljs-resolve {} sym)
-                                              nm (or nm (list 'quote (symbol (name sym))))
-                                              m (:meta r)
-                                              arglists (:arglists m)]
-                                          (cond-> {:name nm
-                                                   :arglists arglists
-                                                   :doc (:doc m)
-                                                   :sci/built-in true
-                                                   :ns ns}
-                                            inline? (assoc :sci.impl/inlined sym)
-                                            macro (assoc :macro true))))
-                                      ))
-              nm (:name varm)]
-          ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
-          (when (symbol? sym)
+        (when (symbol? sym)
+          (let [macro (when opts (:macro opts))
+                nm (when opts (:name opts))
+                inline? (contains? inlined-vars sym)
+                #?@(:clj [the-var (macros/? :clj (resolve sym)
+                                            :cljs (atom nil))])
+                varm (macros/? :clj #?(:clj (let [m (meta the-var)]
+                                              (cond-> {:name (or nm
+                                                                 (list 'quote (:name m)))
+                                                       :arglists (list 'quote (:arglists m))
+                                                       :doc (:doc m)
+                                                       :sci/built-in true
+                                                       :ns ns}
+                                                inline? (assoc :sci.impl/inlined sym)
+                                                macro (assoc :macro true)))
+                                       :cljs nil)
+                               :cljs (let [r (cljs-resolve {} sym)
+                                           nm (or nm (list 'quote (symbol (name sym))))
+                                           m (:meta r)
+                                           arglists (:arglists m)]
+                                       (cond-> {:name nm
+                                                :arglists arglists
+                                                :doc (:doc m)
+                                                :sci/built-in true
+                                                :ns ns}
+                                         inline? (assoc :sci.impl/inlined sym)
+                                         macro (assoc :macro true))))
+                nm (:name varm)]
+            ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
             (if macro
               (macros/? :clj
                         #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false)
