@@ -78,7 +78,8 @@
               #?@(:clj [the-var (macros/? :clj (resolve sym)
                                           :cljs (atom nil))])
               varm (macros/? :clj #?(:clj (let [m (meta the-var)]
-                                            (cond-> {:name (list 'quote (or nm (:name m)))
+                                            (cond-> {:name (or nm
+                                                               (list 'quote (:name m)))
                                                      :arglists (list 'quote (:arglists m))
                                                      :doc (:doc m)
                                                      :sci/built-in true
@@ -86,10 +87,10 @@
                                               inline? (assoc :sci.impl/inlined sym)
                                               macro (assoc :macro true))))
                              :cljs (let [r (cljs-resolve {} sym)
-                                         nm (or nm (symbol (name sym)))
+                                         nm (or nm (list 'quote (symbol (name sym))))
                                          m (:meta r)
                                          arglists (:arglists m)]
-                                     (cond-> {:name (list 'quote nm)
+                                     (cond-> {:name nm
                                               :arglists arglists
                                               :doc (:doc m)
                                               :sci/built-in true

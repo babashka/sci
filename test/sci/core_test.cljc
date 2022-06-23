@@ -1427,7 +1427,7 @@
 
 (deftest var-name-test
   (testing "var name strings match their namespace and symbol"
-    (is (empty? (sci/eval-string "
+    (is (empty? (sci/binding [sci/out *out*] (sci/eval-string "
  (require '[clojure.string :as str])
  (let [ns-maps  (->> (all-ns)
                     (map (fn [nmspc] [(ns-name nmspc) (ns-publics nmspc)]))
@@ -1436,13 +1436,15 @@
     (for [[ns-nm _] ns-maps
         [sym vr]  (ns-maps ns-nm)
         :let [{var-meta-ns :ns, var-meta-name :name} (meta vr)
+              ;; _ (prn var-meta-name)
               var-meta-ns-name ((fnil ns-name (create-ns \"missing-ns\")) var-meta-ns)]]
       ; build a seq of maps containing the ns/symbol from the ns and the ns/symbol from the var's metadata
       {:actual-ns ns-nm :actual-ns-symbol sym :var-meta-ns var-meta-ns-name :var-meta-name var-meta-name})
     ; remove the protocol/interface-ish vars whose metas don't really match
     (remove (fn [{:keys [var-meta-name]}]
               (str/starts-with? (name var-meta-name) \"cljs.core.\")))
-    (filter (complement #(and (= (:actual-ns %) (:var-meta-ns %)) (= (:actual-ns-symbol %) (:var-meta-name %)))))))")))))
+    (filter (complement #(and (= (:actual-ns %) (:var-meta-ns %)) (= (:actual-ns-symbol %) (:var-meta-name %)))))
+    (doall)))"))))))
 
 #?(:cljs
    (deftest require-cljs-core-test
