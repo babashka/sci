@@ -97,6 +97,7 @@
                                        inline? (assoc :sci.impl/inlined sym)
                                        macro (assoc :macro true))))
               nm (:name varm)]
+          ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
           (if macro
             (macros/? :clj
                       #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false)
