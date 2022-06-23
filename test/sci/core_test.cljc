@@ -78,7 +78,8 @@
     (is (= 0 (eval* 0 '(and true true *in*))))
     (is (= 1 (eval* 1 '(or false false *in*))))
     (is (= false (eval* false '(or false false *in*))))
-    (is (= 3 (eval* false '(or false false *in* 3)))))
+    (is (= 3 (eval* false '(or false false *in* 3))))
+    (is (true? (eval* false '(or nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil nil true)))))
   (testing "fn literals"
     (is (= 2 (eval* 1 "(#(+ 1 %) *in*)")))
     (is (= [1 2 3] (eval* 1 "(map #(+ 1 %) [0 1 2])")))

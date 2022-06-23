@@ -161,7 +161,7 @@
                       let-bindings)
               `[(let [~'analyzed-children (deref ~'analyzed-children)]
                   (sci.impl.types/->Node
-                   (eval/eval-or ~'analyzed-children ~'ctx ~'bindings)
+                   (eval/eval-or ~'ctx ~'bindings ~'analyzed-children)
                    nil))]))))))
 
 (declare return-or) ;; for clj-kondo
