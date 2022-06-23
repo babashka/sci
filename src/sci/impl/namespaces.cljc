@@ -66,8 +66,7 @@
            (binding [*out* *err*]
              (println "SCI: eliding vars.")))
         (defmacro copy-var
-          ([sym _ns] sym)
-          ([sym _ns _opts] sym))
+          [sym _ns & [_opts]] sym)
         (defmacro copy-core-var [sym] sym))
     (do
       (defmacro copy-var
@@ -85,26 +84,43 @@
                                                      :sci/built-in true
                                                      :ns ns}
                                               inline? (assoc :sci.impl/inlined sym)
-                                              macro (assoc :macro true))))
-                             :cljs (let [r (cljs-resolve {} sym)
-                                         nm (or nm (list 'quote (symbol (name sym))))
-                                         m (:meta r)
-                                         arglists (:arglists m)]
-                                     (cond-> {:name nm
-                                              :arglists arglists
-                                              :doc (:doc m)
-                                              :sci/built-in true
-                                              :ns ns}
-                                       inline? (assoc :sci.impl/inlined sym)
-                                       macro (assoc :macro true))))
+                                              macro (assoc :macro true)))
+                                     :cljs nil)
+                             :cljs #?(:clj (let [r (cljs-resolve {} sym)
+                                                 nm (or nm (list 'quote (symbol (name sym))))
+                                                 m (:meta r)
+                                                 arglists (:arglists m)]
+                                             (cond-> {:name nm
+                                                      :arglists arglists
+                                                      :doc (:doc m)
+                                                      :sci/built-in true
+                                                      :ns ns}
+                                               inline? (assoc :sci.impl/inlined sym)
+                                               macro (assoc :macro true)))
+                                      :cljs
+                                      ;; in self-hosted this macro is ran twice...?
+                                      (when (symbol? sym)
+                                        (let [r (cljs-resolve {} sym)
+                                              nm (or nm (list 'quote (symbol (name sym))))
+                                              m (:meta r)
+                                              arglists (:arglists m)]
+                                          (cond-> {:name nm
+                                                   :arglists arglists
+                                                   :doc (:doc m)
+                                                   :sci/built-in true
+                                                   :ns ns}
+                                            inline? (assoc :sci.impl/inlined sym)
+                                            macro (assoc :macro true))))
+                                      ))
               nm (:name varm)]
           ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
-          (if macro
-            (macros/? :clj
-                      #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false)
-                         :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
-                      :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
-            `(sci.lang.Var. ~sym ~nm ~varm false))))
+          (when (symbol? sym)
+            (if macro
+              (macros/? :clj
+                        #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false)
+                           :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
+                        :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
+              `(sci.lang.Var. ~sym ~nm ~varm false)))))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
@@ -1264,7 +1280,7 @@
    'max (copy-core-var max)
    'max-key (copy-core-var max-key)
    'meta (copy-core-var meta)
-   'memfn (copy-var memfn clojure-core-ns {:macro true})
+   ;; 'memfn (copy-var memfn clojure-core-ns {:macro true})
    'memoize (copy-core-var memoize)
    'merge (copy-core-var merge)
    'merge-with (copy-core-var merge-with)
