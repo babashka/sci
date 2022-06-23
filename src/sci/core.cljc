@@ -19,7 +19,8 @@
    [sci.lang])
   #?(:cljs (:require-macros
             [sci.core :refer [with-bindings with-out-str copy-var
-                              copy-ns require-cljs-analyzer-api]])))
+                              copy-ns]]
+            [sci.impl.cljs])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -355,22 +356,6 @@
                                :doc
                                :dynamic])))
 
-(macros/deftime
-  #?(:clj (declare ^:private cljs-ns-publics))
-  #_:clj-kondo/ignore
-  (defmacro ^:private require-cljs-analyzer-api []
-    (macros/? :clj
-              ;; noop, macro executed from JVM Clojure, not within CLJS compiler
-              nil
-              :cljs #?(;; macro executed from JVM Clojure, within CLJS compiler
-                       :clj
-                       (do (require '[cljs.analyzer.api])
-                           (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
-                       ;; self-hosted CLJS, no require supported but also not necessary
-                       :cljs nil))))
-
-;; When CLJS code is compiled, we know for sure that we can require the CLJS analyzer API
-#?(:cljs (require-cljs-analyzer-api))
 
 (macros/deftime
   (defmacro copy-ns
@@ -420,7 +405,7 @@
                         ;; refers to the right var.
                         (let [publics-map
                               #_:clj-kondo/ignore
-                              (cljs-ns-publics ns-sym)
+                              (sci.impl.cljs/cljs-ns-publics ns-sym)
                               publics-map (process-publics publics-map opts)
                               mf (meta-fn (:copy-meta opts))
                               publics-map (exclude-when-meta

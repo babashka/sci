@@ -1,6 +1,8 @@
-{:lein {:profile "+dev"}
+{:deps {:aliases [:shadow]}
  :builds
  {:sci
   {:target :browser
    :modules
-   {:sci {:entries [sci.core]}}}}}
+   {:sci {:entries [sci.core]}}
+   :build-hooks [(shadow.cljs.build-report/hook
+                  {:output-to "report-resolve2.html"})]}}}
