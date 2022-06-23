@@ -71,7 +71,7 @@
     (do
       (defmacro copy-var
         [sym ns & [opts]]
-        (when (symbol? sym)
+        (when (symbol? sym) ;; this is necessary for self-hosted CLJS :(
           (let [macro (when opts (:macro opts))
                 nm (when opts (:name opts))
                 inline? (contains? inlined-vars sym)
