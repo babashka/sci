@@ -344,13 +344,13 @@
                  (not deftype?)
                  (assoc :sci.impl.record/map-constructor (list 'var map-factory-sym)))))
            (defn ~factory-fn-sym [& args#]
-             (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
+             (vary-meta (sci.impl.records/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
                         assoc
                         :sci.impl/record true
                         :type ~rec-type))
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
-                 (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) m#)
+                 (vary-meta (sci.impl.records/->record-impl '~rec-type (var ~record-name) m#)
                             assoc
                             ;; TODO: now that we're using the SciRecord type, we could move away from these metadata keys
                             :sci.impl/record true

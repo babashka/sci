@@ -35,6 +35,7 @@
 (defn type-impl [x & _xs]
   (or (when (instance? #?(:clj sci.impl.types.IReified :cljs sci.impl.types/Reified) x)
         :sci.impl.protocols/reified)
+      ;; TODO: for deftype, we need something else than meta, perhaps we can implement a sci.impl.Type protocol that both record and deftype will implement
       (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
