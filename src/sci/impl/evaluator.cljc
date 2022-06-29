@@ -166,7 +166,7 @@
                            method-str))
       (if (instance? sci.impl.deftype.SciType instance-expr*)
         (get (types/getVal instance-expr*)
-             (keyword
+             (symbol
               ;; TODO: strip leading dash in analyzer
               method-str))
         (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
