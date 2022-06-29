@@ -43,34 +43,42 @@
            :sci.impl/record-var (:sci.imp/record-var old-meta)
            :sci.impl.record/map-constructor (:sci.impl.record/map-constructor old-meta))))
 
-#?(:clj
-   (clojure.core/deftype SciType [rec-name
-                     var ^:volatile-mutable ext-map]
-     Object
-     (toString [this]
-       (to-string this))
+(defn debug [x]
+  ;; (prn x)
+  ;; ((requiring-resolve 'clojure.pprint/pprint) x)
+  x)
 
-     SciPrintMethod
-     (-sci-print-method [this w]
-       (if-let [rv var]
-         (let [m (meta @rv)]
-           (if-let [pm (:sci.impl/print-method m)]
-             (pm this w)
-             (.write ^java.io.Writer w ^String (clojure-str this))))
-         (.write ^java.io.Writer w ^String (clojure-str this))))))
+(clojure.core/deftype SciType
+    [rec-name
+     type
+     var #?(:clj ^:volatile-mutable ext-map
+            :cljs ^:mutable ext-map)]
+  Object
+  (toString [this]
+    (to-string this))
 
-#?(:clj (defn ->type-impl [rec-name var m]
-          (SciType. rec-name var m))
-   :cljs (defn ->record-impl [rec-name var m]
-           (SciType. rec-name var m)))
+  types/SciTypeInstance
+  (-get-type [_]
+    type)
+
+  #_#_SciPrintMethod
+  (-sci-print-method [this w]
+    (if-let [rv var]
+      (let [m (meta @rv)]
+        (if-let [pm (:sci.impl/print-method m)]
+          (pm this w)
+          (.write ^java.io.Writer w ^String (clojure-str this))))
+      (.write ^java.io.Writer w ^String (clojure-str this))))
+
+  types/IBox
+  (getVal [_] ext-map))
+
+(defn ->type-impl [rec-name type var m]
+  (SciType. rec-name type var m))
 
 #?(:clj
    (defmethod print-method SciType [v w]
      (-sci-print-method v w)))
-
-(defn debug [x]
-  ;;(prn x)
-  x)
 
 (defn deftype [[fname & _ :as form] _ ctx record-name fields & raw-protocol-impls]
   (let [fname (name fname)]
@@ -125,13 +133,17 @@
                                                    args (if shadows-this?
                                                           (vec (cons this-sym rest-args))
                                                           args)
-                                                   bindings (mapcat (fn [field]
-                                                                      [field (list (keyword field) this-sym)])
-                                                                    (reduce disj field-set args))
+                                                   ext-map-binding (gensym)
+                                                   bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
+                                                   bindings (concat bindings
+                                                                    (mapcat (fn [field]
+                                                                              [field (list (keyword field) ext-map-binding)])
+                                                                            (reduce disj field-set args)))
                                                    bindings (if shadows-this?
                                                               (concat bindings [orig-this-sym this-sym])
                                                               bindings)
                                                    bindings (vec bindings)]
+                                               ;; (prn :bindings bindings)
                                                `(~args
                                                  (let ~bindings
                                                    ~@body)))) bodies)]
@@ -144,14 +156,12 @@
                  (def ~(with-meta record-name
                          {:sci/type true})
                    (sci.impl.deftype/-create-type
-                     ~{:sci.impl/type-name (list 'quote rec-type)
-                       :sci.impl/type true
-                       :sci.impl.type/constructor (list 'var factory-fn-sym)
-                       :sci.impl/type-var (list 'var record-name)}))
+                    ~{:sci.impl/type-name (list 'quote rec-type)
+                      :sci.impl/type rec-type
+                      :sci.impl.type/constructor (list 'var factory-fn-sym)
+                      :sci.impl/type-var (list 'var record-name)}))
                  (defn ~factory-fn-sym [& args#]
-                   (sci.impl.deftype/->type-impl '~rec-type (var ~record-name) (zipmap ~keys args#)))
+                   (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~keys args#)))
                  ~@protocol-impls
                  ~record-name)
           debug)))))
-
-

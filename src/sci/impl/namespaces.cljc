@@ -820,7 +820,8 @@
    :private true
    'toString sci.impl.deftype/to-string
    '-create-type -create-type
-   '->type-impl sci.impl.deftype/->type-impl})
+   '->type-impl sci.impl.deftype/->type-impl
+   '-inner-impl sci.impl.types/getVal})
 
 ;;;; REPL vars
 
