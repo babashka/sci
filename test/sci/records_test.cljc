@@ -1,6 +1,7 @@
 (ns sci.records-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [sci.core :as sci]
    [sci.test-utils :as tu]))
 
 (deftest protocol-test
@@ -180,6 +181,9 @@
   (is
    (= 10
       (tu/eval* "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo) (setField)))" {})))
+  ;; next up:
+  #?(:clj
+     (prn (sci/with-out-str (sci/eval-string "(deftype Foo []) (defmethod print-method Foo [obj wrtr] (.write wrtr (str :hello))) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}}))))
   #_(let [prog #?(:clj "(deftype Foo [^:unsynchronized-mutable a b])"
                 :cljs "(deftype Foo [^:mutable a b])" )]
     (is (thrown-with-msg?
