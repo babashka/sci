@@ -1,8 +1,9 @@
 (ns sci.impl.multimethods
   {:no-doc true}
   (:refer-clojure :exclude [defmulti defmethod])
-  (:require [sci.impl.hierarchies :refer [global-hierarchy]]
-            [clojure.string :as str]))
+  (:require
+   #?(:clj [clojure.string :as str])
+   [sci.impl.hierarchies :refer [global-hierarchy]]))
 
 #?(:clj (set! *warn-on-reflection* true))
 

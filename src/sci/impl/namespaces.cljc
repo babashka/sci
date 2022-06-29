@@ -821,7 +821,8 @@
    'toString sci.impl.deftype/to-string
    '-create-type -create-type
    '->type-impl sci.impl.deftype/->type-impl
-   '-inner-impl sci.impl.types/getVal})
+   '-inner-impl sci.impl.types/getVal
+   '-mutate sci.impl.types/-mutate})
 
 ;;;; REPL vars
 

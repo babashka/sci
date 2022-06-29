@@ -33,7 +33,8 @@
   (getProtocols [_] protocols))
 
 (defprotocol SciTypeInstance
-  (-get-type [_]))
+  (-get-type [_])
+  (-mutate [_ k v]))
 
 (defn debug [t]
   ;; (prn t (type t))

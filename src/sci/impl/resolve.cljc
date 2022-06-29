@@ -125,7 +125,8 @@
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
   ([ctx sym call? #?(:clj tag :cljs _tag)]
-   (let [bindings (faster/get-2 ctx :bindings)]
+   (let [bindings (faster/get-2 ctx :bindings)
+         track-mutable? (faster/get-2 ctx :deftype-fields)]
      (or
       (when-let [[k v]
                  (find bindings sym)]
@@ -135,13 +136,18 @@
                         (update-parents ctx (:closure-bindings ctx) ob)))
               #?@(:clj [tag (or tag
                                 (some-> k meta :tag))])
+              mutable? (when track-mutable?
+                         (when-let [m (some-> k meta)]
+                           (or (:volatile-mutable m)
+                               (:unsynchronized-mutable m))))
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (cond-> (->Node
                                    (aget ^objects bindings idx)
                                    nil)
                             #?@(:clj [tag (with-meta
-                                            {:tag tag})]))]
+                                            {:tag tag})])
+                            mutable? (vary-meta assoc :mutable true))]
                     v))]
           [k v]))
       (when-let [kv (lookup* ctx sym call?)]

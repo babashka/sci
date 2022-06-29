@@ -48,6 +48,8 @@
   sci.impl.types/SciTypeInstance
   (-get-type [_]
     type)
+  (-mutate [_ k v]
+    (set! ext-map (assoc ext-map k v)))
 
   #_#_SciPrintMethod
   (-sci-print-method [this w]
@@ -74,7 +76,6 @@
       (cons 'clojure.core/deftype (rest form))
       (let [factory-fn-str (str "->" record-name)
             factory-fn-sym (symbol factory-fn-str)
-            keys (mapv keyword fields)
             rec-type (symbol (str (munge (utils/current-ns-name)) "." (str record-name)))
             protocol-impls (utils/split-when symbol? raw-protocol-impls)
             field-set (set fields)
@@ -114,28 +115,32 @@
                                                    body (:body destr)
                                                    orig-this-sym (first args)
                                                    rest-args (rest args)
-                                                   shadows-this? (some #(= orig-this-sym %) rest-args)
-                                                   this-sym (if shadows-this?
-                                                              (gensym "this_")
-                                                              orig-this-sym)
-                                                   args (if shadows-this?
-                                                          (vec (cons this-sym rest-args))
-                                                          args)
+                                                   ;; shadows-this? (some #(= orig-this-sym %) rest-args)
+                                                   this-sym (if true #_shadows-this?
+                                                                '__sci_this
+                                                                orig-this-sym)
+                                                   args (vec (cons this-sym rest-args))
                                                    ext-map-binding (gensym)
                                                    bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
                                                    bindings (concat bindings
                                                                     (mapcat (fn [field]
-                                                                              [field (list (keyword field) ext-map-binding)])
+                                                                              [field (list 'get ext-map-binding (list 'quote field))])
                                                                             (reduce disj field-set args)))
-                                                   bindings (if shadows-this?
-                                                              (concat bindings [orig-this-sym this-sym])
-                                                              bindings)
+                                                   bindings (concat bindings [orig-this-sym this-sym])
                                                    bindings (vec bindings)]
                                                ;; (prn :bindings bindings)
                                                `(~args
                                                  (let ~bindings
                                                    ~@body)))) bodies)]
-                          `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
+                          (@utils/analyze (assoc ctx
+                                                 :deftype-fields field-set
+                                                 :local->mutator (zipmap field-set
+                                                                         (map (fn [field]
+                                                                                (fn [this v]
+                                                                                  (types/-mutate this field v)))
+                                                                              field-set)))
+                           (doto `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)
+                             identity))))
                       impls)))
              protocol-impls
              raw-protocol-impls)]
@@ -149,7 +154,7 @@
                       :sci.impl.type/constructor (list 'var factory-fn-sym)
                       :sci.impl/type-var (list 'var record-name)}))
                  (defn ~factory-fn-sym [& args#]
-                   (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~keys args#)))
+                   (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
                  ~@protocol-impls
                  ~record-name)
           debug)))))
