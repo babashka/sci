@@ -31,18 +31,6 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
-(defn preserve-own-meta
-  "TODO: now that we are using our own record implementation, we can move away from metadata."
-  [m old-meta]
-  (if (:sci.impl/record m)
-    m
-    (assoc m
-           :type (:type old-meta)
-           :sci.impl/record (:sci.impl/record old-meta)
-           :sci.impl.record/constructor (:sci.impl.record/constructor old-meta)
-           :sci.impl/record-var (:sci.imp/record-var old-meta)
-           :sci.impl.record/map-constructor (:sci.impl.record/map-constructor old-meta))))
-
 (defn debug [x]
   ;; (prn x)
   ;; ((requiring-resolve 'clojure.pprint/pprint) x)
@@ -57,7 +45,7 @@
   (toString [this]
     (to-string this))
 
-  types/SciTypeInstance
+  sci.impl.types/SciTypeInstance
   (-get-type [_]
     type)
 
