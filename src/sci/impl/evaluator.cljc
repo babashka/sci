@@ -3,13 +3,14 @@
   (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
+   [sci.impl.deftype]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
-   [sci.impl.records :as records]
+   [sci.impl.records]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [throw-error-with-location
+   [sci.impl.utils :as utils :refer [#?(:cljs kw-identical?)
                                      rethrow-with-location-of-node
-                                     kw-identical?]]
+                                     throw-error-with-location]]
    [sci.impl.vars :as vars])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
 
@@ -158,34 +159,39 @@
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (types/eval instance-expr ctx bindings)]
-    (if (and (map? instance-expr*)
-             (:sci.impl/record (meta instance-expr*))) ;; a sci record
+    ;; (prn (type instance-expr*))
+    (if (instance? sci.impl.records.SciRecord instance-expr*)
       (get instance-expr* (keyword
                            ;; TODO: strip leading dash in analyzer
                            method-str))
-      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
-            env @(:env ctx)
-            class->opts (:class->opts env)
-            allowed? (or
-                      #?(:cljs allowed)
-                      (get class->opts :allow)
-                      (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                   :cljs (.-name instance-class))
-                            instance-class-symbol (symbol instance-class-name)]
-                        (get class->opts instance-class-symbol))
-                      #?(:cljs (.log js/console (str method-str))))
-            ^Class target-class (if allowed? instance-class
-                                    (when-let [f (:public-class env)]
-                                      (f instance-expr*)))]
-        ;; we have to check options at run time, since we don't know what the class
-        ;; of instance-expr is at analysis time
-        (when-not #?(:clj target-class
-                     :cljs allowed?)
-          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        (if field-access
-          (interop/invoke-instance-field instance-expr* target-class method-str)
-          (let [args (map #(types/eval % ctx bindings) args)] ;; eval args!
-            (interop/invoke-instance-method instance-expr* target-class method-str args)))))))
+      (if (instance? sci.impl.deftype.SciType instance-expr*)
+        (get (types/getVal instance-expr*)
+             (keyword
+              ;; TODO: strip leading dash in analyzer
+              method-str))
+        (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+              env @(:env ctx)
+              class->opts (:class->opts env)
+              allowed? (or
+                        #?(:cljs allowed)
+                        (get class->opts :allow)
+                        (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                                     :cljs (.-name instance-class))
+                              instance-class-symbol (symbol instance-class-name)]
+                          (get class->opts instance-class-symbol))
+                        #?(:cljs (.log js/console (str method-str))))
+              ^Class target-class (if allowed? instance-class
+                                      (when-let [f (:public-class env)]
+                                        (f instance-expr*)))]
+          ;; we have to check options at run time, since we don't know what the class
+          ;; of instance-expr is at analysis time
+          (when-not #?(:clj target-class
+                       :cljs allowed?)
+            (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+          (if field-access
+            (interop/invoke-instance-field instance-expr* target-class method-str)
+            (let [args (map #(types/eval % ctx bindings) args)] ;; eval args!
+              (interop/invoke-instance-method instance-expr* target-class method-str args))))))))
 
 ;;;; End interop
 

@@ -175,7 +175,7 @@
 
 (deftest deftype-test
   (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1)) " {})))
-  #_(let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]
+  (let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]
     (is (= [:a :b] (tu/eval* prog {}))))
   #_(let [prog #?(:clj "(deftype Foo [^:unsynchronized-mutable a b])"
                 :cljs "(deftype Foo [^:mutable a b])" )]
