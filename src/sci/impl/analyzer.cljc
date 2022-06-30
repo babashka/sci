@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:cljs [goog.object :as gobj])
-   #?(:clj [sci.impl.types :as types :refer [->constant ->Node]])
+   #?(:clj [sci.impl.types :as types :refer [->constant #?(:cljs ->Node)]])
    #?(:cljs [sci.impl.types :as types :refer [->constant]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
    [clojure.string :as str]
@@ -886,7 +886,7 @@
                   ;; _ctx expr f analyzed-children stack
                   (return-call ctx
                                ;; for backwards compatibility with error reporting
-                               expr ;; (list* (:sci.impl/constructor (meta record)) args)
+                               expr
                                (:sci.impl/constructor (meta record))
                                args
                                (assoc (meta expr)
@@ -921,7 +921,7 @@
                    (cond maybe-record-constructor
                          (return-call ctx
                                       ;; for backwards compatibility with error reporting
-                                      expr ;; (list* (:sci.impl/constructor (meta record)) args)
+                                      expr
                                       maybe-record-constructor
                                       args
                                       (assoc (meta expr)
@@ -947,7 +947,7 @@
                    (let [args (analyze-children ctx args)]
                      (return-call ctx
                                   ;; for backwards compatibility with error reporting
-                                  expr ;; (list* (:sci.impl/constructor (meta record)) args)
+                                  expr
                                   (:sci.impl/constructor (meta record))
                                   args
                                   (assoc (meta expr)
@@ -1041,7 +1041,6 @@
   (resolve/resolve-symbol ctx var-name))
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
-  ;; (prn :expr expr (:deftype-fields ctx))
   (cond (symbol? obj) ;; assume dynamic var
         (let [sym obj
               obj (resolve/resolve-symbol ctx obj)
