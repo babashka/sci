@@ -1216,6 +1216,7 @@
    'gensym (copy-core-var gensym)
    'halt-when (copy-core-var halt-when)
    'hash (copy-core-var hash)
+   'hash-combine (copy-core-var hash-combine)
    'hash-map (copy-core-var hash-map)
    'hash-set (copy-core-var hash-set)
    'hash-unordered-coll (copy-core-var hash-unordered-coll)
