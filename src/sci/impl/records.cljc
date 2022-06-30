@@ -39,8 +39,8 @@
     (assoc m
            :type (:type old-meta)
            :sci.impl/record (:sci.impl/record old-meta)
-           :sci.impl.record/constructor (:sci.impl.record/constructor old-meta)
-           :sci.impl/record-var (:sci.imp/record-var old-meta)
+           :sci.impl/constructor (:sci.impl/constructor old-meta)
+           :sci.impl/var (:sci.imp/record-var old-meta)
            :sci.impl.record/map-constructor (:sci.impl.record/map-constructor old-meta))))
 
 #?(:clj
@@ -339,18 +339,18 @@
              (sci.impl.records/-create-record-type
               ~(cond-> {:sci.impl/type-name (list 'quote rec-type)
                         :sci.impl/record true
-                        :sci.impl.record/constructor (list 'var factory-fn-sym)
-                        :sci.impl/record-var (list 'var record-name)}
+                        :sci.impl/constructor (list 'var factory-fn-sym)
+                        :sci.impl/var (list 'var record-name)}
                  (not deftype?)
                  (assoc :sci.impl.record/map-constructor (list 'var map-factory-sym)))))
            (defn ~factory-fn-sym [& args#]
-             (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
+             (vary-meta (sci.impl.records/->record-impl '~rec-type (var ~record-name) (zipmap ~keys args#))
                         assoc
                         :sci.impl/record true
                         :type ~rec-type))
            ~(when-not deftype?
               `(defn ~map-factory-sym [m#]
-                 (vary-meta (clojure.core/->record-impl '~rec-type (var ~record-name) m#)
+                 (vary-meta (sci.impl.records/->record-impl '~rec-type (var ~record-name) m#)
                             assoc
                             ;; TODO: now that we're using the SciRecord type, we could move away from these metadata keys
                             :sci.impl/record true

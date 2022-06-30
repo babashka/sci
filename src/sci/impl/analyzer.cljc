@@ -2,8 +2,11 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
-   [clojure.string :as str]
    #?(:cljs [goog.object :as gobj])
+   #?(:clj [sci.impl.types :as types :refer [->constant ->Node]])
+   #?(:cljs [sci.impl.types :as types :refer [->constant]])
+   #?(:cljs [cljs.tagged-literals :refer [JSValue]])
+   [clojure.string :as str]
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
@@ -13,14 +16,12 @@
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
-   #?(:clj [sci.impl.types :as types :refer [->Node ->constant]])
-   #?(:cljs [sci.impl.types :as types :refer [->constant]])
    [sci.impl.utils :as utils :refer
-    [ana-macros constant? kw-identical? macro?
-     maybe-destructured rethrow-with-location-of-node set-namespace!]]
-   [sci.impl.vars :as vars]
-   #?(:cljs [cljs.tagged-literals :refer [JSValue]]))
-  #?(:clj (:import [sci.impl Reflector]))
+    [ana-macros constant? kw-identical? macro? maybe-destructured
+     rethrow-with-location-of-node set-namespace!]]
+   [sci.impl.vars :as vars])
+  #?(:clj (:import
+           [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-do
@@ -30,7 +31,7 @@
                                  gen-return-binding-call
                                  gen-return-needs-ctx-call
                                  gen-return-call]]
-      [sci.impl.types :refer [->Node]])))
+      [sci.impl.types])))
 
 (defn recur-target [ctx]
   (:recur-target ctx))
@@ -885,8 +886,8 @@
                   ;; _ctx expr f analyzed-children stack
                   (return-call ctx
                                ;; for backwards compatibility with error reporting
-                               expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
-                               (:sci.impl.record/constructor (meta record))
+                               expr ;; (list* (:sci.impl/constructor (meta record)) args)
+                               (:sci.impl/constructor (meta record))
                                args
                                (assoc (meta expr)
                                       :ns @utils/current-ns
@@ -916,11 +917,11 @@
                        maybe-record-constructor
                        (when maybe-record
                          (-> maybe-record
-                             meta :sci.impl.record/constructor))]
+                             meta :sci.impl/constructor))]
                    (cond maybe-record-constructor
                          (return-call ctx
                                       ;; for backwards compatibility with error reporting
-                                      expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
+                                      expr ;; (list* (:sci.impl/constructor (meta record)) args)
                                       maybe-record-constructor
                                       args
                                       (assoc (meta expr)
@@ -946,8 +947,8 @@
                    (let [args (analyze-children ctx args)]
                      (return-call ctx
                                   ;; for backwards compatibility with error reporting
-                                  expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
-                                  (:sci.impl.record/constructor (meta record))
+                                  expr ;; (list* (:sci.impl/constructor (meta record)) args)
+                                  (:sci.impl/constructor (meta record))
                                   args
                                   (assoc (meta expr)
                                          :ns @utils/current-ns
@@ -1040,15 +1041,25 @@
   (resolve/resolve-symbol ctx var-name))
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
+  ;; (prn :expr expr (:deftype-fields ctx))
   (cond (symbol? obj) ;; assume dynamic var
-        (let [obj (resolve/resolve-symbol ctx obj)
-              _ (when-not (utils/var? obj)
-                  (throw-error-with-location "Invalid assignment target" expr))
+        (let [sym obj
+              obj (resolve/resolve-symbol ctx obj)
               v (analyze ctx v)]
-          (sci.impl.types/->Node
-           (let [v (types/eval v ctx bindings)]
-             (types/setVal obj v))
-           nil))
+          (cond (utils/var? obj)
+                (sci.impl.types/->Node
+                 (let [v (types/eval v ctx bindings)]
+                   (types/setVal obj v))
+                 nil)
+                (:mutable (meta obj))
+                (let [instance (resolve/resolve-symbol ctx '__sci_this)
+                      mutator (get (:local->mutator ctx) sym)]
+                  (sci.impl.types/->Node
+                   (let [v (types/eval v ctx bindings)
+                         instance (types/eval instance ctx bindings)]
+                     (mutator instance v))
+                   nil))
+                :else (throw-error-with-location "Invalid assignment target" expr)))
         #?@(:cljs [(seq? obj)
                    (let [obj (analyze ctx obj)
                          v (analyze ctx v)
@@ -1555,6 +1566,8 @@
                      ;; the empty list
                      expr)
        :else expr))))
+
+(vreset! utils/analyze analyze)
 
 ;;;; Scratch
 

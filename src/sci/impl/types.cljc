@@ -32,12 +32,24 @@
   (getMethods [_] meths)
   (getProtocols [_] protocols))
 
+(defprotocol SciTypeInstance
+  (-get-type [_])
+  (-mutate [_ k v]))
+
+(defn debug [t]
+  ;; (prn t (type t))
+  t)
+
 (defn type-impl [x & _xs]
-  (or (when (instance? #?(:clj sci.impl.types.IReified :cljs sci.impl.types/Reified) x)
-        :sci.impl.protocols/reified)
-      (some-> x meta :type)
-      #?(:clj (class x) ;; no need to check for metadata anymore
-         :cljs (type x))))
+  (doto (or (when (instance? #?(:clj sci.impl.types.IReified :cljs sci.impl.types/Reified) x)
+             :sci.impl.protocols/reified)
+            (when (#?(:clj instance?
+                      :cljs implements?) sci.impl.types.SciTypeInstance x)
+              (-get-type x))
+            (some-> x meta :type)
+           #?(:clj (class x) ;; no need to check for metadata anymore
+              :cljs (type x)))
+    (debug)))
 
 ;; returned from analyzer when macroexpansion needs interleaved eval
 (deftype EvalForm [form]

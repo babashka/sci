@@ -13,15 +13,16 @@
                             #?(:cljs alter-meta!)
                             #?(:cljs memfn)])
   (:require
-   [clojure.set :as set]
-   [clojure.string :as str]
-   [clojure.walk :as walk]
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    #?(:clj [clojure.java.io :as jio])
    #?(:clj [sci.impl.proxy :as proxy])
+   [clojure.set :as set]
+   [clojure.string :as str]
+   [clojure.walk :as walk]
    [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
+   [sci.impl.deftype :as deftype]
    [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.for-macro :as for-macro]
    [sci.impl.hierarchies :as hierarchies]
@@ -797,7 +798,7 @@
 
 ;;;; Record impl
 
-(defn -create-record-type [data]
+(defn -create-type [data]
   (new sci.lang.Type data nil nil))
 
 (defn -reg-key! [rec-type k v]
@@ -809,8 +810,21 @@
   {:obj (sci.lang/->Namespace 'sci.impl.records nil)
    :private true
    'toString sci.impl.records/to-string
-   '-create-record-type -create-record-type
-   '-reg-key! -reg-key!})
+   '-create-record-type -create-type
+   ;; what do we use this for again?
+   '-reg-key! -reg-key!
+   '->record-impl sci.impl.records/->record-impl
+   })
+
+(def sci-impl-deftype
+  {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
+   :private true
+   'toString sci.impl.deftype/to-string
+   '-create-type -create-type
+   '->type-impl sci.impl.deftype/->type-impl
+   '-inner-impl sci.impl.types/getVal
+   '-mutate sci.impl.types/-mutate
+   'type types/type-impl})
 
 ;;;; REPL vars
 
@@ -1021,7 +1035,6 @@
    '-new-dynamic-var (core-var '-new-dynamic-var #(sci.impl.utils/new-var (gensym) nil {:dynamic true}))
    ;; used in let-fn
    '-new-var (core-var '-new-var #(sci.impl.utils/new-var (gensym) nil))
-   '->record-impl (copy-core-var sci.impl.records/->record-impl)
    ;; end private
    '.. (macrofy '.. double-dot)
    '= (copy-core-var =)
@@ -1137,7 +1150,7 @@
    'defonce (macrofy 'defonce defonce*)
    'defrecord (macrofy 'defrecord sci.impl.records/defrecord
                        clojure-core-ns true)
-   'deftype (macrofy 'deftype sci.impl.records/defrecord
+   'deftype (macrofy 'deftype sci.impl.deftype/deftype
                      clojure-core-ns true)
    'delay (macrofy 'delay delay*)
    'delay? (copy-core-var delay?)
@@ -1814,4 +1827,5 @@
                  'read-string (copy-var
                                #?(:clj clojure.edn/read-string
                                   :cljs cljs.reader/read-string) clojure-edn-namespace)}
-   'sci.impl.records sci-impl-records})
+   'sci.impl.records sci-impl-records
+   'sci.impl.deftype sci-impl-deftype})
