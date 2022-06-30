@@ -5,10 +5,10 @@
                             extends? implements?])
   (:require
    #?(:clj [sci.impl.interop :as interop])
+   [sci.impl.deftype]
    [sci.impl.multimethods :as mms]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
    [sci.lang]))
 
 (defn default? [#?(:clj ctx
@@ -266,7 +266,10 @@
     #?@(:clj [(class? clazz)
               (instance? clazz x)])
     (instance? sci.lang.Type clazz)
-    (= clazz (-> x meta :type))
+    (if (#?(:clj instance?
+            :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
+      (= clazz (sci.impl.types/-get-type x))
+      (= clazz (-> x meta :type)))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     #?@(:clj [(map? clazz)
               (if-let [c (:class clazz)]
