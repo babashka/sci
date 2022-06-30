@@ -2,7 +2,8 @@
   (:require
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [clojure.string :as str]))
 
 (deftest protocol-test
   (let [prog "
@@ -181,14 +182,9 @@
   (is
    (= 10
       (tu/eval* "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo) (setField)))" {})))
-  ;; next up:
   #?(:clj
-     (prn (sci/with-out-str (sci/eval-string "(deftype Foo []) (defmethod print-method Foo [obj wrtr] (.write wrtr (str :hello))) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}}))))
-  #_(let [prog #?(:clj "(deftype Foo [^:unsynchronized-mutable a b])"
-                :cljs "(deftype Foo [^:mutable a b])" )]
-    (is (thrown-with-msg?
-         #?(:clj Exception :cljs js/Error) #"mutable"
-         (tu/eval* prog {})))))
+     (is (re-find #"#object\[user.Foo" (sci/with-out-str (sci/eval-string "(deftype Foo []) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}})))))
+  )
 
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]

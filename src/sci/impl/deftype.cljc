@@ -17,16 +17,20 @@
         (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name)
         expr))))
 
+(defn hex-hash [this]
+  #?(:clj (Integer/toHexString (hash this))
+     :cljs (.toString (hash this) 16)))
+
 (defmulti to-string types/type-impl)
 (defmethod to-string :default [this]
   (let [t (types/type-impl this)]
     (str (namespace t) "." (name t) "@"
-         #?(:clj (Integer/toHexString (hash this))
-            :cljs (.toString (hash this) 16)))))
+         (hex-hash this))))
 
 (defn clojure-str [v]
-  (let [t (types/type-impl v)]
-    (str "#" t (into {} v))))
+  ;; #object[user.Foo 0x743e63ce "user.Foo@743e63ce"]
+  (let [n (types/type-impl v)]
+    (str "#object[" n " 0x" (hex-hash v) " \"" (to-string v) "\"]")))
 
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
@@ -51,7 +55,7 @@
   (-mutate [_ k v]
     (set! ext-map (assoc ext-map k v)))
 
-  #_#_SciPrintMethod
+  SciPrintMethod
   (-sci-print-method [this w]
     (if-let [rv var]
       (let [m (meta @rv)]
