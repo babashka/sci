@@ -2,7 +2,7 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## v0.3.22
+## v0.3.32
 
 - [#767](https://github.com/babashka/sci/issues/767): Reduce advanced compiled JS output with about 20% (~900kb -> ~740kb)
 - [#768](https://github.com/babashka/sci/issues/768): copy `:dynamic` metadata in `copy-ns`
