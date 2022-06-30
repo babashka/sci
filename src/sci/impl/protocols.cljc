@@ -265,7 +265,6 @@
     ;; fast path for Clojure when using normal clazz
     #?@(:clj [(class? clazz)
               (instance? clazz x)])
-    ;; records are currently represented as a symbol with metadata
     (instance? sci.lang.Type clazz)
     (= clazz (-> x meta :type))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol

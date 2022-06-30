@@ -185,7 +185,11 @@
   #?(:clj
      (is (re-find #"#object\[user.Foo" (sci/with-out-str (sci/eval-string "(deftype Foo []) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}})))))
   #?(:clj
-     (is (re-find #":hello" (sci/with-out-str (sci/eval-string "(deftype Foo []) (defmethod print-method Foo [this writer] (.write writer (str :hello))) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}}))))))
+     (is (re-find #":hello" (sci/with-out-str (sci/eval-string "(deftype Foo []) (defmethod print-method Foo [this writer] (.write writer (str :hello))) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}})))))
+
+  ;; up next:
+  (prn (tu/eval* "(deftype Foo []) (instance? Foo (->Foo))" {}))
+  )
 
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]
