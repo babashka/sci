@@ -886,8 +886,8 @@
                   ;; _ctx expr f analyzed-children stack
                   (return-call ctx
                                ;; for backwards compatibility with error reporting
-                               expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
-                               (:sci.impl.record/constructor (meta record))
+                               expr ;; (list* (:sci.impl/constructor (meta record)) args)
+                               (:sci.impl/constructor (meta record))
                                args
                                (assoc (meta expr)
                                       :ns @utils/current-ns
@@ -917,11 +917,11 @@
                        maybe-record-constructor
                        (when maybe-record
                          (-> maybe-record
-                             meta :sci.impl.record/constructor))]
+                             meta :sci.impl/constructor))]
                    (cond maybe-record-constructor
                          (return-call ctx
                                       ;; for backwards compatibility with error reporting
-                                      expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
+                                      expr ;; (list* (:sci.impl/constructor (meta record)) args)
                                       maybe-record-constructor
                                       args
                                       (assoc (meta expr)
@@ -947,8 +947,8 @@
                    (let [args (analyze-children ctx args)]
                      (return-call ctx
                                   ;; for backwards compatibility with error reporting
-                                  expr ;; (list* (:sci.impl.record/constructor (meta record)) args)
-                                  (:sci.impl.record/constructor (meta record))
+                                  expr ;; (list* (:sci.impl/constructor (meta record)) args)
+                                  (:sci.impl/constructor (meta record))
                                   args
                                   (assoc (meta expr)
                                          :ns @utils/current-ns
