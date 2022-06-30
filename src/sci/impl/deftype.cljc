@@ -156,7 +156,7 @@
                     ~{:sci.impl/type-name (list 'quote rec-type)
                       :sci.impl/type rec-type
                       :sci.impl.type/constructor (list 'var factory-fn-sym)
-                      :sci.impl/type-var (list 'var record-name)}))
+                      :sci.impl/var (list 'var record-name)}))
                  (defn ~factory-fn-sym [& args#]
                    (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
                  ~@protocol-impls

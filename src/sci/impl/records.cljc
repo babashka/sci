@@ -40,7 +40,7 @@
            :type (:type old-meta)
            :sci.impl/record (:sci.impl/record old-meta)
            :sci.impl.record/constructor (:sci.impl.record/constructor old-meta)
-           :sci.impl/record-var (:sci.imp/record-var old-meta)
+           :sci.impl/var (:sci.imp/record-var old-meta)
            :sci.impl.record/map-constructor (:sci.impl.record/map-constructor old-meta))))
 
 #?(:clj
@@ -340,7 +340,7 @@
               ~(cond-> {:sci.impl/type-name (list 'quote rec-type)
                         :sci.impl/record true
                         :sci.impl.record/constructor (list 'var factory-fn-sym)
-                        :sci.impl/record-var (list 'var record-name)}
+                        :sci.impl/var (list 'var record-name)}
                  (not deftype?)
                  (assoc :sci.impl.record/map-constructor (list 'var map-factory-sym)))))
            (defn ~factory-fn-sym [& args#]

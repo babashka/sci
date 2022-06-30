@@ -813,7 +813,8 @@
    '-create-record-type -create-type
    ;; what do we use this for again?
    '-reg-key! -reg-key!
-   '->record-impl sci.impl.records/->record-impl})
+   '->record-impl sci.impl.records/->record-impl
+   })
 
 (def sci-impl-deftype
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
@@ -822,7 +823,8 @@
    '-create-type -create-type
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal
-   '-mutate sci.impl.types/-mutate})
+   '-mutate sci.impl.types/-mutate
+   'type types/type-impl})
 
 ;;;; REPL vars
 

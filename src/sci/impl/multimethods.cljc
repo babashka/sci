@@ -111,13 +111,19 @@
          `(let [v# ~dispatch-val
                 m# (meta v#)
                 mf# (resolve '~multifn)]
-            (if (:sci.impl/record m#)
-              (cond
-                (= (resolve 'clojure.pprint/simple-dispatch) mf#)
-                (sci.impl.records/-reg-key! @(:sci.impl/record-var m#) :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
-                (= (resolve 'clojure.core/print-method) mf#)
-                (sci.impl.records/-reg-key! @(:sci.impl/record-var m#) :sci.impl/print-method (fn ~@fn-tail))
-                :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail)))
+            ;; TODO: what about deftype - how can we detect deftype at runtime?
+            ;; Should we inject the ctx here to resolve the type? no, because type can really be dynamic?
+            ;; thus we need a way to detect if a value is an instance of a record or type
+            ;; or change `type` to return the deftype type, wouldn't this work?
+            ;; no, because print-method looks at core type
+            (if (instance? sci.lang.Type v#)
+              (do
+                (cond
+                  (= (resolve 'clojure.pprint/simple-dispatch) mf#)
+                  (sci.impl.records/-reg-key! @(:sci.impl/var m#) :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
+                  (= (resolve 'clojure.core/print-method) mf#)
+                  (sci.impl.records/-reg-key! @(:sci.impl/var m#) :sci.impl/print-method (fn ~@fn-tail))
+                  :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
               (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
          `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
      :cljs `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
