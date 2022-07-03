@@ -590,11 +590,15 @@
                                [lb (butlast body)]
                                [nil body]))
                            [nil body])
-        meta-map (merge (meta fn-name) (meta expr) meta-map)
+        expr-loc (meta expr)
+        meta-map (-> (meta fn-name)
+                     (assoc :line (:line expr-loc))
+                     (assoc :column (:column expr-loc))
+                     (assoc :file (:file expr-loc))
+                     (cond-> meta-map (merge meta-map)))
         meta-map (if meta-map2 (merge meta-map meta-map2)
                      meta-map)
-        fn-body (with-meta (cons 'fn body)
-                  (meta expr))
+        fn-body (cons 'fn body)
         f (analyze-fn* ctx fn-body macro?)
         arglists (list 'quote (seq (:sci.impl/arglists f)))
         meta-map (assoc meta-map
