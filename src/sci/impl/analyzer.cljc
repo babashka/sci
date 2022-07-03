@@ -594,7 +594,7 @@
         meta-map (-> (meta fn-name)
                      (assoc :line (:line expr-loc))
                      (assoc :column (:column expr-loc))
-                     (assoc :file (:file expr-loc))
+                     (assoc :file @utils/current-file)
                      (cond-> meta-map (merge meta-map)))
         meta-map (if meta-map2 (merge meta-map meta-map2)
                      meta-map)
