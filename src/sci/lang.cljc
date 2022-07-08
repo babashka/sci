@@ -1,7 +1,8 @@
 (ns sci.lang
   (:require [clojure.string :as str]
             [sci.impl.types :as types]
-            [sci.impl.vars :as vars])
+            [sci.impl.vars :as vars]
+            [sci.impl.unrestrict :refer [*unrestricted*]])
   (:refer-clojure :exclude [Var ->Var var? Namespace ->Namespace]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -71,6 +72,10 @@
 #?(:clj (defmethod print-method Type [this w]
           (.write ^java.io.Writer w (str this))))
 
+(defn- throw-root-binding [this]
+  (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                  (str "Can't change/establish root binding of " this " with set"))))
+
 (deftype ^{:doc "Representation of a SCI var, created e.g. with `(defn foo [])`
     The fields of this type are implementation detail and should not be accessed
     directly."}
@@ -123,8 +128,10 @@
                          (format "Can't set!: %s from non-binding thread" (vars/toSymbol this))))
              (types/setVal b v)))
          :cljs (types/setVal b v))
-      (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                  (str "Can't change/establish root binding of " this " with set")))))
+      #?(:clj (throw-root-binding this)
+         :cljs (if *unrestricted*
+                 (set! (.-root this) v)
+                 (throw-root-binding this)))))
   (getVal [_this] root)
   #?(:clj clojure.lang.IDeref :cljs IDeref)
   (#?(:clj deref
