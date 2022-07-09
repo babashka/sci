@@ -759,10 +759,16 @@
                                :body analyzed-body})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
+        catch-all (and (= 1 (count catches))
+                       (let [c (:class (first catches))]
+                         #?(:clj (= c Exception)
+                            :cljs (or (= :default c)
+                                      (= js/Error c)
+                                      (= js/Object c)))))
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
     (sci.impl.types/->Node
-     (eval/eval-try ctx bindings body catches finally)
+     (eval/eval-try ctx bindings body catches finally catch-all)
      stack)))
 
 (defn analyze-throw [ctx [_throw ex :as expr]]

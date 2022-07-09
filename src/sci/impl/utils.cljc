@@ -95,56 +95,48 @@
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx _bindings ^Throwable e raw-node]
-   (let [stack (t/stack raw-node)
-         d (ex-data e)
-         st (or (when-let [st (:sci.impl/callstack d)]
-                  st)
-                (volatile! '()))]
-     #_(when stack
-       (when-not (:special stack)
-         (vswap! st conj stack)))
-     (if false #_#?(:clj (or *in-try*
-                     (not= (:main-thread-id ctx)
-                           (.getId (Thread/currentThread))))
-            :cljs *in-try*)
-       (throw e)
-       (let [
-             #?@(:clj [fm (:sci.impl/f-meta stack)])
-             env (:env ctx)
-             id (:id ctx)
-             d (ex-data e)
-             st (or (when-let [st (:sci.impl/callstack d)]
-                      st)
-                    (volatile! '()))]
-         (when stack
-           (when-not (:special stack)
-             (vswap! st conj stack)))
-         (let [d (ex-data e)
-               ;; st (:sci.impl/callstack d)
-               wrapping-sci-error? (isa? (:type d) :sci/error)]
-           (if wrapping-sci-error?
-             (throw e)
-             (let [ex-msg #?(:clj (.getMessage e)
-                             :cljs (.-message e))
-                   {:keys [:line :column :file]}
-                   (or stack
-                       (some-> env deref
-                               :sci.impl/callstack (get id)
-                               deref last meta)
-                       #_(meta node))]
-               (if (and line column)
-                 (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
-                                 :cljs ex-msg)
-                       new-exception
-                       (let [new-d {:type :sci/error
-                                    :line line
-                                    :column column
-                                    :message ex-msg
-                                    :sci.impl/callstack st
-                                    :file file}]
-                         (ex-info ex-msg new-d e))]
-                   (throw new-exception))
-                 (throw e))))))))))
+   (if #?(:clj (or *in-try*
+                   (not= (:main-thread-id ctx)
+                         (.getId (Thread/currentThread))))
+          :cljs *in-try*)
+     (throw e)
+     (let [stack (t/stack raw-node)
+           #?@(:clj [fm (:sci.impl/f-meta stack)])
+           env (:env ctx)
+           id (:id ctx)
+           d (ex-data e)
+           st (or (when-let [st (:sci.impl/callstack d)]
+                    st)
+                  (volatile! '()))]
+       (when stack
+         (when-not (:special stack)
+           (vswap! st conj stack)))
+       (let [d (ex-data e)
+             ;; st (:sci.impl/callstack d)
+             wrapping-sci-error? (isa? (:type d) :sci/error)]
+         (if wrapping-sci-error?
+           (throw e)
+           (let [ex-msg #?(:clj (.getMessage e)
+                           :cljs (.-message e))
+                 {:keys [:line :column :file]}
+                 (or stack
+                     (some-> env deref
+                             :sci.impl/callstack (get id)
+                             deref last meta)
+                     #_(meta node))]
+             (if (and line column)
+               (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
+                               :cljs ex-msg)
+                     new-exception
+                     (let [new-d {:type :sci/error
+                                  :line line
+                                  :column column
+                                  :message ex-msg
+                                  :sci.impl/callstack st
+                                  :file file}]
+                       (ex-info ex-msg new-d e))]
+                 (throw new-exception))
+               (throw e)))))))))
 
 (defn- iobj? [obj]
   (and #?(:clj (instance? clojure.lang.IObj obj)
