@@ -116,9 +116,9 @@
        (types/eval case-default ctx bindings)))))
 
 (defn eval-try
-  [ctx bindings body catches finally preserve-stacktrace]
+  [ctx bindings body catches finally sci-error]
   (try
-    (binding [utils/*in-try* (not preserve-stacktrace)]
+    (binding [utils/*in-try* (not sci-error)]
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
       (if-let

@@ -760,14 +760,14 @@
                                :ex ex})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
-        preserve-stacktrace (and (= 1 (count catches))
+        sci-error (and (= 1 (count catches))
                                  (let [fst (first catches)
                                        ex (:ex fst)]
-                                   (some-> ex meta :sci.core/preserve-stacktrace)))
+                                   (some-> ex meta :sci/error)))
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
     (sci.impl.types/->Node
-     (eval/eval-try ctx bindings body catches finally preserve-stacktrace)
+     (eval/eval-try ctx bindings body catches finally sci-error)
      stack)))
 
 (defn analyze-throw [ctx [_throw ex :as expr]]
