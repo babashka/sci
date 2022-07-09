@@ -756,19 +756,18 @@
                                                          (cons 'do body))]
                               {:class clazz
                                :ex-idx ex-idx
-                               :body analyzed-body})
+                               :body analyzed-body
+                               :ex ex})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
-        catch-all (and (= 1 (count catches))
-                       (let [c (:class (first catches))]
-                         #?(:clj (= c Exception)
-                            :cljs (or (= :default c)
-                                      (= js/Error c)
-                                      (= js/Object c)))))
+        preserve-stacktrace (and (= 1 (count catches))
+                                 (let [fst (first catches)
+                                       ex (:ex fst)]
+                                   (some-> ex meta :sci.core/preserve-stacktrace)))
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
     (sci.impl.types/->Node
-     (eval/eval-try ctx bindings body catches finally catch-all)
+     (eval/eval-try ctx bindings body catches finally preserve-stacktrace)
      stack)))
 
 (defn analyze-throw [ctx [_throw ex :as expr]]
@@ -1392,7 +1391,7 @@
                                                                    :file @utils/current-file
                                                                    :sci.impl/f-meta f-meta)
                                                  #?(:cljs (when (utils/var? f) (fn [_ v]
-                                                                                (deref v))) :clj nil))))))))
+                                                                                 (deref v))) :clj nil))))))))
                         (catch #?(:clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
                           ;; stack on it, the only interesting bit it the map
