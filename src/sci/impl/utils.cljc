@@ -90,14 +90,25 @@
          ex-msg)
        ex-msg)))
 
+(def ^:dynamic *callstack* (atom []))
+
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx _bindings ^Throwable e raw-node]
-   (if #?(:clj (or *in-try*
-                   (not= (:main-thread-id ctx)
-                         (.getId (Thread/currentThread))))
-          :cljs *in-try*) (throw e)
-       (let [stack (t/stack raw-node)
+   (let [stack (t/stack raw-node)
+         d (ex-data e)
+         st (or (when-let [st (:sci.impl/callstack d)]
+                  st)
+                (volatile! '()))]
+     #_(when stack
+       (when-not (:special stack)
+         (vswap! st conj stack)))
+     (if false #_#?(:clj (or *in-try*
+                     (not= (:main-thread-id ctx)
+                           (.getId (Thread/currentThread))))
+            :cljs *in-try*)
+       (throw e)
+       (let [
              #?@(:clj [fm (:sci.impl/f-meta stack)])
              env (:env ctx)
              id (:id ctx)
@@ -133,7 +144,7 @@
                                     :file file}]
                          (ex-info ex-msg new-d e))]
                    (throw new-exception))
-                 (throw e)))))))))
+                 (throw e))))))))))
 
 (defn- iobj? [obj]
   (and #?(:clj (instance? clojure.lang.IObj obj)
@@ -233,8 +244,8 @@
   ([expr-meta] (make-stack expr-meta false))
   ([expr-meta special?]
    (cond-> (assoc expr-meta
-             :ns @current-ns
-             :file @current-file)
+                  :ns @current-ns
+                  :file @current-file)
      special? (assoc :special true))))
 
 (defn log [& xs]
