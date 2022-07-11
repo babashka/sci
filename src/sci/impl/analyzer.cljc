@@ -73,9 +73,11 @@
                                  _ ::unresolved))]
                   (if (kw-identical? ::unresolved f)
                     expr
-                    (let [macro-var? (and (utils/var? f)
+                    (let [var? (utils/var? f)
+                          macro-var? (and var?
                                           (vars/isMacro f))
-                          needs-ctx? (vars/needs-context? f)
+                          needs-ctx? (and var?
+                                          (vars/needs-context? f))
                           f (if macro-var? @f f)]
                       (if (or macro-var? (macro? f))
                         (if needs-ctx?
