@@ -1466,6 +1466,14 @@
 (deftest memfn-test
   (is (true? (sci/eval-string "((memfn startsWith prefix) \"abc\" \"a\")" {:classes {:allow :all}}))))
 
+(deftest sci-error-test
+  (let [st (sci/eval-string
+            (-> "(require '[sci.core :as sci]) (defn foo [] (assoc :foo :bar)) (defn bar [] (try (foo) (catch ^:sci/error Exception e (sci/format-stacktrace (sci/stacktrace e))))) (bar)"
+                #?(:cljs (str/replace "Exception" "js/Error")))
+            {:namespaces {'sci.core {'stacktrace sci/stacktrace
+                                     'format-stacktrace sci/format-stacktrace}}})]
+    (is (str/includes? (str st) "1:31"))))
+
 ;;;; Scratch
 
 (comment

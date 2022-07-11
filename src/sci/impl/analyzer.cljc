@@ -760,10 +760,12 @@
                                :ex ex})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
-        sci-error (and (= 1 (count catches))
-                                 (let [fst (first catches)
-                                       ex (:ex fst)]
-                                   (some-> ex meta :sci/error)))
+        sci-error (let [fst (when (= 1 (count catches))
+                              (nth catches 0))
+                        ex (when fst (:ex fst))]
+                    (and (= #?(:clj 'Exception
+                               :cljs 'js/Error) ex)
+                         (some-> ex meta :sci/error)))
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
     (sci.impl.types/->Node
