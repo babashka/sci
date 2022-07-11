@@ -77,7 +77,7 @@
                           macro-var? (and var?
                                           (vars/isMacro f))
                           needs-ctx? (and var?
-                                          (vars/needs-context? f))
+                                          (vars/needs-ctx? f))
                           f (if macro-var? @f f)]
                       (if (or macro-var? (macro? f))
                         (if needs-ctx?
@@ -1308,7 +1308,7 @@
                       (try
                         (if (macro? f)
                           (let [needs-ctx? (and (utils/var? f)
-                                                (vars/needs-context? f))
+                                                (vars/needs-ctx? f))
                                 ;; Fix for #603
                                 #?@(:cljs [f (if (utils/var? f)
 
@@ -1363,7 +1363,7 @@
                                                                  :sci.impl/f-meta f-meta)
                                                nil)))
                               (let [needs-ctx? (and (utils/var? f)
-                                                    (vars/needs-context? f))]
+                                                    (vars/needs-ctx? f))]
                                 (if needs-ctx?
                                   (return-needs-ctx-call ctx
                                                          expr
@@ -1543,7 +1543,7 @@
                             mv (meta v)]
                         (cond (constant? v) (->constant v)
                               (and (utils/var? v)
-                                   (vars/needs-context? v))
+                                   (vars/needs-ctx? v))
                               (partial v ctx)
                               (utils/var? v)
                               (if (:const mv)
