@@ -762,7 +762,7 @@
                       catches)
         sci-error (let [fst (when (= 1 (count catches))
                               (nth catches 0))
-                        ex (when fst (:ex fst))]
+                        ex (:ex fst)]
                     (and (= #?(:clj 'Exception
                                :cljs 'js/Error) ex)
                          (some-> ex meta :sci/error)))
