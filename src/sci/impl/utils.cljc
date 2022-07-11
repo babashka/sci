@@ -48,8 +48,6 @@
     (or (:sci/macro m)
         (:macro m))))
 
-(def needs-ctx (symbol "needs-ctx"))
-
 #?(:cljs
    (def allowed-append "used for allowing interop in with-out-str"
      (symbol "append")))
@@ -248,7 +246,7 @@
    (dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (unqualify-symbol name))]
-     (sci.lang.Var. init-val name meta false))))
+     (sci.lang.Var. init-val name meta false false))))
 
 ;; foundational namespaces
 (def user-ns (lang/->Namespace 'user nil))
@@ -264,10 +262,11 @@
 
 (defn new-var
   "Returns a new sci var."
-  ([name] (doto (new-var name nil nil)
+  ([name] (doto (new-var name nil nil false)
             (vars/unbind)))
-  ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :name (unqualify-symbol name)) false)))
+  ([name init-val] (new-var name init-val (meta name) false))
+  ([name init-val meta] (new-var name init-val meta false))
+  ([name init-val meta ctx?] (sci.lang.Var. init-val name (assoc meta :name (unqualify-symbol name)) false ctx?)))
 
 (defn var? [x]
   (instance? sci.lang.Var x))

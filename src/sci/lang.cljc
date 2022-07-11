@@ -85,7 +85,8 @@
          #?(:clj ^:volatile-mutable meta
             :cljs ^:mutable meta)
          #?(:clj ^:volatile-mutable thread-bound
-            :cljs ^:mutable thread-bound)]
+            :cljs ^:mutable thread-bound)
+         needs-ctx]
   #?(:clj
      ;; marker interface, clj only for now
      sci.lang.IVar)
@@ -214,7 +215,9 @@
     (apply @this a b c d e f g h i j k l m n o p q r s t rest))
   #?(:clj
      (applyTo [this args]
-              (apply @this args))))
+              (apply @this args)))
+  vars/CtxVar
+  (needs-context? [_] needs-ctx))
 
 #?(:clj
    ;; Use public interface for print-method so it can be overriden in bb itself

@@ -35,7 +35,7 @@
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [eval needs-ctx]]
+   [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
    [sci.lang])
   #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
@@ -103,10 +103,10 @@
             ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
             (if macro
               (macros/? :clj
-                        #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false)
-                           :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
-                        :cljs `(sci.lang.Var. ~sym ~nm ~varm false))
-              `(sci.lang.Var. ~sym ~nm ~varm false)))))
+                        #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false false)
+                           :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
+                        :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
+              `(sci.lang.Var. ~sym ~nm ~varm false false)))))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
@@ -116,18 +116,18 @@
   ([sym f] (macrofy sym f clojure-core-ns false))
   ([sym f ns] (macrofy sym f ns false))
   ([sym f ns ctx?]
-   (sci.impl.utils/new-var sym f (cond-> {:ns    ns
-                                          :macro true
-                                          :sci/built-in true}
-                                   ctx? (assoc :sci.impl/op needs-ctx)))))
+   (sci.impl.utils/new-var sym f {:ns    ns
+                                  :macro true
+                                  :sci/built-in true}
+                           ctx?)))
 
 (defn ns-new-var [ns]
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
-     (sci.impl.utils/new-var sym v (cond-> {:ns ns
-                                            :sci/built-in true}
-                                     ctx? (assoc :sci.impl/op needs-ctx))))))
+     (sci.impl.utils/new-var sym v {:ns ns
+                                    :sci/built-in true}
+                             ctx?))))
 
 (defn ->*
   [_ _ x & forms]
@@ -1764,9 +1764,9 @@
                  'macroexpand-all
                  {:ns clojure-walk-namespace
                   :name 'macroexpand-all
-                  :sci.impl/op needs-ctx
                   :doc "Recursively performs all possible macroexpansions in form."}
-                 false))
+                 false
+                 true))
 
 (def clojure-walk-ns
   {:obj clojure-walk-namespace
