@@ -233,8 +233,8 @@
   ([expr-meta] (make-stack expr-meta false))
   ([expr-meta special?]
    (cond-> (assoc expr-meta
-             :ns @current-ns
-             :file @current-file)
+                  :ns @current-ns
+                  :file @current-file)
      special? (assoc :special true))))
 
 (defn log [& xs]

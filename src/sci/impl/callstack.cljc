@@ -76,8 +76,8 @@
                                     (str ":" line ":" column)))}))
                    st)
         max-name (reduce max 0 (map (comp count :name) data))]
-    (map (fn [{:keys [:name :loc]}]
-           (str (right-pad name max-name)
-                " - "
-                loc))
-         data)))
+    (mapv (fn [{:keys [:name :loc]}]
+            (str (right-pad name max-name)
+                 " - "
+                 loc))
+          data)))

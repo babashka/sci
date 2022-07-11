@@ -1693,7 +1693,7 @@
         (pst ctx e-or-depth 12)
         (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
           (pst ctx (root-cause @e) e-or-depth))))
-     ([_ctx ^Throwable e depth]
+     ([ctx ^Throwable e depth]
       (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
         (sci.impl.io/println (str (-> e class .getSimpleName) " "
                                   (.getMessage e)
@@ -1707,9 +1707,9 @@
             (sci.impl.io/println (str \tab (stack-element-str el))))
           (when cause
             (sci.impl.io/println "Caused by:")
-            (pst cause (min depth
-                            (+ 2 (- (count (.getStackTrace cause))
-                                    (count st)))))))))))
+            (pst ctx cause (min depth
+                                (+ 2 (- (count (.getStackTrace cause))
+                                        (count st)))))))))))
 
 (def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
 

@@ -756,13 +756,20 @@
                                                          (cons 'do body))]
                               {:class clazz
                                :ex-idx ex-idx
-                               :body analyzed-body})
+                               :body analyzed-body
+                               :ex ex})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
+        sci-error (let [fst (when (= 1 (count catches))
+                              (nth catches 0))
+                        ex (:ex fst)]
+                    (and (= #?(:clj 'Exception
+                               :cljs 'js/Error) ex)
+                         (some-> ex meta :sci/error)))
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
     (sci.impl.types/->Node
-     (eval/eval-try ctx bindings body catches finally)
+     (eval/eval-try ctx bindings body catches finally sci-error)
      stack)))
 
 (defn analyze-throw [ctx [_throw ex :as expr]]
@@ -1386,7 +1393,7 @@
                                                                    :file @utils/current-file
                                                                    :sci.impl/f-meta f-meta)
                                                  #?(:cljs (when (utils/var? f) (fn [_ v]
-                                                                                (deref v))) :clj nil))))))))
+                                                                                 (deref v))) :clj nil))))))))
                         (catch #?(:clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
                           ;; stack on it, the only interesting bit it the map
