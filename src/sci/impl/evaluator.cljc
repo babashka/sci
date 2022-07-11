@@ -82,6 +82,7 @@
                 prev (if-not (utils/var? prev)
                        (sci.lang.Var. prev (symbol (str cnn) (str var-name))
                                       (meta prev)
+                                      false
                                       false)
                        prev)
                 v (if (identical? utils/var-unbound init)
