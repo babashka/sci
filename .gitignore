@@ -33,3 +33,4 @@ sci.build_artifacts.txt
 .planck_cache
 .cpcache
 public
+reports
