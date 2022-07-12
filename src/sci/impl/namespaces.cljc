@@ -744,10 +744,10 @@
 
 (defn sci-with-redefs
   [_ _ bindings & body]
-  `(clojure.core/with-redefs-fn
-     ~(zipmap (map #(list `var %) (take-nth 2 bindings))
-              (take-nth 2 (next bindings)))
-     (fn [] ~@body)))
+  (list 'clojure.core/with-redefs-fn
+        (zipmap (map #(list 'var %) (take-nth 2 bindings))
+                (take-nth 2 (next bindings)))
+        (list* 'fn* [] body)))
 
 ;;;; End binding vars
 
