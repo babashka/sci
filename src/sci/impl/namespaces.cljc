@@ -135,7 +135,7 @@
     (if forms
       (let [form (first forms)
             threaded (if (seq? form)
-                       (with-meta `(~(first form) ~x ~@(next form)) (meta form))
+                       (with-meta (list* (first form) x (next form)) (meta form))
                        (list form x))]
         (recur threaded (next forms)))
       x)))
