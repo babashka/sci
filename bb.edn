@@ -30,4 +30,7 @@
                                                               '->Namespace {:no-doc true}
                                                               'IVar {:no-doc true}}}})
                         markdown (str (slurp "test-resources/API-prelude.md") markdown)]
-                    (spit "API.md" markdown))}}}
+                    (spit "API.md" markdown))}
+
+  shadow-build-report {:doc "Run shadow-cljs for build report"
+                       :task (shell "npx shadow-cljs release sci")}}}
