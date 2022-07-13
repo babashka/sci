@@ -1542,18 +1542,21 @@
        (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
                             mv (meta v)]
                         (cond (constant? v) (->constant v)
-                              (and (utils/var? v)
-                                   (vars/needs-ctx? v))
-                              (partial v ctx)
                               (utils/var? v)
-                              (if (:const mv)
-                                @v
-                                (if (vars/isMacro v)
-                                  (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                              (str "Can't take value of a macro: " v "")))
-                                  (sci.impl.types/->Node
-                                   (faster/deref-1 v)
-                                   nil)))
+                              (if (and (vars/needs-ctx? v)
+                                       (:sci/built-in mv))
+                                ;; this is for built-in vars like require that
+                                ;; are used within a higher order function, not
+                                ;; in call position
+                                (partial v ctx)
+                                (if (:const mv)
+                                  @v
+                                  (if (vars/isMacro v)
+                                    (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                                (str "Can't take value of a macro: " v "")))
+                                    (sci.impl.types/->Node
+                                     (faster/deref-1 v)
+                                     nil))))
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
