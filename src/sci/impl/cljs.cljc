@@ -3,7 +3,7 @@
   #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api]])))
 
 (macros/deftime
-  #?(:clj (declare cljs-ns-publics))
+  #?(:clj (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
   #_:clj-kondo/ignore
   (defmacro ^:private require-cljs-analyzer-api []
     (macros/? :clj
