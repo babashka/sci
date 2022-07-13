@@ -2,8 +2,6 @@
 
 set -eo pipefail
 
-rm -rf cljs-test-runner-out
-
 echo 'Running CLJS test in Node with optimizations :none'
 echo '{:optimizations :none}' > cljs-opts.edn
 clojure -M:test:cljs-test-runner -c cljs-opts.edn $@
