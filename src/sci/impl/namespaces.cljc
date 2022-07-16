@@ -1256,6 +1256,7 @@
    'keys (copy-core-var keys)
    'keyword (copy-core-var keyword)
    'keyword? (copy-core-var keyword?)
+   #?@(:cljs ['keyword-identical? (copy-core-var keyword-identical?)])
    'last (copy-core-var last)
    'lazy-cat (macrofy 'lazy-cat lazy-cat*)
    'letfn (macrofy 'letfn letfn*)
