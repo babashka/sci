@@ -325,3 +325,6 @@
 
 (deftest return-value-test
   (is (true? (eval* "(= 'P (defprotocol P))"))))
+
+(deftest instance-test
+  (is (true? (eval* "(defprotocol Registry) (defn reg? [x] (instance? Registry x)) (reg? (reify Registry))"))))

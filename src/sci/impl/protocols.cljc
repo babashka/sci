@@ -200,11 +200,14 @@
                         (var ~protocol-name) update :satisfies (fnil conj #{})
                         (symbol (str ~type)))
                        ~@(process-methods ctx type meths pns extend-via-metadata)))
-                    impls))]
+                  impls))]
     expansion))
 
 (defn extend-type [_form _env ctx atype & proto+meths]
-  (let [proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
+  (let [#?@(:cljs [atype (if (= 'default atype)
+                           'js/Object
+                           atype)])
+        proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
             (fn [[proto & meths]]
               (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
@@ -271,13 +274,14 @@
       (= clazz (sci.impl.types/-get-type x))
       (= clazz (-> x meta :type)))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
-    #?@(:clj [(map? clazz)
-              (if-let [c (:class clazz)]
-                ;; this is a protocol which is an interface on the JVM
-                (or (satisfies? clazz x)
-                    ;; this is the fallback because we excluded defaults for the core protocols
-                    (instance? c x))
-                (satisfies? clazz x))])
+    (map? clazz)
+    #?(:clj (if-let [c (:class clazz)]
+              ;; this is a protocol which is an interface on the JVM
+              (or (satisfies? clazz x)
+                  ;; this is the fallback because we excluded defaults for the core protocols
+                  (instance? c x))
+              (satisfies? clazz x))
+       :cljs (satisfies? clazz x))
     ;; could we have a fast path for CLJS too? please let me know!
     :else (instance? clazz x)))
 
