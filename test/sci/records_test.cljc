@@ -181,7 +181,9 @@
     (is (= [:a :b] (tu/eval* prog {}))))
   (is
    (= 10
-      (tu/eval* "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo) (setField)))" {})))
+      (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo) (setField)))"
+                             "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                                     :cljs "^:mutable")) {})))
   #?(:clj
      (is (re-find #"#object\[user.Foo" (sci/with-out-str (sci/eval-string "(deftype Foo []) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}})))))
   #?(:clj

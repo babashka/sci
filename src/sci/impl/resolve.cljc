@@ -138,8 +138,9 @@
                                 (some-> k meta :tag))])
               mutable? (when track-mutable?
                          (when-let [m (some-> k meta)]
-                           (or (:volatile-mutable m)
-                               (:unsynchronized-mutable m))))
+                           #?(:clj (or (:volatile-mutable m)
+                                       (:unsynchronized-mutable m))
+                              :cljs (:mutable m))))
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (cond-> (->Node
