@@ -205,11 +205,13 @@
         expansion
         `(do
            ~@(map (fn [[type & meths]]
-                    `(do
-                       (clojure.core/alter-var-root
-                        (var ~protocol-name) update :satisfies (fnil conj #{})
-                        (symbol (str ~type)))
-                       ~@(process-methods ctx type meths pns extend-via-metadata)))
+                    (let [type #?(:clj type
+                                  :cljs (get cljs-type-symbols type type))]
+                      `(do
+                         (clojure.core/alter-var-root
+                          (var ~protocol-name) update :satisfies (fnil conj #{})
+                          (symbol (str ~type)))
+                         ~@(process-methods ctx type meths pns extend-via-metadata))))
                   impls))]
     expansion))
 
