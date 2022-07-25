@@ -185,6 +185,16 @@
               ~@fn-body))))
      meths)))
 
+
+#?(:cljs
+   (def cljs-type-symbols
+     {'object 'js/Object
+      'string 'js/String
+      'number 'js/Number
+      'array 'js/Array
+      'function 'js/Function
+      'boolean 'js/Boolean}))
+
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
         protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
@@ -204,9 +214,7 @@
     expansion))
 
 (defn extend-type [_form _env ctx atype & proto+meths]
-  (let [#?@(:cljs [atype (if (= 'default atype)
-                           'js/Object
-                           atype)])
+  (let [#?@(:cljs [atype (get cljs-type-symbols atype atype)])
         proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
             (fn [[proto & meths]]
