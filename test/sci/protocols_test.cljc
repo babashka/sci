@@ -211,7 +211,6 @@
               [true :object]
               [true :object]
               [true :object]
-              [true :object]
               [true :object])
             (eval* "(defprotocol IFoo (foo [_]))
 (extend-type Object IFoo (foo [_] :object))
