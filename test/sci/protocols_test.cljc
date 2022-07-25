@@ -74,10 +74,17 @@
 
 (defn eval* [prog]
   (tu/eval* #?(:clj prog
-               :cljs (str/replace prog "Object" ":default"))
+               :cljs (-> prog
+                         (str/replace "Object" ":default")
+                         (str/replace "js/:default" "js/Object"))) ;lol
             #?(:clj {}
                :cljs {:classes {:allow :all
-                                'js #js {:String js/String}}})))
+                                'js #js {:Object js/Object
+                                         :String js/String
+                                         :Number js/Number
+                                         :Array js/Array
+                                         :Function js/Function
+                                         :Boolean js/Boolean}}})))
 
 (deftest docstring-test
   (is (= "-------------------------\nuser/Foo\n  cool protocol\n" (tu/eval* "
