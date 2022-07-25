@@ -335,3 +335,24 @@
 
 (deftest instance-test
   (is (true? (eval* "(defprotocol Registry) (defn reg? [x] (instance? Registry x)) (reg? (reify Registry))"))))
+
+
+#?(:cljs (deftest cljs-type-symbols
+           (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type object IFoo (foo [_] \"bar\"))
+(satisfies? IFoo #js {})")) "object")
+           (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type string IFoo (foo [_] \"bar\"))
+(satisfies? IFoo \"baz\")")) "string")
+           (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type number IFoo (foo [_] \"bar\"))
+(satisfies? IFoo 1)")) "number")
+           (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type array IFoo (foo [_] \"bar\"))
+(satisfies? IFoo #js [1 2 3])")) "array")
+           (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type function IFoo (foo [_] \"bar\"))
+(satisfies? IFoo inc)")) "function")
+           (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type boolean IFoo (foo [_] \"bar\"))
+(and (satisfies? IFoo true) (satisfies? IFoo false))")) "function")))
