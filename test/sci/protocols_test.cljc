@@ -217,7 +217,7 @@
 (extend-type Object IFoo (foo [_] :object))
 (map
  #(vector (satisfies? IFoo %) (foo %))
- [(Object.) \" \" 1 inc true [] {}])")))))
+ [\"\" 1 inc true [] {}])")))))
 
 (deftest order-test
   (testing "extend-via-metadata overrides extend-protocol, only if option given"
