@@ -16,8 +16,7 @@
   #?(:clj (and (or (= 'Object sym)
                    (= 'java.lang.Object type))
                (= Object (interop/resolve-class ctx 'Object)))
-     :cljs (or (= 'object sym)
-               (= 'default sym))))
+     :cljs (= ::extend-default sym)))
 
 (defn ->sigs [signatures]
   (into {}
@@ -177,9 +176,18 @@
                              (map #(process-single fq %) fn-body))
                            :else fn-body)]
          (if default-method?
-           `(defmethod ~fq
-              :default
-              ~@fn-body)
+           #?(:clj
+              `(defmethod ~fq
+                :default
+                ~@fn-body)
+              :cljs
+              `(do
+                 (defmethod ~fq
+                   :default
+                   ~@fn-body)
+                 (defmethod ~fq
+                   ~type
+                   ~@fn-body)))
            `(defmethod ~fq
               ~type
               ~@fn-body))))
@@ -188,7 +196,8 @@
 
 #?(:cljs
    (def cljs-type-symbols
-     {'object 'js/Object
+     {'default ::extend-default
+      'object 'js/Object
       'string 'js/String
       'number 'js/Number
       'array 'js/Array
@@ -246,7 +255,8 @@
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                         (let [ms (methods %)
                               default (get ms :default)]
-                          (not (identical? m default))))
+                          (or (not (identical? m default))
+                              (contains? ms ::extend-default))))
                      (:methods protocol)))))
 
 (defn satisfies? [protocol obj]
