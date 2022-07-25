@@ -341,6 +341,10 @@
    (deftest cljs-type-symbols
      (testing "extend-type"
        (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type default IFoo (foo [_] \"bar\"))
+(def o (js/Object.create nil))
+(satisfies? IFoo o)")))
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
 (extend-type object IFoo (foo [_] \"bar\"))
 (satisfies? IFoo #js {})")) "object")
        (is (true? (eval* "(defprotocol IFoo (foo [_]))
@@ -358,7 +362,12 @@
        (is (true? (eval* "(defprotocol IFoo (foo [_]))
 (extend-type boolean IFoo (foo [_] \"bar\"))
 (and (satisfies? IFoo true) (satisfies? IFoo false))")) "boolean"))
+
      (testing "extend-protocol"
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo default (foo [_] \"bar\"))
+(def o (js/Object.create nil))
+(satisfies? IFoo o)")))
        (is (true? (eval* "(defprotocol IFoo (foo [_]))
 (extend-protocol IFoo object (foo [_] \"bar\"))
 (satisfies? IFoo #js {})")) "object")
