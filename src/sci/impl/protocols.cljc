@@ -176,18 +176,13 @@
                              (map #(process-single fq %) fn-body))
                            :else fn-body)]
          (if default-method?
-           #?(:clj
-              `(defmethod ~fq
+           `(do
+              (defmethod ~fq
                 :default
                 ~@fn-body)
-              :cljs
-              `(do
-                 (defmethod ~fq
-                   :default
-                   ~@fn-body)
-                 (defmethod ~fq
-                   ~type
-                   ~@fn-body)))
+              (defmethod ~fq
+                ::extend-default
+                ~@fn-body))
            `(defmethod ~fq
               ~type
               ~@fn-body))))
