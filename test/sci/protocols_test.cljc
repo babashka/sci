@@ -204,19 +204,19 @@
  (satisfies? Bar (reify Foo))]
 "] (is (= [true false] (tu/eval* prog {}))))))
 
-#?(:clj
-   (deftest satisfies-object
-     (is (= '([true :object]
-              [true :object]
-              [true :object]
-              [true :object]
-              [true :object]
-              [true :object])
-            (eval* "(defprotocol IFoo (foo [_]))
-(extend-type Object IFoo (foo [_] :object))
+(deftest satisfies-default
+  (is (= '([true :object]
+           [true :object]
+           [true :object]
+           [true :object]
+           [true :object]
+           [true :object])
+         (eval* (str "(defprotocol IFoo (foo [_]))
+(extend-type " #?(:clj "Object" :cljs "default") " IFoo (foo [_] :object))
 (map
  #(vector (satisfies? IFoo %) (foo %))
  [\"\" 1 inc true [] {}])")))))
+
 
 (deftest order-test
   (testing "extend-via-metadata overrides extend-protocol, only if option given"
