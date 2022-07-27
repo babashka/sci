@@ -74,10 +74,17 @@
 
 (defn eval* [prog]
   (tu/eval* #?(:clj prog
-               :cljs (str/replace prog "Object" ":default"))
+               :cljs (-> prog
+                         (str/replace "Object" ":default")
+                         (str/replace "js/:default" "js/Object"))) ;lol
             #?(:clj {}
                :cljs {:classes {:allow :all
-                                'js #js {:String js/String}}})))
+                                'js #js {:Object js/Object
+                                         :String js/String
+                                         :Number js/Number
+                                         :Array js/Array
+                                         :Function js/Function
+                                         :Boolean js/Boolean}}})))
 
 (deftest docstring-test
   (is (= "-------------------------\nuser/Foo\n  cool protocol\n" (tu/eval* "
@@ -196,6 +203,20 @@
 [(satisfies? Foo (reify Foo))
  (satisfies? Bar (reify Foo))]
 "] (is (= [true false] (tu/eval* prog {}))))))
+
+(deftest satisfies-default
+  (is (= '([true :object]
+           [true :object]
+           [true :object]
+           [true :object]
+           [true :object]
+           [true :object])
+         (eval* (str "(defprotocol IFoo (foo [_]))
+(extend-type " #?(:clj "Object" :cljs "default") " IFoo (foo [_] :object))
+(map
+ #(vector (satisfies? IFoo %) (foo %))
+ [\"\" 1 inc true [] {}])")))))
+
 
 (deftest order-test
   (testing "extend-via-metadata overrides extend-protocol, only if option given"
@@ -328,3 +349,54 @@
 
 (deftest instance-test
   (is (true? (eval* "(defprotocol Registry) (defn reg? [x] (instance? Registry x)) (reg? (reify Registry))"))))
+
+
+#?(:cljs
+   (deftest cljs-type-symbols
+     (testing "extend-type"
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type default IFoo (foo [_] \"bar\"))
+(def o (js/Object.create nil))
+(satisfies? IFoo o)")) "no prototype")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type object IFoo (foo [_] \"bar\"))
+(satisfies? IFoo #js {})")) "object")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type string IFoo (foo [_] \"bar\"))
+(satisfies? IFoo \"baz\")")) "string")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type number IFoo (foo [_] \"bar\"))
+(satisfies? IFoo 1)")) "number")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type array IFoo (foo [_] \"bar\"))
+(satisfies? IFoo #js [1 2 3])")) "array")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type function IFoo (foo [_] \"bar\"))
+(satisfies? IFoo inc)")) "function")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-type boolean IFoo (foo [_] \"bar\"))
+(and (satisfies? IFoo true) (satisfies? IFoo false))")) "boolean"))
+
+     (testing "extend-protocol"
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo default (foo [_] \"bar\"))
+(def o (js/Object.create nil))
+(satisfies? IFoo o)")) "no prototype")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo object (foo [_] \"bar\"))
+(satisfies? IFoo #js {})")) "object")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo string (foo [_] \"bar\"))
+(satisfies? IFoo \"baz\")")) "string")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo number (foo [_] \"bar\"))
+(satisfies? IFoo 1)")) "number")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo array (foo [_] \"bar\"))
+(satisfies? IFoo #js [1 2 3])")) "array")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo function (foo [_] \"bar\"))
+(satisfies? IFoo inc)")) "function")
+       (is (true? (eval* "(defprotocol IFoo (foo [_]))
+(extend-protocol IFoo boolean (foo [_] \"bar\"))
+(and (satisfies? IFoo true) (satisfies? IFoo false))")) "boolean"))))

@@ -11,13 +11,15 @@
    [sci.impl.utils :as utils]
    [sci.lang]))
 
+#?(:cljs
+   (def extend-default-val (str `default)))
+
 (defn default? [#?(:clj ctx
                    :cljs _ctx) sym]
   #?(:clj (and (or (= 'Object sym)
                    (= 'java.lang.Object type))
                (= Object (interop/resolve-class ctx 'Object)))
-     :cljs (or (= 'object sym)
-               (= 'default sym))))
+     :cljs (= extend-default-val sym)))
 
 (defn ->sigs [signatures]
   (into {}
@@ -185,6 +187,17 @@
               ~@fn-body))))
      meths)))
 
+
+#?(:cljs
+   (def cljs-type-symbols
+     {'default extend-default-val
+      'object 'js/Object
+      'string 'js/String
+      'number 'js/Number
+      'array 'js/Array
+      'function 'js/Function
+      'boolean 'js/Boolean}))
+
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
         protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
@@ -195,18 +208,18 @@
         expansion
         `(do
            ~@(map (fn [[type & meths]]
-                    `(do
-                       (clojure.core/alter-var-root
-                        (var ~protocol-name) update :satisfies (fnil conj #{})
-                        (symbol (str ~type)))
-                       ~@(process-methods ctx type meths pns extend-via-metadata)))
+                    (let [type #?(:clj type
+                                  :cljs (get cljs-type-symbols type type))]
+                      `(do
+                         (clojure.core/alter-var-root
+                          (var ~protocol-name) update :satisfies (fnil conj #{})
+                          (symbol (str ~type)))
+                         ~@(process-methods ctx type meths pns extend-via-metadata))))
                   impls))]
     expansion))
 
 (defn extend-type [_form _env ctx atype & proto+meths]
-  (let [#?@(:cljs [atype (if (= 'default atype)
-                           'js/Object
-                           atype)])
+  (let [#?@(:cljs [atype (get cljs-type-symbols atype atype)])
         proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
             (fn [[proto & meths]]
@@ -217,22 +230,25 @@
                     extend-via-metadata (:extend-via-metadata proto-data)]
                 `(do
                    (clojure.core/alter-var-root
-                    (var ~proto) update :satisfies (fnil conj #{}) (symbol (str ~atype)))
+                    (var ~proto) update :satisfies (fnil conj #{})
+                    (symbol (str ~atype)))
                    ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 
 (defn find-matching-non-default-method [protocol obj]
   (or (when-let [sats (:satisfies protocol)]
-        (when-let [t (types/type-impl obj)]
-          #_{:clj-kondo/ignore [:redundant-let]}
-          (let [t (cond
-                    #?(:clj (class? t))
-                    #?(:clj (symbol (.getName ^Class t)))
-                    (instance? sci.lang.Type t)
-                    (symbol (str t))
-                    :else t)]
-            (contains? sats t))))
+        (or #?(:clj (contains? sats (symbol "class java.lang.Object"))
+               :cljs (contains? sats (symbol extend-default-val)))
+            (when-let [t (types/type-impl obj)]
+              #_{:clj-kondo/ignore [:redundant-let]}
+              (let [t (cond
+                        #?(:clj (class? t))
+                        #?(:clj (symbol (.getName ^Class t)))
+                        (instance? sci.lang.Type t)
+                        (symbol (str t))
+                        :else t)]
+                (contains? sats t)))))
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                         (let [ms (methods %)
                               default (get ms :default)]
