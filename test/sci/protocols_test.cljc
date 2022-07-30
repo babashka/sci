@@ -5,7 +5,7 @@
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
    [sci.test-utils :as tu])
-  (:import [java.lang Long]))
+  #?(:clj (:import [java.lang Long])))
 
 (deftest protocol-test
   (let [prog "
