@@ -1011,6 +1011,7 @@
    #?@(:clj ['proxy* (core-var 'proxy* proxy/proxy* true)
              'proxy (macrofy 'proxy proxy/proxy clojure-core-ns true)])
    'satisfies? (copy-core-var sci.impl.protocols/satisfies?)
+   'type->str (copy-core-var sci.impl.protocols/type->str)
    ;; end protocols
    ;; IDeref as protocol
    'deref (core-var 'deref core-protocols/deref*)

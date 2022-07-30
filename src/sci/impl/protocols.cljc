@@ -2,7 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [defprotocol extend-protocol
                             extend extend-type reify satisfies?
-                            extends? implements?])
+                            extends? implements? type->str])
   (:require
    #?(:clj [sci.impl.interop :as interop])
    [sci.impl.deftype]
@@ -197,6 +197,10 @@
       'array 'js/Array
       'function 'js/Function
       'boolean 'js/Boolean}))
+
+(defn type->str
+  [t]
+  (str t))
 
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
