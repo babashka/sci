@@ -217,7 +217,7 @@
                       `(do
                          (clojure.core/alter-var-root
                           (var ~protocol-name) update :satisfies (fnil conj #{})
-                          (symbol (str ~type)))
+                          (symbol (~'type->str ~type)))
                          ~@(process-methods ctx type meths pns extend-via-metadata))))
                   impls))]
     expansion))
@@ -235,7 +235,7 @@
                 `(do
                    (clojure.core/alter-var-root
                     (var ~proto) update :satisfies (fnil conj #{})
-                    (symbol (str ~atype)))
+                    (symbol (~'type->str ~atype)))
                    ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
@@ -245,14 +245,7 @@
         (or #?(:clj (contains? sats (symbol "class java.lang.Object"))
                :cljs (contains? sats (symbol extend-default-val)))
             (when-let [t (types/type-impl obj)]
-              #_{:clj-kondo/ignore [:redundant-let]}
-              (let [t (cond
-                        #?(:clj (class? t))
-                        #?(:clj (symbol (.getName ^Class t)))
-                        (instance? sci.lang.Type t)
-                        (symbol (str t))
-                        :else t)]
-                (contains? sats t)))))
+              (contains? sats (symbol (type->str t))))))
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                         (let [ms (methods %)
                               default (get ms :default)]
