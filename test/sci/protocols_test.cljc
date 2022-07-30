@@ -4,7 +4,8 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu])
+  (:import [java.lang Long]))
 
 (deftest protocol-test
   (let [prog "
@@ -331,18 +332,25 @@
 (extend-protocol Marker Foo)
 (satisfies? Marker (->Foo))
 ")))
-  #?(:clj (is (true? (sci/binding [sci/out *out*](sci/eval-string "
-(defprotocol Marker)
-
+  (is (true?
+       (sci/binding [sci/out *out*]
+         (-> "(defprotocol Marker)
 (extend-type java.lang.Long Marker)
-(satisfies? Marker 1)
-" {:classes '{java.lang.Long java.lang.Long}})))))
-  #?(:clj (is (true? (sci/binding [sci/out *out*](sci/eval-string "
-(defprotocol Marker)
-
+(satisfies? Marker 1)"
+             #?(:cljs (str/replace "java.lang.Long" "number"))
+             (sci/eval-string
+              #?(:clj {:classes {'java.lang.Long java.lang.Long}}
+                 :cljs {:classes {'js #js {:Number js/Number}}}))))))
+  (is (true?
+       (sci/binding [sci/out *out*]
+         (-> "(defprotocol Marker)
 (extend-protocol Marker java.lang.Long)
-(satisfies? Marker 1)
-" {:classes '{java.lang.Long java.lang.Long}}))))))
+(satisfies? Marker 1)"
+             #?(:cljs (str/replace "java.lang.Long" "number"))
+             (sci/eval-string
+              #?(:clj {:classes {'java.lang.Long java.lang.Long}}
+                 :cljs {:classes {'js #js {:Number js/Number}}})))))))
+
 
 (deftest return-value-test
   (is (true? (eval* "(= 'P (defprotocol P))"))))
