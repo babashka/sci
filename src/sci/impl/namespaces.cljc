@@ -826,6 +826,11 @@
    '-mutate sci.impl.types/-mutate
    'type types/type-impl})
 
+(def sci-impl-protocols
+  {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)
+   :private true
+   'type->str sci.impl.protocols/type->str})
+
 ;;;; REPL vars
 
 (def *1 (sci.impl.utils/dynamic-var '*1 nil {:ns clojure-core-ns}))
@@ -1011,7 +1016,6 @@
    #?@(:clj ['proxy* (core-var 'proxy* proxy/proxy* true)
              'proxy (macrofy 'proxy proxy/proxy clojure-core-ns true)])
    'satisfies? (copy-core-var sci.impl.protocols/satisfies?)
-   'type->str (copy-core-var sci.impl.protocols/type->str)
    ;; end protocols
    ;; IDeref as protocol
    'deref (core-var 'deref core-protocols/deref*)
@@ -1831,4 +1835,5 @@
                                #?(:clj clojure.edn/read-string
                                   :cljs cljs.reader/read-string) clojure-edn-namespace)}
    'sci.impl.records sci-impl-records
-   'sci.impl.deftype sci-impl-deftype})
+   'sci.impl.deftype sci-impl-deftype
+   'sci.impl.protocols sci-impl-protocols})

@@ -217,7 +217,7 @@
                       `(do
                          (clojure.core/alter-var-root
                           (var ~protocol-name) update :satisfies (fnil conj #{})
-                          (clojure.core/type->str ~type))
+                          (type->str ~type))
                          ~@(process-methods ctx type meths pns extend-via-metadata))))
                   impls))]
     expansion))
@@ -235,7 +235,7 @@
                 `(do
                    (clojure.core/alter-var-root
                     (var ~proto) update :satisfies (fnil conj #{})
-                    (clojure.core/type->str ~atype))
+                    (type->str ~atype))
                    ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
