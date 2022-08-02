@@ -242,9 +242,8 @@
 
 (defn find-matching-non-default-method [protocol obj]
   (or (when-let [sats (:satisfies protocol)]
-        (prn sats)
-        (or #?(:clj (contains? sats (symbol "class java.lang.Object"))
-               :cljs (contains? sats (symbol extend-default-val)))
+        (or #?(:clj (contains? sats "class java.lang.Object")
+               :cljs (contains? sats extend-default-val))
             (when-let [t (types/type-impl obj)]
               (contains? sats (type->str t)))))
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
