@@ -2,7 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [defprotocol extend-protocol
                             extend extend-type reify satisfies?
-                            extends? implements? type->str])
+                            extends? implements?])
   (:require
    #?(:clj [sci.impl.interop :as interop])
    [sci.impl.deftype]
@@ -198,10 +198,6 @@
       'function 'js/Function
       'boolean 'js/Boolean}))
 
-(defn type->str
-  [t]
-  (str t))
-
 (defn extend-protocol [_ _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
         protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
@@ -217,7 +213,7 @@
                       `(do
                          (clojure.core/alter-var-root
                           (var ~protocol-name) update :satisfies (fnil conj #{})
-                          (type->str ~type))
+                          (symbol (str ~type)))
                          ~@(process-methods ctx type meths pns extend-via-metadata))))
                   impls))]
     expansion))
@@ -235,17 +231,24 @@
                 `(do
                    (clojure.core/alter-var-root
                     (var ~proto) update :satisfies (fnil conj #{})
-                    (type->str ~atype))
+                    (symbol (str ~atype)))
                    ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 
 (defn find-matching-non-default-method [protocol obj]
   (or (when-let [sats (:satisfies protocol)]
-        (or #?(:clj (contains? sats "class java.lang.Object")
-               :cljs (contains? sats extend-default-val))
+        (or #?(:clj (contains? sats (symbol "class java.lang.Object"))
+               :cljs (contains? sats (symbol extend-default-val)))
             (when-let [t (types/type-impl obj)]
-              (contains? sats (type->str t)))))
+              #_{:clj-kondo/ignore [:redundant-let]}
+              (let [t (cond
+                        #?(:clj (class? t))
+                        #?(:clj (symbol (.getName ^Class t)))
+                        (instance? sci.lang.Type t)
+                        (symbol (str t))
+                        :else t)]
+                (contains? sats t)))))
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                         (let [ms (methods %)
                               default (get ms :default)]

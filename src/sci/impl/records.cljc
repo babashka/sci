@@ -2,7 +2,6 @@
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
   (:require [clojure.string :as str]
-            [sci.impl.protocols :as protocols]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]
@@ -272,7 +271,7 @@
                    _ (when protocol-var
                        ;; TODO: not all externally defined protocols might have the :var already
                        (vars/alter-var-root protocol-var update :satisfies
-                                            (fnil conj #{}) (protocols/type->str rec-type)))
+                                            (fnil conj #{}) (symbol (str rec-type))))
                    protocol-ns (:ns protocol)
                    pns (cond protocol-ns (str (types/getName protocol-ns))
                              (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
