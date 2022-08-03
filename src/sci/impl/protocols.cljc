@@ -267,7 +267,8 @@
                      (condp = p
                        IDeref (cljs.core/satisfies? IDeref obj)
                        ISwap (cljs.core/satisfies? ISwap obj)
-                       IReset (cljs.core/satisfies? IReset obj)))
+                       IReset (cljs.core/satisfies? IReset obj)
+                       IRecord (cljs.core/satisfies? IRecord obj)))
                 (find-matching-non-default-method protocol obj)))
        ;; NOTE: what if the protocol doesn't have any methods?
        ;; This probably needs fixing
