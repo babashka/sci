@@ -283,3 +283,9 @@ bar/bar"}
                                       {:handled true})})]
     (sci/eval-string* the-ctx "(ns foo) (require '[bar :as b])")
     (is @success?)))
+
+#?(:cljs
+    (deftest test-munge-demunge
+      (is (= 'cljs.core/first?
+             (demunge (munge 'cljs.core/first?))))))
+

@@ -793,8 +793,8 @@
       'compareAndSet core-protocols/compareAndSet
       'IAtom2 core-protocols/iatom2-protocol
       'resetVals core-protocols/resetVals
-      'swapVals core-protocols/swapVals
-      }))
+      'swapVals core-protocols/swapVals}))
+      
 
 ;;;; Record impl
 
@@ -813,8 +813,8 @@
    '-create-record-type -create-type
    ;; what do we use this for again?
    '-reg-key! -reg-key!
-   '->record-impl sci.impl.records/->record-impl
-   })
+   '->record-impl sci.impl.records/->record-impl})
+   
 
 (def sci-impl-deftype
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
@@ -885,7 +885,7 @@
                                                                           (if qualifier
                                                                             (str qualifier "-SCI")
                                                                             "SCI")))
-                                  {:ns clojure-core-ns}) ))
+                                  {:ns clojure-core-ns})))
 
 #?(:clj (defn
           clojure-version
@@ -1152,7 +1152,7 @@
    'chunk-next (copy-core-var chunk-next)
    'chunked-seq? (copy-core-var chunked-seq?)
    'dec (copy-core-var dec)
-   'declare (macrofy 'declare declare* )
+   'declare (macrofy 'declare declare*)
    'dedupe (copy-core-var dedupe)
    'defn- (macrofy 'defn- defn-*)
    'defonce (macrofy 'defonce defonce*)
@@ -1163,6 +1163,7 @@
    'delay (macrofy 'delay delay*)
    'delay? (copy-core-var delay?)
    #?@(:clj ['deliver (copy-core-var deliver)])
+   #?@(:cljs ['demunge (copy-core-var cljs.core/demunge)])
    'derive (core-var 'derive hierarchies/derive* true)
    'descendants (core-var 'descendants hierarchies/descendants* true)
    'dissoc (copy-core-var dissoc)
@@ -1676,7 +1677,7 @@
      {:added "1.3"}
      [fn-name]
      (clojure.lang.Compiler/demunge fn-name)))
-
+   
 #?(:clj
    (defn stack-element-str
      "Returns a (possibly unmunged) string representation of a StackTraceElement"
