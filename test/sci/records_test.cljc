@@ -203,3 +203,6 @@
   (is (= "foo.Foo" (str (tu/eval* "(ns foo) (defrecord Foo []) `Foo" {}))))
   (is (= "foo.Foo" (str (tu/eval* "(ns foo) (defrecord Foo []) (ns bar) (import foo.Foo) `Foo" {}))))
   (is (true? (tu/eval* "(ns foo) (defrecord Foo []) (ns bar) (import foo.Foo) (symbol? `Foo)" {}))))
+
+(deftest satisfies-IRecord-test
+  #?(:cljs (is (true? (sci/eval-string "(defrecord Foo []) (satisfies? IRecord (->Foo))")))))
