@@ -310,6 +310,38 @@
                                      {:classes {'java.lang.Exception java.lang.Exception}})))
      :cljs (is (nil? (sci/eval-string "(resolve 'js/Error)" {:classes {'js #js {:Error js/Error}}})))))
 
+#?(:clj
+   (deftest nested-type-hint-is-applied-test
+     (is (= (BigDecimal. 42)
+            (sci/eval-string "
+(defn- nested-hint [^Number n]
+  ;; .longValue is available on Number, should work
+  (let [^BigDecimal n (.add (BigDecimal. (.longValue n)) (BigDecimal. 2))]
+    ;; .abs is available on BigDecimal but not non Number, should work
+    (.abs n)))
+
+(nested-hint (BigDecimal. -44))"
+                             {:classes {'BigDecimal BigDecimal :allow :all}})))))
+
+#?(:clj
+   (deftest nested-type-hint-pops-after-nest-test
+     (try
+       (sci/eval-string "
+(defn- nested-hint [^Number n]
+  (let [^BigDecimal n (BigDecimal. -123)]
+    ;; .abs is available on BigDecimal but not non Number, should work
+    (.abs n))
+  ;; longValue is available on Number, should work
+  (.longValue n)
+  ;; precision is not available on BigDecimal but not on Number, should throw
+  (.precision n))
+
+(nested-hint (BigDecimal. -42))"
+                        {:classes {'BigDecimal BigDecimal :allow :all}})
+       (is false "expected a throw")
+       (catch Exception e
+         (is (= "precision" (-> e ex-data :message)))))))
+
 (deftest ns-resolve-test
   (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
 

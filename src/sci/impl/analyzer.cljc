@@ -495,7 +495,9 @@
                  iden->invoke-idx (:iden->invoke-idx ctx)
                  iden->invoke-idx (assoc iden->invoke-idx new-iden idx)
                  ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)]
-             [(update ctx :bindings assoc binding-name new-iden)
+             [(update ctx :bindings #(-> %
+                                         (dissoc binding-name)
+                                         (assoc binding-name new-iden)))
               (conj new-let-bindings binding-name v)
               (conj idens new-iden)]))
          [ctx [] []]
