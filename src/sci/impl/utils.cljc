@@ -58,35 +58,35 @@
 
 #?(:clj
    (defn rewrite-ex-msg [ex-msg env fm]
-     (if ex-msg
-       (let [[_ printed-fn] (re-matches #"Wrong number of args \(\d+\) passed to: (.*)" ex-msg)
-             fn-pat #"(sci\.impl\.)?fns/fun/arity-([0-9])+--\d+"
-             [match _prefix arity] (re-find fn-pat ex-msg)
-             prefix "sci.impl."
-             friendly-name (when arity (str "function of arity " arity))
-             ex-msg (if (:name fm)
-                      (let [ns (symbol (str (:ns fm)))
-                            var-name (:name fm)
-                            var (get-in @env [:namespaces ns var-name])
-                            fstr (when var (let [varf (if (instance? clojure.lang.IDeref var)
-                                                        (deref var)
-                                                        var)
-                                                 varf (or
-                                                       ;; resolve macro inner fn for comparison
-                                                       (some-> varf meta :sci.impl/inner-fn)
-                                                       varf)
-                                                 fstr (clojure.lang.Compiler/demunge (str varf))
-                                                 fstr (first (str/split fstr #"@"))
-                                                 fstr (str/replace fstr (re-pattern (str "^" prefix)) "")]
-                                             fstr))]
-                        (cond (and fstr printed-fn (= fstr printed-fn))
-                              (str/replace ex-msg printed-fn
-                                           (str (:ns fm) "/" (:name fm)))
-                              friendly-name (str/replace ex-msg match friendly-name)
-                              :else ex-msg))
-                      ex-msg)]
-         ex-msg)
-       ex-msg)))
+     (when ex-msg
+       (if-let [[_ printed-fn] (re-matches #"Wrong number of args \(\d+\) passed to: (.*)" ex-msg)]
+         (let [fn-pat #"(sci\.impl\.)?fns/fun/arity-([0-9])+--\d+"
+               [fn-match prefix arity] (re-find fn-pat ex-msg)
+               friendly-name (when arity (str "function of arity " arity))]
+           (if (:name fm)
+             (let [ns (symbol (str (:ns fm)))
+                   var-name (:name fm)
+                   var (get-in @env [:namespaces ns var-name])
+                   fstr (when var (let [varf (if (instance? clojure.lang.IDeref var)
+                                               (deref var)
+                                               var)
+                                        varf (or
+                                              ;; resolve macro inner fn for comparison
+                                              (some-> varf meta :sci.impl/inner-fn)
+                                              varf)
+                                        fstr (clojure.lang.Compiler/demunge (str varf))
+                                        fstr (first (str/split fstr #"@"))
+                                        fstr (if prefix
+                                               fstr
+                                               (str/replace fstr #"^sci\.impl\." ""))]
+                                    fstr))]
+               (cond (and fstr printed-fn (= fstr printed-fn))
+                     (str/replace ex-msg printed-fn
+                                  (str (:ns fm) "/" (:name fm)))
+                     friendly-name (str/replace ex-msg fn-match friendly-name)
+                     :else ex-msg))
+             ex-msg))
+         ex-msg))))
 
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
