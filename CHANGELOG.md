@@ -2,6 +2,10 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+- [#791](https://github.com/babashka/sci/issues/791): Fix friendly arity exception messages for Clojure 1.10, 1.11 ([@lread](https://github.com/lread)) 
+
 ## v0.3.32
 
 - [#767](https://github.com/babashka/sci/issues/767): Reduce advanced compiled JS output with about 20% (~900kb -> ~740kb)
