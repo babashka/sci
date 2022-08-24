@@ -15,6 +15,8 @@
                  [org.babashka/sci.impl.types "0.0.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.9.0 {:dependencies [[org.clojure/clojure "1.9.0"]]}
+             :clojure-1.10.3 {:depdencies [[org.clojure/clojure "1.10.3"]]}
+             :clojure-1.11.1 {:dependencies [[org.clojure/clojure "1.11.1"]]}
              :native-image {:dependencies [[org.clojure/clojure "1.10.3"]]}
              :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
              :test {:resource-paths ["test-resources"]
