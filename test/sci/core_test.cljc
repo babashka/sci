@@ -310,6 +310,90 @@
                                      {:classes {'java.lang.Exception java.lang.Exception}})))
      :cljs (is (nil? (sci/eval-string "(resolve 'js/Error)" {:classes {'js #js {:Error js/Error}}})))))
 
+#?(:clj
+   (deftest type-hint-let-test
+     (is (= (BigDecimal. 42)
+            (sci/eval-string "
+(defn- nested-hint [^Number n]
+  ;; .longValue is available on Number, should work
+  (let [^BigDecimal n (.add (BigDecimal. (.longValue n)) (BigDecimal. 2))]
+    ;; .abs is available on BigDecimal but not non Number, should work
+    (.abs n)))
+
+(nested-hint (BigDecimal. -44))"
+                             {:classes {'BigDecimal BigDecimal :allow :all}})))))
+
+#?(:clj
+   (deftest type-hint-let-pops-after-nest-test
+     (try
+       (sci/eval-string "
+(defn- nested-hint [^Number n]
+  (let [^BigDecimal n (BigDecimal. -123)]
+    ;; .abs is available on BigDecimal but not non Number, should work
+    (.abs n))
+  ;; longValue is available on Number, should work
+  (.longValue n)
+  ;; precision is not available on BigDecimal but not on Number, should throw
+  (.precision n))
+
+(nested-hint (BigDecimal. -42))"
+                        {:classes {'BigDecimal BigDecimal :allow :all}})
+       (is false "expected a throw")
+       (catch Exception e
+         (is (= "precision" (-> e ex-data :message)))))))
+
+#?(:clj
+   (deftest type-hint-shadowed-def-test
+     (is (= (BigDecimal. 42)
+            (sci/eval-string "
+(def ^Number n (BigDecimal. 17))
+
+(defn- foo [^BigDecimal n]
+  ;; .abs is available on BigDecimal but not non Number, should work
+  (.abs n))
+
+(foo (BigDecimal. 42))"
+                             {:classes {'BigDecimal BigDecimal :allow :all}})))))
+
+#?(:clj
+   (deftest type-hint-catch-test
+     (is (= "message"
+            (sci/eval-string "
+(defn foo [^Number x]
+  (try
+    (throw (ex-info \"message\" {}))
+    (catch Exception x
+      ;; .getMessage is available on Exception, should work
+      (.getMessage x))))
+
+(foo (BigDecimal. 42))"
+                             {:classes {'BigDecimal BigDecimal :allow :all}})))))
+
+#?(:clj
+   (deftest type-hint-letfn-test
+     (is (= (BigDecimal. 33)
+            (sci/eval-string "
+(defn foo [^Number bar]
+  (letfn [(myfn [^BigDecimal bar]
+            ;; .abs is available on BigDecimal but not non Number, should work
+            (.abs bar))]
+    (myfn (BigDecimal. 33))))
+
+(foo (BigDecimal. 42))"
+                             {:classes {'BigDecimal BigDecimal :allow :all}})))))
+
+#?(:clj
+   (deftest type-hint-fn-test
+     (is (= (BigDecimal. 99)
+            (sci/eval-string "
+(defn foo [^Number x]
+  (fn [^BigDecimal x]
+    ;; .abs is available on BigDecimal but not non Number, should work
+    (.abs x)))
+
+((foo (BigDecimal. -72)) (BigDecimal. -99))"
+                             {:classes {'BigDecimal BigDecimal :allow :all}})))))
+
 (deftest ns-resolve-test
   (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
 

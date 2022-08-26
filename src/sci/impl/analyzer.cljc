@@ -291,7 +291,7 @@
         param-idens (repeatedly param-count gensym)
         param-bindings (zipmap param-names param-idens)
         iden->invoke-idx (zipmap param-idens (range))
-        bindings (:bindings ctx)
+        bindings (apply dissoc (:bindings ctx) param-names)
         ctx (assoc ctx :bindings (merge bindings param-bindings))
         ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
@@ -495,7 +495,9 @@
                  iden->invoke-idx (:iden->invoke-idx ctx)
                  iden->invoke-idx (assoc iden->invoke-idx new-iden idx)
                  ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)]
-             [(update ctx :bindings assoc binding-name new-iden)
+             [(update ctx :bindings #(-> %
+                                         (dissoc binding-name)
+                                         (assoc binding-name new-iden)))
               (conj new-let-bindings binding-name v)
               (conj idens new-iden)]))
          [ctx [] []]
@@ -753,6 +755,7 @@
                                   closure-bindings (:closure-bindings ctx)
                                   ex-idx (update-parents ctx closure-bindings ex-iden)
                                   ctx (-> ctx
+                                          (update-in [:bindings] dissoc binding)
                                           (assoc-in [:bindings binding] ex-iden)
                                           (assoc-in [:iden->invoke-idx ex-iden] ex-idx))
                                   analyzed-body (analyze ctx
