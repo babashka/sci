@@ -755,8 +755,10 @@
                                   closure-bindings (:closure-bindings ctx)
                                   ex-idx (update-parents ctx closure-bindings ex-iden)
                                   ctx (-> ctx
-                                          (update-in [:bindings] dissoc binding)
-                                          (assoc-in [:bindings binding] ex-iden)
+                                          (update-in [:bindings] (fn [bindings]
+                                                                   (-> bindings
+                                                                       (dissoc binding)
+                                                                       (assoc binding ex-iden))))
                                           (assoc-in [:iden->invoke-idx ex-iden] ex-idx))
                                   analyzed-body (analyze ctx
                                                          (cons 'do body))]
