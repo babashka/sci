@@ -135,3 +135,9 @@
       ; macroexpands to a let
       (is (= expected
           (try-string "(binding [] (assert false) 1)"))))))
+
+(deftest analysis-error-test
+  (is
+   (= ["user - <expr>:1:1"]
+      (sci/format-stacktrace
+       (sci/stacktrace (try (sci/eval-string "(def n x)") (catch #?(:clj Exception :cljs js/Error) e e)))))))

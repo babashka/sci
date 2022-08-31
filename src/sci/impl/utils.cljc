@@ -108,7 +108,8 @@
              (vswap! st conj stack)))
          (let [d (ex-data e)
                ;; st (:sci.impl/callstack d)
-               wrapping-sci-error? (isa? (:type d) :sci/error)]
+               wrapping-sci-error? (and (isa? (:type d) :sci/error)
+                                        (:sci.impl/callstack d))]
            (if wrapping-sci-error?
              (throw e)
              (let [ex-msg #?(:clj (.getMessage e)
@@ -122,13 +123,15 @@
                (if (and line column)
                  (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
                                  :cljs ex-msg)
+                       phase (:phase d)
                        new-exception
-                       (let [new-d {:type :sci/error
-                                    :line line
-                                    :column column
-                                    :message ex-msg
-                                    :sci.impl/callstack st
-                                    :file file}]
+                       (let [new-d (cond-> {:type :sci/error
+                                            :line line
+                                            :column column
+                                            :message ex-msg
+                                            :sci.impl/callstack st
+                                            :file file}
+                                     phase (assoc :phase phase))]
                          (ex-info ex-msg new-d e))]
                    (throw new-exception))
                  (throw e)))))))))

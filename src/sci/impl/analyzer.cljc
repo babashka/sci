@@ -1433,6 +1433,9 @@
                                  (str "Cannot call " (pr-str f) " as a function.")))))
 
                  stack))))
+      (catch #?(:clj Exception
+                :cljs :default) e
+        (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil (utils/make-stack m))))
       (finally
         (when eval-file
           (vars/pop-thread-bindings))))))
