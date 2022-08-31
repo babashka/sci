@@ -399,16 +399,16 @@
   (let [v vol]
     `(vreset! ~v (~f (deref ~v) ~@args))))
 
-(defn ^:macro memfn
+(def memfn
   "Expands into code that creates a fn that expects to be passed an
   object and any args and calls the named instance method on the
   object passing the args. Use when you want to treat a JavaScript
   method as a first-class fn."
-  [_ _ name & args]
-  (let [t (with-meta (gensym "target")
-            (meta name))]
-    `(fn [~t ~@args]
-       (. ~t (~name ~@args)))))
+  ^:sci/macro (fn [_ _ name & args]
+                (let [t (with-meta (gensym "target")
+                          (meta name))]
+                  `(fn [~t ~@args]
+                     (. ~t (~name ~@args))))))
 
 (defn delay*
   [_ _ & body]
@@ -793,7 +793,7 @@
       'IAtom2 core-protocols/iatom2-protocol
       'resetVals core-protocols/resetVals
       'swapVals core-protocols/swapVals}))
-      
+
 
 ;;;; Record impl
 
@@ -813,7 +813,7 @@
    ;; what do we use this for again?
    '-reg-key! -reg-key!
    '->record-impl sci.impl.records/->record-impl})
-   
+
 
 (def sci-impl-deftype
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
@@ -1676,7 +1676,7 @@
      {:added "1.3"}
      [fn-name]
      (clojure.lang.Compiler/demunge fn-name)))
-   
+
 #?(:clj
    (defn stack-element-str
      "Returns a (possibly unmunged) string representation of a StackTraceElement"
