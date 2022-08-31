@@ -11,7 +11,7 @@
                             print-method
                             print-dup
                             #?(:cljs alter-meta!)
-                            #?(:cljs memfn)])
+                            memfn])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -399,17 +399,16 @@
   (let [v vol]
     `(vreset! ~v (~f (deref ~v) ~@args))))
 
-#?(:cljs
-   (defn ^:macro memfn
-     "Expands into code that creates a fn that expects to be passed an
+(defn ^:macro memfn
+  "Expands into code that creates a fn that expects to be passed an
   object and any args and calls the named instance method on the
   object passing the args. Use when you want to treat a JavaScript
   method as a first-class fn."
-     [_ _ name & args]
-     (let [t (with-meta (gensym "target")
-               (meta name))]
-       `(fn [~t ~@args]
-          (. ~t (~name ~@args))))))
+  [_ _ name & args]
+  (let [t (with-meta (gensym "target")
+            (meta name))]
+    `(fn [~t ~@args]
+       (. ~t (~name ~@args)))))
 
 (defn delay*
   [_ _ & body]
