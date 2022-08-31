@@ -120,7 +120,10 @@
     (doseq [expr ["(.)" "(. {})" "(.foo)"]]
       (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error)
                             #"Malformed"
-                            (eval* expr))))))
+                            (try (eval* expr)
+                                 (catch #?(:clj Exception :cljs :default) e
+                                   (throw #?(:clj (.getCause e))
+                                          #?(:cljs (.-cause e))))))))))
 
 ;;;; CLJS
 

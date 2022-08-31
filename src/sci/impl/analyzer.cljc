@@ -1542,43 +1542,47 @@
    (analyze ctx expr false))
   ([ctx expr top-level?]
    (let [m (meta expr)]
-     (cond
-       (constant? expr) (->constant expr)
-       (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
-                            mv (meta v)]
-                        (cond (constant? v) (->constant v)
-                              (utils/var? v)
-                              (if (and (vars/needs-ctx? v)
-                                       (:sci/built-in mv))
-                                ;; this is for built-in vars like require that
-                                ;; are used within a higher order function, not
-                                ;; in call position
-                                (partial v ctx)
-                                (if (:const mv)
-                                  @v
-                                  (if (vars/isMacro v)
-                                    (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                                (str "Can't take value of a macro: " v "")))
-                                    (sci.impl.types/->Node
-                                     (faster/deref-1 v)
-                                     nil))))
-                              :else v))
-       ;; don't evaluate records, this check needs to go before map?
-       ;; since a record is also a map
-       (record? expr) expr
-       (map? expr) (analyze-map ctx expr m)
-       #?@(:cljs [(instance? JSValue expr) (analyze-js-obj ctx expr)])
-       (vector? expr) (analyze-vec-or-set ctx
-                                          ;; relying on analyze-children to
-                                          ;; return a vector
-                                          identity
-                                          vector expr m)
-       (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
-       (seq? expr) (if (seq expr)
-                     (analyze-call ctx expr m top-level?)
-                     ;; the empty list
-                     expr)
-       :else expr))))
+     (try
+       (cond
+         (constant? expr) (->constant expr)
+         (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
+                              mv (meta v)]
+                          (cond (constant? v) (->constant v)
+                                (utils/var? v)
+                                (if (and (vars/needs-ctx? v)
+                                         (:sci/built-in mv))
+                                  ;; this is for built-in vars like require that
+                                  ;; are used within a higher order function, not
+                                  ;; in call position
+                                  (partial v ctx)
+                                  (if (:const mv)
+                                    @v
+                                    (if (vars/isMacro v)
+                                      (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                                                  (str "Can't take value of a macro: " v "")))
+                                      (sci.impl.types/->Node
+                                       (faster/deref-1 v)
+                                       nil))))
+                                :else v))
+         ;; don't evaluate records, this check needs to go before map?
+         ;; since a record is also a map
+         (record? expr) expr
+         (map? expr) (analyze-map ctx expr m)
+         #?@(:cljs [(instance? JSValue expr) (analyze-js-obj ctx expr)])
+         (vector? expr) (analyze-vec-or-set ctx
+                                            ;; relying on analyze-children to
+                                            ;; return a vector
+                                            identity
+                                            vector expr m)
+         (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
+         (seq? expr) (if (seq expr)
+                       (analyze-call ctx expr m top-level?)
+                       ;; the empty list
+                       expr)
+         :else expr)
+       (catch #?(:clj Exception
+                 :cljs :default) e
+         (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil (utils/make-stack m))))))))
 
 (vreset! utils/analyze analyze)
 
