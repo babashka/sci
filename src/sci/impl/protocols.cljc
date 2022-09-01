@@ -224,12 +224,13 @@
                   impls))]
     expansion))
 
-(defn extend-type [_form _env ctx atype & proto+meths]
+(defn extend-type [form _env ctx atype & proto+meths]
   (let [#?@(:cljs [atype (get cljs-type-symbols atype atype)])
         proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
             (fn [[proto & meths]]
-              (let [protocol-var (@utils/eval-resolve-state ctx (:bindings ctx) proto)
+              (let [protocol-var (or (@utils/eval-resolve-state ctx (:bindingx ctx) proto)
+                                     (utils/throw-error-with-location (str "Protocol not found: " proto) form))
                     proto-data (deref protocol-var)
                     protocol-ns (:ns proto-data)
                     pns (str (types/getName protocol-ns))
