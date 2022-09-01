@@ -202,9 +202,11 @@
   [t]
   (str t))
 
-(defn extend-protocol [_ _ ctx protocol-name & impls]
+(defn extend-protocol [form _ ctx protocol-name & impls]
   (let [impls (utils/split-when #(not (seq? %)) impls)
-        protocol-var (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
+        protocol-var
+        (or (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
+            (utils/throw-error-with-location (str "Protocol not found: " protocol-name) form))
         protocol-data (deref protocol-var)
         extend-via-metadata (:extend-via-metadata protocol-data)
         protocol-ns (:ns protocol-data)
