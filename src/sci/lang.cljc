@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [sci.impl.types :as types]
             [sci.impl.vars :as vars]
-            [sci.impl.unrestrict :refer [*unrestricted*]])
+            #?(:cljs [sci.impl.unrestrict :refer [*unrestricted*]]))
   (:refer-clojure :exclude [Var ->Var var? Namespace ->Namespace]))
 
 #?(:clj (set! *warn-on-reflection* true))
