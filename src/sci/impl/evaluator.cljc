@@ -119,9 +119,10 @@
 (defn eval-try
   [ctx bindings body catches finally sci-error]
   (try
-    (binding [utils/*in-try* (and (not sci-error)
-                                  ;; try/finally without catch
-                                  (seq catches))]
+    (binding [utils/*in-try* (or utils/*in-try*
+                                 (and (not sci-error)
+                                      ;; try/finally without catch
+                                      (seq catches)))]
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
       (if-let
