@@ -167,7 +167,11 @@
   #?(:clj (resetMeta [this m]
                      (vars/with-writeable-var this meta
                        (locking (set! meta m)))))
-  #?(:clj clojure.lang.IRef) ;; added for multi-methods
+  #?@(:clj [clojure.lang.IRef
+            (addWatch [_ _ _]
+                      (throw (java.lang.UnsupportedOperationException. "Method add-watch not implemented for sci.lang.Var")))
+            (removeWatch [_ _]
+                      (throw (java.lang.UnsupportedOperationException. "Method remove-watch not implemented for sci.lang.Var")))])
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [this]
