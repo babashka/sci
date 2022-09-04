@@ -83,7 +83,8 @@
                 (if (str/includes? sym-name-str ".")
                   ;; NOTE: this should probably be moved to edamame at some
                   ;; point, but it's at a pristine 1.0.0 status right now ;)
-                  (if (str/ends-with? sym-name-str ".")
+                  (if (and (not (str/starts-with? sym-name-str "."))
+                           (str/ends-with? sym-name-str "."))
                     (symbol (str (res-without-sym (symbol (subs sym-name-str 0 (dec (count sym-name-str))))) "."))
                     ;; unresolved class
                     sym)

@@ -15,4 +15,3 @@
     (is (= ::sci/eof (sci/parse-next ctx reader)))
     (is (= 1 (sci/get-line-number reader)))
     (is (= 22 (sci/get-column-number reader)))))
-

@@ -896,7 +896,9 @@
   (is (= 'foo/inc (eval* "(ns foo) (defn inc []) `inc")))
   (is (true? (eval* "(require '[clojure.string :refer [join]]) (= 'clojure.string/join `join)")))
   (is (true? (eval* "(ns foo) (defn inc []) (ns bar (:require [foo :refer [inc]])) (= 'foo/inc `inc)")))
-  (is (= '[foo.bar user/foo] (eval* "(ns user) [`foo.bar `foo]"))))
+  (is (= '[foo.bar user/foo] (eval* "(ns user) [`foo.bar `foo]")))
+  (is (= '(user.Foo.) (sci/eval-string "(defrecord Foo []) `(Foo.)")))
+  (is (= '... (sci/eval-string "(defrecord Foo []) `..."))))
 
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
