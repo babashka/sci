@@ -206,3 +206,6 @@
 
 (deftest satisfies-IRecord-test
   #?(:cljs (is (true? (sci/eval-string "(defrecord Foo []) (satisfies? IRecord (->Foo))")))))
+
+(deftest resolve-record-test
+  (is (= '(user.Foo.) (sci/eval-string "(defrecord Foo []) `(Foo.)"))))

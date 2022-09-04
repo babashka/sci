@@ -15,22 +15,22 @@
 
 (def read-eval
   (utils/new-var '*read-eval* false {:ns utils/clojure-core-ns
-                                    :dynamic true}))
+                                     :dynamic true}))
 
 (def data-readers
   (utils/new-var '*data-readers* {}
-                {:ns utils/clojure-core-ns
-                 :dynamic true}))
+                 {:ns utils/clojure-core-ns
+                  :dynamic true}))
 
 (def default-data-reader-fn
   (utils/new-var '*default-data-reader-fn* nil
-                {:ns utils/clojure-core-ns
-                 :dynamic true}))
+                 {:ns utils/clojure-core-ns
+                  :dynamic true}))
 
 (def reader-resolver
   (utils/new-var '*reader-resolver* nil
-                {:ns utils/clojure-core-ns
-                 :dynamic true}))
+                 {:ns utils/clojure-core-ns
+                  :dynamic true}))
 
 (def default-opts
   (edamame/normalize-opts
@@ -56,36 +56,44 @@
   (let [env @(:env ctx)
         sym-ns (when-let [n (namespace sym)]
                  (symbol n))
-        sym-name-str (name sym)
         current-ns (utils/current-ns-name)
         current-ns-str (str current-ns)
         namespaces (get env :namespaces)
         the-current-ns (get namespaces current-ns)
         aliases (:aliases the-current-ns)
+        res-without-sym
+        (fn res-without-sym [sym]
+          (let [sym-name-str (name sym)]
+            (or (when-let [refers (:refers the-current-ns)]
+                  (when-let [v (get refers sym)]
+                    (var->sym v)))
+                (when-let [v (get the-current-ns sym)]
+                  (var->sym v))
+                (when (or (and (contains? (get namespaces 'clojure.core) sym)
+                               ;; only valid when the symbol isn't excluded
+                               (not (some-> the-current-ns
+                                            :refer
+                                            (get 'clojure.core)
+                                            :exclude
+                                            (contains? sym ))))
+                          (contains? utils/ana-macros sym))
+                  (symbol "clojure.core" sym-name-str))
+                (interop/fully-qualify-class ctx sym)
+                ;; all unresolvable symbols all resolved in the current namespace
+                (if (str/includes? sym-name-str ".")
+                  ;; NOTE: this should probably be moved to edamame at some
+                  ;; point, but it's at a pristine 1.0.0 status right now ;)
+                  (if (str/ends-with? sym-name-str ".")
+                    (symbol (str (res-without-sym (symbol (subs sym-name-str 0 (dec (count sym-name-str))))) "."))
+                    ;; unresolved class
+                    sym)
+                  (symbol current-ns-str sym-name-str)))))
         ret (if-not sym-ns
-              (or (when-let [refers (:refers the-current-ns)]
-                    (when-let [v (get refers sym)]
-                      (var->sym v)))
-                  (when-let [v (get the-current-ns sym)]
-                    (var->sym v))
-                  (when (or (and (contains? (get namespaces 'clojure.core) sym)
-                                 ;; only valid when the symbol isn't excluded
-                                 (not (some-> the-current-ns
-                                              :refer
-                                              (get 'clojure.core)
-                                              :exclude
-                                              (contains? sym ))))
-                            (contains? utils/ana-macros sym))
-                    (symbol "clojure.core" sym-name-str))
-                  (interop/fully-qualify-class ctx sym)
-                  ;; all unresolvable symbols all resolved in the current namespace
-                  (if (str/includes? sym-name-str ".")
-                    sym ;; unresolved class
-                    (symbol current-ns-str sym-name-str)))
+              (res-without-sym sym)
               (if (get-in env [:namespaces sym-ns])
                 sym
                 (if-let [ns (get aliases sym-ns)]
-                  (symbol (str ns) sym-name-str)
+                  (symbol (str ns) (name sym))
                   sym)))]
     ret))
 
