@@ -219,6 +219,19 @@
 (deftest remove-ns-test
   (is (nil? (eval* "(ns foo) (ns bar) (remove-ns 'foo) (find-ns 'foo)"))))
 
+(deftest ns-unalias-test
+  (testing "Removing an alias in an unknown namespace throws"
+    (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns-unalias (find-ns 'unknown) 'core)"))))
+
+  (testing "Removing an undefined alias is a no-op"
+    (is (nil? (eval* "(ns-unalias *ns* 'core)"))))
+
+  (testing "Removing a defined alias -- ns symbol"
+    (is (nil? (eval* "(alias 'core 'clojure.core) (ns-unalias 'user 'core) (get (ns-aliases *ns*) 'core)"))))
+
+  (testing "Removing a defined alias -- ns object"
+    (is (nil? (eval* "(alias 'core 'clojure.core) (ns-unalias *ns* 'core) (get (ns-aliases *ns*) 'core)")))))
+
 (deftest ns-syntax-test
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
