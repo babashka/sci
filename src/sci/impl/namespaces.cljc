@@ -568,6 +568,12 @@
                                 :else the-ns-map))))))
   nil)
 
+(defn sci-ns-unalias [ctx sci-ns sym]
+  (swap! (:env ctx)
+    (fn [env]
+      (update-in env [:namespaces (sci-ns-name (sci-the-ns ctx sci-ns)) :aliases] dissoc sym)))
+  nil)
+
 (defn sci-all-ns [ctx]
   (let [env (:env ctx)
         namespaces (get @env :namespaces)
@@ -1322,6 +1328,7 @@
    'ns-refers (core-var 'ns-refers sci-ns-refers true)
    'ns-map (core-var 'ns-map sci-ns-map true)
    'ns-unmap (core-var 'ns-unmap sci-ns-unmap true)
+   'ns-unalias (core-var 'ns-unalias sci-ns-unalias true)
    'ns-name (core-var 'ns-name sci-ns-name)
    'odd? (copy-core-var odd?)
    #?@(:cljs ['object? (copy-core-var object?)])
