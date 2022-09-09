@@ -177,7 +177,8 @@
 
 #?(:cljs
    (deftest IPrintWithWriter-test
-     (is (= "dude" (sci/eval-string "(defrecord Foo [x]) (extend-protocol IPrintWithWriter Foo  (-pr-writer [o w opts] (-write w \"dude\"))) (pr-str (->Foo))")))))
+     (is (= "dude" (sci/eval-string "(defrecord Foo [x]) (extend-protocol IPrintWithWriter Foo  (-pr-writer [o w opts] (-write w \"dude\"))) (pr-str (->Foo))")))
+     (is (= "dude" (sci/eval-string "(deftype Foo [] IPrintWithWriter (-pr-writer [_ w opts] (-write w \"dude\"))) (pr-str (->Foo))")))))
 
 (deftest deftype-test
   (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1)) " {})))

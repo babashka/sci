@@ -50,14 +50,22 @@
   (-mutate [_ k v]
     (set! ext-map (assoc ext-map k v)))
 
-  SciPrintMethod
-  (-sci-print-method [this w]
-    (if-let [rv var]
-      (let [m (meta rv)]
-        (if-let [pm (:sci.impl/print-method m)]
-          (pm this w)
-          (.write ^java.io.Writer w ^String (clojure-str this))))
-      (.write ^java.io.Writer w ^String (clojure-str this))))
+  #?@(:clj [SciPrintMethod
+            (-sci-print-method [this w]
+                               (if-let [rv var]
+                                 (let [m (meta rv)]
+                                   (if-let [pm (:sci.impl/print-method m)]
+                                     (pm this w)
+                                     (.write ^java.io.Writer w ^String (clojure-str this))))
+                                 (.write ^java.io.Writer w ^String (clojure-str this))))]
+      :cljs [IPrintWithWriter
+             (-pr-writer [this w opts]
+                         (if-let [rv var]
+                           (let [m (meta rv)]
+                             (if-let [pm (:sci.impl/print-method m)]
+                               (pm this w opts)
+                               (write-all w (clojure-str this))))
+                           (write-all w (clojure-str this))))])
 
   types/IBox
   (getVal [_] ext-map))
@@ -85,7 +93,9 @@
                    ;; _ (prn :protocol protocol)
                    #?@(:cljs [protocol (or protocol
                                            (when (= 'Object protocol-name)
-                                             ::object))])
+                                             ::object)
+                                           (when (= 'IPrintWithWriter protocol-name)
+                                             ::IPrintWithWriter))])
                    _ (when-not protocol
                        (utils/throw-error-with-location
                         (str "Protocol not found: " protocol-name)
@@ -104,40 +114,43 @@
                                    (symbol pns (str %))
                                    %)]
                (map (fn [[method-name bodies]]
-                      (let [bodies (map rest bodies)
-                            bodies (mapv (fn [impl]
-                                           (let [args (first impl)
-                                                 body (rest impl)
-                                                 destr (utils/maybe-destructured args body)
-                                                 args (:params destr)
-                                                 body (:body destr)
-                                                 orig-this-sym (first args)
-                                                 rest-args (rest args)
-                                                 ;; shadows-this? (some #(= orig-this-sym %) rest-args)
-                                                 this-sym (if true #_shadows-this?
-                                                              '__sci_this
-                                                              orig-this-sym)
-                                                 args (vec (cons this-sym rest-args))
-                                                 ext-map-binding (gensym)
-                                                 bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
-                                                 bindings (concat bindings
-                                                                  (mapcat (fn [field]
-                                                                            [field (list 'get ext-map-binding (list 'quote field))])
-                                                                          (reduce disj field-set args)))
-                                                 bindings (concat bindings [orig-this-sym this-sym])
-                                                 bindings (vec bindings)]
-                                             ;; (prn :bindings bindings)
-                                             `(~args
-                                               (let ~bindings
-                                                 ~@body)))) bodies)]
-                        (@utils/analyze (assoc ctx
-                                               :deftype-fields field-set
-                                               :local->mutator (zipmap field-set
-                                                                       (map (fn [field]
-                                                                              (fn [this v]
-                                                                                (types/-mutate this field v)))
-                                                                            field-set)))
-                         `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
+                      (if (= '-pr-writer method-name)
+                        `(alter-meta! (var ~record-name)
+                                      assoc :sci.impl/print-method (fn ~(rest (first bodies))))
+                        (let [bodies (map rest bodies)
+                              bodies (mapv (fn [impl]
+                                             (let [args (first impl)
+                                                   body (rest impl)
+                                                   destr (utils/maybe-destructured args body)
+                                                   args (:params destr)
+                                                   body (:body destr)
+                                                   orig-this-sym (first args)
+                                                   rest-args (rest args)
+                                                   ;; shadows-this? (some #(= orig-this-sym %) rest-args)
+                                                   this-sym (if true #_shadows-this?
+                                                                '__sci_this
+                                                                orig-this-sym)
+                                                   args (vec (cons this-sym rest-args))
+                                                   ext-map-binding (gensym)
+                                                   bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
+                                                   bindings (concat bindings
+                                                                    (mapcat (fn [field]
+                                                                              [field (list 'get ext-map-binding (list 'quote field))])
+                                                                            (reduce disj field-set args)))
+                                                   bindings (concat bindings [orig-this-sym this-sym])
+                                                   bindings (vec bindings)]
+                                               ;; (prn :bindings bindings)
+                                               `(~args
+                                                 (let ~bindings
+                                                   ~@body)))) bodies)]
+                          (@utils/analyze (assoc ctx
+                                                 :deftype-fields field-set
+                                                 :local->mutator (zipmap field-set
+                                                                         (map (fn [field]
+                                                                                (fn [this v]
+                                                                                  (types/-mutate this field v)))
+                                                                              field-set)))
+                           `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))))
                     impls)))
            protocol-impls
            raw-protocol-impls)]
