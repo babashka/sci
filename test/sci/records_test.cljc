@@ -175,6 +175,10 @@
      (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str [(->A 1)])"]
        (is (= "[<A>]" (tu/eval* prog {}))))))
 
+#?(:cljs
+   (deftest IPrintWithWriter-test
+     (is (= "dude" (sci/eval-string "(defrecord Foo [x]) (extend-protocol IPrintWithWriter Foo  (-pr-writer [o w opts] (-write w \"dude\"))) (pr-str (->Foo))")))))
+
 (deftest deftype-test
   (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1)) " {})))
   (let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]

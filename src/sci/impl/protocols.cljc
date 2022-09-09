@@ -223,8 +223,7 @@
                         (let [expansion `(do
                                            (clojure.core/alter-meta!
                                             (var ~type) assoc :sci.impl/print-method (fn ~@(rest (first meths))))
-                                           (prn (meta (var ~type))))]
-                          #_(prn expansion)
+                                           )]
                           expansion)
                         `(do
                            (clojure.core/alter-var-root
