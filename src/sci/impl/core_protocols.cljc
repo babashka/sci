@@ -4,9 +4,7 @@
   (:require
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
    [sci.lang :as lang]))
-
 
 ;;;; IDeref
 

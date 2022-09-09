@@ -140,7 +140,7 @@
      SciPrintMethod
      (-sci-print-method [this w]
        (if-let [rv var]
-         (let [m (meta @rv)]
+         (let [m (meta rv)]
            (if-let [pm (:sci.impl/print-method m)]
              (pm this w)
              (.write ^java.io.Writer w ^String (clojure-str this))))
@@ -222,8 +222,13 @@
 
      IPrintWithWriter
      ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
-     (-pr-writer [new-obj writer _]
-       (write-all writer (clojure-str new-obj)))
+     (-pr-writer [this w opts]
+       (if-let [rv var]
+         (let [m (meta rv)]
+           (if-let [pm (:sci.impl/print-method m)]
+             (pm this w opts)
+             (write-all w (clojure-str this))))
+         (write-all w (clojure-str this))))
 
      IKVReduce
      (-kv-reduce [this f init]
