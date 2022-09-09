@@ -9,7 +9,7 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (defmethod pprint/simple-dispatch sci.impl.records.SciRecord [obj]
-  (if-let [rv (.-var obj)]
+  (if-let [rv (.-var ^sci.impl.records.SciRecord obj)]
     (let [m (meta rv)]
       (if-let [pm (:sci.impl/pprint-simple-dispatch m)]
         (pm obj)
