@@ -203,28 +203,31 @@
   (str t))
 
 (defn extend-protocol [form _ ctx protocol-name & impls]
-  (let [print-writer? (= 'IPrintWithWriter protocol-name)
+  (let [#?@(:cljs [print-writer? (= 'IPrintWithWriter protocol-name)])
         impls (utils/split-when #(not (seq? %)) impls)
         protocol-var
         (or (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
-            (when print-writer?
-              (atom {:ns (sci.lang.Namespace. "dude" {})}))
+            #?(:cljs (when print-writer?
+                       ::IPrintWithWriter))
             (utils/throw-error-with-location (str "Protocol not found: " protocol-name) form))
-        protocol-data (deref protocol-var)
+        protocol-data (when (utils/var? protocol-var)
+                        (deref protocol-var))
         extend-via-metadata (:extend-via-metadata protocol-data)
         protocol-ns (:ns protocol-data)
-        pns (str (types/getName protocol-ns))
+        pns (if (keyword? protocol-var)
+              "sci.impl.protocols"
+              (str (types/getName protocol-ns)))
         expansion
         `(do
            ~@(map (fn [[type & meths]]
                     (let [type #?(:clj type
                                   :cljs (get cljs-type-symbols type type))]
-                      (if print-writer?
-                        (let [expansion `(do
-                                           (clojure.core/alter-meta!
-                                            (var ~type) assoc :sci.impl/print-method (fn ~@(rest (first meths))))
-                                           )]
-                          expansion)
+                      (if #?(:cljs print-writer?
+                             :clj false)
+                        #?(:cljs
+                           `(clojure.core/alter-meta!
+                             (var ~type) assoc :sci.impl/print-method (fn ~@(rest (first meths))))
+                           :clj nil)
                         `(do
                            (clojure.core/alter-var-root
                             (var ~protocol-name) update :satisfies (fnil conj #{})

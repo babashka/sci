@@ -114,9 +114,13 @@
                                    (symbol pns (str %))
                                    %)]
                (map (fn [[method-name bodies]]
-                      (if (= '-pr-writer method-name)
-                        `(alter-meta! (var ~record-name)
-                                      assoc :sci.impl/print-method (fn ~(rest (first bodies))))
+                      (if #?(:cljs (and (keyword-identical? ::IPrintWithWriter protocol)
+                                        (= '-pr-writer method-name))
+                             :clj false)
+                        #?(:cljs
+                           `(alter-meta! (var ~record-name)
+                                         assoc :sci.impl/print-method (fn ~(rest (first bodies))))
+                           :clj nil)
                         (let [bodies (map rest bodies)
                               bodies (mapv (fn [impl]
                                              (let [args (first impl)
