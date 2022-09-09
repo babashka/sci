@@ -1,11 +1,11 @@
 (ns sci.impl.deftype
   {:no-doc true}
   (:refer-clojure :exclude [deftype])
-  (:require [clojure.string :as str]
-            [sci.impl.types :as types]
-            [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]
-            [sci.lang]))
+  (:require
+   [sci.impl.types :as types]
+   [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]
+   [sci.lang]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -53,7 +53,7 @@
   SciPrintMethod
   (-sci-print-method [this w]
     (if-let [rv var]
-      (let [m (meta @rv)]
+      (let [m (meta rv)]
         (if-let [pm (:sci.impl/print-method m)]
           (pm this w)
           (.write ^java.io.Writer w ^String (clojure-str this))))

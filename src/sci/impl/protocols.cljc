@@ -203,9 +203,12 @@
   (str t))
 
 (defn extend-protocol [form _ ctx protocol-name & impls]
-  (let [impls (utils/split-when #(not (seq? %)) impls)
+  (let [print-writer? (= 'IPrintWithWriter protocol-name)
+        impls (utils/split-when #(not (seq? %)) impls)
         protocol-var
         (or (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
+            (when print-writer?
+              (atom {:ns (sci.lang.Namespace. "dude" {})}))
             (utils/throw-error-with-location (str "Protocol not found: " protocol-name) form))
         protocol-data (deref protocol-var)
         extend-via-metadata (:extend-via-metadata protocol-data)
@@ -216,11 +219,18 @@
            ~@(map (fn [[type & meths]]
                     (let [type #?(:clj type
                                   :cljs (get cljs-type-symbols type type))]
-                      `(do
-                         (clojure.core/alter-var-root
-                          (var ~protocol-name) update :satisfies (fnil conj #{})
-                          (type->str ~type))
-                         ~@(process-methods ctx type meths pns extend-via-metadata))))
+                      (if print-writer?
+                        (let [expansion `(do
+                                           (clojure.core/alter-meta!
+                                            (var ~type) assoc :sci.impl/print-method (fn ~@(rest (first meths))))
+                                           (prn (meta (var ~type))))]
+                          #_(prn expansion)
+                          expansion)
+                        `(do
+                           (clojure.core/alter-var-root
+                            (var ~protocol-name) update :satisfies (fnil conj #{})
+                            (type->str ~type))
+                           ~@(process-methods ctx type meths pns extend-via-metadata)))))
                   impls))]
     expansion))
 

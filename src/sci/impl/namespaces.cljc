@@ -806,7 +806,7 @@
 (defn -create-type [data]
   (new sci.lang.Type data nil nil))
 
-(defn -reg-key! [rec-type k v]
+#_(defn -reg-key! [rec-type k v]
   (when (instance? sci.lang.Type rec-type)
     (types/setVal rec-type (assoc (types/getVal rec-type) k v))
     rec-type))
@@ -817,7 +817,7 @@
    'toString sci.impl.records/to-string
    '-create-record-type -create-type
    ;; what do we use this for again?
-   '-reg-key! -reg-key!
+   ;; '-reg-key! -reg-key!
    '->record-impl sci.impl.records/->record-impl})
 
 
@@ -1537,7 +1537,9 @@
              'ratio? (copy-core-var ratio?)
              'rationalize (copy-core-var rationalize)
              'seque (copy-core-var seque)
-             'xml-seq (copy-core-var xml-seq)])})
+             'xml-seq (copy-core-var xml-seq)])
+
+   #?@(:cljs ['-write (copy-var -write clojure-core-ns)])})
 
 (defn dir-fn
   [ctx ns]
