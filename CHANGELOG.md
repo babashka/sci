@@ -12,7 +12,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Improvements to error locations in exceptions
 - Fix type hints on locals with same names
 - Add `demunge` in CLJS
-- [#785](https://github.com/babashka/sci/issues/785): satisfies? finds protocols that have no methods
+- [#785](https://github.com/babashka/sci/issues/785): `satisfies?` finds protocols that have no methods
 - [#781](https://github.com/babashka/sci/issues/781), [#782](https://github.com/babashka/sci/issues/782) and [#783](https://github.com/babashka/sci/issues/783): extend protocols to JS built ins using CLJS "type symbols", fix extending protocols to default and `Object`
 - Add `keyword-identical?` in CLJS
 - Fix `deftype` mutable fields for CLJS
@@ -20,8 +20,8 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Make loading `cljs.analyzer.api` more reliable
 - Don't partial-ize ctx-needing vars that aren't built-in
 - [#774](https://github.com/babashka/sci/issues/774): make interpreter stacktrace available on exception if annotated with `^:sci/error`
-- Allow unrestricted access with set! in CLJS if `sci.core/enable-unrestricted-access` has been called.
-- Don't eval metadata on defn expression
+- Allow unrestricted access with `set!` in CLJS if `sci.core/enable-unrestricted-access` has been called.
+- Don't eval metadata on `defn` expression
 - Add `hash-combine`
 - [#729](https://github.com/babashka/sci/issues/729): mutable fields in deftype
 
