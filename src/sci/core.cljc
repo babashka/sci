@@ -14,6 +14,7 @@
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
    [sci.impl.types :as t]
+   [sci.impl.unrestrict :as unrestrict]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
    [sci.lang])
@@ -475,5 +476,13 @@
   "Returns all SCI ns objects in the `ctx`"
   [ctx]
   (namespaces/sci-all-ns ctx))
+
+(defn enable-unrestricted-access!
+  "Calling this will enable
+  - Altering core vars using `alter-var-root`
+  - In CLJS: `set!` is able to set the value of any var."
+  []
+  #?(:cljs (set! unrestrict/*unrestricted* true)
+     :clj (alter-var-root unrestrict/*unrestricted* (constantly true))))
 
 ;;;; Scratch
