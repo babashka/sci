@@ -55,7 +55,11 @@
                                         ~extend-meta (assoc :extend-via-metadata true)))
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))
-                          impls [`(defmulti ~method-name clojure.core/protocol-type-impl)
+                          method-meta (select-keys (get sigs-map (keyword method-name)) [:doc :arglists])
+                          method-meta (if (contains? method-meta :arglists)
+                                        (update method-meta :arglists (fn [a] (list 'quote a)))
+                                        method-meta)
+                          impls [`(defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)
                                  `(defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
                                     (let [methods# (clojure.core/-reified-methods x#)]
                                       (if-let [m# (get methods# '~method-name)]
