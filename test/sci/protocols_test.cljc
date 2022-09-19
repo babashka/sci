@@ -114,8 +114,7 @@
                            "([this n] [_ o p])"
                              ; not technically valid in Clojure, but won't break anything in sci
                            "-------------------------"
-                           "user/just-name"
-                           ]
+                           "user/just-name"]
           prog            '(do
                              (defprotocol Foo
                                (doced [this] "awesome docs")
