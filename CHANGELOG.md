@@ -2,6 +2,10 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+- [babashka/babashka#1340](https://github.com/babashka/babashka/issues/1340): Add arglists/docstring to protocol methods
+
 ## v0.4.33
 
 - [#791](https://github.com/babashka/sci/issues/791): Fix friendly arity exception messages for Clojure 1.10, 1.11
