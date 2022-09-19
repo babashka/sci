@@ -56,9 +56,8 @@
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol (str current-ns) (str method-name))
                           method-meta (select-keys (get sigs-map (keyword method-name)) [:doc :arglists])
-                          method-meta (if (contains? method-meta :arglists)
-                                        (update method-meta :arglists (fn [a] (list 'quote a)))
-                                        method-meta)
+                          ; re-quote arglists
+                          method-meta (update method-meta :arglists (fn [a] (list 'quote a)))
                           impls [`(defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)
                                  `(defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
                                     (let [methods# (clojure.core/-reified-methods x#)]
