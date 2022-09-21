@@ -98,6 +98,35 @@
 (foo 1)
 "))))
 
+(deftest fn-docstring-test
+  (testing "protocol functions get docstrings and arglists"
+                            ; based on running defprotocol and doc on fns in clojure
+    (let [expected-output ["-------------------------" 
+                           "user/doced" 
+                           "([this])" 
+                           "  awesome docs" 
+                           "-------------------------" 
+                           "user/arities" 
+                           "([this a] [this a b])" 
+                           "  arity docs" 
+                           "-------------------------" 
+                           "user/nodocs" 
+                           "([this n] [_ o p])"
+                             ; not technically valid in Clojure, but won't break anything in sci
+                           "-------------------------"
+                           "user/just-name"]
+          prog            '(do
+                             (defprotocol Foo
+                               (doced [this] "awesome docs")
+                               (arities [this a] [this a b] "arity docs")
+                               (nodocs [this n] [_ o p])
+                               (just-name))
+                             (with-out-str (clojure.repl/doc doced)
+                                           (clojure.repl/doc arities)
+                                           (clojure.repl/doc nodocs)
+                                           (clojure.repl/doc just-name)))]
+      (is (= expected-output (str/split-lines (tu/eval* (pr-str prog) {})))))))
+
 (deftest reify-test
   (let [prog "
 (defprotocol Fruit (subtotal [item]))
