@@ -8,16 +8,16 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## v0.4.33
 
-- [#791](https://github.com/babashka/sci/issues/791): Fix friendly arity exception messages for Clojure 1.10, 1.11
+- [#791](https://github.com/babashka/sci/issues/791): Fix friendly arity exception messages for Clojure 1.10, 1.11 ([@lread](https://github.com/lread))
 - [#794](https://github.com/babashka/sci/issues/794): Support for `IPrintWithWriter` for custom types in CLJS
-- Add `ns-unalias`
+- Add `ns-unalias` ([@eerohele](https://github.com/eerohele))
 - Resolve record name with dot: `Foo.`
 - Implement `addWatch` / `removeWatch` noops on SCI vars to prevent segfault in native images
 - Improvements to error locations in exceptions
-- Fix type hints on locals with same names
-- Add `demunge` in CLJS
-- [#785](https://github.com/babashka/sci/issues/785): `satisfies?` finds protocols that have no methods
-- [#781](https://github.com/babashka/sci/issues/781), [#782](https://github.com/babashka/sci/issues/782) and [#783](https://github.com/babashka/sci/issues/783): extend protocols to JS built ins using CLJS "type symbols", fix extending protocols to default and `Object`
+- Fix type hints on locals with same names ([@lread](https://github.com/lread))
+- Add `demunge` in CLJS ([@sirwobin](https://github.com/sirwobin))
+- [#785](https://github.com/babashka/sci/issues/785): `satisfies?` finds protocols that have no methods ([@lilactown](https://github.com/lilactown))
+- [#781](https://github.com/babashka/sci/issues/781), [#782](https://github.com/babashka/sci/issues/782) and [#783](https://github.com/babashka/sci/issues/783): extend protocols to JS built ins using CLJS "type symbols", fix extending protocols to default and `Object` ([@lilactown](https://github.com/lilactown))
 - Add `keyword-identical?` in CLJS
 - Fix `deftype` mutable fields for CLJS
 - `sci.ctx-store`: a place to store the context so it's available for `sci.configs` to use. See [docs](https://github.com/babashka/sci/blob/master/API.md#scictx-store).
