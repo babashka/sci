@@ -231,8 +231,9 @@
   (is (= "foo" (eval* "(def ^{:doc (str \"foo\")} x) (:doc (meta #'x))"))))
 
 (deftest def-location-test
-  (is (= 4 (eval* "(defmacro foodef [sym & body]
-  `[(def ~sym ~@body)])
+  (is (= 5 (eval* "(defmacro foodef [sym & body]
+  `(when (odd? 1)
+     (def ~sym ~@body)))
 
 (foodef x 1)
 
