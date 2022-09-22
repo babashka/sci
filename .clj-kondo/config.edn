@@ -2,4 +2,5 @@
  :lint-as {me.raynes.conch/let-programs clojure.core/let}
  :linters {:unsorted-required-namespaces {:level :warning}
            :unresolved-symbol {:exclude [(cljs.test/is [thrown-with-data?])
-                                         (clojure.test/is [thrown-with-data?])]}}}
+                                         (clojure.test/is [thrown-with-data?])]}
+           :aliased-namespace-symbol {:exclude [sci.impl.types]}}}

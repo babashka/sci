@@ -17,13 +17,14 @@
   ;; (.println System/err form)
   (if (seq? form)
     (if (= 'do (first form))
-      (loop [exprs (rest form)
-             ret nil]
-        (if (seq exprs)
-          (recur
-           (rest exprs)
-           (eval-form ctx (first exprs)))
-          ret))
+      (ana/with-top-level-loc true (meta form)
+        (loop [exprs (rest form)
+               ret nil]
+          (if (seq exprs)
+            (recur
+             (rest exprs)
+             (eval-form ctx (first exprs)))
+            ret)))
       (let [;; take care of invocation array for let
             upper-sym (gensym)
             cb (volatile! {upper-sym {0 {:syms {}}}})
