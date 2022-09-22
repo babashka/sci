@@ -230,6 +230,20 @@
   (is (= :a (eval* "(def ^{:foo :bar :a (fn [] :a)} x) ((:a (meta #'x)))")))
   (is (= "foo" (eval* "(def ^{:doc (str \"foo\")} x) (:doc (meta #'x))"))))
 
+(deftest def-location-test
+  (is (= 4 (eval* "(defmacro foodef [sym & body]
+  `[(def ~sym ~@body)])
+
+(foodef x 1)
+
+(:line (meta #'x))")))
+  (is (= 4 (eval* "(defmacro foodef [sym & body]
+  `(do (def ~sym ~@body)))
+
+(foodef x 1)
+
+(:line (meta #'x))"))))
+
 (deftest defn-test
   (is (= 2 (eval* "(do (defn foo \"increment c\" [x] (inc x)) (foo 1))")))
   (is (= 3 (eval* "(do (defn foo ([x] (inc x)) ([x y] (+ x y)))
