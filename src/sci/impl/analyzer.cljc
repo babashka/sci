@@ -565,7 +565,7 @@
             init (if (= 2 arg-count)
                    utils/var-unbound
                    (analyze ctx init))
-            m (meta var-name)
+            m (meta expr)
             m-needs-eval? m
             m (assoc m :ns @utils/current-ns)
             m (if docstring (assoc m :doc docstring) m)
