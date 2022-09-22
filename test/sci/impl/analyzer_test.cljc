@@ -27,3 +27,12 @@
   (is (not (second (constant-node? "(+ 1 2 3)"))))
   (is (not (second(constant-node? "^{:a (+ 1 2 3)} []"))))
   )
+
+(deftest analyze-def-metadata-test
+  (let [m (meta (first (constant-node? "(def a 1)")))]
+    (is (= 1 (:line m)))
+    (is (= 1 (:column m))))
+  (let [m (meta (first (constant-node? "(def ^:foo a 1)")))]
+    (is (= true (:foo m)))
+    (is (= 1 (:line m)))
+    (is (= 1 (:column m)))))
