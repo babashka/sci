@@ -78,10 +78,6 @@ needing something from the dark `impl` side!
     -  [`Var`](#sci.lang/Var) - Representation of a SCI var, created e.g.
 
 -----
-
------
-
------
 # <a name="sci.async">sci.async</a>
 
 
@@ -871,74 +867,6 @@ Macro.
 Bind `ctx` during execution of body.
 <br>
 <a href="https://github.com/babashka/sci/blob/master/src/sci/ctx_store.cljc#L35-L39"><sub>src</sub></a></img>
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
-
------
 
 -----
 # <a name="sci.lang">sci.lang</a>
