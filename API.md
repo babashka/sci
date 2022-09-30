@@ -72,8 +72,6 @@ needing something from the dark `impl` side!
     -  [`reset-ctx!`](#sci.ctx-store/reset-ctx!) - Store <code>ctx</code>.
     -  [`swap-ctx!`](#sci.ctx-store/swap-ctx!) - Update <code>ctx</code> using <code>f</code> and <code>args</code>.
     -  [`with-ctx`](#sci.ctx-store/with-ctx) - Bind <code>ctx</code> during execution of body.
--  [`sci.impl.cljs`](#sci.impl.cljs) 
-    -  [`cljs-ns-publics`](#sci.impl.cljs/cljs-ns-publics)
 -  [`sci.lang`](#sci.lang) 
     -  [`Namespace`](#sci.lang/Namespace) - Representation of a SCI namespace, created e.g.
     -  [`Type`](#sci.lang/Type) - Representation of a SCI custom type, created e.g.
@@ -821,15 +819,6 @@ Bind `ctx` during execution of body.
 -----
 
 -----
-# <a name="sci.impl.cljs">sci.impl.cljs</a>
-
-
-
-
-
-
-## <a name="sci.impl.cljs/cljs-ns-publics">`cljs-ns-publics`</a>
-<a name="sci.impl.cljs/cljs-ns-publics"></a>
 
 -----
 

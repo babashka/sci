@@ -1,4 +1,5 @@
 (ns sci.impl.cljs
+  {:no-doc true}
   (:require [sci.impl.macros :as macros])
   #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api]])))
 
