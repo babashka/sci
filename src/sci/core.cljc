@@ -485,4 +485,12 @@
   #?(:cljs (set! unrestrict/*unrestricted* true)
      :clj (alter-var-root unrestrict/*unrestricted* (constantly true))))
 
+(defn var->symbol
+  "Returns a fully qualified symbol from a `sci.lang.Var`"
+  [sci-var]
+  (let [m (meta sci-var)
+        sci-ns (:ns m)
+        n (:name m)]
+    (symbol (str sci-ns) (str n))))
+
 ;;;; Scratch

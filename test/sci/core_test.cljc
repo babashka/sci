@@ -1575,6 +1575,9 @@
                                      'format-stacktrace sci/format-stacktrace}}})]
     (is (str/includes? (str st) "1:31"))))
 
+(deftest var->sym-test
+  (is (= 'clojure.core/inc (sci/var->symbol (sci/eval-string "#'inc")))))
+
 ;;;; Scratch
 
 (comment
