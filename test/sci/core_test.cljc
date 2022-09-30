@@ -1578,6 +1578,9 @@
 (deftest var->sym-test
   (is (= 'clojure.core/inc (sci/var->symbol (sci/eval-string "#'inc")))))
 
+(deftest api-resolve-test
+  (is (= 2 ((sci/resolve (sci/init {}) 'clojure.core/inc) 1))))
+
 ;;;; Scratch
 
 (comment

@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
                             with-redefs binding future pmap alter-var-root
                             intern ns create-ns set! *1 *2 *3 *e
-                            ns-name assert print-dup find-ns all-ns ns-name])
+                            ns-name assert print-dup find-ns all-ns ns-name
+                            resolve])
   (:require
    [clojure.core :as c]
    [sci.impl.callstack :as cs]
@@ -492,5 +493,8 @@
         sci-ns (:ns m)
         n (:name m)]
     (symbol (str sci-ns) (str n))))
+
+(defn resolve [ctx sym]
+  (@utils/eval-resolve-state ctx {} sym))
 
 ;;;; Scratch
