@@ -127,6 +127,7 @@
 (def print-meta "SCI var that represents SCI's `clojure.core/*print-meta*`" sio/print-meta)
 (def print-readably "SCI var that represents SCI's `clojure.core/*print-readably*`" sio/print-readably)
 (def print-dup "SCI var that represents SCI's `clojure.core/*print-dup*`" sio/print-dup-var)
+(def print-namespace-maps "SCI var that represents SCI's `clojure.core/*print-namespace-maps*`" sio/print-namespace-maps)
 #?(:cljs (def print-fn "SCI var that represents SCI's `cljs.core/*print-fn*`" sio/print-fn))
 #?(:cljs (def print-err-fn "SCI var that represents SCI's `cljs.core/*print-err-fn*`" sio/print-err-fn))
 #?(:cljs (def print-newline "SCI var that represents SCI's `cljs.core/*print-newline*`" sio/print-newline))
