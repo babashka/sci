@@ -7,7 +7,8 @@
    [sci.pprint]))
 
 (defn pprint [o]
-  (binding [*out* @sci/out]
+  (binding [*out* @sci/out
+            *print-namespace-maps* @sci/print-namespace-maps]
     (pp/pprint o)))
 
 (def conf {:namespaces
@@ -42,3 +43,16 @@
 (pprint/pprint (->Foo 6))
 "
                              conf))))))
+
+
+(deftest print-namespace-maps-test
+  (is (= "{:x/a 1, :x/b 2}"
+        (str/trim
+          (sci/with-out-str
+            (sci/eval-string "
+(require '[clojure.pprint :as pprint])
+
+(binding [*print-namespace-maps* false]
+  (pprint/pprint {:x/a 1 :x/b 2}))
+"
+              conf))))))
