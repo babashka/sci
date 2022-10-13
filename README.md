@@ -60,6 +60,7 @@ SCI is used in:
 - [Maria.cloud](https://2.maria.cloud/) (soon)
 
 <details>
+<summary>Yolo</summary>
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Cardigan Bay](https://github.com/interstar/cardigan-bay). Wiki engine in Clojure.
@@ -77,6 +78,7 @@ SCI is used in:
 - [PGMig](https://github.com/leafclick/pgmig). Fast Standalone PostgreSQL Migration Runner.
 - [Prose](https://github.com/JeremS/prose). Alternate syntax for Clojure, similar to what Pollen brings to Racket.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
+
 </details>
 
 Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/sci/discussions/662).
