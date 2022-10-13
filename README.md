@@ -46,34 +46,41 @@ See [API.md](API.md).
 
 SCI is used in:
 
-- [4ever-clojure](https://4clojure.oxal.org/). 4clojure as a static web page.
 - [Babashka](https://github.com/babashka/babashka). A Clojure scripting tool that plays well with Bash.
+- [nbb](https://github.com/babashka/babashka). Ad-hoc CLJS scripting on Node.js. (Node.js babashka)
+- [Clerk](https://github.com/nextjournal/clerk). Local-First Notebooks for Clojure.
+- [4ever-clojure](https://4clojure.oxal.org/). 4clojure as a static web page.
+- [Clj-kondo](https://github.com/borkdude/clj-kondo/). A Clojure linter that sparks joy.
+- [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
+- [Joyride](https://github.com/BetterThanTomorrow/joyride). Making VS Code Hackable since 2022.
+- [Portal](https://github.com/djblue/portal). A clojure tool to navigate through your data.
+- [Zprint](https://github.com/kkinnear/zprint). Tool to beautifully format Clojure(script) code and data.
+- [TryClojure.org](https://tryclojure.org/). Try Clojure!
+- [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
+- [Maria.cloud](https://2.maria.cloud/) (soon)
+
+<details>
+<summary>Expand for more projects...</summary>
+
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Cardigan Bay](https://github.com/interstar/cardigan-bay). Wiki engine in Clojure.
 - [Chlorine](https://github.com/mauricioszabo/atom-chlorine). Socket-REPL and nREPL package for Atom editor.
-- [Clerk](https://github.com/nextjournal/clerk). Local-First Notebooks for Clojure.
-- [Clj-kondo](https://github.com/borkdude/clj-kondo/). A Clojure linter that sparks joy.
-- [Closh](https://github.com/dundalek/closh). Bash-like shell based on Clojure. GraalVM port is work in progress.
 - [Cq](https://github.com/markus-wa/cq). Clojure Command-line Data Processor for JSON, YAML, EDN, XML and more.
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
 - [Datalevin](https://github.com/juji-io/datalevin). Durable Datalog database.
 - [For-science](https://github.com/pmonks/for-science). Discord bot.
-- [Jet](https://github.com/borkdude/jet). CLI to convert between JSON, EDN and Transit.
 - [Keycloak-clojure](https://github.com/jgrodziski/keycloak-clojure). Clojure library for Keycloak.
 - [Lighthouse](https://github.com/barracudanetworks/lighthouse). A data-driven Kubernetes pre-processor.
 - [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
 - [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
-- [nbb](https://github.com/babashka/babashka). Ad-hoc CLJS scripting on Node.js. (Node.js babashka)
 - [Obsidian Wielder](https://github.com/victorb/obsidian-wielder). Write and evaluate Clojure code directly in your Obsidian vault.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [PGMig](https://github.com/leafclick/pgmig). Fast Standalone PostgreSQL Migration Runner.
-- [Portal](https://github.com/djblue/portal). A clojure tool to navigate through your data.
 - [Prose](https://github.com/JeremS/prose). Alternate syntax for Clojure, similar to what Pollen brings to Racket.
-- [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
-- [TryClojure.org](https://tryclojure.org/). Try Clojure!
-- [Zprint](https://github.com/kkinnear/zprint). Tool to beautifully format Clojure(script) code and data.
+
+</details>
 
 Are you using SCI in your company or projects? Let us know [here](https://github.com/babashka/sci/discussions/662).
 

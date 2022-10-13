@@ -13,11 +13,11 @@
   :clj-test-runner
   {:extra-deps {com.cognitect/test-runner
                 {:git/url "https://github.com/cognitect-labs/test-runner"
-                 :sha "cb96e80f6f3d3b307c59cbeb49bb0dcb3a2a780b"}}
+                 :sha "a522ab2851a2aa5bf9c22a942b45287a3a019310"}}
    :main-opts ["-m" "cognitect.test-runner"
                "-d" "test"]}
   :cljs-test-runner
-  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.7.0"}}
+  {:extra-deps {olical/cljs-test-runner {:mvn/version "3.8.0"}}
    :extra-paths ["test" "cljs-test-runner-out/gen"]
    :main-opts ["-m" "cljs-test-runner.main" "-d" "test"]}
   :cljs-build
@@ -26,7 +26,7 @@
   :bench
   {:jvm-opts ["-Dclojure.compiler.direct-linking=true"]
    :extra-deps
-   {org.clojure/tools.cli {:mvn/version "1.0.194"}
+   {org.clojure/tools.cli {:mvn/version "1.0.214"}
     criterium/criterium {:mvn/version "0.4.6"} }
    :extra-paths ["bench"]
    :main-opts ["-m" "sci.bench"]}
