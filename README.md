@@ -60,7 +60,7 @@ SCI is used in:
 - [Maria.cloud](https://2.maria.cloud/) (soon)
 
 <details>
-<summary>Yolo</summary>
+<summary>Expand for more projects...</summary>
 
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
