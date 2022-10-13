@@ -61,6 +61,7 @@ SCI is used in:
 
 <details>
 <summary>Yolo</summary>
+
 - [Bootleg](https://github.com/retrogradeorbit/bootleg). An HTML templating CLI.
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Cardigan Bay](https://github.com/interstar/cardigan-bay). Wiki engine in Clojure.
