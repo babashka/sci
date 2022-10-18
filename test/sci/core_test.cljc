@@ -1589,7 +1589,7 @@
 (deftest api-resolve-test
   (is (= 2 ((sci/resolve (sci/init {}) 'clojure.core/inc) 1))))
 
-(deftest and-or-test
+(deftest do-and-or-test
   (let [ctx (sci/init {})]
     (is (nil? (sci/eval-form ctx '(or))))
     (is (true? (sci/eval-form ctx '(and))))
@@ -1598,10 +1598,13 @@
                            (cons op (concat (repeat n fill) ['(+ 1 2 3)])))
                          (range 20)))
           or-cases (case-fn 'clojure.core/or nil)
-          and-cases (case-fn 'clojure.core/and true)]
+          and-cases (case-fn 'clojure.core/and true)
+          do-cases (case-fn 'clojure.core/do '(+ 1 2))]
       (doseq [case or-cases]
         (is (= 6 (sci/eval-form ctx case))))
       (doseq [case and-cases]
+        (is (= 6 (sci/eval-form ctx case))))
+      (doseq [case do-cases]
         (is (= 6 (sci/eval-form ctx case)))))))
 
 ;;;; Scratch
