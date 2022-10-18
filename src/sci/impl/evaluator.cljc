@@ -22,31 +22,6 @@
   '#{do fn def defn
      syntax-quote})
 
-;;;; Evaluation
-
-(defn eval-and
-  "The and macro from clojure.core. Note: and is unrolled in the analyzer, this is a fallback."
-  [ctx bindings args]
-  (loop [args (seq args)]
-    (if args
-      (let [x (first args)
-            v (types/eval x ctx bindings)]
-        (if v
-          (let [xs (next args)]
-            (if xs
-              (recur xs) v)) v))
-      true)))
-
-(defn eval-or
-  "The or macro from clojure.core. Note: or is unrolled in the analyzer, this is a fallback."
-  [ctx bindings args]
-  (loop [args (seq args)]
-    (when args
-      (let [x (first args)
-            v (types/eval x ctx bindings)]
-        (or v
-            (recur (next args)))))))
-
 (defn eval-def
   [ctx bindings var-name init m]
   (let [init (types/eval init ctx bindings)

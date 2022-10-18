@@ -169,7 +169,15 @@
   (testing "nested lets"
     (is (= [2 1] (eval* "(let [x 1] [(let [x 2] x) x])"))))
   (testing "let*"
-    (is (= [2 1] (eval* "(let* [x 1] [(let* [x 2] x) x])")))))
+    (is (= [2 1] (eval* "(let* [x 1] [(let* [x 2] x) x])"))))
+  (testing "n let bindings"
+    (let [ctx (sci/init {})
+          forms (map (fn [n]
+                       `(let [~'x 0]
+                          (let [~@(mapcat identity (repeat n ['x '(inc x)]))]
+                            ~'x)))
+                     (range 20))]
+      (is (= (range 20) (map #(sci/eval-form ctx %) forms))))))
 
 (deftest closure-test
   (testing "closure"
@@ -1580,6 +1588,21 @@
 
 (deftest api-resolve-test
   (is (= 2 ((sci/resolve (sci/init {}) 'clojure.core/inc) 1))))
+
+(deftest and-or-test
+  (let [ctx (sci/init {})]
+    (is (nil? (sci/eval-form ctx '(or))))
+    (is (true? (sci/eval-form ctx '(and))))
+    (let [case-fn (fn [op fill]
+                    (map (fn [n]
+                           (cons op (concat (repeat n fill) ['(+ 1 2 3)])))
+                         (range 20)))
+          or-cases (case-fn 'clojure.core/or nil)
+          and-cases (case-fn 'clojure.core/and true)]
+      (doseq [case or-cases]
+        (is (= 6 (sci/eval-form ctx case))))
+      (doseq [case and-cases]
+        (is (= 6 (sci/eval-form ctx case)))))))
 
 ;;;; Scratch
 
