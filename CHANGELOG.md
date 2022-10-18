@@ -6,10 +6,10 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 - Performance optimizations for `let` (up to 8x faster)
 - [babashka/babashka#1340](https://github.com/babashka/babashka/issues/1340): Add arglists/docstring to protocol methods ([@bobisageek](https://github.com/bobisageek))
-- #801: preserve location metadata for vars defined in macro-expansion
+- [#801](https://github.com/babashka/sci/issues/801): preserve location metadata for vars defined in macro-expansion
 - Add new `var->symbol` API function in `sci.core`
 - Add new `resolve` API function in `sci.core`
-- Expose `*print-namespace-maps*` from `sci.core`
+- Expose `*print-namespace-maps*` from `sci.core` ([@ghoseb](https://github.com/ghoseb))
 - Internal simplifications for `and`, `or` and `do`
 
 ## v0.4.33 (2022-09-15)
