@@ -25,8 +25,7 @@
            [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
-      [sci.impl.analyzer :refer [gen-return-do
-                                 gen-return-recur
+      [sci.impl.analyzer :refer [gen-return-recur
                                  gen-return-binding-call
                                  gen-return-needs-ctx-call
                                  gen-return-call
