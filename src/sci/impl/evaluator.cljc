@@ -76,8 +76,7 @@
           (aset ^objects bindings (nth idxs idx) v)
           (recur ctx bindings
                  (next let-nodes)
-                 (inc idx))
-          )
+                 (inc idx)))
         (types/eval exprs ctx bindings)))))
 
 (defn eval-def

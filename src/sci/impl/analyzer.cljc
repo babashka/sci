@@ -520,7 +520,7 @@
              (aset ^objects bindings idx0 val0)
              (sci.impl.types/eval body ctx bindings))
            stack))
-      #_#_2 (let [node0 (nth let-nodes 0)
+      2 (let [node0 (nth let-nodes 0)
               node1 (nth let-nodes 1)
               idx0 (nth idxs 0)
               idx1 (nth idxs 1)]
@@ -531,7 +531,7 @@
                (aset ^objects bindings idx1 val1)
                (sci.impl.types/eval body ctx bindings)))
            stack))
-      #_#_3 (let [node0 (nth let-nodes 0)
+      3 (let [node0 (nth let-nodes 0)
               node1 (nth let-nodes 1)
               node2 (nth let-nodes 2)
               idx0 (nth idxs 0)
@@ -546,10 +546,53 @@
                  (aset ^objects bindings idx2 val2)
                  (sci.impl.types/eval body ctx bindings))))
            stack))
+      4 (let [node0 (nth let-nodes 0)
+              node1 (nth let-nodes 1)
+              node2 (nth let-nodes 2)
+              node3 (nth let-nodes 3)
+              idx0 (nth idxs 0)
+              idx1 (nth idxs 1)
+              idx2 (nth idxs 2)
+              idx3 (nth idxs 3)]
+          (sci.impl.types/->Node
+           (let [val0 (types/eval node0 ctx bindings)]
+             (aset ^objects bindings idx0 val0)
+             (let [val1 (types/eval node1 ctx bindings)]
+               (aset ^objects bindings idx1 val1)
+               (let [val2 (types/eval node2 ctx bindings)]
+                 (aset ^objects bindings idx2 val2)
+                 (let [val3 (types/eval node3 ctx bindings)]
+                   (aset ^objects bindings idx3 val3)
+                   (sci.impl.types/eval body ctx bindings)))))
+           stack))
+      5 (let [node0 (nth let-nodes 0)
+              node1 (nth let-nodes 1)
+              node2 (nth let-nodes 2)
+              node3 (nth let-nodes 3)
+              node4 (nth let-nodes 4)
+              idx0 (nth idxs 0)
+              idx1 (nth idxs 1)
+              idx2 (nth idxs 2)
+              idx3 (nth idxs 3)
+              idx4 (nth idxs 4)]
+          (sci.impl.types/->Node
+           (let [val0 (types/eval node0 ctx bindings)]
+             (aset ^objects bindings idx0 val0)
+             (let [val1 (types/eval node1 ctx bindings)]
+               (aset ^objects bindings idx1 val1)
+               (let [val2 (types/eval node2 ctx bindings)]
+                 (aset ^objects bindings idx2 val2)
+                 (let [val3 (types/eval node3 ctx bindings)]
+                   (aset ^objects bindings idx3 val3)
+                   (let [val4 (types/eval node4 ctx bindings)]
+                     (aset ^objects bindings idx4 val4)
+                     (sci.impl.types/eval body ctx bindings))))))
+           stack))
       ;; default
       (sci.impl.types/->Node
        (eval/eval-let ctx bindings let-nodes body idxs)
        stack))))
+
 
 (defn analyze-let
   "The let macro from clojure.core"
