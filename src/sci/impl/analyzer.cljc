@@ -117,10 +117,9 @@
                                    (types/eval node2 ctx bindings))
                                nil))
       (let [analyzed-children (analyze-children-tail ctx children)]
-          (case (count analyzed-children)
+          (case child-count
             0 nil
-            1 (let [node (nth analyzed-children 0)]
-                (sci.impl.types/->Node (types/eval node ctx bindings) nil))
+            1 (nth analyzed-children 0)
             2 (let [node0 (nth analyzed-children 0)
                     node1 (nth analyzed-children 1)]
                 (sci.impl.types/->Node
