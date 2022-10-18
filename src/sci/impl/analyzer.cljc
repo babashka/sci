@@ -1,6 +1,6 @@
 (ns sci.impl.analyzer
   {:no-doc true
-   :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [bindings]}}}}
+   :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [ctx this bindings]}}}}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:cljs [goog.object :as gobj])
@@ -1699,8 +1699,7 @@
          (let [vs (analyze-children ctx v)]
            (sci.impl.types/->Node
             (let [arr (array)]
-              (doseq [x vs]
-                (.push arr (types/eval x ctx bindings)))
+              (run! #(.push arr (types/eval % ctx bindings)) vs)
               arr)
             nil))))))
 
