@@ -184,7 +184,6 @@
 (def eval-refer-state (volatile! nil))
 (def macroexpand* (volatile! nil))
 (def macroexpand-1* (volatile! nil))
-(def eval-do* (volatile! nil))
 (def eval-fn (volatile! nil))
 (def eval-string* (volatile! nil))
 (def lookup (volatile! nil))
