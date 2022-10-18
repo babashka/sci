@@ -1698,7 +1698,7 @@
             nil))
          (let [vs (analyze-children ctx v)]
            (sci.impl.types/->Node
-            (let [arr (array)]
+            (let [arr #_:clj-kondo/ignore (array)]
               (run! #(.push arr (types/eval % ctx bindings)) vs)
               arr)
             nil))))))
