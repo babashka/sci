@@ -1,5 +1,6 @@
 (ns sci.impl.analyzer
-  {:no-doc true}
+  {:no-doc true
+   :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [bindings]}}}}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:cljs [goog.object :as gobj])
@@ -25,8 +26,6 @@
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-do
-                                 gen-return-or
-                                 gen-return-and
                                  gen-return-recur
                                  gen-return-binding-call
                                  gen-return-needs-ctx-call
@@ -141,119 +140,107 @@
 (declare return-do) ;; for clj-kondo
 (gen-return-do)
 
-(defmacro gen-return-or
-  []
-  `(defn ~'return-or
-     ~'[ctx expr children]
-     (let [child-count# (count ~'children)]
-       (if (> child-count# 5)
-         (let [a0# (return-or ~'ctx ~'expr (take 5 ~'children))
-               a1# (return-or ~'ctx ~'expr (drop 5 ~'children))]
-           (sci.impl.types/->Node
-            (or (types/eval a0# ~'ctx ~'bindings)
-                (types/eval a1# ~'ctx ~'bindings))
-            nil))
-         (let [~'children (analyze-children-tail ~'ctx ~'children)]
-           (case child-count#
-             ~@(concat
-                [0 nil]
-                [1 `(analyze ~'ctx (nth ~'children 0))]
-                [2 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))]
-                      (sci.impl.types/->Node
-                       (or (types/eval a0# ~'ctx ~'bindings)
-                           (types/eval a1# ~'ctx ~'bindings))
-                       nil))]
-                [3 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))
-                          a2# (analyze ~'ctx (nth ~'children 2))]
-                      (sci.impl.types/->Node
-                       (or (types/eval a0# ~'ctx ~'bindings)
-                           (types/eval a1# ~'ctx ~'bindings)
-                           (types/eval a2# ~'ctx ~'bindings))
-                       nil))]
-                [4 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))
-                          a2# (analyze ~'ctx (nth ~'children 2))
-                          a3# (analyze ~'ctx (nth ~'children 3))]
-                      (sci.impl.types/->Node
-                       (or (types/eval a0# ~'ctx ~'bindings)
-                           (types/eval a1# ~'ctx ~'bindings)
-                           (types/eval a2# ~'ctx ~'bindings)
-                           (types/eval a3# ~'ctx ~'bindings))
-                       nil))]
-                [5 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))
-                          a2# (analyze ~'ctx (nth ~'children 2))
-                          a3# (analyze ~'ctx (nth ~'children 3))
-                          a4# (analyze ~'ctx (nth ~'children 4))]
-                      (sci.impl.types/->Node
-                       (or (types/eval a0# ~'ctx ~'bindings)
-                           (types/eval a1# ~'ctx ~'bindings)
-                           (types/eval a2# ~'ctx ~'bindings)
-                           (types/eval a3# ~'ctx ~'bindings)
-                           (types/eval a4# ~'ctx ~'bindings))
-                       nil))])))))))
+(defn return-or
+  [ctx expr children]
+  (let [child-count# (count children)]
+    (if (> child-count# 5)
+      (let [a0# (return-or ctx expr (take 5 children))
+            a1# (return-or ctx expr (drop 5 children))]
+        (sci.impl.types/->Node
+         (or (types/eval a0# ctx bindings)
+             (types/eval a1# ctx bindings))
+         nil))
+      (let [children (analyze-children-tail ctx children)]
+        (case child-count#
+          0 nil
+          1 (analyze ctx (nth children 0))
+          2 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))]
+              (sci.impl.types/->Node
+               (or (types/eval a0# ctx bindings)
+                   (types/eval a1# ctx bindings))
+               nil))
+          3 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))
+                  a2# (analyze ctx (nth children 2))]
+              (sci.impl.types/->Node
+               (or (types/eval a0# ctx bindings)
+                   (types/eval a1# ctx bindings)
+                   (types/eval a2# ctx bindings))
+               nil))
+          4 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))
+                  a2# (analyze ctx (nth children 2))
+                  a3# (analyze ctx (nth children 3))]
+              (sci.impl.types/->Node
+               (or (types/eval a0# ctx bindings)
+                   (types/eval a1# ctx bindings)
+                   (types/eval a2# ctx bindings)
+                   (types/eval a3# ctx bindings))
+               nil))
+          5 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))
+                  a2# (analyze ctx (nth children 2))
+                  a3# (analyze ctx (nth children 3))
+                  a4# (analyze ctx (nth children 4))]
+              (sci.impl.types/->Node
+               (or (types/eval a0# ctx bindings)
+                   (types/eval a1# ctx bindings)
+                   (types/eval a2# ctx bindings)
+                   (types/eval a3# ctx bindings)
+                   (types/eval a4# ctx bindings))
+               nil)))))))
 
-(declare return-or) ;; for clj-kondo
-(gen-return-or)
-
-(defmacro gen-return-and
-  []
-  `(defn ~'return-and
-     ~'[ctx expr children]
-     (let [child-count# (count ~'children)]
-       (if (> child-count# 5)
-         (let [a0# (return-and ~'ctx ~'expr (take 5 ~'children))
-               a1# (return-and ~'ctx ~'expr (drop 5 ~'children))]
-           (sci.impl.types/->Node
-            (and (types/eval a0# ~'ctx ~'bindings)
-                 (types/eval a1# ~'ctx ~'bindings))
-            nil))
-         (let [~'children (analyze-children-tail ~'ctx ~'children)]
-           (case child-count#
-             ~@(concat
-                [0 true]
-                [1 `(analyze ~'ctx (nth ~'children 0))]
-                [2 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))]
-                      (sci.impl.types/->Node
-                       (and (types/eval a0# ~'ctx ~'bindings)
-                            (types/eval a1# ~'ctx ~'bindings))
-                       nil))]
-                [3 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))
-                          a2# (analyze ~'ctx (nth ~'children 2))]
-                      (sci.impl.types/->Node
-                       (and (types/eval a0# ~'ctx ~'bindings)
-                            (types/eval a1# ~'ctx ~'bindings)
-                            (types/eval a2# ~'ctx ~'bindings))
-                       nil))]
-                [4 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))
-                          a2# (analyze ~'ctx (nth ~'children 2))
-                          a3# (analyze ~'ctx (nth ~'children 3))]
-                      (sci.impl.types/->Node
-                       (and (types/eval a0# ~'ctx ~'bindings)
-                            (types/eval a1# ~'ctx ~'bindings)
-                            (types/eval a2# ~'ctx ~'bindings)
-                            (types/eval a3# ~'ctx ~'bindings))
-                       nil))]
-                [5 `(let [a0# (analyze ~'ctx (nth ~'children 0))
-                          a1# (analyze ~'ctx (nth ~'children 1))
-                          a2# (analyze ~'ctx (nth ~'children 2))
-                          a3# (analyze ~'ctx (nth ~'children 3))
-                          a4# (analyze ~'ctx (nth ~'children 4))]
-                      (sci.impl.types/->Node
-                       (and (types/eval a0# ~'ctx ~'bindings)
-                            (types/eval a1# ~'ctx ~'bindings)
-                            (types/eval a2# ~'ctx ~'bindings)
-                            (types/eval a3# ~'ctx ~'bindings)
-                            (types/eval a4# ~'ctx ~'bindings))
-                       nil))])))))))
-
-(declare return-and) ;; for clj-kondo
-(gen-return-and)
+(defn return-and
+  [ctx expr children]
+  (let [child-count# (count children)]
+    (if (> child-count# 5)
+      (let [a0# (return-and ctx expr (take 5 children))
+            a1# (return-and ctx expr (drop 5 children))]
+        (sci.impl.types/->Node
+         (and (types/eval a0# ctx bindings)
+              (types/eval a1# ctx bindings))
+         nil))
+      (let [children (analyze-children-tail ctx children)]
+        (case child-count#
+          0 true
+          1 (analyze ctx (nth children 0))
+          2 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))]
+              (sci.impl.types/->Node
+               (and (types/eval a0# ctx bindings)
+                    (types/eval a1# ctx bindings))
+               nil))
+          3 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))
+                  a2# (analyze ctx (nth children 2))]
+              (sci.impl.types/->Node
+               (and (types/eval a0# ctx bindings)
+                    (types/eval a1# ctx bindings)
+                    (types/eval a2# ctx bindings))
+               nil))
+          4 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))
+                  a2# (analyze ctx (nth children 2))
+                  a3# (analyze ctx (nth children 3))]
+              (sci.impl.types/->Node
+               (and (types/eval a0# ctx bindings)
+                    (types/eval a1# ctx bindings)
+                    (types/eval a2# ctx bindings)
+                    (types/eval a3# ctx bindings))
+               nil))
+          5 (let [a0# (analyze ctx (nth children 0))
+                  a1# (analyze ctx (nth children 1))
+                  a2# (analyze ctx (nth children 2))
+                  a3# (analyze ctx (nth children 3))
+                  a4# (analyze ctx (nth children 4))]
+              (sci.impl.types/->Node
+               (and (types/eval a0# ctx bindings)
+                    (types/eval a1# ctx bindings)
+                    (types/eval a2# ctx bindings)
+                    (types/eval a3# ctx bindings)
+                    (types/eval a4# ctx bindings))
+               nil)))))))
 
 (macros/deftime
   (defmacro gen-return-recur
