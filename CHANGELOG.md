@@ -4,7 +4,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## v0.5.34 (2022-10-18)
 
-- Performance optimizations for `let`
+- Performance optimizations for `let` (up to 8x faster)
 - [babashka/babashka#1340](https://github.com/babashka/babashka/issues/1340): Add arglists/docstring to protocol methods ([@bobisageek](https://github.com/bobisageek))
 - #801: preserve location metadata for vars defined in macro-expansion
 - Add new `var->symbol` API function in `sci.core`
