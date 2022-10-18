@@ -483,9 +483,9 @@
   (let [rt (recur-target ctx)
         ctx (without-recur-target ctx)
         stack (utils/make-stack (meta expr) true)
-        [ctx new-let-bindings idens]
+        [ctx let-nodes idens]
         (reduce
-         (fn [[ctx new-let-bindings idens] [binding-name binding-value]]
+         (fn [[ctx let-nodes idens] [binding-name binding-value]]
            (let [m (meta binding-value)
                  t (when m (:tag m))
                  binding-name (if t (vary-meta binding-name
@@ -501,7 +501,7 @@
              [(update ctx :bindings #(-> %
                                          (dissoc binding-name)
                                          (assoc binding-name new-iden)))
-              (conj new-let-bindings binding-name v)
+              (conj let-nodes v)
               (conj idens new-iden)]))
          [ctx [] []]
          (partition 2 destructured-let-bindings))
@@ -509,9 +509,47 @@
         iden->invoke-idx (:iden->invoke-idx ctx)
         idxs (mapv iden->invoke-idx idens)]
     ;; (prn :params params :idens idens :idxs idxs)
-    (sci.impl.types/->Node
-     (eval/eval-let ctx bindings new-let-bindings body idxs)
-     stack)))
+    (case (count idxs)
+      0 (sci.impl.types/->Node
+         (sci.impl.types/eval body ctx bindings)
+         stack)
+      1 (let [node0 (nth let-nodes 0)
+              idx0 (nth idxs 0)]
+          (sci.impl.types/->Node
+           (let [val0 (types/eval node0 ctx bindings)]
+             (aset ^objects bindings idx0 val0)
+             (sci.impl.types/eval body ctx bindings))
+           stack))
+      #_#_2 (let [node0 (nth let-nodes 0)
+              node1 (nth let-nodes 1)
+              idx0 (nth idxs 0)
+              idx1 (nth idxs 1)]
+          (sci.impl.types/->Node
+           (let [val0 (types/eval node0 ctx bindings)]
+             (aset ^objects bindings idx0 val0)
+             (let [val1 (types/eval node1 ctx bindings)]
+               (aset ^objects bindings idx1 val1)
+               (sci.impl.types/eval body ctx bindings)))
+           stack))
+      #_#_3 (let [node0 (nth let-nodes 0)
+              node1 (nth let-nodes 1)
+              node2 (nth let-nodes 2)
+              idx0 (nth idxs 0)
+              idx1 (nth idxs 1)
+              idx2 (nth idxs 2)]
+          (sci.impl.types/->Node
+           (let [val0 (types/eval node0 ctx bindings)]
+             (aset ^objects bindings idx0 val0)
+             (let [val1 (types/eval node1 ctx bindings)]
+               (aset ^objects bindings idx1 val1)
+               (let [val2 (types/eval node2 ctx bindings)]
+                 (aset ^objects bindings idx2 val2)
+                 (sci.impl.types/eval body ctx bindings))))
+           stack))
+      ;; default
+      (sci.impl.types/->Node
+       (eval/eval-let ctx bindings let-nodes body idxs)
+       stack))))
 
 (defn analyze-let
   "The let macro from clojure.core"

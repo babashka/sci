@@ -49,9 +49,9 @@
 
 (defn eval-let
   "The let macro from clojure.core"
-  [ctx bindings let-bindings exprs idxs]
+  [ctx bindings let-nodes exprs idxs]
   (case (count idxs)
-    0 (types/eval exprs ctx bindings)
+    #_#_#_#_#_#_0 (types/eval exprs ctx bindings)
     1 (let [#_#_bn0 (nth bindings 0)
             bv0 (nth let-bindings 1)
             bv0 (types/eval bv0 ctx bindings)]
@@ -68,22 +68,17 @@
     ;; :else
     (loop [ctx ctx
            bindings bindings
-           let-bindings let-bindings
+           let-nodes (seq let-nodes)
            idx 0]
-      (let [let-name (first let-bindings)]
-        (if let-name
-          (let [let-bindings (rest let-bindings)
-                let-val (first let-bindings)
-                rest-let-bindings (next let-bindings)
-                v (types/eval let-val ctx bindings)
-                ;; bindings (faster/get-2 ctx :bindings)
-                ;; ctx (faster/assoc-3 ctx :bindings bindings)
-                ]
-            (aset ^objects bindings (nth idxs idx) v)
-            (recur ctx bindings
-                   rest-let-bindings
-                   (inc idx)))
-          (types/eval exprs ctx bindings))))))
+      (if let-nodes
+        (let [let-node (first let-nodes)
+              v (types/eval let-node ctx bindings)]
+          (aset ^objects bindings (nth idxs idx) v)
+          (recur ctx bindings
+                 (next let-nodes)
+                 (inc idx))
+          )
+        (types/eval exprs ctx bindings)))))
 
 (defn eval-def
   [ctx bindings var-name init m]
