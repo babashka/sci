@@ -218,19 +218,6 @@
 
 (declare eval-string)
 
-(defn eval-do
-  "Note: various arities of do have already been unrolled in the analyzer."
-  [ctx bindings exprs]
-  (let [exprs (seq exprs)]
-    (loop [exprs exprs]
-      (when exprs
-        (let [ret (types/eval (first exprs) ctx bindings)]
-          (if-let [exprs (next exprs)]
-            (recur exprs)
-            ret))))))
-
-(vreset! utils/eval-do* eval-do)
-
 (macros/deftime
   ;; This macro generates a function of the following form for 20 arities:
   #_(defn fn-call [ctx bindings f args]

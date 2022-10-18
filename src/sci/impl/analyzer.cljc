@@ -108,37 +108,52 @@
         ret-child (analyze (with-recur-target ctx rt) (last children))]
     (conj analyzed-children-non-tail ret-child)))
 
-(defmacro gen-return-do
-  []
-  (let [let-bindings (map (fn [i]
-                            [i (vec (mapcat (fn [j]
-                                              [(symbol (str "arg" j))
-                                               `(nth (deref ~'analyzed-children) ~j)])
-                                            (range i)))])
-                          (range 2 4))]
-    `(defn ~'return-do
-       ~'[ctx expr children]
-       (let [~'analyzed-children (delay (analyze-children-tail ~'ctx ~'children))]
-         (case (count ~'children)
-           ~@(concat
-              [0 nil]
-              [1 `(nth (deref ~'analyzed-children) 0)]
-              (mapcat (fn [[i binds]]
-                        [i `(let ~binds
-                              (sci.impl.types/->Node
-                               (do ~@(map (fn [j]
-                                            `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                          (range i)))
-                               nil))])
-                      let-bindings)
-              `[(let [~'analyzed-children (deref ~'analyzed-children)]
-                  (sci.impl.types/->Node (eval/eval-do ~'ctx ~'bindings ~'analyzed-children) nil))]))))))
-
-;; (require '[clojure.pprint :refer [pprint]])
-;; (pprint (clojure.core/macroexpand '(gen-return-do)))
-
-(declare return-do) ;; for clj-kondo
-(gen-return-do)
+(defn return-do
+  [ctx expr children]
+  (let [child-count (count children)]
+    (if (> child-count 5)
+      (let [node1 (return-do ctx expr (take 5 children))
+            node2 (return-do ctx expr (drop 5 children))]
+        (sci.impl.types/->Node (do (types/eval node1 ctx bindings)
+                                   (types/eval node2 ctx bindings))
+                               nil))
+      (let [analyzed-children (analyze-children-tail ctx children)]
+          (case (count analyzed-children)
+            0 nil
+            1 (let [node (nth analyzed-children 0)]
+                (sci.impl.types/->Node (types/eval node ctx bindings) nil))
+            2 (let [node0 (nth analyzed-children 0)
+                    node1 (nth analyzed-children 1)]
+                (sci.impl.types/->Node
+                 (do (types/eval node0 ctx bindings)
+                     (types/eval node1 ctx bindings)) nil))
+            3 (let [node0 (nth analyzed-children 0)
+                    node1 (nth analyzed-children 1)
+                    node2 (nth analyzed-children 2)]
+                (sci.impl.types/->Node
+                 (do (types/eval node0 ctx bindings)
+                     (types/eval node1 ctx bindings)
+                     (types/eval node2 ctx bindings)) nil))
+            4 (let [node0 (nth analyzed-children 0)
+                    node1 (nth analyzed-children 1)
+                    node2 (nth analyzed-children 2)
+                    node3 (nth analyzed-children 3)]
+                (sci.impl.types/->Node
+                 (do (types/eval node0 ctx bindings)
+                     (types/eval node1 ctx bindings)
+                     (types/eval node2 ctx bindings)
+                     (types/eval node3 ctx bindings)) nil))
+            5 (let [node0 (nth analyzed-children 0)
+                    node1 (nth analyzed-children 1)
+                    node2 (nth analyzed-children 2)
+                    node3 (nth analyzed-children 3)
+                    node4 (nth analyzed-children 4)]
+                (sci.impl.types/->Node
+                 (do (types/eval node0 ctx bindings)
+                     (types/eval node1 ctx bindings)
+                     (types/eval node2 ctx bindings)
+                     (types/eval node3 ctx bindings)
+                     (types/eval node4 ctx bindings)) nil)))))))
 
 (defn return-or
   [ctx expr children]
