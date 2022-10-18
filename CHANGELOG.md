@@ -2,11 +2,17 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+## v0.5.34 (2022-10-18)
 
+- Performance optimizations for `let`
 - [babashka/babashka#1340](https://github.com/babashka/babashka/issues/1340): Add arglists/docstring to protocol methods ([@bobisageek](https://github.com/bobisageek))
+- #801: preserve location metadata for vars defined in macro-expansion
+- Add new `var->symbol` API function in `sci.core`
+- Add new `resolve` API function in `sci.core`
+- Expose `*print-namespace-maps*` from `sci.core`
+- Internal simplifications for `and`, `or` and `do`
 
-## v0.4.33
+## v0.4.33 (2022-09-15)
 
 - [#791](https://github.com/babashka/sci/issues/791): Fix friendly arity exception messages for Clojure 1.10, 1.11 ([@lread](https://github.com/lread))
 - [#794](https://github.com/babashka/sci/issues/794): Support for `IPrintWithWriter` for custom types in CLJS
