@@ -50,24 +50,40 @@
 (defn eval-let
   "The let macro from clojure.core"
   [ctx bindings let-bindings exprs idxs]
-  (loop [ctx ctx
-         bindings bindings
-         let-bindings let-bindings
-         idx 0]
-    (let [let-name (first let-bindings)]
-      (if let-name
-        (let [let-bindings (rest let-bindings)
-              let-val (first let-bindings)
-              rest-let-bindings (next let-bindings)
-              v (types/eval let-val ctx bindings)
-              ;; bindings (faster/get-2 ctx :bindings)
-              ;; ctx (faster/assoc-3 ctx :bindings bindings)
-              ]
-          (aset ^objects bindings (nth idxs idx) v)
-          (recur ctx bindings
-                 rest-let-bindings
-                 (inc idx)))
-        (types/eval exprs ctx bindings)))))
+  (case (count idxs)
+    0 (types/eval exprs ctx bindings)
+    1 (let [#_#_bn0 (nth bindings 0)
+            bv0 (nth let-bindings 1)
+            bv0 (types/eval bv0 ctx bindings)]
+        (aset ^objects bindings (nth idxs 0) bv0)
+        (types/eval exprs ctx bindings))
+    2 (let [#_#_bn0 (nth bindings 0)
+            bv0 (nth let-bindings 1)
+            bv0 (types/eval bv0 ctx bindings)
+            _ (aset ^objects bindings (nth idxs 0) bv0)
+            bv1 (nth let-bindings 3)
+            bv1 (types/eval bv1 ctx bindings)
+            _ (aset ^objects bindings (nth idxs 1) bv1)]
+        (types/eval exprs ctx bindings))
+    ;; :else
+    (loop [ctx ctx
+           bindings bindings
+           let-bindings let-bindings
+           idx 0]
+      (let [let-name (first let-bindings)]
+        (if let-name
+          (let [let-bindings (rest let-bindings)
+                let-val (first let-bindings)
+                rest-let-bindings (next let-bindings)
+                v (types/eval let-val ctx bindings)
+                ;; bindings (faster/get-2 ctx :bindings)
+                ;; ctx (faster/assoc-3 ctx :bindings bindings)
+                ]
+            (aset ^objects bindings (nth idxs idx) v)
+            (recur ctx bindings
+                   rest-let-bindings
+                   (inc idx)))
+          (types/eval exprs ctx bindings))))))
 
 (defn eval-def
   [ctx bindings var-name init m]
