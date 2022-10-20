@@ -48,7 +48,8 @@
   (-get-type [_]
     type)
   (-mutate [_ k v]
-    (set! ext-map (assoc ext-map k v)))
+    (set! ext-map (assoc ext-map k v))
+    v)
 
   #?@(:clj [SciPrintMethod
             (-sci-print-method [this w]
