@@ -194,6 +194,10 @@
                                 "^:volatile-mutable" #?(:clj "^:volatile-mutable"
                                                         :cljs "^:mutable"))
                    {})))
+  (testing "TODO fix"
+    #_(is (= 2 (sci/eval-string (str/replace "(defprotocol GetX (getX [_])) (deftype Foo [^:volatile-mutable x y] GetX (getX [_] (set! x inc) (x 1))) (getX (->Foo identity 0))"
+                                             "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                                                     :cljs "^:mutable"))))))
 
   #?(:clj
      (is (re-find #"#object\[user.Foo" (sci/with-out-str (sci/eval-string "(deftype Foo []) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}})))))

@@ -140,6 +140,10 @@
                                                    bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
                                                    bindings (concat bindings
                                                                     (mapcat (fn [field]
+                                                                              ;; TODO: the premature get is only necessary for immutable bindings
+                                                                              ;; We could however delay the getting of these values for both immutable and mutable fields.
+                                                                              ;; Currently a mutable binding is retrieved from the ext-map directly, since it can be mutated in the body we're analyzing here
+                                                                              ;; See resolve.cljc. We could apply the same trick to records.
                                                                               [field (list 'get ext-map-binding (list 'quote field))])
                                                                             (reduce disj field-set args)))
                                                    bindings (concat bindings [orig-this-sym this-sym])
