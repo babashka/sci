@@ -2,6 +2,10 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
+## Unreleased
+
+- Fix [#817](https://github.com/babashka/sci/issues/817): mutation of `deftype` field should be visible in protocol method
+
 ## v0.5.34 (2022-10-18)
 
 - Performance optimizations for `let` (up to 8x faster)
