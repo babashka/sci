@@ -700,6 +700,9 @@
     (it-works '(fn [] (or (recur))))
     (it-works '(fn [] (or 1 2 3 (recur))))
     (throws-tail-ex '(fn [] (and (recur) 1)))
+    (dotimes [i 20]
+      (let [body (list 'fn [] (list* 'do (concat (range i) [(list 'recur) :tail])))]
+        (throws-tail-ex body)))
     (it-works '(fn [] (and (recur))))
     (it-works '(fn [] (and 1 2 3 (recur))))))
 

@@ -111,7 +111,7 @@
   [ctx expr children]
   (let [child-count (count children)]
     (if (> child-count 5)
-      (let [node1 (return-do ctx expr (take 5 children))
+      (let [node1 (return-do (without-recur-target ctx) expr (take 5 children))
             node2 (return-do ctx expr (drop 5 children))]
         (sci.impl.types/->Node (do (types/eval node1 ctx bindings)
                                    (types/eval node2 ctx bindings))
