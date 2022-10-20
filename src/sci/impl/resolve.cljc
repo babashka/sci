@@ -143,9 +143,16 @@
                               :cljs (:mutable m))))
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
-                  (let [v (cond-> (->Node
-                                   (aget ^objects bindings idx)
-                                   nil)
+                  (let [v (cond-> (if mutable?
+                                    (let [ext-map (second (lookup ctx '__sci_this false))]
+                                      (->Node
+                                       (let [this (sci.impl.types/eval ext-map ctx bindings)
+                                             inner (sci.impl.types/getVal this)]
+                                         (get inner sym))
+                                       nil))
+                                    (->Node
+                                     (aget ^objects bindings idx)
+                                     nil))
                             #?@(:clj [tag (with-meta
                                             {:tag tag})])
                             mutable? (vary-meta assoc :mutable true))]
