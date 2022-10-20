@@ -189,6 +189,12 @@
       (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo) (setField)))"
                              "^:volatile-mutable" #?(:clj "^:volatile-mutable"
                                                      :cljs "^:mutable")) {})))
+  (is (= [1 2 2]
+         (tu/eval* (str/replace "(defprotocol ICounter (inc! [_])) (deftype Cnt [^:volatile-mutable n] ICounter (inc! [_] (let [old-n n new-n-set (set! n (inc n)) new-n n] [old-n new-n-set new-n]))) (inc! (->Cnt 1))"
+                                "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                                        :cljs "^:mutable"))
+                   {})))
+
   #?(:clj
      (is (re-find #"#object\[user.Foo" (sci/with-out-str (sci/eval-string "(deftype Foo []) (prn (->Foo))" {:namespaces {'clojure.core {'print-method print-method}} :classes {:allow :all}})))))
   #?(:clj
