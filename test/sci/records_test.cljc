@@ -194,6 +194,18 @@
                                 "^:volatile-mutable" #?(:clj "^:volatile-mutable"
                                                         :cljs "^:mutable"))
                    {})))
+  (testing "getting value of shadowed field"
+    (is (= 10
+           (tu/eval* (str/replace "(defprotocol ICounter (inc! [_])) (deftype Cnt [^:volatile-mutable n] ICounter (inc! [_] (let [n 10] n))) (inc! (->Cnt 1))"
+                                  "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                                          :cljs "^:mutable"))
+                     {}))))
+  (testing "can't assign shadowed field"
+    (is (thrown? Exception
+                 (tu/eval* (str/replace "(defprotocol ICounter (inc! [_])) (deftype Cnt [^:volatile-mutable n] ICounter (inc! [_] (let [n n] (set! n 10)))) (inc! (->Cnt 1))"
+                                        "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                                                :cljs "^:mutable"))
+                           {}))))
   (testing "TODO fix"
     #_(is (= 2 (sci/eval-string (str/replace "(defprotocol GetX (getX [_])) (deftype Foo [^:volatile-mutable x y] GetX (getX [_] (set! x inc) (x 1))) (getX (->Foo identity 0))"
                                              "^:volatile-mutable" #?(:clj "^:volatile-mutable"
