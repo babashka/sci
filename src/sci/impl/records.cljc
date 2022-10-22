@@ -162,7 +162,7 @@
 
      ICloneable
      (-clone [_]
-       (new SciRecord rec-name var ext-map my_hash))
+       (new SciRecord rec-name type var ext-map my_hash))
 
      IHash
      (-hash [_]
@@ -241,6 +241,10 @@
      (-kv-reduce [this f init]
        (reduce (fn [ret [k v]]
                  (f ret k v)) init this))
+
+     sci.impl.types/SciTypeInstance
+     (-get-type [_]
+       type)
 
      Object
      (toString [this]
