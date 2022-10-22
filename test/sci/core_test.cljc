@@ -1611,6 +1611,9 @@
       (doseq [case do-cases]
         (is (= 6 (sci/eval-form ctx case)))))))
 
+(deftest type-test
+  (is (= :user/foo (sci/eval-string "(def x ^{:type ::foo} []) (type x)"))))
+
 ;;;; Scratch
 
 (comment
