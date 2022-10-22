@@ -1372,7 +1372,7 @@
    'rand-int (copy-core-var rand-int)
    'rand-nth (copy-core-var rand-nth)
    'range (copy-core-var range)
-   'record? (core-var 'record? sci.impl.records/sci-record?)
+   'record? (copy-core-var record?)
    'reduce (copy-core-var reduce)
    'reduce-kv (copy-core-var reduce-kv)
    'reduced (copy-core-var reduced)

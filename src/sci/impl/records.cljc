@@ -32,19 +32,6 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
-(defn preserve-own-meta
-  "TODO: now that we are using our own record implementation, we can move away from metadata."
-  [m old-meta]
-  m
-  #_(if (:sci.impl/record m)
-    m
-    (assoc m
-           :type (:type old-meta)
-           :sci.impl/record (:sci.impl/record old-meta)
-           :sci.impl/constructor (:sci.impl/constructor old-meta)
-           :sci.impl/var (:sci.imp/record-var old-meta)
-           :sci.impl.record/map-constructor (:sci.impl.record/map-constructor old-meta))))
-
 #?(:clj
    (deftype SciRecord [rec-name
                        type
@@ -77,7 +64,7 @@
        (meta ext-map))
      (withMeta [_ m]
        (SciRecord.
-        rec-name type var (with-meta ext-map (preserve-own-meta m (meta ext-map))) 0 0))
+        rec-name type var (with-meta ext-map m) 0 0))
 
      clojure.lang.ILookup
      (valAt [_this k]
@@ -189,7 +176,7 @@
      IWithMeta
      (-with-meta [_ m]
        (new SciRecord
-            rec-name type var (with-meta ext-map (preserve-own-meta m (meta ext-map))) my_hash))
+            rec-name type var (with-meta ext-map m) my_hash))
 
      ILookup
      (-lookup [_ k]
@@ -343,12 +330,6 @@
            (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name) m#))
          ~@protocol-impls
          ~record-name))))
-
-(defn sci-record? [x]
-  (or
-   #_(when (map? x)
-     (some-> x meta :sci.impl/record))
-   (clojure.core/record? x)))
 
 (defn resolve-record-or-protocol-class
   "A record class is represented by a symbol with metadata (currently). This is only an implementation detail.

@@ -42,7 +42,7 @@
       (when (#?(:clj instance?
                 :cljs implements?) sci.impl.types.SciTypeInstance x)
         (-get-type x))
-      #_(some-> x meta :type)
+      (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
 

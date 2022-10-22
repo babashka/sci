@@ -225,8 +225,8 @@
     (is (= [true false false] (tu/eval* prog {})))))
 
 (deftest with-meta-preserves-type-test
-  (let [prog "(defrecord Foo [a] Object (toString [_] \"!!FOO!!\")) [(str (with-meta (->Foo 1) {:a 1}))]"]
-    (is (= ["!!FOO!!"] (tu/eval* prog {})))))
+  (let [prog "(defrecord Foo [a] Object (toString [_] \"!!FOO!!\")) (let [wm (with-meta (->Foo 1) {:a 1})] [(meta wm) (str wm)])"]
+    (is (= [{:a 1} "!!FOO!!"] (tu/eval* prog {})))))
 
 (deftest syntax-quote-test
   (is (= "foo.Foo" (str (tu/eval* "(ns foo) (defrecord Foo []) `Foo" {}))))
