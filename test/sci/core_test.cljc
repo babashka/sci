@@ -1614,6 +1614,10 @@
 (deftest type-test
   (is (= :user/foo (sci/eval-string "(def x ^{:type ::foo} []) (type x)"))))
 
+(deftest conditional-var-test
+  ;; NOTE: :file is not conform Clojure JVM, maybe fix this another day
+  (is (= [:name :ns :file] (sci/eval-string "(when false (def ^:foobar x)) (keys (meta #'x))"))))
+
 ;;;; Scratch
 
 (comment

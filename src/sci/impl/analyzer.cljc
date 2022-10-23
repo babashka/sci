@@ -669,10 +669,9 @@
                            (assoc the-current-ns name
                                   (doto (sci.lang.Var. nil (symbol (str cnn)
                                                                    (str name))
-                                                       (assoc (meta name)
-                                                              :name name
-                                                              :ns @utils/current-ns
-                                                              :file @utils/current-file)
+                                                       {:name name
+                                                        :ns @utils/current-ns
+                                                        :file @utils/current-file}
                                                        false
                                                        false)
                                     (vars/unbind)))
