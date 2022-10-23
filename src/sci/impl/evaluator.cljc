@@ -135,8 +135,7 @@
                         (let [instance-class-name #?(:clj (.getName ^Class instance-class)
                                                      :cljs (.-name instance-class))
                               instance-class-symbol (symbol instance-class-name)]
-                          (get class->opts instance-class-symbol))
-                        #?(:cljs (.log js/console (str method-str))))
+                          (get class->opts instance-class-symbol)))
               ^Class target-class (if allowed? instance-class
                                       (when-let [f (:public-class env)]
                                         (f instance-expr*)))]
