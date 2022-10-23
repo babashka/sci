@@ -1,10 +1,10 @@
 (ns sci.impl.interop
   {:no-doc true}
-  #?(:clj (:import [sci.impl Reflector]
-                   [java.lang.reflect Field Modifier]))
+  #?(:clj (:import
+           [java.lang.reflect Field Modifier]
+           [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobject])
             #?(:cljs [clojure.string :as str])
-            [sci.impl.vars :as vars]
             [sci.impl.utils :as utils]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
@@ -17,13 +17,13 @@
              ;; gobject/get didn't work here
              (aget obj field-name)]
       :clj
-      [([obj ^Class target-class method]
-        (let [^Field field (.getField target-class method)
-              mod (.getModifiers field)]
-          (if (and (not (Modifier/isStatic mod))
-                   (Modifier/isPublic mod))
-            (.get field obj)
-            (throw (ex-info (str "Not found or accessible instance field: " method) {})))))]))
+      [[obj ^Class target-class method]
+       (let [^Field field (.getField target-class method)
+             mod (.getModifiers field)]
+         (if (and (not (Modifier/isStatic mod))
+                  (Modifier/isPublic mod))
+           (.get field obj)
+           (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]))
 
 (defn invoke-instance-method
   #?@(:cljs [[obj _target-class method-name args]
@@ -33,14 +33,14 @@
                (js/Reflect.apply method obj (into-array args) #_(js-object-array args))
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
-      [([obj ^Class target-class method args]
-        (if-not target-class
-          (Reflector/invokeInstanceMethod obj method (object-array args))
-          (let [arg-count (count args)
-                methods (Reflector/getMethods target-class arg-count method false)]
-            (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
-              (invoke-instance-field obj target-class method)
-              (Reflector/invokeMatchingMethod method methods obj (object-array args))))))]))
+      [[obj ^Class target-class method args]
+       (if-not target-class
+         (Reflector/invokeInstanceMethod obj method (object-array args))
+         (let [arg-count (count args)
+               methods (Reflector/getMethods target-class arg-count method false)]
+           (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
+             (invoke-instance-field obj target-class method)
+             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [[class field-name-sym]])
@@ -69,7 +69,7 @@
                (cond
                  (not field)
                  (throw (js/Error. (str "Could not find static method " method-name)))
-                 (clojure.string/ends-with? method-name ".")
+                 (str/ends-with? method-name ".")
                  (invoke-js-constructor field args)
                  :else
                  ;; why is this here??
