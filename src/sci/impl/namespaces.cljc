@@ -42,7 +42,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def clojure-core-ns sci.impl.utils/clojure-core-ns)
+(def clojure-core-ns utils/clojure-core-ns)
 
 ;; The following is produced with:
 ;; (def inlined (filter (comp :inline meta) (vals (ns-publics 'clojure.core))))
@@ -54,7 +54,7 @@
    ;; for self-hosted
    :cljs (def elide-vars false))
 
-(def cljs-resolve (resolve 'cljs.analyzer.api/ns-resolve))
+(def cljs-resolve (resolve 'cljs.analyzer.api/resolve))
 
 (macros/deftime
   (defmacro if-vars-elided [then else]
@@ -88,7 +88,7 @@
                                                 inline? (assoc :sci.impl/inlined sym)
                                                 macro (assoc :macro true)))
                                        :cljs nil)
-                               :cljs (let [r (cljs-resolve 'sci.impl.namespaces sym)
+                               :cljs (let [r (cljs-resolve {} 'cljs.core/when #_sym)
                                            nm (or nm (list 'quote (symbol (name sym))))
                                            m (:meta r)
                                            arglists (:arglists m)]
@@ -108,8 +108,8 @@
                         :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
               `(sci.lang.Var. ~sym ~nm ~varm false false)))))
       (defmacro copy-core-var
-        ([sym]
-         `(copy-var ~sym clojure-core-ns))))))
+        [sym]
+        `(copy-var ~sym clojure-core-ns)))))
 
 (defn macrofy
   ([f] (vary-meta f #(assoc % :sci/macro true)))
@@ -1074,7 +1074,8 @@
    '== (copy-core-var ==)
    '-> (copy-var ->* clojure-core-ns {:name '->
                                       :macro true})
-   '->> (macrofy '->> ->>*)
+   '->> (copy-var ->>* clojure-core-ns {:name '->>
+                                        :macro true})
    'as-> (macrofy 'as-> as->*)
    'comment (macrofy 'comment comment*)
    'add-watch (copy-core-var add-watch)
