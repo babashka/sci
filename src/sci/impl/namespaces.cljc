@@ -54,7 +54,7 @@
    ;; for self-hosted
    :cljs (def elide-vars false))
 
-(def cljs-resolve (resolve 'cljs.analyzer.api/resolve))
+(def cljs-resolve (resolve 'cljs.analyzer.api/ns-resolve))
 
 (macros/deftime
   (defmacro if-vars-elided [then else]
@@ -88,7 +88,7 @@
                                                 inline? (assoc :sci.impl/inlined sym)
                                                 macro (assoc :macro true)))
                                        :cljs nil)
-                               :cljs (let [r (cljs-resolve {} sym)
+                               :cljs (let [r (cljs-resolve 'sci.impl.namespaces sym)
                                            nm (or nm (list 'quote (symbol (name sym))))
                                            m (:meta r)
                                            arglists (:arglists m)]
@@ -130,6 +130,11 @@
                              ctx?))))
 
 (defn ->*
+  "Threads the expr through the forms. Inserts x as the
+  second item in the first form, making a list of it if it is not a
+  list already. If there are more forms, inserts the first form as the
+  second item in second form, etc."
+  {:arglists '([x & forms])}
   [_ _ x & forms]
   (loop [x x, forms forms]
     (if forms
@@ -1067,7 +1072,8 @@
    '* (copy-core-var *)
    '/ (copy-core-var /)
    '== (copy-core-var ==)
-   '-> (macrofy '-> ->*)
+   '-> (copy-var ->* clojure-core-ns {:name '->
+                                      :macro true})
    '->> (macrofy '->> ->>*)
    'as-> (macrofy 'as-> as->*)
    'comment (macrofy 'comment comment*)
@@ -1504,7 +1510,7 @@
    'when-first (macrofy 'when-first when-first*)
    'when-let (macrofy 'when-let when-let*)
    'when-some (macrofy 'when-some when-some*)
-   'when (copy-var sci.impl.namespaces/when* clojure-core-ns {:macro true
+   'when (copy-var when* clojure-core-ns {:macro true
                                           :name 'when})
    'when-not (macrofy 'when-not when-not*)
    'while (macrofy 'while while*)
