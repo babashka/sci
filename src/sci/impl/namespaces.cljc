@@ -484,6 +484,11 @@
   (assert (symbol? ns-sym))
   (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil))
 
+(defn* sci-in-ns [ctx ns-sym]
+  (assert (symbol? ns-sym))
+  (or (sci-find-ns ctx ns-sym)
+      (sci-create-ns ctx ns-sym)))
+
 (defn sci-the-ns [ctx x]
   (if (instance? #?(:clj sci.lang.Namespace
                     :cljs sci.lang/Namespace) x) x
