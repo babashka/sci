@@ -38,7 +38,7 @@
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
    [sci.lang])
-  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var]])))
+  #?(:cljs (:require-macros [sci.impl.namespaces :refer [copy-var copy-core-var macrofy core-var]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -57,6 +57,42 @@
 (def cljs-resolve (resolve 'cljs.analyzer.api/resolve))
 
 (macros/deftime
+
+ (defn dequote [x] (if (and (seq? x) (= 'quote (first x)))
+                     (second x)
+                     x))
+
+(defn core-meta
+  "Finds metadata for `sym` from clojure.core to be included in sci."
+  [env sym]
+  (let [m
+        (-> #?(:clj  (resolve env (symbol "clojure.core" (name (dequote sym))))
+               :cljs (resolve-var env (symbol "clojure.core" (name (dequote sym)))))
+            meta
+            (select-keys [:doc :arglists :special-form]))]
+    (if (seq m)
+      (update m :arglists (fn [x] `'~x))
+      {})))
+
+ (defmacro macrofy
+   ([f]
+    `(vary-meta ~f #(assoc % :sci/macro true)))
+   ([sym f]
+    `(macrofy ~sym ~f clojure-core-ns false))
+   ([sym f ns]
+    `(macrofy ~sym ~f ~ns false))
+   ([sym f ns ctx?]
+    `(sci.impl.utils/new-var ~sym ~f (merge {:ns ~ns
+                                             :macro true
+                                             :sci/built-in true}
+                                            ~(core-meta &env sym))
+                             ~ctx?)))
+
+ (defmacro core-var [sym & args]
+   `((ns-new-var clojure-core-ns)
+     (with-meta ~sym ~(core-meta &env sym))
+     ~@args))
+
   (defmacro if-vars-elided [then else]
     (if elide-vars
       then else))
@@ -111,22 +147,13 @@
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
 
-(defn macrofy
-  ([f] (vary-meta f #(assoc % :sci/macro true)))
-  ([sym f] (macrofy sym f clojure-core-ns false))
-  ([sym f ns] (macrofy sym f ns false))
-  ([sym f ns ctx?]
-   (sci.impl.utils/new-var sym f {:ns    ns
-                                  :macro true
-                                  :sci/built-in true}
-                           ctx?)))
-
 (defn ns-new-var [ns]
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
-     (sci.impl.utils/new-var sym v {:ns ns
-                                    :sci/built-in true}
+     (sci.impl.utils/new-var sym v (merge (meta sym)
+                                          {:ns ns
+                                           :sci/built-in true})
                              ctx?))))
 
 (defn ->*
@@ -934,9 +961,6 @@
          (apply cljs.core/alter-meta! iref f args)
          (throw (ex-info (str "Built-in var " iref " is read-only.")
                          {:var iref}))))))
-
-(def core-var
-  (ns-new-var clojure-core-ns))
 
 (def clojure-core
   {:obj clojure-core-ns
