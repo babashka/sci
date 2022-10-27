@@ -181,6 +181,7 @@
    `(if (not ~test) ~then ~else)))
 
 (defn when*
+  "Docstring"
   [_ _ test & body]
   (list 'if test (cons 'do body)))
 
@@ -1503,7 +1504,8 @@
    'when-first (macrofy 'when-first when-first*)
    'when-let (macrofy 'when-let when-let*)
    'when-some (macrofy 'when-some when-some*)
-   'when (macrofy 'when when*)
+   'when (copy-var sci.impl.namespaces/when* clojure-core-ns {:macro true
+                                          :name 'when})
    'when-not (macrofy 'when-not when-not*)
    'while (macrofy 'while while*)
    'with-bindings (macrofy 'with-bindings sci-with-bindings)
