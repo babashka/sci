@@ -507,6 +507,12 @@
   (assert (symbol? ns-sym))
   (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil))
 
+(defn sci-in-ns [ctx ns-sym]
+  (assert (symbol? ns-sym))
+  (when-not (sci-find-ns ctx ns-sym)
+    (sci-create-ns ctx ns-sym))
+  (sci.impl.utils/set-namespace! ctx ns-sym {}))
+
 (defn sci-the-ns [ctx x]
   (if (instance? #?(:clj sci.lang.Namespace
                     :cljs sci.lang/Namespace) x) x
@@ -1225,6 +1231,7 @@
    'ex-cause (copy-core-var ex-cause)
    'find-ns (core-var 'find-ns sci-find-ns true #_{:sci.impl/op needs-ctx})
    'create-ns (core-var 'create-ns sci-create-ns true #_{:sci.impl/op needs-ctx})
+   'in-ns (core-var 'in-ns sci-in-ns true #_{:sci.impl/op needs-ctx})
    'find-var (core-var 'find-var sci-find-var true)
    'first (copy-core-var first)
    'float? (copy-core-var float?)
