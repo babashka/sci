@@ -1210,6 +1210,7 @@
    'ex-cause (copy-core-var ex-cause)
    'find-ns (core-var 'find-ns sci-find-ns true #_{:sci.impl/op needs-ctx})
    'create-ns (core-var 'create-ns sci-create-ns true #_{:sci.impl/op needs-ctx})
+   'in-ns (core-var 'in-ns sci-in-ns true #_{:sci.impl/op needs-ctx})
    'find-var (core-var 'find-var sci-find-var true)
    'first (copy-core-var first)
    'float? (copy-core-var float?)
