@@ -8,6 +8,7 @@ For a list of breaking changes, check [here](#breaking-changes)
 - Fix [#816](https://github.com/babashka/sci/issues/816): restore recur target exception in do
 - Fix [#819](https://github.com/babashka/sci/issues/819): don't use metadata in record implementation
 - Drop name metadata from conditionally defined var
+- Implement `in-ns` as function rather than built-in ([@SignSpice](https://github.com/SignSpice))
 
 ## v0.5.34 (2022-10-18)
 
