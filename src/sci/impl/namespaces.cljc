@@ -80,7 +80,7 @@
                :cljs (let [r (cljs-resolve &env sym)
                            m (:meta r)
                            ;_ (cljs.util/debug-prn :cljs-resolved :nm nm :sym sym :resolved r)
-                           nm (or nm (ensure-quote (:name r)))
+                           nm (or nm (list 'quote (symbol (name sym))))
                            arglists (ensure-quote (or (:arglists m) (:arglists r)))
                            doc (or (:doc m) (:doc r))]
                        (cond-> {:name nm
