@@ -284,7 +284,13 @@
        (let [~x (first xs#)]
          ~@body))))
 
-(defn when-some* [_ _ bindings & body]
+(defn when-some*
+  "bindings => binding-form test
+
+   When test is not nil, evaluates body with binding-form bound to the
+   value of test"
+  {:arglists '([bindings & body])}
+  [_ _ bindings & body]
   (let [form (bindings 0) tst (bindings 1)]
     `(let [temp# ~tst]
        (if (nil? temp#)
