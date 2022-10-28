@@ -59,9 +59,7 @@
 (macros/deftime
 
  (defn var-meta [&env sym opts]
-   (let [sym (cond-> sym
-                     (and (seq? sym) (= 'quote (first sym)))
-                     second)
+   (let [sym (cond-> sym (seq? sym) second)
          macro (when opts (:macro opts))
          nm (when opts (:name opts))
          inline? (contains? inlined-vars sym)
@@ -132,8 +130,8 @@
 
 (defn macrofy*
   ([f] (vary-meta f #(assoc % :sci/macro true)))
-  ([sym f] (macrofy sym f clojure-core-ns false))
-  ([sym f ns] (macrofy sym f ns false))
+  ([sym f] (macrofy* sym f clojure-core-ns false))
+  ([sym f ns] (macrofy* sym f ns false))
   ([sym f ns ctx?]
    (sci.impl.utils/new-var sym f (cond->> {:ns ns
                                            :macro true
