@@ -1512,9 +1512,12 @@
    'volatile! (copy-core-var volatile!)
    'vreset! (copy-core-var vreset!)
    'vswap! (macrofy 'vswap! vswap!)
-   'when-first (macrofy 'when-first when-first*)
-   'when-let (macrofy 'when-let when-let*)
-   'when-some (macrofy 'when-some when-some*)
+   'when-first (copy-var `when-first* clojure-core-ns {:macro true
+                                                       :name 'when-first})
+   'when-let (copy-var `when-let* clojure-core-ns {:macro true
+                                                   :name 'when-let})
+   'when-some (copy-var `when-some* clojure-core-ns {:macro true
+                                                     :name 'when-some})
    'when (copy-var `when* clojure-core-ns {:macro true
                                            :name 'when})
    'when-not (macrofy 'when-not when-not*)
