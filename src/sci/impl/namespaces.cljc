@@ -58,7 +58,7 @@
 
 (macros/deftime
 
- (defn var-meta [sym opts]
+ (defn var-meta [&env sym opts]
    (let [sym (cond-> sym
                      (and (seq? sym) (= 'quote (first sym)))
                      second)
@@ -89,11 +89,11 @@
    (if (= 1 (count args))
      `(macrofy* ~@args)
      (let [[sym & args] args]
-       `(macrofy* (with-meta ~sym ~(var-meta sym nil)) ~@args))))
+       `(macrofy* (with-meta ~sym ~(var-meta &env sym nil)) ~@args))))
 
  (defmacro core-var [sym & args]
    `((ns-new-var clojure-core-ns)
-     (with-meta ~sym ~(var-meta sym nil))
+     (with-meta ~sym ~(var-meta &env sym nil))
      ~@args))
 
   (defmacro if-vars-elided [then else]
@@ -115,7 +115,7 @@
           (let [macro (when opts (:macro opts))
                 #?@(:clj [the-var (macros/? :clj (resolve sym)
                                             :cljs (atom nil))])
-                varm (assoc (var-meta sym opts)
+                varm (assoc (var-meta &env sym opts)
                        :sci/built-in true
                        :ns ns)
                 nm (:name varm)]
