@@ -75,15 +75,16 @@
                                       inline? (assoc :sci.impl/inlined sym)
                                       macro (assoc :macro true)))
                        :cljs nil)
-               :cljs (let [r (cljs-resolve {} sym)
-                           nm (or nm (list 'quote (symbol (name sym))))
-                           m (:meta r)
-                           arglists (:arglists m)]
-                       (cond-> {:name nm
-                                :arglists arglists
-                                :doc (:doc m)}
-                               inline? (assoc :sci.impl/inlined sym)
-                               macro (assoc :macro true))))))
+               :cljs (when (symbol? sym)
+                       (let [r (cljs-resolve {} sym)
+                             nm (or nm (list 'quote (symbol (name sym))))
+                             m (:meta r)
+                             arglists (:arglists m)]
+                         (cond-> {:name nm
+                                  :arglists arglists
+                                  :doc (:doc m)}
+                           inline? (assoc :sci.impl/inlined sym)
+                           macro (assoc :macro true)))))))
 
  (defmacro macrofy [& args]
    (if (= 1 (count args))
