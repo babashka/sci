@@ -58,6 +58,11 @@
 
 (macros/deftime
 
+ (defn ensure-quote [x]
+   (if (and (seq? x) (= 'quote (first x)))
+     x
+     (list 'quote x)))
+
  (defn var-meta [&env sym opts]
    (let [sym (cond-> sym (seq? sym) second)
          macro (when opts (:macro opts))
@@ -66,20 +71,21 @@
          #?@(:clj [the-var (macros/? :clj (resolve sym)
                                      :cljs (atom nil))])]
      (macros/? :clj #?(:clj (let [m (meta the-var)]
-                              (cond-> {:name (or nm
-                                                 (list 'quote (:name m)))
+                              (cond-> {:name (or nm (list 'quote (:name m)))
                                        :arglists (list 'quote (:arglists m))
                                        :doc (:doc m)}
                                       inline? (assoc :sci.impl/inlined sym)
                                       macro (assoc :macro true)))
                        :cljs nil)
-               :cljs (let [r (cljs-resolve {} sym)
-                           nm (or nm (list 'quote (symbol (name sym))))
+               :cljs (let [r (cljs-resolve &env sym)
                            m (:meta r)
-                           arglists (:arglists m)]
+                           ;_ (cljs.util/debug-prn :cljs-resolved :nm nm :sym sym :resolved r)
+                           nm (or nm (ensure-quote (:name r)))
+                           arglists (ensure-quote (or (:arglists m) (:arglists r)))
+                           doc (or (:doc m) (:doc r))]
                        (cond-> {:name nm
                                 :arglists arglists
-                                :doc (:doc m)}
+                                :doc doc}
                                inline? (assoc :sci.impl/inlined sym)
                                macro (assoc :macro true))))))
 
