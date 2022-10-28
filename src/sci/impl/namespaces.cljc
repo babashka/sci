@@ -72,41 +72,45 @@
     (do
       (defmacro copy-var
         [sym ns & [opts]]
-        (when (symbol? sym) ;; this is necessary for self-hosted CLJS :(
-          (let [macro (when opts (:macro opts))
-                nm (when opts (:name opts))
-                inline? (contains? inlined-vars sym)
-                #?@(:clj [the-var (macros/? :clj (resolve sym)
-                                            :cljs (atom nil))])
-                varm (macros/? :clj #?(:clj (let [m (meta the-var)]
-                                              (cond-> {:name (or nm
-                                                                 (list 'quote (:name m)))
-                                                       :arglists (list 'quote (:arglists m))
-                                                       :doc (:doc m)
-                                                       :sci/built-in true
-                                                       :ns ns}
-                                                inline? (assoc :sci.impl/inlined sym)
-                                                macro (assoc :macro true)))
-                                       :cljs nil)
-                               :cljs (let [r (cljs-resolve {} 'cljs.core/when #_sym)
-                                           nm (or nm (list 'quote (symbol (name sym))))
-                                           m (:meta r)
-                                           arglists (:arglists m)]
-                                       (cond-> {:name nm
-                                                :arglists arglists
-                                                :doc (:doc m)
-                                                :sci/built-in true
-                                                :ns ns}
-                                         inline? (assoc :sci.impl/inlined sym)
-                                         macro (assoc :macro true))))
-                nm (:name varm)]
-            ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
-            (if macro
-              (macros/? :clj
-                        #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false false)
-                           :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
-                        :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
-              `(sci.lang.Var. ~sym ~nm ~varm false false)))))
+        (let [sym (if (seq? sym)
+                    (second sym)
+                    sym)]
+          (when (symbol? sym) ;; this is necessary for self-hosted CLJS :(
+            (let [macro (when opts (:macro opts))
+                  nm (when opts (:name opts))
+                  inline? (contains? inlined-vars sym)
+                  #?@(:clj [the-var (macros/? :clj (resolve sym)
+                                              :cljs (atom nil))])
+                  varm (macros/? :clj #?(:clj (let [m (meta the-var)]
+                                                (cond-> {:name (or nm
+                                                                   (list 'quote (:name m)))
+                                                         :arglists (list 'quote (:arglists m))
+                                                         :doc (:doc m)
+                                                         :sci/built-in true
+                                                         :ns ns}
+                                                  inline? (assoc :sci.impl/inlined sym)
+                                                  macro (assoc :macro true)))
+                                         :cljs nil)
+                                 :cljs (let [r (cljs-resolve {} sym)
+                                             ;; #?@(:clj [ _ (.println System/err (str r))])
+                                             nm (or nm (list 'quote (symbol (name sym))))
+                                             m (:meta r)
+                                             arglists (:arglists m)]
+                                         (cond-> {:name nm
+                                                  :arglists arglists
+                                                  :doc (:doc m)
+                                                  :sci/built-in true
+                                                  :ns ns}
+                                           inline? (assoc :sci.impl/inlined sym)
+                                           macro (assoc :macro true))))
+                  nm (:name varm)]
+              ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
+              (if macro
+                (macros/? :clj
+                          #?(:clj `(sci.lang.Var. ~(deref the-var) ~nm ~varm false false)
+                             :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
+                          :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
+                `(sci.lang.Var. ~sym ~nm ~varm false false))))))
       (defmacro copy-core-var
         [sym]
         `(copy-var ~sym clojure-core-ns)))))
@@ -1511,8 +1515,8 @@
    'when-first (macrofy 'when-first when-first*)
    'when-let (macrofy 'when-let when-let*)
    'when-some (macrofy 'when-some when-some*)
-   'when (copy-var when* clojure-core-ns {:macro true
-                                          :name 'when})
+   'when (copy-var `when* clojure-core-ns {:macro true
+                                           :name 'when})
    'when-not (macrofy 'when-not when-not*)
    'while (macrofy 'while while*)
    'with-bindings (macrofy 'with-bindings sci-with-bindings)
