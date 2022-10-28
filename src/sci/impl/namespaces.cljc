@@ -58,39 +58,42 @@
 
 (macros/deftime
 
- (defn dequote [x] (if (and (seq? x) (= 'quote (first x)))
-                     (second x)
-                     x))
+ (defn var-meta [sym opts]
+   (let [sym (cond-> sym
+                     (and (seq? sym) (= 'quote (first sym)))
+                     second)
+         macro (when opts (:macro opts))
+         nm (when opts (:name opts))
+         inline? (contains? inlined-vars sym)
+         #?@(:clj [the-var (macros/? :clj (resolve sym)
+                                     :cljs (atom nil))])]
+     (macros/? :clj #?(:clj (let [m (meta the-var)]
+                              (cond-> {:name (or nm
+                                                 (list 'quote (:name m)))
+                                       :arglists (list 'quote (:arglists m))
+                                       :doc (:doc m)}
+                                      inline? (assoc :sci.impl/inlined sym)
+                                      macro (assoc :macro true)))
+                       :cljs nil)
+               :cljs (let [r (cljs-resolve {} sym)
+                           nm (or nm (list 'quote (symbol (name sym))))
+                           m (:meta r)
+                           arglists (:arglists m)]
+                       (cond-> {:name nm
+                                :arglists arglists
+                                :doc (:doc m)}
+                               inline? (assoc :sci.impl/inlined sym)
+                               macro (assoc :macro true))))))
 
-(defn core-meta
-  "Finds metadata for `sym` from clojure.core to be included in sci."
-  [env sym]
-  (let [m
-        (-> #?(:clj  (resolve env (symbol "clojure.core" (name (dequote sym))))
-               :cljs (resolve-var env (symbol "clojure.core" (name (dequote sym)))))
-            meta
-            (select-keys [:doc :arglists :special-form]))]
-    (if (seq m)
-      (update m :arglists (fn [x] `'~x))
-      {})))
-
- (defmacro macrofy
-   ([f]
-    `(vary-meta ~f #(assoc % :sci/macro true)))
-   ([sym f]
-    `(macrofy ~sym ~f clojure-core-ns false))
-   ([sym f ns]
-    `(macrofy ~sym ~f ~ns false))
-   ([sym f ns ctx?]
-    `(sci.impl.utils/new-var ~sym ~f (merge {:ns ~ns
-                                             :macro true
-                                             :sci/built-in true}
-                                            ~(core-meta &env sym))
-                             ~ctx?)))
+ (defmacro macrofy [& args]
+   (if (= 1 (count args))
+     `(macrofy* ~@args)
+     (let [[sym & args] args]
+       `(macrofy* (with-meta ~sym ~(var-meta sym nil)) ~@args))))
 
  (defmacro core-var [sym & args]
    `((ns-new-var clojure-core-ns)
-     (with-meta ~sym ~(core-meta &env sym))
+     (with-meta ~sym ~(var-meta sym nil))
      ~@args))
 
   (defmacro if-vars-elided [then else]
@@ -110,31 +113,11 @@
         [sym ns & [opts]]
         (when (symbol? sym) ;; this is necessary for self-hosted CLJS :(
           (let [macro (when opts (:macro opts))
-                nm (when opts (:name opts))
-                inline? (contains? inlined-vars sym)
                 #?@(:clj [the-var (macros/? :clj (resolve sym)
                                             :cljs (atom nil))])
-                varm (macros/? :clj #?(:clj (let [m (meta the-var)]
-                                              (cond-> {:name (or nm
-                                                                 (list 'quote (:name m)))
-                                                       :arglists (list 'quote (:arglists m))
-                                                       :doc (:doc m)
-                                                       :sci/built-in true
-                                                       :ns ns}
-                                                inline? (assoc :sci.impl/inlined sym)
-                                                macro (assoc :macro true)))
-                                       :cljs nil)
-                               :cljs (let [r (cljs-resolve {} sym)
-                                           nm (or nm (list 'quote (symbol (name sym))))
-                                           m (:meta r)
-                                           arglists (:arglists m)]
-                                       (cond-> {:name nm
-                                                :arglists arglists
-                                                :doc (:doc m)
-                                                :sci/built-in true
-                                                :ns ns}
-                                         inline? (assoc :sci.impl/inlined sym)
-                                         macro (assoc :macro true))))
+                varm (assoc (var-meta sym opts)
+                       :sci/built-in true
+                       :ns ns)
                 nm (:name varm)]
             ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
             (if macro
@@ -147,13 +130,26 @@
         ([sym]
          `(copy-var ~sym clojure-core-ns))))))
 
+(defn macrofy*
+  ([f] (vary-meta f #(assoc % :sci/macro true)))
+  ([sym f] (macrofy sym f clojure-core-ns false))
+  ([sym f ns] (macrofy sym f ns false))
+  ([sym f ns ctx?]
+   (sci.impl.utils/new-var sym f (cond->> {:ns ns
+                                           :macro true
+                                           :sci/built-in true}
+                                          (not elide-vars)
+                                          (merge (meta sym)))
+                           ctx?)))
+
 (defn ns-new-var [ns]
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
     ([sym v ctx?]
-     (sci.impl.utils/new-var sym v (merge (meta sym)
-                                          {:ns ns
-                                           :sci/built-in true})
+     (sci.impl.utils/new-var sym v (cond->> {:ns ns
+                                             :sci/built-in true}
+                                            (not elide-vars)
+                                            (merge (meta sym)))
                              ctx?))))
 
 (defn ->*
