@@ -303,7 +303,7 @@ bar/bar"}
     (is @success?)))
 
 (deftest meta-test
-  (is (some? (eval* "(string? (:doc (meta #'when)))"))))
+  (is (true? (eval* "(string? (:doc (meta #'when)))"))))
 
 #?(:cljs
     (deftest test-munge-demunge
