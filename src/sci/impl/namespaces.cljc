@@ -63,8 +63,13 @@
      x
      (list 'quote x)))
 
+ (defn dequote [x]
+   (if (and (seq? x) (= 'quote (first x)))
+     (second x)
+     x))
+
  (defn var-meta [&env sym opts]
-   (let [sym (cond-> sym (seq? sym) second)
+   (let [sym (dequote sym)
          macro (when opts (:macro opts))
          nm (when opts (:name opts))
          inline? (contains? inlined-vars sym)
@@ -97,7 +102,10 @@
 
  (defmacro core-var [sym & args]
    `((ns-new-var clojure-core-ns)
-     (with-meta ~sym ~(var-meta &env sym nil))
+     (with-meta ~sym
+                ~(var-meta &env
+                           (symbol "clojure.core" (name (dequote sym)))
+                           nil))
      ~@args))
 
   (defmacro if-vars-elided [then else]
@@ -119,7 +127,7 @@
           (let [macro (when opts (:macro opts))
                 #?@(:clj [the-var (macros/? :clj (resolve sym)
                                             :cljs (atom nil))])
-                varm (assoc (var-meta &env sym opts)
+                varm (assoc (var-meta &env (:copy-meta-from opts sym) opts)
                        :sci/built-in true
                        :ns ns)
                 nm (:name varm)]
@@ -132,7 +140,7 @@
               `(sci.lang.Var. ~sym ~nm ~varm false false)))))
       (defmacro copy-core-var
         ([sym]
-         `(copy-var ~sym clojure-core-ns))))))
+         `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(symbol "clojure.core" (name (dequote sym)))}))))))
 
 (defn macrofy*
   ([f] (vary-meta f #(assoc % :sci/macro true)))
