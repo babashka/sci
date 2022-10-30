@@ -1575,9 +1575,6 @@
               'rationalize (copy-core-var rationalize)
               'seque (copy-core-var seque)
               'xml-seq (copy-core-var xml-seq)])
-
-    #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
-                                       {:ns clojure-core-ns})])
     #?@(:cljs ['-write (copy-var -write clojure-core-ns)])})
 
 
