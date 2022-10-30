@@ -11,6 +11,12 @@
                    (re-matches #".*\$macros" (name n))))
     `(do ~@body)))
 
+(defmacro usetime
+  "Private. usetime macro from https://github.com/cgrand/macrovich"
+  [& body]
+  (when #?(:clj true :cljs (not (re-matches #".*\$macros" (name (ns-name *ns*)))))
+    `(do ~@body)))
+
 (deftime
   (defmacro ?
     "Private. case macro from https://github.com/cgrand/macrovich"
