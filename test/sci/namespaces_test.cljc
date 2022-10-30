@@ -302,6 +302,9 @@ bar/bar"}
     (sci/eval-string* the-ctx "(ns foo) (require '[bar :as b])")
     (is @success?)))
 
+(deftest meta-test
+  (is (true? (eval* "(string? (:doc (meta #'when)))"))))
+
 #?(:cljs
     (deftest test-munge-demunge
       (is (= 'cljs.core/first?

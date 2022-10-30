@@ -141,4 +141,4 @@
 (def require
   "Async require that can be substituted for sync require by
   `{:namespaces {'clojure.core {'require scia/require}}}`"
-  (sci.impl.namespaces/core-var 'require require* true))
+  (sci.impl.namespaces/new-var 'require require* true))
