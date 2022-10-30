@@ -140,7 +140,6 @@
   ([sym f ns ctx?] (macrofy* sym f ns ctx? nil))
   ([sym f ns ctx? extra-meta]
    (let [ns (or ns clojure-core-ns)]
-     (assert (or nil (instance? sci.lang.Namespace ns)) (str ns))
      (sci.impl.utils/new-var sym f (cond-> {:ns ns
                                             :macro true
                                             :sci/built-in true}
