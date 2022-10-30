@@ -972,7 +972,7 @@
 (def core-var
   (ns-new-var clojure-core-ns))
 
-(macros/use-time
+(macros/usetime
 
  (def clojure-core
    {:obj clojure-core-ns
