@@ -107,6 +107,11 @@
   (is (= :clojure.string/foo (eval* "(in-ns 'foo) (require '[clojure.string :as str]) ::str/foo")))
   (is (= :clojure.string/foo (eval* "(ns foo (:require [clojure.string :as s])) ::s/foo"))))
 
+(deftest in-ns-test
+  (is (= :user/foo (eval* "::foo")))
+  (is (= :bar/foo (eval* "(in-ns 'bar) ::foo")))
+  (is (= :bar/foo (eval* "(in-ns 'bar) (def just-one-ns ::foo) (in-ns 'bar) just-one-ns"))))
+
 (deftest vars-partitioned-by-namespace-test
   (is (= 10 (eval* "(in-ns 'foo) (def x 10) (in-ns 'bar) (def x 11) (in-ns 'foo) x"))))
 

@@ -1355,14 +1355,6 @@
   (let [snd (second expr)]
     (->constant snd)))
 
-(defn analyze-in-ns [ctx expr]
-  (let [ns-expr (analyze ctx (second expr))]
-    (sci.impl.types/->Node
-     (let [ns-sym (types/eval ns-expr ctx bindings)]
-       (set-namespace! ctx ns-sym nil)
-       nil)
-     nil)))
-
 (defn analyze-import [_ctx expr]
   (let [args (rest expr)
         stack (assoc (meta expr)
@@ -1466,8 +1458,7 @@
                           import (analyze-import ctx expr)
                           or (return-or ctx expr (rest expr))
                           and (return-and ctx expr (rest expr))
-                          recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr)))
-                          in-ns (analyze-in-ns ctx expr))
+                          recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr))))
                         :else
                         (try
                           (if (macro? f)
