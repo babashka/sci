@@ -143,7 +143,6 @@
                              ctx?))))
 
 (defn new-var
-  ([f] (vary-meta f #(assoc % :sci/macro true)))
   ([sym f] (new-var sym f nil false))
   ([sym f ns] (new-var sym f ns false))
   ([sym f ns ctx?] (new-var sym f ns ctx? nil))
