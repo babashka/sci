@@ -91,16 +91,14 @@
                                   :doc (or (:doc m) (:doc r))}))))))
 
   (defmacro macrofy [& args]
-    (if (= 1 (count args))
-      `(macrofy* ~@args)
-      (let [[sym & args] args]
-        `(macrofy* (with-meta ~sym ~(var-meta &env sym nil)) ~@args))))
+    (let [[sym & args] args]
+      `(macrofy* ~sym ~@args ~@(repeat (- 3 (count args)) nil) ~(var-meta &env sym nil))))
 
   (defmacro core-var [sym & args]
     `((ns-new-var clojure-core-ns)
-      (with-meta ~sym
-        ~(var-meta &env (core-sym sym) nil))
-      ~@args))
+      ~sym
+      ~@args
+      ~(var-meta &env (core-sym sym) nil)))
 
   (defmacro if-vars-elided [then else]
     (if elide-vars
@@ -137,24 +135,30 @@
 
 (defn macrofy*
   ([f] (vary-meta f #(assoc % :sci/macro true)))
-  ([sym f] (macrofy* sym f clojure-core-ns false))
+  ([sym f] (macrofy* sym f nil false))
   ([sym f ns] (macrofy* sym f ns false))
-  ([sym f ns ctx?]
-   (sci.impl.utils/new-var sym f (cond->> {:ns ns
-                                           :macro true
-                                           :sci/built-in true}
-                                   (not elide-vars)
-                                   (merge (meta sym)))
-                           ctx?)))
+  ([sym f ns ctx?] (macrofy* sym f ns ctx? nil))
+  ([sym f ns ctx? extra-meta]
+   (let [ns (or ns clojure-core-ns)]
+     (assert (or nil (instance? sci.lang.Namespace ns)) (str ns))
+     (sci.impl.utils/new-var sym f (cond-> {:ns ns
+                                            :macro true
+                                            :sci/built-in true}
+                                     (and (not elide-vars)
+                                          extra-meta)
+                                     (merge extra-meta))
+                             ctx?))))
 
 (defn ns-new-var [ns]
   (fn new-var-with-ns
     ([sym v] (new-var-with-ns sym v false))
-    ([sym v ctx?]
-     (sci.impl.utils/new-var sym v (cond->> {:ns ns
-                                             :sci/built-in true}
-                                     (not elide-vars)
-                                     (merge (meta sym)))
+    ([sym v ctx?] (new-var-with-ns sym v ctx? nil))
+    ([sym v ctx? extra-meta]
+     (sci.impl.utils/new-var sym v (cond-> {:ns ns
+                                            :sci/built-in true}
+                                     (and (not elide-vars)
+                                          extra-meta)
+                                     (merge extra-meta))
                              ctx?))))
 
 (defn ->*
