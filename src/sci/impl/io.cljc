@@ -49,7 +49,8 @@
 
 (def print-length (copy-var *print-length* utils/clojure-core-ns))
 (def print-level (copy-var *print-level* utils/clojure-core-ns))
-(def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns))
+(def print-namespace-maps (binding [*print-namespace-maps* true]
+                            (copy-var *print-namespace-maps* utils/clojure-core-ns)))
 (def flush-on-newline (copy-var *flush-on-newline* utils/clojure-core-ns {:dynamic true}))
 (def print-readably (copy-var *print-readably* utils/clojure-core-ns {:dynamic true}))
 (def print-dup-var (copy-var *print-dup* utils/clojure-core-ns {:dynamic true}))
