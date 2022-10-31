@@ -1184,7 +1184,8 @@
     'integer? (copy-core-var integer?)
     'ints (copy-core-var ints)
     'into-array (copy-core-var into-array)
-    'isa? (new-var 'isa? hierarchies/isa?* true)
+    'isa? (copy-var hierarchies/isa?* clojure-core-ns {:ctx true
+                                                       :name 'isa?})
     #?@(:cljs ['js->clj (copy-core-var js->clj)])
     #?@(:cljs ['js-obj (copy-core-var js-obj)])
     #?@(:cljs ['js-keys (copy-core-var js-keys)])
