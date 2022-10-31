@@ -333,7 +333,9 @@ bar/bar"}
                 ~(when (:doc (meta (resolve 'ex-message)))
                    `ex-message)
                 #?(:clj swap-vals!)
-                alength]
+                alength
+                #?(:clj var-get)
+                #?(:clj var-set)]
             :when v]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v))))
 
