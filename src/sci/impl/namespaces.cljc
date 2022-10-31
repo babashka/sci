@@ -960,7 +960,7 @@
                '-reset! (new-var '-reset! core-protocols/-reset!)])
     ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
     #?@(:clj ['swap-vals! (copy-var core-protocols/swap-vals!* clojure-core-ns {:name 'swap-vals!})
-              'reset-vals! (new-var 'reset-vals! core-protocols/reset-vals!*)])
+              'reset-vals! (copy-var core-protocols/reset-vals!* clojure-core-ns {:name 'reset-vals!})])
 
     #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                        {:ns clojure-core-ns})])

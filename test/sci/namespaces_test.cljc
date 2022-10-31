@@ -334,6 +334,7 @@ bar/bar"}
                 ~(when (:doc (meta (resolve 'ex-message)))
                    `ex-message)
                 #?(:clj swap-vals!)
+                #?(:clj reset-vals!)
                 alength
                 #?(:clj var-get)
                 #?(:clj var-set)]
