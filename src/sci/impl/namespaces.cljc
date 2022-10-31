@@ -942,7 +942,7 @@
     'protocol-type-impl (new-var 'protocol-type-impl types/type-impl)
     #?@(:clj ['proxy* (new-var 'proxy* proxy/proxy* true)
               'proxy (macrofy 'proxy proxy/proxy clojure-core-ns true)])
-    'satisfies? (copy-core-var sci.impl.protocols/satisfies?)
+    'satisfies? (copy-var sci.impl.protocols/satisfies? clojure-core-ns {:name 'satisfies?})
     ;; end protocols
     ;; IDeref as protocol
     'deref (new-var 'deref core-protocols/deref*)
