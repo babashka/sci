@@ -309,7 +309,8 @@ bar/bar"}
     (doseq [v '[macroexpand
                 find-ns
                 #?(:clj get-thread-bindings)
-                satisfies?]]
+                satisfies?
+                ns-unmap]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))))))
   (testing "dynvars"
     (doseq [v '[*print-namespace-maps*

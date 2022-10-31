@@ -1254,7 +1254,8 @@
     'ns-publics (new-var 'ns-publics sci-ns-publics true)
     'ns-refers (new-var 'ns-refers sci-ns-refers clojure-core-ns true)
     'ns-map (new-var 'ns-map sci-ns-map true)
-    'ns-unmap (new-var 'ns-unmap sci-ns-unmap true)
+    'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:ctx true
+                                                      :name 'ns-unmap})
     'ns-unalias (new-var 'ns-unalias sci-ns-unalias true)
     'ns-name (new-var 'ns-name sci-ns-name)
     'odd? (copy-core-var odd?)
