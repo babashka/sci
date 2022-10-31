@@ -1241,7 +1241,8 @@
     'ex-info (copy-core-var ex-info)
     'ex-message (copy-core-var ex-message)
     'ex-cause (copy-core-var ex-cause)
-    'find-ns (new-var 'find-ns sci-find-ns true #_{:sci.impl/op needs-ctx})
+    'find-ns (copy-var sci-find-ns clojure-core-ns {:ctx true
+                                                    :name 'find-ns})
     'create-ns (new-var 'create-ns sci-create-ns true #_{:sci.impl/op needs-ctx})
     'in-ns (new-var 'in-ns sci-in-ns true #_{:sci.impl/op needs-ctx})
     'find-var (new-var 'find-var sci-find-var true)

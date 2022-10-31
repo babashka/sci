@@ -306,7 +306,8 @@ bar/bar"}
   (testing "macro"
     (is (true? (eval* "(string? (:doc (meta #'when)))"))))
   (testing "core function that needs ctx"
-    (is (true? (eval* "(string? (:doc (meta #'macroexpand)))"))))
+    (is (true? (eval* "(string? (:doc (meta #'macroexpand)))")))
+    (is (true? (eval* "(string? (:doc (meta #'find-ns)))"))))
   (testing "regular function"
     (is (true? (eval* "(string? (:doc (meta #'inc)))")))))
 
