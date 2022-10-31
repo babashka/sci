@@ -1,6 +1,7 @@
 (ns sci.async
   (:require
    [sci.core :as sci]
+   [sci.impl.copy-vars]
    [sci.impl.load :as load]
    [sci.impl.namespaces]
    [sci.impl.vars])
@@ -141,4 +142,4 @@
 (def require
   "Async require that can be substituted for sync require by
   `{:namespaces {'clojure.core {'require scia/require}}}`"
-  (sci.impl.namespaces/new-var 'require require* true))
+  (sci.impl.copy-vars/new-var 'require require* true))

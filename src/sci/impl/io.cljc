@@ -14,7 +14,8 @@
 (defn core-dynamic-var
   "create a dynamic var with clojure.core :ns meta"
   ([name] (core-dynamic-var name nil))
-  ([name init-val] (utils/dynamic-var name init-val {:ns utils/clojure-core-ns})))
+  ([name init-val] (utils/dynamic-var name init-val {:ns utils/clojure-core-ns}))
+  ([name init-val extra-meta] (utils/dynamic-var name init-val (assoc extra-meta :ns utils/clojure-core-ns))))
 
 (def in (binding [*unrestricted* true]
           (doto (core-dynamic-var '*in*)
@@ -47,7 +48,7 @@
 
 (def print-length (core-dynamic-var '*print-length*))
 (def print-level (core-dynamic-var '*print-level*))
-(def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true))
+(def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true {:doc ""}))
 (def flush-on-newline (core-dynamic-var '*flush-on-newline* *flush-on-newline*))
 (def print-readably (core-dynamic-var '*print-readably* *print-readably*))
 (def print-dup-var (core-dynamic-var '*print-dup* *print-dup*))
