@@ -1130,7 +1130,8 @@
                                                     :name 'find-ns})
     'create-ns (new-var 'create-ns sci-create-ns true #_{:sci.impl/op needs-ctx})
     'in-ns (new-var 'in-ns sci-in-ns true #_{:sci.impl/op needs-ctx})
-    'find-var (new-var 'find-var sci-find-var true)
+    'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var
+                                                      :ctx true})
     'first (copy-core-var first)
     'float? (copy-core-var float?)
     'floats (copy-core-var floats)
