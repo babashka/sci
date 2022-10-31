@@ -315,6 +315,7 @@ bar/bar"}
                 find-ns
                 #?(:clj find-var)
                 ns-publics
+                #?(:clj ns-unalias)
                 isa?
                 eval
                 #?(:clj refer)]]

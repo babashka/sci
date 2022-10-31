@@ -1259,7 +1259,8 @@
     'ns-map (new-var 'ns-map sci-ns-map true)
     'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:ctx true
                                                       :name 'ns-unmap})
-    'ns-unalias (new-var 'ns-unalias sci-ns-unalias true)
+    'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:ctx true
+                                                          :name 'ns-unalias})
     'ns-name (new-var 'ns-name sci-ns-name)
     'odd? (copy-core-var odd?)
     #?@(:cljs ['object? (copy-core-var object?)])
