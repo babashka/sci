@@ -1264,7 +1264,7 @@
     'force (copy-core-var force)
     'get (copy-core-var get)
     'get-thread-binding-frame-impl (new-var 'get-thread-binding-frame-impl sci.impl.vars/get-thread-binding-frame)
-    #?@(:clj ['get-thread-bindings (copy-var sci.impl.vars/get-thread-bindings clojure-core-ns)])
+    #?@(:clj ['get-thread-bindings (copy-var sci.impl.vars/get-thread-bindings clojure-core-ns {:name 'get-thread-bindings})])
     'get-in (copy-core-var get-in)
     'group-by (copy-core-var group-by)
     'gensym (copy-core-var gensym)

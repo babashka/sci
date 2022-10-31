@@ -306,8 +306,8 @@ bar/bar"}
   (testing "macro"
     (is (true? (eval* "(string? (:doc (meta #'when)))"))))
   (testing "core function that needs ctx"
-    (is (true? (eval* "(string? (:doc (meta #'macroexpand)))")))
-    (is (true? (eval* "(string? (:doc (meta #'find-ns)))"))))
+    (doseq [v '[macroexpand find-ns #?(:clj get-thread-bindings)]]
+      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))))))
   (testing "regular function"
     (is (true? (eval* "(string? (:doc (meta #'inc)))")))))
 
