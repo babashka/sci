@@ -1252,7 +1252,8 @@
     'ns-aliases (new-var 'ns-aliases sci-ns-aliases true)
     'ns-imports (new-var 'ns-imports sci-ns-imports true)
     'ns-interns (new-var 'ns-interns sci-ns-interns true)
-    'ns-publics (new-var 'ns-publics sci-ns-publics true)
+    'ns-publics (copy-var sci-ns-publics clojure-core-ns {:ctx true
+                                                          :name 'ns-publics})
     'ns-refers (new-var 'ns-refers sci-ns-refers clojure-core-ns true)
     'ns-map (new-var 'ns-map sci-ns-map true)
     'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:ctx true

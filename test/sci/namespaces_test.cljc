@@ -312,7 +312,8 @@ bar/bar"}
                 satisfies?
                 ns-unmap
                 #?(:clj remove-ns)
-                find-ns]]
+                find-ns
+                ns-publics]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "dynvars"
     (doseq [v '[*print-namespace-maps*
