@@ -42,7 +42,7 @@
           inline? (contains? inlined-vars sym)]
       (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
                macro (assoc :macro true)
-               inline? (assoc :sci.impl/inlined sym))
+               inline? (assoc :sci.impl/inlined (:init opts sym)))
              (let [#?@(:clj [the-var (macros/? :clj (resolve sym)
                                                :cljs (atom nil))])]
                (macros/? :clj #?(:clj  (let [m (meta the-var)
