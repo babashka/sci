@@ -1291,7 +1291,8 @@
     'realized? (copy-core-var realized?)
     'rem (copy-core-var rem)
     'remove (copy-core-var remove)
-    'remove-ns (new-var 'remove-ns sci-remove-ns true)
+    'remove-ns (copy-var sci-remove-ns clojure-core-ns {:ctx true
+                                                        :name 'remove-ns})
     'require (new-var 'require require true)
     'reset-meta! (copy-core-var reset-meta!)
     'rest (copy-core-var rest)

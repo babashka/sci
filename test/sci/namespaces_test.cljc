@@ -310,7 +310,8 @@ bar/bar"}
                 find-ns
                 #?(:clj get-thread-bindings)
                 satisfies?
-                ns-unmap]]
+                ns-unmap
+                #?(:clj remove-ns)]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "dynvars"
     (doseq [v '[*print-namespace-maps*
