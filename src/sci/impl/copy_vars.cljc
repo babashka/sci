@@ -80,9 +80,11 @@
         (let [macro (when opts (:macro opts))
               #?@(:clj [the-var (macros/? :clj (resolve sym)
                                           :cljs (atom nil))])
-              varm (assoc (var-meta &env (:name opts sym) opts)
-                          :sci/built-in true
-                          :ns ns)
+              dyn (:dynamic opts)
+              varm (cond-> (assoc (var-meta &env (:name opts sym) opts)
+                                  :sci/built-in true
+                                  :ns ns)
+                     dyn (assoc :dynamic dyn))
               nm (:name varm)
               ctx (when opts (:ctx opts))]
           ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible

@@ -309,7 +309,9 @@ bar/bar"}
     (doseq [v '[macroexpand
                 find-ns
                 #?(:clj get-thread-bindings)
-                *print-namespace-maps*]]
+                *print-namespace-maps*
+                *print-dup*
+                *print-readably*]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))))))
   (testing "regular function"
     (is (true? (eval* "(string? (:doc (meta #'inc)))")))))

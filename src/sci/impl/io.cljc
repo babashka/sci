@@ -47,13 +47,13 @@
 (def print-meta
   (core-dynamic-var '*print-meta* false))
 
-(def print-length (core-dynamic-var '*print-length*))
-(def print-level (core-dynamic-var '*print-level*))
+(def print-length (copy-var *print-length* utils/clojure-core-ns))
+(def print-level (copy-var *print-level* utils/clojure-core-ns))
 (def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns))
-(def flush-on-newline (core-dynamic-var '*flush-on-newline* *flush-on-newline*))
-(def print-readably (core-dynamic-var '*print-readably* *print-readably*))
-(def print-dup-var (core-dynamic-var '*print-dup* *print-dup*))
-#?(:cljs (def print-newline (core-dynamic-var '*print-newline* *print-newline*)))
+(def flush-on-newline (copy-var *flush-on-newline* utils/clojure-core-ns {:dynamic true}))
+(def print-readably (copy-var *print-readably* utils/clojure-core-ns {:dynamic true}))
+(def print-dup-var (copy-var *print-dup* utils/clojure-core-ns {:dynamic true}))
+#?(:cljs (def print-newline (copy-var *print-newline* utils/clojure-core-ns)))
 
 #?(:cljs (defn string-print [x]
            (binding [*print-fn* @print-fn]
