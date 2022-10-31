@@ -1117,7 +1117,8 @@
     'empty (copy-core-var empty)
     'empty? (copy-core-var empty?)
     #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
-    'eval (new-var 'eval eval true)
+    'eval (copy-var eval clojure-core-ns {:copy-meta-from 'clojure.core/eval
+                                          :ctx true})
     'even? (copy-core-var even?)
     'every? (copy-core-var every?)
     'every-pred (copy-core-var every-pred)

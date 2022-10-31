@@ -315,12 +315,14 @@ bar/bar"}
                 find-ns
                 #?(:clj find-var)
                 ns-publics
-                isa?]]
+                isa?
+                eval]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "dynvars"
     (doseq [v '[*print-namespace-maps*
                 *print-dup*
-                *print-readably*]]
+                *print-readably*
+                *1 *2 *3 *e]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "regular vars (with possibly alternative impls)"
     (doseq [v `[inc
@@ -329,8 +331,7 @@ bar/bar"}
                 #?(:clj push-thread-bindings)
                 ~(when (:doc (meta (resolve 'ex-message)))
                    `ex-message)
-                #?(:clj swap-vals!)
-                *1 *2 *3 *e]
+                #?(:clj swap-vals!)]
             :when v]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v))))
 
