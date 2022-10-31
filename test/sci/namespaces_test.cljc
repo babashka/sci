@@ -317,8 +317,11 @@ bar/bar"}
                 *print-dup*
                 *print-readably*]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))))))
-  (testing "regular function"
-    (is (true? (eval* "(string? (:doc (meta #'inc)))")))))
+  (testing "regular vars"
+    (doseq [v '[inc
+                newline
+                pr]]
+      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v))))))))
 
 #?(:cljs
     (deftest test-munge-demunge

@@ -880,7 +880,7 @@
     #?@(:cljs ['*print-newline* sci.impl.io/print-newline])
     'newline (copy-var sci.impl.io/newline clojure-core-ns {:name 'newline})
     'flush (copy-core-var sci.impl.io/flush)
-    'pr (copy-core-var sci.impl.io/pr)
+    'pr (copy-var sci.impl.io/pr clojure-core-ns {:name 'pr})
     'prn (copy-core-var sci.impl.io/prn)
     'print (copy-core-var sci.impl.io/print)
     'println (copy-core-var sci.impl.io/println)
