@@ -1285,7 +1285,7 @@
     'quot (copy-core-var quot)
     #?@(:cljs ['random-uuid (copy-core-var random-uuid)])
     're-seq (copy-core-var re-seq)
-    'refer (new-var 'refer sci-refer true)
+    'refer (copy-var sci-refer clojure-core-ns {:name 'refer :ctx true})
     'refer-clojure (macrofy 'refer-clojure sci-refer-clojure)
     're-find (copy-core-var re-find)
     #?@(:clj ['re-groups (copy-core-var re-groups)])

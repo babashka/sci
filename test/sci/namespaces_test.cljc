@@ -316,7 +316,8 @@ bar/bar"}
                 #?(:clj find-var)
                 ns-publics
                 isa?
-                eval]]
+                eval
+                #?(:clj refer)]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "dynvars"
     (doseq [v '[*print-namespace-maps*
