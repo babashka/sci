@@ -761,13 +761,13 @@
 
 ;;;; REPL vars
 
-(def *1 (sci.impl.utils/dynamic-var '*1 nil {:ns clojure-core-ns}))
+(def *1 (copy-core-var *1))
 
-(def *2 (sci.impl.utils/dynamic-var '*2 nil {:ns clojure-core-ns}))
+(def *2 (copy-core-var *2))
 
-(def *3 (sci.impl.utils/dynamic-var '*3 nil {:ns clojure-core-ns}))
+(def *3 (copy-core-var *3))
 
-(def *e (sci.impl.utils/dynamic-var '*e nil {:ns clojure-core-ns}))
+(def *e (copy-core-var *e))
 
 
 ;;;; Patch for CLJS type

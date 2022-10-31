@@ -46,17 +46,20 @@
              (let [#?@(:clj [the-var (macros/? :clj (resolve sym)
                                                :cljs (atom nil))])]
                (macros/? :clj #?(:clj  (let [m (meta the-var)
-                                             dyn (:dynamic m)]
-                                         (cond-> {:arglists (list 'quote (:arglists m))
-                                                  :doc (:doc m)}
-                                           dyn (assoc :dynamic dyn)))
+                                             dyn (:dynamic m)
+                                             arglists (:arglists m)]
+                                         (cond-> {:doc (:doc m)}
+                                           dyn (assoc :dynamic dyn)
+                                           arglists (assoc :arglists (list 'quote (:arglists m)))))
                                  :cljs nil)
                          :cljs (let [r (cljs-resolve &env sym)
                                      m (:meta r)
-                                     dyn (:dynamic m)]
-                                 (cond-> {:arglists (ensure-quote (or (:arglists m) (:arglists r)))
+                                     dyn (:dynamic m)
+                                     arglists (or (:arglists m) (:arglists r))]
+                                 (cond-> {:arglists (ensure-quote arglists)
                                           :doc (or (:doc m) (:doc r))}
-                                   dyn (:dynamic m))))))))
+                                   dyn (assoc :dynamic dyn)
+                                   arglists (assoc :arglists (ensure-quote arglists)))))))))
 
   (defmacro macrofy [& args]
     (let [[sym & args] args]
