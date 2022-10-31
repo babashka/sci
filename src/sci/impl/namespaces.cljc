@@ -878,7 +878,7 @@
     '*print-readably* sci.impl.io/print-readably
     '*print-dup* sci.impl.io/print-dup-var
     #?@(:cljs ['*print-newline* sci.impl.io/print-newline])
-    'newline (copy-core-var sci.impl.io/newline)
+    'newline (copy-var sci.impl.io/newline clojure-core-ns {:name 'newline})
     'flush (copy-core-var sci.impl.io/flush)
     'pr (copy-core-var sci.impl.io/pr)
     'prn (copy-core-var sci.impl.io/prn)
