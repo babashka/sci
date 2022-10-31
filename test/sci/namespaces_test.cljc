@@ -311,17 +311,18 @@ bar/bar"}
                 #?(:clj get-thread-bindings)
                 satisfies?
                 ns-unmap]]
-      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))))))
+      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "dynvars"
     (doseq [v '[*print-namespace-maps*
                 *print-dup*
                 *print-readably*]]
-      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))))))
+      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "regular vars"
     (doseq [v '[inc
                 newline
-                pr]]
-      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v))))))))
+                pr
+                #?(:clj push-thread-bindings)]]
+      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v))))
 
 #?(:cljs
     (deftest test-munge-demunge

@@ -1274,7 +1274,7 @@
     'partition-by (copy-core-var partition-by)
     'persistent! (copy-core-var persistent!)
     #?@(:clj ['promise (copy-core-var promise)])
-    'push-thread-bindings (copy-core-var sci.impl.vars/push-thread-bindings)
+    'push-thread-bindings (copy-var sci.impl.vars/push-thread-bindings clojure-core-ns {:name 'push-thread-bindings})
     'qualified-ident? (copy-core-var qualified-ident?)
     'qualified-symbol? (copy-core-var qualified-symbol?)
     'qualified-keyword? (copy-core-var qualified-keyword?)
