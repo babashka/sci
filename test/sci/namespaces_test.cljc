@@ -327,7 +327,8 @@ bar/bar"}
                 pr
                 #?(:clj push-thread-bindings)
                 ~(when (:doc (meta (resolve 'ex-message)))
-                   `ex-message)]
+                   `ex-message)
+                #?(:clj swap-vals!)]
             :when v]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v))))
 
