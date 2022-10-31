@@ -112,17 +112,18 @@
         (let [macro (when opts (:macro opts))
               #?@(:clj [the-var (macros/? :clj (resolve sym)
                                           :cljs (atom nil))])
-              varm (assoc (var-meta &env (:copy-meta-from opts sym) opts)
+              varm (assoc (var-meta &env (:name opts sym) opts)
                           :sci/built-in true
                           :ns ns)
-              nm (:name varm)]
+              nm (:name varm)
+              ctx (when opts (:ctx opts))]
           ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
           (if macro
             (macros/? :clj
-                      #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false false)
-                         :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
-                      :cljs `(sci.lang.Var. ~sym ~nm ~varm false false))
-            `(sci.lang.Var. ~sym ~nm ~varm false false))))
+                      #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx)
+                         :cljs `(sci.lang.Var. ~sym ~nm ~varm false ~ctx))
+                      :cljs `(sci.lang.Var. ~sym ~nm ~varm false ~ctx))
+            `(sci.lang.Var. ~sym ~nm ~varm false ~ctx))))
       (defmacro copy-core-var
         ([sym]
          `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))))))
@@ -1319,8 +1320,10 @@
     'longs (copy-core-var longs)
     'list* (copy-core-var list*)
     'long-array (copy-core-var long-array)
-    'macroexpand (new-var 'macroexpand macroexpand* true #_(with-meta macroexpand* {:sci.impl/op needs-ctx}))
-    'macroexpand-1 (new-var 'macroexpand-1 macroexpand-1* true)
+    'macroexpand (copy-var macroexpand* clojure-core-ns {:name 'macroexpand
+                                                         :ctx true})
+    'macroexpand-1 (copy-var macroexpand-1* clojure-core-ns {:name 'macroexpand-1
+                                                             :ctx true})
     'make-array (copy-core-var make-array)
     'make-hierarchy (copy-core-var make-hierarchy)
     'map (copy-core-var map)

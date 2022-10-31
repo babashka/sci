@@ -303,7 +303,12 @@ bar/bar"}
     (is @success?)))
 
 (deftest meta-test
-  (is (true? (eval* "(string? (:doc (meta #'when)))"))))
+  (testing "macro"
+    (is (true? (eval* "(string? (:doc (meta #'when)))"))))
+  (testing "core function that needs ctx"
+    (is (true? (eval* "(string? (:doc (meta #'macroexpand)))"))))
+  (testing "regular function"
+    (is (true? (eval* "(string? (:doc (meta #'inc)))")))))
 
 #?(:cljs
     (deftest test-munge-demunge
