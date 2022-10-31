@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [ex-message ex-cause eval read
                             read-string require
                             use load-string
-                            find-var *1 *2 *3 *e #?(:cljs type)
+                            *1 *2 *3 *e #?(:cljs type)
                             bound-fn* with-bindings*
                             vswap!
                             #?(:cljs this-as)

@@ -313,6 +313,7 @@ bar/bar"}
                 ns-unmap
                 #?(:clj remove-ns)
                 find-ns
+                #?(:clj find-var)
                 ns-publics
                 isa?]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
