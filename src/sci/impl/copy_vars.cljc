@@ -86,14 +86,15 @@
                                   :ns ns)
                      dyn (assoc :dynamic dyn))
               nm (:name varm)
-              ctx (when opts (:ctx opts))]
+              ctx (when opts (:ctx opts))
+              init (:init opts sym)]
           ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
           (if macro
             (macros/? :clj
                       #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx)
-                         :cljs `(sci.lang.Var. ~sym ~nm ~varm false ~ctx))
-                      :cljs `(sci.lang.Var. ~sym ~nm ~varm false ~ctx))
-            `(sci.lang.Var. ~sym ~nm ~varm false ~ctx))))
+                         :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx))
+                      :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx))
+            `(sci.lang.Var. ~init ~nm ~varm false ~ctx))))
       (defmacro copy-core-var
         [sym]
         `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)})))))
