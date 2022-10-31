@@ -306,7 +306,10 @@ bar/bar"}
   (testing "macro"
     (is (true? (eval* "(string? (:doc (meta #'when)))"))))
   (testing "core function that needs ctx"
-    (doseq [v '[macroexpand find-ns #?(:clj get-thread-bindings)]]
+    (doseq [v '[macroexpand
+                find-ns
+                #?(:clj get-thread-bindings)
+                *print-namespace-maps*]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))))))
   (testing "regular function"
     (is (true? (eval* "(string? (:doc (meta #'inc)))")))))

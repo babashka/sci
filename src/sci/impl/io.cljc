@@ -7,7 +7,8 @@
             [sci.impl.records]
             [sci.impl.unrestrict :refer [*unrestricted*]]
             [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.vars :as vars]
+            [sci.impl.copy-vars :refer [copy-var]]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -48,7 +49,7 @@
 
 (def print-length (core-dynamic-var '*print-length*))
 (def print-level (core-dynamic-var '*print-level*))
-(def print-namespace-maps (core-dynamic-var '*print-namespace-maps* true {:doc ""}))
+(def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns))
 (def flush-on-newline (core-dynamic-var '*flush-on-newline* *flush-on-newline*))
 (def print-readably (core-dynamic-var '*print-readably* *print-readably*))
 (def print-dup-var (core-dynamic-var '*print-dup* *print-dup*))

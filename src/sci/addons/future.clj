@@ -1,7 +1,7 @@
 (ns sci.addons.future
   {:no-doc true}
   (:refer-clojure :exclude [future pmap])
-  (:require [sci.impl.namespaces :refer [copy-core-var new-var macrofy]])
+  (:require [sci.impl.copy-vars :refer [copy-core-var new-var macrofy]])
   (:require [sci.impl.vars :as vars]))
 
 (def future* (macrofy 'future
