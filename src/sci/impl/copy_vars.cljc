@@ -77,16 +77,19 @@
     (do
       (defmacro copy-var
         [sym ns & [opts]]
-        (let [macro (when opts (:macro opts))
+        (let [macro (:macro opts)
               #?@(:clj [the-var (macros/? :clj (resolve sym)
                                           :cljs (atom nil))])
               dyn (:dynamic opts)
-              varm (cond-> (assoc (var-meta &env (:name opts sym) opts)
+              varm (cond-> (assoc (var-meta &env (or (:name opts)
+                                                     (:copy-meta-from opts)
+                                                     sym)
+                                            opts)
                                   :sci/built-in true
                                   :ns ns)
                      dyn (assoc :dynamic dyn))
               nm (:name varm)
-              ctx (when opts (:ctx opts))
+              ctx (:ctx opts)
               init (:init opts sym)]
           ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
           (if macro

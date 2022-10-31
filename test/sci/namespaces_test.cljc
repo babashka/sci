@@ -318,11 +318,14 @@ bar/bar"}
                 *print-dup*
                 *print-readably*]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
-  (testing "regular vars"
-    (doseq [v '[inc
+  (testing "regular vars (with possibly alternative impls)"
+    (doseq [v `[inc
                 newline
                 pr
-                #?(:clj push-thread-bindings)]]
+                #?(:clj push-thread-bindings)
+                ~(when (:doc (meta (resolve 'ex-message)))
+                   `ex-message)]
+            :when v]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v))))
 
 #?(:cljs
