@@ -274,15 +274,15 @@
                                       foo {:source "(ns foo (:require bar)) bar/x"}
                                       bar {:source "(ns bar (:require foo)) (def x)"}))})))
   (is (= 1 (sci/eval-string "(require 'foo) foo/foo"
-                           {:load-fn (fn [{:keys [:namespace]}]
-                                       (case namespace
-                                         foo {:source "
+                            {:load-fn (fn [{:keys [:namespace]}]
+                                        (case namespace
+                                          foo {:source "
 (ns foo)
 (def foo 1)
 ;; foo already loaded, should be ok to have cyclic dep on foo from bar now
 (require 'bar)
 bar/bar"}
-                                         bar {:source "
+                                          bar {:source "
 (ns bar (:require foo))
 (def bar foo/foo)"}))}))))
 
@@ -302,7 +302,12 @@ bar/bar"}
     (sci/eval-string* the-ctx "(ns foo) (require '[bar :as b])")
     (is @success?)))
 
-(deftest meta-test
+#?(:clj
+   (defn clojure-meta [name]
+     (-> (resolve (symbol "clojure.core" (str name)))
+         meta)))
+
+(deftest docstrings-test
   (testing "macro"
     (is (true? (eval* "(string? (:doc (meta #'when)))"))))
   (testing "core function that needs ctx"
@@ -341,10 +346,21 @@ bar/bar"}
                 #?(:clj var-set)
                 compare-and-set!]
             :when v]
-      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v))))
+      (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
+  (testing "All documented public vars in Clojure should also have a docstring if present in SCI")
+  #?(:clj
+     (is (empty? (for [[name var] (-> (sci/init {})
+                                      :env
+                                      deref
+                                      :namespaces
+                                      ('clojure.core))
+                       :let [sci-meta (meta var)]
+                       :when (not (:doc sci-meta))
+                       :let [m (clojure-meta name)]
+                       :when (:doc m)]
+                   name)))))
 
 #?(:cljs
-    (deftest test-munge-demunge
-      (is (= 'cljs.core/first?
-             (demunge (munge 'cljs.core/first?))))))
-
+   (deftest test-munge-demunge
+     (is (= 'cljs.core/first?
+            (demunge (munge 'cljs.core/first?))))))
