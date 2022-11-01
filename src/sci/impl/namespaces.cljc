@@ -899,7 +899,7 @@
     '*default-data-reader-fn* parser/default-data-reader-fn
     '*read-eval* parser/read-eval
     '*reader-resolver* parser/reader-resolver
-    'read (new-var 'read read true)
+    'read (copy-var read clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/read})
     'read-string (new-var 'read-string read-string clojure-core-ns true)
     #?@(:clj ['reader-conditional? (copy-core-var reader-conditional?)])
     ;; end read

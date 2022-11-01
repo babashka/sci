@@ -48,16 +48,14 @@
 
 ;; TODO: CLJS print-fn-bodies
 
-(def print-meta
-  (core-dynamic-var '*print-meta* false))
-
-(def print-length (copy-var *print-length* utils/clojure-core-ns))
-(def print-level (copy-var *print-level* utils/clojure-core-ns))
-(def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns {:init true}))
+(def print-meta (copy-var *print-meta* utils/clojure-core-ns {:dynamic true}))
+(def print-length (copy-var *print-length* utils/clojure-core-ns {:dynamic true}))
+(def print-level (copy-var *print-level* utils/clojure-core-ns {:dynamic true}))
+(def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns {:dynamic true :init true}))
 (def flush-on-newline (copy-var *flush-on-newline* utils/clojure-core-ns {:dynamic true}))
 (def print-readably (copy-var *print-readably* utils/clojure-core-ns {:dynamic true}))
 (def print-dup-var (copy-var *print-dup* utils/clojure-core-ns {:dynamic true}))
-#?(:cljs (def print-newline (copy-var *print-newline* utils/clojure-core-ns)))
+#?(:cljs (def print-newline (copy-var *print-newline* utils/clojure-core-ns {:dynamic true})))
 
 #?(:cljs (defn string-print [x]
            (binding [*print-fn* @print-fn]
