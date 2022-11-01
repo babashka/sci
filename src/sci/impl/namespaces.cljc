@@ -951,8 +951,7 @@
     ;; end IDeref as protocol
     ;; IAtom / ISwap as protocol
     'swap! (new-var 'swap! core-protocols/swap!*)
-    'compare-and-set! #?(:clj (new-var 'compare-and-set!
-                                        core-protocols/compare-and-set!*)
+    'compare-and-set! #?(:clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
                          :cljs (copy-core-var compare-and-set!))
     #?@(:cljs ['IReset core-protocols/reset-protocol
                'ISwap core-protocols/swap-protocol

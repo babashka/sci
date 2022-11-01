@@ -324,7 +324,8 @@ bar/bar"}
     (doseq [v '[*print-namespace-maps*
                 *print-dup*
                 *print-readably*
-                *1 *2 *3 *e]]
+                *1 *2 *3 *e
+                *file* *ns*]]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v)))
   (testing "regular vars (with possibly alternative impls)"
     (doseq [v `[inc
@@ -337,7 +338,8 @@ bar/bar"}
                 #?(:clj reset-vals!)
                 alength
                 #?(:clj var-get)
-                #?(:clj var-set)]
+                #?(:clj var-set)
+                compare-and-set!]
             :when v]
       (is (true? (eval* (str/replace "(string? (:doc (meta #'{{v}})))" "{{v}}" (str v)))) v))))
 

@@ -255,9 +255,15 @@
 
 (def clojure-core-ns (lang/->Namespace 'clojure.core nil))
 
-(def current-file (dynamic-var '*file* nil {:ns clojure-core-ns}))
+(def current-file
+  (dynamic-var '*file* nil
+               {:doc "The path of the file being evaluated, as a String.\n\n  When there is no file, e.g. in the REPL, the value is not defined."
+                :ns clojure-core-ns}))
 
-(def current-ns (dynamic-var '*ns* user-ns {:ns clojure-core-ns}))
+(def current-ns
+  (dynamic-var '*ns* user-ns
+               {:ns clojure-core-ns
+                :doc "A sci.lang.Namespace object representing the current namespace."}))
 
 (defn current-ns-name []
   (t/getName @current-ns))
