@@ -3,12 +3,13 @@
   (:refer-clojure :exclude [pr prn pr-str prn-str print print-str println
                             newline flush with-out-str with-in-str read-line
                             printf #?@(:cljs [string-print])])
-  (:require #?(:cljs [goog.string])
-            [sci.impl.records]
-            [sci.impl.unrestrict :refer [*unrestricted*]]
-            [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]
-            [sci.impl.copy-vars :refer [copy-var]]))
+  (:require
+   #?(:cljs [goog.string])
+   [sci.impl.copy-vars :refer [copy-var]]
+   [sci.impl.records]
+   [sci.impl.unrestrict :refer [*unrestricted*]]
+   [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -20,15 +21,18 @@
 
 (def in (binding [*unrestricted* true]
           (doto (core-dynamic-var '*in*)
-            (vars/unbind))))
+            (vars/unbind)
+            #?(:clj (alter-meta! assoc :doc "A java.io.Reader object representing standard input for read operations.")))))
 
 (def out (binding [*unrestricted* true]
            (doto (core-dynamic-var '*out*)
-             (vars/unbind))))
+             (vars/unbind)
+             #?(:clj (alter-meta! assoc :doc "A java.io.Writer object representing standard output for print operations.")))))
 
 (def err (binding [*unrestricted* true]
            (doto (core-dynamic-var '*err*)
-             (vars/unbind))))
+             (vars/unbind)
+             #?(:clj (alter-meta! assoc :doc " A java.io.Writer object representing standard error for print operations.")))))
 
 #?(:cljs
    (def print-fn
