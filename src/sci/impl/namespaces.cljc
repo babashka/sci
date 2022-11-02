@@ -1374,7 +1374,7 @@
     'transduce (copy-core-var transduce)
     'transient (copy-core-var transient)
     'tree-seq (copy-core-var tree-seq)
-    'type (copy-var sci.impl.types/type-impl clojure-core-ns {:name 'type})
+    'type (copy-var sci.impl.types/type-impl2 clojure-core-ns {:name 'type})
     'true? (copy-core-var true?)
     'to-array (copy-core-var to-array)
     'to-array-2d (copy-core-var to-array-2d)

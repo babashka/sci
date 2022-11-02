@@ -36,11 +36,25 @@
   (-get-type [_])
   (-mutate [_ k v]))
 
-(defn type-impl [x & _xs]
-  (or (when (instance? #?(:clj sci.impl.types.IReified :cljs sci.impl.types/Reified) x)
+(defn type-impl
+  "Must be varargs because used in multimethods
+  Only for internal use!"
+  [x & _]
+  (or (when #?(:clj (instance? sci.impl.types.IReified x)
+               :cljs (cljs.core/implements? sci.impl.types.IReified x))
         :sci.impl.protocols/reified)
       (when (#?(:clj instance?
-                :cljs implements?) sci.impl.types.SciTypeInstance x)
+                :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
+        (-get-type x))
+      (some-> x meta :type)
+      #?(:clj (class x) ;; no need to check for metadata anymore
+         :cljs (type x))))
+
+(defn type-impl2
+  "Externally available type implementation."
+  [x]
+  (or (when (#?(:clj instance?
+                :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
         (-get-type x))
       (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore
