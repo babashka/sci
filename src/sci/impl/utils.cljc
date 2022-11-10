@@ -104,8 +104,7 @@
                       st)
                     (volatile! '()))]
          (when stack
-           (when-not (:special stack)
-             (vswap! st conj stack)))
+           (vswap! st conj stack))
          (let [d (ex-data e)
                ;; st (:sci.impl/callstack d)
                wrapping-sci-error? (and (isa? (:type d) :sci/error)

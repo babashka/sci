@@ -144,6 +144,6 @@
 
 (deftest try-finally-test
   (is
-   (= ["clojure.core/assoc - <built-in>" "user/foo           - <expr>:1:14" "user/foo           - <expr>:1:1" "user               - <expr>:1:84"]
+   (= ["clojure.core/assoc - <built-in>" "user/foo           - <expr>:1:14" "user/foo           - <expr>:1:1" "user               - <expr>:1:84" "user               - <expr>:1:65"]
       (sci/format-stacktrace
        (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:clj Exception :cljs js/Error) e e)))))))
