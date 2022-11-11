@@ -20,7 +20,6 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
-   [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
    [sci.impl.doseq-macro :as doseq-macro]
@@ -44,7 +43,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(def clojure-core-ns sci.impl.utils/clojure-core-ns)
+(def clojure-core-ns utils/clojure-core-ns)
 
 (defn ->*
   [_ _ x & forms]
