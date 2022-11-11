@@ -4,8 +4,9 @@
   #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api]])))
 
 ;; self-hosted is satisfied here
-(def cljs-ns-publics (some-> (resolve 'cljs.analyzer.api/ns-publics) deref))
-(def cljs-resolve (some-> (resolve 'cljs.analyzer.api/resolve) deref))
+
+(def cljs-ns-publics #?(:cljs (some-> (resolve 'cljs.analyzer.api/ns-publics) deref)))
+(def cljs-resolve #?(:cljs (some-> (resolve 'cljs.analyzer.api/resolve) deref)))
 
 (macros/deftime
 
