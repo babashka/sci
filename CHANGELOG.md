@@ -4,12 +4,13 @@ For a list of breaking changes, check [here](#breaking-changes)
 
 ## Unreleased
 
-- Fix [#817](https://github.com/babashka/sci/issues/817): mutation of `deftype` field should be visible in protocol method
-- Fix [#816](https://github.com/babashka/sci/issues/816): restore recur target exception in do
-- Fix [#819](https://github.com/babashka/sci/issues/819): don't use metadata in record implementation
-- Fix [#831](https://github.com/babashka/sci/issues/831): preserve stack on throw
+- [#817](https://github.com/babashka/sci/issues/817): mutation of `deftype` field should be visible in protocol method
+- [#816](https://github.com/babashka/sci/issues/816): restore recur target exception in do
+- [#819](https://github.com/babashka/sci/issues/819): don't use metadata in record implementation
+- [#831](https://github.com/babashka/sci/issues/831): preserve stack on throw
 - Drop name metadata from conditionally defined var
 - Implement `in-ns` as function rather than built-in ([@SignSpice](https://github.com/SignSpice))
+- #832: reload analyzer API within CLJS to ensure `ns-publics` and `resolve` are available
 
 ## v0.5.34 (2022-10-18)
 

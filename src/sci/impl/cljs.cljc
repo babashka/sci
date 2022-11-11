@@ -3,19 +3,20 @@
   (:require [sci.impl.macros :as macros])
   #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api]])))
 
+;; self-hosted is satisfied here
+(def cljs-ns-publics (some-> (resolve 'cljs.analyzer.api/ns-publics) deref))
+(def cljs-resolve (some-> (resolve 'cljs.analyzer.api/resolve) deref))
+
 (macros/deftime
-  #?(:clj (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
-  #_:clj-kondo/ignore
-  (defmacro ^:private require-cljs-analyzer-api []
+
+  (defmacro require-cljs-analyzer-api []
     (macros/? :clj
               ;; noop, macro executed from JVM Clojure, not within CLJS compiler
               nil
               :cljs #?(;; macro executed from JVM Clojure, within CLJS compiler
                        :clj
+                       ;; This takes care of the scenario that sci.core is loaded outside of CLJS first and then again from CLJS vis :require-macros
                        (do (require '[cljs.analyzer.api])
-                           (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
-                       ;; self-hosted CLJS, no require supported but also not necessary
+                           (intern 'sci.impl.cljs 'cljs-ns-publics @(resolve 'cljs.analyzer.api/ns-publics))
+                           (intern 'sci.impl.cljs 'cljs-resolve @(resolve 'cljs.analyzer.api/resolve)))
                        :cljs nil))))
-
-;; When CLJS code is compiled, we know for sure that we can require the CLJS analyzer API
-#?(:cljs (require-cljs-analyzer-api))

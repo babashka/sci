@@ -1,10 +1,14 @@
 (ns sci.impl.copy-vars
   (:require
-   [sci.impl.cljs]
+   #?(:cljs [sci.impl.cljs])
    [sci.impl.macros :as macros]
    [sci.impl.utils :as utils :refer [clojure-core-ns]]
-   [sci.lang])
-  #?(:cljs (:require-macros [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
+   [sci.lang]
+   [sci.impl.cljs])
+  #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api]]
+                            [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
+
+#?(:cljs (require-cljs-analyzer-api))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -13,8 +17,6 @@
 ;; (map (comp :name meta) inlined)
 (def inlined-vars
   '#{+' unchecked-remainder-int unchecked-subtract-int dec' short-array bit-shift-right aget = boolean bit-shift-left aclone dec < char unchecked-long unchecked-negate unchecked-inc-int floats pos? boolean-array alength bit-xor unsigned-bit-shift-right neg? unchecked-float num reduced? booleans int-array inc' <= -' * min get long double bit-and-not unchecked-add-int short quot unchecked-double longs unchecked-multiply-int int > unchecked-int unchecked-multiply unchecked-dec double-array float - byte-array zero? unchecked-dec-int rem nth nil? bit-and *' unchecked-add identical? unchecked-divide-int unchecked-subtract / bit-or >= long-array object-array doubles unchecked-byte unchecked-short float-array inc + aset chars ints bit-not byte max == count char-array compare shorts unchecked-negate-int unchecked-inc unchecked-char bytes})
-
-(def cljs-resolve (resolve 'cljs.analyzer.api/resolve))
 
 #?(:clj (def elide-vars (= "true" (System/getenv "SCI_ELIDE_VARS")))
    ;; for self-hosted
@@ -52,7 +54,7 @@
                                            dyn (assoc :dynamic dyn)
                                            arglists (assoc :arglists (list 'quote (:arglists m)))))
                                  :cljs nil)
-                         :cljs (let [r (cljs-resolve &env sym)
+                         :cljs (let [r (sci.impl.cljs/cljs-resolve &env sym)
                                      m (:meta r)
                                      dyn (:dynamic m)
                                      arglists (or (:arglists m) (:arglists r))]
