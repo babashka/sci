@@ -497,6 +497,8 @@
         macro? (:sci/macro struct)
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))
+        ;; fixed-arity (when single-arity (:fixed-arity single-arity))
+        ;; varargs (when fixed-arity (:var-arg-name single-arity))
         bindings-fn (:sci.impl/bindings-fn struct)
         self-ref? (:sci.impl/self-ref? struct)]
     (if fn-meta
@@ -505,9 +507,20 @@
              f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)]
          (vary-meta f merge fn-meta))
        nil)
-      (sci.impl.types/->Node
-       (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)
-       nil))))
+      (if single-arity
+        (sci.impl.types/->Node
+         (let [enclosed-array (bindings-fn bindings)
+               f (fns/fun ctx enclosed-array single-arity fn-name macro?)]
+           (when self-ref?
+             (aset ^objects enclosed-array (dec (count enclosed-array)) f))
+           f)
+         nil)
+        #_(sci.impl.types/->Node
+           (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)
+           nil)
+        (sci.impl.types/->Node
+         (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)
+         nil)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)
