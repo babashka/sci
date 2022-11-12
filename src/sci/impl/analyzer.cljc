@@ -512,7 +512,9 @@
          (let [enclosed-array (bindings-fn bindings)
                f (fns/fun ctx enclosed-array single-arity fn-name macro?)]
            (when self-ref?
-             (aset ^objects enclosed-array (dec (count enclosed-array)) f))
+             (aset ^objects enclosed-array
+                   ;; TODO: count can be done at compile time
+                   (dec (count enclosed-array)) f))
            f)
          nil)
         #_(sci.impl.types/->Node
