@@ -503,7 +503,9 @@
         self-ref? (:sci.impl/self-ref? struct)
         copy-enclosed->invocation (when single-arity (:copy-enclosed->invocation single-arity))
         body (when single-arity (:body single-arity))
-        invoc-size (when single-arity (:invoc-size single-arity))]
+        invoc-size (when single-arity (:invoc-size single-arity))
+        nsm (utils/current-ns-name)
+        vararg-idx (when single-arity (:vararg-idx single-arity))]
     (if fn-meta
       (sci.impl.types/->Node
        (let [fn-meta (types/eval fn-meta ctx bindings)
@@ -514,7 +516,7 @@
         (sci.impl.types/->Node
          (let [enclosed-array (bindings-fn bindings)
                f (fns/fun ctx enclosed-array single-arity fn-name macro? fixed-arity copy-enclosed->invocation
-                          body invoc-size)]
+                          body invoc-size nsm vararg-idx)]
            (when self-ref?
              (aset ^objects enclosed-array
                    ;; TODO: count can be done at compile time

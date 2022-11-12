@@ -62,7 +62,9 @@
         (:fixed-arity fn-body)
         (:copy-enclosed->invocation fn-body)
         (:body fn-body)
-        (:invoc-size fn-body)))
+        (:invoc-size fn-body)
+        (utils/current-ns-name)
+        (:vararg-idx fn-body)))
   ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
     enclosed-array
     fn-body
@@ -71,10 +73,9 @@
     fixed-arity
     enclosed->invocation
     body
-    invoc-size]
-   (let [nsm (utils/current-ns-name)
-         vararg-idx (:vararg-idx fn-body)
-         f (if vararg-idx
+    invoc-size
+    nsm vararg-idx]
+   (let [f (if vararg-idx
              (case (int fixed-arity)
                0 (gen-fn 0 true true)
                1 (gen-fn 1 true true)
