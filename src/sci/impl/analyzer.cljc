@@ -497,10 +497,11 @@
         macro? (:sci/macro struct)
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))
-        ;; fixed-arity (when single-arity (:fixed-arity single-arity))
+        fixed-arity (when single-arity (:fixed-arity single-arity))
         ;; varargs (when fixed-arity (:var-arg-name single-arity))
         bindings-fn (:sci.impl/bindings-fn struct)
-        self-ref? (:sci.impl/self-ref? struct)]
+        self-ref? (:sci.impl/self-ref? struct)
+        copy-enclosed->invocation (when single-arity (:copy-enclosed->invocation single-arity))]
     (if fn-meta
       (sci.impl.types/->Node
        (let [fn-meta (types/eval fn-meta ctx bindings)
@@ -510,7 +511,7 @@
       (if single-arity
         (sci.impl.types/->Node
          (let [enclosed-array (bindings-fn bindings)
-               f (fns/fun ctx enclosed-array single-arity fn-name macro?)]
+               f (fns/fun ctx enclosed-array single-arity fn-name macro? fixed-arity copy-enclosed->invocation)]
            (when self-ref?
              (aset ^objects enclosed-array
                    ;; TODO: count can be done at compile time
