@@ -55,7 +55,6 @@
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
    enclosed-array
-   _bindings
    fn-body
    fn-name
    macro?]
@@ -116,10 +115,10 @@
   (or (get arities arity)
       (:variadic arities)))
 
-(defn fn-arity-map [ctx enclosed-array bindings fn-name macro? fn-bodies]
+(defn fn-arity-map [ctx enclosed-array fn-name macro? fn-bodies]
   (reduce
    (fn [arity-map fn-body]
-     (let [f (fun ctx enclosed-array bindings fn-body fn-name macro?)
+     (let [f (fun ctx enclosed-array fn-body fn-name macro?)
            var-arg? (:var-arg-name fn-body)
            fixed-arity (:fixed-arity fn-body)]
        (if var-arg?
@@ -132,8 +131,8 @@
   (let [;; each evaluated fn should have its own self-ref!
         enclosed-array (bindings-fn bindings)
         f (if single-arity
-            (fun ctx enclosed-array bindings single-arity fn-name macro?)
-            (let [arities (fn-arity-map ctx enclosed-array bindings fn-name macro? fn-bodies)]
+            (fun ctx enclosed-array single-arity fn-name macro?)
+            (let [arities (fn-arity-map ctx enclosed-array fn-name macro? fn-bodies)]
               (fn [& args]
                 (let [arg-count (count args)]
                   (if-let [f (lookup-by-arity arities arg-count)]
