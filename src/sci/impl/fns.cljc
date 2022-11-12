@@ -30,31 +30,29 @@
                 (if (kw-identical? :sci.impl.analyzer/recur ret#)
                   (recur)
                   ret#))))))
-     (let [locals (repeatedly n gensym)
-           fn-params (vec (repeatedly n gensym))
+     (let [fn-params (vec (repeatedly n gensym))
            varargs-param (when varargs (gensym))
-           rnge (range n)
-           nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
-           let-vec (vec (mapcat (fn [local ith]
-                                  [local ith]) locals nths))
-           asets `(do ~@(map (fn [fn-param idx]
-                               `(aset ~(with-meta 'invoc-array
-                                         {:tag 'objects}) ~idx ~fn-param))
-                             fn-params (range)))]
-       `(let ~let-vec
-          (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
-                                            varargs (conj '& varargs-param))
-            (let [~'invoc-array (object-array ~'invoc-size)]
-              (when ~'enclosed->invocation
-                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-              ~asets
-              ~@(when varargs
-                  [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
-              (loop []
-                (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                  (if (kw-identical? :sci.impl.analyzer/recur ret#)
-                    (recur)
-                    ret#))))))))))
+           asets `(utils/record :fn-args (do ~@(map (fn [fn-param idx]
+                                                      `(aset ~(with-meta 'invoc-array
+                                                                {:tag 'objects}) ~idx ~fn-param))
+                                                    fn-params (range))))]
+       `(utils/record :let
+                      (let [] #_ ~let-vec
+                        ;; (prn '~let-vec)
+                        (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
+                                                          varargs (conj '& varargs-param))
+                          (let [~'invoc-array (object-array ~'invoc-size)]
+                            (when ~'enclosed->invocation
+                              (utils/record :enclosed (~'enclosed->invocation ~'enclosed-array ~'invoc-array)))
+                            (utils/record :asets ~asets)
+                            ~@(when varargs
+                                [`(utils/record :varargs (aset ~'invoc-array ~'vararg-idx ~varargs-param))])
+                            (utils/record :loop
+                                          (loop []
+                                            (let [ret# (utils/record :body (types/eval ~'body ~'ctx ~'invoc-array))]
+                                              (if (kw-identical? :sci.impl.analyzer/recur ret#)
+                                                (recur)
+                                                ret#))))))))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]

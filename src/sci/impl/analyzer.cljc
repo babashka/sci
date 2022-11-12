@@ -117,41 +117,41 @@
                                    (types/eval node2 ctx bindings))
                                nil))
       (let [analyzed-children (analyze-children-tail ctx children)]
-          (case child-count
-            0 nil
-            1 (nth analyzed-children 0)
-            2 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)) nil))
-            3 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)
-                    node2 (nth analyzed-children 2)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)
-                     (types/eval node2 ctx bindings)) nil))
-            4 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)
-                    node2 (nth analyzed-children 2)
-                    node3 (nth analyzed-children 3)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)
-                     (types/eval node2 ctx bindings)
-                     (types/eval node3 ctx bindings)) nil))
-            5 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)
-                    node2 (nth analyzed-children 2)
-                    node3 (nth analyzed-children 3)
-                    node4 (nth analyzed-children 4)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)
-                     (types/eval node2 ctx bindings)
-                     (types/eval node3 ctx bindings)
-                     (types/eval node4 ctx bindings)) nil)))))))
+        (case child-count
+          0 nil
+          1 (nth analyzed-children 0)
+          2 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)) nil))
+          3 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)
+                  node2 (nth analyzed-children 2)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)
+                   (types/eval node2 ctx bindings)) nil))
+          4 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)
+                  node2 (nth analyzed-children 2)
+                  node3 (nth analyzed-children 3)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)
+                   (types/eval node2 ctx bindings)
+                   (types/eval node3 ctx bindings)) nil))
+          5 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)
+                  node2 (nth analyzed-children 2)
+                  node3 (nth analyzed-children 3)
+                  node4 (nth analyzed-children 4)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)
+                   (types/eval node2 ctx bindings)
+                   (types/eval node3 ctx bindings)
+                   (types/eval node4 ctx bindings)) nil)))))))
 
 (defn return-or
   [ctx expr children]
@@ -278,17 +278,18 @@
                           [i `(let ~binds
                                 (sci.impl.types/->Node
                                  ;; important, recur vals must be evaluated with old bindings!
-                                 (let [~@(mapcat (fn [j]
-                                                   [(symbol (str "eval-" j) )
-                                                    `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings)])
-                                                 (range i))]
-                                   (do ~@(map (fn [j]
-                                                `(aset
-                                                  ~(with-meta 'bindings
-                                                     {:tag 'objects}) ~j
-                                                  ~(symbol (str "eval-" j))))
-                                              (range i)))
-                                   ::recur)
+                                 (utils/record :recur
+                                               (let [~@(mapcat (fn [j]
+                                                                 [(symbol (str "eval-" j) )
+                                                                  `(types/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings)])
+                                                               (range i))]
+                                                 (do ~@(map (fn [j]
+                                                              `(aset
+                                                                ~(with-meta 'bindings
+                                                                   {:tag 'objects}) ~j
+                                                                ~(symbol (str "eval-" j))))
+                                                            (range i)))
+                                                 ::recur))
                                  nil))])
                         let-bindings))))))))
 
