@@ -60,16 +60,19 @@
     macro?]
    (fun ctx enclosed-array fn-body fn-name macro?
         (:fixed-arity fn-body)
-        (:copy-enclosed->invocation fn-body)))
+        (:copy-enclosed->invocation fn-body)
+        (:body fn-body)
+        (:invoc-size fn-body)))
   ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
     enclosed-array
     fn-body
     fn-name
     macro?
     fixed-arity
-    enclosed->invocation]
-   (let [body (:body fn-body)
-         invoc-size (:invoc-size fn-body)
+    enclosed->invocation
+    body
+    invoc-size]
+   (let [invoc-size (:invoc-size fn-body)
          nsm (utils/current-ns-name)
          vararg-idx (:vararg-idx fn-body)
          f (if vararg-idx
