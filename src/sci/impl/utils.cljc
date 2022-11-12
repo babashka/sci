@@ -6,7 +6,7 @@
             [sci.impl.types :as t]
             [sci.impl.vars :as vars]
             [sci.lang :as lang])
-  #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical?]])))
+  #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical? record]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
