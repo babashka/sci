@@ -1,11 +1,8 @@
 (ns sci.impl.fns
   {:no-doc true}
-  (:require [sci.impl.evaluator :as eval]
-            [sci.impl.faster :refer [nth-2]]
-            [sci.impl.types :as types]
-            [sci.impl.utils :as utils :refer [kw-identical?]]
-            [sci.impl.vars :as vars]
-            )
+  (:require
+   [sci.impl.types :as types]
+   [sci.impl.utils :as utils :refer [kw-identical?]])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -30,53 +27,43 @@
                 (if (kw-identical? :sci.impl.analyzer/recur ret#)
                   (recur)
                   ret#))))))
-     (let [locals (repeatedly n gensym)
-           fn-params (vec (repeatedly n gensym))
+     (let [fn-params (vec (repeatedly n gensym))
            varargs-param (when varargs (gensym))
-           rnge (range n)
-           nths (map (fn [n] `(nth-2 ~'params ~n)) rnge)
-           let-vec (vec (mapcat (fn [local ith]
-                                  [local ith]) locals nths))
            asets `(do ~@(map (fn [fn-param idx]
                                `(aset ~(with-meta 'invoc-array
                                          {:tag 'objects}) ~idx ~fn-param))
                              fn-params (range)))]
-       `(let ~let-vec
-          (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
-                                            varargs (conj '& varargs-param))
-            (let [~'invoc-array (object-array ~'invoc-size)]
-              (when ~'enclosed->invocation
-                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-              ~asets
-              ~@(when varargs
-                  [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
-              (loop []
-                (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                  (if (kw-identical? :sci.impl.analyzer/recur ret#)
-                    (recur)
-                    ret#))))))))))
+       `(fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
+                                          varargs (conj '& varargs-param))
+          (let [~'invoc-array (object-array ~'invoc-size)]
+            (when ~'enclosed->invocation
+              (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+            ~asets
+            ~@(when varargs
+                [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+            (loop []
+              (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
+                (if (kw-identical? :sci.impl.analyzer/recur ret#)
+                  (recur)
+                  ret#)))))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
     (pprint/pprint (macroexpand '(gen-run-fn 2))))
 
+#_{:clj-kondo/ignore [:unused-binding]}
 (defn fun
   [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
    enclosed-array
-   bindings
+   _bindings
    fn-body
-   #_:clj-kondo/ignore fn-name
-   #_:clj-kondo/ignore macro?]
-  (let [#_:clj-kondo/ignore
-        fixed-arity (:fixed-arity fn-body)
+   fn-name
+   macro?]
+  (let [fixed-arity (:fixed-arity fn-body)
         enclosed->invocation (:copy-enclosed->invocation fn-body)
-        var-arg-name (:var-arg-name fn-body)
-        #_:clj-kondo/ignore
-        params (:params fn-body)
         body (:body fn-body)
         invoc-size (:invoc-size fn-body)
-        self-ref-idx (:self-ref-idx fn-body)
-        #_:clj-kondo/ignore nsm (utils/current-ns-name)
+        nsm (utils/current-ns-name)
         vararg-idx (:vararg-idx fn-body)
         f (if vararg-idx
             (case (int fixed-arity)
@@ -171,5 +158,4 @@
 
 ;;;; Scratch
 
-(comment
-  )
+(comment)
