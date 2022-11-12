@@ -72,8 +72,7 @@
     enclosed->invocation
     body
     invoc-size]
-   (let [invoc-size (:invoc-size fn-body)
-         nsm (utils/current-ns-name)
+   (let [nsm (utils/current-ns-name)
          vararg-idx (:vararg-idx fn-body)
          f (if vararg-idx
              (case (int fixed-arity)
