@@ -429,7 +429,7 @@
         iden->enclosed-idx (if fn-name
                              (assoc iden->enclosed-idx fn-id closed-over-cnt)
                              iden->enclosed-idx)
-        enclosed-array-fn
+        [enclosed-array-fn enclosed-array-cnt]
         (if (or self-ref? (seq closed-over-iden->binding-idx))
           (let [enclosed-array-cnt (cond-> closed-over-cnt
                                      fn-name (inc))
@@ -443,15 +443,16 @@
                                           (aset 0 binding-idx)
                                           (aset 1 enclosed-idx)))))
                                   closed-over-idens))]
-            (fn [^objects bindings]
-              (areduce binding->enclosed idx ret (object-array enclosed-array-cnt)
-                       (let [^objects idxs (aget binding->enclosed idx)
-                             binding-idx (aget idxs 0)
-                             binding-val (aget bindings binding-idx)
-                             enclosed-idx (aget idxs 1)]
-                         (aset ret enclosed-idx binding-val)
-                         ret))))
-          (constantly nil))
+            [(fn [^objects bindings]
+               (areduce binding->enclosed idx ret (object-array enclosed-array-cnt)
+                        (let [^objects idxs (aget binding->enclosed idx)
+                              binding-idx (aget idxs 0)
+                              binding-val (aget bindings binding-idx)
+                              enclosed-idx (aget idxs 1)]
+                          (aset ret enclosed-idx binding-val)
+                          ret)))
+             enclosed-array-cnt])
+          [(constantly nil)])
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
                        (let [iden->invocation-idx (:iden->invoke-idx body)
@@ -488,7 +489,8 @@
                           :arglists arglists
                           :fn true
                           :fn-meta ana-fn-meta
-                          :bindings-fn enclosed-array-fn}]
+                          :bindings-fn enclosed-array-fn
+                          :enclosed-array-cnt enclosed-array-cnt}]
     struct))
 
 (defn fn-ctx-fn [_ctx struct fn-meta]
@@ -505,11 +507,12 @@
         body (when single-arity (:body single-arity))
         invoc-size (when single-arity (:invoc-size single-arity))
         nsm (utils/current-ns-name)
-        vararg-idx (when single-arity (:vararg-idx single-arity))]
+        vararg-idx (when single-arity (:vararg-idx single-arity))
+        self-ref-in-enclosed-idx (some-> (:sci.impl/enclosed-array-cnt struct) dec)]
     (if fn-meta
       (sci.impl.types/->Node
        (let [fn-meta (types/eval fn-meta ctx bindings)
-             f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)]
+             f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx)]
          (vary-meta f merge fn-meta))
        nil)
       (if single-arity
@@ -519,15 +522,12 @@
                           body invoc-size nsm vararg-idx)]
            (when self-ref?
              (aset ^objects enclosed-array
-                   ;; TODO: count can be done at compile time
-                   (dec (count enclosed-array)) f))
+                   self-ref-in-enclosed-idx
+                   f))
            f)
          nil)
-        #_(sci.impl.types/->Node
-           (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)
-           nil)
         (sci.impl.types/->Node
-         (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn)
+         (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx)
          nil)))))
 
 (defn analyze-fn [ctx fn-expr macro?]

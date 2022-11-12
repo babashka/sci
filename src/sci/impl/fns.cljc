@@ -138,7 +138,7 @@
    {}
    fn-bodies))
 
-(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn]
+(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx]
   (let [;; each evaluated fn should have its own self-ref!
         enclosed-array (bindings-fn bindings)
         f (if single-arity
@@ -161,7 +161,7 @@
                                :sci.impl/inner-fn f))
             f)]
     (when self-ref?
-      (aset ^objects enclosed-array (dec (count enclosed-array)) f))
+      (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
     f))
 
 (vreset! utils/eval-fn eval-fn)
