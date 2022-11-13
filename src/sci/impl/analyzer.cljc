@@ -493,21 +493,33 @@
                           :enclosed-array-cnt enclosed-array-cnt}]
     struct))
 
+(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm]
+  (let [fixed-arity (:fixed-arity fn-body)
+        copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
+        invoc-size (:invoc-size fn-body)
+        body (:body fn-body)
+        vararg-idx (:vararg-idx fn-body)]
+    (sci.impl.types/->Node
+     (let [enclosed-array (bindings-fn bindings)
+           f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                      body invoc-size nsm vararg-idx)]
+       (when self-ref?
+         (aset ^objects enclosed-array
+               self-ref-in-enclosed-idx
+               f))
+       f)
+     nil)))
+
 (defn fn-ctx-fn [_ctx struct fn-meta]
   (let [fn-name (:sci.impl/fn-name struct)
         fn-bodies (:sci.impl/fn-bodies struct)
         macro? (:sci/macro struct)
         single-arity (when (= 1 (count fn-bodies))
                        (first fn-bodies))
-        fixed-arity (when single-arity (:fixed-arity single-arity))
         ;; varargs (when fixed-arity (:var-arg-name single-arity))
         bindings-fn (:sci.impl/bindings-fn struct)
         self-ref? (:sci.impl/self-ref? struct)
-        copy-enclosed->invocation (when single-arity (:copy-enclosed->invocation single-arity))
-        body (when single-arity (:body single-arity))
-        invoc-size (when single-arity (:invoc-size single-arity))
         nsm (utils/current-ns-name)
-        vararg-idx (when single-arity (:vararg-idx single-arity))
         self-ref-in-enclosed-idx (some-> (:sci.impl/enclosed-array-cnt struct) dec)]
     (if fn-meta
       (sci.impl.types/->Node
@@ -516,15 +528,17 @@
          (vary-meta f merge fn-meta))
        nil)
       (if single-arity
-        (sci.impl.types/->Node
-         (let [enclosed-array (bindings-fn bindings)
-               f (fns/fun ctx enclosed-array single-arity fn-name macro? fixed-arity copy-enclosed->invocation
-                          body invoc-size nsm vararg-idx)]
-           (when self-ref?
-             (aset ^objects enclosed-array
-                   self-ref-in-enclosed-idx
-                   f))
-           f)
+        (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm)
+        #_(sci.impl.types/->Node
+         (fn [& args]
+           (let [arg-count (count args)]
+             (if-let [f (fns/lookup-by-arity arities arg-count)]
+               (apply f args)
+               (throw (new #?(:clj Exception
+                              :cljs js/Error)
+                           (let [actual-count (if macro? (- arg-count 2)
+                                                  arg-count)]
+                             (str "Cannot call " fn-name " with " actual-count " arguments")))))))
          nil)
         (sci.impl.types/->Node
          (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx)
