@@ -20,7 +20,8 @@
    [sci.impl.utils :as utils :refer
     [ana-macros constant? kw-identical? macro? maybe-destructured
      rethrow-with-location-of-node set-namespace!]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.impl.types :as t])
   #?(:clj (:import
            [sci.impl Reflector]))
   #?(:cljs
@@ -117,41 +118,41 @@
                                    (types/eval node2 ctx bindings))
                                nil))
       (let [analyzed-children (analyze-children-tail ctx children)]
-          (case child-count
-            0 nil
-            1 (nth analyzed-children 0)
-            2 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)) nil))
-            3 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)
-                    node2 (nth analyzed-children 2)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)
-                     (types/eval node2 ctx bindings)) nil))
-            4 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)
-                    node2 (nth analyzed-children 2)
-                    node3 (nth analyzed-children 3)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)
-                     (types/eval node2 ctx bindings)
-                     (types/eval node3 ctx bindings)) nil))
-            5 (let [node0 (nth analyzed-children 0)
-                    node1 (nth analyzed-children 1)
-                    node2 (nth analyzed-children 2)
-                    node3 (nth analyzed-children 3)
-                    node4 (nth analyzed-children 4)]
-                (sci.impl.types/->Node
-                 (do (types/eval node0 ctx bindings)
-                     (types/eval node1 ctx bindings)
-                     (types/eval node2 ctx bindings)
-                     (types/eval node3 ctx bindings)
-                     (types/eval node4 ctx bindings)) nil)))))))
+        (case child-count
+          0 nil
+          1 (nth analyzed-children 0)
+          2 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)) nil))
+          3 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)
+                  node2 (nth analyzed-children 2)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)
+                   (types/eval node2 ctx bindings)) nil))
+          4 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)
+                  node2 (nth analyzed-children 2)
+                  node3 (nth analyzed-children 3)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)
+                   (types/eval node2 ctx bindings)
+                   (types/eval node3 ctx bindings)) nil))
+          5 (let [node0 (nth analyzed-children 0)
+                  node1 (nth analyzed-children 1)
+                  node2 (nth analyzed-children 2)
+                  node3 (nth analyzed-children 3)
+                  node4 (nth analyzed-children 4)]
+              (sci.impl.types/->Node
+               (do (types/eval node0 ctx bindings)
+                   (types/eval node1 ctx bindings)
+                   (types/eval node2 ctx bindings)
+                   (types/eval node3 ctx bindings)
+                   (types/eval node4 ctx bindings)) nil)))))))
 
 (defn return-or
   [ctx expr children]
@@ -510,6 +511,19 @@
        f)
      nil)))
 
+(defn multi-arity-fn-body [fn-body fn-name nsm]
+  (let [fixed-arity (:fixed-arity fn-body)
+        copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
+        invoc-size (:invoc-size fn-body)
+        body (:body fn-body)
+        vararg-idx (:vararg-idx fn-body)]
+    (fn [enclosed-array]
+      (sci.impl.types/->Node
+       (let [f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                        body invoc-size nsm vararg-idx)]
+         f)
+       nil))))
+
 (defn fn-ctx-fn [_ctx struct fn-meta]
   (let [fn-name (:sci.impl/fn-name struct)
         fn-bodies (:sci.impl/fn-bodies struct)
@@ -529,20 +543,49 @@
        nil)
       (if single-arity
         (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm)
+        (let [arities (reduce
+                       (fn [arity-map fn-body]
+                         (let [f (multi-arity-fn-body fn-body fn-name nsm)
+                               var-arg? (:var-arg-name fn-body)
+                               fixed-arity (:fixed-arity fn-body)]
+                           (if var-arg?
+                             (assoc arity-map :variadic f)
+                             (assoc arity-map fixed-arity f))))
+                       {}
+                       fn-bodies)]
+          (sci.impl.types/->Node
+           (let [enclosed-array (bindings-fn bindings)
+                 f (fn [& args]
+                     (let [arg-count (count args)]
+                       (if-let [f (fns/lookup-by-arity arities arg-count)]
+                         (let [f (f enclosed-array)
+                               f (t/eval f ctx bindings)]
+                           (apply f args))
+                         (throw (new #?(:clj Exception
+                                        :cljs js/Error)
+                                     (let [actual-count (if macro? (- arg-count 2)
+                                                            arg-count)]
+                                       (str "Cannot call " fn-name " with " actual-count " arguments")))))))]
+             (when self-ref?
+               (aset ^objects enclosed-array
+                     self-ref-in-enclosed-idx
+                     f))
+             f)
+           nil))
         #_(sci.impl.types/->Node
-         (fn [& args]
-           (let [arg-count (count args)]
-             (if-let [f (fns/lookup-by-arity arities arg-count)]
-               (apply f args)
-               (throw (new #?(:clj Exception
-                              :cljs js/Error)
-                           (let [actual-count (if macro? (- arg-count 2)
-                                                  arg-count)]
-                             (str "Cannot call " fn-name " with " actual-count " arguments")))))))
-         nil)
-        (sci.impl.types/->Node
-         (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx)
-         nil)))))
+           (fn [& args]
+             (let [arg-count (count args)]
+               (if-let [f (fns/lookup-by-arity arities arg-count)]
+                 (apply f args)
+                 (throw (new #?(:clj Exception
+                                :cljs js/Error)
+                             (let [actual-count (if macro? (- arg-count 2)
+                                                    arg-count)]
+                               (str "Cannot call " fn-name " with " actual-count " arguments")))))))
+           nil)
+        #_(sci.impl.types/->Node
+           (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx)
+           nil)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)
