@@ -494,7 +494,7 @@
                           :enclosed-array-cnt enclosed-array-cnt}]
     struct))
 
-(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm]
+(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?]
   (let [fixed-arity (:fixed-arity fn-body)
         copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
         invoc-size (:invoc-size fn-body)
@@ -503,7 +503,17 @@
     (sci.impl.types/->Node
      (let [enclosed-array (bindings-fn bindings)
            f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                      body invoc-size nsm vararg-idx)]
+                      body invoc-size nsm vararg-idx)
+           f (if (nil? fn-meta) f
+                 (let [fn-meta (t/eval fn-meta ctx bindings)]
+                   (vary-meta f merge fn-meta)))
+           f (if macro?
+               (vary-meta f
+                          #(assoc %
+                                  :sci/macro macro?
+                                  ;; added for better error reporting
+                                  :sci.impl/inner-fn f))
+               f)]
        (when self-ref?
          (aset ^objects enclosed-array
                self-ref-in-enclosed-idx
@@ -535,57 +545,47 @@
         self-ref? (:sci.impl/self-ref? struct)
         nsm (utils/current-ns-name)
         self-ref-in-enclosed-idx (some-> (:sci.impl/enclosed-array-cnt struct) dec)]
-    (if fn-meta
-      (sci.impl.types/->Node
-       (let [fn-meta (types/eval fn-meta ctx bindings)
-             f (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx)]
-         (vary-meta f merge fn-meta))
-       nil)
-      (if single-arity
-        (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm)
-        (let [arities (reduce
-                       (fn [arity-map fn-body]
-                         (let [f (multi-arity-fn-body fn-body fn-name nsm)
-                               var-arg? (:var-arg-name fn-body)
-                               fixed-arity (:fixed-arity fn-body)]
-                           (if var-arg?
-                             (assoc arity-map :variadic f)
-                             (assoc arity-map fixed-arity f))))
-                       {}
-                       fn-bodies)]
-          (sci.impl.types/->Node
-           (let [enclosed-array (bindings-fn bindings)
-                 f (fn [& args]
-                     (let [arg-count (count args)]
-                       (if-let [f (fns/lookup-by-arity arities arg-count)]
-                         (let [f (f enclosed-array)
-                               f (t/eval f ctx bindings)]
-                           (apply f args))
-                         (throw (new #?(:clj Exception
-                                        :cljs js/Error)
-                                     (let [actual-count (if macro? (- arg-count 2)
-                                                            arg-count)]
-                                       (str "Cannot call " fn-name " with " actual-count " arguments")))))))]
-             (when self-ref?
-               (aset ^objects enclosed-array
-                     self-ref-in-enclosed-idx
-                     f))
-             f)
-           nil))
-        #_(sci.impl.types/->Node
-           (fn [& args]
-             (let [arg-count (count args)]
-               (if-let [f (fns/lookup-by-arity arities arg-count)]
-                 (apply f args)
-                 (throw (new #?(:clj Exception
-                                :cljs js/Error)
-                             (let [actual-count (if macro? (- arg-count 2)
-                                                    arg-count)]
-                               (str "Cannot call " fn-name " with " actual-count " arguments")))))))
-           nil)
-        #_(sci.impl.types/->Node
-           (fns/eval-fn ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx)
-           nil)))))
+    (if single-arity
+      (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?)
+      (let [arities (reduce
+                     (fn [arity-map fn-body]
+                       (let [f (multi-arity-fn-body fn-body fn-name nsm)
+                             var-arg? (:var-arg-name fn-body)
+                             fixed-arity (:fixed-arity fn-body)]
+                         (if var-arg?
+                           (assoc arity-map :variadic f)
+                           (assoc arity-map fixed-arity f))))
+                     {}
+                     fn-bodies)]
+        (sci.impl.types/->Node
+         (let [enclosed-array (bindings-fn bindings)
+               f (fn [& args]
+                   (let [arg-count (count args)]
+                     (if-let [f (fns/lookup-by-arity arities arg-count)]
+                       (let [f (f enclosed-array)
+                             f (t/eval f ctx bindings)]
+                         (apply f args))
+                       (throw (new #?(:clj Exception
+                                      :cljs js/Error)
+                                   (let [actual-count (if macro? (- arg-count 2)
+                                                          arg-count)]
+                                     (str "Cannot call " fn-name " with " actual-count " arguments")))))))
+               f (if (nil? fn-meta) f
+                     (let [fn-meta (t/eval fn-meta ctx bindings)]
+                       (vary-meta f merge fn-meta)))
+               f (if macro?
+                   (vary-meta f
+                              #(assoc %
+                                      :sci/macro macro?
+                                      ;; added for better error reporting
+                                      :sci.impl/inner-fn f))
+                   f)]
+           (when self-ref?
+             (aset ^objects enclosed-array
+                   self-ref-in-enclosed-idx
+                   f))
+           f)
+         nil)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
   (let [struct (analyze-fn* ctx fn-expr macro?)
