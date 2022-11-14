@@ -53,63 +53,74 @@
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (defn fun
-  [#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
-   enclosed-array
-   fn-body
-   fn-name
-   macro?]
-  (let [fixed-arity (:fixed-arity fn-body)
-        enclosed->invocation (:copy-enclosed->invocation fn-body)
-        body (:body fn-body)
-        invoc-size (:invoc-size fn-body)
-        nsm (utils/current-ns-name)
-        vararg-idx (:vararg-idx fn-body)
-        f (if vararg-idx
-            (case (int fixed-arity)
-              0 (gen-fn 0 true true)
-              1 (gen-fn 1 true true)
-              2 (gen-fn 2 true true)
-              3 (gen-fn 3 true true)
-              4 (gen-fn 4 true true)
-              5 (gen-fn 5 true true)
-              6 (gen-fn 6 true true)
-              7 (gen-fn 7 true true)
-              8 (gen-fn 8 true true)
-              9 (gen-fn 9 true true)
-              10 (gen-fn 10 true true)
-              11 (gen-fn 11 true true)
-              12 (gen-fn 12 true true)
-              13 (gen-fn 13 true true)
-              14 (gen-fn 14 true true)
-              15 (gen-fn 15 true true)
-              16 (gen-fn 16 true true)
-              17 (gen-fn 17 true true)
-              18 (gen-fn 18 true true)
-              19 (gen-fn 19 true true)
-              20 (gen-fn 20 true true))
-            (case (int fixed-arity)
-              0 (gen-fn 0)
-              1 (gen-fn 1)
-              2 (gen-fn 2)
-              3 (gen-fn 3)
-              4 (gen-fn 4)
-              5 (gen-fn 5)
-              6 (gen-fn 6)
-              7 (gen-fn 7)
-              8 (gen-fn 8)
-              9 (gen-fn 9)
-              10 (gen-fn 10)
-              11 (gen-fn 11)
-              12 (gen-fn 12)
-              13 (gen-fn 13)
-              14 (gen-fn 14)
-              15 (gen-fn 15)
-              16 (gen-fn 16)
-              17 (gen-fn 17)
-              18 (gen-fn 18)
-              19 (gen-fn 19)
-              20 (gen-fn 20)))]
-    f))
+  ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+    enclosed-array
+    fn-body
+    fn-name
+    macro?]
+   (fun ctx enclosed-array fn-body fn-name macro?
+        (:fixed-arity fn-body)
+        (:copy-enclosed->invocation fn-body)
+        (:body fn-body)
+        (:invoc-size fn-body)
+        (utils/current-ns-name)
+        (:vararg-idx fn-body)))
+  ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+    enclosed-array
+    fn-body
+    fn-name
+    macro?
+    fixed-arity
+    enclosed->invocation
+    body
+    invoc-size
+    nsm vararg-idx]
+   (let [f (if vararg-idx
+             (case (int fixed-arity)
+               0 (gen-fn 0 true true)
+               1 (gen-fn 1 true true)
+               2 (gen-fn 2 true true)
+               3 (gen-fn 3 true true)
+               4 (gen-fn 4 true true)
+               5 (gen-fn 5 true true)
+               6 (gen-fn 6 true true)
+               7 (gen-fn 7 true true)
+               8 (gen-fn 8 true true)
+               9 (gen-fn 9 true true)
+               10 (gen-fn 10 true true)
+               11 (gen-fn 11 true true)
+               12 (gen-fn 12 true true)
+               13 (gen-fn 13 true true)
+               14 (gen-fn 14 true true)
+               15 (gen-fn 15 true true)
+               16 (gen-fn 16 true true)
+               17 (gen-fn 17 true true)
+               18 (gen-fn 18 true true)
+               19 (gen-fn 19 true true)
+               20 (gen-fn 20 true true))
+             (case (int fixed-arity)
+               0 (gen-fn 0)
+               1 (gen-fn 1)
+               2 (gen-fn 2)
+               3 (gen-fn 3)
+               4 (gen-fn 4)
+               5 (gen-fn 5)
+               6 (gen-fn 6)
+               7 (gen-fn 7)
+               8 (gen-fn 8)
+               9 (gen-fn 9)
+               10 (gen-fn 10)
+               11 (gen-fn 11)
+               12 (gen-fn 12)
+               13 (gen-fn 13)
+               14 (gen-fn 14)
+               15 (gen-fn 15)
+               16 (gen-fn 16)
+               17 (gen-fn 17)
+               18 (gen-fn 18)
+               19 (gen-fn 19)
+               20 (gen-fn 20)))]
+     f)))
 
 (defn lookup-by-arity [arities arity]
   (or (get arities arity)
@@ -126,34 +137,6 @@
          (assoc arity-map fixed-arity f))))
    {}
    fn-bodies))
-
-(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn]
-  (let [;; each evaluated fn should have its own self-ref!
-        enclosed-array (bindings-fn bindings)
-        f (if single-arity
-            (fun ctx enclosed-array single-arity fn-name macro?)
-            (let [arities (fn-arity-map ctx enclosed-array fn-name macro? fn-bodies)]
-              (fn [& args]
-                (let [arg-count (count args)]
-                  (if-let [f (lookup-by-arity arities arg-count)]
-                    (apply f args)
-                    (throw (new #?(:clj Exception
-                                   :cljs js/Error)
-                                (let [actual-count (if macro? (- arg-count 2)
-                                                       arg-count)]
-                                  (str "Cannot call " fn-name " with " actual-count " arguments")))))))))
-        f (if macro?
-            (vary-meta f
-                       #(assoc %
-                               :sci/macro macro?
-                               ;; added for better error reporting
-                               :sci.impl/inner-fn f))
-            f)]
-    (when self-ref?
-      (aset ^objects enclosed-array (dec (count enclosed-array)) f))
-    f))
-
-(vreset! utils/eval-fn eval-fn)
 
 ;;;; Scratch
 
