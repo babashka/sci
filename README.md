@@ -753,12 +753,14 @@ $ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt
 
 ## Troubleshooting
 
-### Shadow-cljs
+### Shadow-cljs + user.clj
 
-When you see `IllegalStateException: Attempting to call unbound fn:
-#'sci.impl.cljs/cljs-ns-publics` during shadow-cljs compilation, you might have
-to move your `.shadow-cljs` cache out of the way. If this does not fix the
-problem, please create an issue with steps to reproduce.
+When you require `sci.core` in `user.clj` in a shadow-cljs project, you might see problems with `sci.core/copy-var`.
+
+This can be worked around by:
+
+- Requiring `cljs.analyzer.api` in `user.clj` as well
+- Not requiring `sci.core` immediately but delaying it e.g. using `requiring-resolve`
 
 ## Thanks
 
