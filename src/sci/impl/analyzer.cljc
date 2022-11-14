@@ -534,7 +534,7 @@
          f)
        nil))))
 
-(defn fn-ctx-fn [_ctx struct fn-meta]
+(defn fn-ctx-fn [_ctx struct]
   (let [fn-name (:sci.impl/fn-name struct)
         fn-bodies (:sci.impl/fn-bodies struct)
         macro? (:sci/macro struct)
@@ -544,7 +544,8 @@
         bindings-fn (:sci.impl/bindings-fn struct)
         self-ref? (:sci.impl/self-ref? struct)
         nsm (utils/current-ns-name)
-        self-ref-in-enclosed-idx (some-> (:sci.impl/enclosed-array-cnt struct) dec)]
+        self-ref-in-enclosed-idx (some-> (:sci.impl/enclosed-array-cnt struct) dec)
+        fn-meta (:sci.impl/fn-meta struct)]
     (if single-arity
       (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?)
       (let [arities (reduce
@@ -588,9 +589,8 @@
          nil)))))
 
 (defn analyze-fn [ctx fn-expr macro?]
-  (let [struct (analyze-fn* ctx fn-expr macro?)
-        fn-meta (:sci.impl/fn-meta struct)]
-    (fn-ctx-fn ctx struct fn-meta)))
+  (let [struct (analyze-fn* ctx fn-expr macro?)]
+    (fn-ctx-fn ctx struct )))
 
 (defn update-parents
   ":syms = closed over values"
@@ -833,8 +833,7 @@
                  :sci/macro macro?
                  :sci.impl/fn-name fn-name
                  :sci.impl/defn true)
-        fn-meta (:sci.impl/fn-meta f)
-        ctxfn (fn-ctx-fn ctx f fn-meta)
+        ctxfn (fn-ctx-fn ctx f)
         f ctxfn
         meta-map (analyze ctx meta-map)]
     (sci.impl.types/->Node
