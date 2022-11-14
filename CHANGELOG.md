@@ -2,7 +2,15 @@
 
 For a list of breaking changes, check [here](#breaking-changes)
 
-## Unreleased
+[SCI](https://github.com/babashka/sci): Configurable Clojure/Script interpreter suitable for scripting and Clojure DSLs
+
+SCI is used in [babashka](https://github.com/babashka/babashka),
+[nbb](https://github.com/babashka/nbb),
+[clerk](https://github.com/nextjournal/clerk),
+[joyride](https://github.com/BetterThanTomorrow/joyride/) and many
+[other](https://github.com/babashka/sci#projects-using-sci) projects.
+
+## 0.5.35 (2022-11-14)
 
 - [#817](https://github.com/babashka/sci/issues/817): mutation of `deftype` field should be visible in protocol method
 - [#816](https://github.com/babashka/sci/issues/816): restore recur target exception in do
