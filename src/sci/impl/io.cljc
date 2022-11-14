@@ -9,8 +9,7 @@
    [sci.impl.records]
    [sci.impl.unrestrict :refer [*unrestricted*]]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
-   [sci.impl.macros :as macros]))
+   [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -49,15 +48,14 @@
 
 ;; TODO: CLJS print-fn-bodies
 
-(macros/usetime
- (def print-meta (copy-var *print-meta* utils/clojure-core-ns {:dynamic true}))
- (def print-length (copy-var *print-length* utils/clojure-core-ns {:dynamic true}))
- (def print-level (copy-var *print-level* utils/clojure-core-ns {:dynamic true}))
- (def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns {:dynamic true :init true}))
- (def flush-on-newline (copy-var *flush-on-newline* utils/clojure-core-ns {:dynamic true}))
- (def print-readably (copy-var *print-readably* utils/clojure-core-ns {:dynamic true}))
- (def print-dup-var (copy-var *print-dup* utils/clojure-core-ns {:dynamic true}))
- #?(:cljs (def print-newline (copy-var *print-newline* utils/clojure-core-ns {:dynamic true}))))
+(def print-meta (copy-var *print-meta* utils/clojure-core-ns {:dynamic true}))
+(def print-length (copy-var *print-length* utils/clojure-core-ns {:dynamic true}))
+(def print-level (copy-var *print-level* utils/clojure-core-ns {:dynamic true}))
+(def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns {:dynamic true :init true}))
+(def flush-on-newline (copy-var *flush-on-newline* utils/clojure-core-ns {:dynamic true}))
+(def print-readably (copy-var *print-readably* utils/clojure-core-ns {:dynamic true}))
+(def print-dup-var (copy-var *print-dup* utils/clojure-core-ns {:dynamic true}))
+#?(:cljs (def print-newline (copy-var *print-newline* utils/clojure-core-ns {:dynamic true})))
 
 #?(:cljs (defn string-print [x]
            (binding [*print-fn* @print-fn]
