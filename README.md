@@ -751,11 +751,18 @@ $ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt
 ./sci    0.92s  user 0.08s system 99% cpu 1.003 total
 ```
 
+## Troubleshooting
+
+### Shadow-cljs
+
+When you see `IllegalStateException: Attempting to call unbound fn:
+#'sci.impl.cljs/cljs-ns-publics` during shadow-cljs compilation, you might have
+to move your `.shadow-cljs` cache out of the way. If this does not fix the
+problem, please create an issue with steps to reproduce.
+
 ## Thanks
 
-- [adgoji](https://www.adgoji.com/) for financial support.
-- [Clojurists Together](https://www.clojuriststogether.org/) for financial support.
-- [Lee Read](https://github.com/lread/) for the logo.
+- [Sponsors](https://github.com/sponsors/borkdude)
 - [contributors](https://github.com/babashka/SCI/graphs/contributors) and other users posting issues with bug reports and ideas
 
 ## License
