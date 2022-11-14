@@ -710,31 +710,26 @@ $ clojure -M:bench --complete --sexpr "(let [x 1 y 2] (+ x y))" --quick
 BENCHMARKING EXPRESSION: (let [x 1 y 2] (+ x y))
 PARSE:
 -> (let [x 1 y 2] (+ x y))
-Evaluation count : 605268 in 6 samples of 100878 calls.
-             Execution time mean : 1,105801 µs
-    Execution time std-deviation : 209,640200 ns
-   Execution time lower quantile : 934,602619 ns ( 2,5%)
-   Execution time upper quantile : 1,459172 µs (97,5%)
-                   Overhead used : 8,140922 ns
-
-Found 1 outliers in 6 samples (16,6667 %)
-	low-severe	 1 (16,6667 %)
- Variance from outliers : 48,1886 % Variance is moderately inflated by outliers
+Evaluation count : 1206396 in 6 samples of 201066 calls.
+             Execution time mean : 528,740641 ns
+    Execution time std-deviation : 35,961381 ns
+   Execution time lower quantile : 495,686332 ns ( 2,5%)
+   Execution time upper quantile : 580,676252 ns (97,5%)
+                   Overhead used : 1,900699 ns
 ANALYSIS:
-Evaluation count : 82248 in 6 samples of 13708 calls.
-             Execution time mean : 8,562699 µs
-    Execution time std-deviation : 1,289355 µs
-   Execution time lower quantile : 7,557778 µs ( 2,5%)
-   Execution time upper quantile : 10,039290 µs (97,5%)
-                   Overhead used : 8,140922 ns
+Evaluation count : 98340 in 6 samples of 16390 calls.
+             Execution time mean : 6,837491 µs
+    Execution time std-deviation : 454,527892 ns
+   Execution time lower quantile : 6,115323 µs ( 2,5%)
+   Execution time upper quantile : 7,307643 µs (97,5%)
+                   Overhead used : 1,900699 ns
 EVALUATION:
 -> 3
-Evaluation count : 1607688 in 6 samples of 267948 calls.
-             Execution time mean : 433,635072 ns
-    Execution time std-deviation : 67,003007 ns
-   Execution time lower quantile : 378,876890 ns ( 2,5%)
-   Execution time upper quantile : 512,818448 ns (97,5%)
-                   Overhead used : 8,140922 ns
+Evaluation count : 31674576 in 6 samples of 5279096 calls.
+             Execution time mean : 16,949801 ns
+    Execution time std-deviation : 0,182429 ns
+   Execution time lower quantile : 16,796615 ns ( 2,5%)
+   Execution time upper quantile : 17,161758 ns (97,5%)
 ```
 
 Use `--parse`, `--evaluate` and/or `--analyze` to bench individual phases
@@ -748,7 +743,7 @@ To benchmark an expression within GraalVM `native-image`, run `script/compile` a
 ``` clojure
 $ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val))"
 1000000
-./sci    0.92s  user 0.08s system 99% cpu 1.003 total
+./sci    0.09s  user 0.02s system 31% cpu 0.356 total
 ```
 
 ## Troubleshooting
