@@ -10,7 +10,12 @@
   (println "BENCHMARKING EXPRESSION:" sexpr)
   (let [ctx (sci/init {})
         rdr (sci/reader sexpr)
-        parsed (sci/parse-next ctx rdr)]
+        parsed (sci/parse-next ctx rdr)
+        upper-sym (gensym)
+        cb (volatile! {upper-sym {0 {:syms {}}}})
+        ctx (assoc ctx
+                   :parents [upper-sym 0]
+                   :closure-bindings cb)]
     (println "PARSE:")
     (prn '-> parsed)
     (when (or complete parse)
@@ -22,13 +27,15 @@
       (if quick
         (crit/quick-bench (ana/analyze ctx parsed))
         (crit/bench (ana/analyze ctx parsed))))
-    (let [ana (ana/analyze ctx parsed)]
+    (let [ana (ana/analyze ctx parsed)
+          binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
+          bindings (object-array binding-array-size)]
       (println "EVALUATION:")
-      (prn '-> (types/eval ana ctx nil))
+      (prn '-> (types/eval ana ctx bindings))
       (when (or complete evaluate)
         (if quick
-          (crit/quick-bench (types/eval ana ctx nil))
-          (crit/bench (types/eval ana ctx nil)))))))
+          (crit/quick-bench (types/eval ana ctx bindings))
+          (crit/bench (types/eval ana ctx bindings)))))))
 
 (def cli-options
   ;; An option with a required argument
