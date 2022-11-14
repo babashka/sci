@@ -763,7 +763,7 @@ problem, please create an issue with steps to reproduce.
 ## Thanks
 
 - [Sponsors](https://github.com/sponsors/borkdude)
-- [contributors](https://github.com/babashka/SCI/graphs/contributors) and other users posting issues with bug reports and ideas
+- [Contributors](https://github.com/babashka/SCI/graphs/contributors) and other users posting issues with bug reports and ideas
 
 ## License
 
