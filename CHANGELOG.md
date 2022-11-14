@@ -12,7 +12,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## 0.5.36 (2022-11-14)
 
-- Revert commit that fixed [#832](https://github.com/babashka/sci/issues/832) since it caused more issues than it solved
+- Revert commit that fixed [#832](https://github.com/babashka/sci/issues/832)
+  since it caused more issues than it solved. See
+  [here](https://github.com/babashka/sci#troubleshooting) for workaround.
 
 ## 0.5.35 (2022-11-14)
 
