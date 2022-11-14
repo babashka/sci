@@ -138,34 +138,6 @@
    {}
    fn-bodies))
 
-#_#_(defn eval-fn [ctx bindings fn-name fn-bodies macro? single-arity self-ref? bindings-fn self-ref-in-enclosed-idx]
-  (let [;; each evaluated fn should have its own self-ref!
-        enclosed-array (bindings-fn bindings)
-        f (if single-arity
-            (fun ctx enclosed-array single-arity fn-name macro?)
-            (let [arities (fn-arity-map ctx enclosed-array fn-name macro? fn-bodies)]
-              (fn [& args]
-                (let [arg-count (count args)]
-                  (if-let [f (lookup-by-arity arities arg-count)]
-                    (apply f args)
-                    (throw (new #?(:clj Exception
-                                   :cljs js/Error)
-                                (let [actual-count (if macro? (- arg-count 2)
-                                                       arg-count)]
-                                  (str "Cannot call " fn-name " with " actual-count " arguments")))))))))
-        f (if macro?
-            (vary-meta f
-                       #(assoc %
-                               :sci/macro macro?
-                               ;; added for better error reporting
-                               :sci.impl/inner-fn f))
-            f)]
-    (when self-ref?
-      (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
-    f))
-
-(vreset! utils/eval-fn eval-fn)
-
 ;;;; Scratch
 
 (comment)
