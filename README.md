@@ -741,9 +741,9 @@ Use `--parse`, `--evaluate` and/or `--analyze` to bench individual phases
 To benchmark an expression within GraalVM `native-image`, run `script/compile` and then run:
 
 ``` clojure
-$ time ./sci "(loop [val 0 cnt 1000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val))"
-1000000
-./sci    0.09s  user 0.02s system 31% cpu 0.356 total
+$ time ./sci "(loop [val 0 cnt 10000000] (if (pos? cnt) (recur (inc val) (dec cnt)) val))"
+10000000
+./sci    0.65s  user 0.02s system 99% cpu 0.669 total
 ```
 
 ## Troubleshooting
