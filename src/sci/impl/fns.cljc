@@ -76,7 +76,8 @@
     invoc-size
     nsm vararg-idx]
    (let [f (if vararg-idx
-             (case (int fixed-arity)
+             (case #?(:clj (int fixed-arity)
+                      :cljs fixed-arity)
                0 (gen-fn 0 true true)
                1 (gen-fn 1 true true)
                2 (gen-fn 2 true true)
@@ -98,7 +99,8 @@
                18 (gen-fn 18 true true)
                19 (gen-fn 19 true true)
                20 (gen-fn 20 true true))
-             (case (int fixed-arity)
+             (case #?(:clj (int fixed-arity)
+                      :cljs fixed-arity)
                0 (gen-fn 0)
                1 (gen-fn 1)
                2 (gen-fn 2)
