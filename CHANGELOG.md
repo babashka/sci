@@ -1,6 +1,6 @@
 # Changelog
 
-For a list of breaking changes, check [here](#breaking-changes)
+For a list of breaking changes, check [here](#breaking-changes-1)
 
 [SCI](https://github.com/babashka/sci): Configurable Clojure/Script interpreter suitable for scripting and Clojure DSLs
 
