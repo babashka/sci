@@ -752,10 +752,12 @@ $ time ./sci "(loop [val 0 cnt 10000000] (if (pos? cnt) (recur (inc val) (dec cn
 
 When you require `sci.core` in `user.clj` in a shadow-cljs project, you might see problems with `sci.core/copy-var`.
 
-This can be worked around by either:
+This can be worked around by loading SCI like this in `user.clj`, instead of loading it in the `ns` form:
 
-- Requiring `cljs.analyzer.api` in `user.clj` as well
-- Not requiring `sci.core` immediately but delaying it e.g. using `requiring-resolve`
+``` Clojure
+(try (requiring-resolve 'cljs.analyzer.api/ns-resolve) (catch Exception _ nil))
+(require '[sci.core :as sci])
+```
 
 ## Thanks
 
