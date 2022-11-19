@@ -205,7 +205,7 @@
   '#{do if and or let fn fn* def defn
      loop lazy-seq case try defmacro
      expand-dot* expand-constructor new . import in-ns ns var
-     set! resolve})
+     set! resolve ns*})
 
 (defn maybe-destructured
   [params body]

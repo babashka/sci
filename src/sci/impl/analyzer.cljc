@@ -1503,7 +1503,7 @@
                           . (expand-dot** ctx expr)
                           expand-constructor (expand-constructor ctx expr)
                           new (analyze-new ctx expr)
-                          ns (analyze-ns-form ctx expr)
+                          ns* (analyze-ns-form ctx expr)
                           var (analyze-var ctx expr)
                           set! (analyze-set! ctx expr)
                           quote (analyze-quote ctx expr)
