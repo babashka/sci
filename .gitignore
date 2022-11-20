@@ -34,3 +34,8 @@ sci.build_artifacts.txt
 .cpcache
 public
 reports
+
+# Emacs
+*~
+\#*\#
+

@@ -1,4 +1,4 @@
-#include <iostream>
+#include <stdio.h>
 #include <libsci.h>
 
 int main(int argc, char* argv[]) {
@@ -10,8 +10,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  //char expression[] = "(defn foo [] :foo) (foo)";
-  char *result = eval_string((long long)thread, &argv[1][0]);
-  std::cout << result << std::endl;
+  char *result = eval_string((long long)thread
+			     , &argv[1][0]);
+  printf("%s\n", result);
   return 0;
 }

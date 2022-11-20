@@ -104,3 +104,55 @@ jobs:
 
       - name: Run self-hosted tests
         run: bb test:self-hosted
+
+  test-libsci:
+    # Compile and test libsci across all OSs.
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    runs-on: ${{matrix.os}}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          version: '22.3.0'
+          java-version: '11'
+          components: 'native-image'
+
+      - name: Install Clojure tools
+        uses: DeLaGuardo/setup-clojure@9.5
+        with:
+          bb: '1.0.165'
+          lein: '2.9.10'
+
+      - name: Cache clojure dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: cljdeps-${{ hashFiles('deps.edn', 'bb.edn', 'project.clj') }}
+          restore-keys: cljdeps-
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Compile libsci and example programs
+        run: |
+          bb libsci:compile-all
+
+      - name: Test libsci example programs
+        run: |
+          bb libsci:test
+
