@@ -27,6 +27,11 @@ If you want to run this script yourself, prepare as follows:
   compiling Clojure code.
 - You should have `g++` available to compile C++ code.
 
+## Babashka tasks
+
+Convenient `babashka` tasks are provided to compile `libsci` and most
+of the examples mentioned here, see `bb tasks` for the full list.
+
 ## Walkthrough
 
 ### Compiling sci as shared library
@@ -94,7 +99,11 @@ $ $GRAALVM_HOME/bin/native-image \
 ```
 
 This begets the files `graal_isolate_dynamic.h`, `graal_isolate.h`, `libsci.h`,
-`libsci.dylib` (on linux `libsci.so`) and `libsci_dynamic.h`. We move all these files to `libsci/target`.
+`libsci.dylib` (on linux `libsci.so`, on MS-Windows `libsci.dll`) and `libsci_dynamic.h`.
+We move all these files to `libsci/target`.
+
+In addtion, on MS-Windows, there is one more library file,
+`libsci.lib`, which should be copied over as `sci.lib`.
 
 ### Using libsci from C++
 

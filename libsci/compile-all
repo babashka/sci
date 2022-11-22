@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-set -eo pipefail
-
-libsci/compile-libsci
-libsci/compile-cpp
-libsci/compile-rs
