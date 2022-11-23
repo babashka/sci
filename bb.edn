@@ -1,4 +1,6 @@
-{:pods {clj-kondo/clj-kondo {:version "2022.02.09"}}
+{:paths ["libsci/bb"]
+
+ :pods {clj-kondo/clj-kondo {:version "2022.02.09"}}
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
         {:git/url "https://github.com/borkdude/quickdoc"
@@ -15,7 +17,6 @@
 
   test:node {:doc "Run CLJS tests with Node.js"
              :task (shell "script/test/node")}
-
 
   test:self-hosted {:doc "Run CLJS test with self-hosted"
                     :task (shell "plk -A:test -K -m sci.test-runner")}
@@ -34,4 +35,15 @@
                     (spit "API.md" markdown))}
 
   shadow-build-report {:doc "Run shadow-cljs for build report"
-                       :task (shell "npx shadow-cljs release sci")}}}
+                       :task (shell "npx shadow-cljs release sci")}
+
+  libsci:compile libsci-tasks/compile-native
+  libsci:compile-c libsci-tasks/compile-c
+  libsci:compile-cpp libsci-tasks/compile-cpp
+  libsci:compile-rust libsci-tasks/compile-rust
+
+  libsci:compile-all {:doc "Compile libsci and the example C, C++ and rust programs to `libsci/target/`."
+                      :depends [libsci:compile libsci:compile-c
+                                libsci:compile-cpp libsci:compile-rust]}
+
+  libsci:test libsci-tasks/test}}

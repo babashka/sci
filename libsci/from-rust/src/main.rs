@@ -24,9 +24,10 @@ fn eval(expr: String) -> String {
 
         graal_create_isolate(ptr::null_mut(), &mut isolate, &mut thread);
 
+	let cexpr = CString::new(expr).expect("CString::new failed");
         let result = eval_string(
             thread as i64,
-            CString::new(expr).expect("CString::new failed").as_ptr(),
+            cexpr.as_ptr(),
         );
         let s = my_string_safe(result).unwrap();
         graal_tear_down_isolate(thread);
