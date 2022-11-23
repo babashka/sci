@@ -35,6 +35,10 @@
   (defn core-sym [sym]
     (symbol "clojure.core" (name (dequote sym))))
 
+  (defmacro if-vars-elided [then else]
+    (if elide-vars
+      then else))
+
   (defn var-meta [&env sym opts & _a]
     (let [sym (dequote sym)
           macro (when opts (:macro opts))
@@ -48,9 +52,10 @@
                (macros/? :clj #?(:clj  (let [m (meta the-var)
                                              dyn (:dynamic m)
                                              arglists (:arglists m)]
-                                         (cond-> {:doc (:doc m)}
+                                         (cond-> (if-vars-elided {} {:doc (:doc m)})
                                            dyn (assoc :dynamic dyn)
-                                           arglists (assoc :arglists (list 'quote (:arglists m)))))
+                                           (if-vars-elided false arglists)
+                                           (assoc :arglists (list 'quote (:arglists m)))))
                                  :cljs nil)
                          :cljs (let [r (cljs-resolve &env sym)
                                      m (:meta r)
@@ -65,45 +70,45 @@
     (let [[sym & args] args]
       `(macrofy* ~sym ~@args ~@(repeat (- 3 (count args)) nil) ~(var-meta &env sym nil))))
 
-  (defmacro if-vars-elided [then else]
-    (if elide-vars
-      then else))
+
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
-  (if-vars-elided
-      (do
-        #?(:clj
-           (binding [*out* *err*]
-             (println "SCI: eliding vars.")))
-        (defmacro copy-var
-          [sym _ns & [_opts]] sym)
-        (defmacro copy-core-var [sym] sym))
-    (do
-      (defmacro copy-var
-        [sym ns & [opts]]
-        (let [macro (:macro opts)
-              #?@(:clj [the-var (macros/? :clj (resolve sym)
-                                          :cljs (atom nil))])
-              dyn (:dynamic opts)
-              varm (cond-> (assoc (var-meta &env (or (:name opts)
-                                                     (:copy-meta-from opts)
-                                                     sym)
-                                            opts)
-                                  :sci/built-in true
-                                  :ns ns)
-                     dyn (assoc :dynamic dyn))
-              nm (:name varm)
-              ctx (:ctx opts)
-              init (:init opts sym)]
-          ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
-          (if macro
-            (macros/? :clj
-                      #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx)
-                         :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx))
-                      :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx))
-            `(sci.lang.Var. ~init ~nm ~varm false ~ctx))))
-      (defmacro copy-core-var
-        [sym]
-        `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)})))))
+  #?(:clj
+     (if-vars-elided
+         (binding [*out* *err*]
+           (println "SCI: eliding vars."))
+       nil))
+  (defmacro copy-var
+    [sym ns & [opts]]
+    (let [macro (:macro opts)
+          #?@(:clj [the-var (macros/? :clj (resolve sym)
+                                      :cljs (atom nil))])
+          dyn (:dynamic opts)
+          varm (cond-> (assoc (var-meta &env (or (:name opts)
+                                                 (:copy-meta-from opts)
+                                                 sym)
+                                        opts)
+                              :sci/built-in true
+                              :ns ns)
+                 dyn (assoc :dynamic dyn))
+          nm (:name varm)
+          ctx (:ctx opts)
+          init (:init opts sym)]
+      ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
+      (if macro
+        (macros/? :clj
+                  #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx)
+                     :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx))
+                  :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx))
+        (if-vars-elided
+            (if (or dyn ctx)
+              `(sci.lang.Var. ~init ~nm ~varm false ~ctx)
+              sym)
+          `(sci.lang.Var. ~init ~nm ~varm false ~ctx)))))
+  (defmacro copy-core-var
+    [sym]
+    `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))
+
+  )
 
 (defn macrofy*
   ([f] (vary-meta f #(assoc % :sci/macro true)))
@@ -113,12 +118,12 @@
   ([sym f ns ctx? extra-meta]
    (let [ns (or ns clojure-core-ns)]
      (utils/new-var sym f (cond-> {:ns ns
-                                            :macro true
-                                            :sci/built-in true}
-                                     (and (not elide-vars)
-                                          extra-meta)
-                                     (merge extra-meta))
-                             ctx?))))
+                                   :macro true
+                                   :sci/built-in true}
+                            (and (not elide-vars)
+                                 extra-meta)
+                            (merge extra-meta))
+                    ctx?))))
 
 (defn new-var
   ([sym f] (new-var sym f nil false))
@@ -132,8 +137,8 @@
      (assert (and (not (boolean? ns))
                   (instance? sci.lang.Namespace ns)) sym)
      (utils/new-var sym f (cond-> {:ns ns
-                                            :sci/built-in true}
-                                     (and (not elide-vars)
-                                          extra-meta)
-                                     (merge extra-meta))
-                             ctx?))))
+                                   :sci/built-in true}
+                            (and (not elide-vars)
+                                 extra-meta)
+                            (merge extra-meta))
+                    ctx?))))
