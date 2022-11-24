@@ -125,13 +125,13 @@
   "Mark promise to be flatteded into top level async evaluation, similar
   to top level await."
   [promise]
-  (set! (.-__sci_await promise) true)
+  (set! (.-__sci_await ^js promise) true)
   promise)
 
 (defn await?
   "Check if promise was marked with `await`."
   [promise]
-  (.-__sci_await promise))
+  (.-__sci_await ^js promise))
 
 (defn- require* [ctx & libspecs]
   (let [ctx (assoc ctx :last-ns (or (:last-ns ctx)
