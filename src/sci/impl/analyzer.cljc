@@ -1082,7 +1082,7 @@
   (when (< (count expr) 2)
     (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                 "Malformed member expression, expecting (.member target ...)")))
-  (analyze-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
+  (analyze-dot ctx (with-meta (list '. obj (cons (symbol (subs (name method-name) 1)) args)) (meta expr))))
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
   (let [ctx (without-recur-target ctx)]
