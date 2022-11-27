@@ -32,7 +32,7 @@
    :main-opts ["-m" "sci.bench"]}
   :profile
   {:extra-deps
-   {com.clojure-goes-fast/clj-async-profiler {:mvn/version "0.4.0"}}
+   {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}}
    :extra-paths ["bench"]
    :jvm-opts ["-Djdk.attach.allowAttachSelf" "-Dclojure.compiler.direct-linking=true"]
    :main-opts ["-m" "sci.profile"]}

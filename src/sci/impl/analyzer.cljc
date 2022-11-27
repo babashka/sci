@@ -1364,7 +1364,7 @@
                               (if ~'wrap
                                 (sci.impl.types/->Node
                                  (try
-                                   ((~'wrap ~'bindings ~'f)
+                                   ((~'wrap ~'ctx ~'bindings ~'f)
                                     ~@(map (fn [j]
                                              `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                            (range i)))
@@ -1383,7 +1383,7 @@
                       let-bindings)
               `[(if ~'wrap
                   (sci.impl.types/->Node
-                   (eval/fn-call ~'ctx ~'bindings (~'wrap ~'bindings ~'f) ~'analyzed-children)
+                   (eval/fn-call ~'ctx ~'bindings (~'wrap ~'ctx ~'bindings ~'f) ~'analyzed-children)
                    ~'stack)
                   (sci.impl.types/->Node
                    (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)
@@ -1578,7 +1578,7 @@
                                                                          :ns @utils/current-ns
                                                                          :file @utils/current-file
                                                                          :sci.impl/f-meta f-meta)
-                                                       (fn [bindings _]
+                                                       (fn [_ bindings _]
                                                          (deref
                                                           (eval/resolve-symbol bindings fsym)))))
                                         (let [children (analyze-children ctx (rest expr))]
@@ -1588,7 +1588,7 @@
                                                                          :ns @utils/current-ns
                                                                          :file @utils/current-file
                                                                          :sci.impl/f-meta f-meta)
-                                                       #?(:cljs (when (utils/var? f) (fn [_ v]
+                                                       #?(:cljs (when (utils/var? f) (fn [_ _ v]
                                                                                        (deref v))) :clj nil))))))))))
                           (catch #?(:clj Exception :cljs js/Error) e
                             ;; we pass a ctx-fn because the rethrow function calls
@@ -1621,14 +1621,16 @@
                       stack (assoc m
                                    :ns @utils/current-ns
                                    :file @utils/current-file)]
-                  (sci.impl.types/->Node
-                   (let [f (t/eval f ctx bindings)]
-                     (if (ifn? f)
-                       (eval/fn-call ctx bindings f children)
-                       (throw (new #?(:clj Exception :cljs js/Error)
-                                   (str "Cannot call " (pr-str f) " as a function.")))))
-
-                   stack))))
+                  (return-call ctx
+                               expr
+                               f children stack
+                               #?(:cljs (if (utils/var? f)
+                                          (fn [ctx bindings f]
+                                            (t/eval @f ctx bindings))
+                                          (fn [ctx bindings f]
+                                            (t/eval f ctx bindings)))
+                                  :clj (fn [ctx bindings f]
+                                         (t/eval f ctx bindings)))))))
         (catch #?(:clj Exception
                   :cljs :default) e
           (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil (utils/make-stack m))))
