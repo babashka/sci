@@ -1,10 +1,10 @@
 (ns sci.interop-test
   (:require
-    [clojure.string :as str]
-    [clojure.test :as test :refer [are deftest is testing #?(:cljs async)]]
-    [sci.core :as sci]
-    [sci.test-utils :as tu]
-    #?(:cljs [goog.object :as gobj]))
+   [clojure.string :as str]
+   [clojure.test :as test :refer [are deftest is testing #?(:cljs async)]]
+   [sci.core :as sci]
+   [sci.test-utils :as tu]
+   #?(:cljs [goog.object :as gobj]))
   #?(:clj (:import PublicFields)))
 
 (defn eval* [expr]
