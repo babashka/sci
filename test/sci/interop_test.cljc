@@ -129,8 +129,6 @@
         (testing "instance members"
           (are [form]
             (let [actual (form-ex-data form)]
-              (println (str form))
-              (println actual)
               (and (tu/submap? {:type   :sci/error
                            :line   1
                            :column 1}
