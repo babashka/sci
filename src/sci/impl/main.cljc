@@ -40,10 +40,7 @@
               (eval-string
                form
                (-> ctx
-                   #?(:clj (addons/future))))))
-        ]
-    (dotimes [_ 1 #_000000]
-      (v))
+                   #?(:clj (addons/future))))))]
     (when (some? v) (prn v))))
 
 ;; for testing only
