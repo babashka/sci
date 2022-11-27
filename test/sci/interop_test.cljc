@@ -1,10 +1,10 @@
 (ns sci.interop-test
   (:require
-   [clojure.test :as test :refer [deftest is testing #?(:cljs async)]]
-   [sci.core :as sci]
-   [sci.test-utils :as tu]
-   #?(:cljs [clojure.string :as str])
-   #?(:cljs [goog.object :as gobj]))
+    [clojure.string :as str]
+    [clojure.test :as test :refer [are deftest is testing #?(:cljs async)]]
+    [sci.core :as sci]
+    [sci.test-utils :as tu]
+    #?(:cljs [goog.object :as gobj]))
   #?(:clj (:import PublicFields)))
 
 (defn eval* [expr]
@@ -114,6 +114,46 @@
      (testing "calling static methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
                              (eval* "(clojure.lang.Var/find 'clojure.core/int)"))))))
+
+
+(when-not tu/native?
+  (deftest exception-data
+    (testing "top-level interop forms have line and column data"
+      (letfn [(form-ex-data [form]
+                (try
+                  (tu/eval* (str form) {:classes {:allow :all
+                                                  #?@(:clj ['Long Long])}})
+                  (is (= nil "shouldn't reach here"))
+                  (catch #?(:clj Exception :cljs :default) e
+                    (ex-data e))))]
+        (testing "instance members"
+          (are [form]
+            (let [actual (form-ex-data form)]
+              (println (str form))
+              (println actual)
+              (and (tu/submap? {:type   :sci/error
+                           :line   1
+                           :column 1}
+                actual)
+                (str/includes? (:message actual) "missingMem")))
+            '(. 3 missingMem) '(. 3 missingMem 1 2)
+            '(.missingMem 3)  '(.missingMem 3 1 2)
+            ; these return nil in cljs
+            #?@(:clj ['(.-missingMem 3) '(. 3 -missingMem)])))
+        #?(:clj
+           (testing "static members"
+             (are [form]
+               (let [actual (form-ex-data form)]
+                 (and (tu/submap? {:type   :sci/error
+                                   :line   1
+                                   :column 1}
+                        actual)
+                   (str/includes? (:message actual) "missingMem")))
+               '(. Long missingMem)  '(. Long missingMem 1 2)
+               '(.missingMem Long)   '(.missingMem Long 1 2)
+               '(Long/missingMem)    '(Long/missingMem 1 2)
+               '(. Long -missingMem) '(.-missingMem Long)
+               'Long/missingMem      '(Long/-missingMem))))))))
 
 (deftest syntax-test
   (when-not tu/native?

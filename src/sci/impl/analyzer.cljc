@@ -1011,13 +1011,16 @@
         (let [field-access (str/starts-with? method-name "-")
               meth-name (if field-access
                           (subs method-name 1)
-                          method-name)]
+                          method-name)
+              stack (assoc (meta expr)
+                      :ns @utils/current-ns
+                      :file @utils/current-file)]
           #?(:clj (if (class? instance-expr)
                     (if (nil? args)
                       (if field-access
                         (sci.impl.types/->Node
                          (interop/get-static-field [instance-expr (subs method-name 1)])
-                         nil)
+                         stack)
                         ;; https://clojure.org/reference/java_interop
                         ;; If the second operand is a symbol and no args are
                         ;; supplied it is taken to be a field access - the
@@ -1031,35 +1034,23 @@
                                       (catch IllegalArgumentException _ nil))]
                           (sci.impl.types/->Node
                            (interop/get-static-field [instance-expr method-name])
-                           nil)
-                          (let [stack (assoc (meta expr)
-                                             :ns @utils/current-ns
-                                             :file @utils/current-file)]
-                            (sci.impl.types/->Node
-                             (eval/eval-static-method-invocation
+                           stack)
+                          (sci.impl.types/->Node
+                            (eval/eval-static-method-invocation
                               ctx bindings
                               (cons [instance-expr method-name] args))
-                             stack))))
-                      (let [stack (assoc (meta expr)
-                                         :ns @utils/current-ns
-                                         :file @utils/current-file)]
-                        (sci.impl.types/->Node
-                         (eval/eval-static-method-invocation
+                            stack)))
+                      (sci.impl.types/->Node
+                        (eval/eval-static-method-invocation
                           ctx bindings (cons [instance-expr method-name] args))
-                         stack)))
-                    (let [stack (assoc (meta expr)
-                                       :ns @utils/current-ns
-                                       :file @utils/current-file)]
-                      (with-meta (sci.impl.types/->Node
-                                  (eval/eval-instance-method-invocation
+                        stack))
+                    (with-meta (sci.impl.types/->Node
+                                 (eval/eval-instance-method-invocation
                                    ctx bindings instance-expr meth-name field-access args)
-                                  stack)
-                        {::instance-expr instance-expr
-                         ::method-name method-name})))
-             :cljs (let [stack (assoc (meta expr)
-                                      :ns @utils/current-ns
-                                      :file @utils/current-file)
-                         allowed? (identical? method-expr utils/allowed-append)]
+                                 stack)
+                      {::instance-expr instance-expr
+                       ::method-name   method-name}))
+             :cljs (let [allowed? (identical? method-expr utils/allowed-append)]
                      (with-meta (sci.impl.types/->Node
                                  (eval/eval-instance-method-invocation
                                   ctx bindings instance-expr meth-name field-access args allowed?)
