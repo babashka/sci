@@ -201,9 +201,11 @@
   "Atomically alters the root binding of sci var v by applying f to its
   current value plus any args."
   ([v f]
-   (vars/alter-var-root v f))
+   (binding [unrestrict/*unrestricted* true]
+     (vars/alter-var-root v f)))
   ([v f & args]
-   (apply vars/alter-var-root v f args)))
+   (binding [unrestrict/*unrestricted* true]
+     (apply vars/alter-var-root v f args))))
 
 (defn intern
   "Finds or creates a sci var named by the symbol name in the namespace
