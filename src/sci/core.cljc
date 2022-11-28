@@ -201,10 +201,10 @@
   "Atomically alters the root binding of sci var v by applying f to its
   current value plus any args."
   ([v f]
-   (binding [unrestrict/*unrestricted* true]
+   (c/binding [unrestrict/*unrestricted* true]
      (vars/alter-var-root v f)))
   ([v f & args]
-   (binding [unrestrict/*unrestricted* true]
+   (c/binding [unrestrict/*unrestricted* true]
      (apply vars/alter-var-root v f args))))
 
 (defn intern
