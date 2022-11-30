@@ -487,7 +487,7 @@
   - In CLJS: `set!` is able to set the value of any var."
   []
   #?(:cljs (set! unrestrict/*unrestricted* true)
-     :clj (alter-var-root unrestrict/*unrestricted* (constantly true))))
+     :clj (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
 
 (defn var->symbol
   "Returns a fully qualified symbol from a `sci.lang.Var`"
