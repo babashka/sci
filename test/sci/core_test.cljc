@@ -118,10 +118,6 @@
     (is (= 3 (eval* nil '((hash-map :a 1) 2 3))))
     (is (= 1 (eval* nil '((hash-map :a 1) :a 3))))
     (is (= :a (eval* nil '(#{:a :b :c} :a)))))
-  (testing "cannot call x as a function"
-    (doseq [example ['(1 2 3) '("foo" 2 3) '(nil 1 2 3)]]
-      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"call.*function"
-                            (eval* nil example)))))
   (testing "EvalFn as function"
     (is (= 1 (eval* nil '((get {:foo identity} :foo) 1))))))
 

@@ -1011,13 +1011,16 @@
         (let [field-access (str/starts-with? method-name "-")
               meth-name (if field-access
                           (subs method-name 1)
-                          method-name)]
+                          method-name)
+              stack (assoc (meta expr)
+                      :ns @utils/current-ns
+                      :file @utils/current-file)]
           #?(:clj (if (class? instance-expr)
                     (if (nil? args)
                       (if field-access
                         (sci.impl.types/->Node
                          (interop/get-static-field [instance-expr (subs method-name 1)])
-                         nil)
+                         stack)
                         ;; https://clojure.org/reference/java_interop
                         ;; If the second operand is a symbol and no args are
                         ;; supplied it is taken to be a field access - the
@@ -1031,35 +1034,23 @@
                                       (catch IllegalArgumentException _ nil))]
                           (sci.impl.types/->Node
                            (interop/get-static-field [instance-expr method-name])
-                           nil)
-                          (let [stack (assoc (meta expr)
-                                             :ns @utils/current-ns
-                                             :file @utils/current-file)]
-                            (sci.impl.types/->Node
-                             (eval/eval-static-method-invocation
+                           stack)
+                          (sci.impl.types/->Node
+                            (eval/eval-static-method-invocation
                               ctx bindings
                               (cons [instance-expr method-name] args))
-                             stack))))
-                      (let [stack (assoc (meta expr)
-                                         :ns @utils/current-ns
-                                         :file @utils/current-file)]
-                        (sci.impl.types/->Node
-                         (eval/eval-static-method-invocation
+                            stack)))
+                      (sci.impl.types/->Node
+                        (eval/eval-static-method-invocation
                           ctx bindings (cons [instance-expr method-name] args))
-                         stack)))
-                    (let [stack (assoc (meta expr)
-                                       :ns @utils/current-ns
-                                       :file @utils/current-file)]
-                      (with-meta (sci.impl.types/->Node
-                                  (eval/eval-instance-method-invocation
+                        stack))
+                    (with-meta (sci.impl.types/->Node
+                                 (eval/eval-instance-method-invocation
                                    ctx bindings instance-expr meth-name field-access args)
-                                  stack)
-                        {::instance-expr instance-expr
-                         ::method-name method-name})))
-             :cljs (let [stack (assoc (meta expr)
-                                      :ns @utils/current-ns
-                                      :file @utils/current-file)
-                         allowed? (identical? method-expr utils/allowed-append)]
+                                 stack)
+                      {::instance-expr instance-expr
+                       ::method-name   method-name}))
+             :cljs (let [allowed? (identical? method-expr utils/allowed-append)]
                      (with-meta (sci.impl.types/->Node
                                  (eval/eval-instance-method-invocation
                                   ctx bindings instance-expr meth-name field-access args allowed?)
@@ -1082,7 +1073,7 @@
   (when (< (count expr) 2)
     (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                 "Malformed member expression, expecting (.member target ...)")))
-  (analyze-dot ctx (list '. obj (cons (symbol (subs (name method-name) 1)) args))))
+  (analyze-dot ctx (with-meta (list '. obj (cons (symbol (subs (name method-name) 1)) args)) (meta expr))))
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
   (let [ctx (without-recur-target ctx)]
@@ -1373,7 +1364,7 @@
                               (if ~'wrap
                                 (sci.impl.types/->Node
                                  (try
-                                   ((~'wrap ~'bindings ~'f)
+                                   ((~'wrap ~'ctx ~'bindings ~'f)
                                     ~@(map (fn [j]
                                              `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                            (range i)))
@@ -1392,7 +1383,7 @@
                       let-bindings)
               `[(if ~'wrap
                   (sci.impl.types/->Node
-                   (eval/fn-call ~'ctx ~'bindings (~'wrap ~'bindings ~'f) ~'analyzed-children)
+                   (eval/fn-call ~'ctx ~'bindings (~'wrap ~'ctx ~'bindings ~'f) ~'analyzed-children)
                    ~'stack)
                   (sci.impl.types/->Node
                    (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)
@@ -1587,7 +1578,7 @@
                                                                          :ns @utils/current-ns
                                                                          :file @utils/current-file
                                                                          :sci.impl/f-meta f-meta)
-                                                       (fn [bindings _]
+                                                       (fn [_ bindings _]
                                                          (deref
                                                           (eval/resolve-symbol bindings fsym)))))
                                         (let [children (analyze-children ctx (rest expr))]
@@ -1597,7 +1588,7 @@
                                                                          :ns @utils/current-ns
                                                                          :file @utils/current-file
                                                                          :sci.impl/f-meta f-meta)
-                                                       #?(:cljs (when (utils/var? f) (fn [_ v]
+                                                       #?(:cljs (when (utils/var? f) (fn [_ _ v]
                                                                                        (deref v))) :clj nil))))))))))
                           (catch #?(:clj Exception :cljs js/Error) e
                             ;; we pass a ctx-fn because the rethrow function calls
@@ -1630,14 +1621,16 @@
                       stack (assoc m
                                    :ns @utils/current-ns
                                    :file @utils/current-file)]
-                  (sci.impl.types/->Node
-                   (let [f (t/eval f ctx bindings)]
-                     (if (ifn? f)
-                       (eval/fn-call ctx bindings f children)
-                       (throw (new #?(:clj Exception :cljs js/Error)
-                                   (str "Cannot call " (pr-str f) " as a function.")))))
-
-                   stack))))
+                  (return-call ctx
+                               expr
+                               f children stack
+                               #?(:cljs (if (utils/var? f)
+                                          (fn [ctx bindings f]
+                                            (t/eval @f ctx bindings))
+                                          (fn [ctx bindings f]
+                                            (t/eval f ctx bindings)))
+                                  :clj (fn [ctx bindings f]
+                                         (t/eval f ctx bindings)))))))
         (catch #?(:clj Exception
                   :cljs :default) e
           (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil (utils/make-stack m))))

@@ -16,13 +16,17 @@
 (defn core-dynamic-var
   "create a dynamic var with clojure.core :ns meta"
   ([name] (core-dynamic-var name nil))
-  ([name init-val] (utils/dynamic-var name init-val {:ns utils/clojure-core-ns}))
-  ([name init-val extra-meta] (utils/dynamic-var name init-val (assoc extra-meta :ns utils/clojure-core-ns))))
+  ([name init-val] (utils/dynamic-var name init-val {:ns utils/clojure-core-ns
+                                                     :sci/built-in true}))
+  ([name init-val extra-meta] (utils/dynamic-var name init-val
+                                                 (assoc extra-meta :ns utils/clojure-core-ns
+                                                        :sci/built-in true))))
 
 (def in (binding [*unrestricted* true]
           (doto (core-dynamic-var '*in*)
             (vars/unbind)
-            #?(:clj (alter-meta! assoc :doc "A java.io.Reader object representing standard input for read operations.")))))
+            #?(:clj (alter-meta! assoc
+                                 :doc "A java.io.Reader object representing standard input for read operations.")))))
 
 (def out (binding [*unrestricted* true]
            (doto (core-dynamic-var '*out*)
