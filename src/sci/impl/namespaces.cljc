@@ -41,7 +41,8 @@
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
    [sci.lang])
-  #?(:cljs (:require-macros [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
+  #?(:cljs (:require-macros [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]]
+                            [sci.impl.namespaces :refer [assert-args]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -379,6 +380,24 @@
 
 (defn lazy-cat* [_ _ & colls]
   `(concat ~@(map #(list `lazy-seq %) colls)))
+
+(macros/deftime
+  (defmacro ^{:private true} assert-args
+    [form & pairs]
+    `(do (when-not ~(first pairs)
+           (throw (#?(:clj IllegalArgumentException.
+                      :cljs js/Error.)
+                   (str (first ~form) " requires " ~(second pairs) " in " ~'*ns* ":" (:line (meta ~form))))))
+         ~(let [more (nnext pairs)]
+            (when more
+              (list* `assert-args more))))))
+
+(defn -let [form _ bindings & body]
+  (assert-args
+   form
+   (vector? bindings) "a vector for its binding"
+   (even? (count bindings)) "an even number of forms in binding vector")
+  `(let* ~(destructure bindings) ~@body))
 
 (defn has-root-impl [sci-var]
   (vars/hasRoot sci-var))
@@ -1207,6 +1226,7 @@
     #?@(:cljs ['keyword-identical? (copy-core-var keyword-identical?)])
     'last (copy-core-var last)
     'lazy-cat (macrofy 'lazy-cat lazy-cat*)
+    'let (macrofy 'let -let)
     'letfn (macrofy 'letfn letfn*)
     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
     'long (copy-core-var long)
