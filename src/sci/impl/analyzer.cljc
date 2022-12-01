@@ -1476,7 +1476,6 @@
                           ;; interpreter again, which will invoke analysis + evaluation on
                           ;; every sub expression
                           do (return-do ctx expr (rest expr))
-                          let (analyze-let ctx expr)
                           let* (analyze-let* ctx expr (second expr) (nnext expr))
                           (fn fn*) (analyze-fn* ctx expr false nil)
                           def (analyze-def ctx expr)

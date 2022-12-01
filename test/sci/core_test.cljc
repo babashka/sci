@@ -458,7 +458,7 @@
     (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
     (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
   (is (tu/eval* (str (list `#(inc %) 10)) {:allow '[fn* inc]}))
-  (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let]}))
+  (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let let*]}))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(loop [] (recur))" {:deny '[loop]})))
@@ -473,7 +473,7 @@
                         (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
   (testing "for/doseq are macroexpanded properly"
     (is (= 'loop (first (tu/eval* "(macroexpand '(doseq [i [1 2 3]] nil))" {}))))
-    (is (= #?(:clj 'clojure.core/let :cljs 'cljs.core/let)
+    (is (= 'let*
            (first (tu/eval* "(macroexpand '(for [i [1 2 3]] i))" {})))))
   (testing "for/doseq/dotimes use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))

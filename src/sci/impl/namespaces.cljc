@@ -17,12 +17,15 @@
       :cljs [cljs.reader :as edn])
    #?(:clj [clojure.java.io :as jio])
    #?(:clj [sci.impl.proxy :as proxy])
+   #?(:clj [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var]]
+      :cljs [sci.impl.copy-vars :refer [new-var]])
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
+   [sci.impl.destructure :as destructure]
    [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.for-macro :as for-macro]
    [sci.impl.hierarchies :as hierarchies]
@@ -37,10 +40,9 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
-   [sci.lang]
-   #?(:clj [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy new-var]]
-      :cljs [sci.impl.copy-vars :refer [new-var]]))
-  #?(:cljs (:require-macros [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
+   [sci.lang])
+  #?(:cljs (:require-macros
+            [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -860,6 +862,14 @@
          (throw (ex-info (str "Built-in var " iref " is read-only.")
                          {:var iref}))))))
 
+(defn- let** [expr _ bindings & body]
+  (when-not (vector? bindings)
+    (utils/throw-error-with-location "let requires a vector for its binding" expr))
+  (when-not (even? (count bindings))
+    (utils/throw-error-with-location "let requires an even number of forms in binding vector" expr))
+  `(let* ~(destructure/destructure bindings)
+     ~@body))
+
 (macros/usetime
 
  (def clojure-core
@@ -1200,6 +1210,7 @@
     #?@(:cljs ['keyword-identical? (copy-core-var keyword-identical?)])
     'last (copy-core-var last)
     'lazy-cat (macrofy 'lazy-cat lazy-cat*)
+    'let (macrofy 'let let**)
     'letfn (macrofy 'letfn letfn*)
     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
     'long (copy-core-var long)
