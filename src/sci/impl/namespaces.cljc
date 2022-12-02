@@ -28,6 +28,7 @@
    [sci.impl.destructure :as destructure]
    [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.for-macro :as for-macro]
+   [sci.impl.fns :as fns]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
@@ -894,199 +895,6 @@
                   (let ~(vec (interleave bs gs))
                     ~@body)))))))
 
-(defn ^{:private true}
-  maybe-destructured
-  [params body]
-  (if (every? symbol? params)
-    (cons params body)
-    (loop [params params
-           new-params (with-meta [] (meta params))
-           lets []]
-      (if params
-        (if (symbol? (first params))
-          (recur (next params) (conj new-params (first params)) lets)
-          (let [gparam (gensym "p__")]
-            (recur (next params) (conj new-params gparam)
-                   (-> lets (conj (first params)) (conj gparam)))))
-        `(~new-params
-          (let ~lets
-            ~@body))))))
-
-(defn fn**
-  [form _ & sigs]
-  (let [name (if (symbol? (first sigs)) (first sigs) nil)
-        sigs (if name (next sigs) sigs)
-        sigs (if (vector? (first sigs))
-               (list sigs)
-               (if (seq? (first sigs))
-                 sigs
-                 ;; Assume single arity syntax
-                 (utils/throw-error-with-location
-                  (if (seq sigs)
-                    (str "Parameter declaration "
-                         (first sigs)
-                         " should be a vector")
-                    (str "Parameter declaration missing"))
-                  form)))
-        psig (fn* [sig]
-                  ;; Ensure correct type before destructuring sig
-                  (when (not (seq? sig))
-                    (throw (utils/throw-error-with-location
-                            (str "Invalid signature " sig
-                                 " should be a list")
-                            form)))
-                  (let [[params & body] sig
-                        _ (when (not (vector? params))
-                            (utils/throw-error-with-location
-                             (if (seq? (first sigs))
-                               (str "Parameter declaration " params
-                                    " should be a vector")
-                               (str "Invalid signature " sig
-                                    " should be a list"))
-                             form))
-                        conds (when (and (next body) (map? (first body)))
-                                (first body))
-                        body (if conds (next body) body)
-                        conds (or conds (meta params))
-                        pre (:pre conds)
-                        post (:post conds)
-                        body (if post
-                               `((let [~'% ~(if (< 1 (count body))
-                                              `(do ~@body)
-                                              (first body))]
-                                   ~@(map (fn* [c] `(assert ~c)) post)
-                                   ~'%))
-                               body)
-                        body (if pre
-                               (concat (map (fn* [c] `(assert ~c)) pre)
-                                       body)
-                               body)]
-                    (maybe-destructured params body)))
-        new-sigs (map psig sigs)
-        expr (with-meta
-               (if name
-                 (list* 'fn* name new-sigs)
-                 (cons 'fn* new-sigs))
-               (meta form))]
-    expr))
-
-(def
-  ^{:private true}
-  sigs
-  (fn [fdecl]
-    #_(assert-valid-fdecl fdecl)
-    (let [asig
-          (fn [fdecl]
-            (let [arglist (first fdecl)
-                                        ;elide implicit macro args
-                  arglist (if (= '&form (first arglist))
-                            (subvec arglist 2 (count arglist))
-                            arglist)
-                  body (next fdecl)]
-              (if (map? (first body))
-                (if (next body)
-                  (with-meta arglist (conj (if (meta arglist) (meta arglist) {}) (first body)))
-                  arglist)
-                arglist)))
-          #_#_resolve-tag (fn [argvec]
-                            (let [m (meta argvec)
-                                  ^clojure.lang.Symbol tag (:tag m)]
-                              (if (instance? clojure.lang.Symbol tag)
-                                (if (clojure.lang.Util/equiv (.indexOf (.getName tag) ".") -1)
-                                  (if (clojure.lang.Util/equals nil (clojure.lang.Compiler$HostExpr/maybeSpecialTag tag))
-                                    (let [c (clojure.lang.Compiler$HostExpr/maybeClass tag false)]
-                                      (if c
-                                        (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.getName c))))
-                                        argvec))
-                                    argvec)
-                                  argvec)
-                                argvec)))]
-      (if (seq? (first fdecl))
-        (loop [ret [] fdecls fdecl]
-          (if fdecls
-            (recur (conj ret (identity #_resolve-tag (asig (first fdecls)))) (next fdecls))
-            (seq ret)))
-        (list (identity #_resolve-tag (asig fdecl)))))))
-
-(defn defn* [form _ name & fdecl]
-  (if (symbol? name)
-    nil
-    (utils/throw-error-with-location "First argument to defn must be a symbol" form))
-  (let [m (if (string? (first fdecl))
-            {:doc (first fdecl)}
-            {})
-        fdecl (if (string? (first fdecl))
-                (next fdecl)
-                fdecl)
-        m (if (map? (first fdecl))
-            (conj m (first fdecl))
-            m)
-        fdecl (if (map? (first fdecl))
-                (next fdecl)
-                fdecl)
-        fdecl (if (vector? (first fdecl))
-                (list fdecl)
-                fdecl)
-        m (if (map? (last fdecl))
-            (conj m (last fdecl))
-            m)
-        fdecl (if (map? (last fdecl))
-                (butlast fdecl)
-                fdecl)
-        ;; deleted sigs here
-        ;; _ (prn :fdecl fdecl)
-        m (conj {:arglists (list 'quote (sigs fdecl))} m)
-        ;; deleted inline here
-        name-m (meta name)
-        m (conj (if name-m name-m {}) m)
-        macro? (:macro name-m)
-        expr (cons `fn fdecl)
-        expr (list 'def (with-meta name m)
-                   (if (or macro? name)
-                     (with-meta expr
-                       {:sci.impl/fn {:macro macro?
-                                      :fn-name name}})
-                     expr))]
-    expr))
-
-(defn defmacro*
-  [_&form _&env name & args]
-  (let [name (vary-meta name assoc :macro true)
-        prefix (loop [p (list name) args args]
-                 (let [f (first args)]
-                   (if (string? f)
-                     (recur (cons f p) (next args))
-                     (if (map? f)
-                       (recur (cons f p) (next args))
-                       p))))
-        fdecl (loop [fd args]
-                (if (string? (first fd))
-                  (recur (next fd))
-                  (if (map? (first fd))
-                    (recur (next fd))
-                    fd)))
-        fdecl (if (vector? (first fdecl))
-                (list fdecl)
-                fdecl)
-        add-implicit-args (fn [fd]
-                            (let [args (first fd)]
-                              (cons (vec (cons '&form (cons '&env args))) (next fd))))
-        add-args (fn [acc ds]
-                   (if (nil? ds)
-                     acc
-                     (let [d (first ds)]
-                       (if (map? d)
-                         (conj acc d)
-                         (recur (conj acc (add-implicit-args d)) (next ds))))))
-        fdecl (seq (add-args [] fdecl))
-        decl (loop [p prefix d fdecl]
-               (if p
-                 (recur (next p) (cons (first p) d))
-                 d))]
-    (list 'do
-          (cons `defn decl)
-          (list 'var name))))
-
 (macros/usetime
 
  (def clojure-core
@@ -1309,8 +1117,8 @@
     'dec (copy-core-var dec)
     'declare (macrofy 'declare declare*)
     'dedupe (copy-core-var dedupe)
-    'defmacro (macrofy 'defmacro defmacro*)
-    'defn  (macrofy 'defn defn*)
+    'defmacro (macrofy 'defmacro fns/defmacro*)
+    'defn  (macrofy 'defn fns/defn*)
     'defn- (macrofy 'defn- defn-*)
     'defonce (macrofy 'defonce defonce*)
     'defrecord (macrofy 'defrecord sci.impl.records/defrecord
@@ -1364,7 +1172,7 @@
     'first (copy-core-var first)
     'float? (copy-core-var float?)
     'floats (copy-core-var floats)
-    'fn (macrofy 'fn fn**)
+    'fn (macrofy 'fn fns/fn**)
     'fnil (copy-core-var fnil)
     'fnext (copy-core-var fnext)
     'ffirst (copy-core-var ffirst)
