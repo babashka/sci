@@ -4,8 +4,7 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:cljs [goog.object :as gobj])
-   #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node)
-                                         ->constant]])
+   #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node) ->constant]])
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
    [clojure.string :as str]
@@ -19,8 +18,8 @@
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
    [sci.impl.utils :as utils :refer
-    [ana-macros constant? kw-identical? macro? maybe-destructured
-     rethrow-with-location-of-node set-namespace!]]
+    [ana-macros constant? kw-identical? macro? rethrow-with-location-of-node
+     set-namespace!]]
    [sci.impl.vars :as vars])
   #?(:clj (:import
            [sci.impl Reflector]))
@@ -307,34 +306,12 @@
 
 (declare update-parents)
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro? fn-name fn-id]
+(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
     (throw-error-with-location "Parameter declaration should be a vector" fn-expr))
-  (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
-                           binding-vector)
-        next-body (next body-exprs)
-        conds (when next-body
-                (let [e (first body-exprs)]
-                  (when (map? e) e)))
-        body-exprs (if conds next-body body-exprs)
-        conds (or conds (meta binding-vector))
-        pre (:pre conds)
-        post (:post conds)
-        body-exprs (if post
-                     `((let [~'% ~(if (< 1 (count body-exprs))
-                                    `(do ~@body-exprs)
-                                    (first body-exprs))]
-                         ~@(map (fn* [c] `(assert ~c)) post)
-                         ~'%))
-                     body-exprs)
-        body-exprs (if pre
-                     (concat (map (fn* [c] `(assert ~c)) pre)
-                             body-exprs)
-                     body-exprs)
-        {:keys [:params :body]} (maybe-destructured binding-vector body-exprs)
-        [fixed-args [_ var-arg-name]] (split-with #(not= '& %) params)
+  (let [[fixed-args [_ var-arg-name]] (split-with #(not= '& %) binding-vector)
         fixed-args (vec fixed-args)
         fixed-arity (count fixed-args)
         ;; param-names = all simple symbols, no destructuring
@@ -351,9 +328,9 @@
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
-        body (return-do (with-recur-target ctx true) fn-expr body)
+        body (return-do (with-recur-target ctx true) fn-expr body-exprs)
         iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
-    (cond-> (->FnBody params body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
+    (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
       var-arg-name
       (assoc :vararg-idx (get iden->invoke-idx (last param-idens))))))
 
@@ -405,8 +382,13 @@
          f)
        nil))))
 
-(defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro? defn-name]
-  (let [ctx (assoc ctx :fn-expr fn-expr)
+(defn analyze-fn* [ctx [_fn name? & body :as fn-expr]]
+  (let [fn-expr-m (meta fn-expr)
+        fn-extra-m (:sci.impl/fn fn-expr-m)
+        macro? (:macro fn-extra-m)
+        defn-name (:fn-name fn-extra-m)
+        fn-expr-m (dissoc fn-expr-m :sci.impl/fn)
+        ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
                   name?
                   nil)
@@ -522,7 +504,7 @@
                                 :copy-enclosed->invocation copy-enclosed->invocation)))
                      bodies)
         ;; arglists (:arglists analyzed-bodies)
-        fn-meta (dissoc (meta fn-expr) :line :column)
+        fn-meta (dissoc fn-expr-m :line :column)
         fn-meta (when (seq fn-meta) (analyze ctx fn-meta))
         single-arity (when (= 1 (count bodies))
                        (first bodies))
@@ -760,12 +742,18 @@
             init (if (= 2 arg-count)
                    utils/var-unbound
                    (analyze ctx init))
-            m (merge (let [m (meta expr)]
-                       (or (when (:line m)
-                             m)
-                           *top-level-location*))
-                     (meta var-name))
-            m-needs-eval? m
+            expr-loc (meta expr)
+            expr-loc? (:line expr-loc)
+            var-meta (meta var-name)
+            m (if expr-loc?
+                (-> var-meta
+                    (assoc :line (:line expr-loc))
+                    (assoc :column (:column expr-loc)))
+                (let [top-level-loc *top-level-location*]
+                  (-> var-meta
+                      (assoc :line (:line top-level-loc))
+                      (assoc :column (:column top-level-loc)))))
+            m-needs-eval? var-meta
             m (assoc m :ns @utils/current-ns)
             m (if docstring (assoc m :doc docstring) m)
             m (if m-needs-eval?
@@ -775,45 +763,45 @@
          (eval/eval-def ctx bindings var-name init m)
          nil)))))
 
-(defn analyze-defn [ctx [op fn-name & body :as expr]]
-  ;; TODO: re-use analyze-def
-  (when-not (simple-symbol? fn-name)
-    (throw-error-with-location "Var name should be simple symbol." expr))
-  (init-var! ctx fn-name expr)
-  (let [macro? (= "defmacro" (name op))
-        [pre-body body] (split-with (comp not sequential?) body)
-        _ (when (empty? body)
-            (throw-error-with-location "Parameter declaration missing." expr))
-        docstring (when-let [ds (first pre-body)]
-                    (when (string? ds) ds))
-        meta-map (when-let [m (last pre-body)]
-                   (when (map? m) m))
-        [meta-map2 body] (if (seq? (first body))
-                           (let [lb (last body)]
-                             (if (map? lb)
-                               [lb (butlast body)]
-                               [nil body]))
-                           [nil body])
-        expr-loc (meta expr)
-        meta-map (-> (meta fn-name)
-                     (assoc :line (:line expr-loc))
-                     (assoc :column (:column expr-loc))
-                     (cond-> meta-map (merge meta-map)))
-        meta-map (if meta-map2 (merge meta-map meta-map2)
-                     meta-map)
-        fn-body (cons 'fn body)
-        f (analyze-fn* ctx fn-body macro? fn-name)
-        arglists (list 'quote (seq (:arglists (meta f))))
-        meta-map (assoc meta-map
-                        :ns @utils/current-ns
-                        :arglists arglists)
-        meta-map (cond-> meta-map
-                   docstring (assoc :doc docstring)
-                   macro? (assoc :macro true))
-        meta-map (analyze ctx meta-map)]
-    (sci.impl.types/->Node
-     (eval/eval-def ctx bindings fn-name f meta-map)
-     nil)))
+#_(defn analyze-defn [ctx [op fn-name & body :as expr]]
+    ;; TODO: re-use analyze-def
+    (when-not (simple-symbol? fn-name)
+      (throw-error-with-location "Var name should be simple symbol." expr))
+    (init-var! ctx fn-name expr)
+    (let [macro? (= "defmacro" (name op))
+          [pre-body body] (split-with (comp not sequential?) body)
+          _ (when (empty? body)
+              (throw-error-with-location "Parameter declaration missing." expr))
+          docstring (when-let [ds (first pre-body)]
+                      (when (string? ds) ds))
+          meta-map (when-let [m (last pre-body)]
+                     (when (map? m) m))
+          [meta-map2 body] (if (seq? (first body))
+                             (let [lb (last body)]
+                               (if (map? lb)
+                                 [lb (butlast body)]
+                                 [nil body]))
+                             [nil body])
+          expr-loc (meta expr)
+          meta-map (-> (meta fn-name)
+                       (assoc :line (:line expr-loc))
+                       (assoc :column (:column expr-loc))
+                       (cond-> meta-map (merge meta-map)))
+          meta-map (if meta-map2 (merge meta-map meta-map2)
+                       meta-map)
+          fn-body (cons 'fn body)
+          f (analyze-fn* ctx fn-body macro? fn-name)
+          arglists (list 'quote (seq (:arglists (meta f))))
+          meta-map (assoc meta-map
+                          :ns @utils/current-ns
+                          :arglists arglists)
+          meta-map (cond-> meta-map
+                     docstring (assoc :doc docstring)
+                     macro? (assoc :macro true))
+          meta-map (analyze ctx meta-map)]
+      (sci.impl.types/->Node
+       (eval/eval-def ctx bindings fn-name f meta-map)
+       nil)))
 
 (defn analyze-loop*
   [ctx expr]
@@ -1470,11 +1458,11 @@
                           ;; every sub expression
                           do (return-do ctx expr (rest expr))
                           let* (analyze-let* ctx expr (second expr) (nnext expr))
-                          (fn fn*) (analyze-fn* ctx expr false nil)
+                          fn* (analyze-fn* ctx expr)
                           def (analyze-def ctx expr)
                           ;; NOTE: defn / defmacro aren't implemented as normal macros yet
-                          (defn defmacro) (let [ret (analyze-defn ctx expr)]
-                                            ret)
+                          #_#_(defn defmacro) (let [ret (analyze-defn ctx expr)]
+                                                ret)
                           loop* (analyze-loop* ctx expr)
                           lazy-seq (analyze-lazy-seq ctx expr)
                           if (return-if ctx expr)
@@ -1519,7 +1507,9 @@
                                                                       :cljs (implements? IWithMeta v))
                                                                  (with-meta v (merge m (meta v)))
                                                                  v))
-                                                 :else (let [v (if m (if #?(:clj (instance? clojure.lang.IObj v)
+                                                 :else (let [v
+                                                             ;; WTF is this...
+                                                             (if m (if #?(:clj (instance? clojure.lang.IObj v)
                                                                             :cljs (implements? IWithMeta v))
                                                                        (with-meta v (merge m (meta v)))
                                                                        v)

@@ -28,6 +28,7 @@
    [sci.impl.destructure :as destructure]
    [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.for-macro :as for-macro]
+   [sci.impl.fns :as fns]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
@@ -1116,6 +1117,8 @@
     'dec (copy-core-var dec)
     'declare (macrofy 'declare declare*)
     'dedupe (copy-core-var dedupe)
+    'defmacro (macrofy 'defmacro fns/defmacro*)
+    'defn  (macrofy 'defn fns/defn*)
     'defn- (macrofy 'defn- defn-*)
     'defonce (macrofy 'defonce defonce*)
     'defrecord (macrofy 'defrecord sci.impl.records/defrecord
@@ -1169,6 +1172,7 @@
     'first (copy-core-var first)
     'float? (copy-core-var float?)
     'floats (copy-core-var floats)
+    'fn (macrofy 'fn fns/fn**)
     'fnil (copy-core-var fnil)
     'fnext (copy-core-var fnext)
     'ffirst (copy-core-var ffirst)
