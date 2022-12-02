@@ -879,7 +879,7 @@
   (let [db (if (every? symbol? bindings)
              bindings
              (destructure/destructure bindings))]
-    (if (= db bindings)
+    (if (identical? db bindings)
       `(loop* ~bindings ~@body)
       (let [vs (take-nth 2 (drop 1 bindings))
             bs (take-nth 2 bindings)

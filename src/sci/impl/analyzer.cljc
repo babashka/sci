@@ -1475,7 +1475,6 @@
                           ;; NOTE: defn / defmacro aren't implemented as normal macros yet
                           (defn defmacro) (let [ret (analyze-defn ctx expr)]
                                             ret)
-                          ;; TODO: implement as normal macro in namespaces.cljc
                           loop* (analyze-loop* ctx expr)
                           lazy-seq (analyze-lazy-seq ctx expr)
                           if (return-if ctx expr)
