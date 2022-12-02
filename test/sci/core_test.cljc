@@ -455,8 +455,8 @@
         (is ((tu/eval* "#(pos-int? %)" {:allow '[fn* clojure.core/pos-int?]}) 10))
         (is ((tu/eval* "#(clojure.core/pos-int? %)" {:allow '[fn* clojure.core/pos-int?]}) 10))))
   (if tu/native?
-    (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn if > inc]})))
-    (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn if > inc]}) 2))))
+    (is (= 3 (tu/eval* "((fn [x] (if (> x 1) (inc x))) 2)" {:allow '[fn fn* if > inc]})))
+    (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn fn* if > inc]}) 2))))
   (is (tu/eval* (str (list `#(inc %) 10)) {:allow '[fn* inc]}))
   (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let let*]}))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
