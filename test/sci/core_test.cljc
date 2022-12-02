@@ -461,10 +461,10 @@
   (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let let*]}))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
-                        (tu/eval* "(loop [] (recur))" {:deny '[loop]})))
+                        (tu/eval* "(loop [] (recur))" {:deny '[loop*]})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
-                        (tu/eval* "(clojure.core/loop [] (recur))" {:deny '[loop]})))
+                        (tu/eval* "(clojure.core/loop [] (recur))" {:deny '[loop*]})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/loop [] (recur))" {:deny '[recur]})))
@@ -472,7 +472,7 @@
                         #"allowed"
                         (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
   (testing "for/doseq are macroexpanded properly"
-    (is (= 'loop (first (tu/eval* "(macroexpand '(doseq [i [1 2 3]] nil))" {}))))
+    (is (= 'loop* (first (tu/eval* "(macroexpand '(doseq [i [1 2 3]] nil))" {}))))
     (is (= 'let*
            (first (tu/eval* "(macroexpand '(for [i [1 2 3]] i))" {})))))
   (testing "for/doseq/dotimes use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
@@ -483,16 +483,16 @@
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
                             (tu/eval* "(def allowed-loop (with-meta (symbol \"loop\") {:line :allow}))
-                                       (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop recur]})))
+                                       (defmacro foo [] `(~allowed-loop [])) (foo)" {:deny '[loop* recur]})))
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
                             (tu/eval* "(let [allowed-loop (with-meta (symbol \"loop\") {:line :allow})]
                                          (defmacro foo [] `(~allowed-loop [])))
-                                       (foo)" {:deny '[loop recur]}))))
+                                       (foo)" {:deny '[loop* recur]}))))
     (testing "but it should be forbidden in macros that are defined by a user"
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                             #"allowed"
-                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop recur]})))))
+                            (tu/eval* "(defmacro foo [] `(loop [])) (foo)" {:deny '[loop* recur]})))))
   (testing "users cannot hack around sci.impl/needs-ctx"
     (is (= 1 (eval* "(defn ^{:sci.impl/op 'needs-ctx} foo [& args] (count args)) (foo 1)"))))
   (testing "vars introduced by users are allowed"

@@ -51,7 +51,7 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def . var set! let*})
+(def special-syms '#{try finally do if new recur quote catch throw def . var set! let* loop*})
 
 (defn- throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -815,21 +815,14 @@
      (eval/eval-def ctx bindings fn-name f meta-map)
      nil)))
 
-(defn analyze-loop
+(defn analyze-loop*
   [ctx expr]
   (let [bv (second expr)
-        arg-names (take-nth 2 bv)
-        init-vals (take-nth 2 (rest bv))
-        [bv syms] (if (every? symbol? arg-names)
-                    [bv arg-names]
-                    (let [syms (repeatedly (count arg-names) gensym)
-                          bv1 (map vector syms init-vals)
-                          bv2  (map vector arg-names syms)]
-                      [(into [] cat (interleave bv1 bv2)) syms]))
+        syms (take-nth 2 bv)
         body (nnext expr)
-        expansion (list 'clojure.core/let bv
-                        (list* `(fn ~(vec arg-names) ~@body)
-                               syms))]
+        expansion `(let* ~bv
+                     ~(list* `(fn* ~(vec syms) ~@body)
+                             syms))]
     (analyze ctx expansion)))
 
 (defn analyze-lazy-seq
@@ -1013,8 +1006,8 @@
                           (subs method-name 1)
                           method-name)
               stack (assoc (meta expr)
-                      :ns @utils/current-ns
-                      :file @utils/current-file)]
+                           :ns @utils/current-ns
+                           :file @utils/current-file)]
           #?(:clj (if (class? instance-expr)
                     (if (nil? args)
                       (if field-access
@@ -1036,18 +1029,18 @@
                            (interop/get-static-field [instance-expr method-name])
                            stack)
                           (sci.impl.types/->Node
-                            (eval/eval-static-method-invocation
-                              ctx bindings
-                              (cons [instance-expr method-name] args))
-                            stack)))
+                           (eval/eval-static-method-invocation
+                            ctx bindings
+                            (cons [instance-expr method-name] args))
+                           stack)))
                       (sci.impl.types/->Node
-                        (eval/eval-static-method-invocation
-                          ctx bindings (cons [instance-expr method-name] args))
-                        stack))
+                       (eval/eval-static-method-invocation
+                        ctx bindings (cons [instance-expr method-name] args))
+                       stack))
                     (with-meta (sci.impl.types/->Node
-                                 (eval/eval-instance-method-invocation
-                                   ctx bindings instance-expr meth-name field-access args)
-                                 stack)
+                                (eval/eval-instance-method-invocation
+                                 ctx bindings instance-expr meth-name field-access args)
+                                stack)
                       {::instance-expr instance-expr
                        ::method-name   method-name}))
              :cljs (let [allowed? (identical? method-expr utils/allowed-append)]
@@ -1483,7 +1476,7 @@
                           (defn defmacro) (let [ret (analyze-defn ctx expr)]
                                             ret)
                           ;; TODO: implement as normal macro in namespaces.cljc
-                          loop (analyze-loop ctx expr)
+                          loop* (analyze-loop* ctx expr)
                           lazy-seq (analyze-lazy-seq ctx expr)
                           if (return-if ctx expr)
                           case (analyze-case ctx expr)
