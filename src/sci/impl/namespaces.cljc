@@ -921,26 +921,29 @@
                (if (seq? (first sigs))
                  sigs
                  ;; Assume single arity syntax
-                 (throw (IllegalArgumentException.
-                         (if (seq sigs)
-                           (str "Parameter declaration "
-                                (first sigs)
-                                " should be a vector")
-                           (str "Parameter declaration missing"))))))
+                 (utils/throw-error-with-location
+                  (if (seq sigs)
+                    (str "Parameter declaration "
+                         (first sigs)
+                         " should be a vector")
+                    (str "Parameter declaration missing"))
+                  form)))
         psig (fn* [sig]
                   ;; Ensure correct type before destructuring sig
                   (when (not (seq? sig))
-                    (throw (IllegalArgumentException.
+                    (throw (utils/throw-error-with-location
                             (str "Invalid signature " sig
-                                 " should be a list"))))
+                                 " should be a list")
+                            form)))
                   (let [[params & body] sig
                         _ (when (not (vector? params))
-                            (throw (IllegalArgumentException.
-                                    (if (seq? (first sigs))
-                                      (str "Parameter declaration " params
-                                           " should be a vector")
-                                      (str "Invalid signature " sig
-                                           " should be a list")))))
+                            (utils/throw-error-with-location
+                             (if (seq? (first sigs))
+                               (str "Parameter declaration " params
+                                    " should be a vector")
+                               (str "Invalid signature " sig
+                                    " should be a list"))
+                             form))
                         conds (when (and (next body) (map? (first body)))
                                 (first body))
                         body (if conds (next body) body)
@@ -968,47 +971,47 @@
     expr))
 
 (def
- ^{:private true}
- sigs
- (fn [fdecl]
-   #_(assert-valid-fdecl fdecl)
-   (let [asig
-         (fn [fdecl]
-           (let [arglist (first fdecl)
-                 ;elide implicit macro args
-                 arglist (if (= '&form (first arglist))
-                           (subvec arglist 2 (count arglist))
-                           arglist)
-                 body (next fdecl)]
-             (if (map? (first body))
-               (if (next body)
-                 (with-meta arglist (conj (if (meta arglist) (meta arglist) {}) (first body)))
-                 arglist)
-               arglist)))
-         #_#_resolve-tag (fn [argvec]
-                        (let [m (meta argvec)
-                              ^clojure.lang.Symbol tag (:tag m)]
-                          (if (instance? clojure.lang.Symbol tag)
-                            (if (clojure.lang.Util/equiv (.indexOf (.getName tag) ".") -1)
-                              (if (clojure.lang.Util/equals nil (clojure.lang.Compiler$HostExpr/maybeSpecialTag tag))
-                                (let [c (clojure.lang.Compiler$HostExpr/maybeClass tag false)]
-                                  (if c
-                                    (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.getName c))))
-                                    argvec))
-                                argvec)
-                              argvec)
-                            argvec)))]
-     (if (seq? (first fdecl))
-       (loop [ret [] fdecls fdecl]
-         (if fdecls
-           (recur (conj ret (identity #_resolve-tag (asig (first fdecls)))) (next fdecls))
-           (seq ret)))
-       (list (identity #_resolve-tag (asig fdecl)))))))
+  ^{:private true}
+  sigs
+  (fn [fdecl]
+    #_(assert-valid-fdecl fdecl)
+    (let [asig
+          (fn [fdecl]
+            (let [arglist (first fdecl)
+                                        ;elide implicit macro args
+                  arglist (if (= '&form (first arglist))
+                            (subvec arglist 2 (count arglist))
+                            arglist)
+                  body (next fdecl)]
+              (if (map? (first body))
+                (if (next body)
+                  (with-meta arglist (conj (if (meta arglist) (meta arglist) {}) (first body)))
+                  arglist)
+                arglist)))
+          #_#_resolve-tag (fn [argvec]
+                            (let [m (meta argvec)
+                                  ^clojure.lang.Symbol tag (:tag m)]
+                              (if (instance? clojure.lang.Symbol tag)
+                                (if (clojure.lang.Util/equiv (.indexOf (.getName tag) ".") -1)
+                                  (if (clojure.lang.Util/equals nil (clojure.lang.Compiler$HostExpr/maybeSpecialTag tag))
+                                    (let [c (clojure.lang.Compiler$HostExpr/maybeClass tag false)]
+                                      (if c
+                                        (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.getName c))))
+                                        argvec))
+                                    argvec)
+                                  argvec)
+                                argvec)))]
+      (if (seq? (first fdecl))
+        (loop [ret [] fdecls fdecl]
+          (if fdecls
+            (recur (conj ret (identity #_resolve-tag (asig (first fdecls)))) (next fdecls))
+            (seq ret)))
+        (list (identity #_resolve-tag (asig fdecl)))))))
 
-(defn defn* [_form _ name & fdecl]
+(defn defn* [form _ name & fdecl]
   (if (symbol? name)
     nil
-    (throw (IllegalArgumentException. "First argument to defn must be a symbol")))
+    (utils/throw-error-with-location "First argument to defn must be a symbol" form))
   (let [m (if (string? (first fdecl))
             {:doc (first fdecl)}
             {})
@@ -1043,7 +1046,7 @@
                      (with-meta expr
                        {:sci.impl/fn {:macro macro?
                                       :fn-name name}})
-                    expr))]
+                     expr))]
     expr))
 
 (defn defmacro*
