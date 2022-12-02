@@ -51,7 +51,7 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def . var set! let*})
+(def special-syms '#{try finally do if new recur quote catch throw def . var set! let* loop*})
 
 (defn- throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -815,7 +815,7 @@
      (eval/eval-def ctx bindings fn-name f meta-map)
      nil)))
 
-(defn analyze-loop
+(defn analyze-loop*
   [ctx expr]
   (let [bv (second expr)
         arg-names (take-nth 2 bv)
@@ -1483,7 +1483,7 @@
                           (defn defmacro) (let [ret (analyze-defn ctx expr)]
                                             ret)
                           ;; TODO: implement as normal macro in namespaces.cljc
-                          loop (analyze-loop ctx expr)
+                          loop* (analyze-loop* ctx expr)
                           lazy-seq (analyze-lazy-seq ctx expr)
                           if (return-if ctx expr)
                           case (analyze-case ctx expr)

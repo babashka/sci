@@ -870,6 +870,28 @@
   `(let* ~(destructure/destructure bindings)
      ~@body))
 
+(defn loop**
+  [expr _ bindings & body]
+  (when-not (vector? bindings)
+    (utils/throw-error-with-location "let requires a vector for its binding" expr))
+  (when-not (even? (count bindings))
+    (utils/throw-error-with-location "let requires an even number of forms in binding vector" expr))
+  (let [db (destructure/destructure bindings)]
+    (if (= db bindings)
+      `(loop* ~bindings ~@body)
+      (let [vs (take-nth 2 (drop 1 bindings))
+            bs (take-nth 2 bindings)
+            gs (map (fn [b] (if (symbol? b) b (gensym))) bs)
+            bfs (reduce (fn [ret [b v g]]
+                          (if (symbol? b)
+                            (conj ret g v)
+                            (conj ret g v b g)))
+                        [] (map vector bs vs gs))]
+        `(let ~bfs
+           (loop* ~(vec (interleave gs gs))
+                  (let ~(vec (interleave bs gs))
+                    ~@body)))))))
+
 (macros/usetime
 
  (def clojure-core
@@ -1213,6 +1235,7 @@
     'let (macrofy 'let let**)
     'letfn (macrofy 'letfn letfn*)
     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
+    'loop (macrofy 'loop loop**)
     'long (copy-core-var long)
     'list (copy-core-var list)
     'list? (copy-core-var list?)
