@@ -876,7 +876,9 @@
     (utils/throw-error-with-location "let requires a vector for its binding" expr))
   (when-not (even? (count bindings))
     (utils/throw-error-with-location "let requires an even number of forms in binding vector" expr))
-  (let [db (destructure/destructure bindings)]
+  (let [db (if (every? symbol? bindings)
+             bindings
+             (destructure/destructure bindings))]
     (if (= db bindings)
       `(loop* ~bindings ~@body)
       (let [vs (take-nth 2 (drop 1 bindings))
