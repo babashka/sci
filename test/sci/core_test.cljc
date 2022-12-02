@@ -987,7 +987,7 @@
                         (eval* "(defn f/b [])")))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing"
                         (eval* "(defn foo)")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"missing"
+  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector"
                         (eval* "(defn foo ())")))
   (is (eval* "(def *clause* \"During formatting, *clause* is bound to :select, :from, :where, etc.\" nil)")))
 

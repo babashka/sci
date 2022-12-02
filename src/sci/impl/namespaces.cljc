@@ -995,10 +995,16 @@
         ;; deleted sigs here
         m (conj {:arglists (list 'quote fdecl)} m)
         ;; deleted inline here
-        m (conj (if (meta name) (meta name) {}) m)
+        name-m (meta name)
+        m (conj (if name-m name-m {}) m)
+        macro? (:macro name-m)
+        expr (cons `fn fdecl)
         expr (list 'def (with-meta name m)
-                   (cons `fn fdecl)
-                   #_(with-meta  {:rettag (:tag m)}))]
+                   (if (or macro? name)
+                     (with-meta expr
+                       {:sci.impl/fn {:macro macro?
+                                      :fn-name name}})
+                    expr))]
     expr))
 
 (defn defmacro*
@@ -1037,7 +1043,6 @@
                  d))]
     (list 'do
           (cons `defn decl)
-          ;; (list '. (list 'var name) '(setMacro))
           (list 'var name))))
 
 (macros/usetime

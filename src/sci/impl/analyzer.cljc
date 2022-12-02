@@ -4,8 +4,7 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:cljs [goog.object :as gobj])
-   #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node)
-                                         ->constant]])
+   #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node) ->constant]])
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
    [clojure.string :as str]
@@ -19,8 +18,8 @@
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
    [sci.impl.utils :as utils :refer
-    [ana-macros constant? kw-identical? macro? maybe-destructured
-     rethrow-with-location-of-node set-namespace!]]
+    [ana-macros constant? kw-identical? macro? rethrow-with-location-of-node
+     set-namespace!]]
    [sci.impl.vars :as vars])
   #?(:clj (:import
            [sci.impl Reflector]))
@@ -307,14 +306,12 @@
 
 (declare update-parents)
 
-(defn expand-fn-args+body [{:keys [:fn-expr] :as ctx} [binding-vector & body-exprs] macro? fn-name fn-id]
+(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
     (throw-error-with-location "Parameter declaration should be a vector" fn-expr))
-  (let [binding-vector (if macro? (into ['&form '&env] binding-vector)
-                           binding-vector)
-        [fixed-args [_ var-arg-name]] (split-with #(not= '& %) binding-vector)
+  (let [[fixed-args [_ var-arg-name]] (split-with #(not= '& %) binding-vector)
         fixed-args (vec fixed-args)
         fixed-arity (count fixed-args)
         ;; param-names = all simple symbols, no destructuring
@@ -385,8 +382,13 @@
          f)
        nil))))
 
-(defn analyze-fn* [ctx [_fn name? & body :as fn-expr] macro? defn-name]
-  (let [ctx (assoc ctx :fn-expr fn-expr)
+(defn analyze-fn* [ctx [_fn name? & body :as fn-expr]]
+  (let [fn-expr-m (meta fn-expr)
+        fn-extra-m (:sci.impl/fn fn-expr-m)
+        macro? (:macro fn-extra-m)
+        defn-name (:fn-name fn-extra-m)
+        fn-expr-m (dissoc fn-expr-m :sci.impl/fn)
+        ctx (assoc ctx :fn-expr fn-expr)
         fn-name (if (symbol? name?)
                   name?
                   nil)
@@ -502,7 +504,7 @@
                                 :copy-enclosed->invocation copy-enclosed->invocation)))
                      bodies)
         ;; arglists (:arglists analyzed-bodies)
-        fn-meta (dissoc (meta fn-expr) :line :column)
+        fn-meta (dissoc fn-expr-m :line :column)
         fn-meta (when (seq fn-meta) (analyze ctx fn-meta))
         single-arity (when (= 1 (count bodies))
                        (first bodies))
@@ -1456,7 +1458,7 @@
                           ;; every sub expression
                           do (return-do ctx expr (rest expr))
                           let* (analyze-let* ctx expr (second expr) (nnext expr))
-                          fn* (analyze-fn* ctx expr false nil)
+                          fn* (analyze-fn* ctx expr)
                           def (analyze-def ctx expr)
                           ;; NOTE: defn / defmacro aren't implemented as normal macros yet
                           #_#_(defn defmacro) (let [ret (analyze-defn ctx expr)]
@@ -1505,7 +1507,9 @@
                                                                       :cljs (implements? IWithMeta v))
                                                                  (with-meta v (merge m (meta v)))
                                                                  v))
-                                                 :else (let [v (if m (if #?(:clj (instance? clojure.lang.IObj v)
+                                                 :else (let [v v
+                                                             ;; WTF is this...
+                                                             #_(if m (if #?(:clj (instance? clojure.lang.IObj v)
                                                                             :cljs (implements? IWithMeta v))
                                                                        (with-meta v (merge m (meta v)))
                                                                        v)
