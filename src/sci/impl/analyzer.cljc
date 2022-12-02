@@ -1507,9 +1507,9 @@
                                                                       :cljs (implements? IWithMeta v))
                                                                  (with-meta v (merge m (meta v)))
                                                                  v))
-                                                 :else (let [v v
+                                                 :else (let [v
                                                              ;; WTF is this...
-                                                             #_(if m (if #?(:clj (instance? clojure.lang.IObj v)
+                                                             (if m (if #?(:clj (instance? clojure.lang.IObj v)
                                                                             :cljs (implements? IWithMeta v))
                                                                        (with-meta v (merge m (meta v)))
                                                                        v)
