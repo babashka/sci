@@ -967,6 +967,44 @@
                (meta form))]
     expr))
 
+(def
+ ^{:private true}
+ sigs
+ (fn [fdecl]
+   #_(assert-valid-fdecl fdecl)
+   (let [asig
+         (fn [fdecl]
+           (let [arglist (first fdecl)
+                 ;elide implicit macro args
+                 arglist (if (= '&form (first arglist))
+                           (subvec arglist 2 (count arglist))
+                           arglist)
+                 body (next fdecl)]
+             (if (map? (first body))
+               (if (next body)
+                 (with-meta arglist (conj (if (meta arglist) (meta arglist) {}) (first body)))
+                 arglist)
+               arglist)))
+         #_#_resolve-tag (fn [argvec]
+                        (let [m (meta argvec)
+                              ^clojure.lang.Symbol tag (:tag m)]
+                          (if (instance? clojure.lang.Symbol tag)
+                            (if (clojure.lang.Util/equiv (.indexOf (.getName tag) ".") -1)
+                              (if (clojure.lang.Util/equals nil (clojure.lang.Compiler$HostExpr/maybeSpecialTag tag))
+                                (let [c (clojure.lang.Compiler$HostExpr/maybeClass tag false)]
+                                  (if c
+                                    (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.getName c))))
+                                    argvec))
+                                argvec)
+                              argvec)
+                            argvec)))]
+     (if (seq? (first fdecl))
+       (loop [ret [] fdecls fdecl]
+         (if fdecls
+           (recur (conj ret (identity #_resolve-tag (asig (first fdecls)))) (next fdecls))
+           (seq ret)))
+       (list (identity #_resolve-tag (asig fdecl)))))))
+
 (defn defn* [_form _ name & fdecl]
   (if (symbol? name)
     nil
@@ -993,7 +1031,8 @@
                 (butlast fdecl)
                 fdecl)
         ;; deleted sigs here
-        m (conj {:arglists (list 'quote fdecl)} m)
+        ;; _ (prn :fdecl fdecl)
+        m (conj {:arglists (list 'quote (sigs fdecl))} m)
         ;; deleted inline here
         name-m (meta name)
         m (conj (if name-m name-m {}) m)
