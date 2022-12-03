@@ -1810,6 +1810,10 @@
      :cljs Keyword)
   (-analyze [expr _ _]
     (->constant expr))
+  #?(:cljs JSValue)
+  #?(:cljs
+     (-analyze [expr ctx _]
+               (analyze-js-obj ctx expr)))
   #?(:clj Object
      :cljs default)
   (-analyze [expr _ctx _top-level?]
