@@ -1510,10 +1510,10 @@
                                                  :else (let [v
                                                              ;; WTF is this...
                                                              (if m (if #?(:clj (instance? clojure.lang.IObj v)
-                                                                            :cljs (implements? IWithMeta v))
-                                                                       (with-meta v (merge m (meta v)))
-                                                                       v)
-                                                                   v)]
+                                                                          :cljs (implements? IWithMeta v))
+                                                                     (with-meta v (merge m (meta v)))
+                                                                     v)
+                                                                 v)]
                                                          (analyze ctx v top-level?)))]
                               expanded)
                             (if-let [f (:sci.impl/inlined f-meta)]
@@ -1718,32 +1718,116 @@
               arr)
             nil))))))
 
+(defprotocol IAnalyze
+  (-analyze [expr ctx top-level?]))
+
+(defn analyze-symbol [expr ctx m]
+  (let [v (resolve/resolve-symbol ctx expr false (:tag m))
+        mv (meta v)]
+    (cond (constant? v) (->constant v)
+          (utils/var? v)
+          (if (and (vars/needs-ctx? v)
+                   (:sci/built-in mv))
+            ;; this is for built-in vars like require that
+            ;; are used within a higher order function, not
+            ;; in call position
+            (partial v ctx)
+            (if (:const mv)
+              @v
+              (if (vars/isMacro v)
+                (throw (new #?(:clj IllegalStateException :cljs js/Error)
+                            (str "Can't take value of a macro: " v "")))
+                (sci.impl.types/->Node
+                 (faster/deref-1 v)
+                 nil))))
+          :else v)))
+
+
+(extend-protocol IAnalyze
+  #?(:clj clojure.lang.Symbol
+     :cljs Symbol)
+  (-analyze [expr ctx _top-level?]
+    (analyze-symbol expr ctx (meta expr)))
+  #?(:clj clojure.lang.IRecord
+     :cljs IRecord)
+  (-analyze [expr _ctx _top-level?]
+    expr)
+  #?(:clj clojure.lang.PersistentHashMap
+     :cljs PersistentHashMap)
+  (-analyze [expr ctx _]
+    (analyze-map ctx expr (meta expr)))
+  #?(:clj clojure.lang.PersistentArrayMap
+     :cljs PersistentArrayMap)
+  (-analyze [expr ctx _]
+    (analyze-map ctx expr (meta expr)))
+  #?(:clj clojure.lang.PersistentVector
+     :cljs PersistentVector)
+  (-analyze [expr ctx _]
+    (analyze-vec-or-set ctx
+                        ;; relying on analyze-children to
+                        ;; return a vector
+                        identity
+                        vector expr (meta expr)))
+  #?(:clj clojure.lang.PersistentHashSet
+     :cljs PersistentHashSet)
+  (-analyze [expr ctx _]
+    (analyze-vec-or-set ctx
+                        ;; relying on analyze-children to
+                        ;; return a vector
+                        set
+                        hash-set expr (meta expr)))
+  #?(:clj clojure.lang.PersistentList
+     :cljs List)
+  (-analyze [expr ctx top-level?]
+    (if (seq expr)
+      (analyze-call ctx expr (meta expr) top-level?)
+      ;; the empty list
+      expr))
+  #?(:clj clojure.lang.Cons
+     :cljs Cons)
+  (-analyze [expr ctx top-level?]
+    (if (seq expr)
+      (analyze-call ctx expr (meta expr) top-level?)
+      ;; the empty list
+      expr))
+  #?(:clj java.lang.Long
+     :cljs number)
+  (-analyze [expr _ _]
+    (->constant expr))
+  #?(:clj java.lang.Boolean
+     :cljs boolean)
+  (-analyze [expr _ _]
+    (->constant expr))
+  #?(:clj java.lang.String
+     :cljs string)
+  (-analyze [expr _ _]
+    (->constant expr))
+  #?(:clj java.lang.Integer)
+  #?(:clj (-analyze
+           [expr _ _]
+           (->constant expr)))
+  #?(:clj clojure.lang.Keyword
+     :cljs Keyword)
+  (-analyze [expr _ _]
+    (->constant expr))
+  #?(:clj Object
+     :cljs default)
+  (-analyze [expr _ctx _top-level?]
+    #_(prn (str "Not implemented: " (type expr)))
+    expr)
+  nil
+  (-analyze [expr _ctx _top-level?]
+    (->constant expr)))
+
 (defn analyze
   ([ctx expr]
    (analyze ctx expr false))
   ([ctx expr top-level?]
-   (let [m (meta expr)]
+   (-analyze expr ctx top-level?)
+   #_(let [m (meta expr)]
      (cond
        (constant? expr) (->constant expr)
-       (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
-                            mv (meta v)]
-                        (cond (constant? v) (->constant v)
-                              (utils/var? v)
-                              (if (and (vars/needs-ctx? v)
-                                       (:sci/built-in mv))
-                                ;; this is for built-in vars like require that
-                                ;; are used within a higher order function, not
-                                ;; in call position
-                                (partial v ctx)
-                                (if (:const mv)
-                                  @v
-                                  (if (vars/isMacro v)
-                                    (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                                                (str "Can't take value of a macro: " v "")))
-                                    (sci.impl.types/->Node
-                                     (faster/deref-1 v)
-                                     nil))))
-                              :else v))
+       (symbol? expr) (analyze-symbol expr ctx m)
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
        (record? expr) expr
