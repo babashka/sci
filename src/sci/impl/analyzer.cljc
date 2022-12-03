@@ -1407,6 +1407,38 @@
                           (pop-thread-bindings)
                           :cljs (set! *top-level-location* nil))))))))
 
+(defn dispatch-special [ctx expr f]
+  (case f
+    ;; we treat every subexpression of a top-level do as a separate
+    ;; analysis/interpretation unit so we hand this over to the
+    ;; interpreter again, which will invoke analysis + evaluation on
+    ;; every sub expression
+    do (return-do ctx expr (rest expr))
+    let* (analyze-let* ctx expr (second expr) (nnext expr))
+    fn* (analyze-fn* ctx expr)
+    def (analyze-def ctx expr)
+    ;; NOTE: defn / defmacro aren't implemented as normal macros yet
+    #_#_(defn defmacro) (let [ret (analyze-defn ctx expr)]
+                          ret)
+    loop* (analyze-loop* ctx expr)
+    lazy-seq (analyze-lazy-seq ctx expr)
+    if (return-if ctx expr)
+    case (analyze-case ctx expr)
+    try (analyze-try ctx expr)
+    throw (analyze-throw ctx expr)
+    expand-dot* (expand-dot* ctx expr)
+    . (expand-dot** ctx expr)
+    expand-constructor (expand-constructor ctx expr)
+    new (analyze-new ctx expr)
+    ns (analyze-ns-form ctx expr)
+    var (analyze-var ctx expr)
+    set! (analyze-set! ctx expr)
+    quote (analyze-quote ctx expr)
+    import (analyze-import ctx expr)
+    or (return-or ctx expr (rest expr))
+    and (return-and ctx expr (rest expr))
+    recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr)))))
+
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
     (let [eval-file (:clojure.core/eval-file m)]
@@ -1426,7 +1458,9 @@
                       f (or special-sym
                             (resolve/resolve-symbol ctx f true))
                       f-meta (meta f)
-                      eval? (and f-meta (:sci.impl/op f-meta))]
+                      eval? (and f-meta (:sci.impl/op f-meta))
+                      fast-path (-> f-meta :sci.impl/fast-path)
+                      f (or fast-path f)]
                   (cond (and f-meta (::static-access f-meta))
                         #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
                                                     m))
@@ -1451,36 +1485,7 @@
                              (or
                               special-sym
                               (contains? ana-macros f)))
-                        (case f
-                          ;; we treat every subexpression of a top-level do as a separate
-                          ;; analysis/interpretation unit so we hand this over to the
-                          ;; interpreter again, which will invoke analysis + evaluation on
-                          ;; every sub expression
-                          do (return-do ctx expr (rest expr))
-                          let* (analyze-let* ctx expr (second expr) (nnext expr))
-                          fn* (analyze-fn* ctx expr)
-                          def (analyze-def ctx expr)
-                          ;; NOTE: defn / defmacro aren't implemented as normal macros yet
-                          #_#_(defn defmacro) (let [ret (analyze-defn ctx expr)]
-                                                ret)
-                          loop* (analyze-loop* ctx expr)
-                          lazy-seq (analyze-lazy-seq ctx expr)
-                          if (return-if ctx expr)
-                          case (analyze-case ctx expr)
-                          try (analyze-try ctx expr)
-                          throw (analyze-throw ctx expr)
-                          expand-dot* (expand-dot* ctx expr)
-                          . (expand-dot** ctx expr)
-                          expand-constructor (expand-constructor ctx expr)
-                          new (analyze-new ctx expr)
-                          ns (analyze-ns-form ctx expr)
-                          var (analyze-var ctx expr)
-                          set! (analyze-set! ctx expr)
-                          quote (analyze-quote ctx expr)
-                          import (analyze-import ctx expr)
-                          or (return-or ctx expr (rest expr))
-                          and (return-and ctx expr (rest expr))
-                          recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr))))
+                        (dispatch-special ctx expr f)
                         :else
                         (try
                           (if (macro? f)
@@ -1510,10 +1515,10 @@
                                                  :else (let [v
                                                              ;; WTF is this...
                                                              (if m (if #?(:clj (instance? clojure.lang.IObj v)
-                                                                            :cljs (implements? IWithMeta v))
-                                                                       (with-meta v (merge m (meta v)))
-                                                                       v)
-                                                                   v)]
+                                                                          :cljs (implements? IWithMeta v))
+                                                                     (with-meta v (merge m (meta v)))
+                                                                     v)
+                                                                 v)]
                                                          (analyze ctx v top-level?)))]
                               expanded)
                             (if-let [f (:sci.impl/inlined f-meta)]

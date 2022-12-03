@@ -39,7 +39,9 @@
     (let [sym (dequote sym)
           macro (when opts (:macro opts))
           nm (when opts (:name opts))
-          inline? (contains? inlined-vars sym)]
+          inline? (contains? inlined-vars sym)
+          fast-path (or (= 'or sym)
+                        (= 'and sym))]
       (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
                macro (assoc :macro true)
                inline? (assoc :sci.impl/inlined (:init opts sym)))
@@ -51,7 +53,8 @@
                                          (cond-> (if elide-vars {} {:doc (:doc m)})
                                            dyn (assoc :dynamic dyn)
                                            (if elide-vars false arglists)
-                                           (assoc :arglists (list 'quote (:arglists m)))))
+                                           (assoc :arglists (list 'quote (:arglists m)))
+                                           fast-path (assoc :sci.impl/fast-path (list 'quote sym))))
                                  :cljs nil)
                          :cljs (let [r (cljs-resolve &env sym)
                                      m (:meta r)
@@ -60,7 +63,8 @@
                                  (cond-> {:arglists (ensure-quote arglists)
                                           :doc (or (:doc m) (:doc r))}
                                    dyn (assoc :dynamic dyn)
-                                   arglists (assoc :arglists (ensure-quote arglists)))))))))
+                                   arglists (assoc :arglists (ensure-quote arglists))
+                                   fast-path (assoc :sci.impl/fast-path (list 'quote sym)))))))))
 
   (defmacro macrofy [& args]
     (let [[sym & args] args]

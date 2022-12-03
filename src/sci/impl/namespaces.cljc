@@ -895,6 +895,22 @@
                   (let ~(vec (interleave bs gs))
                     ~@body)))))))
 
+(defn or*
+  "This is a macro for compatiblity. Only there for docs and macroexpand, faster impl in analyzer.cljc"
+  ([_ _] nil)
+  ([_ _ x] x)
+  ([_ _ x & next]
+   `(let [or# ~x]
+      (if or# or# (or ~@next)))))
+
+(defn and*
+  "This is a macro for compatiblity. Only there for docs and macroexpand, faster impl in analyzer.cljc"
+  ([_ _] true)
+  ([_ _ x] x)
+  ([_ _ x & next]
+   `(let [and# ~x]
+      (if and# (and ~@next) and#))))
+
 (macros/usetime
 
  (def clojure-core
@@ -1032,6 +1048,7 @@
     'alter-var-root (copy-core-var sci.impl.vars/alter-var-root)
     'amap (macrofy 'amap amap*)
     'ancestors (copy-var hierarchies/ancestors* clojure-core-ns {:name 'ancestors :ctx true})
+    'and (macrofy 'and and*)
     'aset (copy-core-var aset)
     #?@(:clj ['aset-boolean (copy-core-var aset-boolean)
               'aset-byte (copy-core-var aset-byte)
@@ -1302,6 +1319,7 @@
     'odd? (copy-core-var odd?)
     #?@(:cljs ['object? (copy-core-var object?)])
     'object-array (copy-core-var object-array)
+    'or (macrofy 'or or*)
     'parents (copy-var hierarchies/parents* clojure-core-ns {:name 'parents :ctx true})
     'peek (copy-core-var peek)
     'pop (copy-core-var pop)
