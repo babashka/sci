@@ -1409,20 +1409,15 @@
 
 (defn dispatch-special [ctx expr f]
   (case f
-    ;; we treat every subexpression of a top-level do as a separate
-    ;; analysis/interpretation unit so we hand this over to the
-    ;; interpreter again, which will invoke analysis + evaluation on
-    ;; every sub expression
     do (return-do ctx expr (rest expr))
     let* (analyze-let* ctx expr (second expr) (nnext expr))
     fn* (analyze-fn* ctx expr)
     def (analyze-def ctx expr)
-    ;; NOTE: defn / defmacro aren't implemented as normal macros yet
-    #_#_(defn defmacro) (let [ret (analyze-defn ctx expr)]
-                          ret)
     loop* (analyze-loop* ctx expr)
+    ;; TODO: macro but keep fast path?
     lazy-seq (analyze-lazy-seq ctx expr)
     if (return-if ctx expr)
+    ;; TODO: macro but keep fast path?
     case (analyze-case ctx expr)
     try (analyze-try ctx expr)
     throw (analyze-throw ctx expr)
@@ -1430,14 +1425,17 @@
     . (expand-dot** ctx expr)
     expand-constructor (expand-constructor ctx expr)
     new (analyze-new ctx expr)
-    ns (analyze-ns-form ctx expr)
     var (analyze-var ctx expr)
     set! (analyze-set! ctx expr)
     quote (analyze-quote ctx expr)
     import (analyze-import ctx expr)
+    recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr)))
+    ;; Available as macro, but here for optimized version
     or (return-or ctx expr (rest expr))
     and (return-and ctx expr (rest expr))
-    recur (return-recur ctx expr (analyze-children (without-recur-target ctx) (rest expr)))))
+    ;; TODO: macro
+    ns (analyze-ns-form ctx expr)
+    ))
 
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
