@@ -1790,6 +1790,13 @@
       (analyze-call ctx expr (meta expr) top-level?)
       ;; the empty list
       expr))
+  #?(:clj clojure.lang.LazySeq
+     :cljs LazySeq)
+  (-analyze [expr ctx top-level?]
+    (if (seq expr)
+      (analyze-call ctx expr (meta expr) top-level?)
+      ;; the empty list
+      expr))
   #?(:clj java.lang.Long
      :cljs number)
   (-analyze [expr _ _]
@@ -1817,7 +1824,7 @@
   #?(:clj Object
      :cljs default)
   (-analyze [expr _ctx _top-level?]
-    #_(prn (str "Not implemented: " (type expr)))
+    ;; (prn (str "Not implemented: " (type expr)))
     expr)
   nil
   (-analyze [expr _ctx _top-level?]
