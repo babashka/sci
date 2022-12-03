@@ -1718,6 +1718,8 @@
               arr)
             nil))))))
 
+;; This could be a protocol, but there's not a clear win in doing so:
+;; https://github.com/babashka/sci/issues/848
 (defn analyze
   ([ctx expr]
    (analyze ctx expr false))
