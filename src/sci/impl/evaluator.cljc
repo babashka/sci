@@ -57,16 +57,18 @@
 
 (defn eval-case
   ([ctx bindings case-map case-val]
-   (let [v (types/eval case-val ctx bindings)]
-     (if-let [[_ found] (find case-map v)]
-       (types/eval found ctx bindings)
+   (let [v (types/eval case-val ctx bindings)
+         found (get case-map v ::not-found)]
+     (if (utils/kw-identical? ::not-found found)
        (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
-                   (str "No matching clause: " v))))))
+                   (str "No matching clause: " v)))
+       (types/eval found ctx bindings))))
   ([ctx bindings case-map case-val case-default]
-   (let [v (types/eval case-val ctx bindings)]
-     (if-let [[_ found] (find case-map v)]
-       (types/eval found ctx bindings)
-       (types/eval case-default ctx bindings)))))
+   (let [v (types/eval case-val ctx bindings)
+         found (get case-map v ::not-found)]
+     (if (utils/kw-identical? ::not-found found)
+       (types/eval case-default ctx bindings)
+       (types/eval found ctx bindings)))))
 
 (defn eval-try
   [ctx bindings body catches finally sci-error]
