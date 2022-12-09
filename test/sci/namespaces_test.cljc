@@ -360,6 +360,10 @@ bar/bar"}
                        :when (:doc m)]
                    name)))))
 
+#?(:clj
+   (deftest no-cljs-var-resolve-in-clj-test
+     (is (nil? (sci/eval-string "(resolve 'cljs.core/inc)")))))
+
 #?(:cljs
    (deftest test-munge-demunge
      (is (= 'cljs.core/first?

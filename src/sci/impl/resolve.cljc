@@ -48,7 +48,10 @@
                                  sym-ns))]
      (if sym-ns
        (or
-        (when (or (= sym-ns 'clojure.core) (= sym-ns 'cljs.core))
+        (when
+            #?(:clj (= sym-ns 'clojure.core)
+               :cljs (or (= sym-ns 'clojure.core)
+                         (= sym-ns 'cljs.core)))
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
               (when-let [v (when call? (get ana-macros sym-name))]
                 [sym v])))
