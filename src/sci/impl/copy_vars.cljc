@@ -41,7 +41,8 @@
           nm (when opts (:name opts))
           inline? (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
-                        (= 'and sym))]
+                        (= 'and sym)
+                        (= 'case sym))]
       (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
                macro (assoc :macro true)
                inline? (assoc :sci.impl/inlined (:init opts sym)))

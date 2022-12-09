@@ -27,8 +27,8 @@
    [sci.impl.deftype :as deftype]
    [sci.impl.destructure :as destructure]
    [sci.impl.doseq-macro :as doseq-macro]
-   [sci.impl.for-macro :as for-macro]
    [sci.impl.fns :as fns]
+   [sci.impl.for-macro :as for-macro]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.macros :as macros]
@@ -911,6 +911,10 @@
    `(let [and# ~x]
       (if and# (and ~@next) and#))))
 
+(defn case**
+  "This is a macro for compatiblity. Only there for docs and macroexpand, faster impl in analyzer.cljc"
+  [_ _ & body] `(case* ~@body))
+
 (macros/usetime
 
  (def clojure-core
@@ -1099,6 +1103,7 @@
     'bit-not (copy-core-var bit-not)
     'byte (copy-core-var byte)
     'cat (copy-core-var cat)
+    'case (macrofy 'case case**)
     'char (copy-core-var char)
     'char? (copy-core-var char?)
     #?@(:clj ['class? (copy-core-var class?)])

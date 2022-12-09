@@ -50,7 +50,7 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote catch throw def . var set! let* loop*})
+(def special-syms '#{try finally do if new recur quote catch throw def . var set! let* loop* case*})
 
 (defn- throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -852,7 +852,7 @@
                        stack)))
       (throw-error-with-location "Too many arguments to if" expr))))
 
-(defn analyze-case
+(defn analyze-case*
   [ctx expr]
   (let [ctx-wo-rt (without-recur-target ctx)
         case-val (analyze ctx-wo-rt (second expr))
@@ -1417,8 +1417,8 @@
     ;; TODO: macro but keep fast path?
     lazy-seq (analyze-lazy-seq ctx expr)
     if (return-if ctx expr)
-    ;; TODO: macro but keep fast path?
-    case (analyze-case ctx expr)
+    ;; case macro expands into case* with no changes via fast-path
+    (case case*) (analyze-case* ctx expr)
     try (analyze-try ctx expr)
     throw (analyze-throw ctx expr)
     expand-dot* (expand-dot* ctx expr)
