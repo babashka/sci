@@ -239,9 +239,9 @@
 
 (deftest ns-syntax-test
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:clj Error :cljs :default)
        #"symbol"
-       (eval* "(ns)"))))
+       (eval* "(ns 1)"))))
 
 (deftest nested-libspecs-test
   (is (= #{1 2 3 4} (eval* "(require '[clojure [set :refer [union]]]) (union #{1 2 3} #{2 3 4})")))

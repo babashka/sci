@@ -41,7 +41,8 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
-   [sci.lang])
+   [sci.lang]
+   [sci.impl.load :as load])
   #?(:cljs (:require-macros
             [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
 
@@ -406,8 +407,8 @@
 
 (defn sci-in-ns [ctx ns-sym]
   (assert (symbol? ns-sym))
-  (when-not (sci-find-ns ctx ns-sym)
-    (sci-create-ns ctx ns-sym))
+  #_(when-not (sci-find-ns ctx ns-sym)
+      (sci-create-ns ctx ns-sym))
   (sci.impl.utils/set-namespace! ctx ns-sym {}))
 
 (defn sci-the-ns [ctx x]
@@ -915,6 +916,59 @@
   "This is a macro for compatiblity. Only there for docs and macroexpand, faster impl in analyzer.cljc"
   [_ _ & body] `(case* ~@body))
 
+(def loaded-libs**
+  (utils/dynamic-var '*loaded-libs* (atom (sorted-set))
+                     {:doc "A ref to a sorted set of symbols representing loaded libs"
+                      :ns clojure-core-ns
+                      :private true
+                      :sci/built-in true}))
+
+(defn loaded-libs* [ctx]
+  (-> ctx :env deref :namespaces :loaded-libs))
+
+(defn -add-loaded-lib [ctx name]
+  (load/add-loaded-lib (:env ctx) name) #_(let [env (:env ctx)]
+    (swap! env update-in :loaded-libs (fnil conj (sorted-set)) name))
+  nil)
+
+(defn ns*
+  [_form _ name & references]
+  (let [process-reference
+        (fn [[kname & args :as expr]]
+          (with-meta `(~(symbol "clojure.core" (clojure.core/name kname))
+                       ~@(map #(list 'quote %) args))
+            (meta expr)))
+        docstring  (when (string? (first references)) (first references))
+        references (if docstring (next references) references)
+        name (if docstring
+               (vary-meta name assoc :doc docstring)
+               name)
+        metadata   (when (map? (first references)) (first references))
+        references (if metadata (next references) references)
+        name (if metadata
+               (vary-meta name merge metadata)
+               name)
+        #_#_ gen-class-clause (first (filter #(= :gen-class (first %)) references))
+        #_#_gen-class-call
+        (when gen-class-clause
+          (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
+        references (remove #(= :gen-class (first %)) references)
+                                        ;ns-effect (clojure.core/in-ns name)
+        name-metadata (meta name)
+        exp `(do
+               (clojure.core/in-ns '~name)
+               ~@(when name-metadata
+                   `(clojure.core/alter-meta! (find-ns '~name) (constantly  ~name-metadata)))
+               #_~@(when gen-class-call (list gen-class-call))
+               #_~@(when (and (not= name 'clojure.core) (not-any? #(= :refer-clojure (first %)) references))
+                     `((clojure.core/refer '~'clojure.core)))
+               ~@(map process-reference references)
+               (if (= '~name 'clojure.core)
+                   nil
+                   (do (clojure.core/-add-loaded-lib '~name) nil)))]
+    ;;(println exp)
+    exp))
+
 (macros/usetime
 
  (def clojure-core
@@ -957,7 +1011,7 @@
     '*read-eval* parser/read-eval
     '*reader-resolver* parser/reader-resolver
     'read (copy-var read clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/read})
-    'read-string (copy-var read-string clojure-core-ns  {:copy-meta-from 'clojure.core/read-string :ctx true})
+    'read-string (copy-var read-string clojure-core-ns {:copy-meta-from 'clojure.core/read-string :ctx true})
     #?@(:clj ['reader-conditional? (copy-core-var reader-conditional?)])
     ;; end read
     ;; REPL variables
@@ -1026,6 +1080,7 @@
     '-new-dynamic-var (new-var '-new-dynamic-var #(sci.impl.utils/new-var (gensym) nil {:dynamic true}))
     ;; used in let-fn
     '-new-var (new-var '-new-var #(sci.impl.utils/new-var (gensym) nil))
+    '-add-loaded-lib (copy-var -add-loaded-lib clojure-core-ns {:ctx true})
     ;; end private
     '.. (macrofy '.. double-dot)
     '= (copy-core-var =)
@@ -1263,6 +1318,7 @@
     'let (macrofy 'let let**)
     'letfn (macrofy 'letfn letfn*)
     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
+    'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs :ctx true})
     'loop (macrofy 'loop loop**)
     'long (copy-core-var long)
     'list (copy-core-var list)
@@ -1306,6 +1362,7 @@
     'nthrest (copy-core-var nthrest)
     'nil? (copy-core-var nil?)
     'nat-int? (copy-core-var nat-int?)
+    'ns (macrofy 'ns ns*)
     'ns-resolve (copy-var sci-ns-resolve clojure-core-ns {:ctx true :name 'ns-resolve})
     'number? (copy-core-var number?)
     'not-empty (copy-core-var not-empty)
