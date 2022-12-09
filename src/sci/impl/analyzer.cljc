@@ -1433,7 +1433,6 @@
     ;; Available as macro, but here for optimized version
     or (return-or ctx expr (rest expr))
     and (return-and ctx expr (rest expr))
-    ;; TODO: macro
     ns (analyze-ns-form ctx expr)
     ))
 
