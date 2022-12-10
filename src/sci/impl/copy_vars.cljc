@@ -42,7 +42,7 @@
           [fqsym sym] (if (qualified-symbol? sym)
                      [sym (symbol (name sym))]
                      [(symbol "clojure.core" (str sym)) sym])
-          inline? (contains? inlined-vars sym)
+          inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
                         (= 'case sym)
@@ -50,7 +50,7 @@
                         (= 'lazy-seq sym))
           varm (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
                     macro (assoc :macro true)
-                    inline? (assoc :sci.impl/inlined fqsym))
+                    inline (assoc :sci.impl/inlined (:inlined opts fqsym)))
                   (let [#?@(:clj [the-var (macros/? :clj (resolve fqsym)
                                                     :cljs (atom nil))])]
                     (macros/? :clj #?(:clj  (let [m (meta the-var)
@@ -101,7 +101,7 @@
                  dyn (assoc :dynamic dyn))
           nm (:name varm)
           ctx (:ctx opts)
-          init (:init opts sym)]
+          init sym]
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if macro
         (macros/? :clj

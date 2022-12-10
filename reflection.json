@@ -98,8 +98,7 @@
    "methods": [
      {"name": "aget"},
      {"name": "aset"},
-     {"name": "aclone"},
-     {"name": "alength"}
+     {"name": "aclone"}
    ]},
   {"name": "[Ljava.lang.Double;"}
 ]

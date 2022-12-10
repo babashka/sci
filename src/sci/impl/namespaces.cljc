@@ -1122,8 +1122,9 @@
               'aset-int (copy-core-var aset-int)
               'aset-long (copy-core-var aset-long)
               'aset-short (copy-core-var aset-short)])
-    'alength #?(:clj (copy-var alength clojure-core-ns {:init (fn [arr]
-                                                                (java.lang.reflect.Array/getLength arr))})
+    'alength #?(:clj (copy-var alength clojure-core-ns {:inlined
+                                                        (fn [arr]
+                                                          (java.lang.reflect.Array/getLength arr))})
                 :cljs (copy-core-var alength))
     'any? (copy-core-var any?)
     'apply (copy-core-var apply)
