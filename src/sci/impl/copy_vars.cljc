@@ -33,41 +33,47 @@
       x))
 
   (defn core-sym [sym]
-    (symbol "clojure.core" (name (dequote sym))))
+    (symbol "clojure.core" (name sym)))
 
   (defn var-meta [&env sym opts & _a]
     (let [sym (dequote sym)
           macro (when opts (:macro opts))
           nm (when opts (:name opts))
+          [fqsym sym] (if (qualified-symbol? sym)
+                     [sym (symbol (name sym))]
+                     [(symbol "clojure.core" (str sym)) sym])
           inline? (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
                         (= 'case sym)
                         (= 'ns sym)
-                        (= 'lazy-seq sym))]
-      (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
-               macro (assoc :macro true)
-               inline? (assoc :sci.impl/inlined (:init opts sym)))
-             (let [#?@(:clj [the-var (macros/? :clj (resolve sym)
-                                               :cljs (atom nil))])]
-               (macros/? :clj #?(:clj  (let [m (meta the-var)
-                                             dyn (:dynamic m)
-                                             arglists (:arglists m)]
-                                         (cond-> (if elide-vars {} {:doc (:doc m)})
-                                           dyn (assoc :dynamic dyn)
-                                           (if elide-vars false arglists)
-                                           (assoc :arglists (list 'quote (:arglists m)))
-                                           fast-path (assoc :sci.impl/fast-path (list 'quote sym))))
-                                 :cljs nil)
-                         :cljs (let [r (cljs-resolve &env sym)
-                                     m (:meta r)
-                                     dyn (:dynamic m)
-                                     arglists (or (:arglists m) (:arglists r))]
-                                 (cond-> {:arglists (ensure-quote arglists)
-                                          :doc (or (:doc m) (:doc r))}
-                                   dyn (assoc :dynamic dyn)
-                                   arglists (assoc :arglists (ensure-quote arglists))
-                                   fast-path (assoc :sci.impl/fast-path (list 'quote sym)))))))))
+                        (= 'lazy-seq sym))
+          varm (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
+                    macro (assoc :macro true)
+                    inline? (assoc :sci.impl/inlined fqsym))
+                  (let [#?@(:clj [the-var (macros/? :clj (resolve fqsym)
+                                                    :cljs (atom nil))])]
+                    (macros/? :clj #?(:clj  (let [m (meta the-var)
+                                                  dyn (:dynamic m)
+                                                  arglists (:arglists m)]
+                                              (cond-> (if elide-vars {} {:doc (:doc m)})
+                                                dyn (assoc :dynamic dyn)
+                                                (if elide-vars false arglists)
+                                                (assoc :arglists (list 'quote (:arglists m)))
+                                                fast-path (assoc :sci.impl/fast-path (list 'quote sym))))
+                                      :cljs nil)
+                              :cljs (let [r (cljs-resolve &env fqsym)
+                                          m (:meta r)
+                                          dyn (:dynamic m)
+                                          arglists (or (:arglists m) (:arglists r))]
+                                      (cond-> {:arglists (ensure-quote arglists)
+                                               :doc (or (:doc m) (:doc r))}
+                                        dyn (assoc :dynamic dyn)
+                                        arglists (assoc :arglists (ensure-quote arglists))
+                                        fast-path (assoc :sci.impl/fast-path (list 'quote sym)))))))]
+      #_(when (= 'inc sym)
+        (prn varm))
+      varm))
 
   (defmacro macrofy [& args]
     (let [[sym & args] args]
