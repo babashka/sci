@@ -43,7 +43,8 @@
           fast-path (or (= 'or sym)
                         (= 'and sym)
                         (= 'case sym)
-                        (= 'ns sym))]
+                        (= 'ns sym)
+                        (= 'lazy-seq sym))]
       (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
                macro (assoc :macro true)
                inline? (assoc :sci.impl/inlined (:init opts sym)))

@@ -969,6 +969,11 @@
     ;;(println exp)
     exp))
 
+(defn lazy-seq*
+  [_ _ & body]
+  #?(:clj  (list 'new 'clojure.lang.LazySeq (list* '^{:once true} fn* [] body))
+     :cljs `(new cljs.core.LazySeq nil (fn [] ~@body) nil nil)))
+
 (macros/usetime
 
  (def clojure-core
@@ -1314,6 +1319,7 @@
     'keyword? (copy-core-var keyword?)
     #?@(:cljs ['keyword-identical? (copy-core-var keyword-identical?)])
     'last (copy-core-var last)
+    'lazy-seq (macrofy 'lazy-seq lazy-seq*)
     'lazy-cat (macrofy 'lazy-cat lazy-cat*)
     'let (macrofy 'let let**)
     'letfn (macrofy 'letfn letfn*)

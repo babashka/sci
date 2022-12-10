@@ -65,6 +65,7 @@
            'clojure.lang.Delay clojure.lang.Delay
            'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
            'clojure.lang.LineNumberingPushbackReader clojure.lang.LineNumberingPushbackReader
+           'clojure.lang.LazySeq clojure.lang.LazySeq
            'java.lang.String {:class String}
            'java.io.StringWriter java.io.StringWriter
            'java.io.StringReader java.io.StringReader
@@ -82,6 +83,7 @@
                                                    ([msg filename line] (js/Error. msg filename line)))}
             'cljs.core.Delay {:class cljs.core/Delay
                               :constructor #(cljs.core/Delay. % nil)}
+            'cljs.core.LazySeq LazySeq
             'goog.string.StringBuffer {:class goog.string/StringBuffer
                                        :constructor #(goog.string/StringBuffer. %)}
             'sci.lang.Type sci.lang.Type}))

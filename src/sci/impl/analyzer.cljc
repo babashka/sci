@@ -1414,8 +1414,6 @@
     fn* (analyze-fn* ctx expr)
     def (analyze-def ctx expr)
     loop* (analyze-loop* ctx expr)
-    ;; TODO: macro but keep fast path?
-    lazy-seq (analyze-lazy-seq ctx expr)
     if (return-if ctx expr)
     ;; case macro expands into case* with no changes via fast-path
     (case case*) (analyze-case* ctx expr)
@@ -1434,7 +1432,7 @@
     or (return-or ctx expr (rest expr))
     and (return-and ctx expr (rest expr))
     ns (analyze-ns-form ctx expr)
-    ))
+    lazy-seq (analyze-lazy-seq ctx expr)))
 
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
