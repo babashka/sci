@@ -239,9 +239,9 @@
 
 (deftest ns-syntax-test
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:clj Exception :cljs :default)
        #"symbol"
-       (eval* "(ns)"))))
+       (eval* "(ns 1)"))))
 
 (deftest nested-libspecs-test
   (is (= #{1 2 3 4} (eval* "(require '[clojure [set :refer [union]]]) (union #{1 2 3} #{2 3 4})")))
@@ -368,3 +368,6 @@ bar/bar"}
    (deftest test-munge-demunge
      (is (= 'cljs.core/first?
             (demunge (munge 'cljs.core/first?))))))
+
+(deftest macroexpand-eval-test
+  (is (= 'clojure.string/x (eval* "(eval (macroexpand '(ns foo (:require [clojure.string :as str])))) `str/x"))))
