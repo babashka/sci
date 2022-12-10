@@ -368,3 +368,6 @@ bar/bar"}
    (deftest test-munge-demunge
      (is (= 'cljs.core/first?
             (demunge (munge 'cljs.core/first?))))))
+
+(deftest macroexpand-eval-test
+  (is (= 'clojure.string/x (eval* "(eval (macroexpand '(ns foo (:require [clojure.string :as str])))) `str/x"))))
