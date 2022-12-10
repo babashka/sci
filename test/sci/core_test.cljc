@@ -1617,6 +1617,9 @@
 (deftest override-ns-test
   (is (= 3 (sci/eval-string "(ns 2)" {:namespaces {'clojure.core {'ns inc}}}))))
 
+(deftest lazy-seq-macroexpand-test
+  (is (= [1 2 3] (sci/eval-string "(eval (macroexpand '(lazy-seq [1 2 3])))"))))
+
 ;;;; Scratch
 
 (comment
