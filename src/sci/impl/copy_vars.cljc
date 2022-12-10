@@ -101,7 +101,7 @@
                  dyn (assoc :dynamic dyn))
           nm (:name varm)
           ctx (:ctx opts)
-          init sym]
+          init (:init opts sym)]
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if macro
         (macros/? :clj
