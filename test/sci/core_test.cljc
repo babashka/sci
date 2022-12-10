@@ -1614,6 +1614,9 @@
   ;; NOTE: :file is not conform Clojure JVM, maybe fix this another day
   (is (= [:name :ns :file] (sci/eval-string "(when false (def ^:foobar x)) (keys (meta #'x))"))))
 
+(deftest override-ns-test
+  (is (= 3 (sci/eval-string "(ns 2)" {:namespaces {'clojure.core {'ns inc}}}))))
+
 ;;;; Scratch
 
 (comment

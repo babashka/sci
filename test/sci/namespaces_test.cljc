@@ -239,7 +239,7 @@
 
 (deftest ns-syntax-test
   (is (thrown-with-msg?
-       #?(:clj Error :cljs :default)
+       #?(:clj Exception :cljs :default)
        #"symbol"
        (eval* "(ns 1)"))))
 
