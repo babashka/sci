@@ -1079,6 +1079,9 @@
 
     #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                        {:ns clojure-core-ns})])
+    ;; cljs data structures
+    #?@(:cljs ['PersistentQueue (copy-var PersistentQueue clojure-core-ns)])
+    ;; end cljs data structures
     ;; private
     'has-root-impl (copy-core-var has-root-impl)
     ;; used in with-local-vars

@@ -45,9 +45,19 @@
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [[class field-name-sym]])
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
-     :cljs (if (str/includes? (str field-name-sym) ".")
-             (apply gobject/getValueByKeys class (str/split (str field-name-sym) #"\."))
-             (gobject/get class field-name-sym))))
+     :cljs (do
+             (prn :class (str class) :field-name field-name-sym)
+             (if (str/includes? (str field-name-sym) ".")
+                 (apply gobject/getValueByKeys class (str/split (str field-name-sym) #"\."))
+                 (gobject/get class field-name-sym)))))
+
+#?(:cljs (defn get-static-fields [class path-array idx max-idx]
+           (if (nil? idx)
+             (recur class path-array 0 (dec (alength path-array)))
+             (let [class (gobject/get class (aget path-array idx))]
+               (if (== idx max-idx)
+                 class
+                 (recur class path-array (inc idx) max-idx))))))
 
 #?(:cljs
    (defn invoke-js-constructor [constructor args]

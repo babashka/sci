@@ -175,10 +175,12 @@
            #?(:cljs
               (let [sym-ns (namespace sym)
                     sym-name (name sym)]
-                (when-let [prefix-idx (str/index-of sym-name ".")]
+                (prn :sym sym)
+                (when-let [prefix-idx (str/last-index-of sym-name ".")]
                   (when (pos? prefix-idx)
                     (let [prefix (subs sym-name 0 prefix-idx)
                           new-sym (symbol sym-ns prefix)
+                          _ (prn :resolving new-sym)
                           resolved (resolve-symbol ctx new-sym call? tag)
                           clazz (if (utils/var? resolved) (deref resolved) resolved)]
                       (when clazz
@@ -190,9 +192,11 @@
                                  (let [stack (assoc (meta sym)
                                                     :file @utils/current-file
                                                     :ns @utils/current-ns)]
-                                   (->Node
-                                    (interop/get-static-field [clazz path])
-                                    stack)))])))))))))
+                                   (do
+                                     (prn :clazz clazz :path path)
+                                     (->Node
+                                      (interop/get-static-field [clazz path])
+                                      stack))))])))))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
@@ -212,7 +216,8 @@
                         (> (count n) 1))
                    [sym 'expand-constructor]
                    ))
-               #?(:cljs (resolve-dotted-access ctx sym call? tag))
+               #?(:cljs (doto (resolve-dotted-access ctx sym call? tag)
+                          prn))
                (throw-error-with-location
                 (str "Could not resolve symbol: " (str sym))
                 sym)))]
