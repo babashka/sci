@@ -204,11 +204,20 @@
            #?(:cljs
               (when-let [[v segments] (resolve-prefix+path ctx sym tag)]
                 (let [v (if (utils/var? v) (deref v) v)]
+                  ;; TODO: there is a reloading implication here...
                   (if call?
                     (with-meta
                       [v segments]
                       {:sci.impl.analyzer/static-access true})
-                    [nil (interop/get-static-fields v (into-array segments) nil nil)]))))))
+                    (if (instance? sci.impl.types/NodeR v)
+                      (let [segments (into-array segments)]
+                        [nil
+                         (sci.impl.types/->Node
+                          (interop/get-static-fields
+                           (sci.impl.types/eval v ctx bindings)
+                           segments nil nil)
+                          nil)])
+                      [nil (interop/get-static-fields v (into-array segments) nil nil)])))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))

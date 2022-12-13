@@ -277,4 +277,6 @@
               (sci/eval-string "(def x cljs.core/PersistentQueue.EMPTY) x"
                                {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}})
               (sci/eval-string "(def x cljs.core.PersistentQueue.EMPTY) x"
-                               {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}}))))))
+                               {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}}))))
+     (testing "local ref"
+       (sci/eval-string "(let [x #js {:a 1}] x.a)"))))
