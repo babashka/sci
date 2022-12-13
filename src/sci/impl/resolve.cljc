@@ -209,28 +209,7 @@
                     (with-meta
                       [v segments]
                       {:sci.impl.analyzer/static-access true})
-                    [nil (interop/get-static-fields v (into-array segments) nil nil)])))
-              #_(when-let [prefix-idx (str/last-index-of sym-name ".")]
-                  (when (pos? prefix-idx)
-                    (let [prefix (subs sym-name 0 prefix-idx)
-                          new-sym (symbol sym-ns prefix)
-                          ctx (assoc ctx :resolving-dotted-access true)
-                          resolved (resolve-symbol* ctx new-sym call? tag)
-                          clazz (if (utils/var? resolved) (deref resolved) resolved)]
-                      (when clazz
-                        (let [path (subs sym-name (inc prefix-idx))]
-                          [sym (if call?
-                                 (with-meta
-                                   [clazz path]
-                                   {:sci.impl.analyzer/static-access true})
-                                 (let [stack (assoc (meta sym)
-                                                    :file @utils/current-file
-                                                    :ns @utils/current-ns)]
-                                   (do
-                                     (prn :clazz clazz :path path)
-                                     (->Node
-                                      (interop/get-static-field [clazz path])
-                                      stack))))]))))))))
+                    [nil (interop/get-static-fields v (into-array segments) nil nil)]))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
