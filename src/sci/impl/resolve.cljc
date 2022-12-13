@@ -185,7 +185,7 @@
        [sym 'expand-constructor]))))
 
 #?(:cljs
-   (defn resolve-prefix+path [ctx sym call? tag]
+   (defn resolve-prefix+path [ctx sym tag]
      (let [sym-ns (namespace sym)
            sym-name (name sym)
            segments (.split sym-name ".")]
@@ -196,14 +196,13 @@
                  nxt-segments (next segments)
                  new-sym (symbol sym-ns (str prefix
                                              (when prefix ".") fst-segment))]
-             (if-let [v (second (resolve-symbol* ctx new-sym call? tag))]
-               (do
-                 [v nxt-segments])
+             (if-let [v (second (resolve-symbol* ctx new-sym false tag))]
+               [v nxt-segments]
                (recur (str new-sym) nxt-segments))))))))
 
 #?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
            #?(:cljs
-              (when-let [[v segments] (resolve-prefix+path ctx sym call? tag)]
+              (when-let [[v segments] (resolve-prefix+path ctx sym tag)]
                 (let [v (if (utils/var? v) (deref v) v)]
                   (if call?
                     (with-meta
