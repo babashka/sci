@@ -171,19 +171,18 @@
 
 (defn resolve-symbol*
   [ctx sym call? tag]
-  (second
-   (or
-    (lookup ctx sym call? tag)
-    (let [n (name sym)]
-      (cond
-        (and call?
-             (str/starts-with? n ".")
-             (> (count n) 1))
-        [sym 'expand-dot*] ;; method invocation
-        (and call?
-             (str/ends-with? n ".")
-             (> (count n) 1))
-        [sym 'expand-constructor])))))
+  (or
+   (lookup ctx sym call? tag)
+   (let [n (name sym)]
+     (cond
+       (and call?
+            (str/starts-with? n ".")
+            (> (count n) 1))
+       [sym 'expand-dot*] ;; method invocation
+       (and call?
+            (str/ends-with? n ".")
+            (> (count n) 1))
+       [sym 'expand-constructor]))))
 
 #?(:cljs
    (defn resolve-prefix+path [ctx sym call? tag]
@@ -197,18 +196,20 @@
                  nxt-segments (next segments)
                  new-sym (symbol sym-ns (str prefix
                                              (when prefix ".") fst-segment))]
-             (if-let [v (resolve-symbol* ctx new-sym call? tag)]
-               [v nxt-segments]
+             (if-let [v (second (resolve-symbol* ctx new-sym call? tag))]
+               (do
+                 [v nxt-segments])
                (recur (str new-sym) nxt-segments))))))))
 
 #?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
            #?(:cljs
               (when-let [[v segments] (resolve-prefix+path ctx sym call? tag)]
-                (if call?
-                  (with-meta
-                    [v segments]
-                    {:sci.impl.analyzer/static-access true})
-                  (interop/get-static-fields v (into-array segments) nil nil)))
+                (let [v (if (utils/var? v) (deref v) v)]
+                  (if call?
+                    (with-meta
+                      [v segments]
+                      {:sci.impl.analyzer/static-access true})
+                    [nil (interop/get-static-fields v (into-array segments) nil nil)])))
               #_(when-let [prefix-idx (str/last-index-of sym-name ".")]
                   (when (pos? prefix-idx)
                     (let [prefix (subs sym-name 0 prefix-idx)
@@ -235,8 +236,9 @@
   ([ctx sym] (resolve-symbol ctx sym false nil))
   ([ctx sym call?] (resolve-symbol ctx sym call? nil))
   ([ctx sym call? tag]
-   (or (resolve-symbol* ctx sym call? tag)
-       #?(:cljs (resolve-dotted-access ctx sym call? tag))
-       (throw-error-with-location
-        (str "Could not resolve symbol: " (str sym))
-        sym))))
+   (second
+    (or (resolve-symbol* ctx sym call? tag)
+        #?(:cljs (resolve-dotted-access ctx sym call? tag))
+        (throw-error-with-location
+         (str "Could not resolve symbol: " (str sym))
+         sym)))))
