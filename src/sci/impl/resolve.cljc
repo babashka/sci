@@ -200,12 +200,11 @@
                  new-sym-2 (when-not sym-ns
                              (symbol prefix
                                      fst-segment))]
-             (if-let [v (second (resolve-symbol* ctx new-sym false tag))]
-               [v nxt-segments]
+             (if-let [v (resolve-symbol* ctx new-sym false tag)]
+               [(second v) nxt-segments]
                (do
-                 ;; (prn :new-sym-2 new-sym-2)
-                 (if-let [v2 (second (resolve-symbol* ctx new-sym-2 false tag))]
-                   [v2 nxt-segments]
+                 (if-let [v2 (resolve-symbol* ctx new-sym-2 false tag)]
+                   [(second v2) nxt-segments]
                    (recur (str new-sym) nxt-segments))))))))))
 
 #?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
