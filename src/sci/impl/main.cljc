@@ -25,8 +25,10 @@
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.System] System)])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.IllegalArgumentException] IllegalArgumentException)])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.Thread] Thread)])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.Math] Math)])
         #?@(:clj [ctx (assoc-in ctx [:imports] {'System 'java.lang.System
-                                                'Thread 'java.lang.Thread})])]
+                                                'Thread 'java.lang.Thread
+                                                'Math 'java.lang.Math})])]
     ctx))
 
 (defn ^:skip-aot main [& [form ctx]]

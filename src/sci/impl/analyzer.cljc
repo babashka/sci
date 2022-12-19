@@ -1017,13 +1017,14 @@
                            (interop/get-static-field [instance-expr method-name])
                            stack)
                           (sci.impl.types/->Node
-                           (eval/eval-static-method-invocation
-                            ctx bindings
-                            (cons [instance-expr method-name] args))
+                           (interop/invoke-static-method instance-expr method-name
+                                                         ;; TODO: array?
+                                                         (mapv #(sci.impl.types/eval % ctx bindings) args))
                            stack)))
                       (sci.impl.types/->Node
-                       (eval/eval-static-method-invocation
-                        ctx bindings (cons [instance-expr method-name] args))
+                       (interop/invoke-static-method instance-expr method-name
+                                                     ;; TODO: array?
+                                                     (mapv #(sci.impl.types/eval % ctx bindings) args))
                        stack))
                     (with-meta (sci.impl.types/->Node
                                 (eval/eval-instance-method-invocation

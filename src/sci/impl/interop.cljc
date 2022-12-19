@@ -71,7 +71,7 @@
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (invoke-js-constructor constructor args)))
 
-(defn invoke-static-method #?(:clj [[^Class class method-name] args]
+(defn invoke-static-method #?(:clj [^Class class method-name args]
                               :cljs [class method args])
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))

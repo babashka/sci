@@ -85,6 +85,12 @@
     "allPublicConstructors": true
   },
   {
+    "name":"java.lang.Math",
+    "allPublicMethods":true,
+    "allPublicFields": true,
+    "allPublicConstructors": true
+  },
+  {
     "name":"java.lang.Thread",
     "allPublicMethods":true,
     "allPublicFields": true,
