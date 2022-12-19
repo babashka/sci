@@ -204,9 +204,11 @@
                  new-sym (symbol sym-ns (str prefix
                                              (when prefix ".") fst-segment))
 
-                 new-sym-2 (when-not sym-ns
+                 new-sym-2 (when (and (not sym-ns)
+                                      prefix)
                              (symbol prefix
                                      fst-segment))]
+             ;; (prn new-sym new-sym-2 :prefix prefix)
              (if-let [v (resolve-symbol* ctx new-sym false tag)]
                [(second v) nxt-segments]
                (if-let [v2 (when new-sym-2
