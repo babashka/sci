@@ -90,8 +90,13 @@
              [sym c])
            ;; resolves record or protocol referenced as class
            ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
-           (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
-             [sym x]))))))))
+           #?(:clj
+              (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+                [sym x])
+              :cljs
+              (when-not (:dotted-access ctx)
+                (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+                  [sym x]))))))))))
 
 (defn update-parents
   ":syms = closed over -> idx"
@@ -189,7 +194,8 @@
      [ctx sym tag]
      (let [sym-ns (namespace sym)
            sym-name (name sym)
-           segments (.split sym-name ".")]
+           segments (.split sym-name ".")
+           ctx (assoc ctx :dotted-access true)]
        (loop [prefix nil
               segments segments]
          (when-not (empty? segments)
@@ -203,7 +209,8 @@
                                      fst-segment))]
              (if-let [v (resolve-symbol* ctx new-sym false tag)]
                [(second v) nxt-segments]
-               (if-let [v2 (resolve-symbol* ctx new-sym-2 false tag)]
+               (if-let [v2 (when new-sym-2
+                             (resolve-symbol* ctx new-sym-2 false tag))]
                  [(second v2) nxt-segments]
                  (recur (str new-sym) nxt-segments)))))))))
 
@@ -211,7 +218,7 @@
            #?(:cljs
               (when-let [[v segments] (resolve-prefix+path ctx sym tag)]
                 (let [v (if (utils/var? v) (deref v) v)]
-                  ;; TODO: there is a reloading implication here...
+                  ;; NOTE: there is a reloading implication here...
                   (if call?
                     (with-meta
                       [v segments]
