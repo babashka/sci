@@ -264,6 +264,8 @@
    (deftest dotted-reference-test
      (is (= 1 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.a" {:classes {'js goog/global}})))
      (is (= 2 (sci/eval-string "(def x #js {:a 1 :b #js {:c 2}}) x.b.c" {:classes {'js goog/global}})))
+     (is (= 1 (sci/eval-string "(ns foo.bar) (def x #js {:a #js {:b 1}}) (ns bar) foo.bar.x.a.b")))
+     (is (= 1 (sci/eval-string "(ns foo.bar) (def x #js {:a #js {:b 1}}) (ns bar) foo.bar/x.a.b")))
      (testing "var ref"
        (is (= PersistentQueue.EMPTY (sci/eval-string "(def x PersistentQueue.EMPTY) x" {:namespaces {'clojure.core {'PersistentQueue (sci/new-var 'x persistent-queue)}}}))))
      (testing "non-var ref"
@@ -273,4 +275,8 @@
      (testing "with cljs.core prefix"
        (is (= PersistentQueue.EMPTY
               (sci/eval-string "(def x cljs.core/PersistentQueue.EMPTY) x"
-                               {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}}))))))
+                               {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}})
+              (sci/eval-string "(def x cljs.core.PersistentQueue.EMPTY) x"
+                               {:namespaces {'clojure.core {'PersistentQueue persistent-queue}}}))))
+     (testing "local ref"
+       (sci/eval-string "(let [x #js {:a 1}] x.a)"))))

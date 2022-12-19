@@ -90,8 +90,13 @@
              [sym c])
            ;; resolves record or protocol referenced as class
            ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
-           (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
-             [sym x]))))))))
+           #?(:clj
+              (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+                [sym x])
+              :cljs
+              (when-not (:dotted-access ctx)
+                (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+                  [sym x]))))))))))
 
 (defn update-parents
   ":syms = closed over -> idx"
@@ -169,52 +174,73 @@
 ;; workaround for evaluator also needing this function
 (vreset! utils/lookup lookup)
 
-(declare resolve-symbol)
+(defn resolve-symbol*
+  [ctx sym call? tag]
+  (or
+   (lookup ctx sym call? tag)
+   (let [n (name sym)]
+     (cond
+       (and call?
+            (str/starts-with? n ".")
+            (> (count n) 1))
+       [sym 'expand-dot*] ;; method invocation
+       (and call?
+            (str/ends-with? n ".")
+            (> (count n) 1))
+       [sym 'expand-constructor]))))
+
+#?(:cljs
+   (defn resolve-prefix+path
+     [ctx sym tag]
+     (let [sym-ns (namespace sym)
+           sym-name (name sym)
+           segments (.split sym-name ".")
+           ctx (assoc ctx :dotted-access true)]
+       (loop [prefix nil
+              segments segments]
+         (when-not (empty? segments)
+           (let [fst-segment (first segments)
+                 nxt-segments (next segments)
+                 new-sym (symbol sym-ns (str prefix
+                                             (when prefix ".") fst-segment))
+
+                 new-sym-2 (when (and (not sym-ns)
+                                      prefix)
+                             (symbol prefix
+                                     fst-segment))]
+             (if-let [v (resolve-symbol* ctx new-sym false tag)]
+               [(second v) nxt-segments]
+               (if-let [v2 (when new-sym-2
+                             (resolve-symbol* ctx new-sym-2 false tag))]
+                 [(second v2) nxt-segments]
+                 (recur (str new-sym) nxt-segments)))))))))
 
 #?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
            #?(:cljs
-              (let [sym-ns (namespace sym)
-                    sym-name (name sym)]
-                (when-let [prefix-idx (str/index-of sym-name ".")]
-                  (when (pos? prefix-idx)
-                    (let [prefix (subs sym-name 0 prefix-idx)
-                          new-sym (symbol sym-ns prefix)
-                          resolved (resolve-symbol ctx new-sym call? tag)
-                          clazz (if (utils/var? resolved) (deref resolved) resolved)]
-                      (when clazz
-                        (let [path (subs sym-name (inc prefix-idx))]
-                          [sym (if call?
-                                 (with-meta
-                                   [clazz path]
-                                   {:sci.impl.analyzer/static-access true})
-                                 (let [stack (assoc (meta sym)
-                                                    :file @utils/current-file
-                                                    :ns @utils/current-ns)]
-                                   (->Node
-                                    (interop/get-static-field [clazz path])
-                                    stack)))])))))))))
+              (when-let [[v segments] (resolve-prefix+path ctx sym tag)]
+                (let [v (if (utils/var? v) (deref v) v)]
+                  ;; NOTE: there is a reloading implication here...
+                  (if call?
+                    (with-meta
+                      [v segments]
+                      {:sci.impl.analyzer/static-access true})
+                    (if (instance? sci.impl.types/NodeR v)
+                      (let [segments (into-array segments)]
+                        [nil
+                         (sci.impl.types/->Node
+                          (interop/get-static-fields
+                           (sci.impl.types/eval v ctx bindings)
+                           segments nil nil)
+                          nil)])
+                      [nil (interop/get-static-fields v (into-array segments) nil nil)])))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
   ([ctx sym call?] (resolve-symbol ctx sym call? nil))
   ([ctx sym call? tag]
-   (let [res (second
-              (or
-               (lookup ctx sym call? tag)
-               (let [n (name sym)]
-                 (cond
-                   (and call?
-                        (str/starts-with? n ".")
-                        (> (count n) 1))
-                   [sym 'expand-dot*] ;; method invocation
-                   (and call?
-                        (str/ends-with? n ".")
-                        (> (count n) 1))
-                   [sym 'expand-constructor]
-                   ))
-               #?(:cljs (resolve-dotted-access ctx sym call? tag))
-               (throw-error-with-location
-                (str "Could not resolve symbol: " (str sym))
-                sym)))]
-     ;; (prn 'resolve sym '-> res (meta res))
-     res)))
+   (second
+    (or (resolve-symbol* ctx sym call? tag)
+        #?(:cljs (resolve-dotted-access ctx sym call? tag))
+        (throw-error-with-location
+         (str "Could not resolve symbol: " (str sym))
+         sym)))))

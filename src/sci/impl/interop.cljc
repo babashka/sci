@@ -49,6 +49,14 @@
              (apply gobject/getValueByKeys class (str/split (str field-name-sym) #"\."))
              (gobject/get class field-name-sym))))
 
+#?(:cljs (defn get-static-fields [class path-array idx max-idx]
+           (if (nil? idx)
+             (recur class path-array 0 (dec (alength path-array)))
+             (let [class (gobject/get class (aget path-array idx))]
+               (if (== idx max-idx)
+                 class
+                 (recur class path-array (inc idx) max-idx))))))
+
 #?(:cljs
    (defn invoke-js-constructor [constructor args]
      (js/Reflect.construct constructor (into-array args))))

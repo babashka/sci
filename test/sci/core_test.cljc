@@ -1620,6 +1620,10 @@
 (deftest lazy-seq-macroexpand-test
   (is (= [1 2 3] (sci/eval-string "(eval (macroexpand '(lazy-seq [1 2 3])))"))))
 
+#?(:cljs
+   (deftest queue-test
+     (is (= #queue [1 2 3] (sci/eval-string "#queue [1 2 3]")))))
+
 ;;;; Scratch
 
 (comment
