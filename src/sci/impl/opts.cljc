@@ -81,6 +81,8 @@
                                                    ([msg] (js/Error. msg))
                                                    ([msg filename] (js/Error. msg filename))
                                                    ([msg filename line] (js/Error. msg filename line)))}
+            ;; this is here to satisfy the queue reader literal + advanced compilation
+            'cljs.core.PersistentQueue.EMPTY cljs.core/PersistentQueue.EMPTY
             'goog.string.StringBuffer {:class goog.string/StringBuffer
                                        :constructor #(goog.string/StringBuffer. %)}
             'sci.lang.Type sci.lang.Type}))
