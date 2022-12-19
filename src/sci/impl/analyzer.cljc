@@ -1460,17 +1460,26 @@
                         #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
                                                     m))
                            :cljs
-                           (let [[class method-name] f
-                                 method-name (str method-name)
-                                 len (.-length method-name)
+                           (let [[class method-path #_method-name] f
+                                 ;; _ (prn :methdd method-path)
+                                 [class method-name] (cond #_(symbol? method-path)
+                                                           #_[class (str method-path)]
+                                                           (= 1 (count method-path))
+                                                           [class (first method-path)]
+                                                           :else
+                                                           (let [duderino (.splice method-path 0 (- (count method-path) 1))]
+                                                             ;; (prn :duder duderino)
+                                                             [(interop/get-static-fields class duderino 0 0)
+                                                              (last method-path)]))
                                  idx (str/last-index-of method-name ".")
-                                 f (if ;; this is not js/Error.
-                                       (and idx (not= (dec len) idx))
-                                     ;; this is to support calls like js/Promise.all
-                                     ;; and js/process.argv.slice
-                                     [(gobj/getValueByKeys class (into-array (.split (subs method-name 0 idx) ".")))
-                                      (subs method-name (inc idx))]
-                                     f)
+                                 ;; _ (prn :idx idx :meth method-name)
+                                 f (if-not ;; this is not js/Error.
+                                       idx #_true #_(and idx (not= (dec len) idx))
+                                       ;; this is to support calls like js/Promise.all
+                                       ;; and js/process.argv.slice
+                                       [class
+                                        method-name #_(subs method-name (inc idx))]
+                                       f)
                                  children (analyze-children ctx (rest expr))]
                              (sci.impl.types/->Node
                               (eval/eval-static-method-invocation ctx bindings (cons f children))

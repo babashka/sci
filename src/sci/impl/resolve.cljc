@@ -60,7 +60,7 @@
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
                 [sym (if call?
                        (with-meta
-                         [clazz sym-name]
+                         [clazz (.split (str sym-name) ".")]
                          {:sci.impl.analyzer/static-access true})
                        (let [stack (assoc (meta sym)
                                           :file @utils/current-file
@@ -218,21 +218,21 @@
 #?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
            #?(:cljs
               (when-let [[v segments] (resolve-prefix+path ctx sym tag)]
-                (let [v (if (utils/var? v) (deref v) v)]
+                (let [v (if (utils/var? v) (deref v) v)
+                      segments (into-array segments)]
                   ;; NOTE: there is a reloading implication here...
                   (if call?
-                    (with-meta
-                      [v segments]
-                      {:sci.impl.analyzer/static-access true})
+                    [sym (with-meta
+                           [v segments]
+                           {:sci.impl.analyzer/static-access true})]
                     (if (instance? sci.impl.types/NodeR v)
-                      (let [segments (into-array segments)]
-                        [nil
-                         (sci.impl.types/->Node
-                          (interop/get-static-fields
-                           (sci.impl.types/eval v ctx bindings)
-                           segments nil nil)
-                          nil)])
-                      [nil (interop/get-static-fields v (into-array segments) nil nil)])))))))
+                      [sym
+                       (sci.impl.types/->Node
+                        (interop/get-static-fields
+                         (sci.impl.types/eval v ctx bindings)
+                         segments nil nil)
+                        sym)]
+                      [sym (interop/get-static-fields v segments nil nil)])))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
@@ -240,7 +240,9 @@
   ([ctx sym call? tag]
    (second
     (or (resolve-symbol* ctx sym call? tag)
-        #?(:cljs (resolve-dotted-access ctx sym call? tag))
+        #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? tag)]
+;;                   (prn :resolved resolved)
+                   resolved))
         (throw-error-with-location
          (str "Could not resolve symbol: " (str sym))
          sym)))))
