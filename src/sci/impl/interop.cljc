@@ -58,8 +58,13 @@
                  (recur class path-array (inc idx) max-idx))))))
 
 #?(:cljs
+   (defn invoke-js-constructor* [constructor args-array]
+     (js/Reflect.construct constructor args-array)))
+
+#?(:cljs
+   ;; TODO: get rid of this one in favor of the above
    (defn invoke-js-constructor [constructor args]
-     (js/Reflect.construct constructor (into-array args))))
+     (invoke-js-constructor* constructor (into-array args))))
 
 (defn invoke-constructor #?(:clj [^Class class args]
                             :cljs [constructor args])

@@ -1461,29 +1461,29 @@
                                                     m))
                            :cljs
                            (let [[class method-path #_method-name] f
-                                 ;; _ (prn :methdd method-path)
+                                 last-path (last method-path)
+                                 ctor? (= last-path "")
                                  [class method-name] (cond #_(symbol? method-path)
                                                            #_[class (str method-path)]
                                                            (= 1 (count method-path))
-                                                           [class (first method-path)]
+                                                           [class last-path]
                                                            :else
-                                                           (let [duderino (.splice method-path 0 (- (count method-path) 1))]
-                                                             ;; (prn :duder duderino (interop/get-static-fields class duderino nil nil))
-                                                             [(interop/get-static-fields class duderino nil nil)
-                                                              (last method-path)]))
-                                 idx (str/last-index-of method-name ".")
+                                                           (let [subpath (.splice method-path 0 (- (count method-path) 1))]
+                                                             [(interop/get-static-fields class subpath nil nil)
+                                                              last-path]))
                                  ;; _ (prn :idx idx :meth method-name)
-                                 f (if-not ;; this is not js/Error.
-                                       idx #_true #_(and idx (not= (dec len) idx))
-                                       ;; this is to support calls like js/Promise.all
-                                       ;; and js/process.argv.slice
-                                       [class
-                                        method-name #_(subs method-name (inc idx))]
-                                       f)
                                  children (analyze-children ctx (rest expr))]
-                             (sci.impl.types/->Node
-                              (eval/eval-static-method-invocation ctx bindings (cons f children))
-                              nil)))
+                             ;; (prn :ctor? ctor?)
+                             (if ctor?
+                               (let [ctor class
+                                     children (into-array children)]
+                                 (sci.impl.types/->Node
+                                  (let [args (.map children #(sci.impl.types/eval % ctx bindings))]
+                                    (interop/invoke-js-constructor* ctor args))
+                                  nil))
+                               (sci.impl.types/->Node
+                                (eval/eval-static-method-invocation ctx bindings (cons f children))
+                                nil))))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)
                              (or
