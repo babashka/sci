@@ -334,7 +334,7 @@
 (defn delay*
   [_ _ & body]
   #?(:clj `(new clojure.lang.Delay (fn [] ~@body))
-     :cljs `(new cljs.core.Delay (fn [] ~@body))))
+     :cljs `(new cljs.core/Delay (fn [] ~@body))))
 
 (defn defn-*
   [_ _ name & decls]
@@ -972,7 +972,7 @@
 (defn lazy-seq*
   [_ _ & body]
   #?(:clj  (list 'new 'clojure.lang.LazySeq (list* '^{:once true} fn* [] body))
-     :cljs `(new cljs.core.LazySeq nil (fn [] ~@body) nil nil)))
+     :cljs `(new cljs.core/LazySeq nil (fn [] ~@body) nil nil)))
 
 (macros/usetime
 
@@ -1080,7 +1080,9 @@
     #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                        {:ns clojure-core-ns})])
     ;; cljs data structures
+    #?@(:cljs ['Delay (copy-var Delay clojure-core-ns)])
     #?@(:cljs ['PersistentQueue (copy-var PersistentQueue clojure-core-ns)])
+    #?@(:cljs ['LazySeq (copy-var LazySeq clojure-core-ns)])
     ;; end cljs data structures
     ;; private
     'has-root-impl (copy-core-var has-root-impl)

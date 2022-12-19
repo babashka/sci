@@ -208,7 +208,6 @@
                                       prefix)
                              (symbol prefix
                                      fst-segment))]
-             ;; (prn new-sym new-sym-2 :prefix prefix)
              (if-let [v (resolve-symbol* ctx new-sym false tag)]
                [(second v) nxt-segments]
                (if-let [v2 (when new-sym-2

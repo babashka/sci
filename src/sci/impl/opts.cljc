@@ -81,10 +81,6 @@
                                                    ([msg] (js/Error. msg))
                                                    ([msg filename] (js/Error. msg filename))
                                                    ([msg filename line] (js/Error. msg filename line)))}
-            'cljs.core.Delay {:class cljs.core/Delay
-                              :constructor #(cljs.core/Delay. % nil)}
-            'cljs.core.LazySeq LazySeq
-            ;; 'cljs.core.PersistentQueue PersistentQueue
             'goog.string.StringBuffer {:class goog.string/StringBuffer
                                        :constructor #(goog.string/StringBuffer. %)}
             'sci.lang.Type sci.lang.Type}))
