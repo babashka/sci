@@ -1472,7 +1472,8 @@
                                                              [(interop/get-static-fields class subpath nil nil)
                                                               last-path]))
                                  ;; _ (prn :idx idx :meth method-name)
-                                 children (analyze-children ctx (rest expr))]
+                                 children (analyze-children ctx (rest expr))
+                                 children (into-array children)]
                              ;; (prn :ctor? ctor?)
                              (if ctor?
                                (let [ctor class
@@ -1482,7 +1483,9 @@
                                     (interop/invoke-js-constructor* ctor args))
                                   nil))
                                (sci.impl.types/->Node
-                                (eval/eval-static-method-invocation ctx bindings (cons f children))
+                                (interop/invoke-static-method [class method-name]
+                                                              ;; eval args!
+                                                              (.map children #(sci.impl.types/eval % ctx bindings)))
                                 nil))))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)

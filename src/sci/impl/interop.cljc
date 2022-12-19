@@ -71,22 +71,10 @@
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (invoke-js-constructor constructor args)))
 
-(defn invoke-static-method #?(:clj [[^Class class method-name] args]
-                              :cljs [[class method-name] args])
-  #?(:clj
-     (Reflector/invokeStaticMethod class (str method-name) (object-array args))
-     :cljs (if-let [method (gobject/get class method-name)]
-             (js/Reflect.apply method class (into-array args))
-             (let [method-name (str method-name)
-                   field (get-static-field [class method-name])]
-               (cond
-                 (not field)
-                 (throw (js/Error. (str "Could not find static method " method-name)))
-                 (str/ends-with? method-name ".")
-                 (invoke-js-constructor field args)
-                 :else
-                 ;; why is this here??
-                 (apply field args))))))
+#?(:clj
+   (defn invoke-static-method #?(:clj [[^Class class method-name] args]
+                                 :cljs [[class method-name] args])
+     (Reflector/invokeStaticMethod class (str method-name) (object-array args))))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
