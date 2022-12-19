@@ -1468,8 +1468,8 @@
                                                            [class (first method-path)]
                                                            :else
                                                            (let [duderino (.splice method-path 0 (- (count method-path) 1))]
-                                                             ;; (prn :duder duderino)
-                                                             [(interop/get-static-fields class duderino 0 0)
+                                                             ;; (prn :duder duderino (interop/get-static-fields class duderino nil nil))
+                                                             [(interop/get-static-fields class duderino nil nil)
                                                               (last method-path)]))
                                  idx (str/last-index-of method-name ".")
                                  ;; _ (prn :idx idx :meth method-name)

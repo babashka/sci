@@ -60,7 +60,8 @@
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
                 [sym (if call?
                        (with-meta
-                         [clazz (.split (str sym-name) ".")]
+                         [clazz #?(:clj sym-name
+                                   :cljs (.split (str sym-name) "."))]
                          {:sci.impl.analyzer/static-access true})
                        (let [stack (assoc (meta sym)
                                           :file @utils/current-file
