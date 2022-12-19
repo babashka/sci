@@ -1482,11 +1482,12 @@
                                   (let [args (.map children #(sci.impl.types/eval % ctx bindings))]
                                     (interop/invoke-js-constructor* ctor args))
                                   nil))
-                               (sci.impl.types/->Node
-                                (interop/invoke-static-method [class method-name]
-                                                              ;; eval args!
-                                                              (.map children #(sci.impl.types/eval % ctx bindings)))
-                                nil))))
+                               (let [method (gobj/get class method-name)]
+                                 (sci.impl.types/->Node
+                                  (interop/invoke-static-method class method
+                                                                ;; eval args!
+                                                                (.map children #(sci.impl.types/eval % ctx bindings)))
+                                  nil)))))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)
                              (or

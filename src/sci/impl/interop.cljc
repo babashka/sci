@@ -71,10 +71,11 @@
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (invoke-js-constructor constructor args)))
 
-#?(:clj
-   (defn invoke-static-method #?(:clj [[^Class class method-name] args]
-                                 :cljs [[class method-name] args])
-     (Reflector/invokeStaticMethod class (str method-name) (object-array args))))
+(defn invoke-static-method #?(:clj [[^Class class method-name] args]
+                              :cljs [class method args])
+  #?(:clj
+     (Reflector/invokeStaticMethod class (str method-name) (object-array args))
+     :cljs (js/Reflect.apply method class args)))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
