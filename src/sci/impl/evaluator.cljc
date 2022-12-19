@@ -103,10 +103,11 @@
 
 ;;;; Interop
 
-(defn eval-static-method-invocation [ctx bindings expr]
-  (interop/invoke-static-method (first expr)
-                                ;; eval args!
-                                (map #(types/eval % ctx bindings) (rest expr))))
+#?(:clj
+   (defn eval-static-method-invocation [ctx bindings expr]
+     (interop/invoke-static-method (first expr)
+                                   ;; eval args!
+                                   (map #(types/eval % ctx bindings) (rest expr)))))
 
 #?(:clj
    (defn super-symbols [clazz]

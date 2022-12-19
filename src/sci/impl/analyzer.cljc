@@ -1460,21 +1460,34 @@
                         #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
                                                     m))
                            :cljs
-                           (let [[class method-name] f
-                                 method-name (str method-name)
-                                 len (.-length method-name)
-                                 idx (str/last-index-of method-name ".")
-                                 f (if ;; this is not js/Error.
-                                       (and idx (not= (dec len) idx))
-                                     ;; this is to support calls like js/Promise.all
-                                     ;; and js/process.argv.slice
-                                     [(gobj/getValueByKeys class (into-array (.split (subs method-name 0 idx) ".")))
-                                      (subs method-name (inc idx))]
-                                     f)
-                                 children (analyze-children ctx (rest expr))]
-                             (sci.impl.types/->Node
-                              (eval/eval-static-method-invocation ctx bindings (cons f children))
-                              nil)))
+                           (let [[class method-path #_method-name] f
+                                 last-path (last method-path)
+                                 ctor? (= last-path "")
+                                 [class method-name] (cond #_(symbol? method-path)
+                                                           #_[class (str method-path)]
+                                                           (= 1 (count method-path))
+                                                           [class last-path]
+                                                           :else
+                                                           (let [subpath (.splice method-path 0 (- (count method-path) 1))]
+                                                             [(interop/get-static-fields class subpath nil nil)
+                                                              last-path]))
+                                 ;; _ (prn :idx idx :meth method-name)
+                                 children (analyze-children ctx (rest expr))
+                                 children (into-array children)]
+                             ;; (prn :ctor? ctor?)
+                             (if ctor?
+                               (let [ctor class
+                                     children (into-array children)]
+                                 (sci.impl.types/->Node
+                                  (let [args (.map children #(sci.impl.types/eval % ctx bindings))]
+                                    (interop/invoke-js-constructor* ctor args))
+                                  nil))
+                               (let [method (gobj/get class method-name)]
+                                 (sci.impl.types/->Node
+                                  (interop/invoke-static-method class method
+                                                                ;; eval args!
+                                                                (.map children #(sci.impl.types/eval % ctx bindings)))
+                                  nil)))))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)
                              (or

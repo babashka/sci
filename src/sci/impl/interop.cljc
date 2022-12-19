@@ -58,8 +58,13 @@
                  (recur class path-array (inc idx) max-idx))))))
 
 #?(:cljs
+   (defn invoke-js-constructor* [constructor args-array]
+     (js/Reflect.construct constructor args-array)))
+
+#?(:cljs
+   ;; TODO: get rid of this one in favor of the above
    (defn invoke-js-constructor [constructor args]
-     (js/Reflect.construct constructor (into-array args))))
+     (invoke-js-constructor* constructor (into-array args))))
 
 (defn invoke-constructor #?(:clj [^Class class args]
                             :cljs [constructor args])
@@ -67,21 +72,10 @@
      :cljs (invoke-js-constructor constructor args)))
 
 (defn invoke-static-method #?(:clj [[^Class class method-name] args]
-                              :cljs [[class method-name] args])
+                              :cljs [class method args])
   #?(:clj
      (Reflector/invokeStaticMethod class (str method-name) (object-array args))
-     :cljs (if-let [method (gobject/get class method-name)]
-             (js/Reflect.apply method class (into-array args))
-             (let [method-name (str method-name)
-                   field (get-static-field [class method-name])]
-               (cond
-                 (not field)
-                 (throw (js/Error. (str "Could not find static method " method-name)))
-                 (str/ends-with? method-name ".")
-                 (invoke-js-constructor field args)
-                 :else
-                 ;; why is this here??
-                 (apply field args))))))
+     :cljs (js/Reflect.apply method class args)))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)

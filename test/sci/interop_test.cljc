@@ -267,7 +267,8 @@
      (is (= 1 (sci/eval-string "(ns foo.bar) (def x #js {:a #js {:b 1}}) (ns bar) foo.bar.x.a.b")))
      (is (= 1 (sci/eval-string "(ns foo.bar) (def x #js {:a #js {:b 1}}) (ns bar) foo.bar/x.a.b")))
      (testing "var ref"
-       (is (= PersistentQueue.EMPTY (sci/eval-string "(def x PersistentQueue.EMPTY) x" {:namespaces {'clojure.core {'PersistentQueue (sci/new-var 'x persistent-queue)}}}))))
+       (is (= PersistentQueue.EMPTY (sci/eval-string "(def x PersistentQueue.EMPTY) x" {:namespaces {'clojure.core {'PersistentQueue (sci/new-var 'x persistent-queue)}}})))
+       (is (= 2 (sci/eval-string "(def x #js {:inc inc}) (x.inc 1)"))))
      (testing "non-var ref"
        (is (= PersistentQueue.EMPTY
               (sci/eval-string "(def x PersistentQueue.EMPTY) x"
