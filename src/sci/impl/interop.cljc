@@ -5,7 +5,8 @@
            [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobject])
             #?(:cljs [clojure.string :as str])
-            [sci.impl.utils :as utils]))
+            [sci.impl.utils :as utils]
+            [sci.impl.types]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -71,11 +72,18 @@
   #?(:clj (Reflector/invokeConstructor class (object-array args))
      :cljs (invoke-js-constructor constructor args)))
 
-(defn invoke-static-method #?(:clj [^Class class method-name args]
+(defn invoke-static-method #?(:clj [ctx bindings ^Class class ^String method-name ^objects args len]
                               :cljs [class method args])
   #?(:clj
-     (Reflector/invokeStaticMethod class (str method-name) (object-array args))
+     (do
+       (let [args-array (object-array len)]
+         ;; [a idx ret init expr]
+         (areduce args idx _ret nil
+                  (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+         (Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array)))
      :cljs (js/Reflect.apply method class args)))
+
+;;#?(:clj (defn invoke-static-method []))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
