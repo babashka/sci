@@ -103,11 +103,6 @@
 
 ;;;; Interop
 
-#?(:clj
-   (defn super-symbols [clazz]
-     ;; (prn clazz '-> (map #(symbol (.getName ^Class %)) (supers clazz)))
-     (map #(symbol (.getName ^Class %)) (supers clazz))))
-
 (defn eval-instance-method-invocation
   [ctx bindings instance-expr method-str field-access args #?(:cljs allowed)]
   (let [instance-meta (meta instance-expr)
