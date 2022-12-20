@@ -1016,16 +1016,18 @@
                           (sci.impl.types/->Node
                            (interop/get-static-field [instance-expr method-name])
                            stack)
-                          (sci.impl.types/->Node
-                           (interop/invoke-static-method instance-expr method-name
-                                                         ;; TODO: array?
-                                                         (mapv #(sci.impl.types/eval % ctx bindings) args))
-                           stack)))
-                      (sci.impl.types/->Node
-                       (interop/invoke-static-method instance-expr method-name
-                                                     ;; TODO: array?
-                                                     (mapv #(sci.impl.types/eval % ctx bindings) args))
-                       stack))
+                          (let [arg-count (count args)
+                                args (object-array args)]
+                            (sci.impl.types/->Node
+                             (interop/invoke-static-method ctx bindings instance-expr method-name
+                                                           args arg-count)
+                             stack))))
+                      (let [arg-count (count args)
+                            args (object-array args)]
+                        (sci.impl.types/->Node
+                         (interop/invoke-static-method ctx bindings instance-expr method-name
+                                                       args arg-count)
+                         stack)))
                     (with-meta (sci.impl.types/->Node
                                 (eval/eval-instance-method-invocation
                                  ctx bindings instance-expr meth-name field-access args)
