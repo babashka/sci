@@ -27,21 +27,22 @@
            (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]))
 
 (defn invoke-instance-method
-  #?@(:cljs [[obj _target-class method-name args]
+  #?@(:cljs [[ctx bindings obj _target-class method-name args _arg-count]
              ;; gobject/get didn't work here
-             (if-let [method (aget obj method-name)]
+             (if-some [method (aget obj method-name)]
                ;; use Reflect rather than (.apply method ...), see https://github.com/babashka/nbb/issues/118
-               (js/Reflect.apply method obj (into-array args) #_(js-object-array args))
+               (let [args (.map args #(sci.impl.types/eval % ctx bindings))]
+                 (js/Reflect.apply method obj args))
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
-      [[obj ^Class target-class method args]
-       (if-not target-class
-         (Reflector/invokeInstanceMethod obj method (object-array args))
-         (let [arg-count (count args)
-               methods (Reflector/getMethods target-class arg-count method false)]
-           (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
-             (invoke-instance-field obj target-class method)
-             (Reflector/invokeMatchingMethod method methods obj (object-array args)))))]))
+      [[ctx bindings obj ^Class target-class method ^objects args arg-count]
+       (let [methods (Reflector/getMethods target-class arg-count method false)]
+         (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
+           (invoke-instance-field obj target-class method)
+           (do (let [args-array (object-array arg-count)]
+                 (areduce args idx _ret nil
+                          (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+                 (Reflector/invokeMatchingMethod method methods obj args-array)))))]))
 
 (defn get-static-field #?(:clj [[^Class class field-name-sym]]
                           :cljs [[class field-name-sym]])
@@ -75,12 +76,11 @@
 (defn invoke-static-method #?(:clj [ctx bindings ^Class class ^String method-name ^objects args len]
                               :cljs [class method args])
   #?(:clj
-     (do
-       (let [args-array (object-array len)]
-         ;; [a idx ret init expr]
-         (areduce args idx _ret nil
-                  (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
-         (Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array)))
+     (let [args-array (object-array len)]
+       ;; [a idx ret init expr]
+       (areduce args idx _ret nil
+                (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+       (Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array))
      :cljs (js/Reflect.apply method class args)))
 
 ;;#?(:clj (defn invoke-static-method []))

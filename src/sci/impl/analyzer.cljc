@@ -20,7 +20,8 @@
    [sci.impl.utils :as utils :refer
     [ana-macros constant? kw-identical? macro? rethrow-with-location-of-node
      set-namespace!]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.impl.unrestrict :as unrestrict])
   #?(:clj (:import
            [sci.impl Reflector]))
   #?(:cljs
@@ -1028,17 +1029,35 @@
                          (interop/invoke-static-method ctx bindings instance-expr method-name
                                                        args arg-count)
                          stack)))
-                    (with-meta (sci.impl.types/->Node
-                                (eval/eval-instance-method-invocation
-                                 ctx bindings instance-expr meth-name field-access args)
-                                stack)
-                      {::instance-expr instance-expr
-                       ::method-name   method-name}))
-             :cljs (let [allowed? (identical? method-expr utils/allowed-append)]
-                     (with-meta (sci.impl.types/->Node
-                                 (eval/eval-instance-method-invocation
-                                  ctx bindings instance-expr meth-name field-access args allowed?)
-                                 stack)
+                    (let [arg-count #?(:cljs nil :clj (count args))
+                          args (object-array args)]
+                      (with-meta (sci.impl.types/->Node
+                                  (eval/eval-instance-method-invocation
+                                   ctx bindings instance-expr meth-name field-access args arg-count)
+                                  stack)
+                        {::instance-expr instance-expr
+                         ::method-name   method-name})))
+             :cljs (let [allowed? (or unrestrict/*unrestricted*
+                                      (identical? method-expr utils/allowed-append)
+                                      (-> ctx :env deref :class->opts :allow))
+                         args (into-array args)]
+                     (with-meta
+                       (case [(boolean allowed?) (boolean field-access)]
+                         [true true]
+                         (sci.impl.types/->Node
+                          (eval/allowed-instance-field-invocation ctx bindings instance-expr meth-name)
+                          stack)
+                         [true false]
+                         (sci.impl.types/->Node
+                          (eval/allowed-instance-method-invocation ctx bindings instance-expr meth-name args nil)
+                          stack)
+                         ;; default case
+                         (do
+                           (prn :default [allowed? field-access])
+                           (sci.impl.types/->Node
+                            (eval/eval-instance-method-invocation
+                             ctx bindings instance-expr meth-name field-access args allowed? nil)
+                            stack)))
                        {::instance-expr instance-expr
                         ::method-name method-name}))))]
     res))
