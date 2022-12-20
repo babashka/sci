@@ -12,7 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## 0.6.37 (2022-12-20)
 
-- [#839]: Performance improvement for method calls in CLJS, like `(Math/sin)` and `(.substring "foo" 0 1)`, around 5 - 7x faster
+- [#839](https://github.com/babashka/sci/issues/839): Performance improvement for method calls in CLJS, like `(Math/sin)` and `(.substring "foo" 0 1)`, around 5 - 7x faster
 - Performance improvement when calling anonymous `fn`
 - Improve `case` performance
 - [#855](https://github.com/babashka/sci/issues/855): Property access in JS doesn't throw when intermediate value is `nil`
