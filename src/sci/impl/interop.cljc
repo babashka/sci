@@ -5,8 +5,8 @@
            [sci.impl Reflector]))
   (:require #?(:cljs [goog.object :as gobject])
             #?(:cljs [clojure.string :as str])
-            [sci.impl.utils :as utils]
-            [sci.impl.types]))
+            [sci.impl.types]
+            [sci.impl.utils :as utils]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
