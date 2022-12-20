@@ -103,8 +103,18 @@
 
 ;;;; Interop
 
+#?(:cljs
+   (defn allowed-instance-method-invocation [ctx bindings instance-expr method-str args arg-count]
+     (let [instance-expr* (types/eval instance-expr ctx bindings)]
+       (interop/invoke-instance-method ctx bindings instance-expr* nil method-str args arg-count))))
+
+#?(:cljs
+   (defn allowed-instance-field-invocation [ctx bindings instance-expr method-str]
+     (let [instance-expr* (types/eval instance-expr ctx bindings)]
+       (interop/invoke-instance-field instance-expr* nil method-str))))
+
 (defn eval-instance-method-invocation
-  [ctx bindings instance-expr method-str field-access args #?(:cljs allowed)]
+  [ctx bindings instance-expr method-str field-access args #?(:cljs allowed) arg-count]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (types/eval instance-expr ctx bindings)]
@@ -138,8 +148,7 @@
             (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
           (if field-access
             (interop/invoke-instance-field instance-expr* target-class method-str)
-            (let [args (map #(types/eval % ctx bindings) args)] ;; eval args!
-              (interop/invoke-instance-method instance-expr* target-class method-str args))))))))
+            (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count)))))))
 
 ;;;; End interop
 

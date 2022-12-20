@@ -484,7 +484,10 @@
 (defn enable-unrestricted-access!
   "Calling this will enable
   - Altering core vars using `alter-var-root`
-  - In CLJS: `set!` is able to set the value of any var."
+  - In CLJS: `set!` is able to set the value of any var.
+  - In CLJS: instance method calls are not restricted to only `:classes`
+
+  In the future, more unrestricted access may be added, so only use this when you're not using SCI as a sandbox."
   []
   #?(:cljs (set! unrestrict/*unrestricted* true)
      :clj (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
