@@ -10,10 +10,27 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.6.37 (2022-12-20)
 
+- [#839]: Performance improvement for "static" method calls in CLJS, like `(Math/sin)`, around 5x faster
+- Performance improvement when calling anonymous `fn`
+- Improve `case` performance
+- #855: Property access in JS doesn't throw when intermediate value is `nil`
+- [#842](https://github.com/babashka/sci/issues/842): Error metadata missing on some interop calls ([@bobisageek](https://github.com/bobisageek))
+- #856: fix `#queue [1 2 3]` literal
+- Implement `lazy-seq` as macro
+- Implement `ns` as macro
+- #844: Don't resolve `cljs.core/inc` in JVM env
+- Add `case` as a macro and `case*` as special form, rather than having `case` as special form
+- Implement `and` and `or` as macros
+- Implement `fn`, `defn` and `defmacro` as macros, while keeping `fn*` as special form
+- Implement `loop` as macro, while supporting `loop*` as special form
+- Implement `let` as macro, while supporting `let*` as special form
+- Fix js type hint on `await` ([@mhuebert](https://github.com/mhuebert))
+- Convert libsci scripts to bb tasks, include in CI multi-os (@ikappaki)
+- Bump edamame (Clojure parser)
+- Fix benchmarking code
 - Fix for `SCI_ELIDE_VARS`
-- [#842](https://github.com/babashka/sci/issues/842) Error metadata missing on some interop calls ([@bobisageek](https://github.com/bobisageek))
 
 ## 0.5.36 (2022-11-14)
 
