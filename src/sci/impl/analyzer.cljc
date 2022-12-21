@@ -1460,7 +1460,6 @@
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
     (let [eval-file (:clojure.core/eval-file m)]
-      ;; (prn expr m loc)
       (when eval-file
         (vars/push-thread-bindings {utils/current-file eval-file}))
       (try
@@ -1483,21 +1482,17 @@
                         #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
                                                     m))
                            :cljs
-                           (let [[class method-path #_method-name] f
+                           (let [[class method-path] f
                                  last-path (last method-path)
                                  ctor? (= last-path "")
-                                 [class method-name] (cond #_(symbol? method-path)
-                                                           #_[class (str method-path)]
-                                                           (= 1 (count method-path))
-                                                           [class last-path]
-                                                           :else
-                                                           (let [subpath (.splice method-path 0 (dec (count method-path)))]
-                                                             [(interop/get-static-fields class subpath nil nil)
-                                                              last-path]))
-                                 ;; _ (prn :idx idx :meth method-name)
+                                 method-len (count method-path)
+                                 [class method-name] (if (= 1 method-len)
+                                                       [class last-path]
+                                                       (let [subpath (.splice method-path 0 (dec method-len))]
+                                                         [(interop/get-static-fields class subpath nil nil)
+                                                          last-path]))
                                  children (analyze-children ctx (rest expr))
                                  children (into-array children)]
-                             ;; (prn :ctor? ctor?)
                              (if ctor?
                                (let [ctor class
                                      children (into-array children)]
