@@ -1134,20 +1134,24 @@
                                              :file @utils/current-file)
                                       nil)
                          var?
-                         (sci.impl.types/->Node
-                          (interop/invoke-constructor (deref maybe-var)
-                                                      (mapv #(t/eval % ctx bindings) args))
-                          nil)
+                         (let [args (into-array args)]
+                           (sci.impl.types/->Node
+                            (interop/invoke-js-constructor* ctx bindings (deref maybe-var)
+                                                            args)
+                            nil))
                          (instance? sci.impl.types/NodeR class)
-                         (sci.impl.types/->Node
-                          (interop/invoke-constructor (t/eval class ctx bindings)
-                                                      (mapv #(t/eval % ctx bindings) args))
-                          nil)
+                         (let [args (into-array args)]
+                           (sci.impl.types/->Node
+                            (interop/invoke-js-constructor* ctx bindings
+                                                            (t/eval class ctx bindings)
+                                                            args)
+                            nil))
                          :else
-                         (sci.impl.types/->Node
-                          (interop/invoke-constructor class ;; no eval needed
-                                                      (mapv #(t/eval % ctx bindings) args))
-                          nil)))
+                         (let [args (into-array args)]
+                           (sci.impl.types/->Node
+                            (interop/invoke-js-constructor* ctx bindings class ;; no eval needed
+                                                            args)
+                            nil))))
                  (if-let [record (records/resolve-record-class ctx class-sym)]
                    (let [args (analyze-children ctx args)]
                      (return-call ctx
@@ -1162,10 +1166,12 @@
                                   nil))
                    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
                (let [class (analyze ctx class-sym)
-                     args (analyze-children ctx args)]
+                     args (analyze-children ctx args)
+                     args (into-array args)]
                  (sci.impl.types/->Node
-                  (interop/invoke-constructor (t/eval class ctx bindings)
-                                              (mapv #(t/eval % ctx bindings) args))
+                  (interop/invoke-js-constructor*
+                   ctx bindings (t/eval class ctx bindings)
+                   args)
                   nil))))))
 
 (defn expand-constructor [ctx [constructor-sym & args]]
@@ -1494,17 +1500,13 @@
                                  children (analyze-children ctx (rest expr))
                                  children (into-array children)]
                              (if ctor?
-                               (let [ctor class
-                                     children (into-array children)]
+                               (let [ctor class]
                                  (sci.impl.types/->Node
-                                  (let [args (.map children #(sci.impl.types/eval % ctx bindings))]
-                                    (interop/invoke-js-constructor* ctor args))
+                                  (interop/invoke-js-constructor* ctx bindings ctor children)
                                   nil))
                                (let [method (gobj/get class method-name)]
                                  (sci.impl.types/->Node
-                                  (interop/invoke-static-method class method
-                                                                ;; eval args!
-                                                                (.map children #(sci.impl.types/eval % ctx bindings)))
+                                  (interop/invoke-static-method ctx bindings class method children)
                                   nil)))))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)

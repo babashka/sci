@@ -57,30 +57,23 @@
                  (recur class path-array (inc idx) max-idx))))))
 
 #?(:cljs
-   (defn invoke-js-constructor* [constructor args-array]
-     (js/Reflect.construct constructor args-array)))
+   (defn invoke-js-constructor* [ctx bindings constructor args]
+     (js/Reflect.construct constructor (.map args #(sci.impl.types/eval % ctx bindings)))))
 
-#?(:cljs
-   ;; TODO: get rid of this one in favor of the above
-   (defn invoke-js-constructor [constructor args]
-     (invoke-js-constructor* constructor (into-array args))))
-
-(defn invoke-constructor #?(:clj [^Class class args]
-                            :cljs [constructor args])
-  #?(:clj (Reflector/invokeConstructor class (object-array args))
-     :cljs (invoke-js-constructor constructor args)))
+#?(:clj
+   (defn invoke-constructor #?(:clj [^Class class args]
+                               :cljs [constructor args])
+     (Reflector/invokeConstructor class (object-array args))))
 
 (defn invoke-static-method #?(:clj [ctx bindings ^Class class ^String method-name ^objects args len]
-                              :cljs [class method args])
+                              :cljs [ctx bindings class method args])
   #?(:clj
      (let [args-array (object-array len)]
        ;; [a idx ret init expr]
        (areduce args idx _ret nil
                 (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
        (Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array))
-     :cljs (js/Reflect.apply method class args)))
-
-;;#?(:clj (defn invoke-static-method []))
+     :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
