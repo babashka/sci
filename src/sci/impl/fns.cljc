@@ -17,7 +17,8 @@
      (let [varargs-param (when varargs (gensym))]
        `(fn ~'arity-0 ~(cond-> []
                          varargs (conj '& varargs-param))
-          (let [~'invoc-array (object-array ~'invoc-size)]
+          (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                (object-array ~'invoc-size))]
             (when ~'enclosed->invocation
               (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
             ~@(when varargs
@@ -35,7 +36,8 @@
                              fn-params (range)))]
        `(fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                           varargs (conj '& varargs-param))
-          (let [~'invoc-array (object-array ~'invoc-size)]
+          (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                (object-array ~'invoc-size))]
             (when ~'enclosed->invocation
               (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
             ~asets
