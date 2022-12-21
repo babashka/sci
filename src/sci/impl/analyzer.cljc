@@ -1491,7 +1491,7 @@
                                                            (= 1 (count method-path))
                                                            [class last-path]
                                                            :else
-                                                           (let [subpath (.splice method-path 0 (- (count method-path) 1))]
+                                                           (let [subpath (.splice method-path 0 (dec (count method-path)))]
                                                              [(interop/get-static-fields class subpath nil nil)
                                                               last-path]))
                                  ;; _ (prn :idx idx :meth method-name)
