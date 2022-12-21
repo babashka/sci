@@ -66,9 +66,22 @@
                        (let [stack (assoc (meta sym)
                                           :file @utils/current-file
                                           :ns @utils/current-ns)]
-                         (->Node
-                          (interop/get-static-field [clazz sym-name])
-                          stack)))]))))
+                         #?(:clj
+                            (->Node
+                             (interop/get-static-field clazz sym-name)
+                             stack)
+                            :cljs
+                            (let [path (.split (str sym-name) ".")
+                                  len (alength path)
+                                  max-idx (dec len)]
+                              (if (== 1 len)
+                                (->Node
+                                 (interop/get-static-field clazz sym-name)
+                                 stack)
+                                (->Node
+                                 (interop/get-static-fields clazz path 0 max-idx)
+                                 stack))
+                              ))))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527

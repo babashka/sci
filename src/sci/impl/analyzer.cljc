@@ -1000,9 +1000,10 @@
           #?(:clj (if (class? instance-expr)
                     (if (nil? args)
                       (if field-access
-                        (sci.impl.types/->Node
-                         (interop/get-static-field [instance-expr (subs method-name 1)])
-                         stack)
+                        (let [method-name (subs method-name 1)]
+                          (sci.impl.types/->Node
+                           (interop/get-static-field instance-expr method-name)
+                           stack))
                         ;; https://clojure.org/reference/java_interop
                         ;; If the second operand is a symbol and no args are
                         ;; supplied it is taken to be a field access - the
@@ -1015,7 +1016,7 @@
                                  (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
                                       (catch IllegalArgumentException _ nil))]
                           (sci.impl.types/->Node
-                           (interop/get-static-field [instance-expr method-name])
+                           (interop/get-static-field instance-expr method-name)
                            stack)
                           (let [arg-count (count args)
                                 args (object-array args)]

@@ -44,12 +44,9 @@
                           (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
                  (Reflector/invokeMatchingMethod method methods obj args-array)))))]))
 
-(defn get-static-field #?(:clj [[^Class class field-name-sym]]
-                          :cljs [[class field-name-sym]])
+(defn get-static-field [^Class class field-name-sym]
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
-     :cljs (if (str/includes? (str field-name-sym) ".")
-             (apply gobject/getValueByKeys class (str/split (str field-name-sym) #"\."))
-             (gobject/get class field-name-sym))))
+     :cljs (gobject/get class field-name-sym)))
 
 #?(:cljs (defn get-static-fields [class path-array idx max-idx]
            (if (nil? idx)
