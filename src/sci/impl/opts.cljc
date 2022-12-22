@@ -53,7 +53,8 @@
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes
-                          :ns-aliases ns-aliases))))))
+                          :ns-aliases ns-aliases
+                          :static-meths {}))))))
 
 (defn process-permissions [prev-perms & permissions]
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))

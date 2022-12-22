@@ -65,6 +65,17 @@
                                :cljs [constructor args])
      (Reflector/invokeConstructor class (object-array args))))
 
+#?(:clj
+   (defn meth-cache [ctx ^Class class meth-name len fetch-fn]
+     (let [env (:env ctx)
+           static-meths (:static-meths @env)
+           class-name (.getName class)
+           meths (get-in static-meths [class-name meth-name len])]
+       (or meths
+           (let [meths (fetch-fn)]
+             (swap! env assoc-in [:static-meths class-name meth-name len] meths)
+             meths)))))
+
 (defn invoke-static-method #?(:clj [ctx bindings ^Class class ^String method-name ^objects args len]
                               :cljs [ctx bindings class method args])
   #?(:clj
@@ -74,16 +85,18 @@
                 (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
        ;; List methods = getMethods(c, args.length, methodName, true);
        ;; invokeMatchingMethod(methodName, methods, null, args)
-       (Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array))
+       (let [meths (meth-cache ctx class method-name len #(sci.impl.Reflector/getMethods class len method-name true))]
+         (sci.impl.Reflector/invokeMatchingMethod method-name meths nil args-array))
+       #_(Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array))
      :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))))
 
 #?(:clj
    (comment
-     (time (dotimes [i 1000000]
+     (time (dotimes [_ 1000000]
              (Reflector/invokeStaticMethod Math "sin" (object-array [1]))))
      (require '[sci.core])
      (let [meths (sci.impl.Reflector/getMethods Math 1 "sin" true)]
-       (time (dotimes [i 1000000]
+       (time (dotimes [_ 1000000]
                (sci.impl.Reflector/invokeMatchingMethod "sin" meths nil (object-array [1])))))
      (time (sci.core/eval-string "(dotimes [i 1000000] (Math/sin 1))" {:classes {'Math Math}}))
      ))
