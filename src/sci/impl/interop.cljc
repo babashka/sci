@@ -53,6 +53,7 @@
            (do (let [args-array (object-array arg-count)]
                  (areduce args idx _ret nil
                           (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+                 ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
                  (Reflector/invokeMatchingMethod method methods obj args-array)))))]))
 
 (defn get-static-field [^Class class field-name-sym]
@@ -86,31 +87,9 @@
        ;; List methods = getMethods(c, args.length, methodName, true);
        ;; invokeMatchingMethod(methodName, methods, null, args)
        (let [meths (meth-cache ctx class method-name len #(sci.impl.Reflector/getMethods class len method-name true) :static-methods)]
-         (sci.impl.Reflector/invokeMatchingMethod method-name meths nil args-array))
-       #_(Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array))
+         ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
+         (sci.impl.Reflector/invokeMatchingMethod method-name meths nil args-array)))
      :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))))
-
-#?(:clj
-   (comment
-     (time (dotimes [_ 1000000]
-             (Reflector/invokeStaticMethod Math "sin" (object-array [1]))))
-     (require '[sci.core])
-     (let [meths (sci.impl.Reflector/getMethods Math 1 "sin" true)]
-       (time (dotimes [_ 1000000]
-               (sci.impl.Reflector/invokeMatchingMethod "sin" meths nil (object-array [1])))))
-     (let [meths (sci.impl.Reflector/getMethods Math 1 "sin" true)
-           args (object-array [1])
-           meth (sci.impl.Reflector/getMatchingMethod "sin" meths nil #_Math args)]
-       ;; meth
-       #_(time (dotimes [_ 1000000]
-                 (sci.impl.Reflector/invokeMatchingMethod "sin" meths nil (object-array [1]))))
-       (time (dotimes [i 1000000]
-              (sci.impl.Reflector/prepRet (.getReturnType meth) (.invoke meth nil args)))))
-     (time (sci.core/eval-string "(dotimes [i 1000000] (Math/sin 1))" {:classes {'Math Math}}))
-     (time (sci.core/eval-string "(dotimes [i 1000000] (.length \"foo\"))" {:classes {'Math Math}}))
-     (map str (.getMethods sci.impl.Reflector))
-     (System/getProperty "java.class.path")
-     ))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
