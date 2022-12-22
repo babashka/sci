@@ -26,6 +26,17 @@
            (.get field obj)
            (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]))
 
+#?(:clj
+   (defn meth-cache [ctx ^Class class meth-name len fetch-fn k]
+     (let [env (:env ctx)
+           static-meths (k @env)
+           class-name (.getName class)
+           meths (get-in static-meths [class-name meth-name len])]
+       (or meths
+           (let [meths (fetch-fn)]
+             (swap! env assoc-in [:static-meths class-name meth-name len] meths)
+             meths)))))
+
 (defn invoke-instance-method
   #?@(:cljs [[ctx bindings obj _target-class method-name args _arg-count]
              ;; gobject/get didn't work here
@@ -36,7 +47,8 @@
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
       [[ctx bindings obj ^Class target-class method ^objects args arg-count]
-       (let [methods (Reflector/getMethods target-class arg-count method false)]
+       (let [methods
+             (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) :instance-methods)]
          (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
            (invoke-instance-field obj target-class method)
            (do (let [args-array (object-array arg-count)]
@@ -65,17 +77,6 @@
                                :cljs [constructor args])
      (Reflector/invokeConstructor class (object-array args))))
 
-#?(:clj
-   (defn meth-cache [ctx ^Class class meth-name len fetch-fn]
-     (let [env (:env ctx)
-           static-meths (:static-meths @env)
-           class-name (.getName class)
-           meths (get-in static-meths [class-name meth-name len])]
-       (or meths
-           (let [meths (fetch-fn)]
-             (swap! env assoc-in [:static-meths class-name meth-name len] meths)
-             meths)))))
-
 (defn invoke-static-method #?(:clj [ctx bindings ^Class class ^String method-name ^objects args len]
                               :cljs [ctx bindings class method args])
   #?(:clj
@@ -85,7 +86,7 @@
                 (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
        ;; List methods = getMethods(c, args.length, methodName, true);
        ;; invokeMatchingMethod(methodName, methods, null, args)
-       (let [meths (meth-cache ctx class method-name len #(sci.impl.Reflector/getMethods class len method-name true))]
+       (let [meths (meth-cache ctx class method-name len #(sci.impl.Reflector/getMethods class len method-name true) :static-methods)]
          (sci.impl.Reflector/invokeMatchingMethod method-name meths nil args-array))
        #_(Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array))
      :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))))
