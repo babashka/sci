@@ -6,7 +6,8 @@
   (:require #?(:cljs [goog.object :as gobject])
             #?(:cljs [clojure.string :as str])
             [sci.impl.types]
-            [sci.impl.utils :as utils]))
+            [sci.impl.utils :as utils]
+            [sci.core :as sci]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
@@ -34,7 +35,7 @@
            meths (get-in static-meths [class-name meth-name len])]
        (or meths
            (let [meths (fetch-fn)]
-             (swap! env assoc-in [:static-meths class-name meth-name len] meths)
+             (swap! env assoc-in [k class-name meth-name len] meths)
              meths)))))
 
 (defn invoke-instance-method
@@ -100,6 +101,7 @@
        (time (dotimes [_ 1000000]
                (sci.impl.Reflector/invokeMatchingMethod "sin" meths nil (object-array [1])))))
      (time (sci.core/eval-string "(dotimes [i 1000000] (Math/sin 1))" {:classes {'Math Math}}))
+     (time (sci.core/eval-string "(dotimes [i 1000000] (.length \"foo\"))" {:classes {'Math Math}}))
      ))
 
 (defn fully-qualify-class [ctx sym]
