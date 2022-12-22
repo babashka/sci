@@ -72,8 +72,21 @@
        ;; [a idx ret init expr]
        (areduce args idx _ret nil
                 (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+       ;; List methods = getMethods(c, args.length, methodName, true);
+       ;; invokeMatchingMethod(methodName, methods, null, args)
        (Reflector/invokeStaticMethod class ^String method-name ^"[Ljava.lang.Object;" args-array))
      :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))))
+
+#?(:clj
+   (comment
+     (time (dotimes [i 1000000]
+             (Reflector/invokeStaticMethod Math "sin" (object-array [1]))))
+     (require '[sci.core])
+     (let [meths (sci.impl.Reflector/getMethods Math 1 "sin" true)]
+       (time (dotimes [i 1000000]
+               (sci.impl.Reflector/invokeMatchingMethod "sin" meths nil (object-array [1])))))
+     (time (sci.core/eval-string "(dotimes [i 1000000] (Math/sin 1))" {:classes {'Math Math}}))
+     ))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
