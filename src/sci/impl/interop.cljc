@@ -98,8 +98,18 @@
      (let [meths (sci.impl.Reflector/getMethods Math 1 "sin" true)]
        (time (dotimes [_ 1000000]
                (sci.impl.Reflector/invokeMatchingMethod "sin" meths nil (object-array [1])))))
+     (let [meths (sci.impl.Reflector/getMethods Math 1 "sin" true)
+           args (object-array [1])
+           meth (sci.impl.Reflector/getMatchingMethod "sin" meths nil #_Math args)]
+       ;; meth
+       #_(time (dotimes [_ 1000000]
+                 (sci.impl.Reflector/invokeMatchingMethod "sin" meths nil (object-array [1]))))
+       (time (dotimes [i 1000000]
+              (sci.impl.Reflector/prepRet (.getReturnType meth) (.invoke meth nil args)))))
      (time (sci.core/eval-string "(dotimes [i 1000000] (Math/sin 1))" {:classes {'Math Math}}))
      (time (sci.core/eval-string "(dotimes [i 1000000] (.length \"foo\"))" {:classes {'Math Math}}))
+     (map str (.getMethods sci.impl.Reflector))
+     (System/getProperty "java.class.path")
      ))
 
 (defn fully-qualify-class [ctx sym]
