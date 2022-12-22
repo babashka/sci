@@ -54,6 +54,7 @@
                  (areduce args idx _ret nil
                           (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
                  ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
+                 ;; See getMatchingMethod in Reflector
                  (Reflector/invokeMatchingMethod method methods obj args-array)))))]))
 
 (defn get-static-field [^Class class field-name-sym]
@@ -88,6 +89,7 @@
        ;; invokeMatchingMethod(methodName, methods, null, args)
        (let [meths (meth-cache ctx class method-name len #(sci.impl.Reflector/getMethods class len method-name true) :static-methods)]
          ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
+         ;; See getMatchingMethod in Reflector
          (sci.impl.Reflector/invokeMatchingMethod method-name meths nil args-array)))
      :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))))
 
