@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- Speed up Java interop around 5x by caching method lookups
+
 ## 0.6.37 (2022-12-20)
 
 - [#839](https://github.com/babashka/sci/issues/839): Performance improvement for method calls in CLJS, like `(Math/sin)` and `(.substring "foo" 0 1)`, around 5 - 7x faster
