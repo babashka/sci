@@ -26,14 +26,12 @@
            (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]))
 
 #?(:clj
-   (defn meth-cache [ctx ^Class class meth-name len fetch-fn k]
-     (let [env (:env ctx)
-           static-meths (k @env)
-           class-name (.getName class)
-           meths (get-in static-meths [class-name meth-name len])]
+   (defn meth-cache [_ctx ^Class class meth-name len fetch-fn cache]
+     (let [cname (.getName class)
+           meths (-> @cache (get cname) (get meth-name) (get len))]
        (or meths
            (let [meths (fetch-fn)]
-             (swap! env assoc-in [k class-name meth-name len] meths)
+             (vswap! cache assoc-in [cname meth-name len] meths)
              meths)))))
 
 (defn invoke-instance-method
@@ -47,7 +45,7 @@
       :clj
       [[ctx bindings obj ^Class target-class method ^objects args arg-count]
        (let [methods
-             (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) :instance-methods)]
+             (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) (:instance-methods ctx))]
          (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
            (invoke-instance-field obj target-class method)
            (do (let [args-array (object-array arg-count)]
@@ -87,7 +85,7 @@
                 (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
        ;; List methods = getMethods(c, args.length, methodName, true);
        ;; invokeMatchingMethod(methodName, methods, null, args)
-       (let [meths (meth-cache ctx class method-name len #(sci.impl.Reflector/getMethods class len method-name true) :static-methods)]
+       (let [meths (meth-cache ctx class method-name len #(sci.impl.Reflector/getMethods class len method-name true) (:static-methods ctx))]
          ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
          ;; See getMatchingMethod in Reflector
          (sci.impl.Reflector/invokeMatchingMethod method-name meths nil args-array)))

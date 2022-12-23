@@ -53,8 +53,7 @@
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes
-                          :ns-aliases ns-aliases
-                          :static-meths {}))))))
+                          :ns-aliases ns-aliases))))))
 
 (defn process-permissions [prev-perms & permissions]
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
@@ -130,15 +129,17 @@
 #?(:clj (defrecord Ctx [bindings env
                         features readers
                         reload-all
-                        check-permissions]))
+                        check-permissions
+                        static-methods
+                        instance-methods]))
 
-(defn ->ctx [bindings env features readers check-permissions?]
+(defn ->ctx [bindings env features readers check-permissions? #?(:clj static-methods) #?(:clj instance-methods)]
   #?(:cljs {:bindings bindings
             :env env
             :features features
             :readers readers
             :check-permissions check-permissions?}
-     :clj (->Ctx bindings env features readers false check-permissions?)))
+     :clj (->Ctx bindings env features readers false check-permissions? static-methods instance-methods)))
 
 (def default-ns-aliases
   #?(:clj {}
@@ -168,12 +169,13 @@
         classes (normalize-classes raw-classes)
         _ (init-env! env bindings aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) ns-aliases)
-        ctx (assoc (->ctx {} env features readers (or allow deny))
+        ctx (assoc (->ctx {} env features readers (or allow deny) #?(:clj (volatile! {})) #?(:clj (volatile! {})))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
-                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
+                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))
+                             ]))]
     ctx))
 
 (defn merge-opts [ctx opts]
@@ -196,7 +198,7 @@
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
         _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) ns-aliases)
-        ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
+        ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny) #?(:clj (volatile! {})) #?(:clj (volatile! {})))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
