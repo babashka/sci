@@ -129,17 +129,15 @@
 #?(:clj (defrecord Ctx [bindings env
                         features readers
                         reload-all
-                        check-permissions
-                        static-methods
-                        instance-methods]))
+                        check-permissions]))
 
-(defn ->ctx [bindings env features readers check-permissions? #?(:clj static-methods) #?(:clj instance-methods)]
+(defn ->ctx [bindings env features readers check-permissions?]
   #?(:cljs {:bindings bindings
             :env env
             :features features
             :readers readers
             :check-permissions check-permissions?}
-     :clj (->Ctx bindings env features readers false check-permissions? static-methods instance-methods)))
+     :clj (->Ctx bindings env features readers false check-permissions?)))
 
 (def default-ns-aliases
   #?(:clj {}
@@ -169,13 +167,12 @@
         classes (normalize-classes raw-classes)
         _ (init-env! env bindings aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) ns-aliases)
-        ctx (assoc (->ctx {} env features readers (or allow deny) #?(:clj (volatile! {})) #?(:clj (volatile! {})))
+        ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
-                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))
-                             ]))]
+                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
 (defn merge-opts [ctx opts]
@@ -198,7 +195,7 @@
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
         _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) ns-aliases)
-        ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny) #?(:clj (volatile! {})) #?(:clj (volatile! {})))
+        ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
