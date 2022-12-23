@@ -127,4 +127,4 @@
               (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
          `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
      :cljs
-     (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn* fn-tail))))
+     (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn fn-tail))))

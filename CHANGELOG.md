@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Speed up Java interop around 5x by caching method lookups
+- Allow destructucturing in CLJS `defmethod`
 
 ## 0.6.37 (2022-12-20)
 
