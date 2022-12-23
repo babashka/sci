@@ -102,61 +102,6 @@ public class Reflector{
             + (target==null?"":" for " + target.getClass());
     }
 
-    public static Method getMatchingMethod(String methodName, List methods, Object target, Object[] args)
-    {
-        Method m = null;
-        Object[] boxedArgs = null;
-        if(methods.isEmpty())
-            {
-                throw new IllegalArgumentException(noMethodReport(methodName,target,args));
-            }
-        else if(methods.size() == 1)
-            {
-                m = (Method) methods.get(0);
-                boxedArgs = boxArgs(m.getParameterTypes(), args);
-            }
-        else //overloaded w/same arity
-            {
-                Method foundm = null;
-                for(Iterator i = methods.iterator(); i.hasNext();)
-                    {
-                        m = (Method) i.next();
-
-                        Class[] params = m.getParameterTypes();
-                        if(isCongruent(params, args))
-                            {
-                                if(foundm == null || Compiler.subsumes(params, foundm.getParameterTypes()))
-                                    {
-                                        foundm = m;
-                                        boxedArgs = boxArgs(params, args);
-                                    }
-                            }
-                    }
-                m = foundm;
-            }
-        if(m == null)
-            throw new IllegalArgumentException(noMethodReport(methodName,target,args));
-
-        if(!Modifier.isPublic(m.getDeclaringClass().getModifiers()) || !canAccess(m, target))
-            {
-                //public method of non-public class, try to find it in hierarchy
-                Method oldm = m;
-                m = getAsMethodOfAccessibleBase(target.getClass(), m, target);
-                if(m == null)
-                    throw new IllegalArgumentException("Can't call public method of non-public class: " +
-                                                       oldm.toString());
-            }
-        return m;
-        // try
-        //     {
-        //         return prepRet(m.getReturnType(), m.invoke(target, boxedArgs));
-        //     }
-        // catch(Exception e)
-        //     {
-        //         throw Util.sneakyThrow(getCauseOrElse(e));
-        //     }
-    }
-
     public static Object invokeMatchingMethod(String methodName, List methods, Object target, Object[] args)
     {
         Method m = null;
