@@ -194,6 +194,7 @@
    (lookup ctx sym call? tag)
    (let [n (name sym)]
      (cond
+       ;; NOTE: move this to analyzer when resolve-symbol returns nil?
        (and call?
             (str/starts-with? n ".")
             (> (count n) 1))

@@ -1176,7 +1176,8 @@
 
 (defn expand-constructor [ctx [constructor-sym & args]]
   (let [constructor-name (name constructor-sym)
-        class-sym (with-meta (symbol (subs constructor-name 0
+        class-sym (with-meta (symbol (namespace constructor-sym)
+                                     (subs constructor-name 0
                                            (dec (count constructor-name))))
                     (meta constructor-sym))]
     (analyze-new ctx (with-meta (list* 'new class-sym args)

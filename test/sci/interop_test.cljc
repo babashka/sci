@@ -215,7 +215,8 @@
                                     'js js/global}})))
      (is (=  [{"msg" "hello"}]
              (tu/eval* "(def pkg #js {:SomeConstructor js/Array}) (js->clj (new (.. pkg -SomeConstructor) #js {:msg \"hello\"}))"
-                       {:classes {'js goog.global :allow :all}})))))
+                       {:classes {'js goog.global :allow :all}})))
+     (is (= "foo" (sci/eval-string "(str (foo/String. \"foo\"))" {:namespaces {'foo {'String js/String}}})))))
 
 #?(:cljs
    (when-not (tu/planck-env?)
