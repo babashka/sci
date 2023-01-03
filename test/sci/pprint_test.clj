@@ -55,4 +55,15 @@
 (binding [*print-namespace-maps* false]
   (pprint/pprint {:x/a 1 :x/b 2}))
 "
-              conf))))))
+                             conf))))))
+
+(deftest print-var
+  (is (= "#'clojure.core/inc"
+         (str/trim
+          (sci/with-out-str
+            (sci/eval-string "
+(require '[clojure.pprint :as pprint])
+
+(pprint/pprint #'inc)
+"
+                             conf))))))

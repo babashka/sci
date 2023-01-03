@@ -15,3 +15,6 @@
         (pm obj)
         (pprint/simple-dispatch (into {} obj))))
     (pprint/simple-dispatch (into {} obj))))
+
+(defmethod pprint/simple-dispatch sci.lang.Var [obj]
+  (pr obj))
