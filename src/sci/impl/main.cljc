@@ -26,6 +26,10 @@
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.IllegalArgumentException] IllegalArgumentException)])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.Thread] Thread)])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.Math] Math)])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'sci.lang.Var] sci.lang.Var)])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'sci.lang.IVar] sci.lang.IVarCompat)])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'sci.lang.Namespace] sci.lang.Namespace)])
+        #?@(:clj [ctx (assoc-in ctx [:classes 'sci.lang.INamespaceCompat] sci.lang.INamespaceCompat)])
         #?@(:clj [ctx (assoc-in ctx [:imports] {'System 'java.lang.System
                                                 'Thread 'java.lang.Thread
                                                 'Math 'java.lang.Math})])]

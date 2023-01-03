@@ -106,5 +106,21 @@
      {"name": "aset"},
      {"name": "aclone"}
    ]},
-  {"name": "[Ljava.lang.Double;"}
+  {"name": "[Ljava.lang.Double;"},
+  {
+    "name":"sci.lang.Var",
+    "allPublicMethods":true
+  },
+  {
+    "name":"sci.lang.IVarCompat",
+    "allPublicMethods":true
+  },
+  {
+    "name":"sci.lang.Namespace",
+    "allPublicMethods":true
+  },
+  {
+    "name":"sci.lang.INamespaceCompat",
+    "allPublicMethods":true
+  }
 ]

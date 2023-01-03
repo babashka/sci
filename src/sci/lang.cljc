@@ -10,6 +10,11 @@
 ;; marker interface for vars, clj only for now
 #?(:clj (definterface ^{:doc "Marker interface for SCI vars."} IVar))
 
+#?(:clj (definterface
+            ^{:private true
+              :doc "For interop compatibility with JVM Clojure"} IVarCompat
+          (ns [])))
+
 (defn- class-name [s]
   (if-let [i (str/last-index-of s ".")]
     (subs s (inc i))
@@ -74,7 +79,7 @@
 
 (defn- throw-root-binding [this]
   (throw (new #?(:clj IllegalStateException :cljs js/Error)
-                  (str "Can't change/establish root binding of " this " with set"))))
+              (str "Can't change/establish root binding of " this " with set"))))
 
 (deftype ^{:doc "Representation of a SCI var, created e.g. with `(defn foo [])`
     The fields of this type are implementation detail and should not be accessed
@@ -88,9 +93,12 @@
             :cljs ^:mutable thread-bound)
          #?(:clj ^:volatile-mutable needs-ctx
             :cljs ^:mutable needs-ctx)]
-  #?(:clj
-     ;; marker interface, clj only for now
-     sci.lang.IVar)
+  #?@(:clj
+      ;; marker interface, clj only for now
+      [sci.lang.IVar
+       sci.lang.IVarCompat
+       (ns [_]
+         (-> meta :ns))])
   types/HasName
   (getName [_this]
     (or (:name meta) sym))
@@ -171,7 +179,7 @@
             (addWatch [_ _ _]
                       (throw (java.lang.UnsupportedOperationException. "Method add-watch not implemented for sci.lang.Var")))
             (removeWatch [_ _]
-                      (throw (java.lang.UnsupportedOperationException. "Method remove-watch not implemented for sci.lang.Var")))])
+                         (throw (java.lang.UnsupportedOperationException. "Method remove-watch not implemented for sci.lang.Var")))])
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [this]
@@ -231,6 +239,10 @@
          (.write w (str "#'" (vars/toSymbol ^sci.impl.vars.IVar o))))
        (prefer-method print-method sci.lang.IVar clojure.lang.IDeref)))
 
+#?(:clj (definterface ^{:private true :doc "For JVM Clojure compatibility"}
+            INamespaceCompat
+          (name [])))
+
 (deftype
     ^{:doc
       "Representation of a SCI namespace, created e.g. with `(create-ns 'foo)`.
@@ -243,6 +255,9 @@
     (str name))
   types/HasName
   (getName [_] name)
+  #?@(:clj
+     [INamespaceCompat
+      (name [_] name)])
   #?(:clj clojure.lang.IMeta :cljs IMeta)
   #?(:clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
   #?(:clj clojure.lang.IReference)
