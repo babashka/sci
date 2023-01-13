@@ -17,11 +17,11 @@
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
+   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [sci.impl.utils :as utils :refer
     [ana-macros constant? kw-identical? macro? rethrow-with-location-of-node
      set-namespace!]]
-   [sci.impl.vars :as vars]
-   [sci.impl.unrestrict :as unrestrict])
+   [sci.impl.vars :as vars])
   #?(:clj (:import
            [sci.impl Reflector]))
   #?(:cljs
@@ -30,10 +30,7 @@
                                  gen-return-binding-call
                                  gen-return-needs-ctx-call
                                  gen-return-call
-                                 with-top-level-loc]]
-      )))
-
-(def ^:dynamic *top-level-location* nil)
+                                 with-top-level-loc]])))
 
 (defn recur-target [ctx]
   (:recur-target ctx))
@@ -750,7 +747,7 @@
                 (-> var-meta
                     (assoc :line (:line expr-loc))
                     (assoc :column (:column expr-loc)))
-                (let [top-level-loc *top-level-location*]
+                (let [top-level-loc utils/*top-level-location*]
                   (-> var-meta
                       (assoc :line (:line top-level-loc))
                       (assoc :column (:column top-level-loc)))))
@@ -1428,14 +1425,14 @@
                    :column (:column m#)})]
        (when loc#
          (macros/? :clj
-                   (push-thread-bindings {#'*top-level-location* loc#})
-                   :cljs (set! *top-level-location* loc#)))
+                   (push-thread-bindings {#'utils/*top-level-location* loc#})
+                   :cljs (set! utils/*top-level-location* loc#)))
        (try ~@body
             (finally
               (when loc#
                 (macros/? :clj
                           (pop-thread-bindings)
-                          :cljs (set! *top-level-location* nil))))))))
+                          :cljs (set! utils/*top-level-location* nil))))))))
 
 (defn dispatch-special [ctx expr f]
   (case f
@@ -1652,6 +1649,8 @@
         (finally
           (when eval-file
             (vars/pop-thread-bindings)))))))
+
+(prn :x)
 
 (defn map-fn [children-count]
   (if (<= children-count 16)
