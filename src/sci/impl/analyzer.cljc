@@ -1650,8 +1650,6 @@
           (when eval-file
             (vars/pop-thread-bindings)))))))
 
-(prn :x)
-
 (defn map-fn [children-count]
   (if (<= children-count 16)
     array-map hash-map))
