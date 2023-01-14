@@ -31,14 +31,16 @@
 
 (declare current-file current-ns)
 
+(def ^:dynamic *top-level-location* nil)
+
 (defn throw-error-with-location
   ([msg iobj] (throw-error-with-location msg iobj {}))
   ([msg iobj data]
    (let [{:keys [:line :column :file]
           :or {file @current-file}} (meta iobj)]
      (throw (ex-info msg (merge {:type :sci/error
-                                 :line line
-                                 :column column
+                                 :line (or line (:line *top-level-location*))
+                                 :column (or column (:column *top-level-location*))
                                  :file file} data))))))
 
 (def ^:dynamic *in-try* false)
