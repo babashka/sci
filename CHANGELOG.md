@@ -15,6 +15,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Speed up Java interop around 5x by caching method lookups
 - Allow destructucturing in CLJS `defmethod`
 - [#862](https://github.com/babashka/sci/issues/862): fix JS constructor from class in CLJS namespace
+- Improve error location in macroexpansion
 
 ## 0.6.37 (2022-12-20)
 
