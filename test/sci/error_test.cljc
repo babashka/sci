@@ -2,6 +2,8 @@
   (:require [clojure.test :as t :refer [deftest testing is]]
             [sci.core :as sci :refer [eval-string]]))
 
+#?(:cljs (def Exception js/Error))
+
 (deftest stacktrace-test
   (let [stacktrace
         (try (eval-string "
@@ -147,3 +149,8 @@
    (= ["clojure.core/assoc - <built-in>" "user/foo           - <expr>:1:14" "user/foo           - <expr>:1:1" "user               - <expr>:1:84" "user               - <expr>:1:65"]
       (sci/format-stacktrace
        (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:clj Exception :cljs js/Error) e e)))))))
+
+(deftest macroexpansion-with-unresolved-symbol-has-location-test
+  (let [data (try (sci/eval-string "(defmacro dude [& body] `(do ~@body)) (dude x)") (catch Exception e (ex-data e)))]
+    (is (:line data))
+    (is (:column data))))
