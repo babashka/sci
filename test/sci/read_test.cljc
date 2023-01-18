@@ -96,3 +96,8 @@ form
                                                              (currentNS [_]
                                                                'the-current-ns)
                                                              (resolveAlias [_ sym] sym))}}})))))))
+
+#?(:clj
+   (deftest read-with-pushback-reader
+     (testing "symbol normally gets line number attached, but we can't do this with pushbackreader"
+       (is (= 'a (sci/eval-string (pr-str '(read (java.io.PushbackReader. (java.io.StringReader. "a")))) {:classes {'java.io.PushbackReader java.io.PushbackReader}}))))))

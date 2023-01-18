@@ -7,7 +7,8 @@
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils]))
+   [sci.impl.utils :as utils]
+   [clojure.tools.reader.reader-types :as rt]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -150,7 +151,8 @@
          ret (try (let [v (edamame/parse-next r parse-opts)]
                     (if (utils/kw-identical? v :edamame.core/eof)
                       eof
-                      (if (symbol? v)
+                      (if (and (symbol? v)
+                               (rt/indexing-reader? r))
                         (vary-meta v assoc
                                    :line (get-line-number r)
                                    :column (- (get-column-number r)
