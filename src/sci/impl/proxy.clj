@@ -8,6 +8,9 @@
         methods (into {}
                       (map (fn [meth]
                              (let [[meth-name & bodies] meth
+                                   meth-name (if (namespace meth-name)
+                                               (symbol (name meth-name))
+                                               meth-name)
                                    bodies (if (vector? (first bodies))
                                             [bodies]
                                             bodies)
