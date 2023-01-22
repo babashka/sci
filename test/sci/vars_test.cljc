@@ -212,7 +212,9 @@
             (is (= 1000 (sci/eval-string "(def x 0) (do (doall (pmap #(alter-var-root #'x (fn foo [v] (+ v %))) (take 1000 (repeat 1)))) x)"
                                          {:namespaces {'clojure.core {'pmap clojure.core/pmap}}})))))
   (testing "alter-var-root uses root binding to update"
-    (is (= 2 (eval* "(def ^:dynamic *x* 1) (binding [*x* 2] (alter-var-root #'*x* inc)) *x*")))))
+    (is (= 2 (eval* "(def ^:dynamic *x* 1) (binding [*x* 2] (alter-var-root #'*x* inc)) *x*"))))
+  (testing "alter-var-root returns new value"
+    (is (= 2 (eval* "(def x 1) (alter-var-root #'x inc)")))))
 
 (deftest with-redefs-test
   (is (= [2 1]  (eval* "(def x 1) [(with-redefs [x 2] x) x]")))

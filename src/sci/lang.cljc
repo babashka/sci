@@ -110,9 +110,10 @@
   (bindRoot [this v]
     (let [old-root (.-root this)]
       (vars/with-writeable-var this meta
-        (set! (.-root this) v))
+        (set! root v))
       (notify-watches this watches old-root v))
-    nil)
+    ;; this is the return value for alter-var-root which should be the only place calling bindRoot directly
+    v)
   (getRawRoot [_this]
     root)
   (toSymbol [_this]
