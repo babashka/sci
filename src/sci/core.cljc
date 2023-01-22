@@ -31,14 +31,14 @@
   ([name] (doto (new-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :name (utils/unqualify-symbol name)) false false)))
+  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :name (utils/unqualify-symbol name)) false false nil)))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
   ([name] (doto (new-dynamic-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
-  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :dynamic true :name (utils/unqualify-symbol name)) false false)))
+  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :dynamic true :name (utils/unqualify-symbol name)) false false nil)))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -52,7 +52,7 @@
   ([name init-val meta] (sci.lang.Var.
                          (vary-meta init-val
                                     assoc :sci/macro true)
-                         name (assoc meta :macro true :name (utils/unqualify-symbol name)) false false)))
+                         name (assoc meta :macro true :name (utils/unqualify-symbol name)) false false nil)))
 
 (defmacro copy-var
   "Copies contents from var `sym` to a new sci var. The value `ns` is an

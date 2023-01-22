@@ -1842,7 +1842,8 @@
                    :name 'macroexpand-all
                    :doc "Recursively performs all possible macroexpansions in form."}
                   false
-                  true))
+                  true
+                  nil))
 
  (def clojure-walk-ns
    {:obj clojure-walk-namespace

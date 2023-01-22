@@ -712,7 +712,8 @@
                                                         :ns @utils/current-ns
                                                         :file @utils/current-file}
                                                        false
-                                                       false)
+                                                       false
+                                                       nil)
                                     (vars/unbind)))
                            the-current-ns))]
     (swap! env

@@ -35,7 +35,8 @@
                        (sci.lang.Var. prev (symbol (str cnn) (str var-name))
                                       (meta prev)
                                       false
-                                      false)
+                                      false
+                                      nil)
                        prev)
                 v (if (identical? utils/var-unbound init)
                     (doto prev

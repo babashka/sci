@@ -16,6 +16,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Allow destructucturing in CLJS `defmethod`
 - [#862](https://github.com/babashka/sci/issues/862): fix JS constructor from class in CLJS namespace
 - Improve error location in macroexpansion
+- [#867](https://github.com/babashka/sci/issues/867): Support `add-watch` and `remove-watch` on `sci.lang.Var`
 
 ## 0.6.37 (2022-12-20)
 

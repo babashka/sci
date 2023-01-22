@@ -4,7 +4,8 @@
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
    [sci.impl.unrestrict :refer [*unrestricted*]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [clojure.string :as str]))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -252,3 +253,9 @@
   (is (false? (eval* "(def ^:dynamic *x*) (def ^:dynamic *y*) (thread-bound? #'*x* #'*x*)")))
   (is (true? (eval* "(def ^:dynamic *x*) (def ^:dynamic *y*)
     (binding [*x* *x* *y* *y*] (thread-bound? #'*x* #'*x*))"))))
+
+#?(:clj
+   (deftest add-watch-test
+     (is (str/starts-with?
+          (sci/with-out-str (sci/eval-string "(def x 1) (add-watch #'x :foo (fn [k r o n] (prn :o o :n n))) (alter-var-root #'x (constantly 5))"))
+          ":o 1 :n 5"))))
