@@ -76,6 +76,16 @@
   (throw (new #?(:clj IllegalStateException :cljs js/Error)
                   (str "Can't change/establish root binding of " this " with set"))))
 
+(defn notify-watches [ref watches old-val new-val]
+  (when watches
+    (when (pos? (count watches))
+      (reduce-kv (fn [_ k f]
+                   (f k ref old-val new-val)
+                   nil)
+                 nil
+                 watches)))
+  ref)
+
 (deftype ^{:doc "Representation of a SCI var, created e.g. with `(defn foo [])`
     The fields of this type are implementation detail and should not be accessed
     directly."}
@@ -87,7 +97,9 @@
          #?(:clj ^:volatile-mutable thread-bound
             :cljs ^:mutable thread-bound)
          #?(:clj ^:volatile-mutable needs-ctx
-            :cljs ^:mutable needs-ctx)]
+            :cljs ^:mutable needs-ctx)
+         #?(:clj ^:volatile-mutable watches
+            :cljs ^:mutable watches)]
   #?(:clj
      ;; marker interface, clj only for now
      sci.lang.IVar)
@@ -96,8 +108,11 @@
     (or (:name meta) sym))
   vars/IVar
   (bindRoot [this v]
-    (vars/with-writeable-var this meta
-      (set! (.-root this) v)))
+    (let [old-root (.-root this)]
+      (vars/with-writeable-var this meta
+        (set! (.-root this) v))
+      (notify-watches this watches old-root v))
+    nil)
   (getRawRoot [_this]
     root)
   (toSymbol [_this]
@@ -168,10 +183,14 @@
                      (vars/with-writeable-var this meta
                        (locking (set! meta m)))))
   #?@(:clj [clojure.lang.IRef
-            (addWatch [_ _ _]
-                      (throw (java.lang.UnsupportedOperationException. "Method add-watch not implemented for sci.lang.Var")))
-            (removeWatch [_ _]
-                      (throw (java.lang.UnsupportedOperationException. "Method remove-watch not implemented for sci.lang.Var")))])
+            (addWatch [this key fn]
+                      (vars/with-writeable-var this meta
+                        (set! watches (assoc watches key fn)))
+                      this)
+            (removeWatch [this _]
+                         (vars/with-writeable-var this meta
+                           (set! watches (dissoc watches key)))
+                         this)])
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [this]
