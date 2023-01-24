@@ -7,6 +7,10 @@
                             resolve])
   (:require
    [clojure.core :as c]
+   [clojure.string :as str]
+   [clojure.tools.reader.reader-types :as rt]
+   [edamame.core :as edamame]
+   [edamame.impl.parser]
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
@@ -287,6 +291,9 @@
   [x]
   (parser/reader x))
 
+(defn source-reader [x]
+  (edamame/source-reader x))
+
 (defn get-line-number [reader]
   (parser/get-line-number reader))
 
@@ -302,6 +309,16 @@
        (or (get opts :eof)
            ::eof)
        v))))
+
+(defn parse-next+string
+  "Parses next form from reader"
+  ([ctx reader] (parse-next+string ctx reader {}))
+  ([ctx reader opts]
+   (if (rt/source-logging-reader? reader)
+     (let [v (parse-next ctx reader opts)
+           s (str/trim (str (edamame.impl.parser/buf reader)))]
+       [v s])
+     (throw (ex-info "parse-next+string must be called with source-reader" {})))))
 
 (defn eval-form
   "Evaluates form (as produced by `parse-string` or `parse-next`) in the

@@ -171,13 +171,7 @@
      ret)))
 
 (defn reader [x]
-  #?(:clj (r/indexing-push-back-reader (r/push-back-reader x))
-     :cljs (let [string-reader (r/string-reader x)
-                 buf-len 1
-                 pushback-reader (r/PushbackReader. string-reader
-                                                    (object-array buf-len)
-                                                    buf-len buf-len)]
-             (r/indexing-push-back-reader pushback-reader))))
+  (edamame/reader x))
 
 (defn parse-string
   ([ctx s]
