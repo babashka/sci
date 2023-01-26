@@ -47,7 +47,7 @@ See [API.md](API.md).
 SCI is used in:
 
 - [Babashka](https://github.com/babashka/babashka). A Clojure scripting tool that plays well with Bash.
-- [nbb](https://github.com/babashka/babashka). Ad-hoc CLJS scripting on Node.js. (Node.js babashka)
+- [nbb](https://github.com/babashka/nbb). Ad-hoc CLJS scripting on Node.js. (Node.js babashka)
 - [Clerk](https://github.com/nextjournal/clerk). Local-First Notebooks for Clojure.
 - [4ever-clojure](https://4clojure.oxal.org/). 4clojure as a static web page.
 - [Clj-kondo](https://github.com/borkdude/clj-kondo/). A Clojure linter that sparks joy.
