@@ -60,10 +60,21 @@
     env))
 
 (defn add-loaded-lib [env lib]
-  (swap! env update :loaded-libs (fn [loaded-libs]
+  (swap! env (fn [env]
+               (let [loaded-libs (:loaded-libs env)]
+                 (if (contains? loaded-libs lib)
+                   env
+                   (do
+                     (let [loaded-libs-var (get-in env '[:namespaces clojure.core *loaded-libs*])]
+                       #?(:clj
+                          (dosync (alter @loaded-libs-var conj lib))
+                          :cljs
+                          (swap! @loaded-libs-var conj lib)))
+                     (-> (update env :loaded-libs
+                                 (fn [loaded-libs]
                                    (if (nil? loaded-libs)
                                      #{lib}
-                                     (conj loaded-libs lib))))
+                                     (conj loaded-libs lib))))))))))
   nil)
 
 (defn handle-require-libspec

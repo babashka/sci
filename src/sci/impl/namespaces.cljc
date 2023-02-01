@@ -91,9 +91,9 @@
         n (second bindings)]
     `(let [n# (long ~n)]
        (~sci.impl.utils/allowed-loop [~i 0]
-        (when (< ~i n#)
-          ~@body
-          (~sci.impl.utils/allowed-recur (unchecked-inc ~i)))))))
+                                     (when (< ~i n#)
+                                       ~@body
+                                       (~sci.impl.utils/allowed-recur (unchecked-inc ~i)))))))
 
 (defn if-not*
   "if-not from clojure.core"
@@ -708,7 +708,6 @@
 (defn macroexpand-1* [ctx expr]
   (@sci.impl.utils/macroexpand-1* ctx expr))
 
-
 ;;;;
 
 #?(:clj
@@ -726,7 +725,6 @@
       'IAtom2 core-protocols/iatom2-protocol
       'resetVals core-protocols/resetVals
       'swapVals core-protocols/swapVals}))
-
 
 ;;;; Record impl
 
@@ -746,7 +744,6 @@
    ;; what do we use this for again?
    ;; '-reg-key! -reg-key!
    '->record-impl sci.impl.records/->record-impl})
-
 
 (def sci-impl-deftype
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
@@ -773,7 +770,6 @@
 
 (def *e (copy-core-var *e))
 
-
 ;;;; Patch for CLJS type
 
 #?(:cljs
@@ -792,14 +788,14 @@
 
 #?(:clj
    (when-<-clojure-1.11.0
-       (defn seq-to-map-for-destructuring
-         "Builds a map from a seq as described in
+    (defn seq-to-map-for-destructuring
+      "Builds a map from a seq as described in
   https://clojure.org/reference/special_forms#keyword-arguments"
-         {:added "1.11"}
-         [s]
-         (if (next s)
-           (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
-           (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
+      {:added "1.11"}
+      [s]
+      (if (next s)
+        (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
+        (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
 ;; #?(:cljs
 ;;    (defn -js-this []
@@ -870,7 +866,7 @@
   (when-not (even? (count bindings))
     (utils/throw-error-with-location "let requires an even number of forms in binding vector" expr))
   `(let* ~(destructure/destructure bindings)
-     ~@body))
+         ~@body))
 
 (defn loop**
   [expr _ bindings & body]
@@ -916,19 +912,24 @@
   "This is a macro for compatiblity. Only there for docs and macroexpand, faster impl in analyzer.cljc"
   [_ _ & body] `(case* ~@body))
 
-(def loaded-libs**
-  (utils/dynamic-var '*loaded-libs* (atom (sorted-set))
-                     {:doc "A ref to a sorted set of symbols representing loaded libs"
-                      :ns clojure-core-ns
-                      :private true
-                      :sci/built-in true}))
+(defn loaded-libs** [syms]
+  (utils/dynamic-var
+   '*loaded-libs* (#?(:clj ref :cljs atom)
+                   (into (sorted-set)
+                         syms))
+   {:doc "A ref to a sorted set of symbols representing loaded libs"
+    :ns clojure-core-ns
+    :private true
+    :sci/built-in true}))
 
 (defn loaded-libs* [ctx]
-  (-> ctx :env deref :namespaces :loaded-libs))
+  (-> ctx :env deref :namespaces
+      (get 'clojure.core)
+      (get '*loaded-libs*)
+      deref deref))
 
 (defn -add-loaded-lib [ctx name]
-  (load/add-loaded-lib (:env ctx) name) #_(let [env (:env ctx)]
-    (swap! env update-in :loaded-libs (fnil conj (sorted-set)) name))
+  (load/add-loaded-lib (:env ctx) name)
   nil)
 
 (defn ns*
@@ -948,10 +949,10 @@
         name (if metadata
                (vary-meta name merge metadata)
                name)
-        #_#_ gen-class-clause (first (filter #(= :gen-class (first %)) references))
+        #_#_gen-class-clause (first (filter #(= :gen-class (first %)) references))
         #_#_gen-class-call
-        (when gen-class-clause
-          (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
+          (when gen-class-clause
+            (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
         references (remove #(= :gen-class (first %)) references)
                                         ;ns-effect (clojure.core/in-ns name)
         name-metadata (meta name)
@@ -964,8 +965,8 @@
                      `((clojure.core/refer '~'clojure.core)))
                ~@(map process-reference references)
                (if (= '~name 'clojure.core)
-                   nil
-                   (do (clojure.core/-add-loaded-lib '~name) nil)))]
+                 nil
+                 (do (clojure.core/-add-loaded-lib '~name) nil)))]
     ;;(println exp)
     exp))
 
@@ -1601,8 +1602,6 @@
               'xml-seq (copy-core-var xml-seq)])
     #?@(:cljs ['-write (copy-var -write clojure-core-ns)])})
 
-
-
  (defn dir-fn
    [ctx ns]
    (let [current-ns (sci.impl.utils/current-ns-name)
@@ -1907,5 +1906,4 @@
                                    :cljs cljs.reader/read-string) clojure-edn-namespace)}
     'sci.impl.records sci-impl-records
     'sci.impl.deftype sci-impl-deftype
-    'sci.impl.protocols sci-impl-protocols})
- )
+    'sci.impl.protocols sci-impl-protocols}))
