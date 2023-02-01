@@ -373,9 +373,10 @@ bar/bar"}
   (is (= 'clojure.string/x (eval* "(eval (macroexpand '(ns foo (:require [clojure.string :as str])))) `str/x"))))
 
 (deftest loaded-libs-test
-  (is (= [true true]
-         (tu/eval* "(requiring-resolve 'foo.bar/x) [(contains? (loaded-libs) 'foo.bar) (contains? @*loaded-libs* 'foo.bar)]"
-                   {:load-fn (fn [{:keys [:namespace]}]
-                               (when (= 'foo.bar namespace)
-                                 {:source "(ns foo.bar) (def x :success)"
-                                  :file "foo/bar.clj"}))}))))
+  (when-not tu/native?
+    (is (= [true true]
+           (tu/eval* "(requiring-resolve 'foo.bar/x) [(contains? (loaded-libs) 'foo.bar) (contains? @*loaded-libs* 'foo.bar)]"
+                     {:load-fn (fn [{:keys [:namespace]}]
+                                 (when (= 'foo.bar namespace)
+                                   {:source "(ns foo.bar) (def x :success)"
+                                    :file "foo/bar.clj"}))})))))
