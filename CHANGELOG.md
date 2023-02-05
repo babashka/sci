@@ -18,6 +18,12 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Improve error location in macroexpansion
 - [#867](https://github.com/babashka/sci/issues/867): Support `add-watch` and `remove-watch` on `sci.lang.Var`
 - [#648](https://github.com/babashka/sci/issues/648): implement `*loaded-libs*` and `(loaded-libs)`
+- Expose new `parse-next+string` function
+- Support qualified method names in `proxy` while ignoring the namespace
+- Support `read` with non-indexing reader, fixes babashka/babashka#1465
+- Improve top level macro expansion error location
+- Fix pprinting vars
+- Add `reader-conditional` to core vars
 
 ## 0.6.37 (2022-12-20)
 
