@@ -77,33 +77,53 @@
                                      (conj loaded-libs lib))))))))))
   nil)
 
+(defn add-class!
+  "Adds class (JVM class or JS object) to `ctx` as `class-name` (a
+  symbol). Returns mutated context."
+  [ctx class-name class]
+  ;; This relies on an internal format of the context and may change at any time.
+  (let [env (:env ctx)]
+    (swap! env (fn [env]
+                 (-> env
+                     (assoc-in [:class->opts class-name :class] class)
+                     (assoc-in [:raw-classes class-name] class))))
+    ctx))
+
+(defn add-import!
+  "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
+  [ctx ns-name class-name alias]
+  ;; This relies on an internal format of the context and may change at any time.
+  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
+  ctx)
+
+#?(:cljs
+   (defn handle-js-lib [ctx env* opts lib cnn the-lib]
+     (let [clazz (symbol (munge lib))]
+       (swap! env* (fn [env]
+                     (-> env
+                         (assoc-in [:class->opts clazz :class] the-lib)
+                         (assoc-in [:raw-classes clazz] the-lib))))
+       (when-let [alias (:as opts)]
+         (swap! env* assoc-in [:namespaces ns-name :imports alias] clazz))
+       (when-let [refers (:refer opts)]
+         (doseq [refer refers]
+           (let [sub-sym (symbol (str lib "$$" (str refer)))]
+             (add-import! ctx cnn sub-sym refer)
+             (let [the-sublib (js/Reflect.get the-lib (str refer))]
+               (add-class! ctx sub-sym the-sublib))))))
+     {:handled true}))
+
 (defn handle-require-libspec
   [ctx lib opts]
   (let [env* (:env ctx)
         env @env*
         cnn (utils/current-ns-name)
-        lib (get (:ns-aliases env) lib lib)]
+        lib (get (:ns-aliases env) lib lib)
+        #?@(:cljs [js-lib? (string? lib)])]
     (or #?(:cljs
-           (when (string? lib)
-             (let [clazz (symbol (munge lib))]
-               (when-let [the-lib (get (:js-libs env) lib)]
-                 (swap! env* (fn [env]
-                               (-> env
-                                   (assoc-in [:class->opts clazz :class] the-lib)
-                                   (assoc-in [:raw-classes clazz] the-lib))))
-                 (when-let [alias (:as opts)]
-                   (swap! env* assoc-in [:namespaces ns-name :imports alias] clazz))
-                 (when-let [refers (:refer opts)]
-                   (doseq [refer refers]
-                     (let [sub-sym (symbol (str lib "$$" (str refer)))]
-                       (prn :refer refer :sub-sym sub-sym)
-                       (swap! env* assoc-in [:namespaces ns-name :imports refer] sub-sym)
-                       (let [the-sublib (js/Reflect.get the-lib (str refer))]
-                         (swap! env* (fn [env]
-                                       (-> env
-                                           (assoc-in [:class->opts sub-sym :class] the-sublib)
-                                           (assoc-in [:raw-classes sub-sym] the-sublib))))))))
-                 {:handled true}))))
+           (when js-lib?
+             (when-let [the-lib (get (:js-libs env) lib)]
+               (handle-js-lib ctx env* opts lib cnn the-lib))))
         (if-let [as-alias (:as-alias opts)]
           (reset! env* (handle-require-libspec-env ctx env cnn nil lib {:as as-alias}))
           (let [{:keys [:reload :reload-all]} opts
@@ -150,12 +170,18 @@
                                  (swap! env* update :namespaces dissoc lib)
                                  (throw e)))))
                       (when-not handled
-                        (swap! env* (fn [env]
-                                      (let [namespaces (get env :namespaces)
-                                            the-loaded-ns (get namespaces lib)]
-                                        (handle-require-libspec-env ctx env cnn
-                                                                    the-loaded-ns
-                                                                    lib opts))))))
+                        (or
+                         #?(:cljs
+                            (when js-lib?
+                              (when-let [the-lib (get (:js-libs @env*) lib)]
+                                (handle-js-lib ctx env* opts lib cnn the-lib)
+                                {})))
+                         (swap! env* (fn [env]
+                                       (let [namespaces (get env :namespaces)
+                                             the-loaded-ns (get namespaces lib)]
+                                         (handle-require-libspec-env ctx env cnn
+                                                                     the-loaded-ns
+                                                                     lib opts)))))))
                     (or (when reload*
                           (when-let [the-loaded-ns (get namespaces lib)]
                             (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
@@ -164,7 +190,9 @@
                 (throw (new #?(:clj Exception :cljs js/Error)
 
                             (str "Could not find namespace " lib ".")))))
-            (add-loaded-lib env* lib)
+            #?(:clj (add-loaded-lib env* lib)
+               :cljs (when-not js-lib?
+                       (add-loaded-lib env* lib)))
             nil)))))
 
 (defn load-lib* [ctx prefix lib options]

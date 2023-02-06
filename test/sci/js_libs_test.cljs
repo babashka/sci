@@ -19,4 +19,15 @@
            (sci/eval-form ctx '(do (require '["fs" :refer [readFileSync]]
                                             '[clojure.string :as str])
                                    (first (str/split-lines (readFileSync "README.md" "utf-8")))))
+           "img"))))
+  (testing "load-fn"
+    (let [ctx-holder (atom nil)
+          ctx (sci/init {:load-fn (fn [_]
+                                    (sci/add-js-lib! @ctx-holder "fs" fs)
+                                    {})})]
+      (reset! ctx-holder ctx)
+      (is (str/includes?
+           (sci/eval-form ctx '(do (require '["fs" :refer [readFileSync]]
+                                            '[clojure.string :as str])
+                                   (first (str/split-lines (readFileSync "README.md" "utf-8")))))
            "img")))))
