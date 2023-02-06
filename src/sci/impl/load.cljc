@@ -83,68 +83,79 @@
         env @env*
         cnn (utils/current-ns-name)
         lib (get (:ns-aliases env) lib lib)]
-    (if-let [as-alias (:as-alias opts)]
-      (reset! env* (handle-require-libspec-env ctx env cnn nil lib {:as as-alias}))
-      (let [{:keys [:reload :reload-all]} opts
-            namespaces (get env :namespaces)
-            reload* (or reload reload-all (:reload-all ctx))]
-        (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
-          (let [loading (:loading ctx)]
-            (if (and loading
-                     (not (contains? (:loaded-libs env) lib))
-                     (nat-int? #?(:clj (.indexOf ^clojure.lang.PersistentVector loading lib)
-                                  :cljs (.indexOf loading lib))))
-              (throw-error-with-location
-               (let [lib-emphasized (str "[ " lib " ]")
-                     loading (conj loading lib)
-                     loading (replace {lib lib-emphasized} loading)]
-                 (str "Cyclic load dependency: " (str/join "->" loading)))
-               lib)
-              (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
-          (if-let [load-fn (:load-fn env)]
-            (let [curr-ns @utils/current-ns]
-              (if-let [{:keys [file source handled]}
-                       (load-fn {:namespace lib ;; old name
-                                 :libname lib
-                                 :ctx ctx
-                                 :opts opts
-                                 :ns (types/getName curr-ns)
-                                 :reload (or reload reload-all)})]
-                (do
-                  ;; (.println System/err "source")
-                  ;; (.println System/err source)
-                  (let [ctx (-> ctx
-                                (assoc :bindings {})
-                                (assoc :reload-all reload-all)
-                                (update :loading (fn [loading]
-                                                   (if (nil? loading)
-                                                     [lib]
-                                                     (conj loading lib)))))]
-                    (when source
-                      (try (vars/with-bindings
-                             {utils/current-ns curr-ns
-                              utils/current-file file}
-                             (@utils/eval-string* ctx source))
-                           (catch #?(:clj Exception :cljs js/Error) e
-                             (swap! env* update :namespaces dissoc lib)
-                             (throw e)))))
-                  (when-not handled
-                    (swap! env* (fn [env]
-                                  (let [namespaces (get env :namespaces)
-                                        the-loaded-ns (get namespaces lib)]
-                                    (handle-require-libspec-env ctx env cnn
-                                                                the-loaded-ns
-                                                                lib opts))))))
-                (or (when reload*
-                      (when-let [the-loaded-ns (get namespaces lib)]
-                        (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
-                    (throw (new #?(:clj Exception :cljs js/Error)
-                                (str "Could not find namespace: " lib "."))))))
-            (throw (new #?(:clj Exception :cljs js/Error)
+    (or #?(:cljs
+           (when (string? lib)
+             (let [clazz (symbol (munge lib))]
+               (when-let [the-lib (get (:js-libs env) lib)]
+                 (swap! env* (fn [env]
+                               (-> env
+                                   (assoc-in [:class->opts clazz :class] the-lib)
+                                   (assoc-in [:raw-classes clazz] the-lib))))
+                 (when-let [alias (:as opts)]
+                   (swap! env* assoc-in [:namespaces ns-name :imports alias] clazz))
+                 {:handled true}))))
+        (if-let [as-alias (:as-alias opts)]
+          (reset! env* (handle-require-libspec-env ctx env cnn nil lib {:as as-alias}))
+          (let [{:keys [:reload :reload-all]} opts
+                namespaces (get env :namespaces)
+                reload* (or reload reload-all (:reload-all ctx))]
+            (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
+              (let [loading (:loading ctx)]
+                (if (and loading
+                         (not (contains? (:loaded-libs env) lib))
+                         (nat-int? #?(:clj (.indexOf ^clojure.lang.PersistentVector loading lib)
+                                      :cljs (.indexOf loading lib))))
+                  (throw-error-with-location
+                   (let [lib-emphasized (str "[ " lib " ]")
+                         loading (conj loading lib)
+                         loading (replace {lib lib-emphasized} loading)]
+                     (str "Cyclic load dependency: " (str/join "->" loading)))
+                   lib)
+                  (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
+              (if-let [load-fn (:load-fn env)]
+                (let [curr-ns @utils/current-ns]
+                  (if-let [{:keys [file source handled]}
+                           (load-fn {:namespace lib ;; old name
+                                     :libname lib
+                                     :ctx ctx
+                                     :opts opts
+                                     :ns (types/getName curr-ns)
+                                     :reload (or reload reload-all)})]
+                    (do
+                      ;; (.println System/err "source")
+                      ;; (.println System/err source)
+                      (let [ctx (-> ctx
+                                    (assoc :bindings {})
+                                    (assoc :reload-all reload-all)
+                                    (update :loading (fn [loading]
+                                                       (if (nil? loading)
+                                                         [lib]
+                                                         (conj loading lib)))))]
+                        (when source
+                          (try (vars/with-bindings
+                                 {utils/current-ns curr-ns
+                                  utils/current-file file}
+                                 (@utils/eval-string* ctx source))
+                               (catch #?(:clj Exception :cljs js/Error) e
+                                 (swap! env* update :namespaces dissoc lib)
+                                 (throw e)))))
+                      (when-not handled
+                        (swap! env* (fn [env]
+                                      (let [namespaces (get env :namespaces)
+                                            the-loaded-ns (get namespaces lib)]
+                                        (handle-require-libspec-env ctx env cnn
+                                                                    the-loaded-ns
+                                                                    lib opts))))))
+                    (or (when reload*
+                          (when-let [the-loaded-ns (get namespaces lib)]
+                            (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
+                        (throw (new #?(:clj Exception :cljs js/Error)
+                                    (str "Could not find namespace: " lib "."))))))
+                (throw (new #?(:clj Exception :cljs js/Error)
 
-                        (str "Could not find namespace " lib ".")))))
-        (add-loaded-lib env* lib)
-        nil))))
+                            (str "Could not find namespace " lib ".")))))
+            (add-loaded-lib env* lib)
+            nil)))))
 
 (defn load-lib* [ctx prefix lib options]
   (when (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
@@ -290,7 +301,7 @@
                                              (if false ;; (get (ns-interns ns) sym)
                                                (str sym " is not public")
                                                (str sym " does not exist")))))
-                               (assoc referred (or (rename sym) sym) v ))
+                               (assoc referred (or (rename sym) sym) v))
                              referred))
                          referred
                          to-do)

@@ -520,4 +520,9 @@
 (defn resolve [ctx sym]
   (@utils/eval-resolve-state ctx {} sym))
 
+#?(:cljs
+   (defn add-js-lib! [ctx name-str js-lib]
+     (swap! (:env ctx) assoc-in [:js-libs name-str] js-lib)
+     ctx))
+
 ;;;; Scratch
