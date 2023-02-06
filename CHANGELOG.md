@@ -24,6 +24,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Improve top level macro expansion error location
 - Fix pprinting vars
 - Add `reader-conditional` to core vars
+- Fix [#babashka/1482](https://github.com/babashka/babashka/issues/1482): make loading of libs thread safe
 
 ## 0.6.37 (2022-12-20)
 

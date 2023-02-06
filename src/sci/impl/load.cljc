@@ -80,7 +80,7 @@
 (defn handle-require-libspec
   [ctx lib opts]
   (let [env* (:env ctx)
-        env @env* ;; NOTE: loading namespaces is not (yet) thread-safe
+        env @env*
         cnn (utils/current-ns-name)
         lib (get (:ns-aliases env) lib lib)]
     (if-let [as-alias (:as-alias opts)]
@@ -146,7 +146,7 @@
         (add-loaded-lib env* lib)
         nil))))
 
-(defn load-lib [ctx prefix lib & options]
+(defn load-lib* [ctx prefix lib options]
   (when (and prefix (pos? (.indexOf (name lib) #?(:clj (int \.)
                                                   :cljs \.))))
     (throw-error-with-location (str "Found lib name '" (name lib) "' containing period with prefix '"
@@ -155,6 +155,15 @@
   (let [lib (if prefix (symbol (str prefix \. lib)) lib)
         opts (apply hash-map options)]
     (handle-require-libspec ctx lib opts)))
+
+#?(:clj
+   (let [load-lock (Object.)]
+     (defn load-lib [ctx prefix lib & options]
+       (locking load-lock
+         (load-lib* ctx prefix lib options))))
+   :cljs
+   (defn load-lib [ctx prefix lib & options]
+     (load-lib* ctx prefix lib options)))
 
 (defn- prependss
   "Prepends a symbol or a seq to coll"
