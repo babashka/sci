@@ -102,7 +102,6 @@
                        sym))
                    (when (contains? class->opts sym)
                      sym)))
-        (prn :interop sym)
         (or (get (:imports env) sym)
             (let [cnn (utils/current-ns-name)]
               (get-in env [:namespaces cnn :imports sym]))))))
