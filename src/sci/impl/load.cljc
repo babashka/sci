@@ -93,6 +93,16 @@
                                    (assoc-in [:raw-classes clazz] the-lib))))
                  (when-let [alias (:as opts)]
                    (swap! env* assoc-in [:namespaces ns-name :imports alias] clazz))
+                 (when-let [refers (:refer opts)]
+                   (doseq [refer refers]
+                     (let [sub-sym (symbol (str lib "$$" (str refer)))]
+                       (prn :refer refer :sub-sym sub-sym)
+                       (swap! env* assoc-in [:namespaces ns-name :imports refer] sub-sym)
+                       (let [the-sublib (js/Reflect.get the-lib (str refer))]
+                         (swap! env* (fn [env]
+                                       (-> env
+                                           (assoc-in [:class->opts sub-sym :class] the-sublib)
+                                           (assoc-in [:raw-classes sub-sym] the-sublib))))))))
                  {:handled true}))))
         (if-let [as-alias (:as-alias opts)]
           (reset! env* (handle-require-libspec-env ctx env cnn nil lib {:as as-alias}))
