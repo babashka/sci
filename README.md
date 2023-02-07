@@ -433,6 +433,34 @@ In JS hosts, to allow interop with anything, use the following config:
 {:classes {'js goog/global :allow :all}}
 ```
 
+### JavaScript libraries
+
+Adding support for JavaScript libraries is done via the `:js-libs` option:
+
+```clojure
+(ns sci.examples.js-libs
+  (:require ["fs" :as fs]
+            [sci.core :as sci]))
+
+(sci/eval-string "
+(require '[\"fs\" :as fs])
+(fs/existsSync \"README.md\")"
+                 {:js-libs {"fs" fs}})
+;;=> true
+```
+
+Note that JavaScript libraries _must_ be required using a string library name.
+
+[Property notation](You can read about that
+[here](https://clojurescript.org/news/2021-04-06-release#_library_property_namespaces).) is also supported:
+
+``` clojure
+(require '["fs$readFileSync" :as slurp])
+(slurp "README.md" "utf-8")
+```
+
+JavaScript libraries can be added to an existing SCI context using `sci/add-js-lib!`.
+
 ### State
 
 SCI uses a context (internally implemented using an atom) to keep track of state

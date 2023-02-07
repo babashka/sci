@@ -107,6 +107,8 @@ anywhere, as long as the result is visible as a top level value:
 
 ## Registering a JS library as a class
 
+> NOTE: the below code can be replaced by using `sci/add-js-lib!` from SCI > 0.6.37. See [docs](../README.md#javascript-libraries).
+
 ``` clojure
 (ns example
   (:require

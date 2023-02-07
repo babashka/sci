@@ -26,10 +26,14 @@
                 (apply load/load-lib ctx nil libname opts))
               (handle-libspecs ctx (rest libspecs)))
           (if-let [load-fn (:async-load-fn @env*)]
-            (let [opts (apply hash-map opts)]
+            (let [opts (apply hash-map opts)
+                  [libname* path] (if (string? libname)
+                                    (load/lib+path libname)
+                                    [libname])]
               (.then (js/Promise.resolve (load-fn {:ns (sci/ns-name @last-ns)
                                                    :ctx ctx
-                                                   :libname libname
+                                                   :libname libname*
+                                                   :property-path path
                                                    :opts opts}))
                      (fn [res]
                        (let [ctx (or (:ctx res) ctx)]

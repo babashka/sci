@@ -14,6 +14,7 @@
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
+   [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.opts :as opts]
@@ -143,7 +144,6 @@
 (def *e namespaces/*e)
 
 ;; REPL variables
-
 
 (macros/deftime
   (defmacro with-in-str
@@ -359,7 +359,7 @@
   (let [publics (if exclude (apply dissoc publics exclude) publics)]
     publics))
 
-(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys ]
+(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys]
   (reduce (fn [ns-map [var-name var]]
             (if-let [m (meta-fn var)]
               (if (some m skip-keys)
@@ -371,13 +371,12 @@
 
 (defn- meta-fn [opts]
   (cond (= :all opts) identity
-        opts #(select-keys %  opts)
+        opts #(select-keys % opts)
         :else #(select-keys % [:arglists
                                :no-doc
                                :macro
                                :doc
                                :dynamic])))
-
 
 (macros/deftime
   (defmacro copy-ns
@@ -462,6 +461,13 @@
                                                [:no-doc :skip-wiki]))]
                           `(-copy-ns ~publics-map ~sci-ns)))))))
 
+(defn add-import!
+  "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
+  [ctx ns-name class-name alias]
+  ;; This relies on an internal format of the context and may change at any time.
+  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
+  ctx)
+
 (defn add-class!
   "Adds class (JVM class or JS object) to `ctx` as `class-name` (a
   symbol). Returns mutated context."
@@ -473,13 +479,6 @@
                      (assoc-in [:class->opts class-name :class] class)
                      (assoc-in [:raw-classes class-name] class))))
     ctx))
-
-(defn add-import!
-  "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
-  [ctx ns-name class-name alias]
-  ;; This relies on an internal format of the context and may change at any time.
-  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
-  ctx)
 
 (defn add-namespace!
   "Adds namespace map `ns-map` named by the symbol `ns-name` to
@@ -519,5 +518,12 @@
 
 (defn resolve [ctx sym]
   (@utils/eval-resolve-state ctx {} sym))
+
+#?(:cljs
+   (defn add-js-lib!
+     "Add js library to context, so it can be used with `require`."
+     [ctx name-str js-lib]
+     (swap! (:env ctx) assoc-in [:js-libs name-str] js-lib)
+     ctx))
 
 ;;;; Scratch
