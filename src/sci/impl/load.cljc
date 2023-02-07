@@ -48,14 +48,16 @@
                  (assoc-in env [:namespaces cnn :imports alias] clazz)
                  env)
            env (if-let [refers (:refer opts)]
-                 (reduce (fn [env refer]
-                           (let [sub-sym (symbol (str lib "$$" (str refer)))
-                                 the-sublib (js/Reflect.get the-lib (str refer))]
-                             (-> env
-                                 (assoc-in [:namespaces cnn :imports refer] sub-sym)
-                                 (assoc-in [:class->opts sub-sym :class] the-sublib)
-                                 (assoc-in [:raw-classes sub-sym] the-sublib))))
-                         env refers)
+                 (let [rename (:rename opts)]
+                   (reduce (fn [env refer]
+                             (let [sub-sym (symbol (str lib "$$" (str refer)))
+                                   the-sublib (js/Reflect.get the-lib (str refer))
+                                   refer (get rename refer refer)]
+                               (-> env
+                                   (assoc-in [:namespaces cnn :imports refer] sub-sym)
+                                   (assoc-in [:class->opts sub-sym :class] the-sublib)
+                                   (assoc-in [:raw-classes sub-sym] the-sublib))))
+                           env refers))
                  env)]
        env)))
 
