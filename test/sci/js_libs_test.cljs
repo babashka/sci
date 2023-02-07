@@ -35,7 +35,7 @@
            "img"))))
   )
 
-(deftest async-eval-string-js-lib-test
+(deftest async-eval-string-js-lib-alias-test
   (async done
          (p/let [ctx (sci/init {:async-load-fn
                                 (fn [{:keys [libname ctx]}]
@@ -47,6 +47,24 @@
                  code (str/join
                        "\n"
                        (map pr-str '[(ns dude (:require ["fs" :as fs]
+                                                        [clojure.string :as str]))
+                                     (first (str/split-lines (fs/readFileSync "README.md" "utf-8")))]))
+                 res (scia/eval-string* ctx code)]
+           (is (str/includes? res "img"))
+           (done))))
+
+(deftest async-eval-string-js-lib-refer-test
+  (async done
+         (p/let [ctx (sci/init {:async-load-fn
+                                (fn [{:keys [libname ctx]}]
+                                  (case libname
+                                    "fs"
+                                    (do
+                                      (sci/add-js-lib! ctx "fs" fs)
+                                      (js/Promise.resolve {}))))})
+                 code (str/join
+                       "\n"
+                       (map pr-str '[(ns dude (:require ["fs" :refer [readFileSync]]
                                                         [clojure.string :as str]))
                                      (first (str/split-lines (readFileSync "README.md" "utf-8")))]))
                  res (scia/eval-string* ctx code)]
