@@ -15,7 +15,7 @@
 (def namespace-syms (keys namespaces/namespaces))
 
 (defn init-env! [env bindings aliases namespaces classes raw-classes imports
-                 load-fn #?(:cljs async-load-fn) ns-aliases]
+                 load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases]
   (swap! env (fn [env]
                (let [env-nss (:namespaces env)
                      namespaces (merge-with merge
@@ -43,7 +43,8 @@
                      imports (if-let [env-imports (:imports env)]
                                (merge env-imports imports)
                                imports)
-                     ns-aliases (merge (:ns-aliases env) ns-aliases)]
+                     ns-aliases (merge (:ns-aliases env) ns-aliases)
+                     #?@(:cljs [js-libs (merge (:js-libs env) js-libs)])]
                  ;; TODO: is the first case ever hit?
                  (if-not env
                    #?(:clj (->Env namespaces imports load-fn)
@@ -55,7 +56,8 @@
                           :namespaces namespaces
                           :imports imports
                           :load-fn load-fn
-                          #?@(:cljs [:async-load-fn async-load-fn])
+                          #?@(:cljs [:async-load-fn async-load-fn
+                                     :js-libs js-libs])
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes
@@ -164,6 +166,7 @@
            :reify-fn
            :proxy-fn
            #?(:cljs :async-load-fn)
+           #?(:cljs :js-libs)
            :ns-aliases]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
@@ -172,7 +175,7 @@
         raw-classes (merge default-classes classes)
         classes (normalize-classes raw-classes)
         _ (init-env! env bindings aliases namespaces classes raw-classes imports
-                     load-fn #?(:cljs async-load-fn) ns-aliases)
+                     load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
@@ -195,12 +198,13 @@
                 :readers
                 :reify-fn
                 #?(:cljs :async-load-fn)
+                #?(:cljs :js-libs)
                 :ns-aliases]
          :or {load-fn (:load-fn env)
               #?@(:cljs [async-load-fn (:async-load-fn env)])}} opts
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
-        _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) ns-aliases)
+        _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))

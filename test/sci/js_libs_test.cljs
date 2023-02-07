@@ -7,6 +7,21 @@
             [sci.core :as sci]))
 
 (deftest js-libs-test
+  (testing "init"
+    (let [ctx (sci/init {:js-libs {"fs" fs}})]
+      (is (str/includes?
+           (sci/eval-form ctx '(do (require '["fs" :as fs] '[clojure.string :as str])
+                                   (first (str/split-lines (fs/readFileSync "README.md" "utf-8")))))
+           "img"))))
+
+  (testing "merge"
+    (let [ctx (sci/init {})
+          ctx2 (sci/merge-opts ctx {:js-libs {"fs" fs}})]
+      (is (str/includes?
+           (sci/eval-form ctx2 '(do (require '["fs" :as fs] '[clojure.string :as str])
+                                    (first (str/split-lines (fs/readFileSync "README.md" "utf-8")))))
+           "img"))))
+
   (testing "alias"
     (let [ctx (sci/init {})]
       (sci/add-js-lib! ctx "fs" fs)
