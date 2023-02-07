@@ -19,25 +19,6 @@
                          the-loaded-ns)]
     (assoc the-current-ns :refers referred)))
 
-(defn add-import!
-  "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
-  [ctx ns-name class-name alias]
-  ;; This relies on an internal format of the context and may change at any time.
-  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
-  ctx)
-
-(defn add-class!
-  "Adds class (JVM class or JS object) to `ctx` as `class-name` (a
-  symbol). Returns mutated context."
-  [ctx class-name class]
-  ;; This relies on an internal format of the context and may change at any time.
-  (let [env (:env ctx)]
-    (swap! env (fn [env]
-                 (-> env
-                     (assoc-in [:class->opts class-name :class] class)
-                     (assoc-in [:raw-classes class-name] class))))
-    ctx))
-
 #?(:cljs
    (defn handle-js-lib [env opts lib cnn the-lib]
      (let [path (:path opts)

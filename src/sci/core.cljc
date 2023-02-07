@@ -145,7 +145,6 @@
 
 ;; REPL variables
 
-
 (macros/deftime
   (defmacro with-in-str
     "Evaluates body in a context in which sci's *in* is bound to a fresh
@@ -360,7 +359,7 @@
   (let [publics (if exclude (apply dissoc publics exclude) publics)]
     publics))
 
-(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys ]
+(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys]
   (reduce (fn [ns-map [var-name var]]
             (if-let [m (meta-fn var)]
               (if (some m skip-keys)
@@ -372,13 +371,12 @@
 
 (defn- meta-fn [opts]
   (cond (= :all opts) identity
-        opts #(select-keys %  opts)
+        opts #(select-keys % opts)
         :else #(select-keys % [:arglists
                                :no-doc
                                :macro
                                :doc
                                :dynamic])))
-
 
 (macros/deftime
   (defmacro copy-ns
@@ -463,16 +461,24 @@
                                                [:no-doc :skip-wiki]))]
                           `(-copy-ns ~publics-map ~sci-ns)))))))
 
+(defn add-import!
+  "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
+  [ctx ns-name class-name alias]
+  ;; This relies on an internal format of the context and may change at any time.
+  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
+  ctx)
+
 (defn add-class!
   "Adds class (JVM class or JS object) to `ctx` as `class-name` (a
   symbol). Returns mutated context."
   [ctx class-name class]
-  (load/add-class! ctx class-name class))
-
-(defn add-import!
-  "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
-  [ctx ns-name class-name alias]
-  (load/add-import! ctx ns-name class-name alias))
+  ;; This relies on an internal format of the context and may change at any time.
+  (let [env (:env ctx)]
+    (swap! env (fn [env]
+                 (-> env
+                     (assoc-in [:class->opts class-name :class] class)
+                     (assoc-in [:raw-classes class-name] class))))
+    ctx))
 
 (defn add-namespace!
   "Adds namespace map `ns-map` named by the symbol `ns-name` to
