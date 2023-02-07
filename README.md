@@ -433,9 +433,9 @@ In JS hosts, to allow interop with anything, use the following config:
 {:classes {'js goog/global :allow :all}}
 ```
 
-### JavaScript Libraries
+### JavaScript libraries
 
-Adding support for js libs is done via the `:js-libs` option:
+Adding support for JavaScript libraries is done via the `:js-libs` option:
 
 ```clojure
 (ns sci.examples.js-libs
@@ -449,7 +449,7 @@ Adding support for js libs is done via the `:js-libs` option:
 ;;=> true
 ```
 
-JS libs can be added to an existing sci ctx using `sci/add-js-lib!`.
+JavaScript libraries can be added to an existing SCI context using `sci/add-js-lib!`.
 
 ### State
 
