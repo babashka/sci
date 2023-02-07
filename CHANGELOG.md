@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Add `sci/add-js-lib!` for adding js libraries including corresponding `:js-libs` init option
 - Speed up Java interop around 5x by caching method lookups
 - Allow destructucturing in CLJS `defmethod`
 - [#862](https://github.com/babashka/sci/issues/862): fix JS constructor from class in CLJS namespace
