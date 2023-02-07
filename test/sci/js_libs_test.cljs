@@ -40,6 +40,17 @@
            (sci/eval-form ctx '(do (require '["fs" :refer [readFileSync]]
                                             '[clojure.string :as str])
                                    (first (str/split-lines (readFileSync "README.md" "utf-8")))))
+           "img"))))
+  (testing "property access pattern"
+    (let [ctx-holder (atom nil)
+          ctx (sci/init {:load-fn (fn [_]
+                                    (sci/add-js-lib! @ctx-holder "fs" fs)
+                                    {})})]
+      (reset! ctx-holder ctx)
+      (is (str/includes?
+           (sci/eval-form ctx '(do (require '["fs$readFileSync" :as slurp]
+                                            '[clojure.string :as str])
+                                   (first (str/split-lines (slurp "README.md" "utf-8")))))
            "img")))))
 
 (deftest async-eval-string-js-lib-alias-test
@@ -74,6 +85,22 @@
                        (map pr-str '[(ns dude (:require ["fs" :refer [readFileSync]]
                                                         [clojure.string :as str]))
                                      (first (str/split-lines (readFileSync "README.md" "utf-8")))]))
+                 res (scia/eval-string* ctx code)]
+           (is (str/includes? res "img"))
+           (done))))
+
+(deftest async-eval-string-js-lib-property-access-test
+  (async done
+         (p/let [ctx (sci/init {:async-load-fn
+                                (fn [{:keys [libname ctx]}]
+                                  (case libname
+                                    "fs"
+                                    (do
+                                      (sci/add-js-lib! ctx "fs" fs)
+                                      (js/Promise.resolve {}))))})
+                 code (pr-str '(do (require '["fs$readFileSync" :as slurp]
+                                            '[clojure.string :as str])
+                                   (first (str/split-lines (slurp "README.md" "utf-8")))))
                  res (scia/eval-string* ctx code)]
            (is (str/includes? res "img"))
            (done))))

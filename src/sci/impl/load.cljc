@@ -40,7 +40,13 @@
 
 #?(:cljs
    (defn handle-js-lib [env opts lib cnn the-lib]
-     (let [clazz (symbol (munge lib))
+     (let [path (:path opts)
+           the-lib (if path
+                     (reduce (fn [the-lib path]
+                               (js/Reflect.get the-lib path)) the-lib (.split path "."))
+                     the-lib)
+           clazz (symbol (munge (str lib (when path
+                                           (str "$")) path)))
            env (-> env
                    (assoc-in [:class->opts clazz :class] the-lib)
                    (assoc-in [:raw-classes clazz] the-lib))
@@ -61,15 +67,20 @@
                  env)]
        env)))
 
+#?(:cljs
+   (defn lib+path [lib]
+     (str/split lib (re-pattern "\\$") 2)))
+
 (defn handle-require-libspec-env
   [_ctx env current-ns the-loaded-ns lib-name
    {:keys [:as :refer :rename :exclude :only :use] :as #?(:clj _opts :cljs opts)}]
   (or
    #?(:cljs
       (when (string? lib-name)
-        (if-let [the-lib (get (:js-libs env) lib-name)]
-          (handle-js-lib env opts lib-name current-ns the-lib)
-          env)))
+        (let [[lib-name path] (lib+path lib-name)]
+          (if-let [the-lib (get (:js-libs env) lib-name)]
+            (handle-js-lib env (assoc opts :path path) lib-name current-ns the-lib)
+            env))))
    (let [the-current-ns (get-in env [:namespaces current-ns]) ;; = ns-data?
          the-current-ns (if as (assoc-in the-current-ns [:aliases as] lib-name)
                             the-current-ns)
@@ -134,10 +145,11 @@
         #?@(:cljs [js-lib? (string? lib)])]
     (or #?(:cljs
            (when js-lib?
-             (when-let [the-lib (get (:js-libs env) lib)]
-               (swap! env* (fn [env]
-                             (handle-js-lib env opts lib cnn the-lib)))
-               {})))
+             (let [[lib path] (lib+path lib)]
+               (when-let [the-lib (get (:js-libs env) lib)]
+                 (swap! env* (fn [env]
+                               (handle-js-lib env (assoc opts :path path) lib cnn the-lib)))
+                 {}))))
         (if-let [as-alias (:as-alias opts)]
           (reset! env* (handle-require-libspec-env ctx env cnn nil lib {:as as-alias}))
           (let [{:keys [:reload :reload-all]} opts
