@@ -1,8 +1,10 @@
 (ns sci.js-libs-test
   (:require ["fs" :as fs]
             [clojure.string :as str]
-            [clojure.test :as t :refer [deftest is testing]]
-            [sci.core :as sci]))
+            [clojure.test :as t :refer [deftest is testing async]]
+            [sci.core :as sci]
+            [sci.async :as scia]
+            [promesa.core :as p]))
 
 (deftest js-libs-test
   (testing "alias"
@@ -30,4 +32,23 @@
            (sci/eval-form ctx '(do (require '["fs" :refer [readFileSync]]
                                             '[clojure.string :as str])
                                    (first (str/split-lines (readFileSync "README.md" "utf-8")))))
-           "img")))))
+           "img"))))
+  )
+
+(deftest async-eval-string-js-lib-test
+  (async done
+         (p/let [ctx (sci/init {:async-load-fn
+                                (fn [{:keys [libname ctx]}]
+                                  (case libname
+                                    "fs"
+                                    (do
+                                      (sci/add-js-lib! ctx "fs" fs)
+                                      (js/Promise.resolve {}))))})
+                 code (str/join
+                       "\n"
+                       (map pr-str '[(ns dude (:require ["fs" :as fs]
+                                                        [clojure.string :as str]))
+                                     (first (str/split-lines (readFileSync "README.md" "utf-8")))]))
+                 res (scia/eval-string* ctx code)]
+           (is (str/includes? res "img"))
+           (done))))
