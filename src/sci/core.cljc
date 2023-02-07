@@ -14,6 +14,7 @@
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
+   [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.opts :as opts]
@@ -466,20 +467,12 @@
   "Adds class (JVM class or JS object) to `ctx` as `class-name` (a
   symbol). Returns mutated context."
   [ctx class-name class]
-  ;; This relies on an internal format of the context and may change at any time.
-  (let [env (:env ctx)]
-    (swap! env (fn [env]
-                 (-> env
-                     (assoc-in [:class->opts class-name :class] class)
-                     (assoc-in [:raw-classes class-name] class))))
-    ctx))
+  (load/add-class! ctx class-name class))
 
 (defn add-import!
   "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
   [ctx ns-name class-name alias]
-  ;; This relies on an internal format of the context and may change at any time.
-  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
-  ctx)
+  (load/add-import! ctx ns-name class-name alias))
 
 (defn add-namespace!
   "Adds namespace map `ns-map` named by the symbol `ns-name` to
