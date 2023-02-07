@@ -29,7 +29,7 @@
             (let [opts (apply hash-map opts)
                   [libname* path] (if (string? libname)
                                     (load/lib+path libname)
-                                    libname)]
+                                    [libname])]
               (.then (js/Promise.resolve (load-fn {:ns (sci/ns-name @last-ns)
                                                    :ctx ctx
                                                    :libname libname*

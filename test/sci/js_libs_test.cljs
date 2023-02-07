@@ -98,9 +98,12 @@
                                     (do
                                       (sci/add-js-lib! ctx "fs" fs)
                                       (js/Promise.resolve {}))))})
-                 code (pr-str '(do (require '["fs$readFileSync" :as slurp]
-                                            '[clojure.string :as str])
-                                   (first (str/split-lines (slurp "README.md" "utf-8")))))
+                 code (str/join "\n" (map pr-str '[(ns foo (:require ["fs$readFileSync" :as slurp]
+                                                                     ["fs$existsSync" :as exists?]
+                                                                     [clojure.string :as str]))
+                                                   [(first (str/split-lines (slurp "README.md" "utf-8")))
+                                                    (exists? "README.md")]]))
                  res (scia/eval-string* ctx code)]
-           (is (str/includes? res "img"))
+           (is (str/includes? (first res) "img"))
+           (is (true? (second res)))
            (done))))

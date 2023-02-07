@@ -521,7 +521,9 @@
   (@utils/eval-resolve-state ctx {} sym))
 
 #?(:cljs
-   (defn add-js-lib! [ctx name-str js-lib]
+   (defn add-js-lib!
+     "Add js library to context, so it can be used with `require`."
+     [ctx name-str js-lib]
      (swap! (:env ctx) assoc-in [:js-libs name-str] js-lib)
      ctx))
 
