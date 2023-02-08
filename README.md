@@ -451,8 +451,7 @@ Adding support for JavaScript libraries is done via the `:js-libs` option:
 
 Note that JavaScript libraries _must_ be required using a string library name.
 
-[Property notation](You can read about that
-[here](https://clojurescript.org/news/2021-04-06-release#_library_property_namespaces).) is also supported:
+[Property notation](https://clojurescript.org/news/2021-04-06-release#_library_property_namespaces) is also supported:
 
 ``` clojure
 (require '["fs$readFileSync" :as slurp])
