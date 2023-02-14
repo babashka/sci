@@ -110,7 +110,7 @@
                                             (fnil conj #{}) (symbol (str rec-type))))
                    protocol-ns (:ns protocol)
                    pns (cond protocol-ns (str (types/getName protocol-ns))
-                             (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
+                             (= #?(:clj Object :cljs ::object) protocol) "sci.impl.deftype")
                    fq-meth-name #(if (simple-symbol? %)
                                    (symbol pns (str %))
                                    %)]
