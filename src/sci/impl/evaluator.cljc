@@ -119,8 +119,8 @@
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (types/eval instance-expr ctx bindings)]
-    ;; (prn (type instance-expr*))
-    (if (instance? sci.impl.records.SciRecord instance-expr*)
+    (if (and (instance? sci.impl.records.SciRecord instance-expr*)
+             (not= "toString" method-str))
       (get instance-expr* (keyword
                            ;; TODO: strip leading dash in analyzer
                            method-str))
