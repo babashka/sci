@@ -1,7 +1,7 @@
 (ns sci.impl.cljs
   {:no-doc true}
   (:require [sci.impl.macros :as macros])
-  #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api]])))
+  #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api when-not-var-exists]])))
 
 (macros/deftime
   #?(:clj (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
@@ -15,7 +15,13 @@
                        (do (require '[cljs.analyzer.api])
                            (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
                        ;; self-hosted CLJS, no require supported but also not necessary
-                       :cljs nil))))
+                       :cljs nil)))
+
+  (defmacro when-not-var-exists [var & body]
+    (let [resolver (resolve 'cljs.analyzer.api/resolve)
+          resolved (resolver {} var)]
+      (when-not resolved
+        `(do ~@body)))))
 
 ;; When CLJS code is compiled, we know for sure that we can require the CLJS analyzer API
 #?(:cljs (require-cljs-analyzer-api))
