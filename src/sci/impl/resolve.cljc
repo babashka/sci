@@ -162,7 +162,8 @@
                          (when-let [m (some-> k meta)]
                            #?(:clj (or (:volatile-mutable m)
                                        (:unsynchronized-mutable m))
-                              :cljs (:mutable m))))
+                              :cljs (or (:mutable m)
+                                        (:volatile-mutable m)))))
               v (if call? ;; resolve-symbol is already handled in the call case
                   (mark-resolve-sym k idx)
                   (let [v (cond-> (if mutable?

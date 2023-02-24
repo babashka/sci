@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - [#874](https://github.com/babashka/sci/issues/874): Keyword arguments as map support for CLJS
+- Mutable deftype fields can be marked as such with `^:volatile-mutable` in CLJS
 
 ## 0.7.38 (2023-02-07)
 
