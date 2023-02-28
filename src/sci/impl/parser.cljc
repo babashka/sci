@@ -85,8 +85,7 @@
                 (interop/fully-qualify-class ctx sym)
                 ;; all unresolvable symbols all resolved in the current namespace
                 (if (str/includes? sym-name-str ".")
-                  ;; NOTE: this should probably be moved to edamame at some
-                  ;; point, but it's at a pristine 1.0.0 status right now ;)
+                  ;; NOTE: move to to edamame?
                   (if (and (not (str/starts-with? sym-name-str "."))
                            (str/ends-with? sym-name-str "."))
                     (symbol (str (res-without-sym (symbol (subs sym-name-str 0 (dec (count sym-name-str))))) "."))
@@ -95,11 +94,17 @@
                   (symbol current-ns-str sym-name-str)))))
         ret (if-not sym-ns
               (res-without-sym sym)
-              (if (get-in env [:namespaces sym-ns])
-                sym
-                (if-let [ns (get aliases sym-ns)]
-                  (symbol (str ns) (name sym))
-                  sym)))]
+              (let [nss (get env :namespaces)]
+                (if (get nss sym-ns)
+                  sym
+                  (if-let [ns (get aliases sym-ns)]
+                    (symbol (str ns) (name sym))
+                    #?(:cljs
+                       ;; This enables using `(fs/readFileSync) mode in macros, e.g. in nbb
+                       (if-let [import (-> nss (get current-ns) :imports (get sym-ns))]
+                         (symbol (str import) (name sym))
+                         sym)
+                       :clj sym)))))]
     ret))
 
 (defn throw-eval-read [_]

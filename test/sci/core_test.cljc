@@ -288,6 +288,10 @@
   (testing "metadata isn't evaluated on defn expression"
     (eval* "^{:inverse-of foo} (defn bar [])")))
 
+(deftest defn-kwargs-test
+  (is (= {:a 1} (sci/eval-string "(defn foo [& {:keys [a]}] {:a a}) (foo :a 1)")))
+  (is (= {:a 1} (sci/eval-string "(defn foo [& {:keys [a]}] {:a a}) (foo {:a 1})"))))
+
 (deftest resolve-test
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error) #"x"

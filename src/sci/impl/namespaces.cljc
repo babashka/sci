@@ -797,6 +797,16 @@
         (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
         (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
+#?(:cljs
+   (sci.impl.cljs/when-not-var-exists seq-to-map-for-destructuring
+     (defn seq-to-map-for-destructuring
+       "Builds a map from a seq as described in
+  https://clojure.org/reference/special_forms#keyword-arguments"
+       [s]
+       (if (next s)
+         (.createAsIfByAssoc PersistentArrayMap (to-array s))
+         (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
+
 ;; #?(:cljs
 ;;    (defn -js-this []
 ;;      (js* "this")))
@@ -1467,7 +1477,7 @@
     'second (copy-core-var second)
     'set (copy-core-var set)
     'seq (copy-core-var seq)
-    #?@(:clj ['seq-to-map-for-destructuring (copy-var seq-to-map-for-destructuring clojure-core-ns)])
+    'seq-to-map-for-destructuring (copy-var seq-to-map-for-destructuring clojure-core-ns)
     'seq? (copy-core-var seq?)
     'short (copy-core-var short)
     'shuffle (copy-core-var shuffle)
