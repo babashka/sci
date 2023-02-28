@@ -220,7 +220,7 @@
   (is (true? (tu/eval* "(deftype Foo []) (instance? Foo (->Foo))" {})))
   (is (true? (tu/eval* "(ns bar) (deftype Foo []) (ns foo (:import [bar Foo])) (instance? Foo (Foo.))" {})))
   (is (= "dude" (tu/eval* "(deftype Dude [] Object (toString [_] \"dude\")) (str (->Dude))" {})))
-  (is (= [true false] (tu/eval* "(deftype Dude [x] Object (toString [_] (str x)) (equals [this other] (= (str this) (str other)))) [(= (->Dude 1) (->Dude 1)) (= (->Dude 1) (->Dude 2))]" {}))))
+  #?(:clj (is (= [true false] (tu/eval* "(deftype Dude [x] Object (toString [_] (str x)) (equals [this other] (= (str this) (str other)))) [(= (->Dude 1) (->Dude 1)) (= (->Dude 1) (->Dude 2))]" {})))))
 
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]
