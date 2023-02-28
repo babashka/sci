@@ -749,6 +749,7 @@
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
    :private true
    'toString sci.impl.deftype/to-string
+   #?@(:clj ['equals sci.impl.deftype/equals])
    '-create-type -create-type
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal

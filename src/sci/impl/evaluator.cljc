@@ -114,42 +114,46 @@
      (let [instance-expr* (types/eval instance-expr ctx bindings)]
        (interop/invoke-instance-field instance-expr* nil method-str))))
 
+(def none-sentinel #?(:clj (Object.) :cljs (js/Object.)))
+
+(defn get-from-type [instance method-str #?(:clj arg-count :cljs args)]
+  (if (zero? #?(:clj arg-count :cljs (alength args)))
+    (if (instance? sci.impl.records.SciRecord instance)
+      (get instance (keyword method-str) none-sentinel)
+      (if (instance? sci.impl.deftype.SciType instance)
+        (get (types/getVal instance) (symbol method-str) none-sentinel)
+        none-sentinel))
+    none-sentinel))
+
 (defn eval-instance-method-invocation
   [ctx bindings instance-expr method-str field-access args #?(:cljs allowed) arg-count]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
-        instance-expr* (types/eval instance-expr ctx bindings)]
-    ;; (prn (type instance-expr*))
-    (if (instance? sci.impl.records.SciRecord instance-expr*)
-      (get instance-expr* (keyword
-                           ;; TODO: strip leading dash in analyzer
-                           method-str))
-      (if (instance? sci.impl.deftype.SciType instance-expr*)
-        (get (types/getVal instance-expr*)
-             (symbol
-              ;; TODO: strip leading dash in analyzer
-              method-str))
-        (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
-              env @(:env ctx)
-              class->opts (:class->opts env)
-              allowed? (or
-                        #?(:cljs allowed)
-                        (get class->opts :allow)
-                        (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                     :cljs (.-name instance-class))
-                              instance-class-symbol (symbol instance-class-name)]
-                          (get class->opts instance-class-symbol)))
-              ^Class target-class (if allowed? instance-class
-                                      (when-let [f (:public-class env)]
-                                        (f instance-expr*)))]
-          ;; we have to check options at run time, since we don't know what the class
-          ;; of instance-expr is at analysis time
-          (when-not #?(:clj target-class
-                       :cljs allowed?)
-            (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-          (if field-access
-            (interop/invoke-instance-field instance-expr* target-class method-str)
-            (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count)))))))
+        instance-expr* (types/eval instance-expr ctx bindings)
+        v (get-from-type instance-expr* method-str #?(:clj arg-count :cljs args))]
+    (if-not (identical? none-sentinel v)
+      v
+      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+            env @(:env ctx)
+            class->opts (:class->opts env)
+            allowed? (or
+                      #?(:cljs allowed)
+                      (get class->opts :allow)
+                      (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                                   :cljs (.-name instance-class))
+                            instance-class-symbol (symbol instance-class-name)]
+                        (get class->opts instance-class-symbol)))
+            ^Class target-class (if allowed? instance-class
+                                    (when-let [f (:public-class env)]
+                                      (f instance-expr*)))]
+        ;; we have to check options at run time, since we don't know what the class
+        ;; of instance-expr is at analysis time
+        (when-not #?(:clj target-class
+                     :cljs allowed?)
+          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+        (if field-access
+          (interop/invoke-instance-field instance-expr* target-class method-str)
+          (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count))))))
 
 ;;;; End interop
 

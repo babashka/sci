@@ -27,6 +27,13 @@
     (str (namespace t) "." (name t) "@"
          (hex-hash this))))
 
+#?(:clj
+   (do
+     (defmulti equals (fn [this _other]
+                        (types/type-impl this)))
+     (defmethod equals :default [this other]
+       (identical? this other))))
+
 (defn clojure-str [v]
   ;; #object[user.Foo 0x743e63ce "user.Foo@743e63ce"]
   (let [n (types/type-impl v)]
@@ -43,6 +50,8 @@
   Object
   (toString [this]
     (to-string this))
+  #?(:clj (equals [this other]
+                  (sci.impl.deftype/equals this other)))
 
   sci.impl.types/SciTypeInstance
   (-get-type [_]
