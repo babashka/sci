@@ -45,7 +45,6 @@
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
       [[ctx bindings obj ^Class target-class method ^objects args arg-count]
-       (prn :target-class target-class)
        (let [methods
              (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) :instance-methods)]
          (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
