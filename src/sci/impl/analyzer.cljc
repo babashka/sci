@@ -1383,6 +1383,7 @@
                                 (sci.impl.types/->Node
                                  (try
                                    (~'f
+                                    {} ~'expr
                                     ~@(map (fn [j]
                                              `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
                                            (range i)))
