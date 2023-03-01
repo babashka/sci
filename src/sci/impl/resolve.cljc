@@ -45,7 +45,8 @@
          the-current-ns (-> env :namespaces cnn)
          ;; resolve alias
          sym-ns (when sym-ns (or (get-in the-current-ns [:aliases sym-ns])
-                                 sym-ns))]
+                                 sym-ns))
+         sym-ns (get (:ns-aliases env) sym-ns sym-ns)]
      (if sym-ns
        (or
         (when
@@ -257,7 +258,6 @@
    (second
     (or (resolve-symbol* ctx sym call? tag)
         #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? tag)]
-;;                   (prn :resolved resolved)
                    resolved))
         (throw-error-with-location
          (str "Could not resolve symbol: " (str sym))

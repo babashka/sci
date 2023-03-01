@@ -1563,11 +1563,13 @@
 
 #?(:cljs
    (deftest require-cljs-core-test
-     (= 3 (sci/eval-string "(require '[cljs.core :as c]) (c/inc 2)"))))
+     (is (= 3 (sci/eval-string "(require '[cljs.core :as c]) (c/inc 2)")))))
 
 (deftest ns-aliases-test
   (is (= 1 (sci/eval-string "(require '[foobar :as foo]) (foo/read-string \"1\")"
-                            {:ns-aliases '{foobar clojure.edn}}))))
+                            {:ns-aliases '{foobar clojure.edn}})))
+  (is (= 1 (sci/eval-string "(clojure.dude/inc 0)"
+                            {:ns-aliases '{clojure.dude clojure.core}}))))
 
 #?(:clj
    (deftest sandbox-print-method-test
