@@ -350,7 +350,9 @@
   (reduce (fn [ns-map [var-name var]]
             (let [m (:meta var)]
               (assoc ns-map var-name
-                     (new-var var-name (:val var)
+                     (new-var var-name (if-let [var (:var var)]
+                                         @var
+                                         (:val var))
                               (assoc m :ns sci-ns :name var-name)))))
           {}
           ns-publics-map))
@@ -415,7 +417,7 @@
                                     (list 'quote k))
                                   (fn [var m]
                                     {:name (list 'quote (:name m))
-                                     :val (deref var)
+                                     :var var
                                      :meta (list 'quote (mf m))})
                                   (or (:exclude-when-meta opts)
                                       [:no-doc :skip-wiki]))]
