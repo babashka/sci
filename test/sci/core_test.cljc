@@ -5,6 +5,7 @@
    [clojure.test :as test :refer [deftest is testing]]
    [sci.copy-ns-test-ns]
    [sci.core :as sci :refer [eval-string]]
+   [sci.impl.macros :as macros]
    [sci.test-utils :as tu]))
 
 #?(:cljs
@@ -1465,24 +1466,24 @@
 
 (deftest copy-ns-test
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
-                            (sci/create-ns 'sci.copy-ns-test-ns)
-                            {:exclude [baz quux]
-                             :copy-meta [:doc :copy-this]})]
-    (is (map? sci-ns))
-    (is (= 2 (count sci-ns)))
-    (is (= #{'foo 'bar} (set (keys sci-ns))))
-    (is (= [:foo :bar] (sci/eval-string
-                        "(require '[sci.copy-ns-test-ns :refer [foo bar]])
+                              (sci/create-ns 'sci.copy-ns-test-ns)
+                              {:exclude [baz quux]
+                               :copy-meta [:doc :copy-this]})]
+      (is (map? sci-ns))
+      (is (= 4 (count sci-ns)))
+      (is (= #{'foo 'bar 'ITest 'x} (set (keys sci-ns))))
+      (is (= [:foo :bar] (sci/eval-string
+                          "(require '[sci.copy-ns-test-ns :refer [foo bar]])
                          [(foo) (bar)]"
-                        {:namespaces {'sci.copy-ns-test-ns sci-ns}})))
-    (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
-    (is (:copy-this (meta (get sci-ns 'foo)))))
+                          {:namespaces {'sci.copy-ns-test-ns sci-ns}})))
+      (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
+      (is (:copy-this (meta (get sci-ns 'foo)))))
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                             (sci/create-ns 'sci.copy-ns-test-ns)
                             {:exclude-when-meta [:exclude-this]
                              :copy-meta :all})]
-    (is (= 4 (count sci-ns)))
-    (is (= #{'foo 'bar 'baz 'skip-wiki} (set (keys sci-ns))))
+    (is (= 6 (count sci-ns)))
+    (is (= #{'foo 'bar 'baz 'skip-wiki 'ITest 'x} (set (keys sci-ns))))
     (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
     (is (:copy-this (meta (get sci-ns 'foo))))
     (is (:awesome-meta (meta (get sci-ns 'baz))))))

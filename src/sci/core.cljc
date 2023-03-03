@@ -413,12 +413,13 @@
                                   meta
                                   (fn [k]
                                     (list 'quote k))
-                                  (fn [var m]
+                                  (fn [_var m]
                                     {:name (list 'quote (:name m))
-                                     :val (deref var)
+                                     :val (symbol (str ns-sym) (str (:name m)))
                                      :meta (list 'quote (mf m))})
                                   (or (:exclude-when-meta opts)
                                       [:no-doc :skip-wiki]))]
+                 ;; (prn publics-map)
                  `(-copy-ns ~publics-map ~sci-ns))
                :cljs #?(:clj
                         ;; this branch is hit by macroexpanding within the CLJS
@@ -437,7 +438,10 @@
                                            (fn [var m]
                                              {:name (list 'quote (:name var))
                                               :val (:name var)
-                                              :meta (mf m)})
+                                              :meta (let [m (mf m)]
+                                                      (if (:protocol-symbol m)
+                                                        (list 'quote m)
+                                                        m))})
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
                           `(-copy-ns ~publics-map ~sci-ns))
@@ -456,7 +460,10 @@
                                            (fn [var m]
                                              {:name (list 'quote (:name var))
                                               :val (:name var)
-                                              :meta (mf m)})
+                                              :meta (let [m (mf m)]
+                                                      (if (:protocol-symbol m)
+                                                        (list 'quote m)
+                                                        m))})
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
                           `(-copy-ns ~publics-map ~sci-ns)))))))
