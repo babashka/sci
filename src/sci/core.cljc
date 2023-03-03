@@ -413,9 +413,9 @@
                                   meta
                                   (fn [k]
                                     (list 'quote k))
-                                  (fn [_var m]
+                                  (fn [var m]
                                     {:name (list 'quote (:name m))
-                                     :val (symbol (str ns-sym) (str (:name m)))
+                                     :val (deref var)
                                      :meta (list 'quote (mf m))})
                                   (or (:exclude-when-meta opts)
                                       [:no-doc :skip-wiki]))]
