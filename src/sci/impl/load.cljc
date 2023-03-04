@@ -312,7 +312,6 @@
           (recur (nnext exprs)))))))
 
 (defn eval-refer* [env ns-sym filters]
-  env
   (let [cnn (utils/current-ns-name)
         namespaces (:namespaces env)
         ns (or (get namespaces ns-sym)
