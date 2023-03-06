@@ -1489,17 +1489,24 @@
                                  last-path (last method-path)
                                  ctor? (= last-path "")
                                  method-len (count method-path)
-                                 lookup-fn #(if (= 1 method-len)
-                                              [class last-path]
-                                              (let [subpath (.slice method-path 0 (dec method-len))]
-                                                ;; This might fail at analysis time
-                                                [(interop/get-static-fields class subpath)
-                                                 last-path]))
+                                 subpath (.slice method-path 0 (dec method-len))
+                                 lookup-fn (if (= 1 method-len)
+                                             (constantly #js [class last-path])
+                                             ;; This might fail at analysis time
+                                             (fn []
+                                               #js [(interop/get-static-fields class subpath)
+                                                    last-path]))
                                  [class method-name] (try (lookup-fn)
                                                           (catch :default _ nil))
                                  children (analyze-children ctx (rest expr))
                                  children (into-array children)]
-                             (if class ;; if class isn't found at analysis time, we delay lookup to runtime
+                             (if class
+                               ;; if class isn't found at analysis time, we
+                               ;; delay lookup to runtime the performance
+                               ;; difference isn't that great, so if turns out
+                               ;; to be a problem that we're eagerly looking up
+                               ;; the invoked class here, we can switch to the
+                               ;; else branch by default
                                (if ctor?
                                  (let [ctor class]
                                    (sci.impl.types/->Node
@@ -1511,12 +1518,14 @@
                                     nil)))
                                (if ctor?
                                  (sci.impl.types/->Node
-                                  (let [[class _] (lookup-fn)
-                                        ctor class]
+                                  (let [arr (lookup-fn)
+                                        ctor (aget arr 0)]
                                     (interop/invoke-js-constructor* ctx bindings ctor children))
                                   nil)
                                  (sci.impl.types/->Node
-                                  (let [[class method-name] (lookup-fn)
+                                  (let [arr (lookup-fn)
+                                        class (aget arr 0)
+                                        method-name (aget arr 1)
                                         method (unchecked-get class method-name)]
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)))))
