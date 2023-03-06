@@ -1227,25 +1227,29 @@
            #"Could not resolve symbol: y" (sci/eval-string* ctx "y"))))))
 
 (defmacro do-twice [x] `(do ~x ~x))
+(defn ^:sci/macro do-twice* [_ _ x] `(do ~x ~x))
 (def ^:dynamic *foo* 1)
 (defn always-foo [& _args] :foo)
 
 (deftest copy-var-test
   (let [foo-ns (sci/create-ns 'foo)
         do-twice-var (sci/copy-var do-twice foo-ns)
+        do-twice*-var (sci/copy-var do-twice* foo-ns)
         foo-var (sci/copy-var *foo* foo-ns)
         always-foo-var (sci/copy-var always-foo foo-ns)
         opts {:namespaces {'foo {'do-twice do-twice-var
+                                 'do-twice* do-twice*-var
                                  '*foo* foo-var
                                  'always-foo always-foo-var}}}
         effects (sci/with-out-str (sci/eval-string "
 (foo/do-twice (prn 1))
+(foo/do-twice* (prn 1))
 (prn (foo/always-foo))
 (prn foo/*foo*)
 (binding [foo/*foo* 10] (prn foo/*foo*))" opts))
         do-twice-doc (sci/with-out-str (sci/eval-string "(clojure.repl/doc foo/do-twice)" opts))
         always-foo-doc (sci/with-out-str (sci/eval-string "(clojure.repl/doc foo/always-foo)" opts))]
-    (is (= "1\n1\n:foo\n1\n10\n" effects))
+    (is (= "1\n1\n1\n1\n:foo\n1\n10\n" effects))
     (is (= "-------------------------\nfoo/do-twice\n([x])\nMacro\n" do-twice-doc))
     (is (= "-------------------------\nfoo/always-foo\n([& _args])\n" always-foo-doc))))
 
@@ -1470,8 +1474,8 @@
                               {:exclude [baz quux]
                                :copy-meta [:doc :copy-this]})]
       (is (map? sci-ns))
-      (is (= 4 (count sci-ns)))
-      (is (= #{'foo 'bar 'ITest 'x} (set (keys sci-ns))))
+      (is (= 5 (count sci-ns)))
+      (is (= #{'foo 'bar 'ITest 'x 'vec-macro} (set (keys sci-ns))))
       (is (= [:foo :bar] (sci/eval-string
                           "(require '[sci.copy-ns-test-ns :refer [foo bar]])
                          [(foo) (bar)]"
@@ -1482,11 +1486,12 @@
                             (sci/create-ns 'sci.copy-ns-test-ns)
                             {:exclude-when-meta [:exclude-this]
                              :copy-meta :all})]
-    (is (= 6 (count sci-ns)))
-    (is (= #{'foo 'bar 'baz 'skip-wiki 'ITest 'x} (set (keys sci-ns))))
+    (is (= 7 (count sci-ns)))
+    (is (= #{'foo 'bar 'baz 'skip-wiki 'ITest 'x 'vec-macro} (set (keys sci-ns))))
     (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
     (is (:copy-this (meta (get sci-ns 'foo))))
-    (is (:awesome-meta (meta (get sci-ns 'baz))))))
+    (is (:awesome-meta (meta (get sci-ns 'baz))))
+    (is (= [1 1] (sci/eval-string "(vec-macro 1)" {:namespaces {'user sci-ns}})))))
 
 (deftest copy-ns-default-meta-test
   (testing "copy-ns default meta includes name"

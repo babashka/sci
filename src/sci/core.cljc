@@ -78,7 +78,7 @@
                     :ns ns#}]
         (cond (:dynamic m#)
               (new-dynamic-var name# val# new-m#)
-              (:macro m#)
+              (or (:macro m#) (:sci/macro m#))
               (new-macro-var name# val# new-m#)
               :else (new-var name# val# new-m#))))))
 
@@ -371,14 +371,21 @@
           {}
           publics-map))
 
+(defn normalize-meta [m]
+  (if-let [sci-macro (:sci/macro m)]
+    (assoc m :macro sci-macro)
+    m))
+
 (defn- meta-fn [opts]
-  (cond (= :all opts) identity
-        opts #(select-keys % opts)
-        :else #(select-keys % [:arglists
-                               :no-doc
-                               :macro
-                               :doc
-                               :dynamic])))
+  (cond (= :all opts) normalize-meta
+        opts #(-> (select-keys % opts) normalize-meta)
+        :else #(-> (select-keys % [:arglists
+                                   :no-doc
+                                   :macro
+                                   :sci/macro
+                                   :doc
+                                   :dynamic])
+                   normalize-meta)))
 
 (macros/deftime
   (defmacro copy-ns

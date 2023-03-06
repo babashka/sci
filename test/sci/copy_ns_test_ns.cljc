@@ -17,3 +17,7 @@
 
 (defprotocol ITest
   (x [y]))
+
+(defn ^:sci/macro vec-macro
+  [_ _ x]
+  `[~x ~x])
