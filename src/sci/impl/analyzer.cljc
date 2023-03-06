@@ -1491,8 +1491,8 @@
                                  method-len (count method-path)
                                  lookup-fn #(if (= 1 method-len)
                                               [class last-path]
-                                              (let [subpath (.splice method-path 0 (dec method-len))]
-                                               ;; This might fail at analysis time
+                                              (let [subpath (.slice method-path 0 (dec method-len))]
+                                                ;; This might fail at analysis time
                                                 [(interop/get-static-fields class subpath)
                                                  last-path]))
                                  [class method-name] (try (lookup-fn)
@@ -1505,7 +1505,7 @@
                                    (sci.impl.types/->Node
                                     (interop/invoke-js-constructor* ctx bindings ctor children)
                                     nil))
-                                 (let [method (gobj/get class method-name)]
+                                 (let [method (unchecked-get class method-name)]
                                    (sci.impl.types/->Node
                                     (interop/invoke-static-method ctx bindings class method children)
                                     nil)))
@@ -1517,7 +1517,7 @@
                                   nil)
                                  (sci.impl.types/->Node
                                   (let [[class method-name] (lookup-fn)
-                                        method (gobj/get class method-name)]
+                                        method (unchecked-get class method-name)]
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)))))
                         (and (not eval?) ;; the symbol is not a binding
