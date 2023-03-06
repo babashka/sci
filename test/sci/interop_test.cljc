@@ -288,4 +288,8 @@
    (deftest delayed-lookup-test
      (is (true? (tu/eval* "(def f (fn [] (when js/document (js/document.getElementById \"foo\")) true)) (f)"
                           {:classes
+                           {'js goog/global :allow :all}})))
+
+     (is (true? (tu/eval* "(when js/document js/document.getElementById) true"
+                          {:classes
                            {'js goog/global :allow :all}})))))
