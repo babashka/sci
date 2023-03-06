@@ -60,13 +60,12 @@
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
      :cljs (gobject/get class field-name-sym)))
 
-#?(:cljs (defn get-static-fields [class path-array idx max-idx]
-           (if (nil? idx)
-             (recur class path-array 0 (dec (alength path-array)))
-             (let [class (gobject/get class (aget path-array idx))]
-               (if (== idx max-idx)
-                 class
-                 (recur class path-array (inc idx) max-idx))))))
+#?(:cljs
+   (defn get-static-fields [cur parts]
+     (loop [cur cur
+            i 0]
+       (if (< i (.-length parts))
+         (recur (unchecked-get cur (aget parts i)) (inc i)) cur))))
 
 #?(:cljs
    (defn invoke-js-constructor* [ctx bindings constructor args]

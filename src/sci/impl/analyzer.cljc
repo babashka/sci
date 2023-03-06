@@ -1493,7 +1493,7 @@
                                               [class last-path]
                                               (let [subpath (.splice method-path 0 (dec method-len))]
                                                ;; This might fail at analysis time
-                                                [(interop/get-static-fields class subpath nil nil)
+                                                [(interop/get-static-fields class subpath)
                                                  last-path]))
                                  [class method-name] (try (lookup-fn)
                                                           (catch :default _ nil))

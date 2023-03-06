@@ -73,14 +73,13 @@
                              stack)
                             :cljs
                             (let [path (.split (str sym-name) ".")
-                                  len (alength path)
-                                  max-idx (dec len)]
+                                  len (alength path)]
                               (if (== 1 len)
                                 (->Node
                                  (interop/get-static-field clazz sym-name)
                                  stack)
                                 (->Node
-                                 (interop/get-static-fields clazz path 0 max-idx)
+                                 (interop/get-static-fields clazz path)
                                  stack))
                               ))))]))))
        ;; no sym-ns
@@ -247,9 +246,9 @@
                        (sci.impl.types/->Node
                         (interop/get-static-fields
                          (sci.impl.types/eval v ctx bindings)
-                         segments nil nil)
+                         segments)
                         sym)]
-                      [sym (interop/get-static-fields v segments nil nil)])))))))
+                      [sym (interop/get-static-fields v segments)])))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
