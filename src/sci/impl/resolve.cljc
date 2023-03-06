@@ -248,7 +248,13 @@
                          (sci.impl.types/eval v ctx bindings)
                          segments)
                         sym)]
-                      [sym (interop/get-static-fields v segments)])))))))
+                      ;; This is x.a.b.c
+                      [sym (interop/get-static-fields v segments)
+                       ;; This would be the correct implementation if v would be mutated, but can be implemented as:
+                       ;; (.. x -a -b c)
+                       #_(sci.impl.types/->Node
+                            (interop/get-static-fields v segments)
+                            nil)])))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
