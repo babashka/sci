@@ -1052,7 +1052,6 @@
                           stack)
                          ;; default case
                          (do
-                           (prn :default [allowed? field-access])
                            (sci.impl.types/->Node
                             (eval/eval-instance-method-invocation
                              ctx bindings instance-expr meth-name field-access args allowed? nil)
