@@ -3,10 +3,11 @@
    :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [ctx this bindings]}}}}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
-   #?(:cljs [goog.object :as gobj])
    #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node) ->constant]])
-   #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
+   #?(:cljs [goog.object :as gobj])
+   #?(:cljs [sci.impl.types :as t :refer [->constant]])
+   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
    [sci.impl.destructure :refer [destructure]]
    [sci.impl.evaluator :as eval]
@@ -17,7 +18,6 @@
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
-   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [sci.impl.utils :as utils :refer
     [ana-macros constant? kw-identical? macro? rethrow-with-location-of-node
      set-namespace!]]
@@ -69,7 +69,7 @@
                 :else
                 (let [f (try (resolve/resolve-symbol ctx op true)
                              (catch #?(:clj Exception :cljs :default)
-                                 _ ::unresolved))]
+                                    _ ::unresolved))]
                   (if (kw-identical? ::unresolved f)
                     expr
                     (let [var? (utils/var? f)
@@ -277,7 +277,7 @@
                                 (sci.impl.types/->Node
                                  ;; important, recur vals must be evaluated with old bindings!
                                  (let [~@(mapcat (fn [j]
-                                                   [(symbol (str "eval-" j) )
+                                                   [(symbol (str "eval-" j))
                                                     `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings)])
                                                  (range i))]
                                    (do ~@(map (fn [j]
@@ -491,7 +491,7 @@
                                (fn [^objects enclosed-array ^objects invoc-array]
                                  (areduce ^objects enclosed->invocation idx ret invoc-array
                                           (let [^objects idxs (aget ^objects enclosed->invocation idx)
-                                                enclosed-idx (aget ^objects  idxs 0)
+                                                enclosed-idx (aget ^objects idxs 0)
                                                 enclosed-val (aget ^objects enclosed-array enclosed-idx)
                                                 invoc-idx (aget idxs 1)]
                                             (aset ^objects ret invoc-idx enclosed-val)
@@ -734,7 +734,7 @@
                       ?docstring)
           expected-arg-count (if docstring 4 3)]
       (when-not (<= arg-count expected-arg-count)
-        (throw (new #?(:clj  IllegalArgumentException
+        (throw (new #?(:clj IllegalArgumentException
                        :cljs js/Error)
                     "Too many arguments to def")))
       (let [init (if docstring ?init ?docstring)
@@ -808,8 +808,8 @@
         syms (take-nth 2 bv)
         body (nnext expr)
         expansion `(let* ~bv
-                     ~(list* `(fn* ~(vec syms) ~@body)
-                             syms))]
+                         ~(list* `(fn* ~(vec syms) ~@body)
+                                 syms))]
     (analyze ctx expansion)))
 
 (defn analyze-lazy-seq
@@ -1035,7 +1035,7 @@
                                    ctx bindings instance-expr meth-name field-access args arg-count)
                                   stack)
                         {::instance-expr instance-expr
-                         ::method-name   method-name})))
+                         ::method-name method-name})))
              :cljs (let [allowed? (or unrestrict/*unrestricted*
                                       (identical? method-expr utils/allowed-append)
                                       (-> ctx :env deref :class->opts :allow))
@@ -1094,8 +1094,7 @@
                                args
                                (assoc (meta expr)
                                       :ns @utils/current-ns
-                                      :file @utils/current-file
-                                      )
+                                      :file @utils/current-file)
                                nil))
                 (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
        :cljs (if (symbol? class-sym)
@@ -1159,8 +1158,7 @@
                                   args
                                   (assoc (meta expr)
                                          :ns @utils/current-ns
-                                         :file @utils/current-file
-                                         )
+                                         :file @utils/current-file)
                                   nil))
                    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
                (let [class (analyze ctx class-sym)
@@ -1339,9 +1337,9 @@
                           [i `(let ~binds
                                 (sci.impl.types/->Node
                                  (~'f ~'ctx
-                                  ~@(map (fn [j]
-                                           `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                         (range i)))
+                                      ~@(map (fn [j]
+                                               `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                             (range i)))
                                  ~'stack))])
                         let-bindings)
                 `[(sci.impl.types/->Node
@@ -1491,21 +1489,36 @@
                                  last-path (last method-path)
                                  ctor? (= last-path "")
                                  method-len (count method-path)
-                                 [class method-name] (if (= 1 method-len)
-                                                       [class last-path]
-                                                       (let [subpath (.splice method-path 0 (dec method-len))]
-                                                         [(interop/get-static-fields class subpath nil nil)
-                                                          last-path]))
+                                 lookup-fn #(if (= 1 method-len)
+                                              [class last-path]
+                                              (let [subpath (.splice method-path 0 (dec method-len))]
+                                               ;; This might fail at analysis time
+                                                [(interop/get-static-fields class subpath nil nil)
+                                                 last-path]))
+                                 [class method-name] (try (lookup-fn)
+                                                          (catch :default _ nil))
                                  children (analyze-children ctx (rest expr))
                                  children (into-array children)]
-                             (if ctor?
-                               (let [ctor class]
+                             (if class ;; if class isn't found at analysis time, we delay lookup to runtime
+                               (if ctor?
+                                 (let [ctor class]
+                                   (sci.impl.types/->Node
+                                    (interop/invoke-js-constructor* ctx bindings ctor children)
+                                    nil))
+                                 (let [method (gobj/get class method-name)]
+                                   (sci.impl.types/->Node
+                                    (interop/invoke-static-method ctx bindings class method children)
+                                    nil)))
+                               (if ctor?
                                  (sci.impl.types/->Node
-                                  (interop/invoke-js-constructor* ctx bindings ctor children)
-                                  nil))
-                               (let [method (gobj/get class method-name)]
+                                  (let [[class _] (lookup-fn)
+                                        ctor class]
+                                    (interop/invoke-js-constructor* ctx bindings ctor children))
+                                  nil)
                                  (sci.impl.types/->Node
-                                  (interop/invoke-static-method ctx bindings class method children)
+                                  (let [[class method-name] (lookup-fn)
+                                        method (gobj/get class method-name)]
+                                    (interop/invoke-static-method ctx bindings class method children))
                                   nil)))))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)
@@ -1708,8 +1721,7 @@
         const? (every? constant-node? analyzed-children)
         #?@(:clj [analyzed-children (if const?
                                       (unwrap-children analyzed-children)
-                                      analyzed-children)
-                  ])
+                                      analyzed-children)])
         set-expr? (set? expr)
         same? (and const? (= (if set-expr?
                                (or (seq expr) [])

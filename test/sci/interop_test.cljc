@@ -283,3 +283,9 @@
      (testing "local ref"
        (is (= 1 (sci/eval-string "(let [x #js {:a 1}] x.a)")))
        (is (= 3 (sci/eval-string "(let [a #js {:b #js {:c 3}}] a.b.c)"))))))
+
+#?(:cljs
+   (deftest delayed-lookup-test
+     (is (true? (tu/eval* "(def f (fn [] (when js/document (js/document.getElementById \"foo\")) true)) (f)"
+                          {:classes
+                           {'js goog/global :allow :all}})))))
