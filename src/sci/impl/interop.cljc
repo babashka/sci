@@ -3,8 +3,7 @@
   #?(:clj (:import
            [java.lang.reflect Field Modifier]
            [sci.impl Reflector]))
-  (:require #?(:cljs [goog.object :as gobject])
-            [sci.impl.types]
+  (:require [sci.impl.types]
             [sci.impl.utils :as utils]))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
@@ -58,7 +57,7 @@
 
 (defn get-static-field [^Class class field-name-sym]
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
-     :cljs (gobject/get class field-name-sym)))
+     :cljs (unchecked-get class field-name-sym)))
 
 #?(:cljs
    (def fn-eval-allowed?
