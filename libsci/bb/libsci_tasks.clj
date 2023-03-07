@@ -61,6 +61,7 @@
                "--verbose"
                "--no-fallback"
                "--no-server"
+               "--enable-preview"
                "-J-Xmx3g"))
 
     (p/shell lein "clean")

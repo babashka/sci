@@ -119,8 +119,8 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: '22.3.0'
-          java-version: '11'
+          version: '22.3.1'
+          java-version: '19'
           components: 'native-image'
 
       - name: Install Clojure tools
