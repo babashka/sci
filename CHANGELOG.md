@@ -10,10 +10,18 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.7.39 (2023-03-07)
 
 - [#874](https://github.com/babashka/sci/issues/874): Keyword arguments as map support for CLJS
 - Mutable deftype fields can be marked as such with `^:volatile-mutable` in CLJS
+- Fix `.toString` implementation on `deftype`
+- Resolve JS library alias via imported 'class'
+- Fix babashka issue 1501: equals on deftype
+- Honor `:ns-aliases` for built-in libs
+- Fix issue with copy-ns + protocol
+- Support `:sci/macro` for copy-ns and copy-var for copying macro functions
+- Fix #876: SCI analysis too eager when looking up class
+- Optimizations with respect to looking up static fields
 
 ## 0.7.38 (2023-02-07)
 
