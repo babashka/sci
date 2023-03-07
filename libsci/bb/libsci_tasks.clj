@@ -33,8 +33,8 @@
                        (throw (Exception. "Cannot find lein in PATH."))))
         sci-version (str/trim (slurp "resources/SCI_VERSION"))
         sci-jar (str "target/sci-" sci-version "-standalone.jar")
-        svm-jar (str (first (or (fs/glob graalvm-home "**/svm.jar")
-                                (throw (Exception. "Cannot find `svm.jar` in GRAALVM_HOME.")))))]
+        svm-jar (str (or (first (fs/glob graalvm-home "**/svm.jar"))
+                         (throw (Exception. "Cannot find `svm.jar` in GRAALVM_HOME."))))]
     (println :graalvm-home graalvm-home :java-home java-home :svm-jar svm-jar :lein lein)
     (p/shell lein "with-profiles" "+libsci,+native-image" "do" "clean," "uberjar")
 
