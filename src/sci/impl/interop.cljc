@@ -61,11 +61,23 @@
      :cljs (gobject/get class field-name-sym)))
 
 #?(:cljs
-   (defn get-static-fields [cur parts]
-     (loop [cur cur
-            i 0]
-       (if (< i (.-length parts))
-         (recur (unchecked-get cur (aget parts i)) (inc i)) cur))))
+   (def fn-eval-allowed?
+     (try (do (js/Function. "return 1")
+              true)
+          (catch :default _ false))))
+
+#?(:cljs
+   (do
+     (defn get-static-fields [cur ^js parts]
+       (loop [cur cur
+              i 0]
+         (if (< i (.-length parts))
+           (recur (unchecked-get cur (aget parts i)) (inc i)) cur)))
+     (defn accessor-fn [^js parts]
+       (if fn-eval-allowed?
+         (js/Function. "obj" (str "return obj." (.join parts ".")))
+         (fn [obj]
+           (get-static-fields obj parts))))))
 
 #?(:cljs
    (defn invoke-js-constructor* [ctx bindings constructor args]
