@@ -72,7 +72,9 @@
               i 0]
          (if (< i (.-length parts))
            (recur (unchecked-get cur (aget parts i)) (inc i)) cur)))
-     (defn accessor-fn [^js parts]
+     (defn accessor-fn
+       "TODO: use this to dynamically look up, rather than statically, for correct behavior wrt. issue 877"
+       [^js parts]
        (if fn-eval-allowed?
          (js/Function. "obj" (str "return obj." (.join parts ".")))
          (fn [obj]
