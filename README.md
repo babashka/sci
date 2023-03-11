@@ -340,10 +340,11 @@ user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo wrapped-foo}})
 "yello!\n"
 ```
 
-To always enable printing in your SCI environment you can set `sci/out` to `*out*` globally:
+To always enable printing in your SCI environment you can set `sci/out` and `sci/err` to `*out*` and `*err*` respectively, globally:
 
 ``` Clojure
 (sci/alter-var-root sci/out (constantly *out*))
+(sci/alter-var-root sci/err (constantly *err*))
 ```
 
 #### ClojureScript
@@ -368,6 +369,7 @@ To always enable printing in your SCI environment you can set `sci/print-fn` to 
 ``` Clojure
 (enable-console-print!)
 (sci/alter-var-root sci/print-fn (constantly *print-fn*))
+(sci/alter-var-root sci/print-err-fn (constantly *print-err-fn*))
 ```
 
 ### Futures
@@ -615,6 +617,19 @@ later.
 
 To use SCI as a native shared library from e.g. C, C++, Rust, read this
 [tutorial](doc/libsci.md).
+
+## `eval` in ClojureScript
+
+``` Clojure
+(require '[sci.core :as sci])
+(def ctx (sci/init {:classes {'js js/globalThis :allow :all}}))
+(set! *eval* #(sci/eval-form ctx %))
+(assoc {} :a (eval '(+ 1 2 3))) ;;=> {:a 6}
+```
+
+## Async evaluation in ClojureScript
+
+See [async/README.md](async).
 
 ## Limitations
 
