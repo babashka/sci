@@ -629,7 +629,7 @@ To use SCI as a native shared library from e.g. C, C++, Rust, read this
 
 ## Async evaluation in ClojureScript
 
-See [async/README.md](async).
+See [doc/async.md](async).
 
 ## Limitations
 
