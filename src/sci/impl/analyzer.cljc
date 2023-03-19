@@ -1511,10 +1511,11 @@
                                    (sci.impl.types/->Node
                                     (interop/invoke-js-constructor* ctx bindings ctor children)
                                     nil))
-                                 (let [method (unchecked-get class method-name)]
-                                   (sci.impl.types/->Node
-                                    (interop/invoke-static-method ctx bindings class method children)
-                                    nil)))
+                                 (if-let [compiled-fn (interop/compile-static-method-call )]
+                                   (let [method (unchecked-get class method-name)]
+                                     (sci.impl.types/->Node
+                                      (interop/invoke-static-method ctx bindings class method children)
+                                      nil))))
                                (if ctor?
                                  (sci.impl.types/->Node
                                   (let [arr (lookup-fn)
