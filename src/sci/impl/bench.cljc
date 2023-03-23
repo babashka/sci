@@ -1,4 +1,5 @@
 (ns sci.impl.bench
+  {:no-doc true}
   (:require [sci.impl.macros :as macros])
   #?(:cljs (:require-macros [sci.impl.bench :refer [record]])))
 
