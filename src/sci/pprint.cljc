@@ -1,6 +1,7 @@
 (ns sci.pprint
   "Require this namespace if you want to extend pretty-printing to
   records created with SCI."
+  {:no-doc true}
   (:require
    [clojure.pprint :as pprint]
    [sci.impl.records]

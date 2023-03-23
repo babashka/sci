@@ -1,4 +1,5 @@
 (ns sci.impl.copy-vars
+  {:no-doc true}
   (:require
    [sci.impl.cljs]
    [sci.impl.macros :as macros]

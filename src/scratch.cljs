@@ -1,4 +1,5 @@
 (ns scratch
+  {:no-doc true}
   (:require [sci.impl.load] :reload
             [sci.core :as sci] :reload))
 
