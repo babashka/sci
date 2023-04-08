@@ -80,6 +80,7 @@ SCI is used in:
 - [PGMig](https://github.com/leafclick/pgmig). Fast Standalone PostgreSQL Migration Runner.
 - [Prose](https://github.com/JeremS/prose). Alternate syntax for Clojure, similar to what Pollen brings to Racket.
 - [Spire](https://github.com/epiccastle/spire). Pragmatic provisioning using Clojure.
+- [Tesserae](https://github.com/lumberdev/tesserae). A Clojure spreadsheet and more!
 
 </details>
 
