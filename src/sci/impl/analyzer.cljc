@@ -38,8 +38,11 @@
 (defn with-recur-target [ctx v]
   (assoc ctx :recur-target v))
 
-(defn without-recur-target [ctx]
-  (assoc ctx :recur-target false))
+(defn without-recur-target
+  ([ctx]
+   (assoc ctx :recur-target false))
+  ([ctx reason]
+   (assoc ctx :recur-target false :no-recur-reason reason)))
 
 (defn recur-target? [ctx]
   (:recur-target ctx))
@@ -267,7 +270,10 @@
       `(defn ~'return-recur
          ~'[ctx expr analyzed-children]
          (when-not (recur-target? ~'ctx)
-           (throw-error-with-location "Can only recur from tail position" ~'expr))
+           (throw-error-with-location
+            (case (:no-recur-reason ~'ctx)
+              :try "Cannot recur across try"
+              "Can only recur from tail position") ~'expr))
          (let [~'params (:params ~'ctx)]
            (case (count ~'analyzed-children)
              ~@(concat
@@ -892,7 +898,7 @@
 
 (defn analyze-try
   [ctx expr]
-  (let [ctx (without-recur-target ctx)
+  (let [ctx (without-recur-target ctx :try)
         body (next expr)
         stack (utils/make-stack (meta expr) true)
         [body-exprs

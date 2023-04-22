@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- [#683](https://github.com/babashka/sci/issues/683): better error message when trying to recur across try
+
 ## 0.7.39 (2023-03-07)
 
 - [#874](https://github.com/babashka/sci/issues/874): Keyword arguments as map support for CLJS
@@ -20,7 +24,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Honor `:ns-aliases` for built-in libs
 - Fix issue with copy-ns + protocol
 - Support `:sci/macro` for copy-ns and copy-var for copying macro functions
-- Fix #876: SCI analysis too eager when looking up class
+- Fix [#876](https://github.com/babashka/sci/issues/876): SCI analysis too eager when looking up class
 - Optimizations with respect to looking up static fields
 
 ## 0.7.38 (2023-02-07)

@@ -638,6 +638,8 @@
                                                  'js js/global}})))
       (str "FAIL: " expr)))
 
+#?(:cljs (def Exception js/Error))
+
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
                          {})))
@@ -681,7 +683,6 @@
     #?(:cljs (it-works '(fn [] (throw (fn [] (recur))))))
     (throws-tail-ex '(fn [] (.length (recur))))
     (it-works '(fn [] (.length (fn [] (recur)))))
-    (throws-tail-ex '(fn [] (try (recur))))
     (it-works '(fn [] (try (fn [] (recur)))))
     (it-works '(for [i [1 2 3]] i))
     (it-works '(loop [x 1]
@@ -705,7 +706,10 @@
       (let [body (list 'fn [] (list* 'do (concat (range i) [(list 'recur) :tail])))]
         (throws-tail-ex body)))
     (it-works '(fn [] (and (recur))))
-    (it-works '(fn [] (and 1 2 3 (recur))))))
+    (it-works '(fn [] (and 1 2 3 (recur))))
+    (is (thrown-with-msg?
+         Exception #"Cannot recur across try"
+         (sci/eval-string "(defn foo [] (try (recur)))")))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
