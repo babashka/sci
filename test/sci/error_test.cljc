@@ -1,6 +1,6 @@
 (ns sci.error-test
   (:require [clojure.test :as t :refer [deftest testing is]]
-            [sci.addons.future :as fut]
+            #?(:clj [sci.addons.future :as fut])
             [sci.core :as sci :refer [eval-string]]))
 
 #?(:cljs (def Exception js/Error))
