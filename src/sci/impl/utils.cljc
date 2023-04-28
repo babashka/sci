@@ -92,15 +92,11 @@
 
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
-  ([ctx _bindings ^Throwable e raw-node]
-   (if #?(:clj (or *in-try*
-                   (not= (:main-thread-id ctx)
-                         (.getId (Thread/currentThread))))
+  ([#?(:clj ctx :cljs _ctx) _bindings ^Throwable e raw-node]
+   (if #?(:clj *in-try*
           :cljs *in-try*) (throw e)
        (let [stack (t/stack raw-node)
              #?@(:clj [fm (:sci.impl/f-meta stack)])
-             env (:env ctx)
-             id (:id ctx)
              d (ex-data e)
              st (or (when-let [st (:sci.impl/callstack d)]
                       st)
@@ -116,13 +112,9 @@
              (let [ex-msg #?(:clj (.getMessage e)
                              :cljs (.-message e))
                    {:keys [:line :column :file]}
-                   (or stack
-                       (some-> env deref
-                               :sci.impl/callstack (get id)
-                               deref last meta)
-                       #_(meta node))]
+                   stack]
                (if (and line column)
-                 (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
+                 (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg (:env ctx) fm)
                                  :cljs ex-msg)
                        phase (:phase d)
                        new-exception

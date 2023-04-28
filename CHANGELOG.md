@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - [#683](https://github.com/babashka/sci/issues/683): better error message when trying to recur across try
+- [#884](https://github.com/babashka/sci/issues/884): preserve exception data in threads
 
 ## 0.7.39 (2023-03-07)
 
