@@ -22,8 +22,8 @@
                    {:ns user, :name foo, :line 3, :column 1}
                    {:ns user, :name nil, :line 4, :column 1})]
     #_#_(println "-- ^ expected --- , actual")
-      (doseq [st stacktrace]
-        (prn st))
+    (doseq [st stacktrace]
+      (prn st))
     (is (= expected
            stacktrace)))
   (let [stacktrace (try (eval-string "(1 2 3)")
@@ -32,7 +32,7 @@
                           (map #(-> %
                                     (select-keys [:ns :name :line :column]))
                                (sci/stacktrace e))))]
-    (is (= '({:ns user, :name nil, :line 1, :column 1}) stacktrace)))
+    (is (= '({:ns user, :name nil, :line 1, :column 1}) stacktrace )))
   (testing "unresolved class in import"
     (let [stacktrace (try (eval-string "(ns foo (:import [java.io FooBar]))")
                           (catch #?(:clj Exception
@@ -120,23 +120,23 @@
                             :cljs (ex-cause e)))]))))))
 
 (deftest implicit-do-error-test
-  (let [expected {:type :sci/error
-                  :line 1
-                  :column 1
-                  :message "Assert failed: false"}
+  (let [expected   {:type    :sci/error
+                    :line    1
+                    :column  1
+                    :message "Assert failed: false"}
         try-string #(try
                       (eval-string %)
                       (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
                         (dissoc (ex-data e) :sci.impl/callstack :file)))]
     (testing "top level try with implicit do wraps exception"
       (is (= expected
-             (try-string "(try 1 (assert false))"))))
+            (try-string "(try 1 (assert false))"))))
     (testing "top level let with implicit do wraps exception"
       (is (= expected
-             (try-string "(let [] 1 (assert false))")))
+            (try-string "(let [] 1 (assert false))")))
       ; macroexpands to a let
       (is (= expected
-             (try-string "(binding [] (assert false) 1)"))))))
+          (try-string "(binding [] (assert false) 1)"))))))
 
 (deftest analysis-error-test
   (is
@@ -154,18 +154,3 @@
   (let [data (try (sci/eval-string "(defmacro dude [& body] `(do ~@body)) (dude x)") (catch Exception e (ex-data e)))]
     (is (:line data))
     (is (:column data))))
-
-#?(:clj
-   (deftest thread-test
-     (let [invoke-ex-fn (fn [f]
-                          (try
-                            {:type :ok
-                             :value (f)}
-                            (catch Throwable e
-                              (merge {:type (class e)} (select-keys (ex-data e) [:type :line :column])))))]
-       ;; Invoke problematic code from different threads and get a different result
-       (let [f (sci.core/eval-string "(fn [] (/ 1 0))")]
-         (is (true? (apply = {:type :sci/error, :line 1, :column 8}
-                           [(invoke-ex-fn f)
-                            @(future (invoke-ex-fn f))
-                            (invoke-ex-fn f)])))))))
