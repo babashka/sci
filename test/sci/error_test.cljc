@@ -1,6 +1,6 @@
 (ns sci.error-test
-  (:require [clojure.test :as t :refer [deftest testing is]]
-            #?(:clj [sci.addons.future :as fut])
+  (:require #?(:clj [sci.addons.future :as fut])
+            [clojure.test :as t :refer [deftest testing is]]
             [sci.core :as sci :refer [eval-string]]))
 
 #?(:cljs (def Exception js/Error))
@@ -167,3 +167,15 @@
                              (-> {:classes {'IllegalArgumentException IllegalArgumentException
                                             'Throwable Throwable}}
                                  (fut/install)))))))
+
+#?(:clj
+   (deftest thread-test
+     (let [invoke-ex-fn
+           (fn [f]
+             (try
+               (f)
+               (catch Throwable e
+                 (ex-data e))))]
+       (let [f (sci.core/eval-string "(fn [] (try (/ 1 0) (catch ^:sci/error Exception e (throw e))))")]
+         (is (let [res @(future (invoke-ex-fn f))]
+               (is (= {:line 1 :column 13} (select-keys res [:line :column])))))))))
