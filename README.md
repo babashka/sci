@@ -433,8 +433,20 @@ measure with `{:classes {:allow :all}}`.
 In JS hosts, to allow interop with anything, use the following config:
 
 ``` clojure
-{:classes {'js goog/global :allow :all}}
+{:classes {'js js/globalThis :allow :all}}
 ```
+
+Note that the value for`'js`, `js/globalThis` is just a JavaScript object. To
+control in a more fine-grained manner what "classes" are available in a JS
+environment, just limit the keys to the ones you would like to expose:
+
+``` Clojure
+{:classes {'js #js {:Promise js/Promise} :allow :all}}
+```
+
+The `:allow :all` option takes care that everything reachable via `:classes` is
+allowed to be used, it does not mean that you have access to all classes in the
+host environment.
 
 ### JavaScript libraries
 
