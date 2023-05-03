@@ -646,7 +646,7 @@ See [doc/async.md](doc/async.md).
 
 ## Limitations
 
-Currently SCI doesn't support `deftype` and `definterface`.
+Currently SCI has limited support for `deftype` and does not support `definterface`.
 
 ### This-as
 
@@ -740,6 +740,11 @@ serialize while the binding is still in place:
 
 Note that we moved `(println "Result:" result)` before `(println "Output:" (str
 sw))`, since the first call takes care of realization.
+
+## Sci.configs
+
+The [sci.configs](https://github.com/babashka/sci.configs) project contains
+ready to be used SCI configs for several popular libraries.
 
 ## Test
 
