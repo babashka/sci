@@ -21,7 +21,8 @@
    [sci.impl.utils :as utils :refer
     [ana-macros constant? kw-identical? macro? rethrow-with-location-of-node
      set-namespace!]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.lang])
   #?(:clj (:import
            [sci.impl Reflector]))
   #?(:cljs
@@ -1224,12 +1225,13 @@
       (if exprs
         (let [[k & args :as expr] (first exprs)]
           (case k
-            (:require :use :import :refer-clojure)
+            (:require :require-macros :use :import :refer-clojure)
             (recur (next exprs)
                    (conj ret
                          (return-ns-op
                           ctx (case k
                                 :require load/eval-require
+                                #?@(:cljs [:require-macros load/eval-require-macros])
                                 :use load/eval-use
                                 :import eval/eval-import
                                 :refer-clojure (fn [ctx & args]

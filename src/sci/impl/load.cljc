@@ -148,7 +148,8 @@
                          loading (replace {lib lib-emphasized} loading)]
                      (str "Cyclic load dependency: " (str/join "->" loading)))
                    lib)
-                  (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
+                  (when-not (= lib cnn)
+                    (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts)))))
               (if-let [load-fn (:load-fn env)]
                 (let [curr-ns @utils/current-ns]
                   (if-let [{:keys [file source handled]}
@@ -240,7 +241,7 @@
         opts (interleave flags (repeat true))
         args* (filter (complement keyword?) args*)]
     ;; check for unsupported options
-    (let [supported #{:as :reload :reload-all :require :use :verbose :refer}
+    (let [supported #{:as :reload :reload-all :require :use :verbose :refer #?(:cljs :require-macros)}
           unsupported (seq (remove supported flags))]
       (when unsupported
         (throw-error-with-location (apply str "Unsupported option(s) supplied: "
@@ -264,6 +265,10 @@
 (defn eval-require
   [ctx & args]
   (load-libs ctx :require args))
+
+(defn eval-require-macros
+  [ctx & args]
+  (load-libs ctx :require-macros args))
 
 (vreset! utils/eval-require-state eval-require)
 

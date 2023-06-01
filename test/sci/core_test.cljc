@@ -5,7 +5,6 @@
    [clojure.test :as test :refer [deftest is testing]]
    [sci.copy-ns-test-ns]
    [sci.core :as sci :refer [eval-string]]
-   [sci.impl.macros :as macros]
    [sci.test-utils :as tu]))
 
 #?(:cljs
@@ -95,7 +94,7 @@
     (is (= "4444444444"
            (eval* '(as-> 1 x (inc x) (inc x) (inc x) (apply str (repeat 10 (str x))))))))
   (testing "some->"
-    (is (= nil   (eval* '(some-> {:a {:a nil}}        :a :a :a (clojure.string/lower-case)))))
+    (is (= nil (eval* '(some-> {:a {:a nil}} :a :a :a (clojure.string/lower-case)))))
     (is (= "aaa" (eval* '(some-> {:a {:a {:a "AAA"}}} :a :a :a (clojure.string/lower-case))))))
   (testing "literals"
     (is (= {:a 4
@@ -694,7 +693,7 @@
     (it-works '(loop [] (defn f [] (recur))))
     (throws-tail-ex '(fn [] (case (recur) 1 2)))
     (it-works '(fn [] (case 1
-                        1  ;; case return
+                        1 ;; case return
                         (recur)
                         ;; case default
                         (recur))))
@@ -803,7 +802,7 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"matching clause"
-       #?(:clj  (eval* "
+       #?(:clj (eval* "
 (try (case (inc 2), 1 true, 2 (+ 1 2 3))
   (catch java.lang.IllegalArgumentException e
     (throw (Exception. (ex-message e)))))")
@@ -934,20 +933,20 @@
 (deftest defmacro-test
   (is (= [":hello:hello" ":hello:hello"]
          (eval* "(defmacro foo [x] (let [y (str x x)] `[~y ~y])) (foo :hello)")))
-  (comment(is (= ["hellohello" "hellohello"]
-                 (eval* "(defmacro foo [x] (let [y (str x x)] `[~y ~y])) (foo hello)")))
-          (is (= '(1 2 3)
-                 (eval* "(defmacro foo [] `(list ~@[1 2 3])) (foo)")))
-          (is (= '(bar)
-                 (eval* "(defmacro foo [x] `(list (quote ~x))) (foo bar)")))
-          (is (= 1 (eval* "(defmacro foo [x] `(let [x# ~x] x#)) (foo 1)")))
-          (is (= "bar" (eval* "(defmacro foo [x] (str x)) (foo bar)")))
-          (is (= 1 (eval* "(defmacro nested [x] `(let [x# 1337] ~`(let [x# ~x] x#))) (nested 1)")))
-          (when-not tu/native?
-            (is (= ":dude\n:dude\n"
-                   (let [out (sci/with-out-str
-                               (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"))]
-                     out))))))
+  (comment (is (= ["hellohello" "hellohello"]
+                  (eval* "(defmacro foo [x] (let [y (str x x)] `[~y ~y])) (foo hello)")))
+           (is (= '(1 2 3)
+                  (eval* "(defmacro foo [] `(list ~@[1 2 3])) (foo)")))
+           (is (= '(bar)
+                  (eval* "(defmacro foo [x] `(list (quote ~x))) (foo bar)")))
+           (is (= 1 (eval* "(defmacro foo [x] `(let [x# ~x] x#)) (foo 1)")))
+           (is (= "bar" (eval* "(defmacro foo [x] (str x)) (foo bar)")))
+           (is (= 1 (eval* "(defmacro nested [x] `(let [x# 1337] ~`(let [x# ~x] x#))) (nested 1)")))
+           (when-not tu/native?
+             (is (= ":dude\n:dude\n"
+                    (let [out (sci/with-out-str
+                                (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"))]
+                      out))))))
 
 (deftest declare-test
   (is (= [1 2] (eval* "(declare foo bar) (defn f [] [foo bar]) (def foo 1) (def bar 2) (f)")))
@@ -1060,7 +1059,7 @@
 
 (deftest compatibility-test
   (is (true? (eval* "(def foo foo) (var? #'foo)")))
-  (is (= 1 (eval*  "((resolve 'clojure.core/inc) 0)")))
+  (is (= 1 (eval* "((resolve 'clojure.core/inc) 0)")))
   (is (= 1 (eval* "((resolve 'inc) 0)")))
   (is (true? (eval* "(ns foo (:refer-clojure :exclude [inc])) (nil? (resolve 'inc))"))))
 
@@ -1087,7 +1086,7 @@
 
 (deftest macroexpand-call-test
   (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))
-  (is (= '(. (. System (getProperties)) (get  "os.name"))
+  (is (= '(. (. System (getProperties)) (get "os.name"))
          (eval* "(macroexpand '(.. System (getProperties) (get \"os.name\")))")))
   (is (= '[1 2 user/x] (eval* "(defmacro foo [x] `[1 2 x]) (macroexpand '(foo 1))"))))
 
@@ -1098,7 +1097,13 @@
   (require ns))
 (foo/foo-fn)" {:load-fn (constantly
                          {:file "foo.clj"
-                          :source "(ns foo) (defn foo-fn [] 1)"})})))))
+                          :source "(ns foo) (defn foo-fn [] 1)"})})))
+
+    #?(:cljs
+       (do (is (= 1 (tu/eval* "(ns foo (:require-macros [foo :refer [my-macro]]))
+                           (defmacro my-macro [x] x) (my-macro 1)" {})))
+           (is (= 1 (tu/eval* "(ns foo (:require-macros [bar :refer [my-macro]])) (my-macro 1)"
+                              {:load-fn (constantly {:source "(ns bar) (defmacro my-macro [x] x)"})})))))))
 
 (deftest reload-test
   (when-not tu/native?
@@ -1111,8 +1116,8 @@
 1"
                        {:load-fn (fn [{:keys [:namespace]}]
                                    (case namespace
-                                     'foo {:file "foo.clj"
-                                           :source "(ns foo) (println \"hello\")"}))}))))
+                                     foo {:file "foo.clj"
+                                          :source "(ns foo) (println \"hello\")"}))}))))
     (testing "no reload"
       (is (= "hello\nhello\n"
              (sci/with-out-str
@@ -1123,7 +1128,7 @@
 1"
                          {:load-fn (fn [{:keys [:namespace]}]
                                      (case namespace
-                                       'foo {:file "foo.clj"
+                                       foo {:file "foo.clj"
                                              :source "(ns foo) (println \"hello\")"}))})))))))
 
 (deftest reload-all-test
@@ -1172,13 +1177,13 @@
 (deftest built-in-vars-are-read-only-test
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error) #"read-only"
-       (tu/eval*  "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {})))
+       (tu/eval* "(alter-var-root #'clojure.core/inc (constantly dec)) (inc 2)" {})))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error) #"read-only"
-       (tu/eval*  "(alter-meta! #'clojure.core/inc assoc :foo)" {})))
+       (tu/eval* "(alter-meta! #'clojure.core/inc assoc :foo)" {})))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error) #"read-only"
-       (tu/eval*  "(alter-meta! #'-> dissoc :macro)" {}))))
+       (tu/eval* "(alter-meta! #'-> dissoc :macro)" {}))))
 
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
@@ -1335,9 +1340,9 @@
 
 (deftest bound-test
   (is (false? (eval* "(def x) (bound? #'x)")))
-  (is (true?  (eval* "(def x 1) (bound? #'x)")))
+  (is (true? (eval* "(def x 1) (bound? #'x)")))
   (is (false? (eval* "(def ^:dynamic x) (bound? #'x)")))
-  (is (true?  (eval* "(def ^:dynamic x) (binding [x 1] (bound? #'x))")))
+  (is (true? (eval* "(def ^:dynamic x) (binding [x 1] (bound? #'x))")))
   (is (false? (eval* "(def ^:dynamic x) (binding [x 1]) (bound? #'x)"))))
 
 (deftest call-quoted-symbol-test
@@ -1474,18 +1479,18 @@
 
 (deftest copy-ns-test
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
-                              (sci/create-ns 'sci.copy-ns-test-ns)
-                              {:exclude [baz quux]
-                               :copy-meta [:doc :copy-this]})]
-      (is (map? sci-ns))
-      (is (= 5 (count sci-ns)))
-      (is (= #{'foo 'bar 'ITest 'x 'vec-macro} (set (keys sci-ns))))
-      (is (= [:foo :bar] (sci/eval-string
-                          "(require '[sci.copy-ns-test-ns :refer [foo bar]])
+                            (sci/create-ns 'sci.copy-ns-test-ns)
+                            {:exclude [baz quux]
+                             :copy-meta [:doc :copy-this]})]
+    (is (map? sci-ns))
+    (is (= 5 (count sci-ns)))
+    (is (= #{'foo 'bar 'ITest 'x 'vec-macro} (set (keys sci-ns))))
+    (is (= [:foo :bar] (sci/eval-string
+                        "(require '[sci.copy-ns-test-ns :refer [foo bar]])
                          [(foo) (bar)]"
-                          {:namespaces {'sci.copy-ns-test-ns sci-ns}})))
-      (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
-      (is (:copy-this (meta (get sci-ns 'foo)))))
+                        {:namespaces {'sci.copy-ns-test-ns sci-ns}})))
+    (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
+    (is (:copy-this (meta (get sci-ns 'foo)))))
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                             (sci/create-ns 'sci.copy-ns-test-ns)
                             {:exclude-when-meta [:exclude-this]

@@ -13,7 +13,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - [#683](https://github.com/babashka/sci/issues/683): better error message when trying to recur across try
-- #884: preserve error location in future with `:sci/error`
+- [#884](https://github.com/babashka/sci/issues/884): preserve error location in future with `:sci/error`
+- [#886](https://github.com/babashka/sci/issues/886): support `:require-macros` in CLJS
 
 ## 0.7.39 (2023-03-07)
 

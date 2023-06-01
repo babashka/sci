@@ -31,6 +31,7 @@
    [sci.impl.for-macro :as for-macro]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
+   [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
@@ -41,8 +42,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
-   [sci.lang]
-   [sci.impl.load :as load])
+   [sci.lang])
   #?(:cljs (:require-macros
             [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
 
@@ -91,9 +91,9 @@
         n (second bindings)]
     `(let [n# (long ~n)]
        (~sci.impl.utils/allowed-loop [~i 0]
-                                     (when (< ~i n#)
-                                       ~@body
-                                       (~sci.impl.utils/allowed-recur (unchecked-inc ~i)))))))
+        (when (< ~i n#)
+          ~@body
+          (~sci.impl.utils/allowed-recur (unchecked-inc ~i)))))))
 
 (defn if-not*
   "if-not from clojure.core"
@@ -789,24 +789,24 @@
 
 #?(:clj
    (when-<-clojure-1.11.0
-    (defn seq-to-map-for-destructuring
-      "Builds a map from a seq as described in
+       (defn seq-to-map-for-destructuring
+         "Builds a map from a seq as described in
   https://clojure.org/reference/special_forms#keyword-arguments"
-      {:added "1.11"}
-      [s]
-      (if (next s)
-        (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
-        (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
+         {:added "1.11"}
+         [s]
+         (if (next s)
+           (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
+           (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
 #?(:cljs
    (sci.impl.cljs/when-not-var-exists seq-to-map-for-destructuring
-     (defn seq-to-map-for-destructuring
-       "Builds a map from a seq as described in
+                                      (defn seq-to-map-for-destructuring
+                                        "Builds a map from a seq as described in
   https://clojure.org/reference/special_forms#keyword-arguments"
-       [s]
-       (if (next s)
-         (.createAsIfByAssoc PersistentArrayMap (to-array s))
-         (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
+                                        [s]
+                                        (if (next s)
+                                          (.createAsIfByAssoc PersistentArrayMap (to-array s))
+                                          (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
 
 ;; #?(:cljs
 ;;    (defn -js-this []
@@ -877,7 +877,7 @@
   (when-not (even? (count bindings))
     (utils/throw-error-with-location "let requires an even number of forms in binding vector" expr))
   `(let* ~(destructure/destructure bindings)
-         ~@body))
+     ~@body))
 
 (defn loop**
   [expr _ bindings & body]
@@ -962,8 +962,8 @@
                name)
         #_#_gen-class-clause (first (filter #(= :gen-class (first %)) references))
         #_#_gen-class-call
-          (when gen-class-clause
-            (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
+        (when gen-class-clause
+          (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
         references (remove #(= :gen-class (first %)) references)
                                         ;ns-effect (clojure.core/in-ns name)
         name-metadata (meta name)
