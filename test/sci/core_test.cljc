@@ -1641,6 +1641,15 @@
 (deftest lazy-seq-macroexpand-test
   (is (= [1 2 3] (sci/eval-string "(eval (macroexpand '(lazy-seq [1 2 3])))"))))
 
+(deftest eval-string+-test
+  (let [ctx (sci/init {})
+        {val1 :val ns1 :ns} (sci/eval-string+ ctx "(ns dude) (def x 1) (str #'x)")
+        {val2 :val ns2 :ns} (sci/eval-string+ ctx "(def y 1) [(str #'x) (str #'y)]" {:ns ns1})]
+    (is (= "#'dude/x" val1))
+    (is (= "dude" (str ns1)))
+    (is (= ["#'dude/x" "#'dude/y"] val2))
+    (is (= "dude" (str ns2)))))
+
 #?(:cljs
    (deftest queue-test
      (is (= #queue [1 2 3] (sci/eval-string "#queue [1 2 3]")))))

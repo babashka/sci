@@ -54,15 +54,21 @@
 
 (vreset! utils/eval-form-state eval-form)
 
-(defn eval-string* [ctx s]
-  (vars/with-bindings {utils/current-ns @utils/current-ns}
-    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
-      (loop [ret nil]
-        (let [expr (p/parse-next ctx reader)]
-          (if (utils/kw-identical? p/eof expr)
-            ret
-            (let [ret (eval-form ctx expr)]
-              (recur ret))))))))
+(defn eval-string*
+  ([ctx s]
+   (eval-string* ctx s nil))
+  ([ctx s opts]
+   (vars/with-bindings {utils/current-ns (or (when opts (:ns opts)) @utils/current-ns)}
+     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+       (loop [ret nil]
+         (let [expr (p/parse-next ctx reader)]
+           (if (utils/kw-identical? p/eof expr)
+             (if (when opts (:sci.impl/eval-string+ opts))
+               {:val ret
+                :ns @utils/current-ns}
+               ret)
+             (let [ret (eval-form ctx expr)]
+               (recur ret)))))))))
 
 (vreset! utils/eval-string* eval-string*)
 

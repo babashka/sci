@@ -273,6 +273,21 @@
   [ctx s]
   (sci.impl.interpreter/eval-string* ctx s))
 
+(defn eval-string+
+  "Evaluates string `s` in the context of `ctx` (as produced with
+  `init`).
+
+  Options:
+  *`:ns` - the namespace to start evaluation in (defaults to the value of `sci/ns`)
+
+  Returns map with:
+  * `:val` - the evaluated value
+  * `:ns` - the namespace object"
+  ([ctx s]
+   (eval-string+ ctx s nil))
+  ([ctx s opts]
+   (sci.impl.interpreter/eval-string* ctx s (assoc opts :sci.impl/eval-string+ true))))
+
 (defn create-ns
   "Creates namespace object. Can be used in var metadata."
   ([sym] (create-ns sym nil))
