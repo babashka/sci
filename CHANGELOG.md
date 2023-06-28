@@ -10,7 +10,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.8.40 (2023-06-28)
 
 - [#888](https://github.com/babashka/sci/issues/888): add `eval-string+` with explicit initial `:ns` and explicit last active `:ns` in return value
 - [#683](https://github.com/babashka/sci/issues/683): better error message when trying to recur across try
