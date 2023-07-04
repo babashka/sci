@@ -66,6 +66,7 @@ SCI is used in:
 - [Bytefield-svg](https://github.com/Deep-Symmetry/bytefield-svg). NodeJS library to generate byte field diagrams.
 - [Cardigan Bay](https://github.com/interstar/cardigan-bay). Wiki engine in Clojure.
 - [clj-browser-eval](https://github.com/NickCellino/clj-browser-eval). Turn any HTML input field into a Clojure interpreter.
+- [ClojureBlocks](https://codeberg.org/jhandke/ClojureBlocks), A visual editor for Clojure
 - [Chlorine](https://github.com/mauricioszabo/atom-chlorine). Socket-REPL and nREPL package for Atom editor.
 - [Cq](https://github.com/markus-wa/cq). Clojure Command-line Data Processor for JSON, YAML, EDN, XML and more.
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
