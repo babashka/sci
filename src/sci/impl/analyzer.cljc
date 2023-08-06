@@ -731,43 +731,48 @@
 (defn analyze-def
   [ctx expr]
   (let [ctx (without-recur-target ctx)
-        [_def var-name ?docstring ?init] expr]
-    (init-var! ctx var-name expr)
-    (when-not (simple-symbol? var-name)
+        [_def var-name ?docstring ?init] expr
+        curr-ns @utils/current-ns
+        simple? (simple-symbol? var-name)]
+    (when-not (or simple?
+                  (= (namespace var-name)
+                     (str (t/getName curr-ns))))
       (throw-error-with-location "Var name should be simple symbol." expr))
-    (let [arg-count (count expr)
-          docstring (when (and (= 4 arg-count)
-                               (string? ?docstring))
-                      ?docstring)
-          expected-arg-count (if docstring 4 3)]
-      (when-not (<= arg-count expected-arg-count)
-        (throw (new #?(:clj IllegalArgumentException
-                       :cljs js/Error)
-                    "Too many arguments to def")))
-      (let [init (if docstring ?init ?docstring)
-            init (if (= 2 arg-count)
-                   utils/var-unbound
-                   (analyze ctx init))
-            expr-loc (meta expr)
-            expr-loc? (:line expr-loc)
-            var-meta (meta var-name)
-            m (if expr-loc?
-                (-> var-meta
-                    (assoc :line (:line expr-loc))
-                    (assoc :column (:column expr-loc)))
-                (let [top-level-loc utils/*top-level-location*]
+    (let [var-name (if simple? var-name (symbol (name var-name)))]
+      (init-var! ctx var-name expr)
+      (let [arg-count (count expr)
+            docstring (when (and (= 4 arg-count)
+                                 (string? ?docstring))
+                        ?docstring)
+            expected-arg-count (if docstring 4 3)]
+        (when-not (<= arg-count expected-arg-count)
+          (throw (new #?(:clj IllegalArgumentException
+                         :cljs js/Error)
+                      "Too many arguments to def")))
+        (let [init (if docstring ?init ?docstring)
+              init (if (= 2 arg-count)
+                     utils/var-unbound
+                     (analyze ctx init))
+              expr-loc (meta expr)
+              expr-loc? (:line expr-loc)
+              var-meta (meta var-name)
+              m (if expr-loc?
                   (-> var-meta
-                      (assoc :line (:line top-level-loc))
-                      (assoc :column (:column top-level-loc)))))
-            m-needs-eval? var-meta
-            m (assoc m :ns @utils/current-ns)
-            m (if docstring (assoc m :doc docstring) m)
-            m (if m-needs-eval?
-                (analyze ctx m)
-                (->constant m))]
-        (sci.impl.types/->Node
-         (eval/eval-def ctx bindings var-name init m)
-         nil)))))
+                      (assoc :line (:line expr-loc))
+                      (assoc :column (:column expr-loc)))
+                  (let [top-level-loc utils/*top-level-location*]
+                    (-> var-meta
+                        (assoc :line (:line top-level-loc))
+                        (assoc :column (:column top-level-loc)))))
+              m-needs-eval? var-meta
+              m (assoc m :ns curr-ns)
+              m (if docstring (assoc m :doc docstring) m)
+              m (if m-needs-eval?
+                  (analyze ctx m)
+                  (->constant m))]
+          (sci.impl.types/->Node
+           (eval/eval-def ctx bindings var-name init m)
+           nil))))))
 
 #_(defn analyze-defn [ctx [op fn-name & body :as expr]]
     ;; TODO: re-use analyze-def

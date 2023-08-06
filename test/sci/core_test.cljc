@@ -232,7 +232,8 @@
     (is (true? (eval* "(when true (def ^{:test (fn [])} y 1)) (fn? (:test (meta #'y)))")))
     (is (false? (eval* "(when false (def ^{:test (fn [])} y 1)) (fn? (:test (meta #'y)))"))))
   (is (= :a (eval* "(def ^{:foo :bar :a (fn [] :a)} x) ((:a (meta #'x)))")))
-  (is (= "foo" (eval* "(def ^{:doc (str \"foo\")} x) (:doc (meta #'x))"))))
+  (is (= "foo" (eval* "(def ^{:doc (str \"foo\")} x) (:doc (meta #'x))")))
+  (is (= 1 (eval* "(ns foo) (def foo/foo 1) #'foo foo/foo"))))
 
 (deftest def-location-test
   (is (= 5 (eval* "(defmacro foodef [sym & body]

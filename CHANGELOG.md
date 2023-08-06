@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Bump edamame to 1.3.23
+- Fix #889: allow `(def foo/foo 1)` when inside namespace `foo`
 
 ## 0.8.40 (2023-06-28)
 
