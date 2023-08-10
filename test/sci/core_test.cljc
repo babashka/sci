@@ -1423,7 +1423,12 @@
 (deftest dynamic-meta-def-test
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
   (is (= "6" (eval* "(def ^{:doc (str (+ 1 2 3))} foo) (:doc (meta #'foo))")))
-  (is (= "6" (eval* "(defn ^{:doc (str (+ 1 2 3))} foo []) (:doc (meta #'foo))"))))
+  (is (= "6" (eval* "(defn ^{:doc (str (+ 1 2 3))} foo []) (:doc (meta #'foo))")))
+  (let [ctx (sci/init {})]
+    (sci/binding [sci/file "file1"] (sci/eval-string* ctx "(ns dude) (defn foo [])"))
+    (is (= "file1" (:file (meta (sci/eval-string* ctx "#'dude/foo")))))
+    (sci/binding [sci/file "file2"] (sci/eval-string* ctx "(ns dude) (defn foo [])"))
+    (is (= "file2" (:file (meta (sci/eval-string* ctx "#'dude/foo")))))))
 
 (deftest self-ref-test
   (testing "self-referantial function is equal to itself"
