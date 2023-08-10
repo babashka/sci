@@ -710,8 +710,12 @@
                                x " in namespace "
                                cnn)
                           expr)
-                         (if-not #?(:clj (.containsKey ^java.util.Map the-current-ns name)
-                                    :cljs (get the-current-ns name))
+                         (if-let [the-var #?(:clj (.get ^java.util.Map the-current-ns name)
+                                             :cljs (get the-current-ns name))]
+                           (let [cur-file @utils/current-file]
+                             (when-not (= cur-file (:file (meta the-var)))
+                               (alter-meta! the-var assoc :file cur-file))
+                             the-current-ns)
                            (assoc the-current-ns name
                                   (doto (sci.lang.Var. nil (symbol (str cnn)
                                                                    (str name))
@@ -721,8 +725,7 @@
                                                        false
                                                        false
                                                        nil)
-                                    (vars/unbind)))
-                           the-current-ns))]
+                                    (vars/unbind)))))]
     (swap! env
            (fn [env]
              (update env :namespaces assoc cnn the-current-ns))))
