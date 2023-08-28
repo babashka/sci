@@ -86,6 +86,33 @@
 
 (declare await await?)
 
+(defn eval-form [ctx form]
+  (let [last-ns (or (:last-ns ctx) (volatile! @sci/ns))
+        ctx (assoc ctx :last-ns last-ns)
+        eval-next (fn eval-next [remaining]
+                    (let [[form remaining] (when (seq remaining)
+                                             [(first remaining) (next remaining)])]
+                      (sci/binding [sci/ns @last-ns]
+                        (js/Promise.resolve
+                         (if (seq? form)
+                           (let [fst (first form)]
+                             (if (= 'ns fst)
+                               (if remaining
+                                 (.then (eval-ns-form ctx form)
+                                        #(eval-next remaining))
+                                 (await (eval-ns-form ctx form)))
+                               (if (= 'do fst)
+                                 (eval-next (next form))
+                                 (if remaining
+                                   (do (sci/eval-form ctx form)
+                                       (eval-next remaining))
+                                   (sci/eval-form ctx form)))))
+                           (if remaining
+                             (do (sci/eval-form ctx form)
+                                 (eval-next remaining))
+                             (sci/eval-form ctx form)))))))]
+    (eval-next [form])))
+
 (defn eval-string*
   [ctx s]
   (let [rdr (sci/reader s)
