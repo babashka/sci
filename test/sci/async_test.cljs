@@ -181,7 +181,7 @@
                                                   (def x 1)
                                                   (ns bar)
                                                   [(some? fs/readFileSync) foo/x (foobar/hello)]))]
-                 (is (= [true 1] v))))
+                 (is (= [true 1 :hello] v))))
              (p/catch (fn [err]
                         (is false (str err))))
              (p/finally done))))

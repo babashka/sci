@@ -18,18 +18,20 @@
             libname (if (= 'cljs.core libname)
                       'clojure.core libname)
             env* (:env ctx)
-            cnn (sci/ns-name @last-ns)]
-        (if (and (symbol? libname)
-                 (sci/find-ns ctx libname))
+            cnn (sci/ns-name @last-ns)
+            [libname* path] (if (string? libname)
+                              (load/lib+path libname)
+                              [libname])]
+        (if (or (and (symbol? libname)
+                     (sci/find-ns ctx libname))
+                (and (string? libname)
+                     (get (:js-libs @env*) libname*)))
           ;; library already loaded, the only thing left to do is process the options, we can defer to load
           (do (sci/binding [sci/ns @last-ns]
                 (apply load/load-lib ctx nil libname opts))
               (handle-libspecs ctx (rest libspecs)))
           (if-let [load-fn (:async-load-fn @env*)]
-            (let [opts (apply hash-map opts)
-                  [libname* path] (if (string? libname)
-                                    (load/lib+path libname)
-                                    [libname])]
+            (let [opts (apply hash-map opts)]
               (.then (js/Promise.resolve (load-fn {:ns (sci/ns-name @last-ns)
                                                    :ctx ctx
                                                    :libname libname*
