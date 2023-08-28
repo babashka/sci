@@ -164,16 +164,23 @@
 
 (deftest eval-form-test
   (async done
-         (-> (p/let [ctx (sci/init {:js-libs {"fs" fs}})
+         (-> (p/let [ctx (sci/init {:js-libs {"fs" fs}
+                                    :async-load-fn
+                                    (fn [{:keys [libname]}]
+                                      (case libname
+                                        foobar
+                                        {:source "(ns foobar) (defn hello [] :hello)"}))
+                                    :namespaces {'clojure.core {'require scia/require}}})
                      v (scia/eval-form ctx '(do (def x (atom 1))
                                                 (swap! x inc)
                                                 @x))]
                (is (= 2 v))
-               (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+               (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]
+                                                                    [foobar :as foobar]))
                                                   (some? fs/readFileSync)
                                                   (def x 1)
                                                   (ns bar)
-                                                  [(some? fs/readFileSync) foo/x]))]
+                                                  [(some? fs/readFileSync) foo/x (foobar/hello)]))]
                  (is (= [true 1] v))))
              (p/catch (fn [err]
                         (is false (str err))))
