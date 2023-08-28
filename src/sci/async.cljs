@@ -106,6 +106,7 @@
                                (if (= 'do fst)
                                  (eval-next (next form))
                                  (if remaining
+                                   ;; TODO: await
                                    (do (sci/eval-form ctx form)
                                        (eval-next remaining))
                                    (sci/eval-form ctx form)))))
