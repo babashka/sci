@@ -170,7 +170,9 @@
                                       (case libname
                                         foobar
                                         {:source "(ns foobar) (defn hello [] :hello)"}))
-                                    :namespaces {'clojure.core {'require scia/require}}})
+                                    :namespaces {'clojure.core {'require scia/require}}
+                                    :classes {'js js/globalThis
+                                              :allow :all}})
                      v (scia/eval-form ctx '(do (def x (atom 1))
                                                 (swap! x inc)
                                                 @x))]
@@ -181,7 +183,16 @@
                                                   (def x 1)
                                                   (ns bar)
                                                   [(some? fs/readFileSync) foo/x (foobar/hello)]))]
-                 (is (= [true 1 :hello] v))))
+                 (is (= [true 1 :hello] v)))
+               (testing "non-seq path"
+                 (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+                                                    fs/readFileSync))]
+                   (is (= fs/readFileSync v))))
+               (testing "no flatten promise"
+                 (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+                                                    (js/Promise.reject (js/Error. "dude"))
+                                                    1))]
+                   (is (= 1 v)))))
              (p/catch (fn [err]
                         (is false (str err))))
              (p/finally done))))
