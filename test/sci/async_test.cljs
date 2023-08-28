@@ -1,5 +1,6 @@
 (ns sci.async-test
-  (:require [clojure.string :as str]
+  (:require ["fs" :as fs]
+            [clojure.string :as str]
             [clojure.test :as test :refer [deftest is testing async]]
             [promesa.core :as p]
             [sci.async :as scia]
@@ -163,16 +164,17 @@
 
 (deftest eval-form-test
   (async done
-         (-> (p/let [ctx (sci/init {})
-                    v (scia/eval-form ctx '(do (def x (atom 1))
-                                               (swap! x inc)
-                                               @x))]
+         (-> (p/let [ctx (sci/init {:js-libs {"fs" fs}})
+                     v (scia/eval-form ctx '(do (def x (atom 1))
+                                                (swap! x inc)
+                                                @x))]
                (is (= 2 v))
-               (p/let [v (scia/eval-form ctx '(do (ns foo)
+               (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+                                                  (some? fs/readFileSync)
                                                   (def x 1)
                                                   (ns bar)
-                                                  foo/x))]
-                 (is (= 1 v))))
+                                                  [(some? fs/readFileSync) foo/x]))]
+                 (is (= [true 1] v))))
              (p/catch (fn [err]
                         (is false (str err))))
              (p/finally done))))
