@@ -18,18 +18,20 @@
             libname (if (= 'cljs.core libname)
                       'clojure.core libname)
             env* (:env ctx)
-            cnn (sci/ns-name @last-ns)]
-        (if (and (symbol? libname)
-                 (sci/find-ns ctx libname))
+            cnn (sci/ns-name @last-ns)
+            [libname* path] (if (string? libname)
+                              (load/lib+path libname)
+                              [libname])]
+        (if (or (and (symbol? libname)
+                     (sci/find-ns ctx libname))
+                (and (string? libname)
+                     (get (:js-libs @env*) libname*)))
           ;; library already loaded, the only thing left to do is process the options, we can defer to load
           (do (sci/binding [sci/ns @last-ns]
                 (apply load/load-lib ctx nil libname opts))
               (handle-libspecs ctx (rest libspecs)))
           (if-let [load-fn (:async-load-fn @env*)]
-            (let [opts (apply hash-map opts)
-                  [libname* path] (if (string? libname)
-                                    (load/lib+path libname)
-                                    [libname])]
+            (let [opts (apply hash-map opts)]
               (.then (js/Promise.resolve (load-fn {:ns (sci/ns-name @last-ns)
                                                    :ctx ctx
                                                    :libname libname*
@@ -86,30 +88,91 @@
 
 (declare await await?)
 
+(defn- -eval-form
+  ([ctx form] (-eval-form ctx form false false))
+  ([ctx form wrap? no-bind?]
+   (let [last-ns* (:last-ns ctx)
+         last-ns (or last-ns* (volatile! @sci/ns))
+         ctx (if last-ns* ctx (assoc ctx :last-ns last-ns))
+         eval-next (fn eval-next [remaining]
+                     (let [[form remaining] (when (seq remaining)
+                                              [(first remaining) (next remaining)])
+                           f (fn []
+                               (js/Promise.resolve
+                                (if (seq? form)
+                                  (let [fst (first form)]
+                                    (if (= 'ns fst)
+                                      (if remaining
+                                        (.then (eval-ns-form ctx form)
+                                               #(eval-next remaining))
+                                        (let [v (await (eval-ns-form ctx form))]
+                                          (if wrap?
+                                            {:val v
+                                             :ns @last-ns}
+                                            v)))
+                                      (if (= 'do fst)
+                                        (eval-next (next form))
+                                        (if remaining
+                                          (let [v (sci/eval-form ctx form)]
+                                            (if (await? v)
+                                              (.then v #(eval-next remaining))
+                                              (eval-next remaining)))
+                                          (let [v (sci/eval-form ctx form)]
+                                            (if wrap?
+                                              {:val v
+                                               :ns @last-ns}
+                                              v))))))
+                                  (if remaining
+                                    (do (sci/eval-form ctx form)
+                                        (eval-next remaining))
+                                    (let [v (sci/eval-form ctx form)]
+                                      (if wrap?
+                                        {:val v
+                                         :ns @last-ns}
+                                        v))))))]
+                       (if no-bind? (f)
+                           (sci/binding [sci/ns @last-ns]
+                             (f)))))]
+     (eval-next [form]))))
+
+(defn eval-form
+  "Eval single form in ctx."
+  [ctx form]
+  (-eval-form ctx form))
+
+(defn eval-form+
+  "Eval single form in ctx, return map of `:val` and `:ns`."
+  [ctx form]
+  (-eval-form ctx form true false))
+
+(defn- -eval-string
+  ([ctx s] (-eval-string ctx s false))
+  ([ctx s wrap?]
+   (let [rdr (sci/reader s)
+         last-ns (or (:last-ns ctx) (volatile! @sci/ns))
+         ctx (assoc ctx :last-ns last-ns)
+         eval-next (fn eval-next [res]
+                     (let [continue #(sci/binding [sci/ns @last-ns]
+                                       (let [form (sci/parse-next ctx rdr)]
+                                         (if (= :sci.core/eof form)
+                                           (if wrap?
+                                             (js/Promise.resolve {:val res
+                                                                  :ns @last-ns})
+                                             (js/Promise.resolve res))
+                                           (.then (-eval-form ctx form true true)
+                                                  (fn [v] (eval-next (:val v)))))))]
+                       (if (or (not (instance? js/Promise res))
+                               (await? res))
+                         ;; flatten awaited promise or non-promise
+                         (.then (js/Promise.resolve res)
+                                continue)
+                         ;; do not flatten promise results from evaluated results
+                         (continue))))]
+     (eval-next nil))))
+
 (defn eval-string*
   [ctx s]
-  (let [rdr (sci/reader s)
-        last-ns (or (:last-ns ctx) (volatile! @sci/ns))
-        ctx (assoc ctx :last-ns last-ns)
-        eval-next (fn eval-next [res]
-                    (let [continue #(sci/binding [sci/ns @last-ns]
-                                      (let [form (sci/parse-next ctx rdr)]
-                                        (if (= :sci.core/eof form)
-                                          (js/Promise.resolve res)
-                                          (if (seq? form)
-                                            (if (= 'ns (first form))
-                                              (eval-next (await (eval-ns-form ctx form)))
-                                              (eval-next
-                                               (sci/eval-form ctx form)))
-                                            (eval-next (sci/eval-form ctx form))))))]
-                      (if (or (not (instance? js/Promise res))
-                              (await? res))
-                        ;; flatten awaited promise or non-promise
-                        (.then (js/Promise.resolve res)
-                               continue)
-                        ;; do not flatten promise results from evaluated results
-                        (continue))))]
-    (eval-next nil)))
+  (-eval-string ctx s))
 
 (defn eval-string+
   "Same as eval-string* but returns map with `:val`, the evaluation
@@ -120,10 +183,7 @@
    (let [last-ns (volatile! (or (when opts (:ns opts))
                                 @sci/ns))
          ctx (assoc ctx :last-ns last-ns)]
-     (.then (eval-string* ctx s)
-            (fn [v]
-              {:val v
-               :ns @last-ns})))))
+     (-eval-string ctx s true))))
 
 (defn await
   "Mark promise to be flatteded into top level async evaluation, similar

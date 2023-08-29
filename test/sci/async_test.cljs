@@ -1,5 +1,6 @@
 (ns sci.async-test
-  (:require [clojure.string :as str]
+  (:require ["fs" :as fs]
+            [clojure.string :as str]
             [clojure.test :as test :refer [deftest is testing async]]
             [promesa.core :as p]
             [sci.async :as scia]
@@ -110,8 +111,8 @@
                                 :classes {:allow :all 'js goog/global}})
                  code "(require '[promesa.core :as p])
                        (def a (atom :init))
-                       (.then (p/delay 10 :x) (fn [] (reset! a :yolo)))
-                       a"
+                       (do (.then (p/delay 10 :x) (fn [] (reset! a :yolo)))
+                           a)"
                  res (scia/eval-string* ctx code)
                  _ (is (= :init @res))
                  _ (p/delay 11)
@@ -120,7 +121,7 @@
 
 (deftest multiple-async-evals
   (async done
-         (let [ctx (sci/init {:namespaces  {'clojure.core {'require scia/require}}
+         (let [ctx (sci/init {:namespaces {'clojure.core {'require scia/require}}
                               :async-load-fn (fn [{:keys [libname ns]}]
                                                (cond (= 'acme.foo libname)
                                                      (is (= 'test (symbol ns)))
@@ -142,16 +143,22 @@
 
 (deftest eval-string+-test
   (async done
-         (p/let [ctx (sci/init {})
-                 {:keys [_ ns] :as ret} (scia/eval-string+ ctx "(ns foo)")
-                 _ (is (= "foo" (str ns)))
-                 {:keys [val ns]} (scia/eval-string+ ctx "(defn foo [] :hello) (foo/foo)" ret)
-                 _ (is (= :hello val))
-                 _ (is (= "foo" (str ns)))
-                 {:keys [val ns]} (scia/eval-string+ ctx "(defn bar []) (symbol #'bar)")
-                 _ (is (= 'user/bar val))
-                 _ (is (= "user" (str ns)))]
-           (done))))
+         (-> (p/let [ctx (sci/init {:classes {'js js/globalThis
+                                              :allow :all}})
+                     {:keys [_ ns] :as ret} (scia/eval-string+ ctx "(ns foo)")
+                     _ (is (= "foo" (str ns)))
+                     {:keys [val ns]} (scia/eval-string+ ctx "(defn foo [] :hello) (foo/foo)" ret)
+                     _ (is (= :hello val))
+                     _ (is (= "foo" (str ns)))
+                     {:keys [val ns]} (scia/eval-string+ ctx "(defn bar []) (symbol #'bar)")
+                     _ (is (= 'user/bar val))
+                     _ (is (= "user" (str ns)))
+                     ;; promise result should not be flattened!
+                     {:keys [val]} (scia/eval-string+ ctx "(js/Promise.resolve 5)")
+                     _ (is (instance? js/Promise val))])
+             (p/catch (fn [err]
+                        (is false (str err))))
+             (p/finally done))))
 
 (deftest require-test
   (async done
@@ -160,3 +167,46 @@
                  _ (scia/eval-string* ctx "set/union")]
            (is true)
            (done))))
+
+(deftest eval-form-test
+  (async done
+         (-> (p/let [ctx (sci/init {:js-libs {"fs" fs}
+                                    :async-load-fn
+                                    (fn [{:keys [libname]}]
+                                      (case libname
+                                        foobar
+                                        {:source "(ns foobar) (defn hello [] :hello)"}))
+                                    :namespaces {'clojure.core {'require scia/require
+                                                                'await scia/await}}
+                                    :classes {'js js/globalThis
+                                              :allow :all}})
+                     v (scia/eval-form ctx '(do (def x (atom 1))
+                                                (swap! x inc)
+                                                @x))]
+               (is (= 2 v))
+               (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]
+                                                                    [foobar :as foobar]))
+                                                  (some? fs/readFileSync)
+                                                  (def x 1)
+                                                  (ns bar)
+                                                  [(some? fs/readFileSync) foo/x (foobar/hello)]))]
+                 (is (= [true 1 :hello] v)))
+               (testing "non-seq path"
+                 (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+                                                    fs))]
+                   (is (= fs v))))
+               (testing "no flatten promise"
+                 (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+                                                    (js/Promise.reject (js/Error. "dude"))
+                                                    1))]
+                   (is (= 1 v))))
+               (testing "awaiting stuff"
+                 (p/let [v (-> (p/let [_ (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+                                                                  (await (js/Promise.reject (js/Error. "dude")))
+                                                                  1))])
+                               (p/catch (fn [err]
+                                          (str err))))]
+                   (is (str/includes? v "dude")))))
+             (p/catch (fn [err]
+                        (is false (str err))))
+             (p/finally done))))

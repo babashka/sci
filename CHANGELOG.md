@@ -15,6 +15,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Bump edamame to 1.3.23
 - [#889](https://github.com/babashka/sci/issues/889): allow `(def foo/foo 1)` when inside namespace `foo`
 - [#891](https://github.com/babashka/sci/issues/891): reset file metadata on var when it's re-evaluated from other file
+- [#893](https://github.com/babashka/sci/issues/893): expose `sci.async/eval-form` and `sci.async/eval-form+`
+- Improve `sci.async/eval-string`, respect top-level `do` forms
 
 ## 0.8.40 (2023-06-28)
 
