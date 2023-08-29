@@ -170,7 +170,8 @@
                                       (case libname
                                         foobar
                                         {:source "(ns foobar) (defn hello [] :hello)"}))
-                                    :namespaces {'clojure.core {'require scia/require}}
+                                    :namespaces {'clojure.core {'require scia/require
+                                                                'await scia/await}}
                                     :classes {'js js/globalThis
                                               :allow :all}})
                      v (scia/eval-form ctx '(do (def x (atom 1))
@@ -192,7 +193,14 @@
                  (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
                                                     (js/Promise.reject (js/Error. "dude"))
                                                     1))]
-                   (is (= 1 v)))))
+                   (is (= 1 v))))
+               (testing "awaiting stuff"
+                 (p/let [v (-> (p/let [_ (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
+                                                                  (await (js/Promise.reject (js/Error. "dude")))
+                                                                  1))])
+                               (p/catch (fn [err]
+                                          (str err))))]
+                   (is (str/includes? v "dude")))))
              (p/catch (fn [err]
                         (is false (str err))))
              (p/finally done))))
