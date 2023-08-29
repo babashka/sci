@@ -132,10 +132,14 @@
                                   v))))))))]
      (eval-next [form]))))
 
-(defn eval-form [ctx form]
+(defn eval-form
+  "Eval single form in ctx."
+  [ctx form]
   (-eval-form ctx form))
 
-(defn eval-form+ [ctx form]
+(defn eval-form+
+  "Eval single form in ctx, return map of `:val` and `:ns`."
+  [ctx form]
   (-eval-form ctx form true))
 
 (defn- -eval-string
