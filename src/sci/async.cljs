@@ -142,8 +142,12 @@
 
 (defn eval-form+
   "Eval single form in ctx, return map of `:val` and `:ns`."
-  [ctx form]
-  (-eval-form ctx form true false))
+  ([ctx s] (eval-form+ ctx s nil))
+  ([ctx form opts]
+   (let [last-ns (volatile! (or (when opts (:ns opts))
+                                @sci/ns))
+         ctx (assoc ctx :last-ns last-ns)]
+     (-eval-form ctx form true false))))
 
 (defn- -eval-string
   ([ctx s] (-eval-string ctx s false))
