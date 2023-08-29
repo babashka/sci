@@ -141,18 +141,24 @@
 ;;                  (is (= [:foo :bar :baz] x)))
 ;;                (p/finally done)))))
 
-;; (deftest eval-string+-test
-;;   (async done
-;;          (p/let [ctx (sci/init {})
-;;                  {:keys [_ ns] :as ret} (scia/eval-string+ ctx "(ns foo)")
-;;                  _ (is (= "foo" (str ns)))
-;;                  {:keys [val ns]} (scia/eval-string+ ctx "(defn foo [] :hello) (foo/foo)" ret)
-;;                  _ (is (= :hello val))
-;;                  _ (is (= "foo" (str ns)))
-;;                  {:keys [val ns]} (scia/eval-string+ ctx "(defn bar []) (symbol #'bar)")
-;;                  _ (is (= 'user/bar val))
-;;                  _ (is (= "user" (str ns)))]
-;;            (done))))
+(deftest eval-string+-test
+  (async done
+         (-> (p/let [ctx (sci/init {:classes {'js js/globalThis
+                                              :allow :all}})
+                     {:keys [_ ns] :as ret} (scia/eval-string+ ctx "(ns foo)")
+                     _ (is (= "foo" (str ns)))
+                     {:keys [val ns]} (scia/eval-string+ ctx "(defn foo [] :hello) (foo/foo)" ret)
+                     _ (is (= :hello val))
+                     _ (is (= "foo" (str ns)))
+                     {:keys [val ns]} (scia/eval-string+ ctx "(defn bar []) (symbol #'bar)")
+                     _ (is (= 'user/bar val))
+                     _ (is (= "user" (str ns)))
+                     ;; promise result should not be flattened!
+                     {:keys [val]} (scia/eval-string+ ctx "(js/Promise.resolve 5)")
+                     _ (is (instance? js/Promise val))])
+             (p/catch (fn [err]
+                        (is false (str err))))
+             (p/finally done))))
 
 ;; (deftest require-test
 ;;   (async done
