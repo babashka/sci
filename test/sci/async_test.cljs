@@ -186,8 +186,8 @@
                  (is (= [true 1 :hello] v)))
                (testing "non-seq path"
                  (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
-                                                    fs/readFileSync))]
-                   (is (= fs/readFileSync v))))
+                                                    fs))]
+                   (is (= fs v))))
                (testing "no flatten promise"
                  (p/let [v (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
                                                     (js/Promise.reject (js/Error. "dude"))
