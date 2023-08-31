@@ -119,8 +119,7 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: '22.3.1'
-          java-version: '19'
+          java-version: '20.0.1'
           distribution: 'graalvm'
           components: 'native-image'
 
