@@ -11,7 +11,8 @@
    [sci.impl.utils :as utils :refer [#?(:cljs kw-identical?)
                                      rethrow-with-location-of-node
                                      throw-error-with-location]]
-   [sci.impl.vars :as vars])
+   [sci.impl.vars :as vars]
+   [sci.lang])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
 
 (declare fn-call)
@@ -82,21 +83,21 @@
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
       (if-let
-          [[_ r]
-           (reduce (fn [_ c]
-                     (let [clazz (:class c)]
-                       (when #?(:cljs
-                                (or (kw-identical? :default clazz)
-                                    (if (instance? sci.impl.types/NodeR clazz)
-                                      (instance? (types/eval clazz ctx bindings) e)
-                                      (instance? clazz e)))
-                                :clj (instance? clazz e))
-                         (reduced
-                          [::try-result
-                           (do (aset ^objects bindings (:ex-idx c) e)
-                               (types/eval (:body c) ctx bindings))]))))
-                   nil
-                   catches)]
+       [[_ r]
+        (reduce (fn [_ c]
+                  (let [clazz (:class c)]
+                    (when #?(:cljs
+                             (or (kw-identical? :default clazz)
+                                 (if (instance? sci.impl.types/NodeR clazz)
+                                   (instance? (types/eval clazz ctx bindings) e)
+                                   (instance? clazz e)))
+                             :clj (instance? clazz e))
+                      (reduced
+                       [::try-result
+                        (do (aset ^objects bindings (:ex-idx c) e)
+                            (types/eval (:body c) ctx bindings))]))))
+                nil
+                catches)]
         r
         (rethrow-with-location-of-node ctx bindings e body)))
     (finally
