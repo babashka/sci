@@ -121,6 +121,7 @@ jobs:
         with:
           version: '22.3.1'
           java-version: '19'
+          distribution: 'graalvm'
           components: 'native-image'
 
       - name: Install Clojure tools
