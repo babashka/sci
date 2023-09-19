@@ -160,6 +160,10 @@ user=> (defmacro do-twice [x] (list 'do x x))
 user=> (sci/eval-string "(do-twice (f))" {:namespaces {'user {'do-twice #'do-twice 'f #(println "hello")}}})
 ```
 
+Tips:
+
+* To get the name of the namespace the macro is called from at _expansion_ time, use `(str (deref sci.core/ns))`
+
 ### Vars
 
 To remain safe and sandboxed, SCI programs do not have access to Clojure vars,
