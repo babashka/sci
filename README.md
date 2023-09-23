@@ -378,6 +378,8 @@ To always enable printing in your SCI environment you can set `sci/print-fn` to 
 (sci/alter-var-root sci/print-err-fn (constantly *print-err-fn*))
 ```
 
+If you are seeing the error _Attempting to call unbound fn: #'clojure.core/*print-fn*_ then this should fix it.
+
 ### Futures
 
 Creating threads with `future` and `pmap` is disabled by default, but can be
