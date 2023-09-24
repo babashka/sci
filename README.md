@@ -181,7 +181,8 @@ normal Clojure:
 (foo) ;;=> 2
 ```
 
-Dynamic vars with thread-local bindings are also supported (for vars defined _inside_ your scripts, and thus _evaluated_ by SCI):
+Dynamic vars with thread-local bindings are also supported (for vars defined _inside_ your scripts, and thus _evaluated_ by SCI,
+or for SCI dynamic vars (see below)):
 
 ``` clojure
 (def ^:dynamic *x* 1)
@@ -229,17 +230,17 @@ only bind them from Clojure, i.e. from functions exposed to and _called by_ your
 ;;=> 42
 ```
 
-If you want to change the value from your script, then you can expose a SCI dynamic var to it,
+If you want to be bind the value from your script, then you can expose a SCI dynamic var to it,
 and bind its value to the host dynamic var in Clojure:
 
 ```clj
 (def ^:dynamic *x* 1)
 (def userns (sci/create-ns 'user))
 (def sci-x (sci/new-dynamic-var '*x* *x* {:ns userns}))
-(defn get-x [] (binding [*x* @sci-x] *x*))
+(defn get-x [] (binding [*x* @sci-x] *x*)) ; bind SCI dyn var value to host var
 (sci/eval-string "(binding [*x* 42] (get-x))"
                  {:namespaces {'user {'get-x (sci/copy-var get-x userns)
-                                      '*x* sci-x}}})
+                                      '*x* sci-x}}}) ; expose SCI dyn var
 ;; => 42
 ```
 
