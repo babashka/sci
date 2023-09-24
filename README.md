@@ -181,7 +181,7 @@ normal Clojure:
 (foo) ;;=> 2
 ```
 
-Dynamic vars with thread-local bindings are also supported:
+Dynamic vars with thread-local bindings are also supported (for vars defined _inside_ your scripts, and thus _evaluated_ by SCI):
 
 ``` clojure
 (def ^:dynamic *x* 1)
@@ -190,14 +190,14 @@ Dynamic vars with thread-local bindings are also supported:
 *x* ;;=> 1
 ```
 
-Creating SCI vars from Clojure can be done using `sci/new-var`:
+Creating SCI vars _from Clojure_, to be exposed to your SCI scipts, can be done using `sci/new-var`:
 
 ``` clojure
 (def x (sci/new-var 'x 10))
 (sci/eval-string "(inc x)" {:namespaces {'user {'x x}}}) ;;=> 11
 ```
 
-To create a dynamic SCI var you can set metadata or use `sci/new-dynamic-var`:
+To create a dynamic SCI var from Clojure you can set metadata or use `sci/new-dynamic-var`:
 
 ``` clojure
 (def x1 (sci/new-var 'x 10 {:dynamic true}))
@@ -206,12 +206,44 @@ To create a dynamic SCI var you can set metadata or use `sci/new-dynamic-var`:
 (sci/eval-string "(binding [*x* 12] (inc *x*))" {:namespaces {'user {'*x* x2}}}) ;;=> 13
 ```
 
-SCI vars can be bound from Clojure using `sci/binding`:
+These dynamic SCI vars can be bound from Clojure using `sci/binding`:
 
 ``` clojure
 (def x (sci/new-dynamic-var 'x 10))
 (sci/binding [x 11] (sci/eval-string "(inc *x*)" {:namespaces {'user {'*x* x}}})) ;;=> 11
 ```
+
+Notice that you cannot set _host_ dynamic variables _from your SCI scripts_ - `binding` will only work
+on dynamic variables you defined in the script itself, or on SCI dynamic variables exposed from Clojure.
+This applies also to :sci/macros (which expand into more code in the scripts). There workaround is to
+only bind them from Clojure, i.e. from functions exposed to and _called by_ your scripts:
+
+``` clojure
+(def ^:dynamic *x* 1)
+(defn with-x [x-val f] (binding [*x* x-val] (f)))
+(defn get-x [] *x*)
+(def userns (sci/create-ns 'user))
+(sci/eval-string "(with-x 42 #(get-x))"
+                 {:namespaces {'user {'with-x (sci/copy-var with-x userns)
+                                      'get-x (sci/copy-var get-x userns)}}})
+;;=> 42
+```
+
+If you want to change the value from your script, then you can expose a SCI dynamic var to it,
+and bind its value to the host dynamic var in Clojure:
+
+```clj
+(def ^:dynamic *x* 1)
+(def userns (sci/create-ns 'user))
+(def sci-x (sci/new-dynamic-var '*x* *x* {:ns userns}))
+(defn get-x [] (binding [*x* @sci-x] *x*))
+(sci/eval-string "(binding [*x* 42] (get-x))"
+                 {:namespaces {'user {'get-x (sci/copy-var get-x userns)
+                                      '*x* sci-x}}})
+;; => 42
+```
+
+#### Using `*in*`, `*out*`, `*err*`
 
 The dynamic vars `*in*`, `*out*`, `*err*` in a SCI program correspond to the
 dynamic SCI vars `sci/in`, `sci/out` and `sci/err` in the API. These
