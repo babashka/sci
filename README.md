@@ -237,7 +237,7 @@ and bind its value to the host dynamic var in Clojure:
 (def ^:dynamic *x* 1)
 (def userns (sci/create-ns 'user))
 (def sci-x (sci/new-dynamic-var '*x* *x* {:ns userns}))
-(defn get-x [] (binding [*x* @sci-x] *x*)) ; bind SCI dyn var value to host var
+(defn get-x [] (binding [*x* @sci-x] *x*)) ; bind host var to SCI dyn var value
 (sci/eval-string "(binding [*x* 42] (get-x))"
                  {:namespaces {'user {'get-x (sci/copy-var get-x userns)
                                       '*x* sci-x}}}) ; expose SCI dyn var
