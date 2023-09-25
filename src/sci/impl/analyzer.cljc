@@ -989,7 +989,6 @@
   (let [ctx (without-recur-target ctx)
         [method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
-        instance-expr* instance-expr
         instance-expr (analyze ctx instance-expr)
         #?@(:clj [instance-expr (utils/vary-meta*
                                  instance-expr
@@ -1001,6 +1000,7 @@
                                                       (str "Unable to resolve classname: " t) t))]
                                        (assoc m :tag-class clazz))
                                      m)))])
+        #?@(:clj [method-name* method-expr])
         method-name (name method-expr)
         args (when args (analyze-children ctx args))
         res
@@ -1040,16 +1040,15 @@
                              stack))))
                       (let [arg-count (count args)
                             args (object-array args)]
-                        (if-let [f (-> ctx :classes (get instance-expr*) :static-methods (symbol method-name))]
-                          (return-call ctx expr f analyzed-children stack wrap)
+                        ;; prefab static-methods
+                        (if-let [f (-> ctx :env deref
+                                       :class->opts (get (symbol (.getName ^Class instance-expr)))
+                                       :static-methods (get method-name*))]
+                          (return-call ctx expr f args stack nil)
                           (sci.impl.types/->Node
                            (interop/invoke-static-method ctx bindings instance-expr method-name
                                                          args arg-count)
-                           stack))
-                        (sci.impl.types/->Node
-                         (interop/invoke-static-method ctx bindings instance-expr method-name
-                                                       args arg-count)
-                         stack)))
+                           stack))))
                     (let [arg-count #?(:cljs nil :clj (count args))
                           args (object-array args)]
                       (with-meta (sci.impl.types/->Node
@@ -1504,8 +1503,9 @@
                       fast-path (-> f-meta :sci.impl/fast-path)
                       f (or fast-path f)]
                   (cond (and f-meta (::static-access f-meta))
-                        #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
-                                                    m))
+                        #?(:clj
+                           (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
+                                               m))
                            :cljs
                            (let [[class method-path] f
                                  last-path (last method-path)
