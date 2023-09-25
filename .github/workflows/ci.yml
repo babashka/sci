@@ -109,8 +109,9 @@ jobs:
     # Compile and test libsci across all OSs.
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
-
+        # windows-latest is disabled because
+        # of a Rust bindgen thing
+        os: [macos-latest, ubuntu-latest]
     runs-on: ${{matrix.os}}
 
     steps:
