@@ -989,6 +989,7 @@
   (let [ctx (without-recur-target ctx)
         [method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
+        instance-expr* instance-expr
         instance-expr (analyze ctx instance-expr)
         #?@(:clj [instance-expr (utils/vary-meta*
                                  instance-expr
@@ -1039,6 +1040,12 @@
                              stack))))
                       (let [arg-count (count args)
                             args (object-array args)]
+                        (if-let [f (-> ctx :classes (get instance-expr*) :static-methods (symbol method-name))]
+                          (return-call ctx expr f analyzed-children stack wrap)
+                          (sci.impl.types/->Node
+                           (interop/invoke-static-method ctx bindings instance-expr method-name
+                                                         args arg-count)
+                           stack))
                         (sci.impl.types/->Node
                          (interop/invoke-static-method ctx bindings instance-expr method-name
                                                        args arg-count)
