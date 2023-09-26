@@ -1000,7 +1000,6 @@
                                                       (str "Unable to resolve classname: " t) t))]
                                        (assoc m :tag-class clazz))
                                      m)))])
-        #?@(:clj [method-name* method-expr])
         method-name (name method-expr)
         args (when args (analyze-children ctx args))
         res
@@ -1041,10 +1040,10 @@
                       (let [arg-count (count args)
                             args (object-array args)]
                         ;; prefab static-methods
-                        (if-let [f (-> ctx :env deref
-                                       :class->opts (get (symbol (.getName ^Class instance-expr)))
-                                       :static-methods (get method-name*))]
-                          (return-call ctx expr f args stack nil)
+                        (if-let [f (some-> ctx :env deref
+                                           :class->opts :static-methods
+                                           (get (.getName ^Class instance-expr)) (get method-expr))]
+                          (return-call ctx expr f (cons instance-expr args) stack nil)
                           (sci.impl.types/->Node
                            (interop/invoke-static-method ctx bindings instance-expr method-name
                                                          args arg-count)

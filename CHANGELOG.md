@@ -17,6 +17,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - [#891](https://github.com/babashka/sci/issues/891): reset file metadata on var when it's re-evaluated from other file
 - [#893](https://github.com/babashka/sci/issues/893): expose `sci.async/eval-form` and `sci.async/eval-form+`
 - Improve `sci.async/eval-string`, respect top-level `do` forms
+- Add experimental new `:static-methods` option to override how static methods get evaluated.
 
 ## 0.8.40 (2023-06-28)
 
