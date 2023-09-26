@@ -106,15 +106,27 @@
             Object java.lang.Object}
      :cljs {}))
 
+(defn stringify-keys [m]
+  (persistent!
+   (reduce-kv (fn [m k v]
+                (assoc! m (name k) v)) (transient {}) m)))
+
+(comment
+  (stringify-keys {:foo 1})
+  )
+
 (defn normalize-classes [classes]
   (loop [class->opts (transient (select-keys classes [:allow]))
          kvs classes]
     (if-let [[sym class-opts] (first kvs)]
       (recur ;; storing the physical class as key didn't work well with
        ;; GraalVM
-       (assoc! class->opts sym (if (map? class-opts)
-                                 class-opts
-                                 {:class class-opts}))
+       (if (map? class-opts)
+         (if-let [sm (:static-methods class-opts)]
+           (-> (assoc! class->opts sym class-opts)
+               (assoc! :static-methods (assoc (:static-methods class->opts) (str sym) sm)))
+           (assoc! class->opts sym class-opts))
+         (assoc! class->opts sym {:class class-opts}))
        (rest kvs))
       {:public-class (:public-class classes)
        :class->opts (persistent! class->opts)})))

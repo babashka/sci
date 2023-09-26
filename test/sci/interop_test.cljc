@@ -113,7 +113,12 @@
                         (parse-int \"123\")")))
      (testing "calling static methods on unconfigured classes is not allowed"
        (is (thrown-with-msg? Exception #"not"
-                             (eval* "(clojure.lang.Var/find 'clojure.core/int)"))))))
+                             (eval* "(clojure.lang.Var/find 'clojure.core/int)"))))
+     (is (= :dude (sci/eval-string
+                   "(Class/forName \"java.lang.String\")"
+                   {:imports {'Class 'java.lang.Class}
+                    :classes {'java.lang.Class {:class Class
+                                                :static-methods {'forName (fn [_Class _forName] :dude)}}}})))))
 
 
 (when-not tu/native?

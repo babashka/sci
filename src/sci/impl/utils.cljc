@@ -6,7 +6,7 @@
             [sci.impl.types :as t]
             [sci.impl.vars :as vars]
             [sci.lang :as lang])
-  #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical?]])))
+  #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical? dotimes+]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -288,3 +288,8 @@
 (defn namespace? [x]
   (instance? #?(:clj sci.lang.Namespace
                 :cljs sci.lang/Namespace) x))
+
+(defmacro dotimes+ [n body]
+  `(do (dotimes [i# ~(dec n)]
+         ~body)
+       ~body))

@@ -1039,10 +1039,15 @@
                              stack))))
                       (let [arg-count (count args)
                             args (object-array args)]
-                        (sci.impl.types/->Node
-                         (interop/invoke-static-method ctx bindings instance-expr method-name
-                                                       args arg-count)
-                         stack)))
+                        ;; prefab static-methods
+                        (if-let [f (some-> ctx :env deref
+                                           :class->opts :static-methods
+                                           (get (.getName ^Class instance-expr)) (get method-expr))]
+                          (return-call ctx expr f (cons instance-expr args) stack nil)
+                          (sci.impl.types/->Node
+                           (interop/invoke-static-method ctx bindings instance-expr method-name
+                                                         args arg-count)
+                           stack))))
                     (let [arg-count #?(:cljs nil :clj (count args))
                           args (object-array args)]
                       (with-meta (sci.impl.types/->Node
@@ -1497,8 +1502,9 @@
                       fast-path (-> f-meta :sci.impl/fast-path)
                       f (or fast-path f)]
                   (cond (and f-meta (::static-access f-meta))
-                        #?(:clj (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
-                                                    m))
+                        #?(:clj
+                           (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
+                                               m))
                            :cljs
                            (let [[class method-path] f
                                  last-path (last method-path)
