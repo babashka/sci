@@ -163,6 +163,7 @@ user=> (sci/eval-string "(do-twice (f))" {:namespaces {'user {'do-twice #'do-twi
 Tips:
 
 * To get the name of the namespace the macro is called from at _expansion_ time, use `(str (deref sci.core/ns))`
+* Have a look at [Emmy's sci-macro](https://github.com/mentat-collective/emmy/blob/e16b5692b04972f0bc9ea6d07f7ead41edccc066/src/emmy/util.cljc#L141), which behaves like `defmacro` in Clojure, but emits a `:sci/macro` defn with the extra args in cljs
 
 ### Vars
 
