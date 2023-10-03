@@ -262,6 +262,16 @@ A shorthand for rebinding `sci/out` is `sci/with-out-str`:
 ``` clojure
 (sci/with-out-str (sci/eval-string "(println \"hello\")")) ;;=> "hello\n"
 ```
+### Reader conditionals
+
+To tell SCI which branch of a [reader conditional](https://clojure.org/guides/reader_conditionals) to take,
+such as the `:cljs` one in `#?(:clj "JVM" :cljs "JS")`, you need to tell it which _features_ it should support:
+
+```clojure
+(sci/eval-string "(str \"I'm \" #?(:clj \"JVM\" :cljs \"JS\"))" {:features #{:cljs :bb}}) ;;=> "I'm JS"
+```
+
+See [eval-string docs](https://github.com/babashka/sci/blob/master/API.md#sci.core/eval-string) for details.
 
 ### Copy a namespace
 
