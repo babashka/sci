@@ -22,7 +22,7 @@ Python using ctypes.
 If you want to run this script yourself, prepare as follows:
 
 - Download [GraalVM](https://github.com/graalvm/graalvm-ce-builds/releases) and
-  set `GRAALVM_HOME`. Currently 20.3.0 Java 11 must be used.
+  set `GRAALVM_HOME`. Currently we use Oracle GraalVM 21 (double-check `.github/workflows/ci.yml` for what CI is currently using).
 - Install [lein](https://github.com/technomancy/leiningen). This is used for
   compiling Clojure code.
 - You should have `g++` available to compile C++ code.

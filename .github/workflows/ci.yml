@@ -120,7 +120,7 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: '20.0.1'
+          java-version: '21'
           distribution: 'graalvm'
           components: 'native-image'
 
