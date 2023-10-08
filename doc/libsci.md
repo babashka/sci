@@ -89,18 +89,15 @@ and C types.
 The Clojure and Java code is compiled into .class files. Next, we compile those
 .class files into a shared library using `native-image`:
 
+Run this babashka script to create header files
 ``` shell
-$ $GRAALVM_HOME/bin/native-image \
-  -jar $SCI_JAR \
-  -cp libsci/src \
-  -H:Name=libsci \
-  --shared \
-  ...
+bb build-libsci-headers.clj
+
 ```
 
 This begets the files `graal_isolate_dynamic.h`, `graal_isolate.h`, `libsci.h`,
 `libsci.dylib` (on linux `libsci.so`, on MS-Windows `libsci.dll`) and `libsci_dynamic.h`.
-We move all these files to `libsci/target`.
+The script moves all these files to `libsci/target`.
 
 In addtion, on MS-Windows, there is one more library file,
 `libsci.lib`, which should be copied over as `sci.lib`.
