@@ -1083,7 +1083,11 @@
          (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
   (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))")))
   (is (= '(foobar) (eval* "(defmacro foo [] '(foobar)) (macroexpand '(foo))")))
-  (is (= '(clojure.core/defrecord Foo []) (eval* "(macroexpand '(defrecord Foo []))"))))
+  (is (= '(clojure.core/defrecord Foo []) (eval* "(macroexpand '(defrecord Foo []))")))
+  (is (= '(. nil log) (eval* "(macroexpand-1 '(.log))")))
+  (is (= '(. js/console log) (eval* "(macroexpand-1 '(.log js/console))")))
+  (is (= '(. js/console log 1 2 3) (eval* "(macroexpand-1 '(.log js/console 1 2 3))")))
+  )
 
 (deftest macroexpand-call-test
   (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))
@@ -1104,6 +1108,8 @@
        (do (is (= 1 (tu/eval* "(ns foo (:require-macros [foo :refer [my-macro]]))
                            (defmacro my-macro [x] x) (my-macro 1)" {})))
            (is (= 1 (tu/eval* "(ns foo (:require-macros [bar :refer [my-macro]])) (my-macro 1)"
+                              {:load-fn (constantly {:source "(ns bar) (defmacro my-macro [x] x)"})})))
+           (is (= 1 (tu/eval* "(ns foo (:require [bar :refer-macros [my-macro]])) (my-macro 1)"
                               {:load-fn (constantly {:source "(ns bar) (defmacro my-macro [x] x)"})})))))))
 
 (deftest reload-test

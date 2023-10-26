@@ -86,7 +86,9 @@
                         (if needs-ctx?
                           (apply f original-expr (:bindings ctx) ctx (rest expr))
                           (apply f original-expr (:bindings ctx) (rest expr)))
-                        expr)))))
+                        (if (str/starts-with? (str op) ".")
+                          (list* '. (second expr) (symbol (subs (str op) 1)) (nnext expr))
+                          expr))))))
           expr))
       expr)))
 

@@ -54,7 +54,7 @@
 
 (defn handle-require-libspec-env
   [_ctx env current-ns the-loaded-ns lib-name
-   {:keys [:as :refer :rename :exclude :only :use] :as #?(:clj _opts :cljs opts)}]
+   {:keys [:as :refer #?(:cljs :refer-macros) :rename :exclude :only :use] :as #?(:clj _opts :cljs opts)}]
   (or
    #?(:cljs
       (when (string? lib-name)
@@ -72,6 +72,13 @@
                           (fn [sym]
                             (not (contains? excludes sym))))
                         (constantly true))
+         #?@(:cljs [refer (if refer-macros
+                            (if (or (nil? refer)
+                                    (coll? refer))
+                              (into refer refer-macros)
+                              ;; assume :all
+                              refer)
+                            refer)])
          the-current-ns
          (cond refer
                (cond (or (kw-identical? :all refer)
