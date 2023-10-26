@@ -1232,6 +1232,7 @@
     #?@(:cljs ['demunge (copy-core-var cljs.core/demunge)])
     'derive (copy-var hierarchies/derive* clojure-core-ns {:name 'derive :ctx true})
     'descendants (copy-var hierarchies/descendants* clojure-core-ns {:name 'descendants :ctx true})
+    'destructure (copy-var destructure/destructure clojure-core-ns)
     'dissoc (copy-core-var dissoc)
     'dissoc! (copy-core-var dissoc!)
     'distinct (copy-core-var distinct)
