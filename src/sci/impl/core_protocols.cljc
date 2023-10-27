@@ -20,8 +20,13 @@
 
 (defn deref*
   ([x]
-   #?(:clj (deref x)
-      :cljs (-deref x)))
+   #?(:clj (if (instance? clojure.lang.IDeref x)
+             (clojure.core/deref x)
+             (deref x))
+      :cljs (if (or (instance? Atom x)
+                    (implements? IDeref x))
+              (clojure.core/deref x)
+              (-deref x))))
   #?(:clj
      ([x & args]
       (apply clojure.core/deref x args))))
@@ -139,26 +144,45 @@
 ;;;; Re-routing
 
 (defn swap!* [ref f & args]
-  ;; TODO: optimize arities - maybe test first how much this matters at all
-  ;; For CLJ I guess we can directly use the multimethods
-  (if args
-    (apply #?(:clj swap :cljs -swap!) ref f args)
-    (#?(:clj swap :cljs -swap!) ref f)))
+  (if
+      ;; fast-path for host IAtom
+      #?(:cljs (or (instance? Atom ref)
+                   (implements? ISwap ref))
+         :clj (instance? clojure.lang.IAtom ref))
+    (if args
+      (apply clojure.core/swap! ref f args)
+      (clojure.core/swap! ref f))
+    (if args
+      (apply #?(:clj swap :cljs -swap!) ref f args)
+      (#?(:clj swap :cljs -swap!) ref f))))
 
 (defn reset!* [ref v]
-  (#?(:clj reset :cljs -reset!) ref v))
+  (if
+      ;; fast-path for host IAtoms
+      #?(:cljs (or (instance? Atom ref)
+                   (implements? IReset ref))
+         :clj (instance? clojure.lang.IAtom ref))
+    (clojure.core/reset! ref v)
+    (#?(:clj reset :cljs -reset!) ref v)))
 
 #?(:clj
    (defn compare-and-set!* [ref old new]
-     (compareAndSet ref old new)))
+     (if (instance? clojure.lang.IAtom ref)
+       ;; fast-path for host IAtoms
+       (clojure.core/compare-and-set! ref old new)
+       (compareAndSet ref old new))))
 
 #?(:clj
    (defn swap-vals!* [ref f & args]
-     (apply swapVals ref f args)))
+     (if (instance? clojure.lang.IAtom ref)
+       (apply clojure.core/swap-vals! ref f args)
+       (apply swapVals ref f args))))
 
 #?(:clj
    (defn reset-vals!* [ref v]
-     (resetVals ref v)))
+     (if (instance? clojure.lang.IAtom ref)
+       (clojure.core/reset-vals! ref v)
+       (resetVals ref v))))
 
 ;;;; Protocol vars
 
