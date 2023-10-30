@@ -1666,6 +1666,18 @@
    (deftest queue-test
      (is (= #queue [1 2 3] (sci/eval-string "#queue [1 2 3]")))))
 
+(deftest time-test
+  #?(:clj
+     (let [output (java.io.StringWriter.)]
+       (is (= 1 (sci/binding [sci/out output] (sci/eval-string "(time 1)"))))
+       (is (re-matches #"\"Elapsed time: \d\.\d+ msecs\"\s*" (str output))))
+     :cljs
+     (let [output (atom "")
+           print-fn #(swap! output str %)]
+       (is (= 1 (sci/binding [sci/print-fn print-fn] (sci/eval-string "(time 1)" {:classes {'js js/globalThis :allow :all}}))))
+       (is (re-matches #"\"Elapsed time: \d\.\d+ msecs\"\s*" @output))))
+  )
+
 ;;;; Scratch
 
 (comment
