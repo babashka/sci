@@ -11,7 +11,8 @@
                             print-method
                             print-dup
                             #?(:cljs alter-meta!)
-                            memfn])
+                            memfn
+                            time])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -986,6 +987,20 @@
   #?(:clj  (list 'new 'clojure.lang.LazySeq (list* '^{:once true} fn* [] body))
      :cljs `(new cljs.core/LazySeq nil (fn [] ~@body) nil nil)))
 
+(defn time
+  "Evaluates expr and prints the time it took. Returns the value of expr."
+  [_ _ expr]
+  `(let [start# (clojure.core/system-time)
+           ret# ~expr]
+       (prn (str "Elapsed time: "
+                 #?(:clj (/ (double (- (clojure.core/system-time) start#)) 1000000.0)
+                    :cljs (.toFixed (- (clojure.core/system-time) start#) 6))
+                 " msecs"))
+       ret#))
+
+#?(:clj (defn system-time []
+          (System/nanoTime)))
+
 (macros/usetime
 
  (def clojure-core
@@ -1489,10 +1504,13 @@
     ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
     'test (copy-core-var test)
     'thread-bound? (copy-var sci-thread-bound? clojure-core-ns {:name 'thread-bound?})
+    'time (copy-var time clojure-core-ns {:macro true})
     'subs (copy-core-var subs)
     #?@(:clj ['supers (copy-core-var supers)])
     'symbol (copy-var symbol* clojure-core-ns {:name 'symbol})
     'symbol? (copy-core-var symbol?)
+    'system-time (copy-var #?(:clj system-time
+                              :cljs system-time) clojure-core-ns)
     'special-symbol? (copy-core-var special-symbol?)
     'subvec (copy-core-var subvec)
     'some-fn (copy-core-var some-fn)
