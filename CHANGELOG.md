@@ -21,6 +21,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Expose `destructure`
 - Macroexpand `(.foo bar)` form
 - Optimize `deref`, `swap!`, `reset!` for host values
+- Add `time` macro to core namespace
 
 ## 0.8.40 (2023-06-28)
 
