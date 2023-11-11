@@ -22,6 +22,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Macroexpand `(.foo bar)` form
 - Optimize `deref`, `swap!`, `reset!` for host values
 - Add `time` macro to core namespace
+- [#896](https://github.com/babashka/sci/issues/896): allow `catch` to be used as var name
 
 ## 0.8.40 (2023-06-28)
 

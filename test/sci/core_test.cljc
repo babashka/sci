@@ -881,7 +881,8 @@
      (testing "in JS you can throw anything"
        (is (thrown? js/Error
                     (sci/eval-string "(try (throw \"blah\") (catch js/Error e (str e e)))")))
-       (is (= "blahblah" (sci/eval-string "(try (throw \"blah\") (catch :default e (str e e)))"))))))
+       (is (= "blahblah" (sci/eval-string "(try (throw \"blah\") (catch :default e (str e e)))")))))
+  (is (= [1](sci/eval-string "(defn catch [] 1) (try [(catch)])"))))
 
 (deftest syntax-quote-test
   (is (= '(clojure.core/list 10 10)
