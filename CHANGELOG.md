@@ -10,7 +10,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.8.41 (2023-11-24)
 
 - Bump edamame to 1.3.23
 - [#889](https://github.com/babashka/sci/issues/889): allow `(def foo/foo 1)` when inside namespace `foo`
