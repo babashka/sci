@@ -41,3 +41,4 @@ reports
 
 libsci.build_artifacts.txt
 src/scratch.clj
+src/scratch.cljs
