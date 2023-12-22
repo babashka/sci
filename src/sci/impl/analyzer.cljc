@@ -998,7 +998,7 @@
                                    (if-let [t (:tag m)]
                                      (let [clazz (or (interop/resolve-class ctx t)
                                                      (records/resolve-record-class ctx t)
-                                                     (throw-error-with-location
+                                                     #_(throw-error-with-location
                                                       (str "Unable to resolve classname: " t) t))]
                                        (assoc m :tag-class clazz))
                                      m)))])

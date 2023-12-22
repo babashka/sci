@@ -122,9 +122,18 @@
     (if (instance? sci.impl.records.SciRecord instance)
       (get instance (keyword method-str) none-sentinel)
       (if (instance? sci.impl.deftype.SciType instance)
-        (get (types/getVal instance) (symbol method-str) none-sentinel)
+        (let [v (get (types/getVal instance) (symbol method-str) none-sentinel)]
+          (if (identical? v none-sentinel)
+            (let [t (sci.impl.types/-get-type instance)
+                  m (meta t)
+                  v (:sci.impl/var m)]
+              (prn :m m :v v :> @v :mv (meta v))
+              none-sentinel)
+            v))
         none-sentinel))
-    none-sentinel))
+    (or (if (instance? sci.impl.deftype.SciType instance)
+          (prn :>>>> (sci.impl.types/-get-type instance)))
+        none-sentinel)))
 
 (defn eval-instance-method-invocation
   [ctx bindings instance-expr method-str field-access args #?(:cljs allowed) arg-count]

@@ -1,6 +1,6 @@
 (ns sci.impl.protocols
   {:no-doc true}
-  (:refer-clojure :exclude [defprotocol extend-protocol
+  (:refer-clojure :exclude [defprotocol extend-protocol definterface
                             extend extend-type reify satisfies?
                             extends? implements? type->str])
   (:require
@@ -106,6 +106,13 @@
                   )
            ~(list 'quote protocol-name))]
     expansion))
+
+(defn protocolize [iface-meth]
+  (let [[name args & body] iface-meth]
+    `(~(vary-meta name dissoc :tag) ~(vec (cons '_ args)) ~@body)))
+
+(defn definterface [_ _ _ctx protocol-name & signatures]
+  `(clojure.core/defprotocol ~protocol-name ~@(map protocolize signatures)))
 
 ;; TODO: apply patches for default override for records
 (defn extend [ctx atype & proto+mmaps]
