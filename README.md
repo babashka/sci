@@ -474,7 +474,7 @@ Adding support for classes is done via the `:classes` option:
 
 To make this work with `GraalVM` you will also need to add an entry to your
 [reflection
-config](https://github.com/oracle/graal/blob/master/substratevm/REFLECTION.md)
+config](https://www.graalvm.org/latest/reference-manual/native-image/dynamic-features/Reflection/)
 for this class. Also see [`reflection.json`](reflection.json).
 
 By default, SCI only lets you interop with classes explicitly provided in the
