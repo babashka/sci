@@ -1217,7 +1217,8 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
                         (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
-                        (tu/eval* "(load-string \"(loop [] (recur))\")" {:deny '[loop]}))))
+                        (tu/eval* "(load-string \"(loop [] (recur))\")" {:deny '[loop]})))
+  (is (nil? (meta (tu/eval* "(read-string \"(+ 1 2 3)\")" nil)))))
 
 (deftest while-test
   (is (= 10 (eval* "(def a (atom 0)) (while (< @a 10) (swap! a inc)) @a"))))

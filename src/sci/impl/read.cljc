@@ -58,10 +58,10 @@
 
 (defn read-string
   ([sci-ctx s]
-   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+   (let [reader (r/string-push-back-reader s)]
      (read sci-ctx reader)))
   ([sci-ctx opts s]
-   (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+   (let [reader (r/string-push-back-reader s)]
      (read sci-ctx opts reader))))
 
 (defn load-string [sci-ctx s]
