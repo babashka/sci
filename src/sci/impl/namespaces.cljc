@@ -1314,6 +1314,7 @@
     'hash-combine (copy-core-var hash-combine)
     'hash-map (copy-core-var hash-map)
     'hash-set (copy-core-var hash-set)
+    'hash-ordered-coll (copy-core-var hash-ordered-coll)
     'hash-unordered-coll (copy-core-var hash-unordered-coll)
     'ident? (copy-core-var ident?)
     'identical? (copy-core-var identical?)
