@@ -1677,8 +1677,22 @@
      (let [output (atom "")
            print-fn #(swap! output str %)]
        (is (= 1 (sci/binding [sci/print-fn print-fn] (sci/eval-string "(time 1)" {:classes {'js js/globalThis :allow :all}}))))
-       (is (re-matches #"\"Elapsed time: \d\.\d+ msecs\"\s*" @output))))
-  )
+       (is (re-matches #"\"Elapsed time: \d\.\d+ msecs\"\s*" @output)))))
+
+#?(:cljs
+   (deftest exists?-test
+     (is (true? (sci/eval-string "(exists? cljs.core.first)")))
+     (is (true? (sci/eval-string "(exists? cljs.core/first)")))
+     (is (true? (sci/eval-string "(exists? js/console)" {:classes {'js js/globalThis
+                                                                   :allow :all}})))
+     (is (true? (sci/eval-string "(exists? js/console.log)" {:classes {'js js/globalThis
+                                                                       :allow :all}})))
+     (is (false? (sci/eval-string "(exists? js/foo.bar)" {:classes {'js js/globalThis
+                                                                               :allow :all}})))
+     (is (false? (sci/eval-string "(exists? js/console.log.foobar)" {:classes {'js js/globalThis
+                                                                               :allow :all}})))
+     (is (false? (sci/eval-string "(exists? console.log)" {:classes {'js js/globalThis
+                                                                     :allow :all}})))))
 
 ;;;; Scratch
 

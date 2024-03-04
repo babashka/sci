@@ -12,7 +12,8 @@
                             print-dup
                             #?(:cljs alter-meta!)
                             memfn
-                            time])
+                            time
+                            exists?])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -20,6 +21,7 @@
    #?(:clj [sci.impl.proxy :as proxy])
    #?(:clj [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var]]
       :cljs [sci.impl.copy-vars :refer [new-var]])
+   #?(:cljs [sci.impl.resolve])
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
@@ -998,6 +1000,30 @@
                  " msecs"))
        ret#))
 
+#?(:cljs
+   (defn exists?
+     "Return true if argument exists, analogous to usage of typeof operator
+   in JavaScript."
+     [_ _&env ctx x]
+     (if (symbol? x)
+       (if (qualified-symbol? x)
+         (if (= "js" (namespace x))
+           (let [splits (str/split (name x) ".")]
+             (list* 'cljs.core/and
+                    (map (fn [accessor]
+                           (list 'cljs.core/not (list 'cljs.core/undefined? (symbol "js" (str accessor)))))
+                         (reduce (fn [acc split]
+                                   (let [new-sym (let [la (last acc)]
+                                                   (str la (when la ".") split))]
+                                     (conj acc new-sym)))
+                                 [] splits))))
+           (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
+                         (catch :default _ nil))))
+         (or (boolean (sci-find-ns ctx x))
+             (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
+                           (catch :default _ nil)))))
+       `(some? ~x))))
+
 #?(:clj (defn system-time []
           (System/nanoTime)))
 
@@ -1281,6 +1307,8 @@
     'ex-info (copy-core-var ex-info)
     'ex-message (copy-core-var ex-message)
     'ex-cause (copy-core-var ex-cause)
+    #?@(:cljs ['exists? (copy-var exists? clojure-core-ns {:macro true
+                                                           :ctx true :name 'exists?})])
     'find-ns (copy-var sci-find-ns clojure-core-ns {:ctx true :name 'find-ns})
     'create-ns (copy-var sci-create-ns clojure-core-ns {:ctx true :name 'create-ns})
     'in-ns (copy-var sci-in-ns clojure-core-ns {:ctx true :name 'in-ns})
