@@ -36,6 +36,11 @@
            (sci/eval-form ctx '(do (require '["fs" :refer [readFileSync]]
                                             '[clojure.string :as str])
                                    (first (str/split-lines (readFileSync "README.md" "utf-8")))))
+           "img"))
+      (is (str/includes?
+           (sci/eval-form ctx '(do (require '["fs" :refer [readFileSync] :rename {readFileSync exists?}]
+                                            '[clojure.string :as str])
+                                   (first (str/split-lines (exists? "README.md" "utf-8")))))
            "img"))))
   (testing "rename"
     (let [ctx (sci/init {})]

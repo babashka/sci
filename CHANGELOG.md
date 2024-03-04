@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Fix [#626](https://github.com/babashka/sci/issues/626): add `cljs.core/exists?`
+- Fix [#919](https://github.com/babashka/sci/issues/919): :js-libs + refer + rename clashes with core var
 
 ## 0.8.41 (2023-11-24)
 
