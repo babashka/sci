@@ -14,7 +14,6 @@
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
-   [sci.impl.load :as load]
    [sci.impl.macros :as macros]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.opts :as opts]
@@ -496,7 +495,11 @@
   "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
   [ctx ns-name class-name alias]
   ;; This relies on an internal format of the context and may change at any time.
-  (swap! (:env ctx) assoc-in [:namespaces ns-name :imports alias] class-name)
+  (swap! (:env ctx)
+         (fn [env]
+           (-> env
+               (assoc-in [:namespaces ns-name :imports alias] class-name)
+               (update-in [:namespaces ns-name :refer 'clojure.core :exclude] (fnil conj #{}) alias))))
   ctx)
 
 (defn add-class!

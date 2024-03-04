@@ -79,7 +79,7 @@
                                             :refer
                                             (get 'clojure.core)
                                             :exclude
-                                            (contains? sym ))))
+                                            (contains? sym))))
                           (contains? utils/ana-macros sym))
                   (symbol "clojure.core" sym-name-str))
                 (interop/fully-qualify-class ctx sym)
