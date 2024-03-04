@@ -21,6 +21,7 @@
    #?(:clj [sci.impl.proxy :as proxy])
    #?(:clj [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var]]
       :cljs [sci.impl.copy-vars :refer [new-var]])
+   #?(:cljs [sci.impl.resolve])
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
@@ -1003,22 +1004,24 @@
    (defn exists?
      "Return true if argument exists, analogous to usage of typeof operator
    in JavaScript."
-     [_ &env ctx x]
+     [_ _&env ctx x]
      (if (symbol? x)
        (if (qualified-symbol? x)
          (if (= "js" (namespace x))
            (let [splits (str/split (name x) ".")]
              (list* 'cljs.core/and
                     (map (fn [accessor]
-                           (list 'cljs.core/not (list 'cljs.core/undefined? accessor)))
+                           (list 'cljs.core/not (list 'cljs.core/undefined? (symbol "js" (str accessor)))))
                          (reduce (fn [acc split]
-                                   (let [new-sym (symbol (str (last acc) "." split))]
+                                   (let [new-sym (let [la (last acc)]
+                                                   (str la (when la ".") split))]
                                      (conj acc new-sym)))
-                                 ['js] splits))))
-           (do
-             (prn (sci-resolve ctx &env x))
-             (boolean (sci-resolve ctx &env x))))
-         (boolean (sci-find-ns ctx x)))
+                                 [] splits))))
+           (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
+                         (catch :default _ nil))))
+         (or (boolean (sci-find-ns ctx x))
+             (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
+                           (catch :default _ nil)))))
        `(some? ~x))))
 
 #?(:clj (defn system-time []
