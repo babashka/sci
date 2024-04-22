@@ -1428,6 +1428,11 @@
     (swap! C sci/merge-opts {:namespaces {'n {'foo 2}}})
     (is (= 2 (sci/eval-form @C 'n/foo)))))
 
+(deftest merge-opts-preserves-features-test
+  (let [ctx(sci/init {:features #{:cljs}})]
+    (is (= 2 (sci/eval-string* ctx "#?(:clj 1 :cljs 2)")))
+    (is (= 2 (sci/eval-string* (sci/merge-opts ctx {}) "#?(:clj 1 :cljs 2)")))))
+
 (deftest dynamic-meta-def-test
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
   (is (= "6" (eval* "(def ^{:doc (str (+ 1 2 3))} foo) (:doc (meta #'foo))")))

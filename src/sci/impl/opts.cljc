@@ -213,7 +213,8 @@
                 #?(:cljs :js-libs)
                 :ns-aliases]
          :or {load-fn (:load-fn env)
-              #?@(:cljs [async-load-fn (:async-load-fn env)])}} opts
+              #?@(:cljs [async-load-fn (:async-load-fn env)])
+              features (:features ctx)}} opts
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
         _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
