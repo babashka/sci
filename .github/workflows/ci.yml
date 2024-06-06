@@ -111,7 +111,8 @@ jobs:
       matrix:
         # windows-latest is disabled because
         # of a Rust bindgen thing
-        os: [macos-latest, ubuntu-latest]
+        # macos for the same rason now too
+        os: [ubuntu-latest]
     runs-on: ${{matrix.os}}
 
     steps:
