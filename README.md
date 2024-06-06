@@ -58,7 +58,8 @@ SCI is used in:
 - [Zprint](https://github.com/kkinnear/zprint). Tool to beautifully format Clojure(script) code and data.
 - [TryClojure.org](https://tryclojure.org/). Try Clojure!
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
-- [Maria.cloud](https://2.maria.cloud/) (soon)
+- [Maria.cloud](https://2.maria.cloud/): a Clojure coding environment for beginners.
+- [Overarch](https://github.com/soulspace-org/overarch): A data driven description of software architecture based on UML and the C4 model.
 
 <details>
 <summary>Expand for more projects...</summary>
