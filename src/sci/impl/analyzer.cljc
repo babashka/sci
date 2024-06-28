@@ -1510,7 +1510,7 @@
                            :cljs
                            (let [[class method-path] f
                                  last-path (last method-path)
-                                 ctor? (= last-path "")
+                                 ctor? (= "" last-path)
                                  method-len (count method-path)
                                  subpath (.slice method-path 0 (dec method-len))
                                  lookup-fn (if (= 1 method-len)
