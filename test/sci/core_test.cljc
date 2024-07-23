@@ -110,7 +110,8 @@
                       :d #{*in* (inc *in*)}
                       :e {:a *in*}}))))
   (testing "duplicate keys"
-    (is (thrown-with-msg? Exception #"Duplicate key" (sci/eval-string "(let [a 1 b 1] #{a b})"))))
+    (is (thrown-with-msg? Exception #"Duplicate key" (sci/eval-string "(let [a 1 b 1] #{a b})")))
+    (is (thrown-with-msg? Exception #"Duplicate key" (sci/eval-string "(let [a 1 b 1] {a 1 b 2})"))))
   (testing "quoting"
     (is (= {:a '*in*} (eval* 1 (str "'{:a *in*}"))))
     (is (= '#{1 2 3 *in*} (eval* 4 "'#{1 2 3 *in*}")))
