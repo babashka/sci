@@ -1832,7 +1832,11 @@
                                           ;; return a vector
                                           identity
                                           vector expr m)
-       (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
+       (set? expr) (analyze-vec-or-set ctx set
+                                       #?(:clj #(clojure.lang.PersistentHashSet/createWithCheck %&)
+                                          :cljs #(PersistentHashSet.createWithCheck (into-array %&))
+                                          :default vector)
+                                       expr m)
        (seq? expr) (if (seq expr)
                      (analyze-call ctx expr m top-level?)
                      ;; the empty list
