@@ -1698,7 +1698,14 @@
 
 (defn map-fn [children-count]
   (if (<= children-count 16)
-    array-map hash-map))
+    #?(:clj #(let [^objects arr (into-array Object %&)]
+               (clojure.lang.PersistentArrayMap/createWithCheck arr))
+       :cljs #(PersistentArrayMap.createWithCheck (into-array %&))
+       :default array-map)
+    #?(:clj #(let [^objects arr (into-array Object %&)]
+               (clojure.lang.PersistentHashMap/createWithCheck arr))
+       :cljs #(PersistentHashMap.createWithCheck (into-array %&))
+       :default hash-map)))
 
 (defn return-map [ctx the-map analyzed-children]
   (let [mf (map-fn (count analyzed-children))]
@@ -1832,7 +1839,11 @@
                                           ;; return a vector
                                           identity
                                           vector expr m)
-       (set? expr) (analyze-vec-or-set ctx set hash-set expr m)
+       (set? expr) (analyze-vec-or-set ctx set
+                                       #?(:clj #(clojure.lang.PersistentHashSet/createWithCheck %&)
+                                          :cljs #(PersistentHashSet.createWithCheck (into-array %&))
+                                          :default vector)
+                                       expr m)
        (seq? expr) (if (seq expr)
                      (analyze-call ctx expr m top-level?)
                      ;; the empty list
