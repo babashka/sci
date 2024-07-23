@@ -7,6 +7,8 @@
    [sci.core :as sci :refer [eval-string]]
    [sci.test-utils :as tu]))
 
+#?(:cljs (def Exception js/Error))
+
 #?(:cljs
    (defn testing-vars-str
      "Returns a string representation of the current test.  Renders names
@@ -107,6 +109,8 @@
                       :c [*in* *in*]
                       :d #{*in* (inc *in*)}
                       :e {:a *in*}}))))
+  (testing "duplicate keys"
+    (is (thrown-with-msg? Exception #"Duplicate key" (sci/eval-string "(let [a 1 b 1] #{a b})"))))
   (testing "quoting"
     (is (= {:a '*in*} (eval* 1 (str "'{:a *in*}"))))
     (is (= '#{1 2 3 *in*} (eval* 4 "'#{1 2 3 *in*}")))
@@ -637,8 +641,6 @@
                                 :cljs {:classes {:allow :all
                                                  'js js/global}})))
       (str "FAIL: " expr)))
-
-#?(:cljs (def Exception js/Error))
 
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
