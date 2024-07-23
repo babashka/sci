@@ -15,7 +15,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#626](https://github.com/babashka/sci/issues/626): add `cljs.core/exists?`
 - Fix [#919](https://github.com/babashka/sci/issues/919): :js-libs + refer + rename clashes with core var
 - Fix [#906](https://github.com/babashka/sci/issues/906): `merge-opts` loses `:features` or previous context
-- Fix [#923](https://github.com/babashka/sci/issues/923): check for duplicate keys in dynamic set of map literals
+- Fix [#923](https://github.com/babashka/sci/issues/923): check for duplicate keys in dynamic set or map literals
 - Fix [#919](https://github.com/babashka/sci/issues/919): `:js-libs` + `refer` + `rename` clashes with core var
 - Add `hash-ordered-coll`
 - `read-string` should use non-indexing reader for compatibility
