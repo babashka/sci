@@ -1698,11 +1698,11 @@
 
 (defn map-fn [children-count]
   (if (<= children-count 16)
-    #?(:clj #(let [^objects arr (into-array %&)]
+    #?(:clj #(let [^objects arr (into-array Object %&)]
                (clojure.lang.PersistentArrayMap/createWithCheck arr))
        :cljs #(PersistentArrayMap.createWithCheck (into-array %&))
        :default array-map)
-    #?(:clj #(let [^objects arr (into-array %&)]
+    #?(:clj #(let [^objects arr (into-array Object %&)]
                (clojure.lang.PersistentHashMap/createWithCheck arr))
        :cljs #(PersistentHashMap.createWithCheck (into-array %&))
        :default hash-map)))
