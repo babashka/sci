@@ -1702,8 +1702,8 @@
                (clojure.lang.PersistentArrayMap/createWithCheck arr))
        :cljs #(PersistentArrayMap.createWithCheck (into-array %&))
        :default array-map)
-    #?(:clj #(let [^objects arr (into-array Object %&)]
-               (clojure.lang.PersistentHashMap/createWithCheck arr))
+    #?(:clj #(let [^clojure.lang.ISeq s %&]
+               (clojure.lang.PersistentHashMap/createWithCheck s))
        :cljs #(PersistentHashMap.createWithCheck (into-array %&))
        :default hash-map)))
 
@@ -1840,7 +1840,7 @@
                                           identity
                                           vector expr m)
        (set? expr) (analyze-vec-or-set ctx set
-                                       #?(:clj #(clojure.lang.PersistentHashSet/createWithCheck %&)
+                                       #?(:clj #(clojure.lang.PersistentHashSet/createWithCheck ^clojure.lang.ISeq %&)
                                           :cljs #(PersistentHashSet.createWithCheck (into-array %&))
                                           :default vector)
                                        expr m)
