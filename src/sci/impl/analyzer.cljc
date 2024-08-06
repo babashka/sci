@@ -1700,11 +1700,11 @@
   (if (<= children-count 16)
     #?(:clj #(let [^objects arr (into-array Object %&)]
                (clojure.lang.PersistentArrayMap/createWithCheck arr))
-       :cljs #(PersistentArrayMap.createWithCheck (into-array %&))
+       :cljs #(.createWithCheck PersistentArrayMap (into-array %&))
        :default array-map)
     #?(:clj #(let [^clojure.lang.ISeq s %&]
                (clojure.lang.PersistentHashMap/createWithCheck s))
-       :cljs #(PersistentHashMap.createWithCheck (into-array %&))
+       :cljs #(.createWithCheck PersistentHashMap (into-array %&))
        :default hash-map)))
 
 (defn return-map [ctx the-map analyzed-children]
@@ -1841,7 +1841,7 @@
                                           vector expr m)
        (set? expr) (analyze-vec-or-set ctx set
                                        #?(:clj #(clojure.lang.PersistentHashSet/createWithCheck ^clojure.lang.ISeq %&)
-                                          :cljs #(PersistentHashSet.createWithCheck (into-array %&))
+                                          :cljs #(.createWithCheck PersistentHashSet (into-array %&))
                                           :default vector)
                                        expr m)
        (seq? expr) (if (seq expr)
