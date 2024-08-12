@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- Fix [#926](https://github.com/babashka/sci/issues/926): Support `add-watch` on vars in CLJS
+
 ## 0.8.43 (2024-08-06)
 
 - Fix shadow-cljs warnings
