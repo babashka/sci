@@ -214,7 +214,7 @@ These dynamic SCI vars can be bound from Clojure using `sci/binding`:
 
 ``` clojure
 (def x (sci/new-dynamic-var 'x 10))
-(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:namespaces {'user {'*x* x}}})) ;;=> 11
+(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:namespaces {'user {'*x* x}}})) ;;=> 12
 ```
 
 Notice that you cannot set _host_ dynamic variables _from your SCI scripts_ - `binding` will only work
