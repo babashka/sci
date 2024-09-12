@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Fix [#926](https://github.com/babashka/sci/issues/926): Support `add-watch` on vars in CLJS
+- Support `aset` on primitive array using reflection
 
 ## 0.8.43 (2024-08-06)
 
