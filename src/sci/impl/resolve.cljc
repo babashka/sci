@@ -71,7 +71,7 @@
                          #?(:clj
                             (if (str/starts-with? (str sym-name) ".")
                               ::TODO-return-IFn ;; that invokes instance method on class...
-                              (let [meths (Reflector/getMethods clazz arg-count method false)])
+                              #_(let [meths (Reflector/getMethods clazz arg-count method false)])
 
                               (->Node
                                (interop/get-static-field clazz sym-name)
