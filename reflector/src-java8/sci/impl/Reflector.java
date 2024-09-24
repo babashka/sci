@@ -1,4 +1,5 @@
 /** clojure.lang.Reflector adapted for sci **/
+/** https://github.com/clojure/clojure/commits/master/src/jvm/clojure/lang/Reflector.java **/
 
 /**
  *   Copyright (c) Rich Hickey. All rights reserved.
