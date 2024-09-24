@@ -6,7 +6,8 @@
             [sci.impl.records :as records]
             [sci.impl.types :refer [->Node]]
             [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros]]))
+                                              ana-macros]])
+  #?(:clj (:import [sci.impl Reflector])))
 
 (defn throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -50,9 +51,9 @@
      (if sym-ns
        (or
         (when
-            #?(:clj (= sym-ns 'clojure.core)
-               :cljs (or (= sym-ns 'clojure.core)
-                         (= sym-ns 'cljs.core)))
+            #?(:clj (= 'clojure.core sym-ns)
+               :cljs (or (= 'clojure.core sym-ns)
+                         (= 'cljs.core sym-ns)))
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
               (when-let [v (when call? (get ana-macros sym-name))]
                 [sym v])))
@@ -68,9 +69,13 @@
                                           :file @utils/current-file
                                           :ns @utils/current-ns)]
                          #?(:clj
-                            (->Node
-                             (interop/get-static-field clazz sym-name)
-                             stack)
+                            (if (str/starts-with? (str sym-name) ".")
+                              ::TODO-return-IFn ;; that invokes instance method on class...
+                              (let [meths (Reflector/getMethods clazz arg-count method false)])
+
+                              (->Node
+                               (interop/get-static-field clazz sym-name)
+                               stack))
                             :cljs
                             (let [path (.split (str sym-name) ".")
                                   len (alength path)]
