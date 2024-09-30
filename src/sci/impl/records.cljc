@@ -246,11 +246,12 @@
    :cljs (defn ->record-impl [rec-name type var m]
            (SciRecord. rec-name type var m nil)))
 
-(defn defrecord [[fname & _ :as form] _ ctx record-name fields & raw-protocol-impls]
+(defn defrecord [[_fname & _ :as form] _ ctx record-name fields & raw-protocol-impls]
   (if (:sci.impl/macroexpanding ctx)
     (cons 'clojure.core/defrecord (rest form))
     (let [factory-fn-str (str "->" record-name)
           factory-fn-sym (symbol factory-fn-str)
+          constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
           map-factory-sym (symbol (str "map" factory-fn-str))
           keys (mapv keyword fields)
           rec-type (symbol (str (munge (utils/current-ns-name)) "." (str record-name)))
@@ -312,20 +313,30 @@
                         `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
                     impls)))
            protocol-impls
-           raw-protocol-impls)]
+           raw-protocol-impls)
+          arg-syms (mapv #(symbol (name %)) keys)]
       `(do
-         (declare ~record-name ~factory-fn-sym)
+         (declare ~record-name ~factory-fn-sym ~constructor-fn-sym)
          (declare ~map-factory-sym)
          (def ~(with-meta record-name
                  {:sci/record true})
            (sci.impl.records/-create-record-type
             ~{:sci.impl/type-name (list 'quote rec-type)
               :sci.impl/record true
-              :sci.impl/constructor (list 'var factory-fn-sym)
+              :sci.impl/constructor (list 'var constructor-fn-sym)
               :sci.impl/var (list 'var record-name)
               :sci.impl.record/map-constructor (list 'var map-factory-sym)}))
-         (defn ~factory-fn-sym [& args#]
-           (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~keys args#)))
+         (defn ~constructor-fn-sym
+           ([~@arg-syms]
+            (~factory-fn-sym ~@arg-syms nil nil))
+           ([~@arg-syms meta# ext#]
+            (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name)
+                                            (cond-> (zipmap ~keys ~arg-syms)
+                                              ext# (merge ext#)
+                                              meta# (with-meta meta#)))))
+         (defn ~factory-fn-sym
+           ([~@arg-syms]
+            (~constructor-fn-sym ~@arg-syms nil nil)))
          (defn ~map-factory-sym [m#]
            (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name) m#))
          ~@protocol-impls
