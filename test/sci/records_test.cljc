@@ -1,9 +1,9 @@
 (ns sci.records-test
   (:require
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.test-utils :as tu]
-   [clojure.string :as str]))
+   [sci.test-utils :as tu]))
 
 (deftest protocol-test
   (let [prog "
@@ -172,7 +172,7 @@
 
 #?(:clj
    (deftest print-method-test
-     (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str [(->A 1)])"]
+     (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str [(->A 1 2 3)])"]
        (is (= "[<A>]" (tu/eval* prog {}))))))
 
 #?(:cljs
