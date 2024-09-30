@@ -1,5 +1,10 @@
 /** clojure.lang.Reflector adapted for sci **/
 /** https://github.com/clojure/clojure/commits/master/src/jvm/clojure/lang/Reflector.java **/
+/** Patches made:
+    - Extra imports after package decl.
+    - Made invokeMatchingMethod public (around line 169)
+    - Compiler.FISupport was extracted into sci.impl.FISupport
+**/
 
 /**
  *   Copyright (c) Rich Hickey. All rights reserved.
