@@ -22,7 +22,8 @@
                       (catch #?(:clj Exception :cljs :default) e
                         (throw (ex-info (:stderr (ex-data e))
                                         (or (ex-data e) {}))))))]
-         (edamame/parse-string v {:all true}))
+         (edamame/parse-string v {:all true
+                                  :location? (constantly false)}))
        :cljs nil)))
 
 (def submap? u/submap?)

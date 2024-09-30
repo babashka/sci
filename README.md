@@ -58,7 +58,8 @@ SCI is used in:
 - [Zprint](https://github.com/kkinnear/zprint). Tool to beautifully format Clojure(script) code and data.
 - [TryClojure.org](https://tryclojure.org/). Try Clojure!
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
-- [Maria.cloud](https://2.maria.cloud/) (soon)
+- [Maria.cloud](https://2.maria.cloud/): a Clojure coding environment for beginners.
+- [Overarch](https://github.com/soulspace-org/overarch): A data driven description of software architecture based on UML and the C4 model.
 
 <details>
 <summary>Expand for more projects...</summary>
@@ -213,7 +214,7 @@ These dynamic SCI vars can be bound from Clojure using `sci/binding`:
 
 ``` clojure
 (def x (sci/new-dynamic-var 'x 10))
-(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:namespaces {'user {'*x* x}}})) ;;=> 11
+(sci/binding [x 11] (sci/eval-string "(inc *x*)" {:namespaces {'user {'*x* x}}})) ;;=> 12
 ```
 
 Notice that you cannot set _host_ dynamic variables _from your SCI scripts_ - `binding` will only work
@@ -474,7 +475,7 @@ Adding support for classes is done via the `:classes` option:
 
 To make this work with `GraalVM` you will also need to add an entry to your
 [reflection
-config](https://github.com/oracle/graal/blob/master/substratevm/REFLECTION.md)
+config](https://www.graalvm.org/latest/reference-manual/native-image/dynamic-features/Reflection/)
 for this class. Also see [`reflection.json`](reflection.json).
 
 By default, SCI only lets you interop with classes explicitly provided in the

@@ -7,6 +7,8 @@
    [sci.core :as sci :refer [eval-string]]
    [sci.test-utils :as tu]))
 
+#?(:cljs (def Exception js/Error))
+
 #?(:cljs
    (defn testing-vars-str
      "Returns a string representation of the current test.  Renders names
@@ -107,6 +109,9 @@
                       :c [*in* *in*]
                       :d #{*in* (inc *in*)}
                       :e {:a *in*}}))))
+  (testing "duplicate keys"
+    (is (thrown-with-msg? Exception #"Duplicate key" (sci/eval-string "(let [a 1 b 1] #{a b})")))
+    (is (thrown-with-msg? Exception #"Duplicate key" (sci/eval-string "(let [a 1 b 1] {a 1 b 2})"))))
   (testing "quoting"
     (is (= {:a '*in*} (eval* 1 (str "'{:a *in*}"))))
     (is (= '#{1 2 3 *in*} (eval* 4 "'#{1 2 3 *in*}")))
@@ -637,8 +642,6 @@
                                 :cljs {:classes {:allow :all
                                                  'js js/global}})))
       (str "FAIL: " expr)))
-
-#?(:cljs (def Exception js/Error))
 
 (deftest recur-test
   (is (= 10000 (tu/eval* "(defn hello [x] (if (< x 10000) (recur (inc x)) x)) (hello 0)"
@@ -1217,7 +1220,8 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
                         (tu/eval* "(eval (read-string \"(loop [] (recur))\"))" {:deny '[loop]})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"loop.*allowed"
-                        (tu/eval* "(load-string \"(loop [] (recur))\")" {:deny '[loop]}))))
+                        (tu/eval* "(load-string \"(loop [] (recur))\")" {:deny '[loop]})))
+  (is (nil? (meta (tu/eval* "(read-string \"(+ 1 2 3)\")" nil)))))
 
 (deftest while-test
   (is (= 10 (eval* "(def a (atom 0)) (while (< @a 10) (swap! a inc)) @a"))))
@@ -1426,6 +1430,11 @@
     (is (= 1 (sci/eval-form @C 'n/foo)))
     (swap! C sci/merge-opts {:namespaces {'n {'foo 2}}})
     (is (= 2 (sci/eval-form @C 'n/foo)))))
+
+(deftest merge-opts-preserves-features-test
+  (let [ctx(sci/init {:features #{:cljs}})]
+    (is (= 2 (sci/eval-string* ctx "#?(:clj 1 :cljs 2)")))
+    (is (= 2 (sci/eval-string* (sci/merge-opts ctx {}) "#?(:clj 1 :cljs 2)")))))
 
 (deftest dynamic-meta-def-test
   (is (= false (eval* "(def ^{:private (if (odd? 1) false true)} foo) (:private (meta #'foo))")))
@@ -1676,8 +1685,22 @@
      (let [output (atom "")
            print-fn #(swap! output str %)]
        (is (= 1 (sci/binding [sci/print-fn print-fn] (sci/eval-string "(time 1)" {:classes {'js js/globalThis :allow :all}}))))
-       (is (re-matches #"\"Elapsed time: \d\.\d+ msecs\"\s*" @output))))
-  )
+       (is (re-matches #"\"Elapsed time: \d\.\d+ msecs\"\s*" @output)))))
+
+#?(:cljs
+   (deftest exists?-test
+     (is (true? (sci/eval-string "(exists? cljs.core.first)")))
+     (is (true? (sci/eval-string "(exists? cljs.core/first)")))
+     (is (true? (sci/eval-string "(exists? js/console)" {:classes {'js js/globalThis
+                                                                   :allow :all}})))
+     (is (true? (sci/eval-string "(exists? js/console.log)" {:classes {'js js/globalThis
+                                                                       :allow :all}})))
+     (is (false? (sci/eval-string "(exists? js/foo.bar)" {:classes {'js js/globalThis
+                                                                               :allow :all}})))
+     (is (false? (sci/eval-string "(exists? js/console.log.foobar)" {:classes {'js js/globalThis
+                                                                               :allow :all}})))
+     (is (false? (sci/eval-string "(exists? console.log)" {:classes {'js js/globalThis
+                                                                     :allow :all}})))))
 
 ;;;; Scratch
 

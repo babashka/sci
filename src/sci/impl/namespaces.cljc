@@ -12,7 +12,8 @@
                             print-dup
                             #?(:cljs alter-meta!)
                             memfn
-                            time])
+                            time
+                            exists?])
   (:require
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
@@ -20,6 +21,7 @@
    #?(:clj [sci.impl.proxy :as proxy])
    #?(:clj [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var]]
       :cljs [sci.impl.copy-vars :refer [new-var]])
+   #?(:cljs [sci.impl.resolve])
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
@@ -278,7 +280,7 @@
 (defn with-open*
   [_ _ bindings & body]
   (cond
-    (= (count bindings) 0) `(do ~@body)
+    (= 0 (count bindings)) `(do ~@body)
     (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
                               (try
                                 (with-open ~(subvec bindings 2) ~@body)
@@ -301,10 +303,10 @@
 
 (defn with-local-vars* [form _ name-vals-vec & body]
   (when-not (vector? name-vals-vec)
-    (sci.impl.utils/throw-error-with-location (str "with-local-vars requires a vector for its bindings")
+    (sci.impl.utils/throw-error-with-location "with-local-vars requires a vector for its bindings"
                                               form))
   (when-not (even? (count name-vals-vec))
-    (sci.impl.utils/throw-error-with-location (str "with-local-vars requires an even number of forms in binding vector")
+    (sci.impl.utils/throw-error-with-location "with-local-vars requires an even number of forms in binding vector"
                                               form))
   `(let [~@(interleave (take-nth 2 name-vals-vec)
                        (repeat '(clojure.core/-new-dynamic-var)))]
@@ -622,10 +624,10 @@
 (defn sci-binding
   [form _ bindings & body]
   (when-not (vector? bindings)
-    (sci.impl.utils/throw-error-with-location (str "binding requires a vector for its bindings")
+    (sci.impl.utils/throw-error-with-location "binding requires a vector for its bindings"
                                               form))
   (when-not (even? (count bindings))
-    (sci.impl.utils/throw-error-with-location (str "binding requires an even number of forms in binding vector")
+    (sci.impl.utils/throw-error-with-location "binding requires an even number of forms in binding vector"
                                               form))
   (let [var-ize (fn [var-vals]
                   (loop [ret [] vvs (seq var-vals)]
@@ -784,7 +786,7 @@
 #?(:clj (defmacro when-<-clojure-1.11.0 [& body]
           (let [{:keys [:major :minor]} *clojure-version*]
             (when-not (or (> major 1)
-                          (and (= major 1)
+                          (and (= 1 major)
                                (>= minor 11)))
               `(do ~@body)))))
 
@@ -998,8 +1000,51 @@
                  " msecs"))
        ret#))
 
+#?(:cljs
+   (defn exists?
+     "Return true if argument exists, analogous to usage of typeof operator
+   in JavaScript."
+     [_ _&env ctx x]
+     (if (symbol? x)
+       (if (qualified-symbol? x)
+         (if (= "js" (namespace x))
+           (let [splits (str/split (name x) ".")]
+             (list* 'cljs.core/and
+                    (map (fn [accessor]
+                           (list 'cljs.core/not (list 'cljs.core/undefined? (symbol "js" (str accessor)))))
+                         (reduce (fn [acc split]
+                                   (let [new-sym (let [la (last acc)]
+                                                   (str la (when la ".") split))]
+                                     (conj acc new-sym)))
+                                 [] splits))))
+           (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
+                         (catch :default _ nil))))
+         (or (boolean (sci-find-ns ctx x))
+             (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
+                           (catch :default _ nil)))))
+       `(some? ~x))))
+
 #?(:clj (defn system-time []
           (System/nanoTime)))
+
+#?(:clj
+   (do
+     (set! *warn-on-reflection* false)
+     (defn reflective-aset [arr idx val]
+       (clojure.lang.RT/aset arr idx val))
+     (set! *warn-on-reflection* true)))
+
+#?(:clj (defn aset*
+          "Sets the value at the index/indices. Works on Java arrays of
+           reference types. Returns val."
+          ([arr idx val]
+           (let [ctype (.getComponentType (class arr))
+                 prim? (.isPrimitive ctype)]
+             (if prim?
+               (reflective-aset arr idx val)
+               (aset ^objects arr idx val))))
+          ([arr idx idx2 & idxv]
+           (apply aset* (aget ^objects arr idx) idx2 idxv))))
 
 (macros/usetime
 
@@ -1146,7 +1191,8 @@
     'amap (macrofy 'amap amap*)
     'ancestors (copy-var hierarchies/ancestors* clojure-core-ns {:name 'ancestors :ctx true})
     'and (macrofy 'and and*)
-    'aset (copy-core-var aset)
+    #?@(:clj ['aset (copy-var aset* clojure-core-ns {:name 'aset})]
+        :default ['aset (copy-core-var aset)])
     #?@(:clj ['aset-boolean (copy-core-var aset-boolean)
               'aset-byte (copy-core-var aset-byte)
               'aset-char (copy-core-var aset-char)
@@ -1281,6 +1327,9 @@
     'ex-info (copy-core-var ex-info)
     'ex-message (copy-core-var ex-message)
     'ex-cause (copy-core-var ex-cause)
+    #?@(:cljs ['exists? (copy-var exists? clojure-core-ns {:macro true
+                                                           :ctx true
+                                                           :name 'exists?})])
     'find-ns (copy-var sci-find-ns clojure-core-ns {:ctx true :name 'find-ns})
     'create-ns (copy-var sci-create-ns clojure-core-ns {:ctx true :name 'create-ns})
     'in-ns (copy-var sci-in-ns clojure-core-ns {:ctx true :name 'in-ns})
@@ -1314,6 +1363,7 @@
     'hash-combine (copy-core-var hash-combine)
     'hash-map (copy-core-var hash-map)
     'hash-set (copy-core-var hash-set)
+    'hash-ordered-coll (copy-core-var hash-ordered-coll)
     'hash-unordered-coll (copy-core-var hash-unordered-coll)
     'ident? (copy-core-var ident?)
     'identical? (copy-core-var identical?)

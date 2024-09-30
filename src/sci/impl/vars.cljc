@@ -225,7 +225,7 @@
 (defn var-set [v val]
   (t/setVal v val))
 
-(defn unqualify-symbol 
+(defn unqualify-symbol
   "If sym is namespace-qualified, remove the namespace, else return sym"
   [sym]
   (if (qualified-symbol? sym)

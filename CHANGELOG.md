@@ -10,6 +10,26 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- Fix [#926](https://github.com/babashka/sci/issues/926): Support `add-watch` on vars in CLJS
+- Support `aset` on primitive array using reflection
+- Fix [#928](https://github.com/babashka/sci/issues/928): record constructor supports optional meta + ext map
+
+## 0.8.43 (2024-08-06)
+
+- Fix shadow-cljs warnings
+
+## 0.8.42 (2024-07-23)
+
+- Fix [#626](https://github.com/babashka/sci/issues/626): add `cljs.core/exists?`
+- Fix [#906](https://github.com/babashka/sci/issues/906): `merge-opts` loses `:features` or previous context
+- Fix [#923](https://github.com/babashka/sci/issues/923): check for duplicate keys in dynamic set or map literals
+- Fix [#919](https://github.com/babashka/sci/issues/919): `:js-libs` + `refer` + `rename` clashes with core var
+- Add `hash-ordered-coll`
+- `read-string` should use non-indexing reader for compatibility
+- Bump edamame
+
 ## 0.8.41 (2023-11-24)
 
 - Bump edamame to 1.3.23

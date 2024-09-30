@@ -42,6 +42,7 @@
                                    refer (get rename refer refer)]
                                (-> env
                                    (assoc-in [:namespaces cnn :imports refer] sub-sym)
+                                   (update-in [:namespaces cnn :refer 'clojure.core :exclude] (fnil conj #{}) refer)
                                    (assoc-in [:class->opts sub-sym :class] the-sublib)
                                    (assoc-in [:raw-classes sub-sym] the-sublib))))
                            env refers))

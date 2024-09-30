@@ -188,10 +188,19 @@
                       (vars/with-writeable-var this meta
                         (set! watches (assoc watches key fn)))
                       this)
-            (removeWatch [this _]
+            (removeWatch [this key]
                          (vars/with-writeable-var this meta
                            (set! watches (dissoc watches key)))
-                         this)])
+                         this)]
+      :cljs [IWatchable
+            (-add-watch [this key fn]
+                        (vars/with-writeable-var this meta
+                          (set! watches (assoc watches key fn)))
+                        this)
+            (-remove-watch [this key]
+                           (vars/with-writeable-var this meta
+                             (set! watches (dissoc watches key)))
+                           this)])
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:clj clojure.lang.IFn :cljs IFn)
   (#?(:clj invoke :cljs -invoke) [this]

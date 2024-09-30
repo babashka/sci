@@ -61,7 +61,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
+          # - macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -78,7 +78,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           version: 'latest'
-          java-version: '11'
+          java-version: '21'
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -111,7 +111,8 @@ jobs:
       matrix:
         # windows-latest is disabled because
         # of a Rust bindgen thing
-        os: [macos-latest, ubuntu-latest]
+        # macos for the same rason now too
+        os: [ubuntu-latest]
     runs-on: ${{matrix.os}}
 
     steps:

@@ -256,8 +256,7 @@
   (is (true? (eval* "(def ^:dynamic *x*) (def ^:dynamic *y*)
     (binding [*x* *x* *y* *y*] (thread-bound? #'*x* #'*x*))"))))
 
-#?(:clj
-   (deftest add-watch-test
-     (is (str/starts-with?
-          (sci/with-out-str (sci/eval-string "(def x 1) (add-watch #'x :foo (fn [k r o n] (prn :o o :n n))) (alter-var-root #'x (constantly 5))"))
-          ":o 1 :n 5"))))
+(deftest add-watch-test
+  (is (str/starts-with?
+       (sci/with-out-str (sci/eval-string "(def x 1) (add-watch #'x :foo (fn [k r o n] (prn :o o :n n))) (alter-var-root #'x (constantly 5))"))
+       ":o 1 :n 5")))
