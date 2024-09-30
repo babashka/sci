@@ -20,6 +20,7 @@ import clojure.lang.Util;
 import clojure.lang.RT;
 import clojure.lang.Compiler;
 import clojure.lang.IFn;
+import java.lang.reflect.Proxy;
 /** END PATCH **/
 
 import java.lang.invoke.MethodHandle;
@@ -29,7 +30,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Proxy;
 import java.util.*;
 import java.util.stream.Collectors;
 
