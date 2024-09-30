@@ -1,9 +1,9 @@
 (ns sci.records-test
   (:require
+   [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.test-utils :as tu]
-   [clojure.string :as str]))
+   [sci.test-utils :as tu]))
 
 (deftest protocol-test
   (let [prog "
@@ -139,7 +139,10 @@
            (tu/eval*
             "(defprotocol IFoo (foo [this]))
              (defrecord Foo [x] IFoo (foo [this] (Foo. x)))
-             (into {} (foo (Foo. 1)))" {})))))
+             (into {} (foo (Foo. 1)))" {}))))
+  (testing "meta and ext"
+    (is (true? (tu/eval* "(defrecord Dude [x]) (let [x (new Dude 1 {:meta 1} {:ext 2})]
+(and (= 1 (:x x)) (= 1 (:meta (meta x))) (= 2 (:ext x))))" {})))))
 
 (deftest repr-test
   (let [prog "
@@ -172,7 +175,7 @@
 
 #?(:clj
    (deftest print-method-test
-     (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str [(->A 1)])"]
+     (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str [(->A 1 2 3)])"]
        (is (= "[<A>]" (tu/eval* prog {}))))))
 
 #?(:cljs
