@@ -60,8 +60,11 @@
 
 (defmacro copy-var
   "Copies contents from var `sym` to a new sci var. The value `ns` is an
-  object created with `sci.core/create-ns`. If new-name is supplied, the
-  copied var will be named new-name."
+  object created with `sci.core/create-ns`.
+
+  Options:
+
+  - :name: The name of the copied var. Defaults to the original var name."
   ([sym ns]
    `(copy-var ~sym ~ns nil))
   ([sym ns opts]
