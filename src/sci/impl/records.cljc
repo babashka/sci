@@ -316,8 +316,7 @@
            raw-protocol-impls)
           arg-syms (mapv #(symbol (name %)) keys)]
       `(do
-         (declare ~record-name ~factory-fn-sym ~constructor-fn-sym)
-         (declare ~map-factory-sym)
+         (declare ~record-name ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
          (def ~(with-meta record-name
                  {:sci/record true})
            (sci.impl.records/-create-record-type
@@ -328,7 +327,7 @@
               :sci.impl.record/map-constructor (list 'var map-factory-sym)}))
          (defn ~constructor-fn-sym
            ([~@arg-syms]
-            (~factory-fn-sym ~@arg-syms nil nil))
+            (~constructor-fn-sym ~@arg-syms nil nil))
            ([~@arg-syms meta# ext#]
             (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name)
                                             (cond-> (zipmap ~keys ~arg-syms)
