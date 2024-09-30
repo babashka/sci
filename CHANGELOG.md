@@ -14,6 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 - Fix [#926](https://github.com/babashka/sci/issues/926): Support `add-watch` on vars in CLJS
 - Support `aset` on primitive array using reflection
+- Fix [#928](https://github.com/babashka/sci/issues/928): record constructor supports optional meta + ext map
 
 ## 0.8.43 (2024-08-06)
 
