@@ -65,34 +65,38 @@
                          [clazz #?(:clj sym-name
                                    :cljs (.split (str sym-name) "."))]
                          {:sci.impl.analyzer/static-access true})
-                       (let [stack (assoc (meta sym)
-                                          :file @utils/current-file
-                                          :ns @utils/current-ns)]
-                         #?(:clj
-                            ;; TODO:
-                            ;; - [ ] if sym-name doesn't start with dot, it might be a static method which we need to turn into an IFn
-                            ;; - [ ] but if it's a field, we still need to do the field call
-                            ;; - [ ] if sym-name starts with dot, it's def. a method call which we need to create an IFn for
-                            (->Node
+                       #?(:clj
+                          ;; TODO:
+                          ;; - [ ] if sym-name doesn't start with dot, it might be a static method which we need to turn into an IFn
+                          ;; - [ ] but if it's a field, we still need to do the field call
+                          ;; - [ ] if sym-name starts with dot, it's def. a method call which we need to create an IFn for
+                          (with-meta
+                            [clazz #?(:clj sym-name
+                                      :cljs (.split (str sym-name) "."))]
+                            {:sci.impl.analyzer/interop true})
+                          #_(->Node
                               (interop/get-static-field clazz sym-name)
                               stack) #_(if (str/starts-with? (str sym-name) ".")
-                              ::TODO-return-IFn ;; that invokes instance method on class...
-                              #_(let [meths (Reflector/getMethods clazz arg-count method false)])
+                                         ::TODO-return-IFn ;; that invokes instance method on class...
+                                         #_(let [meths (Reflector/getMethods clazz arg-count method false)])
 
+                                         (->Node
+                                           (interop/get-static-field clazz sym-name)
+                                           stack))
+                          :cljs
+                          (let [stack (assoc (meta sym)
+                                             :file @utils/current-file
+                                             :ns @utils/current-ns)
+                                path (.split (str sym-name) ".")
+                                len (alength path)]
+                            (if (== 1 len)
                               (->Node
-                               (interop/get-static-field clazz sym-name)
-                               stack))
-                            :cljs
-                            (let [path (.split (str sym-name) ".")
-                                  len (alength path)]
-                              (if (== 1 len)
-                                (->Node
-                                 (interop/get-static-field clazz sym-name)
-                                 stack)
-                                (->Node
-                                 (interop/get-static-fields clazz path)
-                                 stack))
-                              ))))]))))
+                                (interop/get-static-field clazz sym-name)
+                                stack)
+                              (->Node
+                                (interop/get-static-fields clazz path)
+                                stack))
+                            )))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527
