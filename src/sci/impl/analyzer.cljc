@@ -1801,6 +1801,9 @@
               arr)
             nil))))))
 
+(defn analyze-interop-ifn [ctx v mv]
+  (prn :v))
+
 ;; This could be a protocol, but there's not a clear win in doing so:
 ;; https://github.com/babashka/sci/issues/848
 (defn analyze
@@ -1812,7 +1815,6 @@
        (constant? expr) (->constant expr)
        (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
                             mv (meta v)]
-                        (prn :mv mv)
                         (cond (constant? v) (->constant v)
                               (utils/var? v)
                               (if (and (vars/needs-ctx? v)
@@ -1829,6 +1831,8 @@
                                     (sci.impl.types/->Node
                                      (faster/deref-1 v)
                                      nil))))
+                              (:sci.impl.analyzer/interop-ifn mv)
+                              (analyze-interop-ifn ctx v mv)
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map

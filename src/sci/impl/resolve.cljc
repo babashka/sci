@@ -6,8 +6,7 @@
             [sci.impl.records :as records]
             [sci.impl.types :refer [->Node]]
             [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros]])
-  #?(:clj (:import [sci.impl Reflector])))
+                                              ana-macros]]))
 
 (defn throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -73,7 +72,7 @@
                           (with-meta
                             [clazz #?(:clj sym-name
                                       :cljs (.split (str sym-name) "."))]
-                            {:sci.impl.analyzer/interop true})
+                            {:sci.impl.analyzer/interop-ifn true})
                           #_(->Node
                               (interop/get-static-field clazz sym-name)
                               stack) #_(if (str/starts-with? (str sym-name) ".")
