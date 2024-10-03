@@ -1812,6 +1812,7 @@
        (constant? expr) (->constant expr)
        (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
                             mv (meta v)]
+                        (prn :mv mv)
                         (cond (constant? v) (->constant v)
                               (utils/var? v)
                               (if (and (vars/needs-ctx? v)
