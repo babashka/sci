@@ -69,6 +69,10 @@
                                           :file @utils/current-file
                                           :ns @utils/current-ns)]
                          #?(:clj
+                            ;; TODO:
+                            ;; - [ ] if sym-name doesn't start with dot, it might be a static method which we need to turn into an IFn
+                            ;; - [ ] but if it's a field, we still need to do the field call
+                            ;; - [ ] if sym-name starts with dot, it's def. a method call which we need to create an IFn for
                             (->Node
                               (interop/get-static-field clazz sym-name)
                               stack) #_(if (str/starts-with? (str sym-name) ".")
