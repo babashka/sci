@@ -469,6 +469,8 @@
     (is (= 3 ((tu/eval* "(fn [x] (if (> x 1) (inc x)))" {:allow '[fn fn* if > inc]}) 2))))
   (is (tu/eval* (str (list `#(inc %) 10)) {:allow '[fn* inc]}))
   (is (tu/eval* (str (list `#(let [x %] x) 10)) {:allow '[fn* let let*]}))
+  (is (= [2 3 4] (sci/eval-string "(impl/mapv inc [1 2 3])" {:allow '[impl/mapv inc]
+                                                             :namespaces {'impl {'mapv mapv}}})))
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(loop [] (recur))" {:deny '[loop*]})))
@@ -481,6 +483,7 @@
   (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
                         #"allowed"
                         (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
+
   (testing "for/doseq are macroexpanded properly"
     (is (= 'loop* (first (tu/eval* "(macroexpand '(doseq [i [1 2 3]] nil))" {}))))
     (is (= 'let*
