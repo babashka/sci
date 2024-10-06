@@ -20,13 +20,15 @@
             :sci.impl/op :resolve-sym
             :sci.impl/idx idx))))
 
-(defn check-permission! [ctx sym [check-sym  v]]
+(defn check-permission! [ctx sym kv]
   (or (identical? utils/allowed-loop sym)
       (identical? utils/allowed-recur sym)
-      (let [check-sym (strip-core-ns check-sym)
+      (let [check-sym (strip-core-ns sym)
             allow (:allow ctx)]
-        (when-not (if allow (or (and (utils/var? v) (not (:sci/built-in (meta v))))
-                                (contains? allow check-sym))
+        (when-not (if allow
+                    (let [[_ v] kv]
+                      (or (and (utils/var? v) (not (:sci/built-in (meta v))))
+                          (contains? allow check-sym)))
                       true)
           (throw-error-with-location (str sym " is not allowed!") sym))
         (let [deny (:deny ctx)]
