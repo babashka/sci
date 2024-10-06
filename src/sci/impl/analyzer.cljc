@@ -1814,8 +1814,19 @@
           (interop/get-static-field clazz (str meth))
           stack)
          ;; HERE we are pretty sure that we should produce a method-fn
-         (.getMethod clazz)
+         (.getMethods clazz)
          ))
+     ))
+
+#?(:clj
+   (comment
+     (def meths (.getMethods Integer))
+     (def with-name (filter (fn [^java.lang.reflect.Method m]
+                              (= "parseInt" (.getName m)))
+                            meths))
+     (def arities (map (fn [^java.lang.reflect.Method m]
+                         (count (.getParameterTypes m)))
+                       with-name))
      ))
 
 ;; This could be a protocol, but there's not a clear win in doing so:
