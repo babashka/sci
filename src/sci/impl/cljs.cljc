@@ -4,7 +4,8 @@
   #?(:cljs (:require-macros [sci.impl.cljs :refer [require-cljs-analyzer-api when-not-var-exists]])))
 
 (macros/deftime
-  #?(:clj (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
+  #?(:clj (do (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics))
+              (def cljs-find-ns (resolve 'cljs.analyzer.api/find-ns))))
   #_:clj-kondo/ignore
   (defmacro ^:private require-cljs-analyzer-api []
     (macros/? :clj
@@ -13,7 +14,8 @@
               :cljs #?(;; macro executed from JVM Clojure, within CLJS compiler
                        :clj
                        (do (require '[cljs.analyzer.api])
-                           (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics)))
+                           (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics))
+                           (def cljs-find-ns (resolve 'cljs.analyzer.api/find-ns)))
                        ;; self-hosted CLJS, no require supported but also not necessary
                        :cljs nil)))
 
