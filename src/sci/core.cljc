@@ -451,9 +451,14 @@
                         ;; this branch is hit by macroexpanding within the CLJS
                         ;; compiler on the JVM. At ths point, cljs-ns-publics
                         ;; refers to the right var.
-                        (let [publics-map
+                        (let [ns? #_:clj-kondo/ignore
+                              (sci.impl.cljs/cljs-find-ns ns-sym)
+                              _ (when-not ns?
+                                  (throw (ex-info (str "Copying non-existent namespace: " ns-sym) {:ns ns-sym})))
+                              publics-map
                               #_:clj-kondo/ignore
                               (sci.impl.cljs/cljs-ns-publics ns-sym)
+                              _ (.println System/err (str [:public-map publics-map]))
                               publics-map (process-publics publics-map opts)
                               mf (meta-fn (:copy-meta opts))
                               publics-map (exclude-when-meta
@@ -473,7 +478,12 @@
                           `(-copy-ns ~publics-map ~sci-ns))
                         :cljs
                         ;; this branch is hit by self-hosted
-                        (let [publics-map
+                        (let [ns?
+                              #_:clj-kondo/ignore
+                              (cljs.analyzer.api/find-ns ns-sym)
+                              _ (when-not ns?
+                                  (throw (ex-info (str "Copying non-existent namespace: " ns-sym) {:ns ns-sym})))
+                              publics-map
                               #_:clj-kondo/ignore
                               (cljs.analyzer.api/ns-publics ns-sym)
                               publics-map (process-publics publics-map opts)
