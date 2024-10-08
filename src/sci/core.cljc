@@ -458,7 +458,6 @@
                               publics-map
                               #_:clj-kondo/ignore
                               (sci.impl.cljs/cljs-ns-publics ns-sym)
-                              _ (.println System/err (str [:public-map publics-map]))
                               publics-map (process-publics publics-map opts)
                               mf (meta-fn (:copy-meta opts))
                               publics-map (exclude-when-meta
