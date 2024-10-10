@@ -120,23 +120,27 @@
                     :classes {'java.lang.Class {:class Class
                                                 :static-methods {'forName (fn [_Class _forName] :dude)}}}})))))
 
+#?(:clj
+   (deftest clojure-1_12-interop-test
+     (is (= [1 2 3] (eval* "(map Integer/parseInt [\"1\" \"2\" \"3\"])")))))
 
 (when-not tu/native?
   (deftest exception-data
     (testing "top-level interop forms have line and column data"
-      (letfn [(form-ex-data [form]
-                (try
-                  (tu/eval* (str form) {:classes {:allow :all
-                                                  #?@(:clj ['Long Long])}})
-                  (is (= nil "shouldn't reach here"))
-                  (catch #?(:clj Exception :cljs :default) e
-                    (ex-data e))))]
+      (let [form-ex-data
+            (fn [form]
+              (try
+                (tu/eval* (str form) {:classes {:allow :all
+                                                #?@(:clj ['Long Long])}})
+                (is (= nil "shouldn't reach here") (str form))
+                (catch #?(:clj Exception :cljs :default) e
+                  (ex-data e))))]
         (testing "instance members"
           (are [form]
             (let [actual (form-ex-data form)]
               (and (tu/submap? {:type   :sci/error
-                           :line   1
-                           :column 1}
+                                :line   1
+                                :column 1}
                 actual)
                 (str/includes? (:message actual) "missingMem")))
             '(. 3 missingMem) '(. 3 missingMem 1 2)
@@ -156,7 +160,7 @@
                '(.missingMem Long)   '(.missingMem Long 1 2)
                '(Long/missingMem)    '(Long/missingMem 1 2)
                '(. Long -missingMem) '(.-missingMem Long)
-               'Long/missingMem      '(Long/-missingMem))))))))
+               #_#_'Long/missingMem      '(Long/-missingMem))))))))
 
 (deftest syntax-test
   (when-not tu/native?

@@ -75,15 +75,6 @@
                             [clazz #?(:clj sym-name
                                       :cljs (.split (str sym-name) "."))]
                             {:sci.impl.analyzer/interop-ifn true})
-                          #_(->Node
-                              (interop/get-static-field clazz sym-name)
-                              stack) #_(if (str/starts-with? (str sym-name) ".")
-                                         ::TODO-return-IFn ;; that invokes instance method on class...
-                                         #_(let [meths (Reflector/getMethods clazz arg-count method false)])
-
-                                         (->Node
-                                           (interop/get-static-field clazz sym-name)
-                                           stack))
                           :cljs
                           (let [stack (assoc (meta sym)
                                              :file @utils/current-file
@@ -162,7 +153,8 @@
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
-  ([ctx sym call? #?(:clj tag :cljs _tag)]
+  ([ctx sym call? tag] (lookup ctx sym call? tag nil))
+  ([ctx sym call? #?(:clj tag :cljs _tag) only-var?]
    (let [bindings (faster/get-2 ctx :bindings)
          track-mutable? (faster/get-2 ctx :deftype-fields)]
      (or
@@ -197,7 +189,7 @@
                             mutable? (vary-meta assoc :mutable true))]
                     v))]
           [k v]))
-      (when-let [kv (lookup* ctx sym call?)]
+      (when-let [kv (lookup* ctx sym call? only-var?)]
         (when (:check-permissions ctx)
           (check-permission! ctx sym kv))
         kv)))))
