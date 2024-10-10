@@ -1802,21 +1802,22 @@
             nil))))))
 
 #?(:clj
-   (defn analyze-interop-ifn [ctx expr [^Class clazz meth] mv]
+   (defn analyze-interop-ifn [_ctx expr [^Class clazz meth]]
      (let [stack (assoc (meta expr)
                         :ns @utils/current-ns
                         :file @utils/current-file)]
        (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String (str meth))
                          (catch IllegalArgumentException _
-                           (prn :not-a-field)
                            nil))]
          (sci.impl.types/->Node
           (interop/get-static-field clazz (str meth))
           stack)
-         ;; HERE we are pretty sure that we should produce a method-fn
-         (.getMethods clazz)
-         ))
-     ))
+         (sci.impl.types/->Node
+           (fn [& args]
+             (Reflector/invokeStaticMethod
+              (.getName clazz) (str meth)
+              ^objects (into-array Object args)))
+           stack)))))
 
 #?(:clj
    (comment
@@ -1857,7 +1858,7 @@
                                      (faster/deref-1 v)
                                      nil))))
                               (:sci.impl.analyzer/interop-ifn mv)
-                              (analyze-interop-ifn ctx expr v mv)
+                              (analyze-interop-ifn ctx expr v)
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
