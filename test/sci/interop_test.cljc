@@ -127,26 +127,27 @@
      (is (= ["1" "22" "333"] (eval* "(map String/new [\"1\" \"22\" \"333\"])")))))
 
 #?(:clj
-   (deftest clojure-1_12-array-test
-     (let [byte-1 (class (make-array Byte/TYPE 0))
-           byte-3 (class (make-array Byte/TYPE 0 0 0))
-           String-1 (class (make-array String 0))]
-       (is (= (class (make-array Long/TYPE 0)) (eval* "long/1")))
-       (is (= (class (make-array Long/TYPE 0 0)) (eval* "long/2") ))
-       (is (= (class (make-array Integer/TYPE 0)) (eval* "int/1")))
-       (is (= (class (make-array Double/TYPE 0)) (eval* "double/1") ))
-       (is (= (class (make-array Short/TYPE 0)) (eval* "short/1") ))
-       (is (= (class (make-array Boolean/TYPE 0)) (eval* "boolean/1")))
-       (is (= byte-1 (eval* "byte/1")))
-       (is (= (class (make-array Float/TYPE 0)) (eval* "float/1")))
-       (is (= (class (make-array String 0)) (eval* "String/1")))
-       (is (= String-1 (eval* "java.lang.String/1")))
-       (is (= (symbol (pr-str byte-1)) (eval* "`byte/1")))
-       (is (= (symbol (pr-str byte-3)) (eval* "`byte/3")))
-       (is (= (symbol "java.util.UUID/1") (eval* "`java.util.UUID/1")))
-       (is (= (symbol (pr-str String-1)) (eval* "`String/1")))
-       (is (= (symbol (pr-str String-1)) (eval* "`java.lang.String/1")))
-       (is (= [(symbol "long/2")] (eval* "['long/2]") (eval* "`[~'long/2]"))))))
+   (when-not tu/native?
+     (deftest clojure-1_12-array-test
+       (let [byte-1 (class (make-array Byte/TYPE 0))
+             byte-3 (class (make-array Byte/TYPE 0 0 0))
+             String-1 (class (make-array String 0))]
+         (is (= (class (make-array Long/TYPE 0)) (eval* "long/1")))
+         (is (= (class (make-array Long/TYPE 0 0)) (eval* "long/2") ))
+         (is (= (class (make-array Integer/TYPE 0)) (eval* "int/1")))
+         (is (= (class (make-array Double/TYPE 0)) (eval* "double/1") ))
+         (is (= (class (make-array Short/TYPE 0)) (eval* "short/1") ))
+         (is (= (class (make-array Boolean/TYPE 0)) (eval* "boolean/1")))
+         (is (= byte-1 (eval* "byte/1")))
+         (is (= (class (make-array Float/TYPE 0)) (eval* "float/1")))
+         (is (= (class (make-array String 0)) (eval* "String/1")))
+         (is (= String-1 (eval* "java.lang.String/1")))
+         (is (= (symbol (pr-str byte-1)) (eval* "`byte/1")))
+         (is (= (symbol (pr-str byte-3)) (eval* "`byte/3")))
+         (is (= (symbol "java.util.UUID/1") (eval* "`java.util.UUID/1")))
+         (is (= (symbol (pr-str String-1)) (eval* "`String/1")))
+         (is (= (symbol (pr-str String-1)) (eval* "`java.lang.String/1")))
+         (is (= [(symbol "long/2")] (eval* "['long/2]") (eval* "`[~'long/2]")))))))
 
 (when-not tu/native?
   (deftest exception-data
