@@ -3,12 +3,11 @@
   (:refer-clojure :exclude [read-string eval])
   (:require
    [clojure.string :as str]
-   [clojure.tools.reader.reader-types :as r]
+   [clojure.tools.reader.reader-types :as rt]
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils]
-   [clojure.tools.reader.reader-types :as rt]))
+   [sci.impl.utils :as utils]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -128,10 +127,10 @@
         auto-resolve)))
 
 (defn get-line-number [reader]
-  (r/get-line-number reader))
+  (rt/get-line-number reader))
 
 (defn get-column-number [reader]
-  (r/get-column-number reader))
+  (rt/get-column-number reader))
 
 (defn parse-next
   ([ctx r]
