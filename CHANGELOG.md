@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Fix [#917](https://github.com/babashka/sci/issues/917): support new Clojure 1.12 Java interop: `String/new`, `String/.length` and `Integer/parseInt` as fns
+- Fix [#925](https://github.com/babashka/sci/issues/925): support new Clojure 1.12 array notation: `String/1`, `byte/2`
 - Fix [#926](https://github.com/babashka/sci/issues/926): Support `add-watch` on vars in CLJS
 - Support `aset` on primitive array using reflection
 - Fix [#928](https://github.com/babashka/sci/issues/928): record constructor supports optional meta + ext map

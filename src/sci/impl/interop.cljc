@@ -137,3 +137,35 @@
 
 (defn resolve-class [ctx sym]
   (:class (resolve-class-opts ctx sym)))
+
+#?(:clj
+   (def prim->class
+     {'int Integer/TYPE
+      'ints (Class/forName "[I")
+      'long Long/TYPE
+      'longs (Class/forName "[J")
+      'float Float/TYPE
+      'floats (Class/forName "[F")
+      'double Double/TYPE
+      'doubles (Class/forName "[D")
+      'void Void/TYPE
+      'short Short/TYPE
+      'shorts (Class/forName "[S")
+      'boolean Boolean/TYPE
+      'booleans (Class/forName "[Z")
+      'byte Byte/TYPE
+      'bytes (Class/forName "[B")
+      'char Character/TYPE
+      'chars (Class/forName "[C")}))
+
+#?(:clj
+   (def ->array-class
+     (memoize (fn [clazz dim]
+                (class (apply make-array clazz (vec (repeat dim 0))))))))
+
+#?(:clj
+   (defn resolve-array-class [ctx sym-ns ^String sym-name-str]
+     (when-let [clazz (or (resolve-class ctx sym-ns)
+                          (get prim->class sym-ns))]
+       (let [dim (- (int (.charAt sym-name-str 0)) 48)]
+         (->array-class clazz dim)))))

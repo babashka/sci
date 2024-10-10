@@ -1802,14 +1802,14 @@
             nil))))))
 
 #?(:clj
-   (defn analyze-interop-ifn [_ctx expr [^Class clazz meth]]
+   (defn analyze-interop [_ctx expr [^Class clazz meth]]
      (let [meth (str meth)
            stack (assoc (meta expr)
                         :ns @utils/current-ns
                         :file @utils/current-file)]
        (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String meth)
-                         (catch IllegalArgumentException _
-                           nil))]
+                          (catch IllegalArgumentException _
+                            nil))]
          (sci.impl.types/->Node
            (interop/get-static-field clazz meth)
            stack)
@@ -1866,8 +1866,8 @@
                                     (sci.impl.types/->Node
                                      (faster/deref-1 v)
                                      nil))))
-                              (:sci.impl.analyzer/interop-ifn mv)
-                              (analyze-interop-ifn ctx expr v)
+                              (:sci.impl.analyzer/interop mv)
+                              (analyze-interop ctx expr v)
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
