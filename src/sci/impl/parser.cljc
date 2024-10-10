@@ -94,17 +94,23 @@
                   (symbol current-ns-str sym-name-str)))))
         ret (if-not sym-ns
               (res-without-sym sym)
-              (let [nss (get env :namespaces)]
-                (if (get nss sym-ns)
-                  sym
-                  (if-let [ns (get aliases sym-ns)]
-                    (symbol (str ns) (name sym))
-                    #?(:cljs
-                       ;; This enables using `(fs/readFileSync) mode in macros, e.g. in nbb
-                       (if-let [import (-> nss (get current-ns) :imports (get sym-ns))]
-                         (symbol (str import) (name sym))
-                         sym)
-                       :clj sym)))))]
+              (let [sym-name (name sym)]
+                (or
+                 #?(:clj (when (and (= 1 (.length sym-name))
+                                    (Character/isDigit (.charAt sym-name 0)))
+                           (when-let [clazz ^Class (interop/resolve-array-class ctx sym-ns sym-name)]
+                             (symbol (.getName (.getComponentType clazz)) sym-name))))
+                 (let [nss (get env :namespaces)]
+                   (if (get nss sym-ns)
+                     sym
+                     (if-let [ns (get aliases sym-ns)]
+                       (symbol (str ns) sym-name)
+                       #?(:cljs
+                          ;; This enables using `(fs/readFileSync) mode in macros, e.g. in nbb
+                          (if-let [import (-> nss (get current-ns) :imports (get sym-ns))]
+                            (symbol (str import) (name sym))
+                            sym)
+                          :clj sym)))))))]
     ret))
 
 (defn throw-eval-read [_]

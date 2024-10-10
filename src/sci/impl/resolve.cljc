@@ -40,7 +40,8 @@
   ([ctx sym call?] (lookup* ctx sym call? false))
   ([ctx sym call? only-var?]
    (let [sym-ns (some-> (namespace sym) symbol)
-         sym-name (symbol (name sym))
+         sym-name-str (name sym)
+         sym-name (symbol sym-name-str)
          env (faster/get-2 ctx :env)
          env @env
          cnn (utils/current-ns-name)
@@ -51,6 +52,11 @@
          sym-ns (get (:ns-aliases env) sym-ns sym-ns)]
      (if sym-ns
        (or
+        #?(:clj
+           (when (and (= 1 (.length sym-name-str))
+                      (Character/isDigit (.charAt sym-name-str 0)))
+             (when-let [clazz (interop/resolve-array-class ctx sym-ns sym-name-str)]
+               [sym clazz])))
         (when
             #?(:clj (= 'clojure.core sym-ns)
                :cljs (or (= 'clojure.core sym-ns)
@@ -69,7 +75,7 @@
                        #?(:clj
                           (with-meta
                             [clazz sym-name]
-                            {:sci.impl.analyzer/interop-ifn true})
+                            {:sci.impl.analyzer/interop true})
                           :cljs
                           (let [stack (assoc (meta sym)
                                              :file @utils/current-file
