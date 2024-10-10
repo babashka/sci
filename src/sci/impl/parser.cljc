@@ -99,7 +99,7 @@
                  #?(:clj (when (and (= 1 (.length sym-name))
                                     (Character/isDigit (.charAt sym-name 0)))
                            (when-let [clazz ^Class (interop/resolve-array-class ctx sym-ns sym-name)]
-                             (symbol (.getName (.getComponentType clazz)) sym-name))))
+                             (symbol (pr-str clazz)))))
                  (let [nss (get env :namespaces)]
                    (if (get nss sym-ns)
                      sym

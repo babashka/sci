@@ -161,11 +161,11 @@
 #?(:clj
    (def ->array-class
      (memoize (fn [clazz dim]
-                (class (make-array clazz dim))))))
+                (class (apply make-array clazz (vec (repeat dim 0))))))))
 
 #?(:clj
    (defn resolve-array-class [ctx sym-ns ^String sym-name-str]
      (when-let [clazz (or (resolve-class ctx sym-ns)
                           (get prim->class sym-ns))]
-       (let [dim (- (int (.charAt sym-name-str 0)) 49)]
+       (let [dim (- (int (.charAt sym-name-str 0)) 48)]
          (->array-class clazz dim)))))
