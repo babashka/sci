@@ -67,13 +67,8 @@
                                    :cljs (.split (str sym-name) "."))]
                          {:sci.impl.analyzer/static-access true})
                        #?(:clj
-                          ;; TODO:
-                          ;; - [ ] if sym-name doesn't start with dot, it might be a static method which we need to turn into an IFn
-                          ;; - [ ] but if it's a field, we still need to do the field call
-                          ;; - [ ] if sym-name starts with dot, it's def. a method call which we need to create an IFn for
                           (with-meta
-                            [clazz #?(:clj sym-name
-                                      :cljs (.split (str sym-name) "."))]
+                            [clazz sym-name]
                             {:sci.impl.analyzer/interop-ifn true})
                           :cljs
                           (let [stack (assoc (meta sym)
