@@ -1803,21 +1803,30 @@
 
 #?(:clj
    (defn analyze-interop-ifn [_ctx expr [^Class clazz meth]]
-     (let [stack (assoc (meta expr)
+     (let [meth (str meth)
+           stack (assoc (meta expr)
                         :ns @utils/current-ns
                         :file @utils/current-file)]
-       (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String (str meth))
+       (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String meth)
                          (catch IllegalArgumentException _
                            nil))]
          (sci.impl.types/->Node
-          (interop/get-static-field clazz (str meth))
-          stack)
-         (sci.impl.types/->Node
-           (fn [& args]
-             (Reflector/invokeStaticMethod
-              (.getName clazz) (str meth)
-              ^objects (into-array Object args)))
-           stack)))))
+           (interop/get-static-field clazz meth)
+           stack)
+         (if (str/starts-with? meth ".")
+           (let [meth (subs meth 1)]
+             (sci.impl.types/->Node
+               (fn [obj & args]
+                 (Reflector/invokeInstanceMethod
+                  obj meth
+                  ^objects (into-array Object args)))
+               stack))
+           (sci.impl.types/->Node
+             (fn [& args]
+               (Reflector/invokeStaticMethod
+                clazz meth
+                ^objects (into-array Object args)))
+             stack))))))
 
 #?(:clj
    (comment
