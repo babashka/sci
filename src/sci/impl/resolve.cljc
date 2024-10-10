@@ -67,7 +67,7 @@
         (or (some-> env :namespaces (get sym-ns) (find sym-name))
             (when-not only-var?
               (when-let [clazz (interop/resolve-class ctx sym-ns)]
-                [sym (if call?
+                [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
                        (with-meta
                          [clazz #?(:clj sym-name
                                    :cljs (.split (str sym-name) "."))]

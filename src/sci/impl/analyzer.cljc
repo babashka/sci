@@ -1482,6 +1482,38 @@
     ns (analyze-ns-form ctx expr)
     lazy-seq (analyze-lazy-seq ctx expr)))
 
+#?(:clj
+   (defn analyze-instance-method-interop [_ctx _expr ^Class _class meth]
+     (fn [obj & args]
+       (Reflector/invokeInstanceMethod
+        obj meth
+        ^objects (into-array Object args)))))
+
+#?(:clj
+   (defn analyze-interop [ctx expr [^Class clazz meth]]
+     (let [meth (str meth)
+           stack (assoc (meta expr)
+                        :ns @utils/current-ns
+                        :file @utils/current-file)]
+       (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String meth)
+                          (catch IllegalArgumentException _
+                            nil))]
+         (sci.impl.types/->Node
+           (interop/get-static-field clazz meth)
+           stack)
+         (if (str/starts-with? meth ".")
+           (let [meth (subs meth 1)
+                 f (analyze-instance-method-interop ctx expr class meth)]
+             (sci.impl.types/->Node
+               f
+               stack))
+           (sci.impl.types/->Node
+             (fn [& args]
+               (Reflector/invokeStaticMethod
+                clazz meth
+                ^objects (into-array Object args)))
+             stack))))))
+
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
     (let [eval-file (:clojure.core/eval-file m)]
@@ -1552,6 +1584,18 @@
                                         method (unchecked-get class method-name)]
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)))))
+                        (and f-meta (:sci.impl.analyzer/interop f-meta))
+                        (let [f (analyze-instance-method-interop nil expr nil (-> (second f)
+                                                                                  str
+                                                                                  (subs 1)))]
+                          (return-call ctx
+                                       expr
+                                       f (analyze-children ctx (rest expr))
+                                       (assoc m
+                                              :ns @utils/current-ns
+                                              :file @utils/current-file
+                                              :sci.impl/f-meta f-meta)
+                                       nil))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)
                              (or
@@ -1800,33 +1844,6 @@
               (run! #(.push arr (t/eval % ctx bindings)) vs)
               arr)
             nil))))))
-
-#?(:clj
-   (defn analyze-interop [_ctx expr [^Class clazz meth]]
-     (let [meth (str meth)
-           stack (assoc (meta expr)
-                        :ns @utils/current-ns
-                        :file @utils/current-file)]
-       (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String meth)
-                          (catch IllegalArgumentException _
-                            nil))]
-         (sci.impl.types/->Node
-           (interop/get-static-field clazz meth)
-           stack)
-         (if (str/starts-with? meth ".")
-           (let [meth (subs meth 1)]
-             (sci.impl.types/->Node
-               (fn [obj & args]
-                 (Reflector/invokeInstanceMethod
-                  obj meth
-                  ^objects (into-array Object args)))
-               stack))
-           (sci.impl.types/->Node
-             (fn [& args]
-               (Reflector/invokeStaticMethod
-                clazz meth
-                ^objects (into-array Object args)))
-             stack))))))
 
 #?(:clj
    (comment
