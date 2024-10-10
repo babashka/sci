@@ -123,7 +123,8 @@
 #?(:clj
    (deftest clojure-1_12-interop-test
      (is (= [1 2 3] (eval* "(map Integer/parseInt [\"1\" \"2\" \"3\"])")))
-     (is (= [1 2 3] (eval* "(map String/.length [\"1\" \"22\" \"333\"])")))))
+     (is (= [1 2 3] (eval* "(map String/.length [\"1\" \"22\" \"333\"])")))
+     (is (= ["1" "22" "333"] (eval* "(map String/new [\"1\" \"22\" \"333\"])")))))
 
 (when-not tu/native?
   (deftest exception-data
