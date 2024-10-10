@@ -1483,10 +1483,10 @@
     lazy-seq (analyze-lazy-seq ctx expr)))
 
 #?(:clj
-   (defn analyze-instance-method-interop [_ctx _expr ^Class _class meth]
+   (defn analyze-instance-method-interop [_ctx _expr ^Class clazz ^String meth]
      (fn [obj & args]
-       (Reflector/invokeInstanceMethod
-        obj meth
+       (Reflector/invokeInstanceMethodOfClass
+        obj clazz meth
         ^objects (into-array Object args)))))
 
 #?(:clj
@@ -1503,7 +1503,7 @@
            stack)
          (if (str/starts-with? meth ".")
            (let [meth (subs meth 1)
-                 f (analyze-instance-method-interop ctx expr class meth)]
+                 f (analyze-instance-method-interop ctx expr clazz meth)]
              (sci.impl.types/->Node
                f
                stack))
@@ -1585,9 +1585,10 @@
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)))))
                         (and f-meta (:sci.impl.analyzer/interop f-meta))
-                        (let [f (analyze-instance-method-interop nil expr nil (-> (second f)
-                                                                                  str
-                                                                                  (subs 1)))]
+                        (let [f (analyze-instance-method-interop nil expr (first f)
+                                                                 (-> (second f)
+                                                                     str
+                                                                     (subs 1)))]
                           (return-call ctx
                                        expr
                                        f (analyze-children ctx (rest expr))
