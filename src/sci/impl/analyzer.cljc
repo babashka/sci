@@ -1801,6 +1801,35 @@
               arr)
             nil))))))
 
+#?(:clj
+   (defn analyze-interop-ifn [_ctx expr [^Class clazz meth]]
+     (let [stack (assoc (meta expr)
+                        :ns @utils/current-ns
+                        :file @utils/current-file)]
+       (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String (str meth))
+                         (catch IllegalArgumentException _
+                           nil))]
+         (sci.impl.types/->Node
+          (interop/get-static-field clazz (str meth))
+          stack)
+         (sci.impl.types/->Node
+           (fn [& args]
+             (Reflector/invokeStaticMethod
+              (.getName clazz) (str meth)
+              ^objects (into-array Object args)))
+           stack)))))
+
+#?(:clj
+   (comment
+     (def meths (.getMethods Integer))
+     (def with-name (filter (fn [^java.lang.reflect.Method m]
+                              (= "parseInt" (.getName m)))
+                            meths))
+     (def arities (map (fn [^java.lang.reflect.Method m]
+                         (count (.getParameterTypes m)))
+                       with-name))
+     ))
+
 ;; This could be a protocol, but there's not a clear win in doing so:
 ;; https://github.com/babashka/sci/issues/848
 (defn analyze
@@ -1828,6 +1857,8 @@
                                     (sci.impl.types/->Node
                                      (faster/deref-1 v)
                                      nil))))
+                              (:sci.impl.analyzer/interop-ifn mv)
+                              (analyze-interop-ifn ctx expr v)
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map

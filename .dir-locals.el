@@ -1,2 +1,4 @@
 ((clojure-mode
-  (cider-clojure-cli-aliases . "dev:test")))
+  (cider-clojure-cli-aliases . "test:dev"))
+ (clojurec-mode
+  (cider-clojure-cli-aliases . "test:dev")))

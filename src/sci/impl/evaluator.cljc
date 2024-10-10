@@ -169,7 +169,8 @@
    (when (or (not env)
              (not (contains? env sym)))
      (let [sym (types/eval sym ctx bindings)
-           res (second (@utils/lookup ctx sym false))]
+           res (second
+                (@utils/lookup ctx sym false nil (qualified-symbol? sym)))]
        (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
                     :clj (instance? sci.impl.types.Eval res))
          res)))))

@@ -6,8 +6,7 @@
             [sci.impl.records :as records]
             [sci.impl.types :refer [->Node]]
             [sci.impl.utils :as utils :refer [strip-core-ns
-                                              ana-macros]])
-  #?(:clj (:import [sci.impl Reflector])))
+                                              ana-macros]]))
 
 (defn throw-error-with-location [msg node]
   (utils/throw-error-with-location msg node {:phase "analysis"}))
@@ -67,29 +66,29 @@
                          [clazz #?(:clj sym-name
                                    :cljs (.split (str sym-name) "."))]
                          {:sci.impl.analyzer/static-access true})
-                       (let [stack (assoc (meta sym)
-                                          :file @utils/current-file
-                                          :ns @utils/current-ns)]
-                         #?(:clj
-                            (->Node
-                              (interop/get-static-field clazz sym-name)
-                              stack) #_(if (str/starts-with? (str sym-name) ".")
-                              ::TODO-return-IFn ;; that invokes instance method on class...
-                              #_(let [meths (Reflector/getMethods clazz arg-count method false)])
-
+                       #?(:clj
+                          ;; TODO:
+                          ;; - [ ] if sym-name doesn't start with dot, it might be a static method which we need to turn into an IFn
+                          ;; - [ ] but if it's a field, we still need to do the field call
+                          ;; - [ ] if sym-name starts with dot, it's def. a method call which we need to create an IFn for
+                          (with-meta
+                            [clazz #?(:clj sym-name
+                                      :cljs (.split (str sym-name) "."))]
+                            {:sci.impl.analyzer/interop-ifn true})
+                          :cljs
+                          (let [stack (assoc (meta sym)
+                                             :file @utils/current-file
+                                             :ns @utils/current-ns)
+                                path (.split (str sym-name) ".")
+                                len (alength path)]
+                            (if (== 1 len)
                               (->Node
-                               (interop/get-static-field clazz sym-name)
-                               stack))
-                            :cljs
-                            (let [path (.split (str sym-name) ".")
-                                  len (alength path)]
-                              (if (== 1 len)
-                                (->Node
-                                 (interop/get-static-field clazz sym-name)
-                                 stack)
-                                (->Node
-                                 (interop/get-static-fields clazz path)
-                                 stack))))))]))))
+                                (interop/get-static-field clazz sym-name)
+                                stack)
+                              (->Node
+                                (interop/get-static-fields clazz path)
+                                stack))
+                            )))]))))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527
@@ -154,7 +153,8 @@
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
-  ([ctx sym call? #?(:clj tag :cljs _tag)]
+  ([ctx sym call? tag] (lookup ctx sym call? tag nil))
+  ([ctx sym call? #?(:clj tag :cljs _tag) only-var?]
    (let [bindings (faster/get-2 ctx :bindings)
          track-mutable? (faster/get-2 ctx :deftype-fields)]
      (or
@@ -189,7 +189,7 @@
                             mutable? (vary-meta assoc :mutable true))]
                     v))]
           [k v]))
-      (when-let [kv (lookup* ctx sym call?)]
+      (when-let [kv (lookup* ctx sym call? only-var?)]
         (when (:check-permissions ctx)
           (check-permission! ctx sym kv))
         kv)))))
