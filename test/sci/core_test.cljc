@@ -1525,7 +1525,9 @@
     (is (= "YOLO" (:doc (meta (get sci-ns 'foo)))))
     (is (:copy-this (meta (get sci-ns 'foo))))
     (is (:awesome-meta (meta (get sci-ns 'baz))))
-    (is (= [1 1] (sci/eval-string "(vec-macro 1)" {:namespaces {'user sci-ns}})))))
+    (is (= [1 1] (sci/eval-string "(vec-macro 1)" {:namespaces {'user sci-ns}}))))
+  ;; throws at compile time, so it's difficult to test this:
+  #_(is (thrown? Exception (sci/copy-ns #_:clj-kondo/ignore non-existent.namespace nil))))
 
 (deftest copy-ns-default-meta-test
   (testing "copy-ns default meta includes name"

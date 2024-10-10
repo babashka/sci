@@ -16,6 +16,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Support `aset` on primitive array using reflection
 - Fix [#928](https://github.com/babashka/sci/issues/928): record constructor supports optional meta + ext map
 - Fix [#934](https://github.com/babashka/sci/issues/934): `:allow` may contain namespaced symbols
+- Fix [#937](https://github.com/babashka/sci/issues/937): throw when copying non-existent namespace
 
 ## 0.8.43 (2024-08-06)
 
