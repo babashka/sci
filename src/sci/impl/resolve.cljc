@@ -71,7 +71,9 @@
                        (with-meta
                          [clazz #?(:clj sym-name
                                    :cljs (.split (str sym-name) "."))]
-                         {:sci.impl.analyzer/static-access true})
+                         (if (= "new" sym-name-str)
+                           {:sci.impl.analyzer/invoke-constructor true}
+                           {:sci.impl.analyzer/static-access true}))
                        #?(:clj
                           (with-meta
                             [clazz sym-name]

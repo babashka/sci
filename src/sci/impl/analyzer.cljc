@@ -1098,13 +1098,18 @@
                 "Malformed member expression, expecting (.member target ...)")))
   (analyze-dot ctx (with-meta (list '. obj (cons (symbol (subs (name method-name) 1)) args)) (meta expr))))
 
+#?(:clj
+   (defn- invoke-constructor-node [ctx class args]
+     (let [ctx (without-recur-target ctx)
+           args (analyze-children ctx args)]
+       (sci.impl.types/->Node
+        (interop/invoke-constructor class (mapv #(t/eval % ctx bindings) args))
+        nil))))
+
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
   (let [ctx (without-recur-target ctx)]
     #?(:clj (if-let [class (:class (interop/resolve-class-opts ctx class-sym))]
-              (let [args (analyze-children ctx args)]
-                (sci.impl.types/->Node
-                 (interop/invoke-constructor class (mapv #(t/eval % ctx bindings) args))
-                 nil))
+              (invoke-constructor-node ctx class args)
               (if-let [record (records/resolve-record-class ctx class-sym)]
                 (let [args (analyze-children ctx args)]
                   ;; _ctx expr f analyzed-children stack
@@ -1597,6 +1602,8 @@
                                               :file @utils/current-file
                                               :sci.impl/f-meta f-meta)
                                        nil))
+                        (and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
+                        (invoke-constructor-node ctx (first f) (rest expr))
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)
                              (or
