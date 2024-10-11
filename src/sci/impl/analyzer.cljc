@@ -1487,15 +1487,9 @@
     ns (analyze-ns-form ctx expr)
     lazy-seq (analyze-lazy-seq ctx expr)))
 
-#?(:clj
-   (defn analyze-instance-method-interop [_ctx _expr ^Class clazz ^String meth]
-     (fn [obj & args]
-       (Reflector/invokeInstanceMethodOfClass
-        obj clazz meth
-        ^objects (into-array Object args)))))
 
 #?(:clj
-   (defn analyze-interop [ctx expr [^Class clazz meth]]
+   (defn analyze-interop [_ctx expr [^Class clazz meth]]
      (let [meth (str meth)
            stack (assoc (meta expr)
                         :ns @utils/current-ns
@@ -1508,7 +1502,10 @@
            stack)
          (if (str/starts-with? meth ".")
            (let [meth (subs meth 1)
-                 f (analyze-instance-method-interop ctx expr clazz meth)]
+                 f (fn [obj & args]
+                     (Reflector/invokeInstanceMethodOfClass
+                      obj clazz meth
+                      ^objects (into-array Object args)))]
              (sci.impl.types/->Node
                f
                stack))
@@ -1590,18 +1587,23 @@
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)))))
                         (and f-meta (:sci.impl.analyzer/interop f-meta))
-                        (let [f (analyze-instance-method-interop nil expr (first f)
-                                                                 (-> (second f)
-                                                                     str
-                                                                     (subs 1)))]
-                          (return-call ctx
-                                       expr
-                                       f (analyze-children ctx (rest expr))
-                                       (assoc m
-                                              :ns @utils/current-ns
-                                              :file @utils/current-file
-                                              :sci.impl/f-meta f-meta)
-                                       nil))
+                        (let [[obj & children] (analyze-children ctx (rest expr))
+                              meth (-> (second f)
+                                       str
+                                       (subs 1))
+                              clazz (first f)
+                              children (into-array children)
+                              child-count (count children)
+                              stack (assoc m
+                                           :ns @utils/current-ns
+                                           :file @utils/current-file
+                                           :sci.impl/f-meta f-meta)]
+                          (sci.impl.types/->Node
+                            (let [obj (sci.impl.types/eval obj ctx bindings)]
+                              (interop/invoke-instance-method ctx bindings obj clazz
+                                                              meth
+                                                              children child-count))
+                            stack))
                         (and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
                         (invoke-constructor-node ctx (first f) (rest expr))
                         (and (not eval?) ;; the symbol is not a binding
@@ -1852,17 +1854,6 @@
               (run! #(.push arr (t/eval % ctx bindings)) vs)
               arr)
             nil))))))
-
-#?(:clj
-   (comment
-     (def meths (.getMethods Integer))
-     (def with-name (filter (fn [^java.lang.reflect.Method m]
-                              (= "parseInt" (.getName m)))
-                            meths))
-     (def arities (map (fn [^java.lang.reflect.Method m]
-                         (count (.getParameterTypes m)))
-                       with-name))
-     ))
 
 ;; This could be a protocol, but there's not a clear win in doing so:
 ;; https://github.com/babashka/sci/issues/848
