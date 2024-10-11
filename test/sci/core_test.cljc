@@ -715,7 +715,9 @@
     (it-works '(fn [] (and 1 2 3 (recur))))
     (is (thrown-with-msg?
          Exception #"Cannot recur across try"
-         (sci/eval-string "(defn foo [] (try (recur)))")))))
+         (sci/eval-string "(defn foo [] (try (recur)))")))
+    #?(:clj (do (throws-tail-ex '(String/new (recur)))
+                (throws-tail-ex '(String/.length (recur)))))))
 
 (deftest loop-test
   (is (= 2 (tu/eval* "(loop [[x y] [1 2]] (if (= x 3) y (recur [(inc x) y])))" {})))
