@@ -1586,24 +1586,24 @@
                                         method (unchecked-get class method-name)]
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)))))
-                        (and f-meta (:sci.impl.analyzer/interop f-meta))
-                        (let [[obj & children] (analyze-children ctx (rest expr))
-                              meth (-> (second f)
-                                       str
-                                       (subs 1))
-                              clazz (first f)
-                              children (into-array children)
-                              child-count (count children)
-                              stack (assoc m
-                                           :ns @utils/current-ns
-                                           :file @utils/current-file
-                                           :sci.impl/f-meta f-meta)]
-                          (sci.impl.types/->Node
-                            (let [obj (sci.impl.types/eval obj ctx bindings)]
-                              (interop/invoke-instance-method ctx bindings obj clazz
-                                                              meth
-                                                              children child-count))
-                            stack))
+                        #?@(:clj [(and f-meta (:sci.impl.analyzer/interop f-meta))
+                                  (let [[obj & children] (analyze-children ctx (rest expr))
+                                        meth (-> (second f)
+                                                 str
+                                                 (subs 1))
+                                        clazz (first f)
+                                        children (into-array Object children)
+                                        child-count (count children)
+                                        stack (assoc m
+                                                     :ns @utils/current-ns
+                                                     :file @utils/current-file
+                                                     :sci.impl/f-meta f-meta)]
+                                    (sci.impl.types/->Node
+                                      (let [obj (sci.impl.types/eval obj ctx bindings)]
+                                        (interop/invoke-instance-method ctx bindings obj clazz
+                                                                        meth
+                                                                        children child-count))
+                                      stack))])
                         (and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
                         (invoke-constructor-node ctx (first f) (rest expr))
                         (and (not eval?) ;; the symbol is not a binding
