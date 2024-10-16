@@ -1604,8 +1604,8 @@
                                                                         meth
                                                                         children child-count))
                                       stack))])
-                        (and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
-                        (invoke-constructor-node ctx (first f) (rest expr))
+                        #?@(:clj [(and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
+                                  (invoke-constructor-node ctx (first f) (rest expr))])
                         (and (not eval?) ;; the symbol is not a binding
                              (symbol? f)
                              (or
@@ -1882,8 +1882,9 @@
                                     (sci.impl.types/->Node
                                      (faster/deref-1 v)
                                      nil))))
-                              (:sci.impl.analyzer/interop mv)
-                              (analyze-interop ctx expr v)
+                              #?@(:clj
+                                 [(:sci.impl.analyzer/interop mv)
+                                  (analyze-interop ctx expr v)])
                               :else v))
        ;; don't evaluate records, this check needs to go before map?
        ;; since a record is also a map
