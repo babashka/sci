@@ -3,7 +3,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure]))
 
-(defn destructure* [bindings]
+(defn destructure* [bindings loc]
   (let [bents (partition 2 bindings)
         pb (fn pb [bvec b v]
              (let [pvec
@@ -38,7 +38,8 @@
                                                   firstb
                                                   (if has-rest
                                                     gfirst
-                                                    (list nth gvec n nil)))
+                                                    (cond-> (list nth gvec n nil)
+                                                      loc (with-meta loc))))
                                               (inc n)
                                               (next bs)
                                               seen-rest?))))
@@ -109,5 +110,7 @@
             :cljs (new js/Error (str "Unsupported binding key: " (ffirst kwbs)))))
         (reduce process-entry [] bents)))))
 
-(defn destructure [b]
-  (destructure* b))
+(defn destructure
+  ([b] (destructure b nil))
+  ([b loc]
+   (destructure* b loc)))

@@ -695,12 +695,6 @@
                        (t/eval body ctx bindings))))))
              stack))))))
 
-(defn analyze-let
-  "The let macro from clojure.core"
-  [ctx [_let let-bindings & exprs :as expr]]
-  (let [let-bindings (destructure let-bindings)]
-    (analyze-let* ctx expr let-bindings exprs)))
-
 (defn init-var! [ctx name expr]
   (let [cnn (utils/current-ns-name)
         env (:env ctx)

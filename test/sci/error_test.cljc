@@ -179,3 +179,12 @@
        (let [f (sci.core/eval-string "(fn [] (try (/ 1 0) (catch ^:sci/error Exception e (throw e))))")]
          (is (let [res @(future (invoke-ex-fn f))]
                (is (= {:line 1 :column 13} (select-keys res [:line :column])))))))))
+
+(deftest let-test
+  (let [{:keys [line column]}
+        (try
+          (sci.core/eval-string "(str (let [[a] 1] a))")
+          (catch Exception e
+            (ex-data e)))]
+    (is (= 1 line))
+    (is (= 6 column))))
