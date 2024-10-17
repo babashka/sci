@@ -95,8 +95,9 @@
                                             (chunk ~gb)
                                             (~giter (chunk-rest ~gxs)))
                                            (chunk-cons (chunk ~gb) nil)))
-                                       (let [~bind (first ~gxs)]
-                                         ~(do-mod mod-pairs))))))))))))]
+                                       ~(with-meta
+                                          `(let [~bind (first ~gxs)]
+                                             ~(do-mod mod-pairs))
+                                          loc)))))))))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
-       (iter# ~(second seq-exprs)))
-    ))
+       (iter# ~(second seq-exprs)))))
