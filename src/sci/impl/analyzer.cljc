@@ -1624,22 +1624,15 @@
                                              (rest expr))
                                       (apply f expr
                                              (:bindings ctx) (rest expr)))
+                                  v (if (seq? v)
+                                    (with-meta v (merge m (meta v)))
+                                    v)
                                   expanded (cond (:sci.impl/macroexpanding ctx) v
                                                  (and top-level? (seq? v) (= 'do (first v)))
                                                  ;; hand back control to eval-form for
                                                  ;; interleaved analysis and eval
-                                                 (t/->EvalForm (if #?(:clj (instance? clojure.lang.IObj v)
-                                                                      :cljs (implements? IWithMeta v))
-                                                                 (with-meta v (merge m (meta v)))
-                                                                 v))
-                                                 :else (let [v
-                                                             ;; WTF is this...
-                                                             (if m (if #?(:clj (instance? clojure.lang.IObj v)
-                                                                          :cljs (implements? IWithMeta v))
-                                                                     (with-meta v (merge m (meta v)))
-                                                                     v)
-                                                                 v)]
-                                                         (analyze ctx v top-level?)))]
+                                                 (t/->EvalForm v)
+                                                 :else (analyze ctx v top-level?))]
                               expanded)
                             (if-let [f (:sci.impl/inlined f-meta)]
                               (return-call ctx

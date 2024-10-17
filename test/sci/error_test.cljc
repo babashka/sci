@@ -189,4 +189,4 @@
       (sci.core/eval-string snippet)
       (is false)
       (catch Exception e
-        (is (= [line col] ((juxt :line :column) (ex-data e))))))))
+        (is (= [line col] ((juxt :line :column) (ex-data e))) snippet)))))
