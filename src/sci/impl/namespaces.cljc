@@ -178,13 +178,16 @@
 (defn if-some*
   ([&form &env bindings then]
    (if-some* &form &env bindings then nil))
-  ([_&form _&env bindings then else & _oldform]
-   (let [form (bindings 0) tst (bindings 1)]
-     `(let [temp# ~tst]
-        (if (nil? temp#)
+  ([&form _&env bindings then else & _oldform]
+   (let [form (bindings 0) tst (bindings 1)
+         tmp (gensym "temp")]
+     `(let [~tmp ~tst]
+        (if (nil? ~tmp)
           ~else
-          (let [~form temp#]
-            ~then))))))
+          ~(with-meta
+             `(let [~form ~tmp]
+                ~then)
+             (meta &form)))))))
 
 (defn when-let*
   [&form _&env bindings & body]
