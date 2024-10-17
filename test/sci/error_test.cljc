@@ -187,7 +187,8 @@
            ["(str (for [[a] 1] (/ 1 a)))"  [1 6]]
            ["(str (map (fn [[a]] a) [0]))" [1 11]]
            ["(str (if-let [[a] 0] a))"     [1 6]]
-           ["(str (when-let [[a] 0] a))"   [1 6]]]]
+           ["(str (when-let [[a] 0] a))"   [1 6]]
+           ["(str (when-some [[a] 0] a))"  [1 6]]]]
     (try
       (sci.core/eval-string snippet)
       (is false)

@@ -203,13 +203,16 @@
        (let [~x (first xs#)]
          ~@body))))
 
-(defn when-some* [_ _ bindings & body]
-  (let [form (bindings 0) tst (bindings 1)]
-    `(let [temp# ~tst]
-       (if (nil? temp#)
+(defn when-some* [&form _ bindings & body]
+  (let [form (bindings 0) tst (bindings 1)
+        tmp (gensym "temp")]
+    `(let [~tmp ~tst]
+       (if (nil? ~tmp)
          nil
-         (let [~form temp#]
-           ~@body)))))
+         ~(with-meta
+            `(let [~form ~tmp]
+               ~@body)
+            (meta &form))))))
 
 (defn some->*
   [_&form _&env expr & forms]
