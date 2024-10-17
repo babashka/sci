@@ -10,7 +10,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.9.44 (2024-10-24)
 
 - Fix [#917](https://github.com/babashka/sci/issues/917): support new Clojure 1.12 Java interop: `String/new`, `String/.length` and `Integer/parseInt` as fns
 - Fix [#925](https://github.com/babashka/sci/issues/925): support new Clojure 1.12 array notation: `String/1`, `byte/2`
@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#928](https://github.com/babashka/sci/issues/928): record constructor supports optional meta + ext map
 - Fix [#934](https://github.com/babashka/sci/issues/934): `:allow` may contain namespaced symbols
 - Fix [#937](https://github.com/babashka/sci/issues/937): throw when copying non-existent namespace
+- Update `sci.impl.Reflector` (used for implementing JVM interop) to match Clojure 1.12
 
 ## 0.8.43 (2024-08-06)
 
