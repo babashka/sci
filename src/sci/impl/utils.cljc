@@ -104,6 +104,7 @@
      ;; we are inside a try/catch, do not preserve error location
      (throw e)
      (let [stack (t/stack raw-node)
+           ;; _ (prn :stack stack)
            #?@(:clj [fm (:sci.impl/f-meta stack)])
            env (:env ctx)
            id (:id ctx)

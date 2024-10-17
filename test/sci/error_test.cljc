@@ -181,10 +181,12 @@
                (is (= {:line 1 :column 13} (select-keys res [:line :column])))))))))
 
 (deftest let-test
-  (let [{:keys [line column]}
-        (try
-          (sci.core/eval-string "(str (let [[a] 1] a))")
-          (catch Exception e
-            (ex-data e)))]
-    (is (= 1 line))
-    (is (= 6 column))))
+  (doseq [[snippet [line col]]
+          [["(str (let [[a] 1] a))"       [1 6]]
+           ["(str (for [[a] [0]] :foo))"  [1 6]]
+           ["(str (for [[a] 1] (/ 1 a)))" [1 6]]]]
+    (try
+      (sci.core/eval-string snippet)
+      (is false)
+      (catch Exception e
+        (is (= [line col] ((juxt :line :column) (ex-data e))) snippet)))))

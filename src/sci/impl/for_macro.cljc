@@ -21,7 +21,8 @@
 (defn expand-for
   [expr _ seq-exprs body-expr]
   (assert-args expr seq-exprs body-expr)
-  (let [to-groups (fn [seq-exprs]
+  (let [loc (meta expr)
+        to-groups (fn [seq-exprs]
                     (reduce (fn [groups [k v]]
                               (if (keyword? k)
                                 (conj (pop groups) (conj (peek groups) [k v]))
@@ -71,26 +72,32 @@
                                           (err "Invalid 'for' keyword " k)
                                           :else
                                           `(do (chunk-append ~gb ~body-expr)
-                                               (~allowed-recur (unchecked-inc ~gi)))))]
+                                               (~allowed-recur (unchecked-inc ~gi)))))
+                              c-sym (gensym "c")]
                           `(fn ~giter [~gxs]
                              (lazy-seq
-                              (~allowed-loop [~gxs ~gxs]
-                               (let [~gxs (seq ~gxs)]
-                                 (when ~gxs
-                                   (if (chunked-seq? ~gxs)
-                                     (let [c# (chunk-first ~gxs)
-                                           size# (int (count c#))
-                                           ~gb (chunk-buffer size#)]
-                                       (if (~allowed-loop [~gi (int 0)]
-                                            (if (< ~gi size#)
-                                              (let [~bind (nth c# ~gi)]
-                                                ~(do-cmod mod-pairs))
-                                              true))
-                                         (chunk-cons
-                                          (chunk ~gb)
-                                          (~giter (chunk-rest ~gxs)))
-                                         (chunk-cons (chunk ~gb) nil)))
-                                     (let [~bind (first ~gxs)]
-                                       ~(do-mod mod-pairs))))))))))))]
+                               (~allowed-loop [~gxs ~gxs]
+                                (let [~gxs ~(with-meta `(seq ~gxs)
+                                              loc)]
+                                   (when ~gxs
+                                     (if (chunked-seq? ~gxs)
+                                       (let [~c-sym (chunk-first ~gxs)
+                                             size# (int (count ~c-sym))
+                                             ~gb (chunk-buffer size#)]
+                                         (if (~allowed-loop [~gi (int 0)]
+                                              (if (< ~gi size#)
+                                                ~(with-meta
+                                                   `(let [~bind (nth ~c-sym ~gi)]
+                                                      ~(do-cmod mod-pairs))
+                                                   loc)
+                                                true))
+                                           (chunk-cons
+                                            (chunk ~gb)
+                                            (~giter (chunk-rest ~gxs)))
+                                           (chunk-cons (chunk ~gb) nil)))
+                                       ~(with-meta
+                                          `(let [~bind (first ~gxs)]
+                                             ~(do-mod mod-pairs))
+                                          loc)))))))))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
        (iter# ~(second seq-exprs)))))
