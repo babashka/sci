@@ -76,26 +76,27 @@
                               c-sym (gensym "c")]
                           `(fn ~giter [~gxs]
                              (lazy-seq
-                              (~allowed-loop [~gxs ~gxs]
-                               (let [~gxs (seq ~gxs)]
-                                 (when ~gxs
-                                   (if (chunked-seq? ~gxs)
-                                     (let [~c-sym (chunk-first ~gxs)
-                                           size# (int (count ~c-sym))
-                                           ~gb (chunk-buffer size#)]
-                                       (if (~allowed-loop [~gi (int 0)]
-                                            (if (< ~gi size#)
-                                              ~(with-meta
-                                                 `(let [~bind (nth ~c-sym ~gi)]
-                                                    ~(do-cmod mod-pairs))
-                                                 loc)
-                                              true))
-                                         (chunk-cons
-                                          (chunk ~gb)
-                                          (~giter (chunk-rest ~gxs)))
-                                         (chunk-cons (chunk ~gb) nil)))
-                                     (let [~bind (first ~gxs)]
-                                       ~(do-mod mod-pairs))))))))))))]
+                               (~allowed-loop [~gxs ~gxs]
+                                (let [~gxs ~(with-meta `(seq ~gxs)
+                                              loc)]
+                                   (when ~gxs
+                                     (if (chunked-seq? ~gxs)
+                                       (let [~c-sym (chunk-first ~gxs)
+                                             size# (int (count ~c-sym))
+                                             ~gb (chunk-buffer size#)]
+                                         (if (~allowed-loop [~gi (int 0)]
+                                              (if (< ~gi size#)
+                                                ~(with-meta
+                                                   `(let [~bind (nth ~c-sym ~gi)]
+                                                      ~(do-cmod mod-pairs))
+                                                   loc)
+                                                true))
+                                           (chunk-cons
+                                            (chunk ~gb)
+                                            (~giter (chunk-rest ~gxs)))
+                                           (chunk-cons (chunk ~gb) nil)))
+                                       (let [~bind (first ~gxs)]
+                                         ~(do-mod mod-pairs))))))))))))]
     `(let [iter# ~(emit-bind (to-groups seq-exprs))]
        (iter# ~(second seq-exprs)))
     ))

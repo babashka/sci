@@ -182,8 +182,9 @@
 
 (deftest let-test
   (doseq [[snippet [line col]]
-          [["(str (let [[a] 1] a))"      [1 6]]
-           ["(str (for [[a] [0]] :foo))" [1 6]]]]
+          [["(str (let [[a] 1] a))"       [1 6]]
+           ["(str (for [[a] [0]] :foo))"  [1 6]]
+           ["(str (for [[a] 1] (/ 1 a)))" [1 6]]]]
     (try
       (sci.core/eval-string snippet)
       (is false)
