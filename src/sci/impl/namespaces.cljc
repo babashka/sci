@@ -165,12 +165,14 @@
 (defn if-let*
   ([&form &env bindings then]
    (if-let* &form &env bindings then nil))
-  ([_&form _&env bindings then else & _oldform]
-   (let [form (bindings 0) tst (bindings 1)]
-     `(let [temp# ~tst]
-        (if temp#
-          (let [~form temp#]
-            ~then)
+  ([&form _&env bindings then else & _oldform]
+   (let [form (bindings 0) tst (bindings 1)
+         tmp (gensym "temp")]
+     `(let [~tmp ~tst]
+        (if ~tmp
+          ~(with-meta `(let [~form ~tmp]
+                         ~then)
+             (meta &form))
           ~else)))))
 
 (defn if-some*
