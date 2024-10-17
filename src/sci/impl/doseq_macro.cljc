@@ -15,7 +15,8 @@
 (defn expand-doseq
   [expr _ seq-exprs & body]
   (assert-args seq-exprs body)
-  (let [step (fn step [recform exprs]
+  (let [loc (meta expr)
+        step (fn step [recform exprs]
                (if-not exprs
                  [true `(~'do ~@body)]
                  (let [k (first exprs)
@@ -48,19 +49,27 @@
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true
-                        `(~allowed-loop [~seq- (seq ~v), ~chunk- nil,
+                        `(~allowed-loop [~seq- ~(with-meta `(seq ~v)
+                                                  loc) ~chunk- nil,
                                          ~count- 0, ~i- 0]
                           (if (< ~i- ~count-)
-                            (let [~k (nth ~chunk- ~i-)]
-                              ~subform-chunk
-                              ~@(when needrec [recform-chunk]))
+                            ~(with-meta
+                               `(let [~k (nth ~chunk- ~i-)]
+                                  ~subform-chunk
+                                  ~@(when needrec [recform-chunk]))
+                               loc)
                             (let [~seq- (seq ~seq-)]
                               (~'when ~seq-
                                (if (chunked-seq? ~seq-)
                                  (let [c# (chunk-first ~seq-)]
                                    (~allowed-recur (chunk-rest ~seq-) c#
                                           (int (count c#)) (int 0)))
-                                 (let [~k (first ~seq-)]
-                                   ~subform
-                                   ~@(when needrec [recform])))))))])))))]
-    (nth (step nil (seq seq-exprs)) 1)))
+
+                                 ~(with-meta
+                                    `(let [~k (first ~seq-)]
+                                       ~subform
+                                       ~@(when needrec [recform]))
+                                    loc))))))])))))
+        ret (nth (step nil (seq seq-exprs)) 1)]
+    ;; (prn :ret ret)
+    ret))

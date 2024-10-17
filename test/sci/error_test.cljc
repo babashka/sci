@@ -180,7 +180,7 @@
          (is (let [res @(future (invoke-ex-fn f))]
                (is (= {:line 1 :column 13} (select-keys res [:line :column])))))))))
 
-(deftest let-test
+(deftest destructure-test
   (doseq [[snippet [line col]]
           [["(str (let [[a] 1] a))"        [1 6]]
            ["(str (for [[a] [0]] :foo))"   [1 6]]
@@ -189,7 +189,9 @@
            ["(str (if-let [[a] 0] a))"     [1 6]]
            ["(str (when-let [[a] 0] a))"   [1 6]]
            ["(str (if-some [[a] 0] a))"    [1 6]]
-           ["(str (when-some [[a] 0] a))"  [1 6]]]]
+           ["(str (when-some [[a] 0] a))"  [1 6]]
+           ["(str (doseq [a 0] a))"        [1 6]]
+           ["(str (doseq [[a] [0]] a))"    [1 6]]]]
     (try
       (sci.core/eval-string snippet)
       (is false)
