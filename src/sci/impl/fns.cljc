@@ -146,7 +146,7 @@
 
 (defn ^{:private true}
   maybe-destructured
-  [params body]
+  [params body loc]
   (if (every? symbol? params)
     (cons params body)
     (loop [params params
@@ -159,8 +159,10 @@
             (recur (next params) (conj new-params gparam)
                    (-> lets (conj (first params)) (conj gparam)))))
         `(~new-params
-          (let ~lets
-            ~@body))))))
+          ~(with-meta
+             `(let ~lets
+                ~@body)
+             loc))))))
 
 (defn fn**
   [form _ & sigs]
@@ -176,7 +178,7 @@
                     (str "Parameter declaration "
                          (first sigs)
                          " should be a vector")
-                    (str "Parameter declaration missing"))
+                    "Parameter declaration missing")
                   form)))
         psig (fn* [sig]
                   ;; Ensure correct type before destructuring sig
@@ -211,7 +213,7 @@
                                (concat (map (fn* [c] `(assert ~c)) pre)
                                        body)
                                body)]
-                    (maybe-destructured params body)))
+                    (maybe-destructured params body (meta form))))
         new-sigs (map psig sigs)
         expr (with-meta
                (if name
