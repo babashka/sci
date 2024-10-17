@@ -879,7 +879,7 @@
     (utils/throw-error-with-location "let requires a vector for its binding" expr))
   (when-not (even? (count bindings))
     (utils/throw-error-with-location "let requires an even number of forms in binding vector" expr))
-  `(let* ~(destructure/destructure bindings)
+  `(let* ~(destructure/destructure bindings (meta expr))
      ~@body))
 
 (defn loop**
