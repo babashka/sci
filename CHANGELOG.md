@@ -14,7 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 - Fix [#942](https://github.com/babashka/sci/issues/942): improve error location of invalid destructuring
 
-## 0.9.44 (2024-10-24)
+## 0.9.44 (2024-10-17)
 
 - Fix [#917](https://github.com/babashka/sci/issues/917): support new Clojure 1.12 Java interop: `String/new`, `String/.length` and `Integer/parseInt` as fns
 - Fix [#925](https://github.com/babashka/sci/issues/925): support new Clojure 1.12 array notation: `String/1`, `byte/2`
