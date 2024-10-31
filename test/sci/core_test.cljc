@@ -1703,11 +1703,24 @@
      (is (true? (sci/eval-string "(exists? js/console.log)" {:classes {'js js/globalThis
                                                                        :allow :all}})))
      (is (false? (sci/eval-string "(exists? js/foo.bar)" {:classes {'js js/globalThis
-                                                                               :allow :all}})))
+                                                                    :allow :all}})))
      (is (false? (sci/eval-string "(exists? js/console.log.foobar)" {:classes {'js js/globalThis
                                                                                :allow :all}})))
      (is (false? (sci/eval-string "(exists? console.log)" {:classes {'js js/globalThis
                                                                      :allow :all}})))))
+
+#?(:clj
+   (deftest interrupt-test
+     (testing "check that long-running recursive function can be interrupted")
+     (let [thread (Thread. (fn []
+                             (sci/eval-form
+                              (sci/init {})
+                              '((fn a [n] (if (#{0 1} n) 1 (+ (a (- n 2)) (a (- n 1)))))  35))))]
+       (.start thread)
+       (is (= java.lang.Thread$State/RUNNABLE (.getState thread)))
+       (.interrupt thread)
+       (Thread/sleep 50)
+       (is (= java.lang.Thread$State/TERMINATED (.getState thread))))))
 
 ;;;; Scratch
 
@@ -1715,3 +1728,4 @@
   (eval* 1 '(inc *in*))
   (test-difference "foo" "[10 10]" 0 10)
   (test-difference "rand" #(rand) 0 10))
+

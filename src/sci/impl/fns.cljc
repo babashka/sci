@@ -24,6 +24,8 @@
             ~@(when varargs
                 [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
             (loop []
+              #?(:clj (when (java.lang.Thread/.isInterrupted (Thread/currentThread))
+                        (throw (java.lang.InterruptedException.))))
               (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                 (if (kw-identical? :sci.impl.analyzer/recur ret#)
                   (recur)
@@ -44,6 +46,8 @@
             ~@(when varargs
                 [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
             (loop []
+              #?(:clj (when (java.lang.Thread/.isInterrupted (Thread/currentThread))
+                        (throw (java.lang.InterruptedException.))))
               (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                 (if (kw-identical? :sci.impl.analyzer/recur ret#)
                   (recur)
