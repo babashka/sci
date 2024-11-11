@@ -254,7 +254,7 @@
           constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
           map-factory-sym (symbol (str "map" factory-fn-str))
           keys (mapv keyword fields)
-          rec-type (symbol (str (munge (utils/current-ns-name)) "." (str record-name)))
+          rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
           protocol-impls (utils/split-when symbol? raw-protocol-impls)
           field-set (set fields)
           protocol-impls

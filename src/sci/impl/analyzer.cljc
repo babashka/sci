@@ -918,7 +918,7 @@
                   exprs (next exprs)]
               (cond (and (seq? expr) (= 'catch (first expr)))
                     (recur exprs body-exprs (conj catch-exprs expr) finally-expr)
-                    (and (not exprs) (and (seq? expr) (= 'finally (first expr))))
+                    (and (not exprs) (seq? expr) (= 'finally (first expr)))
                     [body-exprs catch-exprs expr]
                     :else
                     ;; TODO: cannot add body expression when catch is not empty

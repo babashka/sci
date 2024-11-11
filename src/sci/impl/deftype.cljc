@@ -92,7 +92,7 @@
     (cons 'clojure.core/deftype (rest form))
     (let [factory-fn-str (str "->" record-name)
           factory-fn-sym (symbol factory-fn-str)
-          rec-type (symbol (str (munge (utils/current-ns-name)) "." (str record-name)))
+          rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
           protocol-impls (utils/split-when symbol? raw-protocol-impls)
           field-set (set fields)
           protocol-impls

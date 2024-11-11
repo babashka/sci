@@ -64,37 +64,37 @@
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
               (when-let [v (when call? (get ana-macros sym-name))]
                 [sym v])))
-        (or (some-> env :namespaces (get sym-ns) (find sym-name))
-            (when-not only-var?
-              (when-let [clazz (interop/resolve-class ctx sym-ns)]
-                [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
-                       (with-meta
-                         [clazz #?(:clj sym-name
-                                   :cljs (.split (str sym-name) "."))]
-                         #?(:clj
-                            (if (= "new" sym-name-str)
-                              {:sci.impl.analyzer/invoke-constructor true}
-                              {:sci.impl.analyzer/static-access true})
-                            :cljs
-                            {:sci.impl.analyzer/static-access true}))
-                       #?(:clj
-                          (with-meta
-                            [clazz sym-name]
-                            {:sci.impl.analyzer/interop true})
-                          :cljs
-                          (let [stack (assoc (meta sym)
-                                             :file @utils/current-file
-                                             :ns @utils/current-ns)
-                                path (.split (str sym-name) ".")
-                                len (alength path)]
-                            (if (== 1 len)
-                              (->Node
-                                (interop/get-static-field clazz sym-name)
-                                stack)
-                              (->Node
-                                (interop/get-static-fields clazz path)
-                                stack))
-                            )))]))))
+        (some-> env :namespaces (get sym-ns) (find sym-name))
+        (when-not only-var?
+          (when-let [clazz (interop/resolve-class ctx sym-ns)]
+            [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
+                   (with-meta
+                     [clazz #?(:clj sym-name
+                               :cljs (.split (str sym-name) "."))]
+                     #?(:clj
+                        (if (= "new" sym-name-str)
+                          {:sci.impl.analyzer/invoke-constructor true}
+                          {:sci.impl.analyzer/static-access true})
+                        :cljs
+                        {:sci.impl.analyzer/static-access true}))
+                   #?(:clj
+                      (with-meta
+                        [clazz sym-name]
+                        {:sci.impl.analyzer/interop true})
+                      :cljs
+                      (let [stack (assoc (meta sym)
+                                         :file @utils/current-file
+                                         :ns @utils/current-ns)
+                            path (.split (str sym-name) ".")
+                            len (alength path)]
+                        (if (== 1 len)
+                          (->Node
+                           (interop/get-static-field clazz sym-name)
+                           stack)
+                          (->Node
+                           (interop/get-static-fields clazz path)
+                           stack))
+                        )))])))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527

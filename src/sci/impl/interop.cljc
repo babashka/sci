@@ -114,9 +114,9 @@
                        sym))
                    (when (contains? class->opts sym)
                      sym)))
-        (or (get (:imports env) sym)
-            (let [cnn (utils/current-ns-name)]
-              (get-in env [:namespaces cnn :imports sym]))))))
+        (get (:imports env) sym)
+        (let [cnn (utils/current-ns-name)]
+          (get-in env [:namespaces cnn :imports sym])))))
 
 (defn resolve-class-opts [ctx sym]
   (let [env @(:env ctx)
