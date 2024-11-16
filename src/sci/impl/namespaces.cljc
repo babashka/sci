@@ -1645,6 +1645,7 @@
      'vector (copy-core-var vector)
      'vector? (copy-core-var vector?)
      'volatile! (copy-core-var volatile!)
+     'volatile? (copy-core-var volatile?)
      'vreset! (copy-core-var vreset!)
      'vswap! (macrofy 'vswap! vswap!)
      'when-first (macrofy 'when-first when-first*)

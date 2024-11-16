@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Fix [#942](https://github.com/babashka/sci/issues/942): improve error location of invalid destructuring
+- Add `volatile?` to core vars
 
 ## 0.9.44 (2024-10-17)
 
