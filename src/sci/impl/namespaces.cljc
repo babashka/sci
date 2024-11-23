@@ -1959,6 +1959,17 @@
      'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)
      'macroexpand-all macroexpand-all})
 
+  ;; necessary to work around method code too large error
+  (def additional-map {'locking (macrofy 'locking locking*)
+                       '-locking-impl (copy-var -locking-impl clojure-core-ns)})
+
+  (def clojure-core (merge clojure-core* additional-map))
+  ;; #_#?(:clj (alter-var-root #'clojure-core assoc
+  ;;                       'locking (macrofy 'locking locking*)
+  ;;                       '-locking-impl (copy-var -locking-impl clojure-core-ns))
+  ;;  :cljs (set! clojure-core (assoc clojure-core
+  ;;                                  'locking (macrofy 'locking locking*))))
+
   (def namespaces
     {#?@(:clj ['clojure.lang clojure-lang])
      'clojure.core clojure-core
@@ -2009,16 +2020,3 @@
      'sci.impl.records sci-impl-records
      'sci.impl.deftype sci-impl-deftype
      'sci.impl.protocols sci-impl-protocols}))
-
-(macros/usetime
- ;; necessary to work around method code too large error
-   (def additional-map {'locking (macrofy 'locking locking*)
-                        '-locking-impl (copy-var -locking-impl clojure-core-ns)})
-
-   (def clojure-core (merge clojure-core* additional-map))
-   ;; #_#?(:clj (alter-var-root #'clojure-core assoc
-   ;;                       'locking (macrofy 'locking locking*)
-   ;;                       '-locking-impl (copy-var -locking-impl clojure-core-ns))
-   ;;  :cljs (set! clojure-core (assoc clojure-core
-   ;;                                  'locking (macrofy 'locking locking*))))
- )
