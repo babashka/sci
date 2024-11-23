@@ -15,7 +15,7 @@
                             time
                             exists?])
   (:require
-   #?(:clj [borkdude.graal.locking :as locking])
+   #?(:clj [borkdude.graal.locking])
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    #?(:clj [clojure.java.io :as jio])
@@ -59,7 +59,8 @@
 
 (defn locking* [_form _bindings 
                 #?(:clj x :cljs _x) & body]
-  #?(:clj `(clojure.core/-locking-impl ~x (^{:once true} fn* [] ~@body))
+  #?(:clj `(let [lockee# ~x]
+             (clojure.core/-locking-impl lockee# (^{:once true} fn* [] ~@body)))
      :cljs `(do ~@body)))
 
 (defn ->*
@@ -1428,8 +1429,6 @@
      'lazy-cat (macrofy 'lazy-cat lazy-cat*)
      'let (macrofy 'let let**)
      'letfn (macrofy 'letfn letfn*)
-     'locking (macrofy 'locking locking*)
-     #?@(:clj ['-locking-impl (copy-var -locking-impl clojure-core-ns)])
      'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
      'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs :ctx true})
      'loop (macrofy 'loop loop**)
@@ -2010,3 +2009,12 @@
      'sci.impl.records sci-impl-records
      'sci.impl.deftype sci-impl-deftype
      'sci.impl.protocols sci-impl-protocols}))
+
+#_(macros/usetime
+ ;; necessary to work around method code too large error
+ #?(:clj (alter-var-root #'clojure-core assoc
+                         'locking (macrofy 'locking locking*)
+                         '-locking-impl (copy-var -locking-impl clojure-core-ns))
+    :cljs (set! clojure-core (assoc clojure-core
+                                    'locking (macrofy 'locking locking*))))
+ )
