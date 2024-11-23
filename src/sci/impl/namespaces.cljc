@@ -1975,7 +1975,7 @@
 
  (def namespaces
    {#?@(:clj ['clojure.lang clojure-lang])
-    'clojure.core clojure-core*
+    'clojure.core clojure-core
     'clojure.string {:obj clojure-string-namespace
                      'blank? (copy-var clojure.string/blank? clojure-string-namespace)
                      'capitalize (copy-var clojure.string/capitalize clojure-string-namespace)
