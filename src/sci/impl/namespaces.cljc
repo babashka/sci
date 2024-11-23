@@ -1069,7 +1069,7 @@
 
 (macros/usetime
 
-  (def clojure-core
+  (def clojure-core*
     {:obj clojure-core-ns
      '*ns* sci.impl.utils/current-ns
      ;; io
@@ -2010,11 +2010,15 @@
      'sci.impl.deftype sci-impl-deftype
      'sci.impl.protocols sci-impl-protocols}))
 
-#_(macros/usetime
+(macros/usetime
  ;; necessary to work around method code too large error
- #?(:clj (alter-var-root #'clojure-core assoc
-                         'locking (macrofy 'locking locking*)
-                         '-locking-impl (copy-var -locking-impl clojure-core-ns))
-    :cljs (set! clojure-core (assoc clojure-core
-                                    'locking (macrofy 'locking locking*))))
+   (def additional-map {'locking (macrofy 'locking locking*)
+                        '-locking-impl (copy-var -locking-impl clojure-core-ns)})
+
+   (def clojure-core (merge clojure-core* additional-map))
+   ;; #_#?(:clj (alter-var-root #'clojure-core assoc
+   ;;                       'locking (macrofy 'locking locking*)
+   ;;                       '-locking-impl (copy-var -locking-impl clojure-core-ns))
+   ;;  :cljs (set! clojure-core (assoc clojure-core
+   ;;                                  'locking (macrofy 'locking locking*))))
  )
