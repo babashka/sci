@@ -15,6 +15,7 @@
                             time
                             exists?])
   (:require
+   #?(:clj [borkdude.graal.locking :as locking])
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    #?(:clj [clojure.java.io :as jio])
@@ -52,6 +53,14 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 (def clojure-core-ns sci.impl.utils/clojure-core-ns)
+
+#?(:clj (defn -locking-impl [lockee lock-fn]
+          (borkdude.graal.LockFix/lock lockee lock-fn)))
+
+(defn locking* [_form _bindings 
+                #?(:clj x :cljs _x) & body]
+  #?(:clj `(clojure.core/-locking-impl ~x (^{:once true} fn* [] ~@body))
+     :cljs `(do ~@body)))
 
 (defn ->*
   [_ _ x & forms]
@@ -1419,6 +1428,8 @@
      'lazy-cat (macrofy 'lazy-cat lazy-cat*)
      'let (macrofy 'let let**)
      'letfn (macrofy 'letfn letfn*)
+     'locking (macrofy 'locking locking*)
+     #?@(:clj ['-locking-impl (copy-var -locking-impl clojure-core-ns)])
      'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
      'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs :ctx true})
      'loop (macrofy 'loop loop**)
