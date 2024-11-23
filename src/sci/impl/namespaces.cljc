@@ -15,11 +15,12 @@
                             time
                             exists?])
   (:require
+   #?(:clj [borkdude.graal.locking])
    #?(:clj [clojure.edn :as edn]
       :cljs [cljs.reader :as edn])
    #?(:clj [clojure.java.io :as jio])
    #?(:clj [sci.impl.proxy :as proxy])
-   #?(:clj [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var]]
+   #?(:clj [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var avoid-method-too-large]]
       :cljs [sci.impl.copy-vars :refer [new-var]])
    #?(:cljs [sci.impl.resolve])
    [clojure.set :as set]
@@ -47,11 +48,20 @@
    [sci.impl.vars :as vars]
    [sci.lang])
   #?(:cljs (:require-macros
-            [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
+            [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy avoid-method-too-large]])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
 (def clojure-core-ns sci.impl.utils/clojure-core-ns)
+
+#?(:clj (defn -locking-impl [lockee lock-fn]
+          (borkdude.graal.LockFix/lock lockee lock-fn)))
+
+(defn locking* [_form _bindings
+                #?(:clj x :cljs _x) & body]
+  #?(:clj `(let [lockee# ~x]
+             (clojure.core/-locking-impl lockee# (^{:once true} fn* [] ~@body)))
+     :cljs `(do ~@body)))
 
 (defn ->*
   [_ _ x & forms]
@@ -803,24 +813,24 @@
 
 #?(:clj
    (when-<-clojure-1.11.0
-     (defn seq-to-map-for-destructuring
-       "Builds a map from a seq as described in
+       (defn seq-to-map-for-destructuring
+         "Builds a map from a seq as described in
   https://clojure.org/reference/special_forms#keyword-arguments"
-       {:added "1.11"}
-       [s]
-       (if (next s)
-         (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
-         (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
+         {:added "1.11"}
+         [s]
+         (if (next s)
+           (clojure.lang.PersistentArrayMap/createAsIfByAssoc (to-array s))
+           (if (seq s) (first s) clojure.lang.PersistentArrayMap/EMPTY)))))
 
 #?(:cljs
    (sci.impl.cljs/when-not-var-exists seq-to-map-for-destructuring
-     (defn seq-to-map-for-destructuring
-       "Builds a map from a seq as described in
+                                      (defn seq-to-map-for-destructuring
+                                        "Builds a map from a seq as described in
   https://clojure.org/reference/special_forms#keyword-arguments"
-       [s]
-       (if (next s)
-         (.createAsIfByAssoc PersistentArrayMap (to-array s))
-         (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
+                                        [s]
+                                        (if (next s)
+                                          (.createAsIfByAssoc PersistentArrayMap (to-array s))
+                                          (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
 
 ;; #?(:cljs
 ;;    (defn -js-this []
@@ -1059,7 +1069,8 @@
 
 (macros/usetime
 
-  (def clojure-core
+ (def clojure-core
+   (avoid-method-too-large
     {:obj clojure-core-ns
      '*ns* sci.impl.utils/current-ns
      ;; io
@@ -1663,6 +1674,10 @@
      'with-redefs (macrofy 'with-redefs sci-with-redefs)
      'zipmap (copy-core-var zipmap)
      'zero? (copy-core-var zero?)
+
+     #?@(:cljs ['-write (copy-var -write clojure-core-ns)])
+     'locking (macrofy 'locking locking*)
+     '-locking-impl (copy-var -locking-impl clojure-core-ns)
      #?@(:clj ['+' (copy-core-var +')
                '-' (copy-core-var -')
                '*' (copy-core-var *')
@@ -1691,311 +1706,322 @@
                'ratio? (copy-core-var ratio?)
                'rationalize (copy-core-var rationalize)
                'seque (copy-core-var seque)
-               'xml-seq (copy-core-var xml-seq)])
-     #?@(:cljs ['-write (copy-var -write clojure-core-ns)])})
+               'xml-seq (copy-core-var xml-seq)])}))
 
-  (defn dir-fn
-    [ctx ns]
-    (let [current-ns (sci.impl.utils/current-ns-name)
-          the-ns (sci-the-ns ctx
-                             (get (sci-ns-aliases ctx current-ns) ns ns))]
-      (sort (map first (sci-ns-publics ctx the-ns)))))
+ (defn dir-fn
+   [ctx ns]
+   (let [current-ns (sci.impl.utils/current-ns-name)
+         the-ns (sci-the-ns ctx
+                            (get (sci-ns-aliases ctx current-ns) ns ns))]
+     (sort (map first (sci-ns-publics ctx the-ns)))))
 
-  (defn dir
-    [_ _ nsname]
-    `(doseq [v# (clojure.repl/dir-fn '~nsname)]
-       (println v#)))
+ (defn dir
+   [_ _ nsname]
+   `(doseq [v# (clojure.repl/dir-fn '~nsname)]
+      (println v#)))
 
-  (defn print-doc
-    [m]
-    (let [arglists (:arglists m)
-          doc (:doc m)
-          macro? (:macro m)]
-      (sci.impl.io/println "-------------------------")
-      (sci.impl.io/println (str (when-let [ns* (:ns m)]
-                                  (str (sci-ns-name ns*) "/"))
-                                (:name m)))
-      (when arglists (sci.impl.io/println arglists))
-      (when macro? (sci.impl.io/println "Macro"))
-      (when doc (sci.impl.io/println " " doc))))
+ (defn print-doc
+   [m]
+   (let [arglists (:arglists m)
+         doc (:doc m)
+         macro? (:macro m)]
+     (sci.impl.io/println "-------------------------")
+     (sci.impl.io/println (str (when-let [ns* (:ns m)]
+                                 (str (sci-ns-name ns*) "/"))
+                               (:name m)))
+     (when arglists (sci.impl.io/println arglists))
+     (when macro? (sci.impl.io/println "Macro"))
+     (when doc (sci.impl.io/println " " doc))))
 
-  (defn doc
-    [_ _ sym]
-    `(if-let [var# (resolve '~sym)]
-       (when (var? var#)
-         (~'clojure.repl/print-doc (meta var#)))
-       (if-let [ns# (find-ns '~sym)]
-         (~'clojure.repl/print-doc (assoc (meta ns#)
-                                          :name (ns-name ns#))))))
+ (defn doc
+   [_ _ sym]
+   `(if-let [var# (resolve '~sym)]
+      (when (var? var#)
+        (~'clojure.repl/print-doc (meta var#)))
+      (if-let [ns# (find-ns '~sym)]
+        (~'clojure.repl/print-doc (assoc (meta ns#)
+                                         :name (ns-name ns#))))))
 
-  (defn find-doc
-    "Prints documentation for any var whose documentation or name
+ (defn find-doc
+   "Prints documentation for any var whose documentation or name
    contains a match for re-string-or-pattern"
-    [ctx re-string-or-pattern]
-    (let [re (re-pattern re-string-or-pattern)
-          ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
-                             (sci-all-ns ctx))
-                     (map #(assoc (meta %)
-                                  :name (sci-ns-name %)) (sci-all-ns ctx))
-                     #_(map special-doc (keys special-doc-map)))]
-      (doseq [m ms
-              :when (and (:doc m)
-                         (or (re-find re (:doc m))
-                             (re-find re (str (:name m)))))]
-        (print-doc m))))
+   [ctx re-string-or-pattern]
+   (let [re (re-pattern re-string-or-pattern)
+         ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
+                            (sci-all-ns ctx))
+                    (map #(assoc (meta %)
+                                 :name (sci-ns-name %)) (sci-all-ns ctx))
+                    #_(map special-doc (keys special-doc-map)))]
+     (doseq [m ms
+             :when (and (:doc m)
+                        (or (re-find re (:doc m))
+                            (re-find re (str (:name m)))))]
+       (print-doc m))))
 
-  (defn apropos
-    "Given a regular expression or stringable thing, return a seq of all
+ (defn apropos
+   "Given a regular expression or stringable thing, return a seq of all
    public definitions in all currently-loaded namespaces that match the
    str-or-pattern."
-    [ctx str-or-pattern]
-    (let [matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
-                     #(re-find str-or-pattern (str %))
-                     #(clojure.string/includes? (str %) (str str-or-pattern)))]
-      (sort (mapcat (fn [ns]
-                      (let [ns-name (str ns)]
-                        (map #(symbol ns-name (str %))
-                             (filter matches? (keys (sci-ns-publics ctx ns))))))
-                    (sci-all-ns ctx)))))
+   [ctx str-or-pattern]
+   (let [matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
+                    #(re-find str-or-pattern (str %))
+                    #(clojure.string/includes? (str %) (str str-or-pattern)))]
+     (sort (mapcat (fn [ns]
+                     (let [ns-name (str ns)]
+                       (map #(symbol ns-name (str %))
+                            (filter matches? (keys (sci-ns-publics ctx ns))))))
+                   (sci-all-ns ctx)))))
 
-  #_(defn source-fn
-      "Returns a string of the source code for the given symbol, if it can
+ #_(defn source-fn
+     "Returns a string of the source code for the given symbol, if it can
    find it.  This requires that the symbol resolve to a Var defined in
    a namespace for which the .clj is in the classpath.  Returns nil if
    it can't find the source.  For most REPL usage, 'source' is more
    convenient.
 
    Example: (source-fn 'filter)"
-      [x]
-      (when-let [v (resolve x)]
-        (when-let [filepath (:file (meta v))]
-          (when-let [strm (.getResourceAsStream (RT/baseLoader) filepath)]
-            (with-open [rdr (LineNumberReader. (InputStreamReader. strm))]
-              (dotimes [_ (dec (:line (meta v)))] (.readLine rdr))
-              (let [text (StringBuilder.)
-                    pbr (proxy [PushbackReader] [rdr]
-                          (read [] (let [i (proxy-super read)]
-                                     (.append text (char i))
-                                     i)))
-                    read-opts (if (.endsWith ^String filepath "cljc") {:read-cond :allow} {})]
-                (if (= :unknown *read-eval*)
-                  (throw (IllegalStateException. "Unable to read source while *read-eval* is :unknown."))
-                  (read read-opts (PushbackReader. pbr)))
-                (str text)))))))
+     [x]
+     (when-let [v (resolve x)]
+       (when-let [filepath (:file (meta v))]
+         (when-let [strm (.getResourceAsStream (RT/baseLoader) filepath)]
+           (with-open [rdr (LineNumberReader. (InputStreamReader. strm))]
+             (dotimes [_ (dec (:line (meta v)))] (.readLine rdr))
+             (let [text (StringBuilder.)
+                   pbr (proxy [PushbackReader] [rdr]
+                         (read [] (let [i (proxy-super read)]
+                                    (.append text (char i))
+                                    i)))
+                   read-opts (if (.endsWith ^String filepath "cljc") {:read-cond :allow} {})]
+               (if (= :unknown *read-eval*)
+                 (throw (IllegalStateException. "Unable to read source while *read-eval* is :unknown."))
+                 (read read-opts (PushbackReader. pbr)))
+               (str text)))))))
 
-  (defn source-fn
-    "Returns a string of the source code for the given symbol, if it can
+ (defn source-fn
+   "Returns a string of the source code for the given symbol, if it can
    find it.  This requires that the symbol resolve to a Var defined in
    a namespace for which the .clj is in the classpath.  Returns nil if
    it can't find the source.  For most REPL usage, 'source' is more
    convenient.
 
    Example: (source-fn 'filter)"
-    [ctx x]
-    (when-let [v (sci-resolve ctx x)]
-      (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
-        (when (and line ns)
-          (when-let [source (or #?(:clj (when file
-                                          (let [f (jio/file file)]
-                                            (when (.exists f) (slurp f)))))
-                                (when-let [load-fn (:load-fn @(:env ctx))]
-                                  (:source (load-fn {:namespace (sci-ns-name ns)}))))]
-            (let [lines (clojure.string/split source #"\n")
-                  line (dec line)
-                  start (clojure.string/join "\n" (drop line lines))
-                  reader (read/source-logging-reader start)
-                  res (parser/parse-next ctx reader {:source true})]
-              (:source (meta res))))))))
+   [ctx x]
+   (when-let [v (sci-resolve ctx x)]
+     (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
+       (when (and line ns)
+         (when-let [source (or #?(:clj (when file
+                                         (let [f (jio/file file)]
+                                           (when (.exists f) (slurp f)))))
+                               (when-let [load-fn (:load-fn @(:env ctx))]
+                                 (:source (load-fn {:namespace (sci-ns-name ns)}))))]
+           (let [lines (clojure.string/split source #"\n")
+                 line (dec line)
+                 start (clojure.string/join "\n" (drop line lines))
+                 reader (read/source-logging-reader start)
+                 res (parser/parse-next ctx reader {:source true})]
+             (:source (meta res))))))))
 
-  (defn source
-    "Prints the source code for the given symbol, if it can find it.
+ (defn source
+   "Prints the source code for the given symbol, if it can find it.
    This requires that the symbol resolve to a Var defined in a
    namespace for which the .clj is in the classpath.
 
    Example: (source filter)"
-    [_ _ n]
-    `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
+   [_ _ n]
+   `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
 
-  #?(:clj
-     (defn root-cause
-       "Returns the initial cause of an exception or error by peeling off all of
+ #?(:clj
+    (defn root-cause
+      "Returns the initial cause of an exception or error by peeling off all of
    its wrappers"
-       {:added "1.3"}
-       [^Throwable t]
-       (loop [cause t]
-         (if (and (instance? clojure.lang.Compiler$CompilerException cause)
-                  (not= (.source ^clojure.lang.Compiler$CompilerException cause) "NO_SOURCE_FILE"))
-           cause
-           (if-let [cause (.getCause cause)]
-             (recur cause)
-             cause)))))
+      {:added "1.3"}
+      [^Throwable t]
+      (loop [cause t]
+        (if (and (instance? clojure.lang.Compiler$CompilerException cause)
+                 (not= (.source ^clojure.lang.Compiler$CompilerException cause) "NO_SOURCE_FILE"))
+          cause
+          (if-let [cause (.getCause cause)]
+            (recur cause)
+            cause)))))
 
-  #?(:clj
-     (defn demunge
-       "Given a string representation of a fn class,
+ #?(:clj
+    (defn demunge
+      "Given a string representation of a fn class,
    as in a stack trace element, returns a readable version."
-       {:added "1.3"}
-       [fn-name]
-       (clojure.lang.Compiler/demunge fn-name)))
+      {:added "1.3"}
+      [fn-name]
+      (clojure.lang.Compiler/demunge fn-name)))
 
-  #?(:clj
-     (defn stack-element-str
-       "Returns a (possibly unmunged) string representation of a StackTraceElement"
-       {:added "1.3"}
-       [^StackTraceElement el]
-       (let [file (.getFileName el)
-             clojure-fn? (and file (or (.endsWith file ".clj")
-                                       (.endsWith file ".cljc")
-                                       (= file "NO_SOURCE_FILE")))]
-         (str (if clojure-fn?
-                (demunge (.getClassName el))
-                (str (.getClassName el) "." (.getMethodName el)))
-              " (" (.getFileName el) ":" (.getLineNumber el) ")"))))
+ #?(:clj
+    (defn stack-element-str
+      "Returns a (possibly unmunged) string representation of a StackTraceElement"
+      {:added "1.3"}
+      [^StackTraceElement el]
+      (let [file (.getFileName el)
+            clojure-fn? (and file (or (.endsWith file ".clj")
+                                      (.endsWith file ".cljc")
+                                      (= file "NO_SOURCE_FILE")))]
+        (str (if clojure-fn?
+               (demunge (.getClassName el))
+               (str (.getClassName el) "." (.getMethodName el)))
+             " (" (.getFileName el) ":" (.getLineNumber el) ")"))))
 
-  #?(:clj
-     (defn pst
-       "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
+ #?(:clj
+    (defn pst
+      "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
    most recent repl exception (*e), and a depth of 12."
-       {:added "1.3"}
-       ([ctx] (pst ctx 12))
-       ([ctx e-or-depth]
-        (if (instance? Throwable e-or-depth)
-          (pst ctx e-or-depth 12)
-          (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
-            (pst ctx (root-cause @e) e-or-depth))))
-       ([ctx ^Throwable e depth]
-        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
-          (sci.impl.io/println (str (-> e class .getSimpleName) " "
-                                    (.getMessage e)
-                                    (when-let [info (ex-data e)] (str " " (pr-str info)))))
-          (let [st (.getStackTrace e)
-                cause (.getCause e)]
-            (doseq [el (take depth
-                             (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
-                                       (.getClassName ^StackTraceElement %))
-                                     st))]
-              (sci.impl.io/println (str \tab (stack-element-str el))))
-            (when cause
-              (sci.impl.io/println "Caused by:")
-              (pst ctx cause (min depth
-                                  (+ 2 (- (count (.getStackTrace cause))
-                                          (count st)))))))))))
+      {:added "1.3"}
+      ([ctx] (pst ctx 12))
+      ([ctx e-or-depth]
+       (if (instance? Throwable e-or-depth)
+         (pst ctx e-or-depth 12)
+         (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
+           (pst ctx (root-cause @e) e-or-depth))))
+      ([ctx ^Throwable e depth]
+       (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
+         (sci.impl.io/println (str (-> e class .getSimpleName) " "
+                                   (.getMessage e)
+                                   (when-let [info (ex-data e)] (str " " (pr-str info)))))
+         (let [st (.getStackTrace e)
+               cause (.getCause e)]
+           (doseq [el (take depth
+                            (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
+                                      (.getClassName ^StackTraceElement %))
+                                    st))]
+             (sci.impl.io/println (str \tab (stack-element-str el))))
+           (when cause
+             (sci.impl.io/println "Caused by:")
+             (pst ctx cause (min depth
+                                 (+ 2 (- (count (.getStackTrace cause))
+                                         (count st)))))))))))
 
-  (def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
+ (def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
 
-  (def clojure-repl
-    {:obj clojure-repl-namespace
-     'dir-fn (new-var 'dir-fn dir-fn clojure-repl-namespace true)
-     'dir (macrofy 'dir dir clojure-repl-namespace)
-     'print-doc (with-meta print-doc {:private true})
-     'doc (macrofy 'doc doc clojure-repl-namespace)
-     'find-doc (new-var 'find-doc find-doc clojure-repl-namespace true)
-     'apropos (new-var 'apropos apropos clojure-repl-namespace true)
-     'source (macrofy 'source source clojure-repl-namespace)
-     'source-fn (new-var 'source-fn source-fn clojure-repl-namespace true)
-     #?@(:clj ['pst (new-var 'pst pst clojure-repl-namespace true)
-               'stack-element-str (new-var 'stack-element-str stack-element-str clojure-repl-namespace)
-               'demunge (new-var 'demunge demunge clojure-repl-namespace)])})
+ (def clojure-repl
+   {:obj clojure-repl-namespace
+    'dir-fn (new-var 'dir-fn dir-fn clojure-repl-namespace true)
+    'dir (macrofy 'dir dir clojure-repl-namespace)
+    'print-doc (with-meta print-doc {:private true})
+    'doc (macrofy 'doc doc clojure-repl-namespace)
+    'find-doc (new-var 'find-doc find-doc clojure-repl-namespace true)
+    'apropos (new-var 'apropos apropos clojure-repl-namespace true)
+    'source (macrofy 'source source clojure-repl-namespace)
+    'source-fn (new-var 'source-fn source-fn clojure-repl-namespace true)
+    #?@(:clj ['pst (new-var 'pst pst clojure-repl-namespace true)
+              'stack-element-str (new-var 'stack-element-str stack-element-str clojure-repl-namespace)
+              'demunge (new-var 'demunge demunge clojure-repl-namespace)])})
 
-  (defn apply-template
-    [argv expr values]
-    (assert (vector? argv))
-    (assert (every? symbol? argv))
-    (walk/postwalk-replace (zipmap argv values) expr))
+ (defn apply-template
+   [argv expr values]
+   (assert (vector? argv))
+   (assert (every? symbol? argv))
+   (walk/postwalk-replace (zipmap argv values) expr))
 
-  (defn do-template
-    [_ _ argv expr & values]
-    (let [c (count argv)]
-      `(do ~@(map (fn [a] (apply-template argv expr a))
-                  (partition c values)))))
+ (defn do-template
+   [_ _ argv expr & values]
+   (let [c (count argv)]
+     `(do ~@(map (fn [a] (apply-template argv expr a))
+                 (partition c values)))))
 
-  (def clojure-template-namespace (sci.lang/->Namespace 'clojure.template nil))
+ (def clojure-template-namespace (sci.lang/->Namespace 'clojure.template nil))
 
-  (def clojure-template
-    {:obj clojure-template-namespace
-     'apply-template (copy-var apply-template clojure-template-namespace)
-     'do-template (macrofy 'do-template do-template clojure-template-namespace)})
+ (def clojure-template
+   {:obj clojure-template-namespace
+    'apply-template (copy-var apply-template clojure-template-namespace)
+    'do-template (macrofy 'do-template do-template clojure-template-namespace)})
 
-  (def clojure-string-namespace (sci.lang/->Namespace 'clojure.string nil))
-  (def clojure-set-namespace (sci.lang/->Namespace 'clojure.set nil))
-  (def clojure-walk-namespace (sci.lang/->Namespace 'clojure.walk nil))
-  (def clojure-edn-namespace (sci.lang/->Namespace 'clojure.edn nil))
+ (def clojure-string-namespace (sci.lang/->Namespace 'clojure.string nil))
+ (def clojure-set-namespace (sci.lang/->Namespace 'clojure.set nil))
+ (def clojure-walk-namespace (sci.lang/->Namespace 'clojure.walk nil))
+ (def clojure-edn-namespace (sci.lang/->Namespace 'clojure.edn nil))
 
-  (def macroexpand-all
-    (sci.lang.Var. (fn [ctx form]
-                     (clojure.walk/prewalk
-                      (fn [x]
-                        (if (seq? x)
-                          (@sci.impl.utils/macroexpand* ctx x) x))
-                      form))
-                   'macroexpand-all
-                   {:ns clojure-walk-namespace
-                    :name 'macroexpand-all
-                    :doc "Recursively performs all possible macroexpansions in form."}
-                   false
-                   true
-                   nil))
+ (def macroexpand-all
+   (sci.lang.Var. (fn [ctx form]
+                    (clojure.walk/prewalk
+                     (fn [x]
+                       (if (seq? x)
+                         (@sci.impl.utils/macroexpand* ctx x) x))
+                     form))
+                  'macroexpand-all
+                  {:ns clojure-walk-namespace
+                   :name 'macroexpand-all
+                   :doc "Recursively performs all possible macroexpansions in form."}
+                  false
+                  true
+                  nil))
 
-  (def clojure-walk-ns
-    {:obj clojure-walk-namespace
-     'walk (copy-var clojure.walk/walk clojure-walk-namespace)
-     'postwalk (copy-var clojure.walk/postwalk clojure-walk-namespace)
-     'prewalk (copy-var clojure.walk/prewalk clojure-walk-namespace)
-     #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
-               'prewalk-demo (copy-var clojure.walk/prewalk-demo clojure-walk-namespace)])
-     'keywordize-keys (copy-var clojure.walk/keywordize-keys clojure-walk-namespace)
-     'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
-     'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
-     'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)
-     'macroexpand-all macroexpand-all})
+ (def clojure-walk-ns
+   {:obj clojure-walk-namespace
+    'walk (copy-var clojure.walk/walk clojure-walk-namespace)
+    'postwalk (copy-var clojure.walk/postwalk clojure-walk-namespace)
+    'prewalk (copy-var clojure.walk/prewalk clojure-walk-namespace)
+    #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
+              'prewalk-demo (copy-var clojure.walk/prewalk-demo clojure-walk-namespace)])
+    'keywordize-keys (copy-var clojure.walk/keywordize-keys clojure-walk-namespace)
+    'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
+    'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
+    'postwalk-replace (copy-var clojure.walk/postwalk-replace clojure-walk-namespace)
+    'macroexpand-all macroexpand-all})
 
-  (def namespaces
-    {#?@(:clj ['clojure.lang clojure-lang])
-     'clojure.core clojure-core
-     'clojure.string {:obj clojure-string-namespace
-                      'blank? (copy-var clojure.string/blank? clojure-string-namespace)
-                      'capitalize (copy-var clojure.string/capitalize clojure-string-namespace)
-                      'ends-with? (copy-var clojure.string/ends-with? clojure-string-namespace)
-                      'escape (copy-var clojure.string/escape clojure-string-namespace)
-                      'includes? (copy-var clojure.string/includes? clojure-string-namespace)
-                      'index-of (copy-var clojure.string/index-of clojure-string-namespace)
-                      'join (copy-var clojure.string/join clojure-string-namespace)
-                      'last-index-of (copy-var clojure.string/last-index-of clojure-string-namespace)
-                      'lower-case (copy-var clojure.string/lower-case clojure-string-namespace)
-                      'replace (copy-var clojure.string/replace clojure-string-namespace)
-                      'replace-first (copy-var clojure.string/replace-first clojure-string-namespace)
-                      'reverse (copy-var clojure.string/reverse clojure-string-namespace)
-                      'split (copy-var clojure.string/split clojure-string-namespace)
-                      'split-lines (copy-var clojure.string/split-lines clojure-string-namespace)
-                      'starts-with? (copy-var clojure.string/starts-with? clojure-string-namespace)
-                      'trim (copy-var clojure.string/trim clojure-string-namespace)
-                      'trim-newline (copy-var clojure.string/trim-newline clojure-string-namespace)
-                      'triml (copy-var clojure.string/triml clojure-string-namespace)
-                      'trimr (copy-var clojure.string/trimr clojure-string-namespace)
-                      'upper-case (copy-var clojure.string/upper-case clojure-string-namespace)
-                      #?@(:clj ['re-quote-replacement (copy-var clojure.string/re-quote-replacement clojure-string-namespace)])}
-     'clojure.set {:obj clojure-set-namespace
-                   'difference (copy-var clojure.set/difference clojure-set-namespace)
-                   'index (copy-var clojure.set/index clojure-set-namespace)
-                   'intersection (copy-var clojure.set/intersection clojure-set-namespace)
-                   'join (copy-var clojure.set/join clojure-set-namespace)
-                   'map-invert (copy-var clojure.set/map-invert clojure-set-namespace)
-                   'project (copy-var clojure.set/project clojure-set-namespace)
-                   'rename (copy-var clojure.set/rename clojure-set-namespace)
-                   'rename-keys (copy-var clojure.set/rename-keys clojure-set-namespace)
-                   'select (copy-var clojure.set/select clojure-set-namespace)
-                   'subset? (copy-var clojure.set/subset? clojure-set-namespace)
-                   'superset? (copy-var clojure.set/superset? clojure-set-namespace)
-                   'union (copy-var clojure.set/union clojure-set-namespace)}
-     'clojure.walk clojure-walk-ns
-     'clojure.template clojure-template
-     'clojure.repl clojure-repl
-     'clojure.edn {:obj clojure-edn-namespace
-                   'read (copy-var #?(:clj  clojure.edn/read
-                                      :cljs cljs.reader/read) clojure-edn-namespace)
-                   'read-string (copy-var
-                                    #?(:clj  clojure.edn/read-string
-                                       :cljs cljs.reader/read-string) clojure-edn-namespace)}
-     'sci.impl.records sci-impl-records
-     'sci.impl.deftype sci-impl-deftype
-     'sci.impl.protocols sci-impl-protocols}))
+ ;; necessary to work around method code too large error
+
+ )
+
+(macros/usetime
+ 
+ ;; #_#?(:clj (alter-var-root #'clojure-core assoc
+ ;;                       'locking (macrofy 'locking locking*)
+ ;;                       '-locking-impl (copy-var -locking-impl clojure-core-ns))
+ ;;  :cljs (set! clojure-core (assoc clojure-core
+ ;;                                  'locking (macrofy 'locking locking*))))
+
+ (def namespaces
+   {#?@(:clj ['clojure.lang clojure-lang])
+    'clojure.core clojure-core
+    'clojure.string {:obj clojure-string-namespace
+                     'blank? (copy-var clojure.string/blank? clojure-string-namespace)
+                     'capitalize (copy-var clojure.string/capitalize clojure-string-namespace)
+                     'ends-with? (copy-var clojure.string/ends-with? clojure-string-namespace)
+                     'escape (copy-var clojure.string/escape clojure-string-namespace)
+                     'includes? (copy-var clojure.string/includes? clojure-string-namespace)
+                     'index-of (copy-var clojure.string/index-of clojure-string-namespace)
+                     'join (copy-var clojure.string/join clojure-string-namespace)
+                     'last-index-of (copy-var clojure.string/last-index-of clojure-string-namespace)
+                     'lower-case (copy-var clojure.string/lower-case clojure-string-namespace)
+                     'replace (copy-var clojure.string/replace clojure-string-namespace)
+                     'replace-first (copy-var clojure.string/replace-first clojure-string-namespace)
+                     'reverse (copy-var clojure.string/reverse clojure-string-namespace)
+                     'split (copy-var clojure.string/split clojure-string-namespace)
+                     'split-lines (copy-var clojure.string/split-lines clojure-string-namespace)
+                     'starts-with? (copy-var clojure.string/starts-with? clojure-string-namespace)
+                     'trim (copy-var clojure.string/trim clojure-string-namespace)
+                     'trim-newline (copy-var clojure.string/trim-newline clojure-string-namespace)
+                     'triml (copy-var clojure.string/triml clojure-string-namespace)
+                     'trimr (copy-var clojure.string/trimr clojure-string-namespace)
+                     'upper-case (copy-var clojure.string/upper-case clojure-string-namespace)
+                     #?@(:clj ['re-quote-replacement (copy-var clojure.string/re-quote-replacement clojure-string-namespace)])}
+    'clojure.set {:obj clojure-set-namespace
+                  'difference (copy-var clojure.set/difference clojure-set-namespace)
+                  'index (copy-var clojure.set/index clojure-set-namespace)
+                  'intersection (copy-var clojure.set/intersection clojure-set-namespace)
+                  'join (copy-var clojure.set/join clojure-set-namespace)
+                  'map-invert (copy-var clojure.set/map-invert clojure-set-namespace)
+                  'project (copy-var clojure.set/project clojure-set-namespace)
+                  'rename (copy-var clojure.set/rename clojure-set-namespace)
+                  'rename-keys (copy-var clojure.set/rename-keys clojure-set-namespace)
+                  'select (copy-var clojure.set/select clojure-set-namespace)
+                  'subset? (copy-var clojure.set/subset? clojure-set-namespace)
+                  'superset? (copy-var clojure.set/superset? clojure-set-namespace)
+                  'union (copy-var clojure.set/union clojure-set-namespace)}
+    'clojure.walk clojure-walk-ns
+    'clojure.template clojure-template
+    'clojure.repl clojure-repl
+    'clojure.edn {:obj clojure-edn-namespace
+                  'read (copy-var #?(:clj  clojure.edn/read
+                                     :cljs cljs.reader/read) clojure-edn-namespace)
+                  'read-string (copy-var
+                                #?(:clj  clojure.edn/read-string
+                                   :cljs cljs.reader/read-string) clojure-edn-namespace)}
+    'sci.impl.records sci-impl-records
+    'sci.impl.deftype sci-impl-deftype
+    'sci.impl.protocols sci-impl-protocols}))

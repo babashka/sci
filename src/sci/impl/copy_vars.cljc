@@ -118,7 +118,10 @@
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))
 
-  )
+  (defmacro avoid-method-too-large [v]
+    (macros/? :clj
+              `(deref (delay ~v))
+              :cljs v)))
 
 (defn macrofy*
   ([f] (vary-meta f #(assoc % :sci/macro true)))
