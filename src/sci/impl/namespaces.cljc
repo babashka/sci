@@ -1677,7 +1677,7 @@
 
      #?@(:cljs ['-write (copy-var -write clojure-core-ns)])
      'locking (macrofy 'locking locking*)
-     '-locking-impl (copy-var -locking-impl clojure-core-ns)
+     #?@(:clj ['-locking-impl (copy-var -locking-impl clojure-core-ns)])
      #?@(:clj ['+' (copy-core-var +')
                '-' (copy-core-var -')
                '*' (copy-core-var *')
