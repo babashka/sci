@@ -329,3 +329,6 @@
      (is (true? (tu/eval* "(when js/document js/document.getElementById) true"
                           {:classes
                            {'js goog/global :allow :all}})))))
+
+#?(:cljs (deftest local-interop-test
+           (is (= 1 (tu/eval* "(def j #js {:a (fn [] 2)}) (let [j #js {:a (fn [] 1)}] (j.a))" nil)))))
