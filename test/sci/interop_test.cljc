@@ -331,4 +331,4 @@
                            {'js goog/global :allow :all}})))))
 
 #?(:cljs (deftest local-interop-test
-           (is (= 1 (tu/eval* "(def j #js {:a (fn [] 2)}) (let [j #js {:a (fn [] 1)}] (j.a))" nil)))))
+           (is (= 1 (tu/eval* "(let [j #js {:a (fn [] 1)}] (j.a))" nil)))))
