@@ -1563,10 +1563,16 @@
                                    (sci.impl.types/->Node
                                     (interop/invoke-js-constructor* ctx bindings ctor children)
                                     nil))
-                                 (let [method (unchecked-get class method-name)]
+                                 (if (instance? t/NodeR class)
                                    (sci.impl.types/->Node
-                                    (interop/invoke-static-method ctx bindings class method children)
-                                    nil)))
+                                     (let [class (t/eval class ctx bindings)
+                                           method (unchecked-get class method-name)]
+                                       (interop/invoke-static-method ctx bindings class method children))
+                                     nil)
+                                   (let [method (unchecked-get class method-name)]
+                                     (sci.impl.types/->Node
+                                       (interop/invoke-static-method ctx bindings class method children)
+                                       nil))))
                                (if ctor?
                                  (sci.impl.types/->Node
                                   (let [arr (lookup-fn)
@@ -1574,12 +1580,12 @@
                                     (interop/invoke-js-constructor* ctx bindings ctor children))
                                   nil)
                                  (sci.impl.types/->Node
-                                  (let [arr (lookup-fn)
-                                        class (aget arr 0)
-                                        method-name (aget arr 1)
-                                        method (unchecked-get class method-name)]
-                                    (interop/invoke-static-method ctx bindings class method children))
-                                  nil)))))
+                                   (let [arr (lookup-fn)
+                                         class (aget arr 0)
+                                         method-name (aget arr 1)
+                                         method (unchecked-get class method-name)]
+                                     (interop/invoke-static-method ctx bindings class method children))
+                                   nil)))))
                         #?@(:clj [(and f-meta (:sci.impl.analyzer/interop f-meta))
                                   (let [[obj & children] (analyze-children ctx (rest expr))
                                         meth (-> (second f)

@@ -14,6 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 - Fix [#942](https://github.com/babashka/sci/issues/942): improve error location of invalid destructuring
 - Add `volatile?` to core vars
+- Fix [#950](https://github.com/babashka/sci/issues/950): interop on local in CLJS
 
 ## 0.9.44 (2024-10-17)
 
