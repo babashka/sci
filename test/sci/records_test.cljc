@@ -240,3 +240,7 @@
 
 (deftest satisfies-IRecord-test
   #?(:cljs (is (true? (sci/eval-string "(defrecord Foo []) (satisfies? IRecord (->Foo))")))))
+
+(deftest map-constructor-nil-test
+  (is (true? (sci/eval-string "(defrecord Foo [a]) (and (contains? (map->Foo {}) :a)
+(nil? (:a (map->Foo {}))))"))))
