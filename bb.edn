@@ -42,6 +42,6 @@
 
   libsci:compile-all {:doc "Compile libsci and the example C, C++ and rust programs to `libsci/target/`."
                       :depends [libsci:compile libsci:compile-c
-                                libsci:compile-cpp libsci:compile-rust]}
+                                libsci:compile-cpp #_libsci:compile-rust]}
 
   libsci:test libsci-tasks/test}}

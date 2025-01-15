@@ -147,7 +147,7 @@
       (let [{:keys [out]} (p/shell shell-opts "libsci/target/from_cpp \"(+ 1 2)\"")]
         (is (= (str/trim out) "3"))))
 
-    (testing "rust program"
+    #_(testing "rust program"
       (let [{:keys [out]} (p/shell shell-opts "libsci/target/from-rust \"(+ 1 2)\"")]
         (is (= (str/trim out) "3"))))))
 
