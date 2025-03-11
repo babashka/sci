@@ -10,11 +10,12 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.9.45 (2025-03-11)
 
 - Fix [#942](https://github.com/babashka/sci/issues/942): improve error location of invalid destructuring
 - Add `volatile?` to core vars
 - Fix [#950](https://github.com/babashka/sci/issues/950): interop on local in CLJS
+- Bump edamame to `1.4.28`
 
 ## 0.9.44 (2024-10-17)
 
