@@ -10,27 +10,32 @@ Table of contents:
     - [Using libsci from Python](#using-libsci-from-python)
   - [References](#references)
 
-To use sci as a shared library from e.g. C++, follow along with this
-tutorial. We illustrate what is happening when you run the script
-`libsci/compile-libsci` and `libsci/compile-cpp`.
+To use sci as a shared library from e.g. C++, follow along with this tutorial. We illustrate
+what is happening when you run the tasks `libsci:compile` to build the shared `libsci` library
+and headers; and e.g. `libsci:compile-cpp` to build a trivial executable in a specific language, that
+uses the shared `libsci` library to evaluate arbitrary input strings as Clojure code.
 
-There are also instructions at the end for using the shared library from
-Python using ctypes.
+There are instructions for using the shared library from C++, or Python using `ctypes`, or from
+Rust using `bindgen`.
 
 ## Prerequisites
 
-If you want to run this script yourself, prepare as follows:
+If you want to compile `libsci` yourself, prepare as follows:
 
 - Download [GraalVM](https://github.com/graalvm/graalvm-ce-builds/releases) and
   set `GRAALVM_HOME`. Currently we use Oracle GraalVM 21 (double-check `.github/workflows/ci.yml` for what CI is currently using).
 - Install [lein](https://github.com/technomancy/leiningen). This is used for
   compiling Clojure code.
-- You should have `g++` available to compile C++ code.
+
+Then, to use `libsci` from a specific language, you should have its tools, listed in each
+section below (e.g. `g++` to compile C++).
 
 ## Babashka tasks
 
-Convenient `babashka` tasks are provided to compile `libsci` and most
-of the examples mentioned here, see `bb tasks` for the full list.
+Convenient `babashka` tasks are provided to compile `libsci` and most of the examples mentioned
+here, which can be run from the `sci` project root directory. e.g. `bb libsci:compile`.
+
+See `bb tasks` for the full list of tasks.
 
 ## Walkthrough
 
@@ -99,13 +104,22 @@ $ $GRAALVM_HOME/bin/native-image \
 ```
 
 This begets the files `graal_isolate_dynamic.h`, `graal_isolate.h`, `libsci.h`,
-`libsci.dylib` (on linux `libsci.so`, on MS-Windows `libsci.dll`) and `libsci_dynamic.h`.
+`libsci.dylib` (on Linux `libsci.so`, on MS-Windows `libsci.dll`) and `libsci_dynamic.h`.
 We move all these files to `libsci/target`.
 
 In addtion, on MS-Windows, there is one more library file,
 `libsci.lib`, which should be copied over as `sci.lib`.
 
+Now, these headers and shared objects can be used natively from C++, or used to generate
+foreign bindings from other languages.
+
 ### Using libsci from C++
+
+#### Prerequisites
+
+* `g++` to compile C++ code.
+
+#### Usage
 
 Let's use the library from a C++ program now. Here's the code:
 
@@ -141,7 +155,7 @@ To run, we first have to set an environment variable to locate the shared libary
 $ export DYLD_LIBRARY_PATH=libsci/target
 ```
 
-On linux this environment variable is called `LD_LIBRARY_PATH`.
+On Linux this environment variable is called `LD_LIBRARY_PATH`.
 
 Now, let's run it.
 
@@ -162,9 +176,16 @@ we printed the JSON string from the C++ program.
 
 ### Using libsci from Rust
 
-To use `libsci` from a Rust program, we use the same shared lib generated in the
-previous section (produced by running `libsci/compile-libsci`).  Here we
-describe what happens when you run `libsci/compile-rust`.
+#### Prerequisites
+
+* Rust and `cargo`
+* Clang and `libclang`
+
+#### Usage
+
+To use `libsci` from a Rust program, we use the same shared lib generated in the previous
+section (produced by running the `libsci:compile` task).  Here we describe what happens when you
+run the `libsci:compile-rust` task.
 
 To build Rust language bindings to `libsci`, we use
 [bindgen](https://rust-lang.github.io/rust-bindgen/) which need a `build.rs`
@@ -240,9 +261,12 @@ fn main() {
 }
 ```
 
-After running `libsci/compile-rust` and exporting `DYLD_LIBRARY_PATH`
-(`LD_LIBRARY_PATH` on linux) to `libsci/target`, you should be able to run as
-follows:
+To compile the main program, run the `libsci:compile-rust` task. It should create a new
+`libsci/target/from-rust` executable.
+
+Next, export `DYLD_LIBRARY_PATH` (`LD_LIBRARY_PATH` on Linux) to `libsci/target`.
+
+Now, you should be able to run `from-rust`:
 
 ``` shell
 $ libsci/target/from-rust "(require '[cheshire.core :as json]) (json/generate-string (range 10))"
@@ -251,12 +275,18 @@ $ libsci/target/from-rust "(require '[cheshire.core :as json]) (json/generate-st
 
 ### Using libsci from Python
 
-To use the shared library from Python via ctypes, do the following from the directory
+#### Prerequisites
+
+* Python 3 with the `ctypes` module.
+
+#### Usage
+
+To use the shared library from Python via `ctypes`, do the following from the directory
 containing the shared object:
 ``` python
 $ python
 Python 3.8.5 (default, Sep  5 2020, 10:50:12)
-[GCC 10.2.0] on linux
+[GCC 10.2.0] on Linux
 Type "help", "copyright", "credits" or "license" for more information.
 >>> from ctypes import *
 >>> dll = CDLL("./libsci.so")
@@ -272,7 +302,7 @@ b'9'
 
 The above instructions are for a Linux system.
 
-For macos, the file extension of the shared library should be different, probably `.dylib`.
+For Mac OS, the file extension of the shared library should be different, probably `.dylib`.
 
 For Windows, the file extension of the shared library should be different, probably `.dll`.
 Also it may be necessary to use `WinDLL` instead of `CDLL`.
