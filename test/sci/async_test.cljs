@@ -204,9 +204,17 @@
                  (p/let [v (-> (p/let [_ (scia/eval-form ctx '(do (ns foo (:require ["fs" :as fs]))
                                                                   (await (js/Promise.reject (js/Error. "dude")))
                                                                   1))])
-                               (p/catch (fn [err]
-                                          (str err))))]
+                               (p/catch str))]
                    (is (str/includes? v "dude")))))
+             (p/catch (fn [err]
+                        (is false (str err))))
+             (p/finally done))))
+
+(deftest eval-ns-test
+  (async done
+         (-> (p/let [ctx (sci/init {})
+                     v (scia/eval-form+ ctx '(ns foo))]
+               (is (nil? (:val v))))
              (p/catch (fn [err]
                         (is false (str err))))
              (p/finally done))))

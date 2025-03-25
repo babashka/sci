@@ -84,7 +84,8 @@
                  (sci/eval-form ctx (list 'do (list* 'ns ns-name other-forms) '*ns*)))
         _ (vreset! last-ns ns-obj)
         libspecs (mapcat rest require-forms)]
-    (handle-libspecs ctx libspecs)))
+    (.then (handle-libspecs ctx libspecs)
+           (fn [_] nil))))
 
 (declare await await?)
 
@@ -107,9 +108,12 @@
                                                #(eval-next remaining))
                                         (let [v (await (eval-ns-form ctx form))]
                                           (if wrap?
-                                            {:val v
-                                             :ns @last-ns}
-                                            v)))
+                                            (.then v
+                                                   (fn [v]
+                                                     {:val v
+                                                      :ns @last-ns}))
+                                            v)
+                                          ))
                                       (if (= 'do fst)
                                         (eval-next (next form))
                                         (if remaining
