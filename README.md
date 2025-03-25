@@ -681,8 +681,7 @@ later.
 
 ## Use as native shared library
 
-To use SCI as a native shared library from e.g. C, C++, Rust, read this
-[tutorial](doc/libsci.md).
+To use SCI as a native shared library from e.g. C++, Rust, Python, read this [tutorial](doc/libsci.md).
 
 ## `eval` in ClojureScript
 
