@@ -50,6 +50,7 @@
          (if (and zero-args? (.isEmpty ^java.util.List methods))
            (invoke-instance-field obj target-class method)
            (do (let [args-array (object-array arg-count)
+                     ;; TODO: this can all be done at analysis time
                      ^"[Ljava.lang.Class;" types-array (when (and (not zero-args?)
                                                                   (> (.size methods) 1))
                                                          (make-array Class arg-count))]
