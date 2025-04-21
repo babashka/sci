@@ -596,6 +596,13 @@
                    binding-name (if t (vary-meta binding-name
                                                  assoc :tag t)
                                     binding-name)
+                   binding-meta (meta binding-name)
+                   t (when m (:tag binding-meta))
+                   binding-name (if t (vary-meta binding-name
+                                                 assoc :tag
+                                                 (or (interop/resolve-class ctx t)
+                                                     t))
+                                    binding-name)
                    v (analyze ctx binding-value)
                    new-iden (gensym)
                    cb (:closure-bindings ctx)

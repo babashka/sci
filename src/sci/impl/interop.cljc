@@ -48,12 +48,15 @@
              (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) :instance-methods)]
          (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
            (invoke-instance-field obj target-class method)
-           (do (let [args-array (object-array arg-count)]
+           (do (let [args-array (object-array arg-count)
+                     ;; TODO: not necessary when method count is 1
+                     types-array (object-array arg-count)]
                  (areduce args idx _ret nil
-                          (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+                          (do (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings))
+                              (aset types-array idx (:tag (meta (aget args idx))))))
                  ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
                  ;; See getMatchingMethod in Reflector
-                 (Reflector/invokeMatchingMethod method methods obj args-array)))))]))
+                 (Reflector/invokeMatchingMethod method methods obj target-class args-array types-array)))))]))
 
 (defn get-static-field [^Class class field-name-sym]
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
