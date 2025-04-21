@@ -44,19 +44,20 @@
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
       [[ctx bindings obj ^Class target-class method ^objects args arg-count]
-       (let [^"[Ljava.util.List;" methods
-             (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) :instance-methods)]
-         (if (and (zero? arg-count) (.isEmpty ^java.util.List methods))
+       (let [^java.util.List methods
+             (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) :instance-methods)
+             zero-args? (zero? arg-count)]
+         (if (and zero-args? (.isEmpty ^java.util.List methods))
            (invoke-instance-field obj target-class method)
            (do (let [args-array (object-array arg-count)
-                     ^"[Ljava.lang.Class;" types-array (when (> (count methods) 1)
+                     ^"[Ljava.lang.Class;" types-array (when (and (not zero-args?)
+                                                                  (> (.size methods) 1))
                                                          (make-array Class arg-count))]
                  (areduce args idx _ret nil
                           (do (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings))
                               (when types-array
                                 (when-let [t (:tag-class (meta (aget args idx)))]
-                                  (when (class? t)
-                                    (aset types-array idx t))))))
+                                  (aset types-array idx t)))))
                  ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
                  ;; See getMatchingMethod in Reflector
                  (Reflector/invokeMatchingMethod method methods target-class obj args-array types-array)))))]))
