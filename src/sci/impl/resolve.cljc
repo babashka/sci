@@ -159,8 +159,8 @@
 
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
-  ([ctx sym call? tag] (lookup ctx sym call? tag nil))
-  ([ctx sym call? #?(:clj tag :cljs _tag) only-var?]
+  ([ctx sym call? m] (lookup ctx sym call? m nil))
+  ([ctx sym call? #?(:clj m :cljs _) only-var?]
    (let [bindings (faster/get-2 ctx :bindings)
          track-mutable? (faster/get-2 ctx :deftype-fields)]
      (or
@@ -170,8 +170,10 @@
                       (let [oi (:outer-idens ctx)
                             ob (oi v)]
                         (update-parents ctx (:closure-bindings ctx) ob)))
-              #?@(:clj [tag (or tag
-                                (some-> k meta :tag))])
+              #?@(:clj [[tag tag-class] (if-let [t (:tag m)]
+                                          [t (:tag-class m)]
+                                          (when-let [m (meta k)]
+                                            [(:tag m)]))])
               mutable? (when track-mutable?
                          (when-let [m (some-> k meta)]
                            #?(:clj (or (:volatile-mutable m)
@@ -191,7 +193,9 @@
                                      (aget ^objects bindings idx)
                                      nil))
                             #?@(:clj [tag (with-meta
-                                            {:tag tag})])
+                                            {:tag tag
+                                             :tag-class (or tag-class
+                                                            (interop/resolve-type-hint ctx tag))})])
                             mutable? (vary-meta assoc :mutable true))]
                     v))]
           [k v]))
@@ -204,9 +208,9 @@
 (vreset! utils/lookup lookup)
 
 (defn resolve-symbol*
-  [ctx sym call? tag]
+  [ctx sym call? m]
   (or
-   (lookup ctx sym call? tag)
+   (lookup ctx sym call? m)
    (let [n (name sym)]
      (cond
        ;; NOTE: move this to analyzer when resolve-symbol returns nil?
@@ -221,7 +225,7 @@
 
 #?(:cljs
    (defn resolve-prefix+path
-     [ctx sym tag]
+     [ctx sym m]
      (let [sym-ns (namespace sym)
            sym-name (name sym)
            segments (.split sym-name ".")
@@ -238,16 +242,16 @@
                                       prefix)
                              (symbol prefix
                                      fst-segment))]
-             (if-let [v (resolve-symbol* ctx new-sym false tag)]
+             (if-let [v (resolve-symbol* ctx new-sym false m)]
                [(second v) nxt-segments]
                (if-let [v2 (when new-sym-2
-                             (resolve-symbol* ctx new-sym-2 false tag))]
+                             (resolve-symbol* ctx new-sym-2 false m))]
                  [(second v2) nxt-segments]
                  (recur (str new-sym) nxt-segments)))))))))
 
-#?(:cljs (defn resolve-dotted-access [ctx sym call? tag]
+#?(:cljs (defn resolve-dotted-access [ctx sym call? m]
            #?(:cljs
-              (when-let [[v segments] (resolve-prefix+path ctx sym tag)]
+              (when-let [[v segments] (resolve-prefix+path ctx sym m)]
                 (let [v (if (utils/var? v) (deref v) v)
                       segments (into-array segments)]
                   ;; NOTE: there is a reloading implication here...
@@ -273,10 +277,10 @@
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
   ([ctx sym call?] (resolve-symbol ctx sym call? nil))
-  ([ctx sym call? tag]
+  ([ctx sym call? m]
    (second
-    (or (resolve-symbol* ctx sym call? tag)
-        #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? tag)]
+    (or (resolve-symbol* ctx sym call? m)
+        #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? m)]
                    resolved))
         (throw-error-with-location
          (str "Could not resolve symbol: " sym)

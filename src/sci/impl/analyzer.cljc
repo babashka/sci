@@ -598,11 +598,10 @@
                                     binding-name)
                    binding-meta (meta binding-name)
                    t (when m (:tag binding-meta))
-                   binding-name (if t (vary-meta binding-name
-                                                 assoc :tag
-                                                 (or (interop/resolve-class ctx t)
-                                                     t))
-                                    binding-name)
+                   binding-name (if (symbol? t)
+                                  (vary-meta binding-name
+                                             assoc :tag-class (interop/resolve-type-hint ctx t))
+                                  binding-name)
                    v (analyze ctx binding-value)
                    new-iden (gensym)
                    cb (:closure-bindings ctx)
@@ -996,7 +995,9 @@
                                  instance-expr
                                  (fn [m]
                                    (if-let [t (:tag m)]
-                                     (let [clazz (or (interop/resolve-class ctx t)
+                                     (let [clazz (or (when (class? t)
+                                                       t)
+                                                     (interop/resolve-class ctx t)
                                                      (records/resolve-record-class ctx t)
                                                      (throw-error-with-location
                                                       (str "Unable to resolve classname: " t) t))]
@@ -1863,7 +1864,7 @@
    (let [m (meta expr)]
      (cond
        (constant? expr) (->constant expr)
-       (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
+       (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false m)
                             mv (meta v)]
                         (cond (constant? v) (->constant v)
                               (utils/var? v)

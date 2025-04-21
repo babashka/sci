@@ -145,24 +145,37 @@ private static String noMethodReport(String methodName, Class contextClass, Obje
     private static Method matchMethod(List methods, Object[] args) {
         return matchMethod(methods, args, null);
     }
+    // private static int exactTypesMatch(Class[] expected, Class[] actual) {
+    //     int ret = 0;
+    //     for (int i = 0; i < expected.length; i++) {
+    //         if (expected[i] == actual[i]) ret++;
+    //     }
+    //     return ret;
+    // }
     private static Method matchMethod(List methods, Object[] args, Class[] argTypes) {
 	Method foundm = null;
+        // int exactTypesMatch = 0;
 	for(Iterator i = methods.iterator(); i.hasNext();) {
 		Method m = (Method) i.next();
-                System.err.println("Trying method: " + m);
+                // System.err.println("Trying method: " + m);
 		Class[] params = m.getParameterTypes();
-                System.err.print("param classes: ");
-                for (int p = 0; p < params.length; p++) {
-                    System.err.print(params[p].toString());
+                // System.err.print("param classes: ");
+                // for (int p = 0; p < params.length; p++) {
+                //     System.err.print(params[p].toString());
+                // }
+                // System.err.println();
+                // System.err.println("isCongruent: " + isCongruent(params, args, argTypes));
+                // if (foundm != null)
+                //    System.err.println("subsumes: " + Compiler.subsumes(params, foundm.getParameterTypes()));
+                // int typesMatch = 0;
+                // // if (argTypes != null) exactTypesMatch(argTypes, params);
+                // System.err.println("typesMatch: " + typesMatch);
+                if(isCongruent(params, args, argTypes) && (foundm == null || Compiler.subsumes(params, foundm.getParameterTypes()) /* || (argTypes != null && typesMatch > exactTypesMatch) */ )) {
+                    foundm = m;
+                    // exactTypesMatch = typesMatch;
                 }
-                System.err.println();
-                System.err.println("isCongruent: " + isCongruent(params, args));
-                if (foundm != null)
-                    System.err.println("subsumes: " + Compiler.subsumes(params, foundm.getParameterTypes()));
-		if(isCongruent(params, args, argTypes) && (foundm == null || Compiler.subsumes(params, foundm.getParameterTypes())))
-			foundm = m;
 	}
-        System.err.println("found method: " + foundm);
+        //         System.err.println("found method: " + foundm);
 	return foundm;
 }
 
@@ -206,7 +219,7 @@ public  static Object invokeMatchingMethod(String methodName, List methods, Clas
 		}
 	else //overloaded w/same arity
 		{
-		m = matchMethod(methods, args);
+                    m = matchMethod(methods, args, argTypes);
 		if(m == null) // widen boxed args and re-try matchMethod
 			{
 			args = widenBoxedArgs(args);
@@ -227,10 +240,10 @@ public  static Object invokeMatchingMethod(String methodName, List methods, Clas
 		}
 	try
 		{
-                  System.err.println("retTYpe: " + m.getReturnType());
-                  System.err.println("ctxClass: " + contextClass);
-                  System.err.println("meth: " + m);
-                  System.err.println("boxedArgs " + boxArgs(m.getParameterTypes(), args));
+                    // System.err.println("retTYpe: " + m.getReturnType());
+                    // System.err.println("ctxClass: " + contextClass);
+                    // System.err.println("meth: " + m);
+                    // System.err.println("boxedArgs " + boxArgs(m.getParameterTypes(), args));
 		return prepRet(m.getReturnType(), m.invoke(target, boxArgs(m.getParameterTypes(), args)));
 		}
 	catch(Exception e)
@@ -727,12 +740,14 @@ static public boolean paramArgTypeMatch(Class paramType, Class argType){
 			{
                             Class argType = null;
                             Object arg = args[i];
+                            // System.err.println("argTypes: " + argTypes);
                             if (argTypes != null) {
                                 Object t = argTypes[i];
                                 if (t == null && arg != null) {
                                     argType = arg.getClass();
                                 } else {
                                     argType = argTypes[i];
+                                    // System.err.println("argType " + argType);
                                 }
                             } else {
                                 argType = (arg == null) ? null : arg.getClass();
