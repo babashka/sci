@@ -35,7 +35,7 @@
              meths)))))
 
 (defn invoke-instance-method
-  #?@(:cljs [[ctx bindings obj _target-class method-name args _arg-count]
+  #?@(:cljs [[ctx bindings obj _target-class method-name args _arg-count _arg-types]
              ;; gobject/get didn't work here
              (if-some [method (aget obj method-name)]
                ;; use Reflect rather than (.apply method ...), see https://github.com/babashka/nbb/issues/118
@@ -43,25 +43,18 @@
                  (js/Reflect.apply method obj args))
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
-      [[ctx bindings obj ^Class target-class method ^objects args arg-count]
+      [[ctx bindings obj ^Class target-class method ^objects args arg-count arg-types]
        (let [^java.util.List methods
              (meth-cache ctx target-class method arg-count #(Reflector/getMethods target-class arg-count method false) :instance-methods)
              zero-args? (zero? arg-count)]
          (if (and zero-args? (.isEmpty ^java.util.List methods))
            (invoke-instance-field obj target-class method)
-           (do (let [args-array (object-array arg-count)
-                     ;; TODO: this can all be done at analysis time
-                     ^"[Ljava.lang.Class;" types-array (when (and (not zero-args?)
-                                                                  (> (.size methods) 1))
-                                                         (make-array Class arg-count))]
+           (do (let [args-array (object-array arg-count)]
                  (areduce args idx _ret nil
-                          (do (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings))
-                              (when types-array
-                                (when-let [t (:tag-class (meta (aget args idx)))]
-                                  (aset types-array idx t)))))
+                          (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
                  ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
                  ;; See getMatchingMethod in Reflector
-                 (Reflector/invokeMatchingMethod method methods target-class obj args-array types-array)))))]))
+                 (Reflector/invokeMatchingMethod method methods target-class obj args-array arg-types)))))]))
 
 (defn get-static-field [^Class class field-name-sym]
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
