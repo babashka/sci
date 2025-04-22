@@ -596,12 +596,16 @@
                    binding-name (if t (vary-meta binding-name
                                                  assoc :tag t)
                                     binding-name)
-                   binding-meta (meta binding-name)
-                   t (when m (:tag binding-meta))
-                   binding-name (if (symbol? t)
-                                  (vary-meta binding-name
-                                             assoc :tag-class (interop/resolve-type-hint ctx t))
-                                  binding-name)
+                   #?@(:clj [binding-meta (meta binding-name)
+                             t (when m (:tag binding-meta))
+                             binding-name (if (symbol? t)
+                                            (vary-meta binding-name
+                                                       assoc :tag-class
+                                                       (or (interop/resolve-type-hint ctx t)
+                                                           (records/resolve-record-class ctx t)
+                                                           (throw-error-with-location
+                                                            (str "Unable to resolve classname: " t) t)))
+                                            binding-name)])
                    v (analyze ctx binding-value)
                    new-iden (gensym)
                    cb (:closure-bindings ctx)

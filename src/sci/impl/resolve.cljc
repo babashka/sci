@@ -195,7 +195,10 @@
                             #?@(:clj [tag (with-meta
                                             {:tag tag
                                              :tag-class (or tag-class
-                                                            (interop/resolve-type-hint ctx tag))})])
+                                                            (interop/resolve-type-hint ctx tag)
+                                                            (records/resolve-record-class ctx tag)
+                                                            (throw-error-with-location
+                                                             (str "Unable to resolve classname: " tag) tag))})])
                             mutable? (vary-meta assoc :mutable true))]
                     v))]
           [k v]))

@@ -36,7 +36,7 @@
                                                  ~@(when needrec [recform]))
                                                ~recform)]))
                      (let [seq- (gensym "seq_")
-                           chunk- (with-meta (gensym "chunk_")
+                           chunk- (gensym "chunk_") #_(with-meta (gensym "chunk_")
                                     {:tag 'clojure.lang.IChunk})
                            count- (gensym "count_")
                            i- (gensym "i_")

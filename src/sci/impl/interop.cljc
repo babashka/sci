@@ -159,9 +159,10 @@
       'char Character/TYPE
       'chars (Class/forName "[C")}))
 
-(defn resolve-type-hint [ctx sym]
-  (or (get prim->class sym)
-      (:class (resolve-class-opts ctx sym))))
+#?(:clj
+   (defn resolve-type-hint [ctx sym]
+     (or (get prim->class sym)
+         (:class (resolve-class-opts ctx sym)))))
 
 #?(:clj
    (def ->array-class
