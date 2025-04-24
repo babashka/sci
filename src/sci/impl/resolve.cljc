@@ -173,7 +173,7 @@
               #?@(:clj [[tag tag-class] (if-let [t (:tag m)]
                                           [t (:tag-class m)]
                                           (when-let [m (meta k)]
-                                            [(:tag m)]))])
+                                            [(:tag m) (:tag-class m)]))])
               mutable? (when track-mutable?
                          (when-let [m (some-> k meta)]
                            #?(:clj (or (:volatile-mutable m)
@@ -194,11 +194,7 @@
                                      nil))
                             #?@(:clj [tag (with-meta
                                             {:tag tag
-                                             :tag-class (or tag-class
-                                                            (interop/resolve-type-hint ctx tag)
-                                                            (records/resolve-record-class ctx tag)
-                                                            (throw-error-with-location
-                                                             (str "Unable to resolve classname: " tag) tag))})])
+                                             :tag-class tag-class})])
                             mutable? (vary-meta assoc :mutable true))]
                     v))]
           [k v]))

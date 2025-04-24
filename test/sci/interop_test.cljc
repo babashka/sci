@@ -45,7 +45,7 @@
 
 #?(:clj
    (deftest clojure-parity-tests
-     (let [classes {:classes {'PublicFields PublicFields}}] 
+     (let [classes {:classes {'PublicFields PublicFields}}]
        (doseq [expr ['(.-x (PublicFields.))
                      '(.x (PublicFields.))
                      '(. (PublicFields.) instanceFoo)

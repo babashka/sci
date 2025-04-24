@@ -601,10 +601,10 @@
                              binding-name (if (symbol? t)
                                             (vary-meta binding-name
                                                        assoc :tag-class
-                                                       (or (interop/resolve-type-hint ctx t)
-                                                           (records/resolve-record-class ctx t)
-                                                           (throw-error-with-location
-                                                            (str "Unable to resolve classname: " t) t)))
+                                                       (delay (or (interop/resolve-type-hint ctx t)
+                                                                  (records/resolve-record-class ctx t)
+                                                                  (throw-error-with-location
+                                                                   (str "Unable to resolve classnamex: " t) t))))
                                             binding-name)])
                    v (analyze ctx binding-value)
                    new-iden (gensym)
@@ -1064,7 +1064,7 @@
                                 (areduce args idx _ret nil
                                          (when-let [t (:tag-class (meta (aget args idx)))]
                                            (vreset! has-types? true)
-                                           (aset arg-types idx t)))))
+                                           (aset arg-types idx (force t))))))
                       (with-meta (sci.impl.types/->Node
                                   (eval/eval-instance-method-invocation
                                    ctx bindings instance-expr meth-name field-access args arg-count
