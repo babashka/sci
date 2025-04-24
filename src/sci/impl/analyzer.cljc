@@ -575,6 +575,12 @@
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
+(defn resolve-type-hint [ctx t]
+  (or (interop/resolve-type-hint ctx t)
+      (records/resolve-record-class ctx t)
+      (throw-error-with-location
+       (str "Unable to resolve classnamex: " t) t)))
+
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
   (if (> (count destructured-let-bindings)
@@ -601,10 +607,7 @@
                              binding-name (if (symbol? t)
                                             (vary-meta binding-name
                                                        assoc :tag-class
-                                                       (delay (or (interop/resolve-type-hint ctx t)
-                                                                  (records/resolve-record-class ctx t)
-                                                                  (throw-error-with-location
-                                                                   (str "Unable to resolve classnamex: " t) t))))
+                                                       (delay (resolve-type-hint ctx t)))
                                             binding-name)])
                    v (analyze ctx binding-value)
                    new-iden (gensym)
@@ -1062,9 +1065,14 @@
                                     has-types? (volatile! nil)])]
                       #?(:clj (when arg-types
                                 (areduce args idx _ret nil
-                                         (when-let [t (:tag-class (meta (aget args idx)))]
-                                           (vreset! has-types? true)
-                                           (aset arg-types idx (force t))))))
+                                         (let [arg-meta (meta (aget args idx))]
+                                           (if-let [t (:tag-class arg-meta)]
+                                             (do (vreset! has-types? true)
+                                                 (aset arg-types idx (force t)))
+                                             (when-let [t (:tag arg-meta)]
+                                               (let [t (resolve-type-hint ctx t)]
+                                                 (do (vreset! has-types? true)
+                                                     (aset arg-types idx (force t))))))))))
                       (with-meta (sci.impl.types/->Node
                                   (eval/eval-instance-method-invocation
                                    ctx bindings instance-expr meth-name field-access args arg-count
