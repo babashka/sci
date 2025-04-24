@@ -575,11 +575,12 @@
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
-(defn resolve-type-hint [ctx t]
-  (or (interop/resolve-type-hint ctx t)
-      (records/resolve-record-class ctx t)
-      (throw-error-with-location
-       (str "Unable to resolve classnamex: " t) t)))
+#?(:clj
+   (defn resolve-type-hint [ctx t]
+     (or (interop/resolve-type-hint ctx t)
+         (records/resolve-record-class ctx t)
+         (throw-error-with-location
+          (str "Unable to resolve classnamex: " t) t))))
 
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
