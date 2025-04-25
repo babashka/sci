@@ -1044,10 +1044,23 @@
                                                          args arg-count)
                            stack))))
                     (let [arg-count #?(:cljs nil :clj (count args))
-                          args (object-array args)]
+                          args (object-array args)
+                          #?@(:clj [^"[Ljava.lang.Class;" arg-types (when (and (pos? arg-count))
+                                                (make-array Class arg-count))
+                                    has-types? (volatile! nil)])]
+                      #?(:clj (when arg-types
+                                (areduce args idx _ret nil
+                                         (let [arg-meta (meta (aget args idx))]
+                                           (when-let [t (:tag arg-meta)]
+                                             (when-let [t (interop/resolve-type-hint ctx t)]
+                                               (do (vreset! has-types? true)
+                                                   (aset arg-types idx t))))))))
                       (with-meta (sci.impl.types/->Node
                                   (eval/eval-instance-method-invocation
-                                   ctx bindings instance-expr meth-name field-access args arg-count)
+                                   ctx bindings instance-expr meth-name field-access args arg-count
+                                   #?(:cljs nil
+                                      :clj (when @has-types?
+                                             arg-types)))
                                   stack)
                         {::instance-expr instance-expr
                          ::method-name method-name})))
@@ -1069,7 +1082,7 @@
                          (do
                            (sci.impl.types/->Node
                             (eval/eval-instance-method-invocation
-                             ctx bindings instance-expr meth-name field-access args allowed? nil)
+                             ctx bindings instance-expr meth-name field-access args allowed? nil nil)
                             stack)))
                        {::instance-expr instance-expr
                         ::method-name method-name}))))]
@@ -1601,7 +1614,7 @@
                                       (let [obj (sci.impl.types/eval obj ctx bindings)]
                                         (interop/invoke-instance-method ctx bindings obj clazz
                                                                         meth
-                                                                        children child-count))
+                                                                        children child-count nil))
                                       stack))])
                         #?@(:clj [(and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
                                   (invoke-constructor-node ctx (first f) (rest expr))])
@@ -1856,7 +1869,7 @@
    (let [m (meta expr)]
      (cond
        (constant? expr) (->constant expr)
-       (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false (:tag m))
+       (symbol? expr) (let [v (resolve/resolve-symbol ctx expr false m)
                             mv (meta v)]
                         (cond (constant? v) (->constant v)
                               (utils/var? v)
