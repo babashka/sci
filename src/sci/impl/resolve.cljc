@@ -170,10 +170,9 @@
                       (let [oi (:outer-idens ctx)
                             ob (oi v)]
                         (update-parents ctx (:closure-bindings ctx) ob)))
-              #?@(:clj [[tag tag-class] (if-let [t (:tag m)]
-                                          [t (:tag-class m)]
-                                          (when-let [m (meta k)]
-                                            [(:tag m) (:tag-class m)]))])
+              #?@(:clj [tag (or  (:tag m)
+                                 (when-let [m (meta k)]
+                                   (:tag m)))])
               mutable? (when track-mutable?
                          (when-let [m (some-> k meta)]
                            #?(:clj (or (:volatile-mutable m)
@@ -193,8 +192,7 @@
                                      (aget ^objects bindings idx)
                                      nil))
                             #?@(:clj [tag (with-meta
-                                            {:tag tag
-                                             :tag-class tag-class})])
+                                            {:tag tag})])
                             mutable? (vary-meta assoc :mutable true))]
                     v))]
           [k v]))
