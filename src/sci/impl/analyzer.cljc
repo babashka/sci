@@ -355,25 +355,25 @@
         body (:body fn-body)
         vararg-idx (:vararg-idx fn-body)]
     (sci.impl.types/->Node
-     (let [enclosed-array (bindings-fn bindings)
-           f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                      body invoc-size nsm vararg-idx)
-           f (if (nil? fn-meta) f
-                 (let [fn-meta (t/eval fn-meta ctx bindings)]
-                   (vary-meta f merge fn-meta)))
-           f (if macro?
-               (vary-meta f
-                          #(assoc %
-                                  :sci/macro macro?
-                                  ;; added for better error reporting
-                                  :sci.impl/inner-fn f))
-               f)]
-       (when self-ref?
-         (aset ^objects enclosed-array
-               self-ref-in-enclosed-idx
-               f))
-       f)
-     nil)))
+      (let [enclosed-array (bindings-fn bindings)
+            f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                       body invoc-size nsm vararg-idx)
+            f (if (nil? fn-meta) f
+                  (let [fn-meta (t/eval fn-meta ctx bindings)]
+                    (vary-meta f merge fn-meta)))
+            f (if macro?
+                (vary-meta f
+                           #(assoc %
+                                   :sci/macro macro?
+                                   ;; added for better error reporting
+                                   :sci.impl/inner-fn f))
+                f)]
+        (when self-ref?
+          (aset ^objects enclosed-array
+                self-ref-in-enclosed-idx
+                f))
+        f)
+      nil)))
 
 (defn multi-arity-fn-body [fn-body fn-name nsm]
   (let [fixed-arity (:fixed-arity fn-body)
@@ -516,7 +516,7 @@
                        (first bodies))
         nsm (utils/current-ns-name)
         self-ref-in-enclosed-idx (some-> enclosed-array-cnt dec)
-        ret (if single-arity
+        ret-node (if single-arity
               (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?)
               (let [arities (reduce
                              (fn [arity-map fn-body]
@@ -556,10 +556,13 @@
                            self-ref-in-enclosed-idx
                            f))
                    f)
-                 nil)))]
-    (if defn-name
-      (with-meta ret {:arglists (:arglists analyzed-bodies)})
-      ret)))
+                 nil)))
+        tag (:tag fn-expr-m)
+        arglists (when defn-name (:arglists analyzed-bodies))]
+    (cond-> ret-node
+      (or tag arglists)
+      (with-meta {:arglists arglists
+                  :tag tag}))))
 
 (defn update-parents
   ":syms = closed over values"
@@ -1050,7 +1053,8 @@
                                     has-types? (volatile! nil)])]
                       #?(:clj (when arg-types
                                 (areduce args idx _ret nil
-                                         (let [arg-meta (meta (aget args idx))]
+                                         (let [arg (aget args idx)
+                                               arg-meta (meta arg)]
                                            (when-let [t (:tag arg-meta)]
                                              (when-let [t (interop/resolve-type-hint ctx t)]
                                                (do (vreset! has-types? true)
