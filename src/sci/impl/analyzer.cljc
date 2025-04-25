@@ -575,10 +575,6 @@
         closure-idx (get-in new-cb (conj parents :syms ob))]
     closure-idx))
 
-#?(:clj
-   (defn resolve-type-hint [ctx t]
-     (interop/resolve-type-hint ctx t)))
-
 (defn analyze-let*
   [ctx expr destructured-let-bindings exprs]
   (if (> (count destructured-let-bindings)
@@ -1058,9 +1054,9 @@
                                 (areduce args idx _ret nil
                                          (let [arg-meta (meta (aget args idx))]
                                            (when-let [t (:tag arg-meta)]
-                                             (let [t (resolve-type-hint ctx t)]
+                                             (when-let [t (interop/resolve-type-hint ctx t)]
                                                (do (vreset! has-types? true)
-                                                   (aset arg-types idx (force t)))))))))
+                                                   (aset arg-types idx t))))))))
                       (with-meta (sci.impl.types/->Node
                                   (eval/eval-instance-method-invocation
                                    ctx bindings instance-expr meth-name field-access args arg-count

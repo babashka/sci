@@ -171,8 +171,7 @@
                             ob (oi v)]
                         (update-parents ctx (:closure-bindings ctx) ob)))
               #?@(:clj [tag (or  (:tag m)
-                                 (when-let [m (meta k)]
-                                   (:tag m)))])
+                                 (some-> k meta :tag))])
               mutable? (when track-mutable?
                          (when-let [m (some-> k meta)]
                            #?(:clj (or (:volatile-mutable m)
