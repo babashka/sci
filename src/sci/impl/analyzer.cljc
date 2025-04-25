@@ -989,9 +989,7 @@
                                  instance-expr
                                  (fn [m]
                                    (if-let [t (:tag m)]
-                                     (let [clazz (or (when (class? t)
-                                                       t)
-                                                     (interop/resolve-class ctx t)
+                                     (let [clazz (or (interop/resolve-class ctx t)
                                                      (records/resolve-record-class ctx t)
                                                      (throw-error-with-location
                                                       (str "Unable to resolve classname: " t) t))]
