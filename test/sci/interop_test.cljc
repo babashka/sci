@@ -333,30 +333,27 @@
 #?(:cljs (deftest local-interop-test
            (is (= 1 (tu/eval* "(let [j #js {:a (fn [] 1)}] (j.a))" nil)))))
 
+#?(:clj (def type-hint-config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}))
+
 #?(:clj
    (deftest type-hint-test
      (testing "string type hints"
        (is (string? (sci/eval-string "(defn read-string [^\"[B\" v] (String. v)) (read-string \"1\")"))))
      (testing "runnable"
        (testing "type hinting with runnable returns nil on futuretask get"
-         (let [config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}]
-           (is (nil? (sci/eval-string "(def fut (let [^java.lang.Runnable f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f))) (.get fut)" config)))))
+         (is (nil? (sci/eval-string "(def fut (let [^java.lang.Runnable f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f))) (.get fut)" type-hint-config))))
        (testing "type hinting on expression with runnable returns nil on futuretask get"
-         (let [config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}]
-           (is (nil? (sci/eval-string "(def fut (let [f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable f))) (.get fut)" config)))))
+         (is (nil? (sci/eval-string "(def fut (let [f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable f))) (.get fut)" type-hint-config))))
        (testing "type hinting on fn expression as argument with runnable returns nil on futuretask get"
-         (let [config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}]
-           (is (nil? (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable (fn [] 3))) (.get fut)" config)))))
+         (is (nil? (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable (fn [] 3))) (.get fut)" type-hint-config))))
+       (testing "type hinting on fn call expression as argument with runnable returns nil on futuretask get"
+         (is (nil? (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable (identity (fn [] 3)))) (.get fut)" type-hint-config))))
        (testing "type hinting fn argument with runnable returns nil on futuretask get"
-         (let [config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}]
-           (is (nil? (sci/eval-string "(defn fut [^Runnable f] (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable f)) (.get (fut (fn [] 3)))" config))))))
+         (is (nil? (sci/eval-string "(defn fut [^Runnable f] (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable f)) (.get (fut (fn [] 3)))" type-hint-config)))))
      (testing "callable"
        (testing "type hinting with callable returns nil on futuretask get"
-         (let [config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}]
-           (is (= 3 (sci/eval-string "(def fut (let [^java.util.concurrent.Callable f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f))) (.get fut)" config)))))
+         (is (= 3 (sci/eval-string "(def fut (let [^java.util.concurrent.Callable f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f))) (.get fut)" type-hint-config))))
        (testing "type hinting fn argument with callable returns nil on futuretask get"
-         (let [config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}]
-           (is (= 3 (sci/eval-string "(defn fut [^java.util.concurrent.Callable f] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f)) (.get (fut (fn [] 3)))" config)))))
+         (is (= 3 (sci/eval-string "(defn fut [^java.util.concurrent.Callable f] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f)) (.get (fut (fn [] 3)))" type-hint-config))))
        (testing "type hinting on fn expression as argument with Callable returns nil on futuretask get"
-         (let [config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}]
-           (is (= 3 (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.util.concurrent.Callable (fn [] 3))) (.get fut)" config))))))))
+         (is (= 3 (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.util.concurrent.Callable (fn [] 3))) (.get fut)" type-hint-config)))))))
