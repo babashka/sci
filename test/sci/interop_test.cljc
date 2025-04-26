@@ -340,8 +340,10 @@
      (testing "string type hints"
        (is (string? (sci/eval-string "(defn read-string [^\"[B\" v] (String. v)) (read-string \"1\")"))))
      (testing "runnable"
-       (testing "type hinting with runnable returns nil on futuretask get"
+       (testing "type hinting local with runnable returns nil on futuretask get"
          (is (nil? (sci/eval-string "(def fut (let [^java.lang.Runnable f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f))) (.get fut)" type-hint-config))))
+       (testing "type hinting local on value with runnable returns nil on futuretask get"
+         (is (nil? (sci/eval-string "(def fut (let [f ^java.lang.Runnable (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f))) (.get fut)" type-hint-config))))
        (testing "type hinting on expression with runnable returns nil on futuretask get"
          (is (nil? (sci/eval-string "(def fut (let [f (fn [] 3)] (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.lang.Runnable f))) (.get fut)" type-hint-config))))
        (testing "type hinting on fn expression as argument with runnable returns nil on futuretask get"
