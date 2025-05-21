@@ -53,10 +53,10 @@
 (defn type-impl2
   "Externally available type implementation."
   [x]
-  (or (when (#?(:clj instance?
+  (or (some-> x meta :type)
+      (when (#?(:clj instance?
                 :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
         (-get-type x))
-      (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
 

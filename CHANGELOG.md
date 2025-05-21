@@ -15,6 +15,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#957](https://github.com/babashka/sci/issues/957): `sci.async/eval-string+` should return promise with `:val nil` for ns form rather than `:val <Promise>`
 - Fix [#959](https://github.com/babashka/sci/issues/959): Java interop improvement: instance method invocation now leverages type hints
 - Bump edamame to `1.4.30`
+- Give metadata `:type` key priority in `type` implementation
 
 ## 0.9.45 (2025-03-11)
 

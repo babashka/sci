@@ -1658,7 +1658,8 @@
         (is (= 6 (sci/eval-form ctx case)))))))
 
 (deftest type-test
-  (is (= :user/foo (sci/eval-string "(def x ^{:type ::foo} []) (type x)"))))
+  (is (= :user/foo (sci/eval-string "(def x ^{:type ::foo} []) (type x)")))
+  (is (= :my-custom-type (sci/eval-string "(do (defrecord Person [name age]) (let [r (with-meta (->Person \"John\" 30) {:type :my-custom-type})] (type r)))"))))
 
 (deftest conditional-var-test
   ;; NOTE: :file is not conform Clojure JVM, maybe fix this another day
