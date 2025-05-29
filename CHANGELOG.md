@@ -16,6 +16,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#959](https://github.com/babashka/sci/issues/959): Java interop improvement: instance method invocation now leverages type hints
 - Bump edamame to `1.4.30`
 - Give metadata `:type` key priority in `type` implementation
+- Fix [#967](https://github.com/babashka/sci/issues/967): `ns-name` should work on symbols
 
 ## 0.9.45 (2025-03-11)
 
