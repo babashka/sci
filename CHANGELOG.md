@@ -17,6 +17,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Bump edamame to `1.4.30`
 - Give metadata `:type` key priority in `type` implementation
 - Fix [#967](https://github.com/babashka/sci/issues/967): `ns-name` should work on symbols
+- Fix [#969](https://github.com/babashka/sci/issues/969): `^:clojure.core/eval-file` metadata should affect binding of `*file*` during evaluation
 
 ## 0.9.45 (2025-03-11)
 

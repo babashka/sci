@@ -1489,9 +1489,14 @@
     (let [data (try (sci/eval-string "^{:clojure.core/eval-file \"dude.clj\"} (let [x :foo] (assoc x :hello 1))")
                     (catch #?(:clj Exception :cljs :default) e
                       (ex-data e)))]
-      ;; TODO:
-      #_(is (= :foo (get (:locals data) 'x)))
-      (is (= "dude.clj" (:file data))))))
+      (is (= "dude.clj" (:file data)))))
+  (testing "eval at runtime"
+    (let [data (sci/eval-string "^{:clojure.core/eval-file \"dude.clj\"} [{:a *file*}]")]
+      (is (= "dude.clj" (-> data first :a))))
+    (let [data (sci/eval-string "^{:clojure.core/eval-file \"dude.clj\"} [{:a *file*}]")]
+      (is (= "dude.clj" (-> data first :a))))
+    (let [data (sci/eval-string "(load-string \"^{:clojure.core/eval-file \\\"dude.clj\\\"} {:a [*file*]}\")")]
+      (is (= "dude.clj" (-> data :a first))))))
 
 #?(:cljs
    (deftest eval-js-obj-test
