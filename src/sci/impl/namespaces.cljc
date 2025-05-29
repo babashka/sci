@@ -412,9 +412,6 @@
 
 ;;;; Namespaces / vars
 
-(defn sci-ns-name [^sci.lang.Namespace ns]
-  (types/getName ns))
-
 (defn sci-alias [ctx alias-sym ns-sym]
   (swap! (:env ctx)
          (fn [env]
@@ -442,9 +439,12 @@
           (throw (new #?(:clj Exception :cljs js/Error)
                       (str "No namespace: " x " found"))))))
 
+(defn sci-ns-name [ctx ns]
+  (let [^sci.lang.Namespace ns (sci-the-ns ctx ns)]
+    (types/getName ns)))
+
 (defn sci-ns-aliases [ctx sci-ns]
-  (let [sci-ns (sci-the-ns ctx sci-ns)
-        name (sci-ns-name sci-ns)
+  (let [name (sci-ns-name ctx sci-ns)
         aliases (get-in @(:env ctx) [:namespaces name :aliases])]
     (zipmap (keys aliases)
             (map (fn [sym]
@@ -455,15 +455,13 @@
   (dissoc m :aliases :imports :obj :refer :refers))
 
 (defn sci-ns-interns [ctx sci-ns]
-  (let [sci-ns (sci-the-ns ctx sci-ns)
-        name (sci-ns-name sci-ns)
+  (let [name (sci-ns-name ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     m))
 
 (defn sci-ns-publics [ctx sci-ns]
-  (let [sci-ns (sci-the-ns ctx sci-ns)
-        name (sci-ns-name sci-ns)
+  (let [name (sci-ns-name ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     (into {} (keep (fn [[k v]]
@@ -472,8 +470,7 @@
                    m))))
 
 (defn sci-ns-imports [ctx sci-ns]
-  (let [sci-ns (sci-the-ns ctx sci-ns)
-        name (sci-ns-name sci-ns)
+  (let [name (sci-ns-name ctx sci-ns)
         env @(:env ctx)
         global-imports (:imports env)
         namespace-imports (get-in env [:namespaces name :imports])
@@ -483,8 +480,7 @@
     (zipmap all-aliased (map (comp :class #(get class-opts %)) all-imports))))
 
 (defn sci-ns-refers [ctx sci-ns]
-  (let [sci-ns (sci-the-ns ctx sci-ns)
-        name (sci-ns-name sci-ns)
+  (let [name (sci-ns-name ctx sci-ns)
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])
         clojure-core (get-in env [:namespaces 'clojure.core])
@@ -500,8 +496,7 @@
   (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
   (swap! (:env ctx)
          (fn [env]
-           (let [sci-ns (sci-the-ns ctx sci-ns)
-                 name (sci-ns-name sci-ns)]
+           (let [name (sci-ns-name ctx sci-ns)]
              (update-in env [:namespaces name]
                         (fn [the-ns-map]
                           (cond (contains? (:refers the-ns-map) sym)
@@ -522,7 +517,7 @@
 (defn sci-ns-unalias [ctx sci-ns sym]
   (swap! (:env ctx)
          (fn [env]
-           (update-in env [:namespaces (sci-ns-name (sci-the-ns ctx sci-ns)) :aliases] dissoc sym)))
+           (update-in env [:namespaces (sci-ns-name ctx sci-ns) :aliases] dissoc sym)))
   nil)
 
 (defn sci-all-ns [ctx]
@@ -541,7 +536,7 @@
   ;; in this case the var will become unbound
   ([ctx ns var-sym]
    (let [ns (sci-the-ns ctx ns)
-         ns-name (sci-ns-name ns)
+         ns-name (types/getName ns)
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
          (let [var-name (symbol (str ns-name) (str var-sym))
@@ -551,7 +546,7 @@
            new-var))))
   ([ctx ns var-sym val]
    (let [ns (sci-the-ns ctx ns)
-         ns-name (sci-ns-name ns)
+         ns-name (types/getName ns)
          env (:env ctx)]
      (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
            (sci.impl.vars/bindRoot v val)
@@ -717,7 +712,7 @@
                                         ns (:ns m)
                                         nm (:name m)]
                                     (when (and ns nm)
-                                      (symbol (str (sci-ns-name ns))
+                                      (symbol (str (types/getName ns))
                                               (str (clojure.core/name nm)))))
        (symbol name)))
   ([ns name] (symbol ns name)))
@@ -1490,7 +1485,7 @@
      'ns-map (copy-var sci-ns-map clojure-core-ns {:name 'ns-map :ctx true})
      'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:ctx true :name 'ns-unmap})
      'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:ctx true :name 'ns-unalias})
-     'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name})
+     'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name :ctx true})
      'odd? (copy-core-var odd?)
      #?@(:cljs ['object? (copy-core-var object?)])
      'object-array (copy-core-var object-array)
@@ -1727,7 +1722,7 @@
          macro? (:macro m)]
      (sci.impl.io/println "-------------------------")
      (sci.impl.io/println (str (when-let [ns* (:ns m)]
-                                 (str (sci-ns-name ns*) "/"))
+                                 (str (types/getName ns*) "/"))
                                (:name m)))
      (when arglists (sci.impl.io/println arglists))
      (when macro? (sci.impl.io/println "Macro"))
@@ -1750,7 +1745,7 @@
          ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
                             (sci-all-ns ctx))
                     (map #(assoc (meta %)
-                                 :name (sci-ns-name %)) (sci-all-ns ctx))
+                                 :name (types/getName %)) (sci-all-ns ctx))
                     #_(map special-doc (keys special-doc-map)))]
      (doseq [m ms
              :when (and (:doc m)
@@ -1813,7 +1808,7 @@
                                          (let [f (jio/file file)]
                                            (when (.exists f) (slurp f)))))
                                (when-let [load-fn (:load-fn @(:env ctx))]
-                                 (:source (load-fn {:namespace (sci-ns-name ns)}))))]
+                                 (:source (load-fn {:namespace (types/getName ns)}))))]
            (let [lines (clojure.string/split source #"\n")
                  line (dec line)
                  start (clojure.string/join "\n" (drop line lines))
@@ -1860,7 +1855,7 @@
       (let [file (.getFileName el)
             clojure-fn? (and file (or (.endsWith file ".clj")
                                       (.endsWith file ".cljc")
-                                      (= file "NO_SOURCE_FILE")))]
+                                      (= "NO_SOURCE_FILE" file)))]
         (str (if clojure-fn?
                (demunge (.getClassName el))
                (str (.getClassName el) "." (.getMethodName el)))
