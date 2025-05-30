@@ -46,7 +46,7 @@
   {:arglists '([name docstring? attr-map? dispatch-fn & options])}
   [_ _ ctx mm-name & options]
   (let [[ctx mm-name options] (if (symbol? ctx)
-                                [nil ctx mm-name options]
+                                [nil ctx (cons mm-name options)]
                                 [ctx mm-name options])
         docstring   (if (string? (first options))
                       (first options)
