@@ -273,7 +273,8 @@
                 :doc "A sci.lang.Namespace object representing the current namespace."}))
 
 (defn current-ns-name []
-  (t/getName @current-ns))
+  (let [curr-ns @current-ns]
+    (if (symbol? curr-ns) curr-ns (t/getName curr-ns))))
 
 (defn new-var
   "Returns a new sci var."
