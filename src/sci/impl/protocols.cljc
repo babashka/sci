@@ -30,7 +30,7 @@
                                       [arglists nil])]
                  [(keyword name) {:name name :arglists arglists :doc doc}])) signatures)))
 
-(defn defprotocol [_ _ _ctx protocol-name & signatures]
+(defn defprotocol [_ _ protocol-name & signatures]
   (let [[docstring signatures]
         (let [sig (first signatures)]
           (if (string? sig) [sig (rest signatures)]
@@ -54,7 +54,7 @@
                                            :var (var ~fq-name)}
                                         ~extend-meta (assoc :extend-via-metadata true)))
            ~@(map (fn [[method-name & _]]
-                    (let [fq-name (symbol (str current-ns) (str method-name))
+                    (let [fq-name (symbol current-ns (str method-name))
                           method-meta (select-keys (get sigs-map (keyword method-name)) [:doc :arglists])
                           ; re-quote arglists
                           method-meta (update method-meta :arglists (fn [a] (list 'quote a)))
