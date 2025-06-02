@@ -1725,9 +1725,13 @@
 (defprotocol Foo)
 (eval (apply #'extend-protocol nil nil 'Foo '[String]))
 (satisfies? Foo \"dude\")")))
-         (is (true? (sci/eval-string "(eval (apply #'defmulti nil nil 'my-multi '[identity]))
+         (is (true? (sci/eval-string* ctx "
+(defprotocol Foo)
+(eval (apply #'extend-type nil nil 'String '[Foo]))
+(satisfies? Foo \"dude\")")))
+         (is (true? (sci/eval-string* ctx "(eval (apply #'defmulti nil nil 'my-multi '[identity]))
 (some? (resolve 'my-multi))")))
-         (is (true? (sci/eval-string "(eval (apply #'defrecord nil nil 'Foo '[[]]))
+         (is (true? (sci/eval-string* ctx "(eval (apply #'defrecord nil nil 'Foo '[[]]))
 (some? (->Foo))")))))))
 
 ;;;; Scratch
