@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [deftype])
   (:require
+   [sci.ctx-store :as store]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
@@ -87,10 +88,14 @@
    (defmethod print-method SciType [v w]
      (-sci-print-method v w)))
 
-(defn deftype [[_fname & _ :as form] _ ctx record-name fields & raw-protocol-impls]
+(defn deftype [[_fname & _ :as form] _ ctx record-name & fields+raw-protocol-impls]
   (if (:sci.impl/macroexpanding ctx)
     (cons 'clojure.core/deftype (rest form))
-    (let [factory-fn-str (str "->" record-name)
+    (let [[ctx record-name fields raw-protocol-impls]
+          (if (symbol? ctx)
+            [nil ctx record-name fields+raw-protocol-impls]
+            [ctx record-name (first fields+raw-protocol-impls) (rest fields+raw-protocol-impls)])
+          factory-fn-str (str "->" record-name)
           factory-fn-sym (symbol factory-fn-str)
           rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
           protocol-impls (utils/split-when symbol? raw-protocol-impls)

@@ -1732,6 +1732,8 @@
          (is (true? (sci/eval-string* ctx "(eval (apply #'defmulti nil nil 'my-multi '[identity]))
 (some? (resolve 'my-multi))")))
          (is (true? (sci/eval-string* ctx "(eval (apply #'defrecord nil nil 'Foo '[[]]))
+(some? (->Foo))")))
+         (is (true? (sci/eval-string* ctx "(eval (apply #'deftype nil nil 'Foo '[[]]))
 (some? (->Foo))")))))))
 
 ;;;; Scratch
