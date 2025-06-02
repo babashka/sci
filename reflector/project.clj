@@ -1,4 +1,4 @@
-(defproject borkdude/sci.impl.reflector "0.0.4"
+(defproject borkdude/sci.impl.reflector "0.0.5"
   :dependencies [[org.clojure/clojure "1.9.0"]]
   :description "JVM reflection support for SCI"
   :licence "MIT"
