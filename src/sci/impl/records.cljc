@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
   (:require [clojure.string :as str]
+            [sci.ctx-store :as store]
             [sci.impl.protocols :as protocols]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
@@ -246,10 +247,14 @@
    :cljs (defn ->record-impl [rec-name type var m]
            (SciRecord. rec-name type var m nil)))
 
-(defn defrecord [[_fname & _ :as form] _ ctx record-name fields & raw-protocol-impls]
+(defn defrecord [[_fname & _ :as form] _ ctx record-name & fields+raw-protocol-impls]
   (if (:sci.impl/macroexpanding ctx)
     (cons 'clojure.core/defrecord (rest form))
-    (let [factory-fn-str (str "->" record-name)
+    (let [[ctx record-name fields raw-protocol-impls]
+          (if (symbol? ctx)
+            [(store/get-ctx) ctx record-name fields+raw-protocol-impls]
+            [ctx record-name (first fields+raw-protocol-impls) (next fields+raw-protocol-impls)])
+          factory-fn-str (str "->" record-name)
           factory-fn-sym (symbol factory-fn-str)
           constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
           map-factory-sym (symbol (str "map" factory-fn-str))
