@@ -1726,7 +1726,9 @@
 (eval (apply #'extend-protocol nil nil 'Foo '[String]))
 (satisfies? Foo \"dude\")")))
          (is (true? (sci/eval-string "(eval (apply #'defmulti nil nil 'my-multi '[identity]))
-(some? (resolve 'my-multi))")))))))
+(some? (resolve 'my-multi))")))
+         (is (true? (sci/eval-string "(eval (apply #'defrecord nil nil 'Foo '[[]]))
+(some? (->Foo))")))))))
 
 ;;;; Scratch
 
