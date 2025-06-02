@@ -359,7 +359,7 @@
 (defn ns-name
   "Returns name of SCI ns as symbol."
   [sci-ns]
-  (namespaces/sci-ns-name sci-ns))
+  (t/getName sci-ns))
 
 (defn -copy-ns
   {:no-doc true}
