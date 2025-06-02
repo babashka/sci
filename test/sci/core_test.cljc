@@ -5,7 +5,8 @@
    [clojure.test :as test :refer [deftest is testing]]
    [sci.copy-ns-test-ns]
    [sci.core :as sci :refer [eval-string]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   [sci.ctx-store :as store]))
 
 #?(:cljs (def Exception js/Error))
 
@@ -1715,6 +1716,16 @@
                                                                                :allow :all}})))
      (is (false? (sci/eval-string "(exists? console.log)" {:classes {'js js/globalThis
                                                                      :allow :all}})))))
+
+(deftest macros-can-be-used-with-apply-test
+  (let [ctx (sci/init {})]
+    (store/with-ctx ctx
+      (is (true? (sci/eval-string* ctx "
+(defprotocol Foo)
+(eval (apply #'extend-protocol nil nil 'Foo '[String]))
+(satisfies? Foo \"dude\")")))
+      (is (true? (sci/eval-string "(eval (apply #'defmulti nil nil 'my-multi '[identity]))
+(some? (resolve 'my-multi))"))))))
 
 ;;;; Scratch
 

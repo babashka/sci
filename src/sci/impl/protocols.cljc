@@ -4,6 +4,7 @@
                             extend extend-type reify satisfies?
                             extends? implements? type->str])
   (:require
+   [sci.ctx-store :as store]
    #?(:clj [sci.impl.interop :as interop])
    [sci.impl.deftype]
    [sci.impl.multimethods :as mms]
@@ -206,7 +207,11 @@
   (str t))
 
 (defn extend-protocol [form _ ctx protocol-name & impls]
-  (let [#?@(:cljs [print-writer? (= 'IPrintWithWriter protocol-name)])
+  (let [[ctx protocol-name impls] (if (symbol? ctx)
+                                    [nil ctx (cons protocol-name impls)]
+                                    [ctx protocol-name impls])
+        ctx (or ctx (store/get-ctx))
+        #?@(:cljs [print-writer? (= 'IPrintWithWriter protocol-name)])
         impls (utils/split-when #(not (seq? %)) impls)
         protocol-var
         (or (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
