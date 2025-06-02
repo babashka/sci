@@ -2,7 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [proxy]))
 
-(defn proxy [form _ _ctx classes _args & methods]
+(defn proxy [form _ classes _args & methods]
   (let [abstract-class (first classes)
         interfaces (vec (rest classes))
         methods (into {}
