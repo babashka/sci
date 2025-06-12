@@ -48,9 +48,9 @@
 (deftype TBox #?(:clj [thread ^:volatile-mutable val]
                  :cljs [thread ^:mutable val])
   t/IBox
-  (setVal [this v]
+  (setVal [_this v]
     (set! val v))
-  (getVal [this] val))
+  (getVal [_this] val))
 
 (defn clone-thread-binding-frame ^Frame []
   (let [^Frame f #?(:clj (.get dvals)
