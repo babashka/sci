@@ -161,7 +161,7 @@
     ("clojure.core" "cljs.core") (symbol (name sym))
     sym))
 
-(def allowed-loop (symbol "loop"))
+(def allowed-loop (symbol "clojure.core/loop"))
 (def allowed-recur (symbol "recur"))
 (def var-unbound #?(:clj (Object.)
                     :cljs (js/Object.)))

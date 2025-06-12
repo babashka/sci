@@ -745,6 +745,12 @@
 " {})))
   (is (= 1 (tu/eval* "
 (let [let 1] (loop [x 1] x))"
+                     {})))
+  (is (= [1 2 3] (tu/eval* "
+(ns exclude-loop (:refer-clojure :exclude [loop]))
+(def state (atom []))
+(doseq [i [1 2 3]] (swap! state conj i))
+@state"
                      {}))))
 
 (deftest for-test
