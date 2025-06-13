@@ -118,7 +118,11 @@
                    "(Class/forName \"java.lang.String\")"
                    {:imports {'Class 'java.lang.Class}
                     :classes {'java.lang.Class {:class Class
-                                                :static-methods {'forName (fn [_Class _forName] :dude)}}}})))))
+                                                :static-methods {'forName (fn [_Class _forName] :dude)}}}})))
+     (is (= :dude (sci/eval-string
+                   "(sci.lang.Var/cloneThreadBindings)"
+                   {:classes {'sci.lang.Var {:class sci.lang.Var
+                                             :static-methods {'cloneThreadBindings (fn [_Class] :dude)}}}})))))
 
 #?(:clj
    (deftest clojure-1_12-interop-test
