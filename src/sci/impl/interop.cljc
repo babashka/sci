@@ -123,6 +123,8 @@
             (get-in env [:imports sym]))))))
 
 (defn resolve-class-opts [ctx sym]
+  ;; note, we can't re-use fully-qualify class in this function, although it's
+  ;; almost the same, since `js/Foo` stays fully qualified
   (let [env @(:env ctx)
         class->opts (:class->opts env)
         class-opts (or #?(:clj (get class->opts sym)
