@@ -1012,12 +1012,12 @@
                     (let [static-method
                           #(let [arg-count (count args)
                                  args (object-array args)
-                                 class-expr (:class-expr (meta expr))
-                                 fq-class (interop/fully-qualify-class ctx class-expr)]
+                                 class-expr (:class-expr (meta expr))]
                              ;; prefab static-methods
                              (if-let [f (some-> ctx :env deref
                                                 :class->opts :static-methods
-                                                (get fq-class) (get method-expr))]
+                                                (get (interop/fully-qualify-class ctx class-expr))
+                                                (get method-expr))]
                                (return-call ctx expr f (cons instance-expr args) stack nil)
                                (sci.impl.types/->Node
                                 (interop/invoke-static-method ctx bindings instance-expr method-name
