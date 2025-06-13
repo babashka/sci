@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#967](https://github.com/babashka/sci/issues/967): `ns-name` should work on symbols
 - Fix [#969](https://github.com/babashka/sci/issues/969): `^:clojure.core/eval-file` metadata should affect binding of `*file*` during evaluation
 - Sync `sci.impl.Reflector` with changes in `clojure.lang.Reflector` in clojure 1.12.1
+- Fix `:static-methods` option for class with different name in host
 
 ## 0.9.45 (2025-03-11)
 
