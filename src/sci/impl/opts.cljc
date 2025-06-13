@@ -124,7 +124,7 @@
        (if (map? class-opts)
          (if-let [sm (:static-methods class-opts)]
            (-> (assoc! class->opts sym class-opts)
-               (assoc! :static-methods (assoc (:static-methods class->opts) (str sym) sm)))
+               (assoc! :static-methods (assoc (:static-methods class->opts) sym sm)))
            (assoc! class->opts sym class-opts))
          (assoc! class->opts sym {:class class-opts}))
        (rest kvs))

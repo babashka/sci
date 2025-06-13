@@ -1009,43 +1009,42 @@
                            :ns @utils/current-ns
                            :file @utils/current-file)]
           #?(:clj (if (class? instance-expr)
-                    (if (nil? args)
-                      (if field-access
-                        (let [method-name (subs method-name 1)]
-                          (sci.impl.types/->Node
-                           (interop/get-static-field instance-expr method-name)
-                           stack))
-                        ;; https://clojure.org/reference/java_interop
-                        ;; If the second operand is a symbol and no args are
-                        ;; supplied it is taken to be a field access - the
-                        ;; name of the field is the name of the symbol, and
-                        ;; the value of the expression is the value of the
-                        ;; field, unless there is a no argument public method
-                        ;; of the same name, in which case it resolves to a
-                        ;; call to the method.
-                        (if-let [_
-                                 (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
-                                      (catch IllegalArgumentException _ nil))]
-                          (sci.impl.types/->Node
-                           (interop/get-static-field instance-expr method-name)
-                           stack)
-                          (let [arg-count (count args)
-                                args (object-array args)]
+                    (let [static-method
+                          #(let [arg-count (count args)
+                                 args (object-array args)
+                                 class-expr (:class-expr (meta expr))]
+                             ;; prefab static-methods
+                             (if-let [f (some-> ctx :env deref
+                                                :class->opts :static-methods
+                                                (get (interop/fully-qualify-class ctx class-expr))
+                                                (get method-expr))]
+                               (return-call ctx expr f (cons instance-expr args) stack nil)
+                               (sci.impl.types/->Node
+                                (interop/invoke-static-method ctx bindings instance-expr method-name
+                                                              args arg-count)
+                                stack)))]
+                      (if (nil? args)
+                        (if field-access
+                          (let [method-name (subs method-name 1)]
                             (sci.impl.types/->Node
-                             (interop/invoke-static-method ctx bindings instance-expr method-name
-                                                           args arg-count)
-                             stack))))
-                      (let [arg-count (count args)
-                            args (object-array args)]
-                        ;; prefab static-methods
-                        (if-let [f (some-> ctx :env deref
-                                           :class->opts :static-methods
-                                           (get (.getName ^Class instance-expr)) (get method-expr))]
-                          (return-call ctx expr f (cons instance-expr args) stack nil)
-                          (sci.impl.types/->Node
-                           (interop/invoke-static-method ctx bindings instance-expr method-name
-                                                         args arg-count)
-                           stack))))
+                             (interop/get-static-field instance-expr method-name)
+                             stack))
+                          ;; https://clojure.org/reference/java_interop
+                          ;; If the second operand is a symbol and no args are
+                          ;; supplied it is taken to be a field access - the
+                          ;; name of the field is the name of the symbol, and
+                          ;; the value of the expression is the value of the
+                          ;; field, unless there is a no argument public method
+                          ;; of the same name, in which case it resolves to a
+                          ;; call to the method.
+                          (if-let [_
+                                   (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
+                                        (catch IllegalArgumentException _ nil))]
+                            (sci.impl.types/->Node
+                             (interop/get-static-field instance-expr method-name)
+                             stack)
+                            (static-method)))
+                        (static-method)))
                     (let [arg-count #?(:cljs nil :clj (count args))
                           args (object-array args)
                           #?@(:clj [^"[Ljava.lang.Class;" arg-types (when (and (pos? arg-count))
@@ -1550,8 +1549,9 @@
                     f (or fast-path f)]
                 (cond (and f-meta (::static-access f-meta))
                       #?(:clj
-                         (expand-dot** ctx (with-meta (list* '. (first f) (second f) (rest expr))
-                                             m))
+                         (let [[clazz meth class-expr] f]
+                           (analyze-dot ctx (with-meta (list* '. clazz meth (rest expr))
+                                              (assoc m :class-expr class-expr))))
                          :cljs
                          (let [[class method-path] f
                                last-path (last method-path)

@@ -115,11 +115,16 @@
                        sym))
                    (when (contains? class->opts sym)
                      sym)))
-        (get (:imports env) sym)
-        (let [cnn (utils/current-ns-name)]
-          (get-in env [:namespaces cnn :imports sym])))))
+        (let [cnn (utils/current-ns-name)
+              imports (get-in env [:namespaces cnn :imports])]
+          (if-let [[_ v] (find imports sym)]
+            ;; finding a nil v means the object was unmapped
+            v
+            (get-in env [:imports sym]))))))
 
 (defn resolve-class-opts [ctx sym]
+  ;; note, we can't re-use fully-qualify class in this function, although it's
+  ;; almost the same, since `js/Foo` stays fully qualified
   (let [env @(:env ctx)
         class->opts (:class->opts env)
         class-opts (or #?(:clj (get class->opts sym)

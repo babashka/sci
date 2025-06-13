@@ -70,7 +70,8 @@
             [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
                    (with-meta
                      [clazz #?(:clj sym-name
-                               :cljs (.split (str sym-name) "."))]
+                               :cljs (.split (str sym-name) "."))
+                      sym-ns]
                      #?(:clj
                         (if (= "new" sym-name-str)
                           {:sci.impl.analyzer/invoke-constructor true}

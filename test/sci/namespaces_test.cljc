@@ -205,7 +205,9 @@
                      (ns-unmap *ns* 'cake)
                      (def resolved (resolve 'cake))
                      (intern *ns* 'cake "bar")
-                     [resolved cake]))))))))
+                     [resolved cake])))))))
+  (testing "unmapping Class and then fully qualifying it"
+    (is (= 'user/String (eval* "(ns-unmap *ns* 'String) `String ;;=> user/String")))))
 
 (deftest find-var-test
   (is (eval* "(= #'clojure.core/map (find-var 'clojure.core/map))"))
