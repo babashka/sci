@@ -1017,7 +1017,7 @@
                              ;; prefab static-methods
                              (if-let [f (some-> ctx :env deref
                                                 :class->opts :static-methods
-                                                (get (str fq-class)) (get method-expr))]
+                                                (get fq-class) (get method-expr))]
                                (return-call ctx expr f (cons instance-expr args) stack nil)
                                (sci.impl.types/->Node
                                 (interop/invoke-static-method ctx bindings instance-expr method-name
