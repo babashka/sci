@@ -4,7 +4,7 @@
    [sci.impl.cljs]
    [sci.impl.macros :as macros]
    [sci.impl.utils :as utils :refer [clojure-core-ns]]
-   [sci.lang])
+   [sci.lang :as lang])
   #?(:cljs (:require-macros [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -106,14 +106,14 @@
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if macro
         (macros/? :clj
-                  #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx nil)
-                     :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil))
-                  :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil))
+                  #?(:clj  `(utils/->Var ~(deref the-var) ~nm ~varm false ~ctx nil)
+                     :cljs `(utils/->Var ~init ~nm ~varm false ~ctx nil))
+                  :cljs `(utils/->Var ~init ~nm ~varm false ~ctx nil))
         (if elide-vars
             (if (or dyn ctx)
-              `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil)
+              `(utils/->Var ~init ~nm ~varm false ~ctx nil)
               sym)
-           `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil)))))
+            `(utils/->Var ~init ~nm ~varm false ~ctx nil)))))
   (defmacro copy-core-var
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))

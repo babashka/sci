@@ -74,8 +74,7 @@
   (dynamic? [this]))
 
 (defprotocol CtxVar
-  (needs-ctx? [this])
-  (needs-ctx! [this]))
+  (needs-ctx? [this]))
 
 (extend-type #?(:clj Object :cljs default)
   DynVar
@@ -205,6 +204,57 @@
 
 (defn built-in-var? [var-meta]
   (:sci/built-in var-meta))
+
+(deftype CtxFn [f]
+  ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
+  #?(:clj clojure.lang.IFn :cljs IFn)
+  (#?(:clj invoke :cljs -invoke) [_this]
+    (f))
+  (#?(:clj invoke :cljs -invoke) [_this a]
+    (f a))
+  (#?(:clj invoke :cljs -invoke) [_this a b]
+    (f a b))
+  (#?(:clj invoke :cljs -invoke) [_this a b c]
+    (f a b c))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d]
+    (f a b c d))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e]
+    (f a b c d e))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f]
+    (f a b c d e f))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g]
+    (f a b c d e f g))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h]
+    (f a b c d e f g h))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i]
+    (f a b c d e f g h i))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j]
+    (f a b c d e f g h i j))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k]
+    (f a b c d e f g h i j k))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l]
+    (f a b c d e f g h i j k l))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m]
+    (f a b c d e f g h i j k l m))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n]
+    (f a b c d e f g h i j k l m n))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n o]
+    (f a b c d e f g h i j k l m n o))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n o p]
+    (f a b c d e f g h i j k l m n o p))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n o p q]
+    (f a b c d e f g h i j k l m n o p q))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n o p q r]
+    (f a b c d e f g h i j k l m n o p q r))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n o p q r s]
+    (f a b c d e f g h i j k l m n o p q r s))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n o p q r s t]
+    (f a b c d e f g h i j k l m n o p q r s t))
+  (#?(:clj invoke :cljs -invoke) [_this a b c d e f g h i j k l m n o p q r s t rest]
+    (apply f a b c d e f g h i j k l m n o p q r s t rest))
+  #?(:clj
+     (applyTo [_this args]
+              (apply f args))))
 
 (macros/deftime
   (defmacro with-writeable-var

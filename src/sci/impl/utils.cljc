@@ -1,6 +1,6 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:refer-clojure :exclude [eval demunge var?])
+  (:refer-clojure :exclude [eval demunge var? ->Var])
   (:require [clojure.string :as str]
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
@@ -276,13 +276,17 @@
   (let [curr-ns @current-ns]
     (if (symbol? curr-ns) curr-ns (t/getName curr-ns))))
 
+(defn ->Var [root sym meta thread-bound needs-ctx watches]
+  (let [root (if needs-ctx (vars/->CtxFn root) root)]
+    (sci.lang.Var. root sym meta thread-bound needs-ctx watches)))
+
 (defn new-var
   "Returns a new sci var."
   ([name] (doto (new-var name nil nil false)
             (vars/unbind)))
   ([name init-val] (new-var name init-val (meta name) false))
   ([name init-val meta] (new-var name init-val meta false))
-  ([name init-val meta ctx?] (sci.lang.Var. init-val name (assoc meta :name (unqualify-symbol name)) false ctx? nil)))
+  ([name init-val meta ctx?] (->Var init-val name (assoc meta :name (unqualify-symbol name)) false ctx? nil)))
 
 (defn var? [x]
   (instance? sci.lang.Var x))

@@ -1931,19 +1931,19 @@
  (def clojure-edn-namespace (sci.lang/->Namespace 'clojure.edn nil))
 
  (def macroexpand-all
-   (sci.lang.Var. (fn [ctx form]
-                    (clojure.walk/prewalk
-                     (fn [x]
-                       (if (seq? x)
-                         (@sci.impl.utils/macroexpand* ctx x) x))
-                     form))
-                  'macroexpand-all
-                  {:ns clojure-walk-namespace
-                   :name 'macroexpand-all
-                   :doc "Recursively performs all possible macroexpansions in form."}
-                  false
-                  true
-                  nil))
+   (utils/->Var (fn [ctx form]
+                  (clojure.walk/prewalk
+                   (fn [x]
+                     (if (seq? x)
+                       (@sci.impl.utils/macroexpand* ctx x) x))
+                   form))
+                'macroexpand-all
+                {:ns clojure-walk-namespace
+                 :name 'macroexpand-all
+                 :doc "Recursively performs all possible macroexpansions in form."}
+                false
+                true
+                nil))
 
  (def clojure-walk-ns
    {:obj clojure-walk-namespace
@@ -1963,7 +1963,7 @@
  )
 
 (macros/usetime
- 
+
  ;; #_#?(:clj (alter-var-root #'clojure-core assoc
  ;;                       'locking (macrofy 'locking locking*)
  ;;                       '-locking-impl (copy-var -locking-impl clojure-core-ns))

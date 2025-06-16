@@ -251,8 +251,8 @@
      (applyTo [this args]
               (apply @this args)))
   vars/CtxVar
-  (needs-ctx? [_] needs-ctx)
-  (needs-ctx! [_] (set! needs-ctx true)))
+  (needs-ctx? [_] (when needs-ctx
+                    (instance? sci.impl.vars.CtxFn root))))
 
 #?(:clj
    ;; Use public interface for print-method so it can be overriden in bb itself
