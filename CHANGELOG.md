@@ -23,6 +23,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#973](https://github.com/babashka/sci/issues/973): support `with-redefs` on core vars, e.g. `intern`. The fix for this
   issue entailed quite a big refactor of internals which removes "magic"
   injection of ctx in core vars that need it.
+- Add `unchecked-set` and `unchecked-get` for CLJS compatibility
 
 ## 0.9.45 (2025-03-11)
 

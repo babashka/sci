@@ -1679,6 +1679,8 @@
      'unchecked-char (copy-core-var unchecked-char)
      'unchecked-byte (copy-core-var unchecked-byte)
      'unchecked-short (copy-core-var unchecked-short)
+     #?@(:cljs ['unchecked-get (copy-var aget clojure-core-ns {:copy-meta-from 'clojure.core/unchecked-get})
+                'unchecked-set (copy-var aset clojure-core-ns {:copy-meta-from 'clojure.core/unchecked-set})])
      #?@(:cljs ['undefined? (copy-core-var undefined?)])
      'underive (copy-var hierarchies/underive* clojure-core-ns {:name 'underive})
      'unquote (doto (sci.impl.utils/new-var 'unquote nil {:ns clojure-core-ns})
