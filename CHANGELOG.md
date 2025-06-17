@@ -20,6 +20,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#969](https://github.com/babashka/sci/issues/969): `^:clojure.core/eval-file` metadata should affect binding of `*file*` during evaluation
 - Sync `sci.impl.Reflector` with changes in `clojure.lang.Reflector` in clojure 1.12.1
 - Fix `:static-methods` option for class with different name in host
+- Fix [#973](https://github.com/babashka/sci/issues/973): support `with-redefs` on core vars, e.g. `intern`. The fix for this
+  issue entailed quite a big refactor of internals which removes "magic"
+  injection of ctx in core vars that need it.
 
 ## 0.9.45 (2025-03-11)
 
