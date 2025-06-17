@@ -49,7 +49,6 @@
                  _ (is (= "user" res))
                  code "(require '[foobar2 :as foo]) (foo/hello)"
                  res (scia/eval-string* ctx code)
-                 _ (prn :after)
                  _ (is (= :bye res))]
            (done))))
 
