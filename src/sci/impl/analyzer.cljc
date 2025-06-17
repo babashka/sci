@@ -63,35 +63,35 @@
 
 (defn macroexpand-1 [ctx expr]
   (let [ctx (assoc ctx :sci.impl/macroexpanding true)
-        _ (set! store/*ctx* ctx)
         original-expr expr]
-    (if (seq? expr)
-      (let [op (first expr)]
-        (if (symbol? op)
-          (cond (get special-syms op) expr
-                (contains? #{'for} op) (analyze ctx expr)
-                (= 'clojure.core/defrecord op) expr
-                :else
-                (let [f (try (resolve/resolve-symbol ctx op true)
-                             (catch #?(:clj Exception :cljs :default)
-                                 _ ::unresolved))]
-                  (if (kw-identical? ::unresolved f)
-                    expr
-                    (let [var? (utils/var? f)
-                          macro-var? (and var?
-                                          (vars/isMacro f))
-                          needs-ctx? (and var?
-                                          (vars/needs-ctx? f))
-                          f (if macro-var? @f f)]
-                      (if (or macro-var? (macro? f))
-                        (if needs-ctx?
-                          (apply f original-expr (:bindings ctx) ctx (rest expr))
-                          (apply f original-expr (:bindings ctx) (rest expr)))
-                        (if (str/starts-with? (str op) ".")
-                          (list* '. (second expr) (symbol (subs (str op) 1)) (nnext expr))
-                          expr))))))
-          expr))
-      expr)))
+    (store/with-ctx ctx
+      (if (seq? expr)
+        (let [op (first expr)]
+          (if (symbol? op)
+            (cond (get special-syms op) expr
+                  (contains? #{'for} op) (analyze ctx expr)
+                  (= 'clojure.core/defrecord op) expr
+                  :else
+                  (let [f (try (resolve/resolve-symbol ctx op true)
+                               (catch #?(:clj Exception :cljs :default)
+                                   _ ::unresolved))]
+                    (if (kw-identical? ::unresolved f)
+                      expr
+                      (let [var? (utils/var? f)
+                            macro-var? (and var?
+                                            (vars/isMacro f))
+                            needs-ctx? (and var?
+                                            (vars/needs-ctx? f))
+                            f (if macro-var? @f f)]
+                        (if (or macro-var? (macro? f))
+                          (if needs-ctx?
+                            (apply f original-expr (:bindings ctx) ctx (rest expr))
+                            (apply f original-expr (:bindings ctx) (rest expr)))
+                          (if (str/starts-with? (str op) ".")
+                            (list* '. (second expr) (symbol (subs (str op) 1)) (nnext expr))
+                            expr))))))
+            expr))
+        expr))))
 
 (defn macroexpand
   [ctx form]
