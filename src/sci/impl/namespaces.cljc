@@ -1919,8 +1919,7 @@
       ([e-or-depth]
        (if (instance? Throwable e-or-depth)
          (pst e-or-depth 12)
-         (when-let [e @*e]
-           (pst (root-cause @e) e-or-depth))))
+         (pst (root-cause @*e) e-or-depth)))
       ([^Throwable e depth]
        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
          (sci.impl.io/println (str (-> e class .getSimpleName) " "
