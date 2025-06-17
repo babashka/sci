@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
    [clojure.tools.reader.reader-types :as r]
+   [sci.ctx-store :as store]
    [sci.impl.analyzer :as ana]
    [sci.impl.opts :as opts]
    [sci.impl.parser :as p]
@@ -12,7 +13,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(defn eval-form [ctx form]
+(defn eval-form* [ctx form]
   (let [eval-file (:clojure.core/eval-file (meta form))]
     (when eval-file
       (vars/push-thread-bindings {utils/current-file eval-file}))
@@ -25,7 +26,7 @@
               (if (seq exprs)
                 (recur
                  (rest exprs)
-                 (eval-form ctx (first exprs)))
+                 (eval-form* ctx (first exprs)))
                 ret)))
           (let [;; take care of invocation array for let
                 upper-sym (gensym)
@@ -33,12 +34,13 @@
                 ctx (assoc ctx
                            :parents [upper-sym 0]
                            :closure-bindings cb)
+                _ (set! store/*ctx* ctx)
                 analyzed (ana/analyze ctx form true)
                 binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
                 bindings (object-array binding-array-size)]
             (if (instance? #?(:clj sci.impl.types.EvalForm
                               :cljs sci.impl.types/EvalForm) analyzed)
-              (eval-form ctx (types/getVal analyzed))
+              (eval-form* ctx (types/getVal analyzed))
               (try (types/eval analyzed ctx bindings)
                    (catch #?(:clj Throwable :cljs js/Error) e
                      (utils/rethrow-with-location-of-node ctx bindings e analyzed))))))
@@ -56,6 +58,10 @@
       (finally
         (when eval-file
           (vars/pop-thread-bindings))))))
+
+(defn eval-form [ctx form]
+  (store/with-ctx ctx
+    (eval-form* ctx form)))
 
 (vreset! utils/eval-form-state eval-form)
 

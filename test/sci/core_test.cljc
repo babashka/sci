@@ -3,10 +3,11 @@
    [clojure.edn :as edn]
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
+   #?(:clj [sci.ctx-store :as store])
    [sci.copy-ns-test-ns]
    [sci.core :as sci :refer [eval-string]]
-   [sci.test-utils :as tu]
-   [sci.ctx-store :as store]))
+   [sci.impl.unrestrict :as unrestrict]
+   [sci.test-utils :as tu]))
 
 #?(:cljs (def Exception js/Error))
 
@@ -1341,7 +1342,12 @@
   (testing "intern via API"
     (let [ctx (sci/init {:namespaces {'foo {}}})]
       (sci/intern ctx 'foo 'x 2)
-      (is (= 2 (sci/eval-string* ctx "foo/x"))))))
+      (is (= 2 (sci/eval-string* ctx "foo/x")))))
+  (testing "with-redefs + intern"
+    (is (true?
+         (binding [unrestrict/*unrestricted* true]
+           (sci/eval-string
+            "(ns foo) (ns bar) (with-redefs [intern intern] (intern 'foo (with-meta 'x {:a true}) 1)) (:a (meta #'foo/x))"))))))
 
 (deftest instance?-test
   (is (false? (eval* "(defrecord Foo []) (instance? Foo 1)")))

@@ -247,105 +247,102 @@
    :cljs (defn ->record-impl [rec-name type var m]
            (SciRecord. rec-name type var m nil)))
 
-(defn defrecord [[_fname & _ :as form] _ ctx record-name & fields+raw-protocol-impls]
-  (if (:sci.impl/macroexpanding ctx)
-    (cons 'clojure.core/defrecord (rest form))
-    (let [[ctx record-name fields raw-protocol-impls]
-          (if (symbol? ctx)
-            [(store/get-ctx) ctx record-name fields+raw-protocol-impls]
-            [ctx record-name (first fields+raw-protocol-impls) (next fields+raw-protocol-impls)])
-          factory-fn-str (str "->" record-name)
-          factory-fn-sym (symbol factory-fn-str)
-          constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
-          map-factory-sym (symbol (str "map" factory-fn-str))
-          keys (mapv keyword fields)
-          rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
-          protocol-impls (utils/split-when symbol? raw-protocol-impls)
-          field-set (set fields)
-          protocol-impls
-          (mapcat
-           (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
-             (let [impls (group-by first impls)
-                   protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                   ;; _ (prn :protocol protocol)
-                   #?@(:cljs [protocol (or protocol
-                                           (when (= 'Object protocol-name)
-                                             ::object))])
-                   _ (when-not protocol
-                       (utils/throw-error-with-location
-                        (str "Protocol not found: " protocol-name)
-                        expr))
-                   #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
-                   protocol (if (utils/var? protocol) @protocol protocol)
-                   protocol-var (:var protocol)
-                   _ (when protocol-var
-                       ;; TODO: not all externally defined protocols might have the :var already
-                       (vars/alter-var-root protocol-var update :satisfies
-                                            (fnil conj #{}) (protocols/type->str rec-type)))
-                   protocol-ns (:ns protocol)
-                   pns (cond protocol-ns (str (types/getName protocol-ns))
-                             (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
-                   fq-meth-name #(if (simple-symbol? %)
-                                   (symbol pns (str %))
-                                   %)]
-               (map (fn [[method-name bodies]]
-                      (let [bodies (map rest bodies)
-                            bodies (mapv (fn [impl]
-                                           (let [args (first impl)
-                                                 body (rest impl)
-                                                 destr (utils/maybe-destructured args body)
-                                                 args (:params destr)
-                                                 body (:body destr)
-                                                 orig-this-sym (first args)
-                                                 rest-args (rest args)
-                                                 shadows-this? (some #(= orig-this-sym %) rest-args)
-                                                 this-sym (if shadows-this?
-                                                            (gensym "this_")
-                                                            orig-this-sym)
-                                                 args (if shadows-this?
-                                                        (vec (cons this-sym rest-args))
-                                                        args)
-                                                 bindings (mapcat (fn [field]
-                                                                    [field (list (keyword field) this-sym)])
-                                                                  (reduce disj field-set args))
-                                                 bindings (if shadows-this?
-                                                            (concat bindings [orig-this-sym this-sym])
-                                                            bindings)
-                                                 bindings (vec bindings)]
-                                             `(~args
-                                               (let ~bindings
-                                                 ~@body)))) bodies)]
-                        `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
-                    impls)))
-           protocol-impls
-           raw-protocol-impls)
-          arg-syms (mapv #(symbol (name %)) keys)
-          nil-map (zipmap (map keyword field-set) (repeat nil))]
-      `(do
-         (declare ~record-name ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
-         (def ~(with-meta record-name
-                 {:sci/record true})
-           (sci.impl.records/-create-record-type
-            ~{:sci.impl/type-name (list 'quote rec-type)
-              :sci.impl/record true
-              :sci.impl/constructor (list 'var constructor-fn-sym)
-              :sci.impl/var (list 'var record-name)
-              :sci.impl.record/map-constructor (list 'var map-factory-sym)}))
-         (defn ~constructor-fn-sym
-           ([~@arg-syms]
-            (~constructor-fn-sym ~@arg-syms nil nil))
-           ([~@arg-syms meta# ext#]
-            (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name)
-                                            (cond-> (zipmap ~keys ~arg-syms)
-                                              ext# (merge ext#)
-                                              meta# (with-meta meta#)))))
-         (defn ~factory-fn-sym
-           ([~@arg-syms]
-            (~constructor-fn-sym ~@arg-syms nil nil)))
-         (defn ~map-factory-sym [m#]
-           (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name) (merge '~nil-map m#)))
-         ~@protocol-impls
-         ~record-name))))
+(defn defrecord [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
+  (let [ctx (store/get-ctx)]
+    (if (:sci.impl/macroexpanding ctx)
+      (cons 'clojure.core/defrecord (rest form))
+      (let [factory-fn-str (str "->" record-name)
+            factory-fn-sym (symbol factory-fn-str)
+            constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
+            map-factory-sym (symbol (str "map" factory-fn-str))
+            keys (mapv keyword fields)
+            rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
+            protocol-impls (utils/split-when symbol? raw-protocol-impls)
+            field-set (set fields)
+            protocol-impls
+            (mapcat
+             (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
+               (let [impls (group-by first impls)
+                     protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
+                     ;; _ (prn :protocol protocol)
+                     #?@(:cljs [protocol (or protocol
+                                             (when (= 'Object protocol-name)
+                                               ::object))])
+                     _ (when-not protocol
+                         (utils/throw-error-with-location
+                          (str "Protocol not found: " protocol-name)
+                          expr))
+                     #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
+                     protocol (if (utils/var? protocol) @protocol protocol)
+                     protocol-var (:var protocol)
+                     _ (when protocol-var
+                         ;; TODO: not all externally defined protocols might have the :var already
+                         (vars/alter-var-root protocol-var update :satisfies
+                                              (fnil conj #{}) (protocols/type->str rec-type)))
+                     protocol-ns (:ns protocol)
+                     pns (cond protocol-ns (str (types/getName protocol-ns))
+                               (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
+                     fq-meth-name #(if (simple-symbol? %)
+                                     (symbol pns (str %))
+                                     %)]
+                 (map (fn [[method-name bodies]]
+                        (let [bodies (map rest bodies)
+                              bodies (mapv (fn [impl]
+                                             (let [args (first impl)
+                                                   body (rest impl)
+                                                   destr (utils/maybe-destructured args body)
+                                                   args (:params destr)
+                                                   body (:body destr)
+                                                   orig-this-sym (first args)
+                                                   rest-args (rest args)
+                                                   shadows-this? (some #(= orig-this-sym %) rest-args)
+                                                   this-sym (if shadows-this?
+                                                              (gensym "this_")
+                                                              orig-this-sym)
+                                                   args (if shadows-this?
+                                                          (vec (cons this-sym rest-args))
+                                                          args)
+                                                   bindings (mapcat (fn [field]
+                                                                      [field (list (keyword field) this-sym)])
+                                                                    (reduce disj field-set args))
+                                                   bindings (if shadows-this?
+                                                              (concat bindings [orig-this-sym this-sym])
+                                                              bindings)
+                                                   bindings (vec bindings)]
+                                               `(~args
+                                                 (let ~bindings
+                                                   ~@body)))) bodies)]
+                          `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
+                      impls)))
+             protocol-impls
+             raw-protocol-impls)
+            arg-syms (mapv #(symbol (name %)) keys)
+            nil-map (zipmap (map keyword field-set) (repeat nil))]
+        `(do
+           (declare ~record-name ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
+           (def ~(with-meta record-name
+                   {:sci/record true})
+             (sci.impl.records/-create-record-type
+              ~{:sci.impl/type-name (list 'quote rec-type)
+                :sci.impl/record true
+                :sci.impl/constructor (list 'var constructor-fn-sym)
+                :sci.impl/var (list 'var record-name)
+                :sci.impl.record/map-constructor (list 'var map-factory-sym)}))
+           (defn ~constructor-fn-sym
+             ([~@arg-syms]
+              (~constructor-fn-sym ~@arg-syms nil nil))
+             ([~@arg-syms meta# ext#]
+              (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name)
+                                              (cond-> (zipmap ~keys ~arg-syms)
+                                                ext# (merge ext#)
+                                                meta# (with-meta meta#)))))
+           (defn ~factory-fn-sym
+             ([~@arg-syms]
+              (~constructor-fn-sym ~@arg-syms nil nil)))
+           (defn ~map-factory-sym [m#]
+             (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name) (merge '~nil-map m#)))
+           ~@protocol-impls
+           ~record-name)))))
 
 (defn resolve-record-or-protocol-class
   "A record class is represented by a symbol with metadata (currently). This is only an implementation detail.

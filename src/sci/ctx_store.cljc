@@ -6,7 +6,7 @@
   some of their functions."
   #?(:cljs (:require-macros [sci.ctx-store :refer [with-ctx]])))
 
-(def ^:private ^:dynamic
+(def ^:dynamic ^:skip-wiki ^:no-doc
   *ctx*
   "Dynamic var in which context is stored. Don't use directly, but only
   via public API."

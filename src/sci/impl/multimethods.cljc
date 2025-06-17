@@ -44,11 +44,8 @@
   a reference type e.g. a var (i.e. via the Var-quote dispatch macro #'
   or the var special form)."
   {:arglists '([name docstring? attr-map? dispatch-fn & options])}
-  [_ _ ctx mm-name & options]
-  (let [[ctx mm-name options] (if (symbol? ctx)
-                                [nil ctx (cons mm-name options)]
-                                [ctx mm-name options])
-        docstring   (if (string? (first options))
+  [_ _ mm-name & options]
+  (let [docstring   (if (string? (first options))
                       (first options)
                       nil)
         options     (if (string? (first options))
@@ -75,7 +72,7 @@
 
     (let [options   (apply hash-map options)
           default   (get options :default :default)
-          hierarchy (get options :hierarchy (global-hierarchy (or ctx (store/get-ctx))))]
+          hierarchy (get options :hierarchy (global-hierarchy))]
       (check-valid-options options :default :hierarchy)
       #?(:clj `(let [v# (def ~mm-name)]
                  (when-not (and (clojure.core/has-root-impl v#) (clojure.core/multi-fn?-impl (deref v#)))

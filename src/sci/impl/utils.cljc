@@ -278,11 +278,10 @@
 
 (defn new-var
   "Returns a new sci var."
-  ([name] (doto (new-var name nil nil false)
+  ([name] (doto (new-var name nil nil)
             (vars/unbind)))
-  ([name init-val] (new-var name init-val (meta name) false))
-  ([name init-val meta] (new-var name init-val meta false))
-  ([name init-val meta ctx?] (sci.lang.Var. init-val name (assoc meta :name (unqualify-symbol name)) false ctx? nil)))
+  ([name init-val] (new-var name init-val (meta name)))
+  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :name (unqualify-symbol name)) false nil nil)))
 
 (defn var? [x]
   (instance? sci.lang.Var x))

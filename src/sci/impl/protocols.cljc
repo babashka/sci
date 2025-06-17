@@ -109,7 +109,7 @@
     expansion))
 
 ;; TODO: apply patches for default override for records
-(defn extend [ctx atype & proto+mmaps]
+(defn extend [atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)
           :let [extend-via-metadata (:extend-via-metadata proto)
                 proto-ns (:ns proto)
@@ -118,7 +118,7 @@
     (doseq [[meth-name f] mmap]
       (let [meth-str (name meth-name)
             meth-sym (symbol meth-str)
-            env @(:env ctx)
+            env@(:env (store/get-ctx))
             multi-method-var (get-in env [:namespaces pns meth-sym])
             multi-method @multi-method-var]
         (mms/multi-fn-add-method-impl
@@ -206,11 +206,8 @@
   [t]
   (str t))
 
-(defn extend-protocol [form _ ctx protocol-name & impls]
-  (let [[ctx protocol-name impls] (if (symbol? ctx)
-                                    [nil ctx (cons protocol-name impls)]
-                                    [ctx protocol-name impls])
-        ctx (or ctx (store/get-ctx))
+(defn extend-protocol [form _ protocol-name & impls]
+  (let [ctx (store/get-ctx)
         #?@(:cljs [print-writer? (= 'IPrintWithWriter protocol-name)])
         impls (utils/split-when #(not (seq? %)) impls)
         protocol-var
@@ -244,11 +241,8 @@
                   impls))]
     expansion))
 
-(defn extend-type [form _env ctx atype & proto+meths]
-  (let [[ctx atype proto+meths] (if (symbol? ctx)
-                                  [nil ctx (cons atype proto+meths)]
-                                  [ctx atype proto+meths])
-        ctx (or ctx (store/get-ctx))
+(defn extend-type [form _env atype & proto+meths]
+  (let [ctx (store/get-ctx)
         #?@(:cljs [atype (get cljs-type-symbols atype atype)])
         proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map

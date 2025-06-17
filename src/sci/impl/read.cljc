@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [eval load-string read read-string read+string])
   (:require [clojure.tools.reader.reader-types :as r]
+            [sci.ctx-store :as store]
             [sci.impl.io :as io]
             [sci.impl.parser :as parser]
             [sci.impl.utils :as utils]
@@ -34,18 +35,18 @@
      :cljs opts))
 
 (defn read
-  ([sci-ctx]
-   (read sci-ctx @io/in))
-  ([sci-ctx stream]
-   (read sci-ctx stream true nil))
-  ([sci-ctx stream eof-error? eof-value]
-   (read sci-ctx stream eof-error? eof-value false))
-  ([sci-ctx stream _eof-error? eof-value _recursive?]
-   (let [v (parser/parse-next sci-ctx stream
+  ([]
+   (read @io/in))
+  ([stream]
+   (read stream true nil))
+  ([stream eof-error? eof-value]
+   (read stream eof-error? eof-value false))
+  ([stream _eof-error? eof-value _recursive?]
+   (let [v (parser/parse-next (store/get-ctx) stream
                               (-> {:eof eof-value}
                                   (with-resolver)))]
      (eof-or-throw {:eof eof-value} v)))
-  ([sci-ctx opts stream]
+  ([opts stream]
    (let [opts (with-resolver opts)
          opts (if (:read-cond opts)
                 ;; always prioritize platform feature
@@ -53,25 +54,26 @@
                                                :cljs #{:cljs})
                                             (:features opts)))
                 opts)
-         v (parser/parse-next sci-ctx stream opts)]
+         v (parser/parse-next (store/get-ctx) stream opts)]
      (eof-or-throw opts v))))
 
 (defn read-string
-  ([sci-ctx s]
+  ([s]
    (let [reader (r/string-push-back-reader s)]
-     (read sci-ctx reader)))
-  ([sci-ctx opts s]
+     (read reader)))
+  ([opts s]
    (let [reader (r/string-push-back-reader s)]
-     (read sci-ctx opts reader))))
+     (read opts reader))))
 
-(defn load-string [sci-ctx s]
+(defn load-string [s]
   (vars/with-bindings {utils/current-ns @utils/current-ns}
-    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (let [ctx (store/get-ctx)
+          reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
-        (let [x (parser/parse-next sci-ctx reader)]
+        (let [x (parser/parse-next ctx reader)]
           (if (utils/kw-identical? parser/eof x)
             ret
-            (recur (utils/eval sci-ctx x))))))))
+            (recur (utils/eval ctx x))))))))
 
 ;; used by source-fn
 (defn source-logging-reader

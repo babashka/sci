@@ -26,6 +26,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
+   [sci.ctx-store :as store]
    [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
@@ -412,56 +413,75 @@
 
 ;;;; Namespaces / vars
 
-(defn sci-alias [ctx alias-sym ns-sym]
-  (swap! (:env ctx)
+(defn sci-alias [alias-sym ns-sym]
+  (swap! (:env (store/get-ctx))
          (fn [env]
            (let [current-ns (sci.impl.utils/current-ns-name)]
              (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
   nil)
 
-(defn sci-create-ns [ctx ns-sym]
-  (sci.impl.utils/namespace-object (:env ctx) ns-sym true nil))
+(defn sci-create-ns [ns-sym]
+  (sci.impl.utils/namespace-object (:env (store/get-ctx)) ns-sym true nil))
 
-(defn sci-find-ns [ctx ns-sym]
+(defn sci-find-ns* [ctx ns-sym]
   (assert (symbol? ns-sym))
   (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil))
 
-(defn sci-in-ns [ctx ns-sym]
+(defn sci-find-ns [ns-sym]
+  (sci-find-ns* (store/get-ctx) ns-sym))
+
+(defn sci-in-ns [ns-sym]
   (assert (symbol? ns-sym))
   #_(when-not (sci-find-ns ctx ns-sym)
       (sci-create-ns ctx ns-sym))
-  (sci.impl.utils/set-namespace! ctx ns-sym {}))
+  (sci.impl.utils/set-namespace! (store/get-ctx) ns-sym {}))
 
-(defn sci-the-ns [ctx x]
+(defn sci-the-ns* [ctx x]
   (if (instance? #?(:clj sci.lang.Namespace
                     :cljs sci.lang/Namespace) x) x
-      (or (sci-find-ns ctx x)
+      (or (sci-find-ns* ctx x)
           (throw (new #?(:clj Exception :cljs js/Error)
                       (str "No namespace: " x " found"))))))
 
-(defn sci-ns-name [ctx ns]
-  (let [^sci.lang.Namespace ns (sci-the-ns ctx ns)]
+(defn sci-the-ns [x]
+  (let [ctx (store/get-ctx)]
+    (sci-the-ns* ctx x)))
+
+(defn sci-ns-name* [ctx ns]
+  (let [^sci.lang.Namespace ns (sci-the-ns* ctx ns)]
     (types/getName ns)))
 
-(defn sci-ns-aliases [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+(defn sci-ns-name [ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-name* ctx ns)))
+
+(defn sci-ns-aliases* [ctx sci-ns]
+  (let [name (sci-ns-name* ctx sci-ns)
         aliases (get-in @(:env ctx) [:namespaces name :aliases])]
     (zipmap (keys aliases)
             (map (fn [sym]
                    (sci.lang/->Namespace sym nil))
                  (vals aliases)))))
 
+(defn sci-ns-aliases [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-aliases* ctx sci-ns)))
+
 (defn clean-ns [m]
   (dissoc m :aliases :imports :obj :refer :refers))
 
-(defn sci-ns-interns [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+(defn sci-ns-interns* [ctx sci-ns]
+  (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     m))
 
-(defn sci-ns-publics [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+(defn sci-ns-interns [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-interns* ctx sci-ns)))
+
+(defn sci-ns-publics* [ctx sci-ns]
+  (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     (into {} (keep (fn [[k v]]
@@ -469,8 +489,12 @@
                        [k v]))
                    m))))
 
-(defn sci-ns-imports [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+(defn sci-ns-publics [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-publics* ctx sci-ns)))
+
+(defn sci-ns-imports* [ctx sci-ns]
+  (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
         global-imports (:imports env)
         namespace-imports (get-in env [:namespaces name :imports])
@@ -479,63 +503,76 @@
         all-imports (concat (vals global-imports) (vals namespace-imports))]
     (zipmap all-aliased (map (comp :class #(get class-opts %)) all-imports))))
 
-(defn sci-ns-refers [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+(defn sci-ns-imports [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-imports* ctx sci-ns)))
+
+(defn sci-ns-refers* [ctx sci-ns]
+  (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])
         clojure-core (get-in env [:namespaces 'clojure.core])
         clojure-core (clean-ns clojure-core)]
     (merge clojure-core refers)))
 
-(defn sci-ns-map [ctx sci-ns]
-  (merge (sci-ns-interns ctx sci-ns)
-         (sci-ns-refers ctx sci-ns)
-         (sci-ns-imports ctx sci-ns)))
+(defn sci-ns-refers [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-refers* ctx sci-ns)))
 
-(defn sci-ns-unmap [ctx sci-ns sym]
-  (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
-  (swap! (:env ctx)
-         (fn [env]
-           (let [name (sci-ns-name ctx sci-ns)]
-             (update-in env [:namespaces name]
-                        (fn [the-ns-map]
-                          (cond (contains? (:refers the-ns-map) sym)
-                                (-> (update the-ns-map :refers dissoc sym)
-                                    ;; remove lingering var that may have been
-                                    ;; overwritten before, see #637
-                                    (dissoc the-ns-map sym))
-                                (contains? the-ns-map sym)
-                                (dissoc the-ns-map sym)
-                                (or
-                                 (contains? (:imports env) sym)
-                                 (contains? (:imports the-ns-map) sym))
-                                ;; nil marks the imported class as unmapped
-                                (update the-ns-map :imports assoc sym nil)
-                                :else the-ns-map))))))
+(defn sci-ns-map [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (merge (sci-ns-interns* ctx sci-ns)
+           (sci-ns-refers* ctx sci-ns)
+           (sci-ns-imports* ctx sci-ns))))
+
+(defn sci-ns-unmap [sci-ns sym]
+  (let [ctx (store/get-ctx)]
+    (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
+    (swap! (:env ctx)
+           (fn [env]
+             (let [name (sci-ns-name* ctx sci-ns)]
+               (update-in env [:namespaces name]
+                          (fn [the-ns-map]
+                            (cond (contains? (:refers the-ns-map) sym)
+                                  (-> (update the-ns-map :refers dissoc sym)
+                                      ;; remove lingering var that may have been
+                                      ;; overwritten before, see #637
+                                      (dissoc the-ns-map sym))
+                                  (contains? the-ns-map sym)
+                                  (dissoc the-ns-map sym)
+                                  (or
+                                   (contains? (:imports env) sym)
+                                   (contains? (:imports the-ns-map) sym))
+                                  ;; nil marks the imported class as unmapped
+                                  (update the-ns-map :imports assoc sym nil)
+                                  :else the-ns-map)))))))
   nil)
 
-(defn sci-ns-unalias [ctx sci-ns sym]
-  (swap! (:env ctx)
-         (fn [env]
-           (update-in env [:namespaces (sci-ns-name ctx sci-ns) :aliases] dissoc sym)))
-  nil)
+(defn sci-ns-unalias [sci-ns sym]
+  (let [ctx (store/get-ctx)]
+    (swap! (:env ctx)
+           (fn [env]
+             (update-in env [:namespaces (sci-ns-name* ctx sci-ns) :aliases] dissoc sym)))
+    nil))
 
-(defn sci-all-ns [ctx]
-  (let [env (:env ctx)
+(defn sci-all-ns []
+  (let [env (:env (store/get-ctx))
         namespaces (get @env :namespaces)
         public (remove (fn [[_ v]]
                          (:private v)) namespaces)]
     (map #(sci.impl.utils/namespace-object env % true nil) (keys public))))
 
-(defn sci-remove-ns [ctx sym]
-  (let [env (:env ctx)]
+(defn sci-remove-ns [sym]
+  (let [ctx (store/get-ctx)
+        env (:env ctx)]
     (swap! env update :namespaces dissoc sym)
     nil))
 
 (defn sci-intern
   ;; in this case the var will become unbound
-  ([ctx ns var-sym]
-   (let [ns (sci-the-ns ctx ns)
+  ([ns var-sym]
+   (let [ctx (store/get-ctx)
+         ns (sci-the-ns* ctx ns)
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
@@ -544,8 +581,9 @@
            (sci.impl.vars/unbind new-var)
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var))))
-  ([ctx ns var-sym val]
-   (let [ns (sci-the-ns ctx ns)
+  ([ns var-sym val]
+   (let [ctx (store/get-ctx)
+         ns (sci-the-ns* ctx ns)
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
@@ -567,48 +605,58 @@
 
 ;;;; Require + resolve
 
-(defn require [sci-ctx & args]
+(defn require* [sci-ctx & args]
   (apply @sci.impl.utils/eval-require-state sci-ctx args))
 
-(defn use [sci-ctx & args]
-  (apply @sci.impl.utils/eval-use-state sci-ctx args))
+(defn require [& args]
+  (apply require* (store/get-ctx) args))
 
-(defn sci-resolve
+(defn use [& args]
+  (apply @sci.impl.utils/eval-use-state (store/get-ctx) args))
+
+(defn sci-resolve*
   ([sci-ctx sym]
    (@sci.impl.utils/eval-resolve-state sci-ctx (:bindings sci-ctx) sym))
   ([sci-ctx env sym]
    (@sci.impl.utils/eval-resolve-state sci-ctx (:bindings sci-ctx) env sym)))
 
-(defn sci-refer [sci-ctx & args]
-  (apply @sci.impl.utils/eval-refer-state sci-ctx args))
+(defn sci-resolve
+  ([sym] (sci-resolve* (store/get-ctx) sym))
+  ([env sym] (sci-resolve* (store/get-ctx) env sym)))
+
+(defn sci-refer [& args]
+  (apply @sci.impl.utils/eval-refer-state (store/get-ctx) args))
 
 (defn sci-refer-clojure [_ _ & filters]
   `(clojure.core/refer '~'clojure.core ~@filters))
 
 (defn sci-ns-resolve
-  ([sci-ctx ns sym]
-   (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns sci-ctx ns)}
-     (sci-resolve sci-ctx sym)))
-  ([sci-ctx ns env sym]
-   (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns sci-ctx ns)}
-     (sci-resolve sci-ctx env sym))))
+  ([ns sym]
+   (let [ctx (store/get-ctx)]
+     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns* ctx ns)}
+       (sci-resolve* ctx sym))))
+  ([ns env sym]
+   (let [ctx (store/get-ctx)]
+     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns* ctx ns)}
+       (sci-resolve* ctx env sym)))))
 
 (defn sci-requiring-resolve
-  ([sci-ctx sym]
-   (if (qualified-symbol? sym)
-     (or (sci-resolve sci-ctx sym)
-         (let [namespace (-> sym namespace symbol)]
-           (require sci-ctx namespace)
-           (sci-resolve sci-ctx sym)))
-     (throw (new #?(:clj IllegalArgumentException
-                    :cljs js/Error)
-                 (str "Not a qualified symbol: " sym))))))
+  [sym]
+  (let [sci-ctx (store/get-ctx)]
+    (if (qualified-symbol? sym)
+      (or (sci-resolve* sci-ctx sym)
+          (let [namespace (-> sym namespace symbol)]
+            (require* sci-ctx namespace)
+            (sci-resolve* sci-ctx sym)))
+      (throw (new #?(:clj IllegalArgumentException
+                     :cljs js/Error)
+                  (str "Not a qualified symbol: " sym))))))
 
-(defn sci-find-var [sci-ctx sym]
+(defn sci-find-var [sym]
   (if (qualified-symbol? sym)
     (let [nsname (-> sym namespace symbol)
           sym' (-> sym name symbol)]
-      (if-let [namespace (-> sci-ctx :env deref :namespaces (get nsname))]
+      (if-let [namespace (-> (store/get-ctx) :env deref :namespaces (get nsname))]
         (get namespace sym')
         (throw (new #?(:clj IllegalArgumentException
                        :cljs js/Error)
@@ -721,11 +769,11 @@
 
 ;;;; Macroexpand
 
-(defn macroexpand* [ctx expr]
-  (@sci.impl.utils/macroexpand* ctx expr))
+(defn macroexpand* [expr]
+  (@sci.impl.utils/macroexpand* (store/get-ctx) expr))
 
-(defn macroexpand-1* [ctx expr]
-  (@sci.impl.utils/macroexpand-1* ctx expr))
+(defn macroexpand-1* [expr]
+  (@sci.impl.utils/macroexpand-1* (store/get-ctx) expr))
 
 ;;;;
 
@@ -952,14 +1000,14 @@
     :private true
     :sci/built-in true}))
 
-(defn loaded-libs* [ctx]
-  (-> ctx :env deref :namespaces
+(defn loaded-libs* []
+  (-> (store/get-ctx) :env deref :namespaces
       (get 'clojure.core)
       (get '*loaded-libs*)
       deref deref))
 
-(defn -add-loaded-lib [ctx name]
-  (load/add-loaded-lib (:env ctx) name)
+(defn -add-loaded-lib [name]
+  (load/add-loaded-lib (:env (store/get-ctx)) name)
   nil)
 
 (defn ns*
@@ -1020,25 +1068,26 @@
    (defn exists?
      "Return true if argument exists, analogous to usage of typeof operator
    in JavaScript."
-     [_ _&env ctx x]
-     (if (symbol? x)
-       (if (qualified-symbol? x)
-         (if (= "js" (namespace x))
-           (let [splits (str/split (name x) ".")]
-             (list* 'cljs.core/and
-                    (map (fn [accessor]
-                           (list 'cljs.core/not (list 'cljs.core/undefined? (symbol "js" (str accessor)))))
-                         (reduce (fn [acc split]
-                                   (let [new-sym (let [la (last acc)]
-                                                   (str la (when la ".") split))]
-                                     (conj acc new-sym)))
-                                 [] splits))))
-           (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
-                         (catch :default _ nil))))
-         (or (boolean (sci-find-ns ctx x))
+     [_ _&env x]
+     (let [ctx (store/get-ctx)]
+       (if (symbol? x)
+         (if (qualified-symbol? x)
+           (if (= "js" (namespace x))
+             (let [splits (str/split (name x) ".")]
+               (list* 'cljs.core/and
+                      (map (fn [accessor]
+                             (list 'cljs.core/not (list 'cljs.core/undefined? (symbol "js" (str accessor)))))
+                           (reduce (fn [acc split]
+                                     (let [new-sym (let [la (last acc)]
+                                                     (str la (when la ".") split))]
+                                       (conj acc new-sym)))
+                                   [] splits))))
              (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
-                           (catch :default _ nil)))))
-       `(some? ~x))))
+                           (catch :default _ nil))))
+           (or (boolean (sci-find-ns* ctx x))
+               (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
+                             (catch :default _ nil)))))
+         `(some? ~x)))))
 
 #?(:clj (defn system-time []
           (System/nanoTime)))
@@ -1061,6 +1110,10 @@
                (aset ^objects arr idx val))))
           ([arr idx idx2 & idxv]
            (apply aset* (aget ^objects arr idx) idx2 idxv))))
+
+(defn eval* [form]
+  (let [ctx (store/get-ctx)]
+    (eval ctx form)))
 
 (macros/usetime
 
@@ -1104,8 +1157,8 @@
      '*default-data-reader-fn* parser/default-data-reader-fn
      '*read-eval* parser/read-eval
      '*reader-resolver* parser/reader-resolver
-     'read (copy-var read clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/read})
-     'read-string (copy-var read-string clojure-core-ns {:copy-meta-from 'clojure.core/read-string :ctx true})
+     'read (copy-var read clojure-core-ns {:copy-meta-from 'clojure.core/read})
+     'read-string (copy-var read-string clojure-core-ns {:copy-meta-from 'clojure.core/read-string})
      #?@(:clj ['reader-conditional (copy-core-var reader-conditional)])
      #?@(:clj ['reader-conditional? (copy-core-var reader-conditional?)])
      ;; end read
@@ -1120,8 +1173,7 @@
                'clojure-version (copy-core-var clojure-version)])
      ;; end clojure version
      ;; multimethods
-     'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti
-                        clojure-core-ns true)
+     'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
      'get-method (copy-core-var get-method)
      'methods (copy-core-var methods)
@@ -1136,17 +1188,15 @@
      ;; protocols
      'defprotocol (macrofy 'defprotocol sci.impl.protocols/defprotocol
                            clojure-core-ns)
-     'extend (copy-var sci.impl.protocols/extend clojure-core-ns {:name 'extend :ctx true})
+     'extend (copy-var sci.impl.protocols/extend clojure-core-ns {:name 'extend})
      'extends? (copy-core-var sci.impl.protocols/extends?)
-     'extend-type (macrofy 'extend-type sci.impl.protocols/extend-type
-                           clojure-core-ns true)
-     'extend-protocol (macrofy 'extend-protocol sci.impl.protocols/extend-protocol
-                               clojure-core-ns true)
+     'extend-type (macrofy 'extend-type sci.impl.protocols/extend-type clojure-core-ns)
+     'extend-protocol (macrofy 'extend-protocol sci.impl.protocols/extend-protocol clojure-core-ns)
      '-reified-methods (new-var '-reified-methods #(types/getMethods %))
-     'reify* (new-var 'reify* reify/reify* clojure-core-ns true)
+     'reify* (new-var 'reify* reify/reify* clojure-core-ns)
      'reify (macrofy 'reify reify/reify clojure-core-ns)
      'protocol-type-impl (new-var 'protocol-type-impl types/type-impl)
-     #?@(:clj ['proxy* (new-var 'proxy* proxy/proxy* true)
+     #?@(:clj ['proxy* (new-var 'proxy* proxy/proxy*)
                'proxy (macrofy 'proxy proxy/proxy clojure-core-ns)])
      'satisfies? (copy-var sci.impl.protocols/satisfies? clojure-core-ns {:name 'satisfies?})
      ;; end protocols
@@ -1180,7 +1230,7 @@
      '-new-dynamic-var (new-var '-new-dynamic-var #(sci.impl.utils/new-var (gensym) nil {:dynamic true}))
      ;; used in let-fn
      '-new-var (new-var '-new-var #(sci.impl.utils/new-var (gensym) nil))
-     '-add-loaded-lib (copy-var -add-loaded-lib clojure-core-ns {:ctx true})
+     '-add-loaded-lib (copy-var -add-loaded-lib clojure-core-ns)
      ;; end private
      '.. (macrofy '.. double-dot)
      '= (copy-core-var =)
@@ -1201,12 +1251,12 @@
      'remove-watch (copy-core-var remove-watch)
      'aclone (copy-core-var aclone)
      'aget (copy-core-var aget)
-     'alias (copy-var sci-alias clojure-core-ns {:name 'alias :ctx true})
-     'all-ns (copy-var sci-all-ns clojure-core-ns {:name 'all-ns :ctx true})
+     'alias (copy-var sci-alias clojure-core-ns {:name 'alias})
+     'all-ns (copy-var sci-all-ns clojure-core-ns {:name 'all-ns})
      'alter-meta! (copy-core-var alter-meta!)
      'alter-var-root (copy-core-var sci.impl.vars/alter-var-root)
      'amap (macrofy 'amap amap*)
-     'ancestors (copy-var hierarchies/ancestors* clojure-core-ns {:name 'ancestors :ctx true})
+     'ancestors (copy-var hierarchies/ancestors* clojure-core-ns {:name 'ancestors})
      'and (macrofy 'and and*)
      #?@(:clj ['aset (copy-var aset* clojure-core-ns {:name 'aset})]
          :default ['aset (copy-core-var aset)])
@@ -1300,16 +1350,15 @@
      'defn  (macrofy 'defn fns/defn*)
      'defn- (macrofy 'defn- defn-*)
      'defonce (macrofy 'defonce defonce*)
-     'defrecord (macrofy 'defrecord sci.impl.records/defrecord
-                         clojure-core-ns true)
+     'defrecord (macrofy 'defrecord sci.impl.records/defrecord clojure-core-ns)
      'deftype (macrofy 'deftype sci.impl.deftype/deftype
-                       clojure-core-ns true)
+                       clojure-core-ns)
      'delay (macrofy 'delay delay*)
      'delay? (copy-core-var delay?)
      #?@(:clj ['deliver (copy-core-var deliver)])
      #?@(:cljs ['demunge (copy-core-var cljs.core/demunge)])
-     'derive (copy-var hierarchies/derive* clojure-core-ns {:name 'derive :ctx true})
-     'descendants (copy-var hierarchies/descendants* clojure-core-ns {:name 'descendants :ctx true})
+     'derive (copy-var hierarchies/derive* clojure-core-ns {:name 'derive})
+     'descendants (copy-var hierarchies/descendants* clojure-core-ns {:name 'descendants})
      'destructure (copy-var destructure/destructure clojure-core-ns)
      'dissoc (copy-core-var dissoc)
      'dissoc! (copy-core-var dissoc!)
@@ -1334,8 +1383,7 @@
      'empty (copy-core-var empty)
      'empty? (copy-core-var empty?)
      #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
-     'eval (copy-var eval clojure-core-ns {:copy-meta-from 'clojure.core/eval
-                                           :ctx true})
+     'eval (copy-var eval* clojure-core-ns {:copy-meta-from 'clojure.core/eval})
      'even? (copy-core-var even?)
      'every? (copy-core-var every?)
      'every-pred (copy-core-var every-pred)
@@ -1345,13 +1393,11 @@
      'ex-message (copy-core-var ex-message)
      'ex-cause (copy-core-var ex-cause)
      #?@(:cljs ['exists? (copy-var exists? clojure-core-ns {:macro true
-                                                            :ctx true
                                                             :name 'exists?})])
-     'find-ns (copy-var sci-find-ns clojure-core-ns {:ctx true :name 'find-ns})
-     'create-ns (copy-var sci-create-ns clojure-core-ns {:ctx true :name 'create-ns})
-     'in-ns (copy-var sci-in-ns clojure-core-ns {:ctx true :name 'in-ns})
-     'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var
-                                                       :ctx true})
+     'find-ns (copy-var sci-find-ns clojure-core-ns {:name 'find-ns})
+     'create-ns (copy-var sci-create-ns clojure-core-ns {:name 'create-ns})
+     'in-ns (copy-var sci-in-ns clojure-core-ns {:name 'in-ns})
+     'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var})
      'first (copy-core-var first)
      'float? (copy-core-var float?)
      'floats (copy-core-var floats)
@@ -1395,7 +1441,7 @@
      'instance? (copy-var protocols/instance-impl clojure-core-ns {:name 'instance?})
      'int-array (copy-core-var int-array)
      'interleave (copy-core-var interleave)
-     'intern (copy-var sci-intern clojure-core-ns {:name 'intern :ctx true})
+     'intern (copy-var sci-intern clojure-core-ns {:name 'intern})
      'into (copy-core-var into)
      'iterate (copy-core-var iterate)
      #?@(:clj ['iterator-seq (copy-core-var iterator-seq)])
@@ -1406,8 +1452,7 @@
      'integer? (copy-core-var integer?)
      'ints (copy-core-var ints)
      'into-array (copy-core-var into-array)
-     'isa? (copy-var hierarchies/isa?* clojure-core-ns {:ctx true
-                                                        :name 'isa?})
+     'isa? (copy-var hierarchies/isa?* clojure-core-ns {:name 'isa?})
      #?@(:cljs ['js->clj (copy-core-var js->clj)])
      #?@(:cljs ['js-obj (copy-core-var js-obj)])
      #?@(:cljs ['js-keys (copy-core-var js-keys)])
@@ -1425,8 +1470,8 @@
      'lazy-cat (macrofy 'lazy-cat lazy-cat*)
      'let (macrofy 'let let**)
      'letfn (macrofy 'letfn letfn*)
-     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
-     'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs :ctx true})
+     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string})
+     'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs})
      'loop (macrofy 'loop loop**)
      'long (copy-core-var long)
      'list (copy-core-var list)
@@ -1434,10 +1479,8 @@
      'longs (copy-core-var longs)
      'list* (copy-core-var list*)
      'long-array (copy-core-var long-array)
-     'macroexpand (copy-var macroexpand* clojure-core-ns {:name 'macroexpand
-                                                          :ctx true})
-     'macroexpand-1 (copy-var macroexpand-1* clojure-core-ns {:name 'macroexpand-1
-                                                              :ctx true})
+     'macroexpand (copy-var macroexpand* clojure-core-ns {:name 'macroexpand})
+     'macroexpand-1 (copy-var macroexpand-1* clojure-core-ns {:name 'macroexpand-1})
      'make-array (copy-core-var make-array)
      'make-hierarchy (copy-core-var make-hierarchy)
      'map (copy-core-var map)
@@ -1471,26 +1514,26 @@
      'nil? (copy-core-var nil?)
      'nat-int? (copy-core-var nat-int?)
      'ns (macrofy 'ns ns*)
-     'ns-resolve (copy-var sci-ns-resolve clojure-core-ns {:ctx true :name 'ns-resolve})
+     'ns-resolve (copy-var sci-ns-resolve clojure-core-ns {:name 'ns-resolve})
      'number? (copy-core-var number?)
      'not-empty (copy-core-var not-empty)
      'not-any? (copy-core-var not-any?)
      'next (copy-core-var next)
      'nnext (copy-core-var nnext)
-     'ns-aliases (copy-var sci-ns-aliases clojure-core-ns {:ctx true :name 'ns-aliases})
-     'ns-imports (copy-var sci-ns-imports clojure-core-ns {:ctx true :name 'ns-imports})
-     'ns-interns (copy-var sci-ns-interns clojure-core-ns {:ctx true :name 'ns-interns})
-     'ns-publics (copy-var sci-ns-publics clojure-core-ns {:ctx true :name 'ns-publics})
-     'ns-refers (copy-var sci-ns-refers clojure-core-ns {:ctx true :name 'ns-refers})
-     'ns-map (copy-var sci-ns-map clojure-core-ns {:name 'ns-map :ctx true})
-     'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:ctx true :name 'ns-unmap})
-     'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:ctx true :name 'ns-unalias})
-     'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name :ctx true})
+     'ns-aliases (copy-var sci-ns-aliases clojure-core-ns {:name 'ns-aliases})
+     'ns-imports (copy-var sci-ns-imports clojure-core-ns {:name 'ns-imports})
+     'ns-interns (copy-var sci-ns-interns clojure-core-ns {:name 'ns-interns})
+     'ns-publics (copy-var sci-ns-publics clojure-core-ns {:name 'ns-publics})
+     'ns-refers (copy-var sci-ns-refers clojure-core-ns {:name 'ns-refers})
+     'ns-map (copy-var sci-ns-map clojure-core-ns {:name 'ns-map})
+     'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:name 'ns-unmap})
+     'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:name 'ns-unalias})
+     'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name})
      'odd? (copy-core-var odd?)
      #?@(:cljs ['object? (copy-core-var object?)])
      'object-array (copy-core-var object-array)
      'or (macrofy 'or or*)
-     'parents (copy-var hierarchies/parents* clojure-core-ns {:name 'parents :ctx true})
+     'parents (copy-var hierarchies/parents* clojure-core-ns {:name 'parents})
      'peek (copy-core-var peek)
      'pop (copy-core-var pop)
      'pop! (copy-core-var pop!)
@@ -1510,7 +1553,7 @@
      'quot (copy-core-var quot)
      #?@(:cljs ['random-uuid (copy-core-var random-uuid)])
      're-seq (copy-core-var re-seq)
-     'refer (copy-var sci-refer clojure-core-ns {:name 'refer :ctx true})
+     'refer (copy-var sci-refer clojure-core-ns {:name 'refer})
      'refer-clojure (macrofy 'refer-clojure sci-refer-clojure)
      're-find (copy-core-var re-find)
      #?@(:clj ['re-groups (copy-core-var re-groups)])
@@ -1520,8 +1563,8 @@
      'realized? (copy-core-var realized?)
      'rem (copy-core-var rem)
      'remove (copy-core-var remove)
-     'remove-ns (copy-var sci-remove-ns clojure-core-ns {:ctx true :name 'remove-ns})
-     'require (copy-var require clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/require})
+     'remove-ns (copy-var sci-remove-ns clojure-core-ns {:name 'remove-ns})
+     'require (copy-var require clojure-core-ns {:copy-meta-from 'clojure.core/require})
      'reset-meta! (copy-core-var reset-meta!)
      'rest (copy-core-var rest)
      'repeatedly (copy-core-var repeatedly)
@@ -1536,7 +1579,7 @@
      'reduced? (copy-core-var reduced?)
      'reset! (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!})
      'reset-thread-binding-frame-impl (new-var 'reset-thread-binding-frame-impl sci.impl.vars/reset-thread-binding-frame)
-     'resolve (copy-var sci-resolve clojure-core-ns {:name 'resolve :ctx true})
+     'resolve (copy-var sci-resolve clojure-core-ns {:name 'resolve})
      'reversible? (copy-core-var reversible?)
      'rsubseq (copy-core-var rsubseq)
      'reductions (copy-core-var reductions)
@@ -1545,7 +1588,7 @@
      'rseq (copy-core-var rseq)
      'random-sample (copy-core-var random-sample)
      'repeat (copy-core-var repeat)
-     'requiring-resolve (copy-var sci-requiring-resolve clojure-core-ns {:ctx true :name 'requiring-resolve})
+     'requiring-resolve (copy-var sci-requiring-resolve clojure-core-ns {:name 'requiring-resolve})
      'run! (copy-core-var run!)
      'set? (copy-core-var set?)
      'sequential? (copy-core-var sequential?)
@@ -1600,7 +1643,7 @@
      'take-last (copy-core-var take-last)
      'take-nth (copy-core-var take-nth)
      'take-while (copy-core-var take-while)
-     'the-ns (copy-var sci-the-ns clojure-core-ns {:name 'the-ns :ctx true})
+     'the-ns (copy-var sci-the-ns clojure-core-ns {:name 'the-ns})
      'trampoline (copy-core-var trampoline)
      'transduce (copy-core-var transduce)
      'transient (copy-core-var transient)
@@ -1637,10 +1680,10 @@
      'unchecked-byte (copy-core-var unchecked-byte)
      'unchecked-short (copy-core-var unchecked-short)
      #?@(:cljs ['undefined? (copy-core-var undefined?)])
-     'underive (copy-var hierarchies/underive* clojure-core-ns {:name 'underive :ctx true})
+     'underive (copy-var hierarchies/underive* clojure-core-ns {:name 'underive})
      'unquote (doto (sci.impl.utils/new-var 'unquote nil {:ns clojure-core-ns})
                 (sci.impl.vars/unbind))
-     'use (copy-var use clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/use})
+     'use (copy-var use clojure-core-ns {:copy-meta-from 'clojure.core/use})
      'val (copy-core-var val)
      'vals (copy-core-var vals)
      'var? (copy-var sci.impl.utils/var? clojure-core-ns {:name 'var?})
@@ -1704,11 +1747,12 @@
                'xml-seq (copy-core-var xml-seq)])}))
 
  (defn dir-fn
-   [ctx ns]
-   (let [current-ns (sci.impl.utils/current-ns-name)
-         the-ns (sci-the-ns ctx
-                            (get (sci-ns-aliases ctx current-ns) ns ns))]
-     (sort (map first (sci-ns-publics ctx the-ns)))))
+   [ns]
+   (let [ctx (store/get-ctx)
+         current-ns (sci.impl.utils/current-ns-name)
+         the-ns (sci-the-ns* ctx
+                            (get (sci-ns-aliases* ctx current-ns) ns ns))]
+     (sort (map first (sci-ns-publics* ctx the-ns)))))
 
  (defn dir
    [_ _ nsname]
@@ -1740,12 +1784,14 @@
  (defn find-doc
    "Prints documentation for any var whose documentation or name
    contains a match for re-string-or-pattern"
-   [ctx re-string-or-pattern]
+   [re-string-or-pattern]
    (let [re (re-pattern re-string-or-pattern)
-         ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
-                            (sci-all-ns ctx))
+         ans (sci-all-ns)
+         ctx (store/get-ctx)
+         ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns* ctx %))))
+                            ans)
                     (map #(assoc (meta %)
-                                 :name (types/getName %)) (sci-all-ns ctx))
+                                 :name (types/getName %)) ans)
                     #_(map special-doc (keys special-doc-map)))]
      (doseq [m ms
              :when (and (:doc m)
@@ -1757,15 +1803,16 @@
    "Given a regular expression or stringable thing, return a seq of all
    public definitions in all currently-loaded namespaces that match the
    str-or-pattern."
-   [ctx str-or-pattern]
-   (let [matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
+   [str-or-pattern]
+   (let [ctx (store/get-ctx)
+         matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
                     #(re-find str-or-pattern (str %))
                     #(clojure.string/includes? (str %) (str str-or-pattern)))]
      (sort (mapcat (fn [ns]
                      (let [ns-name (str ns)]
                        (map #(symbol ns-name (str %))
-                            (filter matches? (keys (sci-ns-publics ctx ns))))))
-                   (sci-all-ns ctx)))))
+                            (filter matches? (keys (sci-ns-publics* ctx ns))))))
+                   (sci-all-ns)))))
 
  #_(defn source-fn
      "Returns a string of the source code for the given symbol, if it can
@@ -1800,21 +1847,23 @@
    convenient.
 
    Example: (source-fn 'filter)"
-   [ctx x]
-   (when-let [v (sci-resolve ctx x)]
-     (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
-       (when (and line ns)
-         (when-let [source (or #?(:clj (when file
-                                         (let [f (jio/file file)]
-                                           (when (.exists f) (slurp f)))))
-                               (when-let [load-fn (:load-fn @(:env ctx))]
-                                 (:source (load-fn {:namespace (types/getName ns)}))))]
-           (let [lines (clojure.string/split source #"\n")
-                 line (dec line)
-                 start (clojure.string/join "\n" (drop line lines))
-                 reader (read/source-logging-reader start)
-                 res (parser/parse-next ctx reader {:source true})]
-             (:source (meta res))))))))
+   [x]
+   (let [ctx (store/get-ctx)]
+     (when-let [
+                v (sci-resolve* ctx x)]
+       (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
+         (when (and line ns)
+           (when-let [source (or #?(:clj (when file
+                                           (let [f (jio/file file)]
+                                             (when (.exists f) (slurp f)))))
+                                 (when-let [load-fn (:load-fn @(:env ctx))]
+                                   (:source (load-fn {:namespace (types/getName ns)}))))]
+             (let [lines (clojure.string/split source #"\n")
+                   line (dec line)
+                   start (clojure.string/join "\n" (drop line lines))
+                   reader (read/source-logging-reader start)
+                   res (parser/parse-next ctx reader {:source true})]
+               (:source (meta res)))))))))
 
  (defn source
    "Prints the source code for the given symbol, if it can find it.
@@ -1866,13 +1915,12 @@
       "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
    most recent repl exception (*e), and a depth of 12."
       {:added "1.3"}
-      ([ctx] (pst ctx 12))
-      ([ctx e-or-depth]
+      ([] (pst 12))
+      ([e-or-depth]
        (if (instance? Throwable e-or-depth)
-         (pst ctx e-or-depth 12)
-         (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
-           (pst ctx (root-cause @e) e-or-depth))))
-      ([ctx ^Throwable e depth]
+         (pst e-or-depth 12)
+         (pst (root-cause @*e) e-or-depth)))
+      ([^Throwable e depth]
        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
          (sci.impl.io/println (str (-> e class .getSimpleName) " "
                                    (.getMessage e)
@@ -1886,23 +1934,23 @@
              (sci.impl.io/println (str \tab (stack-element-str el))))
            (when cause
              (sci.impl.io/println "Caused by:")
-             (pst ctx cause (min depth
-                                 (+ 2 (- (count (.getStackTrace cause))
-                                         (count st)))))))))))
+             (pst cause (min depth
+                             (+ 2 (- (count (.getStackTrace cause))
+                                     (count st)))))))))))
 
  (def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
 
  (def clojure-repl
    {:obj clojure-repl-namespace
-    'dir-fn (new-var 'dir-fn dir-fn clojure-repl-namespace true)
+    'dir-fn (new-var 'dir-fn dir-fn clojure-repl-namespace)
     'dir (macrofy 'dir dir clojure-repl-namespace)
     'print-doc (with-meta print-doc {:private true})
     'doc (macrofy 'doc doc clojure-repl-namespace)
-    'find-doc (new-var 'find-doc find-doc clojure-repl-namespace true)
-    'apropos (new-var 'apropos apropos clojure-repl-namespace true)
+    'find-doc (new-var 'find-doc find-doc clojure-repl-namespace)
+    'apropos (new-var 'apropos apropos clojure-repl-namespace)
     'source (macrofy 'source source clojure-repl-namespace)
-    'source-fn (new-var 'source-fn source-fn clojure-repl-namespace true)
-    #?@(:clj ['pst (new-var 'pst pst clojure-repl-namespace true)
+    'source-fn (new-var 'source-fn source-fn clojure-repl-namespace)
+    #?@(:clj ['pst (new-var 'pst pst clojure-repl-namespace)
               'stack-element-str (new-var 'stack-element-str stack-element-str clojure-repl-namespace)
               'demunge (new-var 'demunge demunge clojure-repl-namespace)])})
 
@@ -1931,18 +1979,19 @@
  (def clojure-edn-namespace (sci.lang/->Namespace 'clojure.edn nil))
 
  (def macroexpand-all
-   (sci.lang.Var. (fn [ctx form]
-                    (clojure.walk/prewalk
-                     (fn [x]
-                       (if (seq? x)
-                         (@sci.impl.utils/macroexpand* ctx x) x))
-                     form))
+   (sci.lang.Var. (fn [form]
+                    (let [ctx (store/get-ctx)]
+                      (clojure.walk/prewalk
+                       (fn [x]
+                         (if (seq? x)
+                           (@sci.impl.utils/macroexpand* ctx x) x))
+                       form)))
                   'macroexpand-all
                   {:ns clojure-walk-namespace
                    :name 'macroexpand-all
                    :doc "Recursively performs all possible macroexpansions in form."}
                   false
-                  true
+                  nil
                   nil))
 
  (def clojure-walk-ns

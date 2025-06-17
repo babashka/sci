@@ -11,6 +11,7 @@
    [clojure.tools.reader.reader-types :as rt]
    [edamame.core :as edamame]
    [edamame.impl.parser]
+   [sci.ctx-store :as store]
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
@@ -220,9 +221,11 @@
   sci var will adopt any metadata from the name symbol.  Returns the
   sci var."
   ([ctx sci-ns name]
-   (namespaces/sci-intern ctx sci-ns name))
+   (store/with-ctx ctx
+     (namespaces/sci-intern sci-ns name)))
   ([ctx sci-ns name val]
-   (namespaces/sci-intern ctx sci-ns name val)))
+   (store/with-ctx ctx
+     (namespaces/sci-intern sci-ns name val))))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.
@@ -536,12 +539,13 @@
 (defn find-ns
   "Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sym`."
   [ctx ns-sym]
-  (namespaces/sci-find-ns ctx ns-sym))
+  (namespaces/sci-find-ns* ctx ns-sym))
 
 (defn all-ns
   "Returns all SCI ns objects in the `ctx`"
   [ctx]
-  (namespaces/sci-all-ns ctx))
+  (store/with-ctx ctx
+    (namespaces/sci-all-ns)))
 
 (defn enable-unrestricted-access!
   "Calling this will enable

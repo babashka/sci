@@ -249,10 +249,7 @@
     (apply @this a b c d e f g h i j k l m n o p q r s t rest))
   #?(:clj
      (applyTo [this args]
-              (apply @this args)))
-  vars/CtxVar
-  (needs-ctx? [_] needs-ctx)
-  (needs-ctx! [_] (set! needs-ctx true)))
+              (apply @this args))))
 
 #?(:clj
    ;; Use public interface for print-method so it can be overriden in bb itself
