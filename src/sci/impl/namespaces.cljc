@@ -436,15 +436,19 @@
       (sci-create-ns ctx ns-sym))
   (sci.impl.utils/set-namespace! (store/get-ctx) ns-sym {}))
 
-(defn sci-the-ns [ctx x]
+(defn sci-the-ns* [ctx x]
   (if (instance? #?(:clj sci.lang.Namespace
                     :cljs sci.lang/Namespace) x) x
       (or (sci-find-ns* ctx x)
           (throw (new #?(:clj Exception :cljs js/Error)
                       (str "No namespace: " x " found"))))))
 
+(defn sci-the-ns [x]
+  (let [ctx (store/get-ctx)]
+    (sci-the-ns* ctx x)))
+
 (defn sci-ns-name* [ctx ns]
-  (let [^sci.lang.Namespace ns (sci-the-ns ctx ns)]
+  (let [^sci.lang.Namespace ns (sci-the-ns* ctx ns)]
     (types/getName ns)))
 
 (defn sci-ns-name [ns]
@@ -568,7 +572,7 @@
   ;; in this case the var will become unbound
   ([ns var-sym]
    (let [ctx (store/get-ctx)
-         ns (sci-the-ns ctx ns)
+         ns (sci-the-ns* ctx ns)
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
@@ -579,7 +583,7 @@
            new-var))))
   ([ns var-sym val]
    (let [ctx (store/get-ctx)
-         ns (sci-the-ns ctx ns)
+         ns (sci-the-ns* ctx ns)
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
@@ -601,8 +605,11 @@
 
 ;;;; Require + resolve
 
-(defn require [sci-ctx & args]
+(defn require* [sci-ctx & args]
   (apply @sci.impl.utils/eval-require-state sci-ctx args))
+
+(defn require [& args]
+  (apply require* (store/get-ctx) args))
 
 (defn use [sci-ctx & args]
   (apply @sci.impl.utils/eval-use-state sci-ctx args))
@@ -626,23 +633,24 @@
 (defn sci-ns-resolve
   ([ns sym]
    (let [ctx (store/get-ctx)]
-     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns ctx ns)}
+     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns* ctx ns)}
        (sci-resolve* ctx sym))))
   ([ns env sym]
    (let [ctx (store/get-ctx)]
-     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns ctx ns)}
+     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns* ctx ns)}
        (sci-resolve* ctx env sym)))))
 
 (defn sci-requiring-resolve
-  ([sci-ctx sym]
-   (if (qualified-symbol? sym)
-     (or (sci-resolve* sci-ctx sym)
-         (let [namespace (-> sym namespace symbol)]
-           (require sci-ctx namespace)
-           (sci-resolve* sci-ctx sym)))
-     (throw (new #?(:clj IllegalArgumentException
-                    :cljs js/Error)
-                 (str "Not a qualified symbol: " sym))))))
+  [sym]
+  (let [sci-ctx (store/get-ctx)]
+    (if (qualified-symbol? sym)
+      (or (sci-resolve* sci-ctx sym)
+          (let [namespace (-> sym namespace symbol)]
+            (require* sci-ctx namespace)
+            (sci-resolve* sci-ctx sym)))
+      (throw (new #?(:clj IllegalArgumentException
+                     :cljs js/Error)
+                  (str "Not a qualified symbol: " sym))))))
 
 (defn sci-find-var [sym]
   (if (qualified-symbol? sym)
@@ -1560,7 +1568,7 @@
      'rem (copy-core-var rem)
      'remove (copy-core-var remove)
      'remove-ns (copy-var sci-remove-ns clojure-core-ns {:name 'remove-ns})
-     'require (copy-var require clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/require})
+     'require (copy-var require clojure-core-ns {:copy-meta-from 'clojure.core/require})
      'reset-meta! (copy-core-var reset-meta!)
      'rest (copy-core-var rest)
      'repeatedly (copy-core-var repeatedly)
@@ -1584,7 +1592,7 @@
      'rseq (copy-core-var rseq)
      'random-sample (copy-core-var random-sample)
      'repeat (copy-core-var repeat)
-     'requiring-resolve (copy-var sci-requiring-resolve clojure-core-ns {:ctx true :name 'requiring-resolve})
+     'requiring-resolve (copy-var sci-requiring-resolve clojure-core-ns {:name 'requiring-resolve})
      'run! (copy-core-var run!)
      'set? (copy-core-var set?)
      'sequential? (copy-core-var sequential?)
@@ -1639,7 +1647,7 @@
      'take-last (copy-core-var take-last)
      'take-nth (copy-core-var take-nth)
      'take-while (copy-core-var take-while)
-     'the-ns (copy-var sci-the-ns clojure-core-ns {:name 'the-ns :ctx true})
+     'the-ns (copy-var sci-the-ns clojure-core-ns {:name 'the-ns})
      'trampoline (copy-core-var trampoline)
      'transduce (copy-core-var transduce)
      'transient (copy-core-var transient)
@@ -1745,7 +1753,7 @@
  (defn dir-fn
    [ctx ns]
    (let [current-ns (sci.impl.utils/current-ns-name)
-         the-ns (sci-the-ns ctx
+         the-ns (sci-the-ns* ctx
                             (get (sci-ns-aliases* ctx current-ns) ns ns))]
      (sort (map first (sci-ns-publics* ctx the-ns)))))
 
