@@ -958,8 +958,8 @@
     :private true
     :sci/built-in true}))
 
-(defn loaded-libs* [ctx]
-  (-> ctx :env deref :namespaces
+(defn loaded-libs* []
+  (-> (store/get-ctx) :env deref :namespaces
       (get 'clojure.core)
       (get '*loaded-libs*)
       deref deref))
@@ -1433,7 +1433,7 @@
      'let (macrofy 'let let**)
      'letfn (macrofy 'letfn letfn*)
      'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string})
-     'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs :ctx true})
+     'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs})
      'loop (macrofy 'loop loop**)
      'long (copy-core-var long)
      'list (copy-core-var list)
