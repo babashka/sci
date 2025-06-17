@@ -1107,8 +1107,8 @@
      '*default-data-reader-fn* parser/default-data-reader-fn
      '*read-eval* parser/read-eval
      '*reader-resolver* parser/reader-resolver
-     'read (copy-var read clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/read})
-     'read-string (copy-var read-string clojure-core-ns {:copy-meta-from 'clojure.core/read-string :ctx true})
+     'read (copy-var read clojure-core-ns {:copy-meta-from 'clojure.core/read})
+     'read-string (copy-var read-string clojure-core-ns {:copy-meta-from 'clojure.core/read-string})
      #?@(:clj ['reader-conditional (copy-core-var reader-conditional)])
      #?@(:clj ['reader-conditional? (copy-core-var reader-conditional?)])
      ;; end read
