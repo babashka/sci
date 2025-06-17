@@ -592,12 +592,14 @@
   `(clojure.core/refer '~'clojure.core ~@filters))
 
 (defn sci-ns-resolve
-  ([sci-ctx ns sym]
-   (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns sci-ctx ns)}
-     (sci-resolve sci-ctx sym)))
-  ([sci-ctx ns env sym]
-   (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns sci-ctx ns)}
-     (sci-resolve sci-ctx env sym))))
+  ([ns sym]
+   (let [ctx (store/get-ctx)]
+     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns ctx ns)}
+       (sci-resolve ctx sym))))
+  ([ns env sym]
+   (let [ctx (store/get-ctx)]
+     (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns ctx ns)}
+       (sci-resolve ctx env sym)))))
 
 (defn sci-requiring-resolve
   ([sci-ctx sym]
@@ -727,11 +729,11 @@
 
 ;;;; Macroexpand
 
-(defn macroexpand* [ctx expr]
-  (@sci.impl.utils/macroexpand* ctx expr))
+(defn macroexpand* [expr]
+  (@sci.impl.utils/macroexpand* (store/get-ctx) expr))
 
-(defn macroexpand-1* [ctx expr]
-  (@sci.impl.utils/macroexpand-1* ctx expr))
+(defn macroexpand-1* [expr]
+  (@sci.impl.utils/macroexpand-1* (store/get-ctx) expr))
 
 ;;;;
 
@@ -1441,10 +1443,8 @@
      'longs (copy-core-var longs)
      'list* (copy-core-var list*)
      'long-array (copy-core-var long-array)
-     'macroexpand (copy-var macroexpand* clojure-core-ns {:name 'macroexpand
-                                                          :ctx true})
-     'macroexpand-1 (copy-var macroexpand-1* clojure-core-ns {:name 'macroexpand-1
-                                                              :ctx true})
+     'macroexpand (copy-var macroexpand* clojure-core-ns {:name 'macroexpand})
+     'macroexpand-1 (copy-var macroexpand-1* clojure-core-ns {:name 'macroexpand-1})
      'make-array (copy-core-var make-array)
      'make-hierarchy (copy-core-var make-hierarchy)
      'map (copy-core-var map)
@@ -1478,7 +1478,7 @@
      'nil? (copy-core-var nil?)
      'nat-int? (copy-core-var nat-int?)
      'ns (macrofy 'ns ns*)
-     'ns-resolve (copy-var sci-ns-resolve clojure-core-ns {:ctx true :name 'ns-resolve})
+     'ns-resolve (copy-var sci-ns-resolve clojure-core-ns {:name 'ns-resolve})
      'number? (copy-core-var number?)
      'not-empty (copy-core-var not-empty)
      'not-any? (copy-core-var not-any?)
