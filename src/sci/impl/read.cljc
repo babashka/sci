@@ -65,14 +65,15 @@
    (let [reader (r/string-push-back-reader s)]
      (read opts reader))))
 
-(defn load-string [sci-ctx s]
+(defn load-string [s]
   (vars/with-bindings {utils/current-ns @utils/current-ns}
-    (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (let [ctx (store/get-ctx)
+          reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
       (loop [ret nil]
-        (let [x (parser/parse-next sci-ctx reader)]
+        (let [x (parser/parse-next ctx reader)]
           (if (utils/kw-identical? parser/eof x)
             ret
-            (recur (utils/eval sci-ctx x))))))))
+            (recur (utils/eval ctx x))))))))
 
 ;; used by source-fn
 (defn source-logging-reader

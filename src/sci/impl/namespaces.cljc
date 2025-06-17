@@ -1432,7 +1432,7 @@
      'lazy-cat (macrofy 'lazy-cat lazy-cat*)
      'let (macrofy 'let let**)
      'letfn (macrofy 'letfn letfn*)
-     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string :ctx true})
+     'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string})
      'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs :ctx true})
      'loop (macrofy 'loop loop**)
      'long (copy-core-var long)
