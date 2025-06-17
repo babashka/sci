@@ -1,6 +1,7 @@
 (ns sci.async
   (:require
    [sci.core :as sci]
+   [sci.ctx-store :as store]
    [sci.impl.copy-vars]
    [sci.impl.load :as load]
    [sci.impl.namespaces]
@@ -205,8 +206,13 @@
   [promise]
   (.-__sci_await ^js promise))
 
-(defn- require* [ctx & libspecs]
-  (let [ctx (assoc ctx :last-ns (or (:last-ns ctx)
+(defn- require* [?ctx & libspecs]
+  (let [ctx* (when (map? ?ctx)
+               ?ctx)
+        ctx (or ctx* (store/get-ctx))
+        libspecs (if ctx* libspecs
+                     (cons ?ctx libspecs))
+        ctx (assoc ctx :last-ns (or (:last-ns ctx)
                                     (volatile! @sci/ns)))
         p (handle-libspecs ctx libspecs)]
     (await p)))
@@ -214,4 +220,4 @@
 (def require
   "Async require that can be substituted for sync require by
   `{:namespaces {'clojure.core {'require scia/require}}}`"
-  (sci.impl.copy-vars/new-var 'require require* true))
+  (sci.impl.copy-vars/new-var 'require require*))
