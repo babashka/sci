@@ -73,10 +73,6 @@
 (defprotocol DynVar
   (dynamic? [this]))
 
-(defprotocol CtxVar
-  (needs-ctx? [this])
-  (needs-ctx! [this]))
-
 (extend-type #?(:clj Object :cljs default)
   DynVar
   (dynamic? [_] false))

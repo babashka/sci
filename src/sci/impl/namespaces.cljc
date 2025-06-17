@@ -1979,18 +1979,19 @@
  (def clojure-edn-namespace (sci.lang/->Namespace 'clojure.edn nil))
 
  (def macroexpand-all
-   (sci.lang.Var. (fn [ctx form]
-                    (clojure.walk/prewalk
-                     (fn [x]
-                       (if (seq? x)
-                         (@sci.impl.utils/macroexpand* ctx x) x))
-                     form))
+   (sci.lang.Var. (fn [form]
+                    (let [ctx (store/get-ctx)]
+                      (clojure.walk/prewalk
+                       (fn [x]
+                         (if (seq? x)
+                           (@sci.impl.utils/macroexpand* ctx x) x))
+                       form)))
                   'macroexpand-all
                   {:ns clojure-walk-namespace
                    :name 'macroexpand-all
                    :doc "Recursively performs all possible macroexpansions in form."}
                   false
-                  true
+                  nil
                   nil))
 
  (def clojure-walk-ns
