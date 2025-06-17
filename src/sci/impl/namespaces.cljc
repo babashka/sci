@@ -420,8 +420,8 @@
              (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
   nil)
 
-(defn sci-create-ns [ctx ns-sym]
-  (sci.impl.utils/namespace-object (:env ctx) ns-sym true nil))
+(defn sci-create-ns [ns-sym]
+  (sci.impl.utils/namespace-object (:env (store/get-ctx)) ns-sym true nil))
 
 (defn sci-find-ns* [ctx ns-sym]
   (assert (symbol? ns-sym))
@@ -1357,7 +1357,7 @@
      #?@(:cljs ['exists? (copy-var exists? clojure-core-ns {:macro true
                                                             :name 'exists?})])
      'find-ns (copy-var sci-find-ns clojure-core-ns {:name 'find-ns})
-     'create-ns (copy-var sci-create-ns clojure-core-ns {:ctx true :name 'create-ns})
+     'create-ns (copy-var sci-create-ns clojure-core-ns {:name 'create-ns})
      'in-ns (copy-var sci-in-ns clojure-core-ns {:ctx true :name 'in-ns})
      'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var
                                                        :ctx true})
