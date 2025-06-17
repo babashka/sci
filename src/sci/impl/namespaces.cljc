@@ -430,11 +430,11 @@
 (defn sci-find-ns [ns-sym]
   (sci-find-ns* (store/get-ctx) ns-sym))
 
-(defn sci-in-ns [ctx ns-sym]
+(defn sci-in-ns [ns-sym]
   (assert (symbol? ns-sym))
   #_(when-not (sci-find-ns ctx ns-sym)
       (sci-create-ns ctx ns-sym))
-  (sci.impl.utils/set-namespace! ctx ns-sym {}))
+  (sci.impl.utils/set-namespace! (store/get-ctx) ns-sym {}))
 
 (defn sci-the-ns [ctx x]
   (if (instance? #?(:clj sci.lang.Namespace
@@ -1358,7 +1358,7 @@
                                                             :name 'exists?})])
      'find-ns (copy-var sci-find-ns clojure-core-ns {:name 'find-ns})
      'create-ns (copy-var sci-create-ns clojure-core-ns {:name 'create-ns})
-     'in-ns (copy-var sci-in-ns clojure-core-ns {:ctx true :name 'in-ns})
+     'in-ns (copy-var sci-in-ns clojure-core-ns {:name 'in-ns})
      'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var
                                                        :ctx true})
      'first (copy-core-var first)
