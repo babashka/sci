@@ -1747,8 +1747,9 @@
                'xml-seq (copy-core-var xml-seq)])}))
 
  (defn dir-fn
-   [ctx ns]
-   (let [current-ns (sci.impl.utils/current-ns-name)
+   [ns]
+   (let [ctx (store/get-ctx)
+         current-ns (sci.impl.utils/current-ns-name)
          the-ns (sci-the-ns* ctx
                             (get (sci-ns-aliases* ctx current-ns) ns ns))]
      (sort (map first (sci-ns-publics* ctx the-ns)))))
@@ -1942,7 +1943,7 @@
 
  (def clojure-repl
    {:obj clojure-repl-namespace
-    'dir-fn (new-var 'dir-fn dir-fn clojure-repl-namespace true)
+    'dir-fn (new-var 'dir-fn dir-fn clojure-repl-namespace)
     'dir (macrofy 'dir dir clojure-repl-namespace)
     'print-doc (with-meta print-doc {:private true})
     'doc (macrofy 'doc doc clojure-repl-namespace)
