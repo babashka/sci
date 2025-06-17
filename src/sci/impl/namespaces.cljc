@@ -1065,6 +1065,10 @@
           ([arr idx idx2 & idxv]
            (apply aset* (aget ^objects arr idx) idx2 idxv))))
 
+(defn eval* [form]
+  (let [ctx (store/get-ctx)]
+    (eval ctx form)))
+
 (macros/usetime
 
  (def clojure-core
@@ -1337,8 +1341,7 @@
      'empty (copy-core-var empty)
      'empty? (copy-core-var empty?)
      #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
-     'eval (copy-var eval clojure-core-ns {:copy-meta-from 'clojure.core/eval
-                                           :ctx true})
+     'eval (copy-var eval* clojure-core-ns {:copy-meta-from 'clojure.core/eval})
      'even? (copy-core-var even?)
      'every? (copy-core-var every?)
      'every-pred (copy-core-var every-pred)
