@@ -1,12 +1,13 @@
 (ns sci.impl.hierarchies
   {:no-doc true}
-  (:require [sci.impl.vars :as vars]
+  (:require [sci.ctx-store :as store]
+            [sci.impl.vars :as vars]
             [sci.lang]))
 
 ;;;; Hierarchies
 
-(defn global-hierarchy [ctx]
-  (get-in @(:env ctx) [:namespaces 'clojure.core 'global-hierarchy]))
+(defn global-hierarchy []
+  (get-in @(:env (store/get-ctx)) [:namespaces 'clojure.core 'global-hierarchy]))
 
 (defn ->tag [x]
   (if (instance? sci.lang.Type x)
@@ -14,51 +15,51 @@
     x))
 
 (defn derive*
-  ([ctx tag parent]
+  ([tag parent]
    (let [tag (->tag tag)]
-     (vars/alter-var-root (global-hierarchy ctx)
+     (vars/alter-var-root (global-hierarchy)
                           (fn [h]
                             (derive h tag parent))))
    nil)
-  ([_ctx h tag parent]
+  ([h tag parent]
    (let [tag (->tag tag)]
      (derive h tag parent))))
 
 (defn underive*
-  ([ctx tag parent]
+  ([tag parent]
    (let [tag (->tag tag)]
-     (vars/alter-var-root (global-hierarchy ctx)
+     (vars/alter-var-root (global-hierarchy)
                           (fn [h]
                             (underive h tag parent))))
    nil)
-  ([_ctx h tag parent]
+  ([h tag parent]
    (let [tag (->tag tag)]
      (underive h tag parent))))
 
 (defn isa?*
-  ([ctx child parent]
-   (let [h @(global-hierarchy ctx)]
+  ([child parent]
+   (let [h @(global-hierarchy)]
      (isa? h (->tag child) parent)))
-  ([_ctx h child parent]
+  ([h child parent]
    (isa? h (->tag child) parent)))
 
 (defn ancestors*
-  ([ctx tag]
-   (let [h @(global-hierarchy ctx)]
+  ([tag]
+   (let [h @(global-hierarchy)]
      (ancestors h tag)))
-  ([_ctx h tag]
+  ([h tag]
    (ancestors h tag)))
 
 (defn descendants*
-  ([ctx tag]
-   (let [h @(global-hierarchy ctx)]
+  ([tag]
+   (let [h @(global-hierarchy)]
      (descendants h tag)))
-  ([_ctx h tag]
+  ([h tag]
    (descendants h tag)))
 
 (defn parents*
-  ([ctx tag]
-   (let [h @(global-hierarchy ctx)]
+  ([tag]
+   (let [h @(global-hierarchy)]
      (parents h tag)))
-  ([_ctx h tag]
+  ([h tag]
    (parents h tag)))

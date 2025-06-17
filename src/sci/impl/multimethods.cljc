@@ -75,7 +75,7 @@
 
     (let [options   (apply hash-map options)
           default   (get options :default :default)
-          hierarchy (get options :hierarchy (global-hierarchy (or ctx (store/get-ctx))))]
+          hierarchy (get options :hierarchy (global-hierarchy))]
       (check-valid-options options :default :hierarchy)
       #?(:clj `(let [v# (def ~mm-name)]
                  (when-not (and (clojure.core/has-root-impl v#) (clojure.core/multi-fn?-impl (deref v#)))
