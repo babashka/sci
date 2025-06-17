@@ -610,11 +610,11 @@
                     :cljs js/Error)
                  (str "Not a qualified symbol: " sym))))))
 
-(defn sci-find-var [sci-ctx sym]
+(defn sci-find-var [sym]
   (if (qualified-symbol? sym)
     (let [nsname (-> sym namespace symbol)
           sym' (-> sym name symbol)]
-      (if-let [namespace (-> sci-ctx :env deref :namespaces (get nsname))]
+      (if-let [namespace (-> (store/get-ctx) :env deref :namespaces (get nsname))]
         (get namespace sym')
         (throw (new #?(:clj IllegalArgumentException
                        :cljs js/Error)
@@ -1359,8 +1359,7 @@
      'find-ns (copy-var sci-find-ns clojure-core-ns {:name 'find-ns})
      'create-ns (copy-var sci-create-ns clojure-core-ns {:name 'create-ns})
      'in-ns (copy-var sci-in-ns clojure-core-ns {:name 'in-ns})
-     'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var
-                                                       :ctx true})
+     'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var})
      'first (copy-core-var first)
      'float? (copy-core-var float?)
      'floats (copy-core-var floats)
