@@ -89,7 +89,6 @@
      (-sci-print-method v w)))
 
 (defn deftype [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
-  (prn :record-name record-name)
   (let [ctx (store/get-ctx)]
     (if (:sci.impl/macroexpanding ctx)
       (cons 'clojure.core/deftype (rest form))

@@ -9,6 +9,7 @@
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
+   [sci.ctx-store :as store]
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -62,6 +63,7 @@
 
 (defn macroexpand-1 [ctx expr]
   (let [ctx (assoc ctx :sci.impl/macroexpanding true)
+        _ (set! store/*ctx* ctx)
         original-expr expr]
     (if (seq? expr)
       (let [op (first expr)]
