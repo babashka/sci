@@ -443,12 +443,16 @@
           (throw (new #?(:clj Exception :cljs js/Error)
                       (str "No namespace: " x " found"))))))
 
-(defn sci-ns-name [ctx ns]
+(defn sci-ns-name* [ctx ns]
   (let [^sci.lang.Namespace ns (sci-the-ns ctx ns)]
     (types/getName ns)))
 
+(defn sci-ns-name [ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-name* ctx ns)))
+
 (defn sci-ns-aliases* [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+  (let [name (sci-ns-name* ctx sci-ns)
         aliases (get-in @(:env ctx) [:namespaces name :aliases])]
     (zipmap (keys aliases)
             (map (fn [sym]
@@ -463,7 +467,7 @@
   (dissoc m :aliases :imports :obj :refer :refers))
 
 (defn sci-ns-interns* [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+  (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     m))
@@ -473,7 +477,7 @@
     (sci-ns-interns* ctx sci-ns)))
 
 (defn sci-ns-publics* [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+  (let [name (sci-ns-name* ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     (into {} (keep (fn [[k v]]
@@ -486,7 +490,7 @@
     (sci-ns-publics* ctx sci-ns)))
 
 (defn sci-ns-imports* [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+  (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
         global-imports (:imports env)
         namespace-imports (get-in env [:namespaces name :imports])
@@ -500,7 +504,7 @@
     (sci-ns-imports* ctx sci-ns)))
 
 (defn sci-ns-refers* [ctx sci-ns]
-  (let [name (sci-ns-name ctx sci-ns)
+  (let [name (sci-ns-name* ctx sci-ns)
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])
         clojure-core (get-in env [:namespaces 'clojure.core])
@@ -522,7 +526,7 @@
     (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
     (swap! (:env ctx)
            (fn [env]
-             (let [name (sci-ns-name ctx sci-ns)]
+             (let [name (sci-ns-name* ctx sci-ns)]
                (update-in env [:namespaces name]
                           (fn [the-ns-map]
                             (cond (contains? (:refers the-ns-map) sym)
@@ -540,11 +544,12 @@
                                   :else the-ns-map)))))))
   nil)
 
-(defn sci-ns-unalias [ctx sci-ns sym]
-  (swap! (:env ctx)
-         (fn [env]
-           (update-in env [:namespaces (sci-ns-name ctx sci-ns) :aliases] dissoc sym)))
-  nil)
+(defn sci-ns-unalias [sci-ns sym]
+  (let [ctx (store/get-ctx)]
+    (swap! (:env ctx)
+           (fn [env]
+             (update-in env [:namespaces (sci-ns-name* ctx sci-ns) :aliases] dissoc sym)))
+    nil))
 
 (defn sci-all-ns []
   (let [env (:env (store/get-ctx))
@@ -1513,8 +1518,8 @@
      'ns-refers (copy-var sci-ns-refers clojure-core-ns {:name 'ns-refers})
      'ns-map (copy-var sci-ns-map clojure-core-ns {:name 'ns-map})
      'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:name 'ns-unmap})
-     'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:ctx true :name 'ns-unalias})
-     'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name :ctx true})
+     'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:name 'ns-unalias})
+     'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name})
      'odd? (copy-core-var odd?)
      #?@(:cljs ['object? (copy-core-var object?)])
      'object-array (copy-core-var object-array)
