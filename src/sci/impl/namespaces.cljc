@@ -1139,7 +1139,7 @@
      ;; protocols
      'defprotocol (macrofy 'defprotocol sci.impl.protocols/defprotocol
                            clojure-core-ns)
-     'extend (copy-var sci.impl.protocols/extend clojure-core-ns {:name 'extend :ctx true})
+     'extend (copy-var sci.impl.protocols/extend clojure-core-ns {:name 'extend})
      'extends? (copy-core-var sci.impl.protocols/extends?)
      'extend-type (macrofy 'extend-type sci.impl.protocols/extend-type
                            clojure-core-ns true)

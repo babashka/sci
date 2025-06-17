@@ -109,7 +109,7 @@
     expansion))
 
 ;; TODO: apply patches for default override for records
-(defn extend [ctx atype & proto+mmaps]
+(defn extend [atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)
           :let [extend-via-metadata (:extend-via-metadata proto)
                 proto-ns (:ns proto)
@@ -118,7 +118,7 @@
     (doseq [[meth-name f] mmap]
       (let [meth-str (name meth-name)
             meth-sym (symbol meth-str)
-            env @(:env ctx)
+            env@(:env (store/get-ctx))
             multi-method-var (get-in env [:namespaces pns meth-sym])
             multi-method @multi-method-var]
         (mms/multi-fn-add-method-impl
