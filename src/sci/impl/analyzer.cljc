@@ -1632,21 +1632,12 @@
                       :else
                       (try
                         (if (macro? f)
-                          (let [needs-ctx? (and (utils/var? f)
-                                                (vars/needs-ctx? f))
-                                ;; Fix for #603
+                          (let [;; Fix for #603
                                 #?@(:cljs [f (if (utils/var? f)
-
                                                @f
                                                f)
                                            f (or (.-afn ^js f) f)])
-                                v (if needs-ctx?
-                                    (apply f expr
-                                           (:bindings ctx)
-                                           ctx
-                                           (rest expr))
-                                    (apply f expr
-                                           (:bindings ctx) (rest expr)))
+                                v (apply f expr (:bindings ctx) (rest expr))
                                 v (if (seq? v)
                                     (with-meta v (merge m (meta v)))
                                     v)

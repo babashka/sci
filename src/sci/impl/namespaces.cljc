@@ -1356,7 +1356,7 @@
      'defrecord (macrofy 'defrecord sci.impl.records/defrecord
                          clojure-core-ns true)
      'deftype (macrofy 'deftype sci.impl.deftype/deftype
-                       clojure-core-ns true)
+                       clojure-core-ns)
      'delay (macrofy 'delay delay*)
      'delay? (copy-core-var delay?)
      #?@(:clj ['deliver (copy-core-var deliver)])

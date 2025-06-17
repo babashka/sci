@@ -88,105 +88,103 @@
    (defmethod print-method SciType [v w]
      (-sci-print-method v w)))
 
-(defn deftype [[_fname & _ :as form] _ ctx record-name & fields+raw-protocol-impls]
-  (if (:sci.impl/macroexpanding ctx)
-    (cons 'clojure.core/deftype (rest form))
-    (let [[ctx record-name fields raw-protocol-impls]
-          (if (symbol? ctx)
-            [nil ctx record-name fields+raw-protocol-impls]
-            [ctx record-name (first fields+raw-protocol-impls) (rest fields+raw-protocol-impls)])
-          factory-fn-str (str "->" record-name)
-          factory-fn-sym (symbol factory-fn-str)
-          rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
-          protocol-impls (utils/split-when symbol? raw-protocol-impls)
-          field-set (set fields)
-          protocol-impls
-          (mapcat
-           (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
-             (let [impls (group-by first impls)
-                   protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                   ;; _ (prn :protocol protocol)
-                   #?@(:cljs [protocol (or protocol
-                                           (when (= 'Object protocol-name)
-                                             ::object)
-                                           (when (= 'IPrintWithWriter protocol-name)
-                                             ::IPrintWithWriter))])
-                   _ (when-not protocol
-                       (utils/throw-error-with-location
-                        (str "Protocol not found: " protocol-name)
-                        expr))
-                   #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
-                   protocol (if (utils/var? protocol) @protocol protocol)
-                   protocol-var (:var protocol)
-                   _ (when protocol-var
-                       ;; TODO: not all externally defined protocols might have the :var already
-                       (vars/alter-var-root protocol-var update :satisfies
-                                            (fnil conj #{}) (symbol (str rec-type))))
-                   protocol-ns (:ns protocol)
-                   pns (cond protocol-ns (str (types/getName protocol-ns))
-                             (= #?(:clj Object :cljs ::object) protocol) "sci.impl.deftype")
-                   fq-meth-name #(if (simple-symbol? %)
-                                   (symbol pns (str %))
-                                   %)]
-               (map (fn [[method-name bodies]]
-                      (if #?(:cljs (and (keyword-identical? ::IPrintWithWriter protocol)
-                                        (= '-pr-writer method-name))
-                             :clj false)
-                        #?(:cljs
-                           `(alter-meta! (var ~record-name)
-                                         assoc :sci.impl/print-method (fn ~(rest (first bodies))))
-                           :clj nil)
-                        (let [bodies (map rest bodies)
-                              bodies (mapv (fn [impl]
-                                             (let [args (first impl)
-                                                   body (rest impl)
-                                                   destr (utils/maybe-destructured args body)
-                                                   args (:params destr)
-                                                   body (:body destr)
-                                                   orig-this-sym (first args)
-                                                   rest-args (rest args)
-                                                   ;; shadows-this? (some #(= orig-this-sym %) rest-args)
-                                                   this-sym (if true #_shadows-this?
-                                                                '__sci_this
-                                                                orig-this-sym)
-                                                   args (vec (cons this-sym rest-args))
-                                                   ext-map-binding (gensym)
-                                                   bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
-                                                   bindings (concat bindings
-                                                                    (mapcat (fn [field]
-                                                                              ;; TODO: the premature get is only necessary for immutable bindings
-                                                                              ;; We could however delay the getting of these values for both immutable and mutable fields.
-                                                                              ;; Currently a mutable binding is retrieved from the ext-map directly, since it can be mutated in the body we're analyzing here
-                                                                              ;; See resolve.cljc. We could apply the same trick to records.
-                                                                              [field (list 'get ext-map-binding (list 'quote field))])
-                                                                            (reduce disj field-set args)))
-                                                   bindings (concat bindings [orig-this-sym this-sym])
-                                                   bindings (vec bindings)]
-                                               ;; (prn :bindings bindings)
-                                               `(~args
-                                                 (let ~bindings
-                                                   ~@body)))) bodies)]
-                          (@utils/analyze (assoc ctx
-                                                 :deftype-fields field-set
-                                                 :local->mutator (zipmap field-set
-                                                                         (map (fn [field]
-                                                                                (fn [this v]
-                                                                                  (types/-mutate this field v)))
-                                                                              field-set)))
-                           `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))))
-                    impls)))
-           protocol-impls
-           raw-protocol-impls)]
-      `(do
-         (declare ~record-name ~factory-fn-sym)
-         (def ~(with-meta record-name
-                 {:sci/type true})
-           (sci.impl.deftype/-create-type
-            ~{:sci.impl/type-name (list 'quote rec-type)
-              :sci.impl/type rec-type
-              :sci.impl/constructor (list 'var factory-fn-sym)
-              :sci.impl/var (list 'var record-name)}))
-         (defn ~factory-fn-sym [& args#]
-           (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
-         ~@protocol-impls
-         ~record-name))))
+(defn deftype [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
+  (prn :record-name record-name)
+  (let [ctx (store/get-ctx)]
+    (if (:sci.impl/macroexpanding ctx)
+      (cons 'clojure.core/deftype (rest form))
+      (let [factory-fn-str (str "->" record-name)
+            factory-fn-sym (symbol factory-fn-str)
+            rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
+            protocol-impls (utils/split-when symbol? raw-protocol-impls)
+            field-set (set fields)
+            protocol-impls
+            (mapcat
+             (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
+               (let [impls (group-by first impls)
+                     protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
+                     ;; _ (prn :protocol protocol)
+                     #?@(:cljs [protocol (or protocol
+                                             (when (= 'Object protocol-name)
+                                               ::object)
+                                             (when (= 'IPrintWithWriter protocol-name)
+                                               ::IPrintWithWriter))])
+                     _ (when-not protocol
+                         (utils/throw-error-with-location
+                          (str "Protocol not found: " protocol-name)
+                          expr))
+                     #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
+                     protocol (if (utils/var? protocol) @protocol protocol)
+                     protocol-var (:var protocol)
+                     _ (when protocol-var
+                         ;; TODO: not all externally defined protocols might have the :var already
+                         (vars/alter-var-root protocol-var update :satisfies
+                                              (fnil conj #{}) (symbol (str rec-type))))
+                     protocol-ns (:ns protocol)
+                     pns (cond protocol-ns (str (types/getName protocol-ns))
+                               (= #?(:clj Object :cljs ::object) protocol) "sci.impl.deftype")
+                     fq-meth-name #(if (simple-symbol? %)
+                                     (symbol pns (str %))
+                                     %)]
+                 (map (fn [[method-name bodies]]
+                        (if #?(:cljs (and (keyword-identical? ::IPrintWithWriter protocol)
+                                          (= '-pr-writer method-name))
+                               :clj false)
+                          #?(:cljs
+                             `(alter-meta! (var ~record-name)
+                                           assoc :sci.impl/print-method (fn ~(rest (first bodies))))
+                             :clj nil)
+                          (let [bodies (map rest bodies)
+                                bodies (mapv (fn [impl]
+                                               (let [args (first impl)
+                                                     body (rest impl)
+                                                     destr (utils/maybe-destructured args body)
+                                                     args (:params destr)
+                                                     body (:body destr)
+                                                     orig-this-sym (first args)
+                                                     rest-args (rest args)
+                                                     ;; shadows-this? (some #(= orig-this-sym %) rest-args)
+                                                     this-sym (if true #_shadows-this?
+                                                                  '__sci_this
+                                                                  orig-this-sym)
+                                                     args (vec (cons this-sym rest-args))
+                                                     ext-map-binding (gensym)
+                                                     bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
+                                                     bindings (concat bindings
+                                                                      (mapcat (fn [field]
+                                                                                ;; TODO: the premature get is only necessary for immutable bindings
+                                                                                ;; We could however delay the getting of these values for both immutable and mutable fields.
+                                                                                ;; Currently a mutable binding is retrieved from the ext-map directly, since it can be mutated in the body we're analyzing here
+                                                                                ;; See resolve.cljc. We could apply the same trick to records.
+                                                                                [field (list 'get ext-map-binding (list 'quote field))])
+                                                                              (reduce disj field-set args)))
+                                                     bindings (concat bindings [orig-this-sym this-sym])
+                                                     bindings (vec bindings)]
+                                                 ;; (prn :bindings bindings)
+                                                 `(~args
+                                                   (let ~bindings
+                                                     ~@body)))) bodies)]
+                            (@utils/analyze (assoc ctx
+                                                   :deftype-fields field-set
+                                                   :local->mutator (zipmap field-set
+                                                                           (map (fn [field]
+                                                                                  (fn [this v]
+                                                                                    (types/-mutate this field v)))
+                                                                                field-set)))
+                             `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))))
+                      impls)))
+             protocol-impls
+             raw-protocol-impls)]
+        `(do
+           (declare ~record-name ~factory-fn-sym)
+           (def ~(with-meta record-name
+                   {:sci/type true})
+             (sci.impl.deftype/-create-type
+              ~{:sci.impl/type-name (list 'quote rec-type)
+                :sci.impl/type rec-type
+                :sci.impl/constructor (list 'var factory-fn-sym)
+                :sci.impl/var (list 'var record-name)}))
+           (defn ~factory-fn-sym [& args#]
+             (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+           ~@protocol-impls
+           ~record-name)))))
