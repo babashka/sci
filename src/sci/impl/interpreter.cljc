@@ -60,8 +60,7 @@
 
 (defn eval-form [ctx form]
   (store/with-ctx ctx
-    (eval-form* ctx form))
-  (eval-form* ctx form))
+    (eval-form* ctx form)))
 
 (vreset! utils/eval-form-state eval-form)
 
