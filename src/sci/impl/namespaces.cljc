@@ -1191,8 +1191,7 @@
      'extend (copy-var sci.impl.protocols/extend clojure-core-ns {:name 'extend})
      'extends? (copy-core-var sci.impl.protocols/extends?)
      'extend-type (macrofy 'extend-type sci.impl.protocols/extend-type clojure-core-ns)
-     'extend-protocol (macrofy 'extend-protocol sci.impl.protocols/extend-protocol
-                               clojure-core-ns true)
+     'extend-protocol (macrofy 'extend-protocol sci.impl.protocols/extend-protocol clojure-core-ns)
      '-reified-methods (new-var '-reified-methods #(types/getMethods %))
      'reify* (new-var 'reify* reify/reify* clojure-core-ns)
      'reify (macrofy 'reify reify/reify clojure-core-ns)
@@ -1785,9 +1784,10 @@
  (defn find-doc
    "Prints documentation for any var whose documentation or name
    contains a match for re-string-or-pattern"
-   [ctx re-string-or-pattern]
+   [re-string-or-pattern]
    (let [re (re-pattern re-string-or-pattern)
          ans (sci-all-ns)
+         ctx (store/get-ctx)
          ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns* ctx %))))
                             ans)
                     (map #(assoc (meta %)
@@ -1803,8 +1803,9 @@
    "Given a regular expression or stringable thing, return a seq of all
    public definitions in all currently-loaded namespaces that match the
    str-or-pattern."
-   [ctx str-or-pattern]
-   (let [matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
+   [str-or-pattern]
+   (let [ctx (store/get-ctx)
+         matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
                     #(re-find str-or-pattern (str %))
                     #(clojure.string/includes? (str %) (str str-or-pattern)))]
      (sort (mapcat (fn [ns]
@@ -1846,21 +1847,23 @@
    convenient.
 
    Example: (source-fn 'filter)"
-   [ctx x]
-   (when-let [v (sci-resolve* ctx x)]
-     (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
-       (when (and line ns)
-         (when-let [source (or #?(:clj (when file
-                                         (let [f (jio/file file)]
-                                           (when (.exists f) (slurp f)))))
-                               (when-let [load-fn (:load-fn @(:env ctx))]
-                                 (:source (load-fn {:namespace (types/getName ns)}))))]
-           (let [lines (clojure.string/split source #"\n")
-                 line (dec line)
-                 start (clojure.string/join "\n" (drop line lines))
-                 reader (read/source-logging-reader start)
-                 res (parser/parse-next ctx reader {:source true})]
-             (:source (meta res))))))))
+   [x]
+   (let [ctx (store/get-ctx)]
+     (when-let [
+                v (sci-resolve* ctx x)]
+       (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
+         (when (and line ns)
+           (when-let [source (or #?(:clj (when file
+                                           (let [f (jio/file file)]
+                                             (when (.exists f) (slurp f)))))
+                                 (when-let [load-fn (:load-fn @(:env ctx))]
+                                   (:source (load-fn {:namespace (types/getName ns)}))))]
+             (let [lines (clojure.string/split source #"\n")
+                   line (dec line)
+                   start (clojure.string/join "\n" (drop line lines))
+                   reader (read/source-logging-reader start)
+                   res (parser/parse-next ctx reader {:source true})]
+               (:source (meta res)))))))))
 
  (defn source
    "Prints the source code for the given symbol, if it can find it.
@@ -1912,13 +1915,13 @@
       "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
    most recent repl exception (*e), and a depth of 12."
       {:added "1.3"}
-      ([ctx] (pst ctx 12))
-      ([ctx e-or-depth]
+      ([] (pst 12))
+      ([e-or-depth]
        (if (instance? Throwable e-or-depth)
-         (pst ctx e-or-depth 12)
-         (when-let [e (get-in @(:env ctx) [:namespaces 'clojure.core '*e])]
-           (pst ctx (root-cause @e) e-or-depth))))
-      ([ctx ^Throwable e depth]
+         (pst e-or-depth 12)
+         (when-let [e @*e]
+           (pst (root-cause @e) e-or-depth))))
+      ([^Throwable e depth]
        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
          (sci.impl.io/println (str (-> e class .getSimpleName) " "
                                    (.getMessage e)
@@ -1932,9 +1935,9 @@
              (sci.impl.io/println (str \tab (stack-element-str el))))
            (when cause
              (sci.impl.io/println "Caused by:")
-             (pst ctx cause (min depth
-                                 (+ 2 (- (count (.getStackTrace cause))
-                                         (count st)))))))))))
+             (pst cause (min depth
+                             (+ 2 (- (count (.getStackTrace cause))
+                                     (count st)))))))))))
 
  (def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
 
@@ -1944,11 +1947,11 @@
     'dir (macrofy 'dir dir clojure-repl-namespace)
     'print-doc (with-meta print-doc {:private true})
     'doc (macrofy 'doc doc clojure-repl-namespace)
-    'find-doc (new-var 'find-doc find-doc clojure-repl-namespace true)
-    'apropos (new-var 'apropos apropos clojure-repl-namespace true)
+    'find-doc (new-var 'find-doc find-doc clojure-repl-namespace)
+    'apropos (new-var 'apropos apropos clojure-repl-namespace)
     'source (macrofy 'source source clojure-repl-namespace)
-    'source-fn (new-var 'source-fn source-fn clojure-repl-namespace true)
-    #?@(:clj ['pst (new-var 'pst pst clojure-repl-namespace true)
+    'source-fn (new-var 'source-fn source-fn clojure-repl-namespace)
+    #?@(:clj ['pst (new-var 'pst pst clojure-repl-namespace)
               'stack-element-str (new-var 'stack-element-str stack-element-str clojure-repl-namespace)
               'demunge (new-var 'demunge demunge clojure-repl-namespace)])})
 

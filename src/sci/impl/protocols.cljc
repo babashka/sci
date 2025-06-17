@@ -206,11 +206,8 @@
   [t]
   (str t))
 
-(defn extend-protocol [form _ ctx protocol-name & impls]
-  (let [[ctx protocol-name impls] (if (symbol? ctx)
-                                    [nil ctx (cons protocol-name impls)]
-                                    [ctx protocol-name impls])
-        ctx (or ctx (store/get-ctx))
+(defn extend-protocol [form _ protocol-name & impls]
+  (let [ctx (store/get-ctx)
         #?@(:cljs [print-writer? (= 'IPrintWithWriter protocol-name)])
         impls (utils/split-when #(not (seq? %)) impls)
         protocol-var
