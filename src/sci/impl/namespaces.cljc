@@ -447,13 +447,17 @@
   (let [^sci.lang.Namespace ns (sci-the-ns ctx ns)]
     (types/getName ns)))
 
-(defn sci-ns-aliases [ctx sci-ns]
+(defn sci-ns-aliases* [ctx sci-ns]
   (let [name (sci-ns-name ctx sci-ns)
         aliases (get-in @(:env ctx) [:namespaces name :aliases])]
     (zipmap (keys aliases)
             (map (fn [sym]
                    (sci.lang/->Namespace sym nil))
                  (vals aliases)))))
+
+(defn sci-ns-aliases [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-aliases* ctx sci-ns)))
 
 (defn clean-ns [m]
   (dissoc m :aliases :imports :obj :refer :refers))
@@ -1484,7 +1488,7 @@
      'not-any? (copy-core-var not-any?)
      'next (copy-core-var next)
      'nnext (copy-core-var nnext)
-     'ns-aliases (copy-var sci-ns-aliases clojure-core-ns {:ctx true :name 'ns-aliases})
+     'ns-aliases (copy-var sci-ns-aliases clojure-core-ns {:name 'ns-aliases})
      'ns-imports (copy-var sci-ns-imports clojure-core-ns {:ctx true :name 'ns-imports})
      'ns-interns (copy-var sci-ns-interns clojure-core-ns {:ctx true :name 'ns-interns})
      'ns-publics (copy-var sci-ns-publics clojure-core-ns {:ctx true :name 'ns-publics})
@@ -1714,7 +1718,7 @@
    [ctx ns]
    (let [current-ns (sci.impl.utils/current-ns-name)
          the-ns (sci-the-ns ctx
-                            (get (sci-ns-aliases ctx current-ns) ns ns))]
+                            (get (sci-ns-aliases* ctx current-ns) ns ns))]
      (sort (map first (sci-ns-publics ctx the-ns)))))
 
  (defn dir
