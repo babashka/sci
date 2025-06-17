@@ -607,11 +607,15 @@
 (defn use [sci-ctx & args]
   (apply @sci.impl.utils/eval-use-state sci-ctx args))
 
-(defn sci-resolve
+(defn sci-resolve*
   ([sci-ctx sym]
    (@sci.impl.utils/eval-resolve-state sci-ctx (:bindings sci-ctx) sym))
   ([sci-ctx env sym]
    (@sci.impl.utils/eval-resolve-state sci-ctx (:bindings sci-ctx) env sym)))
+
+(defn sci-resolve
+  ([sym] (sci-resolve* (store/get-ctx) sym))
+  ([env sym] (sci-resolve* (store/get-ctx) env sym)))
 
 (defn sci-refer [& args]
   (apply @sci.impl.utils/eval-refer-state (store/get-ctx) args))
@@ -623,19 +627,19 @@
   ([ns sym]
    (let [ctx (store/get-ctx)]
      (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns ctx ns)}
-       (sci-resolve ctx sym))))
+       (sci-resolve* ctx sym))))
   ([ns env sym]
    (let [ctx (store/get-ctx)]
      (sci.impl.vars/with-bindings {sci.impl.utils/current-ns (sci-the-ns ctx ns)}
-       (sci-resolve ctx env sym)))))
+       (sci-resolve* ctx env sym)))))
 
 (defn sci-requiring-resolve
   ([sci-ctx sym]
    (if (qualified-symbol? sym)
-     (or (sci-resolve sci-ctx sym)
+     (or (sci-resolve* sci-ctx sym)
          (let [namespace (-> sym namespace symbol)]
            (require sci-ctx namespace)
-           (sci-resolve sci-ctx sym)))
+           (sci-resolve* sci-ctx sym)))
      (throw (new #?(:clj IllegalArgumentException
                     :cljs js/Error)
                  (str "Not a qualified symbol: " sym))))))
@@ -1571,7 +1575,7 @@
      'reduced? (copy-core-var reduced?)
      'reset! (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!})
      'reset-thread-binding-frame-impl (new-var 'reset-thread-binding-frame-impl sci.impl.vars/reset-thread-binding-frame)
-     'resolve (copy-var sci-resolve clojure-core-ns {:name 'resolve :ctx true})
+     'resolve (copy-var sci-resolve clojure-core-ns {:name 'resolve})
      'reversible? (copy-core-var reversible?)
      'rsubseq (copy-core-var rsubseq)
      'reductions (copy-core-var reductions)
@@ -1837,7 +1841,7 @@
 
    Example: (source-fn 'filter)"
    [ctx x]
-   (when-let [v (sci-resolve ctx x)]
+   (when-let [v (sci-resolve* ctx x)]
      (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
        (when (and line ns)
          (when-let [source (or #?(:clj (when file
