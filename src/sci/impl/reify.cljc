@@ -1,6 +1,7 @@
 (ns sci.impl.reify
   {:no-doc true}
   (:refer-clojure :exclude [reify])
+  #?(:clj (:require [sci.ctx-store :as store]))
   #?(:cljs (:require [sci.impl.types :as t])))
 
 (defn reify [form _ & args]
@@ -15,10 +16,10 @@
     `(clojure.core/reify* '~form ~(vec classes) ~methods)))
 
 (defn reify*
-  #?(:clj [ctx form classes methods]
-     :cljs [_ctx _form classes methods])
+  #?(:clj [form classes methods]
+     :cljs [_form classes methods])
      #?(:clj (let [{interfaces true protocols false} (group-by class? classes)]
-            (if-let [factory (:reify-fn ctx)]
+            (if-let [factory (:reify-fn (store/get-ctx))]
               (with-meta (factory {:interfaces (set interfaces)
                                    :methods methods
                                    :protocols (set protocols)})

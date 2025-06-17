@@ -1194,7 +1194,7 @@
      'extend-protocol (macrofy 'extend-protocol sci.impl.protocols/extend-protocol
                                clojure-core-ns true)
      '-reified-methods (new-var '-reified-methods #(types/getMethods %))
-     'reify* (new-var 'reify* reify/reify* clojure-core-ns true)
+     'reify* (new-var 'reify* reify/reify* clojure-core-ns)
      'reify (macrofy 'reify reify/reify clojure-core-ns)
      'protocol-type-impl (new-var 'protocol-type-impl types/type-impl)
      #?@(:clj ['proxy* (new-var 'proxy* proxy/proxy* true)
