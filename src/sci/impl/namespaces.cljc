@@ -558,8 +558,9 @@
                          (:private v)) namespaces)]
     (map #(sci.impl.utils/namespace-object env % true nil) (keys public))))
 
-(defn sci-remove-ns [ctx sym]
-  (let [env (:env ctx)]
+(defn sci-remove-ns [sym]
+  (let [ctx (store/get-ctx)
+        env (:env ctx)]
     (swap! env update :namespaces dissoc sym)
     nil))
 
@@ -1554,7 +1555,7 @@
      'realized? (copy-core-var realized?)
      'rem (copy-core-var rem)
      'remove (copy-core-var remove)
-     'remove-ns (copy-var sci-remove-ns clojure-core-ns {:ctx true :name 'remove-ns})
+     'remove-ns (copy-var sci-remove-ns clojure-core-ns {:name 'remove-ns})
      'require (copy-var require clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/require})
      'reset-meta! (copy-core-var reset-meta!)
      'rest (copy-core-var rest)
