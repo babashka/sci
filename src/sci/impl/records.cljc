@@ -248,6 +248,7 @@
            (SciRecord. rec-name type var m nil)))
 
 (defn defrecord [[_fname & _ :as form] _ ctx record-name & fields+raw-protocol-impls]
+  (prn :ctx? (keys ctx))
   (if (:sci.impl/macroexpanding ctx)
     (cons 'clojure.core/defrecord (rest form))
     (let [[ctx record-name fields raw-protocol-impls]

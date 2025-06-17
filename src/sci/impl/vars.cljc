@@ -221,6 +221,7 @@
   (#?(:clj invoke :cljs -invoke) [_this a b c d e]
     (f a b c d e))
   (#?(:clj invoke :cljs -invoke) [_this a b c d e f]
+    (prn :f f :a a :b b)
     (f a b c d e f))
   (#?(:clj invoke :cljs -invoke) [_this a b c d e f g]
     (f a b c d e f g))

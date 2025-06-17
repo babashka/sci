@@ -110,6 +110,7 @@
   (bindRoot [this v]
     (let [old-root (.-root this)]
       (vars/with-writeable-var this meta
+        (prn :setting-root sym v)
         (set! root v))
       (notify-watches this watches old-root v))
     ;; this is the return value for alter-var-root which should be the only place calling bindRoot directly
@@ -179,10 +180,10 @@
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (vars/with-writeable-var this meta
-                       (locking (set! meta (apply f meta args))))))
+                       (locking this (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
                      (vars/with-writeable-var this meta
-                       (locking (set! meta m)))))
+                       (locking this (set! meta m)))))
   #?@(:clj [clojure.lang.IRef
             (addWatch [this key fn]
                       (vars/with-writeable-var this meta
@@ -251,7 +252,8 @@
      (applyTo [this args]
               (apply @this args)))
   vars/CtxVar
-  (needs-ctx? [_] (when needs-ctx
+  (needs-ctx? [_] needs-ctx #_(when needs-ctx
+                    (prn :needs-ctx sym root :ctxfn? (instance? sci.impl.vars.CtxFn root))
                     (instance? sci.impl.vars.CtxFn root))))
 
 #?(:clj

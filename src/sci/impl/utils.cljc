@@ -277,7 +277,8 @@
     (if (symbol? curr-ns) curr-ns (t/getName curr-ns))))
 
 (defn ->Var [root sym meta thread-bound needs-ctx watches]
-  (let [root (if needs-ctx (vars/->CtxFn root) root)]
+  (let [root (if needs-ctx
+               (vars/->CtxFn root) root)]
     (sci.lang.Var. root sym meta thread-bound needs-ctx watches)))
 
 (defn new-var
