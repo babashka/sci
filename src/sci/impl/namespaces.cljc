@@ -1173,8 +1173,7 @@
                'clojure-version (copy-core-var clojure-version)])
      ;; end clojure version
      ;; multimethods
-     'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti
-                        clojure-core-ns true)
+     'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
      'get-method (copy-core-var get-method)
      'methods (copy-core-var methods)
@@ -1191,8 +1190,7 @@
                            clojure-core-ns)
      'extend (copy-var sci.impl.protocols/extend clojure-core-ns {:name 'extend})
      'extends? (copy-core-var sci.impl.protocols/extends?)
-     'extend-type (macrofy 'extend-type sci.impl.protocols/extend-type
-                           clojure-core-ns true)
+     'extend-type (macrofy 'extend-type sci.impl.protocols/extend-type clojure-core-ns)
      'extend-protocol (macrofy 'extend-protocol sci.impl.protocols/extend-protocol
                                clojure-core-ns true)
      '-reified-methods (new-var '-reified-methods #(types/getMethods %))

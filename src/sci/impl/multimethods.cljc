@@ -44,11 +44,8 @@
   a reference type e.g. a var (i.e. via the Var-quote dispatch macro #'
   or the var special form)."
   {:arglists '([name docstring? attr-map? dispatch-fn & options])}
-  [_ _ ctx mm-name & options]
-  (let [[ctx mm-name options] (if (symbol? ctx)
-                                [nil ctx (cons mm-name options)]
-                                [ctx mm-name options])
-        docstring   (if (string? (first options))
+  [_ _ mm-name & options]
+  (let [docstring   (if (string? (first options))
                       (first options)
                       nil)
         options     (if (string? (first options))

@@ -244,11 +244,8 @@
                   impls))]
     expansion))
 
-(defn extend-type [form _env ctx atype & proto+meths]
-  (let [[ctx atype proto+meths] (if (symbol? ctx)
-                                  [nil ctx (cons atype proto+meths)]
-                                  [ctx atype proto+meths])
-        ctx (or ctx (store/get-ctx))
+(defn extend-type [form _env atype & proto+meths]
+  (let [ctx (store/get-ctx)
         #?@(:cljs [atype (get cljs-type-symbols atype atype)])
         proto+meths (utils/split-when #(not (seq? %)) proto+meths)]
     `(do ~@(map
