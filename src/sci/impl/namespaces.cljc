@@ -517,26 +517,27 @@
            (sci-ns-refers* ctx sci-ns)
            (sci-ns-imports* ctx sci-ns))))
 
-(defn sci-ns-unmap [ctx sci-ns sym]
-  (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
-  (swap! (:env ctx)
-         (fn [env]
-           (let [name (sci-ns-name ctx sci-ns)]
-             (update-in env [:namespaces name]
-                        (fn [the-ns-map]
-                          (cond (contains? (:refers the-ns-map) sym)
-                                (-> (update the-ns-map :refers dissoc sym)
-                                    ;; remove lingering var that may have been
-                                    ;; overwritten before, see #637
-                                    (dissoc the-ns-map sym))
-                                (contains? the-ns-map sym)
-                                (dissoc the-ns-map sym)
-                                (or
-                                 (contains? (:imports env) sym)
-                                 (contains? (:imports the-ns-map) sym))
-                                ;; nil marks the imported class as unmapped
-                                (update the-ns-map :imports assoc sym nil)
-                                :else the-ns-map))))))
+(defn sci-ns-unmap [sci-ns sym]
+  (let [ctx (store/get-ctx)]
+    (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
+    (swap! (:env ctx)
+           (fn [env]
+             (let [name (sci-ns-name ctx sci-ns)]
+               (update-in env [:namespaces name]
+                          (fn [the-ns-map]
+                            (cond (contains? (:refers the-ns-map) sym)
+                                  (-> (update the-ns-map :refers dissoc sym)
+                                      ;; remove lingering var that may have been
+                                      ;; overwritten before, see #637
+                                      (dissoc the-ns-map sym))
+                                  (contains? the-ns-map sym)
+                                  (dissoc the-ns-map sym)
+                                  (or
+                                   (contains? (:imports env) sym)
+                                   (contains? (:imports the-ns-map) sym))
+                                  ;; nil marks the imported class as unmapped
+                                  (update the-ns-map :imports assoc sym nil)
+                                  :else the-ns-map)))))))
   nil)
 
 (defn sci-ns-unalias [ctx sci-ns sym]
@@ -1511,7 +1512,7 @@
      'ns-publics (copy-var sci-ns-publics clojure-core-ns {:name 'ns-publics})
      'ns-refers (copy-var sci-ns-refers clojure-core-ns {:name 'ns-refers})
      'ns-map (copy-var sci-ns-map clojure-core-ns {:name 'ns-map})
-     'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:ctx true :name 'ns-unmap})
+     'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:name 'ns-unmap})
      'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:ctx true :name 'ns-unalias})
      'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name :ctx true})
      'odd? (copy-core-var odd?)
