@@ -612,8 +612,8 @@
   ([sci-ctx env sym]
    (@sci.impl.utils/eval-resolve-state sci-ctx (:bindings sci-ctx) env sym)))
 
-(defn sci-refer [sci-ctx & args]
-  (apply @sci.impl.utils/eval-refer-state sci-ctx args))
+(defn sci-refer [& args]
+  (apply @sci.impl.utils/eval-refer-state (store/get-ctx) args))
 
 (defn sci-refer-clojure [_ _ & filters]
   `(clojure.core/refer '~'clojure.core ~@filters))
@@ -1544,7 +1544,7 @@
      'quot (copy-core-var quot)
      #?@(:cljs ['random-uuid (copy-core-var random-uuid)])
      're-seq (copy-core-var re-seq)
-     'refer (copy-var sci-refer clojure-core-ns {:name 'refer :ctx true})
+     'refer (copy-var sci-refer clojure-core-ns {:name 'refer})
      'refer-clojure (macrofy 'refer-clojure sci-refer-clojure)
      're-find (copy-core-var re-find)
      #?@(:clj ['re-groups (copy-core-var re-groups)])
