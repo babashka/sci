@@ -462,13 +462,17 @@
 (defn clean-ns [m]
   (dissoc m :aliases :imports :obj :refer :refers))
 
-(defn sci-ns-interns [ctx sci-ns]
+(defn sci-ns-interns* [ctx sci-ns]
   (let [name (sci-ns-name ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
     m))
 
-(defn sci-ns-publics [ctx sci-ns]
+(defn sci-ns-interns [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-interns* ctx sci-ns)))
+
+(defn sci-ns-publics* [ctx sci-ns]
   (let [name (sci-ns-name ctx sci-ns)
         m (get-in @(:env ctx) [:namespaces name])
         m (clean-ns m)]
@@ -477,7 +481,11 @@
                        [k v]))
                    m))))
 
-(defn sci-ns-imports [ctx sci-ns]
+(defn sci-ns-publics [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-publics* ctx sci-ns)))
+
+(defn sci-ns-imports* [ctx sci-ns]
   (let [name (sci-ns-name ctx sci-ns)
         env @(:env ctx)
         global-imports (:imports env)
@@ -487,7 +495,11 @@
         all-imports (concat (vals global-imports) (vals namespace-imports))]
     (zipmap all-aliased (map (comp :class #(get class-opts %)) all-imports))))
 
-(defn sci-ns-refers [ctx sci-ns]
+(defn sci-ns-imports [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-imports* ctx sci-ns)))
+
+(defn sci-ns-refers* [ctx sci-ns]
   (let [name (sci-ns-name ctx sci-ns)
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])
@@ -495,10 +507,15 @@
         clojure-core (clean-ns clojure-core)]
     (merge clojure-core refers)))
 
-(defn sci-ns-map [ctx sci-ns]
-  (merge (sci-ns-interns ctx sci-ns)
-         (sci-ns-refers ctx sci-ns)
-         (sci-ns-imports ctx sci-ns)))
+(defn sci-ns-refers [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (sci-ns-refers* ctx sci-ns)))
+
+(defn sci-ns-map [sci-ns]
+  (let [ctx (store/get-ctx)]
+    (merge (sci-ns-interns* ctx sci-ns)
+           (sci-ns-refers* ctx sci-ns)
+           (sci-ns-imports* ctx sci-ns))))
 
 (defn sci-ns-unmap [ctx sci-ns sym]
   (assert (symbol? sym)) ; protects :aliases, :imports, :obj, etc.
@@ -1489,11 +1506,11 @@
      'next (copy-core-var next)
      'nnext (copy-core-var nnext)
      'ns-aliases (copy-var sci-ns-aliases clojure-core-ns {:name 'ns-aliases})
-     'ns-imports (copy-var sci-ns-imports clojure-core-ns {:ctx true :name 'ns-imports})
-     'ns-interns (copy-var sci-ns-interns clojure-core-ns {:ctx true :name 'ns-interns})
-     'ns-publics (copy-var sci-ns-publics clojure-core-ns {:ctx true :name 'ns-publics})
-     'ns-refers (copy-var sci-ns-refers clojure-core-ns {:ctx true :name 'ns-refers})
-     'ns-map (copy-var sci-ns-map clojure-core-ns {:name 'ns-map :ctx true})
+     'ns-imports (copy-var sci-ns-imports clojure-core-ns {:name 'ns-imports})
+     'ns-interns (copy-var sci-ns-interns clojure-core-ns {:name 'ns-interns})
+     'ns-publics (copy-var sci-ns-publics clojure-core-ns {:name 'ns-publics})
+     'ns-refers (copy-var sci-ns-refers clojure-core-ns {:name 'ns-refers})
+     'ns-map (copy-var sci-ns-map clojure-core-ns {:name 'ns-map})
      'ns-unmap (copy-var sci-ns-unmap clojure-core-ns {:ctx true :name 'ns-unmap})
      'ns-unalias (copy-var sci-ns-unalias clojure-core-ns {:ctx true :name 'ns-unalias})
      'ns-name (copy-var sci-ns-name clojure-core-ns {:name 'ns-name :ctx true})
@@ -1719,7 +1736,7 @@
    (let [current-ns (sci.impl.utils/current-ns-name)
          the-ns (sci-the-ns ctx
                             (get (sci-ns-aliases* ctx current-ns) ns ns))]
-     (sort (map first (sci-ns-publics ctx the-ns)))))
+     (sort (map first (sci-ns-publics* ctx the-ns)))))
 
  (defn dir
    [_ _ nsname]
@@ -1754,7 +1771,7 @@
    [ctx re-string-or-pattern]
    (let [re (re-pattern re-string-or-pattern)
          ans (sci-all-ns)
-         ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
+         ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns* ctx %))))
                             ans)
                     (map #(assoc (meta %)
                                  :name (types/getName %)) ans)
@@ -1776,7 +1793,7 @@
      (sort (mapcat (fn [ns]
                      (let [ns-name (str ns)]
                        (map #(symbol ns-name (str %))
-                            (filter matches? (keys (sci-ns-publics ctx ns))))))
+                            (filter matches? (keys (sci-ns-publics* ctx ns))))))
                    (sci-all-ns)))))
 
  #_(defn source-fn
