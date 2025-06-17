@@ -423,9 +423,12 @@
 (defn sci-create-ns [ctx ns-sym]
   (sci.impl.utils/namespace-object (:env ctx) ns-sym true nil))
 
-(defn sci-find-ns [ctx ns-sym]
+(defn sci-find-ns* [ctx ns-sym]
   (assert (symbol? ns-sym))
   (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil))
+
+(defn sci-find-ns [ns-sym]
+  (sci-find-ns* (store/get-ctx) ns-sym))
 
 (defn sci-in-ns [ctx ns-sym]
   (assert (symbol? ns-sym))
@@ -436,7 +439,7 @@
 (defn sci-the-ns [ctx x]
   (if (instance? #?(:clj sci.lang.Namespace
                     :cljs sci.lang/Namespace) x) x
-      (or (sci-find-ns ctx x)
+      (or (sci-find-ns* ctx x)
           (throw (new #?(:clj Exception :cljs js/Error)
                       (str "No namespace: " x " found"))))))
 
@@ -1039,7 +1042,7 @@
                                    [] splits))))
              (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
                            (catch :default _ nil))))
-           (or (boolean (sci-find-ns ctx x))
+           (or (boolean (sci-find-ns* ctx x))
                (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
                              (catch :default _ nil)))))
          `(some? ~x)))))
@@ -1353,7 +1356,7 @@
      'ex-cause (copy-core-var ex-cause)
      #?@(:cljs ['exists? (copy-var exists? clojure-core-ns {:macro true
                                                             :name 'exists?})])
-     'find-ns (copy-var sci-find-ns clojure-core-ns {:ctx true :name 'find-ns})
+     'find-ns (copy-var sci-find-ns clojure-core-ns {:name 'find-ns})
      'create-ns (copy-var sci-create-ns clojure-core-ns {:ctx true :name 'create-ns})
      'in-ns (copy-var sci-in-ns clojure-core-ns {:ctx true :name 'in-ns})
      'find-var (copy-var sci-find-var clojure-core-ns {:name 'find-var

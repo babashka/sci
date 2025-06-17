@@ -539,7 +539,7 @@
 (defn find-ns
   "Returns SCI ns object as created with `sci/create-ns` from `ctx` found by `ns-sym`."
   [ctx ns-sym]
-  (namespaces/sci-find-ns ctx ns-sym))
+  (namespaces/sci-find-ns* ctx ns-sym))
 
 (defn all-ns
   "Returns all SCI ns objects in the `ctx`"
