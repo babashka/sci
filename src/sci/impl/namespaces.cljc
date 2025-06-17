@@ -26,6 +26,7 @@
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
+   [sci.ctx-store :as store]
    [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
@@ -534,8 +535,9 @@
 
 (defn sci-intern
   ;; in this case the var will become unbound
-  ([ctx ns var-sym]
-   (let [ns (sci-the-ns ctx ns)
+  ([ns var-sym]
+   (let [ctx (store/get-ctx)
+         ns (sci-the-ns ctx ns)
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (get-in @env [:namespaces ns-name var-sym])
@@ -544,8 +546,9 @@
            (sci.impl.vars/unbind new-var)
            (swap! env assoc-in [:namespaces ns-name var-sym] new-var)
            new-var))))
-  ([ctx ns var-sym val]
-   (let [ns (sci-the-ns ctx ns)
+  ([ns var-sym val]
+   (let [ctx (store/get-ctx)
+         ns (sci-the-ns ctx ns)
          ns-name (types/getName ns)
          env (:env ctx)]
      (or (when-let [v (get-in @env [:namespaces ns-name var-sym])]
@@ -1395,7 +1398,7 @@
      'instance? (copy-var protocols/instance-impl clojure-core-ns {:name 'instance?})
      'int-array (copy-core-var int-array)
      'interleave (copy-core-var interleave)
-     'intern (copy-var sci-intern clojure-core-ns {:name 'intern :ctx true})
+     'intern (copy-var sci-intern clojure-core-ns {:name 'intern})
      'into (copy-core-var into)
      'iterate (copy-core-var iterate)
      #?@(:clj ['iterator-seq (copy-core-var iterator-seq)])
