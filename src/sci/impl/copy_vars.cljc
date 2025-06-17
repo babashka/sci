@@ -78,7 +78,7 @@
 
   (defmacro macrofy [& args]
     (let [[sym & args] args]
-      `(macrofy* ~sym ~@args ~@(repeat (- 3 (count args)) nil) ~(var-meta &env sym nil))))
+      `(macrofy* ~sym ~@args ~@(repeat (- 2 (count args)) nil) ~(var-meta &env sym nil))))
 
 
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
@@ -126,25 +126,21 @@
 (defn macrofy*
   ([f] (vary-meta f #(assoc % :sci/macro true)))
   ([sym f] (macrofy* sym f nil false))
-  ([sym f ns] (macrofy* sym f ns false))
-  ([sym f ns ctx?] (macrofy* sym f ns ctx? nil))
-  ([sym f ns ctx? extra-meta]
+  ([sym f ns] (macrofy* sym f ns nil))
+  ([sym f ns extra-meta]
    (let [ns (or ns clojure-core-ns)]
      (utils/new-var sym f (cond-> {:ns ns
                                    :macro true
                                    :sci/built-in true}
                             (and (not elide-vars)
                                  extra-meta)
-                            (merge extra-meta))
-                    ctx?))))
+                            (merge extra-meta))))))
 
 (defn new-var
-  ([sym f] (new-var sym f nil false))
-  ([sym f ns] (new-var sym f ns false))
-  ([sym f ns ctx?] (new-var sym f ns ctx? nil))
-  ([sym f ns ctx? extra-meta]
-   (let [ctx? (or ctx? (true? ns))
-         ns (if (true? ns)
+  ([sym f] (new-var sym f nil nil))
+  ([sym f ns] (new-var sym f ns nil))
+  ([sym f ns extra-meta]
+   (let [ns (if (true? ns)
               clojure-core-ns
               (or ns clojure-core-ns))]
      (assert (and (not (boolean? ns))
@@ -153,5 +149,4 @@
                                    :sci/built-in true}
                             (and (not elide-vars)
                                  extra-meta)
-                            (merge extra-meta))
-                    ctx?))))
+                            (merge extra-meta))))))
