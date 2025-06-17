@@ -611,8 +611,8 @@
 (defn require [& args]
   (apply require* (store/get-ctx) args))
 
-(defn use [sci-ctx & args]
-  (apply @sci.impl.utils/eval-use-state sci-ctx args))
+(defn use [& args]
+  (apply @sci.impl.utils/eval-use-state (store/get-ctx) args))
 
 (defn sci-resolve*
   ([sci-ctx sym]
@@ -1687,7 +1687,7 @@
      'underive (copy-var hierarchies/underive* clojure-core-ns {:name 'underive})
      'unquote (doto (sci.impl.utils/new-var 'unquote nil {:ns clojure-core-ns})
                 (sci.impl.vars/unbind))
-     'use (copy-var use clojure-core-ns {:ctx true :copy-meta-from 'clojure.core/use})
+     'use (copy-var use clojure-core-ns {:copy-meta-from 'clojure.core/use})
      'val (copy-core-var val)
      'vals (copy-core-var vals)
      'var? (copy-var sci.impl.utils/var? clojure-core-ns {:name 'var?})
