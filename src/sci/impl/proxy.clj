@@ -1,6 +1,7 @@
 (ns sci.impl.proxy
   {:no-doc true}
-  (:refer-clojure :exclude [proxy]))
+  (:refer-clojure :exclude [proxy])
+  (:require [sci.ctx-store :as store]))
 
 (defn proxy [form _ classes _args & methods]
   (let [abstract-class (first classes)
@@ -22,8 +23,8 @@
     `(clojure.core/proxy* '~form ~abstract-class ~interfaces ~methods)))
 
 (defn proxy*
-  [ctx _form abstract-class interfaces methods]
-  (if-let [pfn (:proxy-fn ctx)]
+  [_form abstract-class interfaces methods]
+  (if-let [pfn (:proxy-fn (store/get-ctx))]
     (let [{interfaces true protocols false} (group-by class? interfaces)]
       (pfn {:class abstract-class
             :interfaces (set interfaces)
