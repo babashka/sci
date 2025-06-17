@@ -544,7 +544,8 @@
 (defn all-ns
   "Returns all SCI ns objects in the `ctx`"
   [ctx]
-  (namespaces/sci-all-ns ctx))
+  (store/with-ctx ctx
+    (namespaces/sci-all-ns)))
 
 (defn enable-unrestricted-access!
   "Calling this will enable

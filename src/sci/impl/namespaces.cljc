@@ -413,8 +413,8 @@
 
 ;;;; Namespaces / vars
 
-(defn sci-alias [ctx alias-sym ns-sym]
-  (swap! (:env ctx)
+(defn sci-alias [alias-sym ns-sym]
+  (swap! (:env (store/get-ctx))
          (fn [env]
            (let [current-ns (sci.impl.utils/current-ns-name)]
              (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
@@ -521,8 +521,8 @@
            (update-in env [:namespaces (sci-ns-name ctx sci-ns) :aliases] dissoc sym)))
   nil)
 
-(defn sci-all-ns [ctx]
-  (let [env (:env ctx)
+(defn sci-all-ns []
+  (let [env (:env (store/get-ctx))
         namespaces (get @env :namespaces)
         public (remove (fn [[_ v]]
                          (:private v)) namespaces)]
@@ -961,8 +961,8 @@
       (get '*loaded-libs*)
       deref deref))
 
-(defn -add-loaded-lib [ctx name]
-  (load/add-loaded-lib (:env ctx) name)
+(defn -add-loaded-lib [name]
+  (load/add-loaded-lib (:env (store/get-ctx)) name)
   nil)
 
 (defn ns*
@@ -1183,7 +1183,7 @@
      '-new-dynamic-var (new-var '-new-dynamic-var #(sci.impl.utils/new-var (gensym) nil {:dynamic true}))
      ;; used in let-fn
      '-new-var (new-var '-new-var #(sci.impl.utils/new-var (gensym) nil))
-     '-add-loaded-lib (copy-var -add-loaded-lib clojure-core-ns {:ctx true})
+     '-add-loaded-lib (copy-var -add-loaded-lib clojure-core-ns)
      ;; end private
      '.. (macrofy '.. double-dot)
      '= (copy-core-var =)
@@ -1204,8 +1204,8 @@
      'remove-watch (copy-core-var remove-watch)
      'aclone (copy-core-var aclone)
      'aget (copy-core-var aget)
-     'alias (copy-var sci-alias clojure-core-ns {:name 'alias :ctx true})
-     'all-ns (copy-var sci-all-ns clojure-core-ns {:name 'all-ns :ctx true})
+     'alias (copy-var sci-alias clojure-core-ns {:name 'alias})
+     'all-ns (copy-var sci-all-ns clojure-core-ns {:name 'all-ns})
      'alter-meta! (copy-core-var alter-meta!)
      'alter-var-root (copy-core-var sci.impl.vars/alter-var-root)
      'amap (macrofy 'amap amap*)
@@ -1744,10 +1744,11 @@
    contains a match for re-string-or-pattern"
    [ctx re-string-or-pattern]
    (let [re (re-pattern re-string-or-pattern)
+         ans (sci-all-ns)
          ms (concat (mapcat #(sort-by :name (map meta (vals (sci-ns-interns ctx %))))
-                            (sci-all-ns ctx))
+                            ans)
                     (map #(assoc (meta %)
-                                 :name (types/getName %)) (sci-all-ns ctx))
+                                 :name (types/getName %)) ans)
                     #_(map special-doc (keys special-doc-map)))]
      (doseq [m ms
              :when (and (:doc m)
@@ -1767,7 +1768,7 @@
                      (let [ns-name (str ns)]
                        (map #(symbol ns-name (str %))
                             (filter matches? (keys (sci-ns-publics ctx ns))))))
-                   (sci-all-ns ctx)))))
+                   (sci-all-ns)))))
 
  #_(defn source-fn
      "Returns a string of the source code for the given symbol, if it can
