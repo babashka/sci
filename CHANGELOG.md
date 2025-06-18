@@ -10,7 +10,41 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.10.46 (2025-06-18)
+
+> [!IMPORTANT]
+
+Important change regarding sandboxing: When SCI is used to produce a function
+that contains operations on the context, like `ns`, `def`, `intern`, `ns-unmap`
+etc. this function no longer holds on to the context it was produced in. Example:
+
+``` clojure
+(require '[sci.core :as sci])
+(def f (sci/eval-string "(fn [x] (intern 'user 'foo x))"))
+(f 1) ;;=>
+Execution error (IllegalStateException) at sci.ctx-store/get-ctx (ctx_store.cljc:30).
+No context found in: sci.ctx-store/*ctx*. Please set it using sci.ctx-store/reset-ctx!
+```
+
+You can make these functions work by executing them within the scope of a `sci.ctx-store/with-ctx`:
+
+```
+(def ctx (sci/init {}))
+(def f (sci/eval-string* ctx "(fn [x] (intern 'user 'foo x))"))
+(sci.ctx-store/with-ctx ctx
+  (f)) ;; works
+```
+
+This change was necessary to remove a bunch of "magic" from SCI where functions
+that operated on the context closed over the context. This is no longer the
+case. The reason that this feature was removed is that these special functions
+took one extra argument, the context and therefore didn't work properly with
+`with-redefs` where the user would substitute a function with the expected
+number of arguments. I.e. this wouldn't work in SCI (and babashka) before the
+change: `(with-redefs [intern my-intern] (intern 'foo 'bar))` since intern took
+an extra (unexpected) context argument.
+
+Other changes and fixes in this release:
 
 - Fix [#957](https://github.com/babashka/sci/issues/957): `sci.async/eval-string+` should return promise with `:val nil` for ns form rather than `:val <Promise>`
 - Fix [#959](https://github.com/babashka/sci/issues/959): Java interop improvement: instance method invocation now leverages type hints
