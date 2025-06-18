@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## 0.10.46 (2025-06-18)
 
 > [!IMPORTANT]
+> Important change regarding sandboxing!
 
 Important change regarding sandboxing: When SCI is used to produce a function
 that contains operations on the context, like `ns`, `def`, `intern`, `ns-unmap`
