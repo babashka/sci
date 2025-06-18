@@ -2,7 +2,7 @@
  :deps {io.github.borkdude/quickdoc
         #_{:local/root "/Users/borkdude/dev/quickdoc"}
         {:git/url "https://github.com/borkdude/quickdoc"
-         :git/sha "32e726cd6d785d00e49d4e614a05f7436d3831c0"}}
+         :git/sha "382507aad1981d4bc70b4b5bebce17f1eec9eec7"}}
 
  :tasks
  {test:jvm  {:doc "Run CLJ tests with leiningen"
@@ -28,7 +28,11 @@
                                        :overrides {'sci.lang {'->Type {:no-doc true}
                                                               '->Var {:no-doc true}
                                                               '->Namespace {:no-doc true}
-                                                              'IVar {:no-doc true}}}})
+                                                              'IVar {:no-doc true}}}
+                                       :source-paths ["src/sci/core.cljc"
+                                                      "src/sci/async.cljs"
+                                                      "src/sci/ctx_store.cljc"
+                                                      "src/sci/lang.cljc"]})
                         markdown (str (slurp "test-resources/API-prelude.md") markdown)]
                     (spit "API.md" markdown))}
 
