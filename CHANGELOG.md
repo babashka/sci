@@ -15,9 +15,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 > [!IMPORTANT]
 > Important change regarding sandboxing!
 
-Important change regarding sandboxing: When SCI is used to produce a function
-that contains operations on the context, like `ns`, `def`, `intern`, `ns-unmap`
-etc. this function no longer holds on to the context it was produced in. Example:
+When SCI is used to produce a function that contains operations on the context,
+like `ns`, `def`, `intern`, `ns-unmap` etc. this function no longer holds on to
+the context it was produced in. Example:
 
 ``` clojure
 (require '[sci.core :as sci])
