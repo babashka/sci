@@ -29,7 +29,7 @@ No context found in: sci.ctx-store/*ctx*. Please set it using sci.ctx-store/rese
 
 You can make these functions work by executing them within the scope of a `sci.ctx-store/with-ctx`:
 
-```
+``` clojure
 (def ctx (sci/init {}))
 (def f (sci/eval-string* ctx "(fn [x] (intern 'user 'foo x))"))
 (sci.ctx-store/with-ctx ctx
@@ -44,6 +44,15 @@ took one extra argument, the context and therefore didn't work properly with
 number of arguments. I.e. this wouldn't work in SCI (and babashka) before the
 change: `(with-redefs [intern my-intern] (intern 'foo 'bar))` since intern took
 an extra (unexpected) context argument.
+
+Functions that escape SCI evaluation that do not work on the context,
+e.g. `assoc`, still work as before:
+
+``` clojure
+(require '[sci.core :as sci])
+(def f (sci/eval-string "(fn [x] (assoc {} x x))"))
+(f 1) ;;=> {1 1}
+```
 
 Other changes and fixes in this release:
 
