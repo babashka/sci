@@ -2,7 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [pr prn pr-str prn-str print print-str println
                             newline flush with-out-str with-in-str read-line
-                            printf #?@(:cljs [string-print])])
+                            printf #?@(:cljs [string-print])
+                            #?@(:clj [print-simple])])
   (:require
    #?(:cljs [goog.string])
    [sci.impl.copy-vars :refer [copy-var]]
@@ -272,3 +273,10 @@
      (if (instance? clojure.lang.LineNumberingPushbackReader @in)
        (.readLine ^clojure.lang.LineNumberingPushbackReader @in)
        (.readLine ^java.io.BufferedReader @in))))
+
+#?(:clj
+   (defn print-simple [o w]
+     (binding [*print-dup* @print-dup
+               *print-meta* @print-meta
+               *print-readably* @print-readably]
+       (clojure.core/print-simple o w))))

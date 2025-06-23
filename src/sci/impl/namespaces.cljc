@@ -1149,6 +1149,7 @@
      #?@(:clj ['print-method (copy-core-var print-method)])
      #?@(:clj ['print-dup (copy-core-var print-dup)])
      #?@(:clj ['printf (copy-core-var sci.impl.io/printf)])
+     #?@(:clj ['print-simple (copy-core-var sci.impl.io/print-simple)])
      'with-out-str (macrofy 'with-out-str sci.impl.io/with-out-str)
      #?@(:clj ['with-in-str (macrofy 'with-in-str sci.impl.io/with-in-str)
                'read-line (copy-core-var sci.impl.io/read-line)])
