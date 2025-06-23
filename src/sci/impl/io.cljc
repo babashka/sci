@@ -276,7 +276,7 @@
 
 #?(:clj
    (defn print-simple [o w]
-     (binding [*print-dup* @print-dup
+     (binding [*print-dup* @print-dup-var
                *print-meta* @print-meta
                *print-readably* @print-readably]
        (clojure.core/print-simple o w))))
