@@ -756,6 +756,7 @@
   "Returns a Symbol with the given namespace and name. Arity-1 works
   on strings, keywords, and vars."
   ([name]
+   ;; (prn :name name (type name))
    (if (sci.impl.utils/var? name) (let [m (meta name)
                                         ns (:ns m)
                                         nm (:name m)]

@@ -42,22 +42,22 @@
               [nil signatures]))
         sigs-map (->sigs signatures)
         current-ns (str (utils/current-ns-name))
-        fq-name (symbol current-ns (str protocol-name))
+        fq-protocol-name (symbol current-ns (str protocol-name))
         extend-meta (:extend-via-metadata opts)
         expansion
         `(do
            (def  ~(with-meta protocol-name
                     {:doc docstring}) (cond->
                                           {:methods #{}
-                                           :name '~fq-name
+                                           :name '~fq-protocol-name
                                            :ns *ns*
                                            :sigs ~(list 'quote sigs-map)
-                                           :var (var ~fq-name)}
+                                           :var (var ~fq-protocol-name)}
                                         ~extend-meta (assoc :extend-via-metadata true)))
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol current-ns (str method-name))
                           method-meta (select-keys (get sigs-map (keyword method-name)) [:doc :arglists])
-                          method-meta (assoc method-meta :protocol (list 'var protocol-name))
+                          method-meta (assoc method-meta :protocol (list 'var fq-protocol-name))
                           ; re-quote arglists
                           method-meta (update method-meta :arglists (fn [a] (list 'quote a)))
                           impls [`(defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)
@@ -96,7 +96,7 @@
                                                               :cljs js/Error)
                                                            (str "No implementation of method: "
                                                                 ~(keyword method-name) " of protocol: "
-                                                                (var ~protocol-name) " found for: "
+                                                                ~(list 'var fq-protocol-name) " found for: "
                                                                 (clojure.core/protocol-type-impl x#)))))))))]
                       `(do
                          ~@impls
