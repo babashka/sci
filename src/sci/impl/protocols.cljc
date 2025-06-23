@@ -57,6 +57,7 @@
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol current-ns (str method-name))
                           method-meta (select-keys (get sigs-map (keyword method-name)) [:doc :arglists])
+                          method-meta (assoc method-meta :protocol (list 'var protocol-name))
                           ; re-quote arglists
                           method-meta (update method-meta :arglists (fn [a] (list 'quote a)))
                           impls [`(defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)

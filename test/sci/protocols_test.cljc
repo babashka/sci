@@ -437,3 +437,6 @@
        (is (true? (eval* "(defprotocol IFoo (foo [_]))
 (extend-protocol IFoo boolean (foo [_] \"bar\"))
 (and (satisfies? IFoo true) (satisfies? IFoo false))")) "boolean"))))
+
+(deftest issue-975-protocol-meta
+  (is (true? (eval* "(defprotocol IFoo (foo [_])) (identical? #'IFoo (:protocol (meta #'foo)))"))))
