@@ -2,7 +2,7 @@
   {:no-doc true}
   (:require
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [kw-identical?]])
+   [sci.impl.utils :as utils :refer [recur]])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -25,7 +25,7 @@
                 [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
             (loop []
               (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                (if (kw-identical? :sci.impl.analyzer/recur ret#)
+                (if (identical? recur ret#)
                   (recur)
                   ret#))))))
      (let [fn-params (vec (repeatedly n gensym))
@@ -45,7 +45,7 @@
                 [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
             (loop []
               (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                (if (kw-identical? :sci.impl.analyzer/recur ret#)
+                (if (identical? recur ret#)
                   (recur)
                   ret#)))))))))
 

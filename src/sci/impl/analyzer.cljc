@@ -20,7 +20,7 @@
    [sci.impl.resolve :as resolve]
    [sci.impl.utils :as utils :refer
     [ana-macros constant? kw-identical? macro? rethrow-with-location-of-node
-     set-namespace!]]
+     set-namespace! recur]]
    [sci.impl.vars :as vars]
    [sci.lang])
   #?(:clj (:import
@@ -276,7 +276,7 @@
          (let [~'params (:params ~'ctx)]
            (case (count ~'analyzed-children)
              ~@(concat
-                [0 `(sci.impl.types/->Node ::recur nil)]
+                [0 `(sci.impl.types/->Node recur nil)]
                 (mapcat (fn [[i binds]]
                           [i `(let ~binds
                                 (sci.impl.types/->Node
@@ -291,7 +291,7 @@
                                                      {:tag 'objects}) ~j
                                                   ~(symbol (str "eval-" j))))
                                               (range i)))
-                                   ::recur)
+                                   recur)
                                  nil))])
                         let-bindings))))))))
 
@@ -392,9 +392,7 @@
         defn-name (:fn-name fn-extra-m)
         fn-expr-m (dissoc fn-expr-m :sci.impl/fn)
         ctx (assoc ctx :fn-expr fn-expr)
-        fn-name (if (symbol? name?)
-                  name?
-                  nil)
+        fn-name (when (symbol? name?) name?)
         body (if fn-name
                body
                (cons name? body))
@@ -1079,11 +1077,10 @@
                           (eval/allowed-instance-method-invocation ctx bindings instance-expr meth-name args nil)
                           stack)
                          ;; default case
-                         (do
-                           (sci.impl.types/->Node
-                            (eval/eval-instance-method-invocation
-                             ctx bindings instance-expr meth-name field-access args allowed? nil nil)
-                            stack)))
+                         (sci.impl.types/->Node
+                          (eval/eval-instance-method-invocation
+                           ctx bindings instance-expr meth-name field-access args allowed? nil nil)
+                          stack))
                        {::instance-expr instance-expr
                         ::method-name method-name}))))]
     res))

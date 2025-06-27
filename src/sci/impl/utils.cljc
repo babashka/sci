@@ -29,6 +29,8 @@
    :clj `(identical? ~k ~v)
    :cljs `(cljs.core/keyword-identical? ~k ~v)))
 
+(def ^:const recur (keyword (gensym ::recur)))
+
 (declare current-file current-ns)
 
 (def ^:dynamic *top-level-location* nil)
