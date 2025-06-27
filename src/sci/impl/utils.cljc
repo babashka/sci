@@ -29,7 +29,8 @@
    :clj `(identical? ~k ~v)
    :cljs `(cljs.core/keyword-identical? ~k ~v)))
 
-(def ^:const recur (keyword (gensym ::recur)))
+(def ^:const recur #?(:clj (String. (.toString (java.util.UUID/randomUUID)))
+                      :cljs (js/Object.)))
 
 (declare current-file current-ns)
 
