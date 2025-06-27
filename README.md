@@ -59,7 +59,10 @@ SCI is used in:
 - [TryClojure.org](https://tryclojure.org/). Try Clojure!
 - [SICMUtils](https://github.com/littleredcomputer/sicmutils). Computer Algebra System in Clojure, tailored for math and physics investigations.
 - [Maria.cloud](https://2.maria.cloud/): a Clojure coding environment for beginners.
+- [Datalevin](https://github.com/juji-io/datalevin): A simple, fast and versatile Datalog database
 - [Overarch](https://github.com/soulspace-org/overarch): A data driven description of software architecture based on UML and the C4 model.
+- [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
+- [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 
 <details>
 <summary>Expand for more projects...</summary>
@@ -72,12 +75,9 @@ SCI is used in:
 - [Chlorine](https://github.com/mauricioszabo/atom-chlorine). Socket-REPL and nREPL package for Atom editor.
 - [Cq](https://github.com/markus-wa/cq). Clojure Command-line Data Processor for JSON, YAML, EDN, XML and more.
 - [Dad](https://github.com/liquidz/dad). A configuration management tool.
-- [Datalevin](https://github.com/juji-io/datalevin). Durable Datalog database.
 - [For-science](https://github.com/pmonks/for-science). Discord bot.
 - [Keycloak-clojure](https://github.com/jgrodziski/keycloak-clojure). Clojure library for Keycloak.
 - [Lighthouse](https://github.com/barracudanetworks/lighthouse). A data-driven Kubernetes pre-processor.
-- [Logseq](https://logseq.com). A local-only outliner notebook which supports both Markdown and Org mode.
-- [Malli](https://github.com/metosin/malli). Plain data Schemas for Clojure/Script.
 - [Obsidian Wielder](https://github.com/victorb/obsidian-wielder). Write and evaluate Clojure code directly in your Obsidian vault.
 - [PCP](https://github.com/alekcz/pcp). Clojure Processor (PHP replacement).
 - [PGMig](https://github.com/leafclick/pgmig). Fast Standalone PostgreSQL Migration Runner.
