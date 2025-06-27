@@ -440,3 +440,9 @@
 
 (deftest issue-975-protocol-meta
   (is (true? (eval* "(defprotocol IFoo (foo [_])) (identical? #'IFoo (:protocol (meta #'foo)))"))))
+
+(deftest protocol-satisfies-nil-and-boolean-test
+  (is (true? (eval* "(defprotocol IFoo) (extend-type nil IFoo) (satisfies? IFoo nil)")))
+  (is (true? (sci/eval-string "(defprotocol IFoo) (extend-type #?(:clj (class true) :cljs boolean) IFoo) (satisfies? IFoo false)"
+                              {:classes #?(:clj nil :cljs {'js #js {:Boolean js/Boolean}})
+                               :features #?(:clj #{:clj} :cljs #{:cljs})}))))
