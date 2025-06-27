@@ -1748,6 +1748,9 @@
          (is (true? (sci/eval-string* ctx "(eval (apply #'deftype nil nil 'Foo '[[]]))
 (some? (->Foo))")))))))
 
+(deftest issue-977-test
+  (is (= :sci.impl.analyzer/recur (sci/eval-string "(ns sci.impl.analyzer) ((fn [] ::recur))"))))
+
 ;;;; Scratch
 
 (comment

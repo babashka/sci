@@ -14,6 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 - Fix [#975](https://github.com/babashka/sci/issues/975): Protocol method should have :protocol var on metadata
 - Fix [#971](https://github.com/babashka/sci/issues/971): fix `satisfies?` for protocol that is extended to `nil`
+- Fix [#977](https://github.com/babashka/sci/issues/977): Can't analyze sci.impl.analyzer with splint
 
 ## 0.10.46 (2025-06-18)
 
