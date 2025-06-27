@@ -15,39 +15,41 @@
   ([n _disable-arity-checks varargs]
    (if (zero? n)
      (let [varargs-param (when varargs (gensym))]
-       `(fn ~'arity-0 ~(cond-> []
-                         varargs (conj '& varargs-param))
-          (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                (object-array ~'invoc-size))]
-            (when ~'enclosed->invocation
-              (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-            ~@(when varargs
-                [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
-            (loop []
-              (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                (if (identical? recur ret#)
-                  (recur)
-                  ret#))))))
+       `(let [recur# recur]
+          (fn ~'arity-0 ~(cond-> []
+                           varargs (conj '& varargs-param))
+            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                  (object-array ~'invoc-size))]
+              (when ~'enclosed->invocation
+                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+              ~@(when varargs
+                  [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+              (loop []
+                (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
+                  (if (identical? recur# ret#)
+                    (recur)
+                    ret#)))))))
      (let [fn-params (vec (repeatedly n gensym))
            varargs-param (when varargs (gensym))
            asets `(do ~@(map (fn [fn-param idx]
                                `(aset ~(with-meta 'invoc-array
                                          {:tag 'objects}) ~idx ~fn-param))
                              fn-params (range)))]
-       `(fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
-                                          varargs (conj '& varargs-param))
-          (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                (object-array ~'invoc-size))]
-            (when ~'enclosed->invocation
-              (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-            ~asets
-            ~@(when varargs
-                [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
-            (loop []
-              (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                (if (identical? recur ret#)
-                  (recur)
-                  ret#)))))))))
+       `(let [recur# recur]
+          (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
+                                            varargs (conj '& varargs-param))
+            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                  (object-array ~'invoc-size))]
+              (when ~'enclosed->invocation
+                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+              ~asets
+              ~@(when varargs
+                  [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+              (loop []
+                (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
+                  (if (identical? recur# ret#)
+                    (recur)
+                    ret#))))))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
