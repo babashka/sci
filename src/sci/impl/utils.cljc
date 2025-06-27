@@ -29,6 +29,8 @@
    :clj `(identical? ~k ~v)
    :cljs `(cljs.core/keyword-identical? ~k ~v)))
 
+;; NOTE: we could add a unique object to the context instead of using this
+;; global one, which would be an even safer solution
 (def recur #?(:clj (Object.)
               :cljs (js/Object.)))
 
