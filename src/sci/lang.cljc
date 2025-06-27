@@ -73,7 +73,7 @@
           (.write ^java.io.Writer w (str this))))
 
 (defn- throw-root-binding [this]
-  (throw (new #?(:clj IllegalStateException :cljs js/Error)
+  (throw (#?(:clj IllegalStateException. :cljs js/Error.)
                   (str "Can't change/establish root binding of " this " with set"))))
 
 (defn notify-watches [ref watches old-val new-val]
@@ -142,8 +142,8 @@
       #?(:clj
          (let [t (.-thread b)]
            (if (not (identical? t (Thread/currentThread)))
-             (throw (new IllegalStateException
-                         (format "Can't set!: %s from non-binding thread" (vars/toSymbol this))))
+             (throw (IllegalStateException.
+                     (format "Can't set!: %s from non-binding thread" (vars/toSymbol this))))
              (types/setVal b v)))
          :cljs (types/setVal b v))
       #?(:clj (throw-root-binding this)
@@ -179,10 +179,10 @@
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (vars/with-writeable-var this meta
-                       (locking (set! meta (apply f meta args))))))
+                       (locking this (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
                      (vars/with-writeable-var this meta
-                       (locking (set! meta m)))))
+                       (locking this (set! meta m)))))
   #?@(:clj [clojure.lang.IRef
             (addWatch [this key fn]
                       (vars/with-writeable-var this meta
@@ -274,7 +274,7 @@
   #?(:clj clojure.lang.IReference)
   #?(:clj (alterMeta [this f args]
                      (vars/with-writeable-namespace this meta
-                       (locking (set! meta (apply f meta args))))))
+                       (locking this (set! meta (apply f meta args))))))
   #?(:clj (resetMeta [this m]
                      (vars/with-writeable-namespace this meta
-                       (locking (set! meta m))))))
+                       (locking this (set! meta m))))))
