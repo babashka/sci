@@ -1,8 +1,8 @@
 {:deps {:aliases [:shadow]}
  :builds
  {:sci
-  {:target :browser
-   :modules
-   {:sci {:entries [sci.core]}}
+  {:target :node-library
+   :output-to ".shadow-cljs/builds/sci/release/out/sci.js"
+   :exports {:eval_string sci.core/eval-string}
    :build-hooks [(shadow.cljs.build-report/hook
                   {:output-to "report.html"})]}}}
