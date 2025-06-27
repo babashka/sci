@@ -205,7 +205,9 @@
 
 (defn type->str
   [t]
-  (str t))
+  (if (some? t)
+    (str t)
+    "nil"))
 
 (defn extend-protocol [form _ protocol-name & impls]
   (let [ctx (store/get-ctx)
@@ -264,10 +266,13 @@
 
 (defn find-matching-non-default-method [protocol obj]
   (or (when-let [sats (:satisfies protocol)]
-        (or #?(:clj (contains? sats "class java.lang.Object")
-               :cljs (contains? sats extend-default-val))
-            (when-let [t (types/type-impl obj)]
-              (contains? sats (type->str t)))))
+        (or
+         #?(:clj (contains? sats "class java.lang.Object")
+            :cljs (contains? sats extend-default-val))
+         (when (nil? obj)
+           (contains? sats "nil"))
+         (when-let [t (types/type-impl obj)]
+           (contains? sats (type->str t)))))
       (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                         (let [ms (methods %)
                               default (get ms :default)]
