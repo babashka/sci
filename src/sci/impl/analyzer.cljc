@@ -265,7 +265,8 @@
                                                  (symbol (str "param" j))
                                                  `(nth ~'params ~j)])
                                               (range i)))])
-                            (range 1 20))]
+                            (range 1 20))
+          recur-sym (gensym "recur")]
       `(defn ~'return-recur
          ~'[ctx expr analyzed-children]
          (when-not (recur-target? ~'ctx)
@@ -276,9 +277,9 @@
          (let [~'params (:params ~'ctx)]
            (case (count ~'analyzed-children)
              ~@(concat
-                [0 `(sci.impl.types/->Node recur nil)]
+                [0 `(let [recur# recur] (sci.impl.types/->Node recur# nil))]
                 (mapcat (fn [[i binds]]
-                          [i `(let ~binds
+                          [i `(let ~(conj binds recur-sym `recur)
                                 (sci.impl.types/->Node
                                  ;; important, recur vals must be evaluated with old bindings!
                                  (let [~@(mapcat (fn [j]
@@ -291,7 +292,7 @@
                                                      {:tag 'objects}) ~j
                                                   ~(symbol (str "eval-" j))))
                                               (range i)))
-                                   recur)
+                                   ~recur-sym)
                                  nil))])
                         let-bindings))))))))
 
