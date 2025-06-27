@@ -10,8 +10,12 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.10.47 (2025-06-27)
 
+> [!IMPORTANT]
+> This release contains a security fix
+
+- Security issue: function recursion can be forced by returning internal keyword as return value
 - Fix [#975](https://github.com/babashka/sci/issues/975): Protocol method should have :protocol var on metadata
 - Fix [#971](https://github.com/babashka/sci/issues/971): fix `satisfies?` for protocol that is extended to `nil`
 - Fix [#977](https://github.com/babashka/sci/issues/977): Can't analyze sci.impl.analyzer with splint
