@@ -34,6 +34,10 @@
             opts)
      :cljs opts))
 
+(defn with-suppressed [opts]
+  (if @parser/suppress-read (assoc opts :suppress-read true)
+      opts))
+
 (defn read
   ([]
    (read @io/in))
@@ -44,10 +48,11 @@
   ([stream _eof-error? eof-value _recursive?]
    (let [v (parser/parse-next (store/get-ctx) stream
                               (-> {:eof eof-value}
-                                  (with-resolver)))]
+                                  (with-resolver)
+                                  (with-suppressed)))]
      (eof-or-throw {:eof eof-value} v)))
   ([opts stream]
-   (let [opts (with-resolver opts)
+   (let [opts (-> opts with-resolver with-suppressed)
          opts (if (:read-cond opts)
                 ;; always prioritize platform feature
                 (assoc opts :features (into #?(:clj #{:clj}
