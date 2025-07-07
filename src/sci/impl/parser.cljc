@@ -35,6 +35,11 @@
                  {:ns utils/clojure-core-ns
                   :dynamic true}))
 
+(def suppress-read
+  (utils/new-var '*suppress-read* nil
+                 {:ns utils/clojure-core-ns
+                  :dynamic true}))
+
 (def default-opts
   (edamame/normalize-opts
    {:all true

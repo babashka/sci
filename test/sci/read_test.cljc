@@ -101,3 +101,7 @@ form
    (deftest read-with-pushback-reader
      (testing "symbol normally gets line number attached, but we can't do this with pushbackreader"
        (is (= 'a (sci/eval-string (pr-str '(read (java.io.PushbackReader. (java.io.StringReader. "a")))) {:classes {'java.io.PushbackReader java.io.PushbackReader}}))))))
+
+#?(:clj (deftest suppress-read-test
+          (sci/eval-string
+           "(tagged-literal? (binding [*suppress-read* true] (read-string \"#foo 1\")))")))

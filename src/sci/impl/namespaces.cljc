@@ -1159,6 +1159,7 @@
      '*default-data-reader-fn* parser/default-data-reader-fn
      '*read-eval* parser/read-eval
      '*reader-resolver* parser/reader-resolver
+     '*suppress-read* parser/suppress-read
      'read (copy-var read clojure-core-ns {:copy-meta-from 'clojure.core/read})
      'read-string (copy-var read-string clojure-core-ns {:copy-meta-from 'clojure.core/read-string})
      #?@(:clj ['reader-conditional (copy-core-var reader-conditional)])
