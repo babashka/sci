@@ -72,7 +72,13 @@
 
 (defn load-reader [reader]
   (vars/with-bindings {utils/current-ns @utils/current-ns}
-    (let [ctx (store/get-ctx)]
+    (let [reader
+          ;; TODO: move this logic to edamame
+          (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
+                 :cljs (implements? r/IndexingReader reader))
+            reader
+            (r/indexing-push-back-reader reader))
+          ctx (store/get-ctx)]
       (loop [ret nil]
         (let [x (parser/parse-next ctx reader)]
           (if (utils/kw-identical? parser/eof x)
