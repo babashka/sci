@@ -2,7 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [ex-message ex-cause eval read
                             read-string require
-                            use load-string
+                            use load-string load-reader
                             *1 *2 *3 *e #?(:cljs type)
                             bound-fn* with-bindings*
                             vswap!
@@ -41,7 +41,7 @@
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
-   [sci.impl.read :as read :refer [load-string read read-string]]
+   [sci.impl.read :as read :refer [load-string load-reader read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
@@ -1473,6 +1473,7 @@
      'lazy-cat (macrofy 'lazy-cat lazy-cat*)
      'let (macrofy 'let let**)
      'letfn (macrofy 'letfn letfn*)
+     'load-reader (copy-var load-reader clojure-core-ns {:copy-meta-from 'clojure.core/load-reader})
      'load-string (copy-var load-string clojure-core-ns {:copy-meta-from 'clojure.core/load-string})
      'loaded-libs (copy-var loaded-libs* clojure-core-ns {:name 'loaded-libs})
      'loop (macrofy 'loop loop**)

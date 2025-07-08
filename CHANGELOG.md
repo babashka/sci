@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Add `*suppress-read*`
+- Add `load-reader`
 
 ## 0.10.47 (2025-06-27)
 

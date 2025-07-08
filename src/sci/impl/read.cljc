@@ -1,6 +1,6 @@
 (ns sci.impl.read
   {:no-doc true}
-  (:refer-clojure :exclude [eval load-string read read-string read+string])
+  (:refer-clojure :exclude [eval load-string load-reader read read-string read+string])
   (:require [clojure.tools.reader.reader-types :as r]
             [sci.ctx-store :as store]
             [sci.impl.io :as io]
@@ -70,15 +70,18 @@
    (let [reader (r/string-push-back-reader s)]
      (read opts reader))))
 
-(defn load-string [s]
+(defn load-reader [reader]
   (vars/with-bindings {utils/current-ns @utils/current-ns}
-    (let [ctx (store/get-ctx)
-          reader (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (let [ctx (store/get-ctx)]
       (loop [ret nil]
         (let [x (parser/parse-next ctx reader)]
           (if (utils/kw-identical? parser/eof x)
             ret
             (recur (utils/eval ctx x))))))))
+
+(defn load-string [s]
+  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (load-reader rdr)))
 
 ;; used by source-fn
 (defn source-logging-reader
