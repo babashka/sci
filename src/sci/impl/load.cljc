@@ -113,9 +113,9 @@
 
 (defn add-loaded-lib [env lib]
   #?(:clj
-     (dosync (alter (loaded-libs @env) conj lib))
+     (dosync (alter (loaded-libs env) conj lib))
      :cljs
-     (swap! (loaded-libs @env) conj lib))
+     (swap! (loaded-libs env) conj lib))
   nil)
 
 (defn handle-require-libspec
@@ -193,9 +193,9 @@
                 (throw (new #?(:clj Exception :cljs js/Error)
 
                             (str "Could not find namespace " lib ".")))))
-            #?(:clj (add-loaded-lib env* lib)
+            #?(:clj (add-loaded-lib env lib)
                :cljs (when-not js-lib?
-                       (add-loaded-lib env* lib)))
+                       (add-loaded-lib env lib)))
             nil)))))
 
 (defn load-lib* [ctx prefix lib options]

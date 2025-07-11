@@ -1008,7 +1008,7 @@
       deref deref))
 
 (defn -add-loaded-lib [name]
-  (load/add-loaded-lib (:env (store/get-ctx)) name)
+  (load/add-loaded-lib @(:env (store/get-ctx)) name)
   nil)
 
 (defn ns*
