@@ -1,5 +1,6 @@
 (ns sci.impl.load
   {:no-doc true}
+  (:refer-clojure :exclude [loaded-libs])
   (:require
    [clojure.string :as str]
    [sci.impl.types :as types]
@@ -27,7 +28,7 @@
                                (js/Reflect.get the-lib path)) the-lib (.split path "."))
                      the-lib)
            clazz (symbol (munge (str lib (when path
-                                           (str "$")) path)))
+                                           "$") path)))
            env (-> env
                    (assoc-in [:class->opts clazz :class] the-lib)
                    (assoc-in [:raw-classes clazz] the-lib))
@@ -99,7 +100,7 @@
                                             refer)]
                        (assoc the-current-ns :refers referred))
                      :else (throw (new #?(:clj Exception :cljs js/Error)
-                                       (str ":refer value must be a sequential collection of symbols"))))
+                                       ":refer value must be a sequential collection of symbols")))
                use (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
                :else the-current-ns)
          env (assoc-in env [:namespaces current-ns] the-current-ns)]
@@ -107,22 +108,14 @@
        (on-loaded {}))
      env)))
 
+(defn loaded-libs [env]
+  @(get-in env '[:namespaces clojure.core *loaded-libs*]))
+
 (defn add-loaded-lib [env lib]
-  (swap! env (fn [env]
-               (let [loaded-libs (:loaded-libs env)]
-                 (if (contains? loaded-libs lib)
-                   env
-                   (do
-                     (let [loaded-libs-var (get-in env '[:namespaces clojure.core *loaded-libs*])]
-                       #?(:clj
-                          (dosync (alter @loaded-libs-var conj lib))
-                          :cljs
-                          (swap! @loaded-libs-var conj lib)))
-                     (-> (update env :loaded-libs
-                                 (fn [loaded-libs]
-                                   (if (nil? loaded-libs)
-                                     #{lib}
-                                     (conj loaded-libs lib))))))))))
+  #?(:clj
+     (dosync (alter (loaded-libs @env) conj lib))
+     :cljs
+     (swap! (loaded-libs @env) conj lib))
   nil)
 
 (defn handle-require-libspec
@@ -147,7 +140,7 @@
             (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
               (let [loading (:loading ctx)]
                 (if (and loading
-                         (not (contains? (:loaded-libs env) lib))
+                         (not (contains? @(loaded-libs env) lib))
                          (nat-int? #?(:clj (.indexOf ^clojure.lang.PersistentVector loading lib)
                                       :cljs (.indexOf loading lib))))
                   (throw-error-with-location
