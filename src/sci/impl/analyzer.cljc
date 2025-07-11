@@ -1268,7 +1268,7 @@
          expr
          (conj ret
                (sci.impl.types/->Node
-                (do (load/add-loaded-lib (:env ctx) ns-name) nil)
+                (do (load/add-loaded-lib @(:env ctx) ns-name) nil)
                 nil)))))))
 
 ;;;; End namespaces
