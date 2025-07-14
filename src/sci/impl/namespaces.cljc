@@ -796,12 +796,16 @@
 
 ;;;; Record impl
 
-(defn -create-type [data]
-  (let [t (new sci.lang.Type data nil nil)
-        ctx (store/get-ctx)
-        t-name (:sci.impl/type-name data)
+(defn -reg-type! [t-name t]
+  (let [ctx (store/get-ctx)
         env (:env ctx)]
     (swap! env assoc-in [:types t-name] t)
+    nil))
+
+(defn -create-type [data]
+  (let [t (new sci.lang.Type data nil nil)
+        t-name (:sci.impl/type-name data)]
+    (-reg-type! t-name t)
     t))
 
 #_(defn -reg-key! [rec-type k v]
@@ -827,7 +831,8 @@
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal
    '-mutate sci.impl.types/-mutate
-   'type types/type-impl})
+   'type types/type-impl
+   '-reg-type! -reg-type!})
 
 (def sci-impl-protocols
   {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)

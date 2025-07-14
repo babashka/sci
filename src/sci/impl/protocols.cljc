@@ -4,6 +4,7 @@
                             extend extend-type reify satisfies?
                             extends? implements? type->str])
   (:require
+   [clojure.string :as str]
    [sci.ctx-store :as store]
    #?(:clj [sci.impl.interop :as interop])
    [sci.impl.deftype]
@@ -46,14 +47,15 @@
         extend-meta (:extend-via-metadata opts)
         expansion
         `(do
-           (def  ~(with-meta protocol-name
-                    {:doc docstring}) (cond->
-                                          {:methods #{}
-                                           :name '~fq-protocol-name
-                                           :ns *ns*
-                                           :sigs ~(list 'quote sigs-map)
-                                           :var (var ~fq-protocol-name)}
-                                        ~extend-meta (assoc :extend-via-metadata true)))
+           (def ~(with-meta protocol-name
+                   {:doc docstring}) (cond->
+                                         {:methods #{}
+                                          :name '~fq-protocol-name
+                                          :ns *ns*
+                                          :sigs ~(list 'quote sigs-map)
+                                          :var (var ~fq-protocol-name)}
+                                       ~extend-meta (assoc :extend-via-metadata true)))
+           (sci.impl.deftype/-reg-type! ~(list 'quote (symbol (str (str/replace current-ns "-" "_") "." protocol-name))) ~protocol-name)
            ~@(map (fn [[method-name & _]]
                     (let [fq-name (symbol current-ns (str method-name))
                           method-meta (select-keys (get sigs-map (keyword method-name)) [:doc :arglists])
@@ -104,8 +106,7 @@
                                                  update :methods conj ~method-name)
                             :cljs (def ~protocol-name
                                     (update ~protocol-name :methods conj ~method-name))))))
-                  signatures
-                  )
+                  signatures)
            ~(list 'quote protocol-name))]
     expansion))
 
