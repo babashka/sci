@@ -349,8 +349,12 @@
    A protocol is represented by a map with :ns, :methods and optionally :class. This is also an implementation detail."
   ;; TODO: we should probably use munging here for namespaces with hyphens in them.
   ([ctx sym]
-   (or (some-> ctx :env deref :types (get sym))
-       (let [sym-str (str sym)
+   (let [env @(:env ctx)]
+     (or (some-> env :types (get sym))
+         (let [ns (utils/current-ns-name)
+               imports (get-in env [:namespaces ns :imports])]
+           (some-> env :types (get (get imports sym))))
+         (let [sym-str (str sym)
                last-dot (str/last-index-of sym-str ".")
                class-name (if last-dot
                             (subs sym-str (inc last-dot) (count sym-str))
@@ -358,7 +362,7 @@
                namespace (if last-dot
                            (symbol (subs sym-str 0 last-dot))
                            (utils/current-ns-name))]
-           (resolve-record-or-protocol-class ctx namespace (symbol class-name)))))
+           (resolve-record-or-protocol-class ctx namespace (symbol class-name))))))
   ([ctx package class]
    (let [namespace (-> package str (str/replace "_" "-") symbol)]
      (when-let [sci-var (let [ns (get-in @(:env ctx) [:namespaces namespace])]

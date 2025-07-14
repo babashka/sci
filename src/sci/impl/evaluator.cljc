@@ -6,7 +6,7 @@
    [sci.impl.deftype]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
-   [sci.impl.records]
+   [sci.impl.records :as records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [#?(:cljs kw-identical?)
                                      rethrow-with-location-of-node
@@ -203,7 +203,8 @@
                 (reduce (fn [_ class]
                           (let [fq-class-name (symbol (if package (str package "." class)
                                                           class))]
-                            (if-let [clazz (interop/resolve-class ctx fq-class-name)]
+                            (if-let [clazz (or (interop/resolve-class ctx fq-class-name)
+                                               (records/resolve-record-or-protocol-class ctx fq-class-name))]
                               (let [cnn (utils/current-ns-name)]
                                 (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name)
                                 clazz)
