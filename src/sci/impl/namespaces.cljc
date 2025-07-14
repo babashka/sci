@@ -797,7 +797,12 @@
 ;;;; Record impl
 
 (defn -create-type [data]
-  (new sci.lang.Type data nil nil))
+  (let [t (new sci.lang.Type data nil nil)
+        ctx (store/get-ctx)
+        t-name (:sci.impl/type-name data)
+        env (:env ctx)]
+    (swap! env assoc-in [:types t-name] t)
+    t))
 
 #_(defn -reg-key! [rec-type k v]
     (when (instance? sci.lang.Type rec-type)

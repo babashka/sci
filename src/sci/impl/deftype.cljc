@@ -79,7 +79,8 @@
                            (write-all w (clojure-str this))))])
 
   types/IBox
-  (getVal [_] ext-map))
+  (getVal [_] ext-map)
+  (setVal [_ _]))
 
 (defn ->type-impl [rec-name type var m]
   (SciType. rec-name type var m))

@@ -382,3 +382,6 @@ bar/bar"}
                                  (when (= 'foo.bar namespace)
                                    {:source "(ns foo.bar) (def x :success)"
                                     :file "foo/bar.clj"}))})))))
+
+(deftest class-survives-remove-ns-test
+  (is (true? (sci/eval-string "(ns foo) (deftype Dude []) (ns dude) (remove-ns 'foo) (some? foo.Dude)"))))
