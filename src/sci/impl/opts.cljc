@@ -2,6 +2,7 @@
   {:no-doc true}
   (:require
    #?(:cljs [goog.string])
+   [sci.impl.core-protocols :as cp]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
@@ -61,7 +62,8 @@
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes
-                          :ns-aliases ns-aliases))))))
+                          :ns-aliases ns-aliases
+                          :types {'clojure.lang.IDeref cp/deref-protocol}))))))
 
 (defn process-permissions [prev-perms & permissions]
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))

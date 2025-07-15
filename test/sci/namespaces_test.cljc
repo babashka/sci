@@ -386,4 +386,5 @@ bar/bar"}
 (deftest class-survives-remove-ns-test
   (is (true? (sci/eval-string "(ns foo) (deftype Dude []) (ns dude) (remove-ns 'foo) (some? foo.Dude)")))
   (is (true? (sci/eval-string "(ns foo) (defrecord Dude []) (ns dude) (remove-ns 'foo) (some? foo.Dude)")))
-  (is (true? (sci/eval-string "(ns foo) (defprotocol IDude) (ns dude) (remove-ns 'foo) (some? foo.IDude)"))))
+  (is (true? (sci/eval-string "(ns foo) (defprotocol IDude) (ns dude) (remove-ns 'foo) (some? foo.IDude)")))
+  (is (true? (sci/eval-string "(ns foo) (deftype Druid []) (ns bar) (remove-ns 'foo) (import [foo Druid]) (some? Druid)"))))
