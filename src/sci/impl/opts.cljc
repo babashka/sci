@@ -62,8 +62,7 @@
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes
-                          :ns-aliases ns-aliases
-                          :types {'clojure.lang.IDeref cp/deref-protocol}))))))
+                          :ns-aliases ns-aliases))))))
 
 (defn process-permissions [prev-perms & permissions]
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))

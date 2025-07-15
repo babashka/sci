@@ -204,7 +204,7 @@
                           (let [fq-class-name (symbol (if package (str package "." class)
                                                           class))]
                             (if-let [clazz (or (interop/resolve-class ctx fq-class-name)
-                                               (records/resolve-record-or-protocol-class ctx fq-class-name))]
+                                               nil #_(records/resolve-record-or-protocol-class ctx fq-class-name))]
                               (let [cnn (utils/current-ns-name)]
                                 (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name)
                                 clazz)
