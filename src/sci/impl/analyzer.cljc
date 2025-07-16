@@ -1043,7 +1043,7 @@
                         (static-method)))
                     (let [arg-count #?(:cljs nil :clj (count args))
                           args (object-array args)
-                          #?@(:clj [^"[Ljava.lang.Class;" arg-types (when (and (pos? arg-count))
+                          #?@(:clj [^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
                                                                       (make-array Class arg-count))
                                     has-types? (volatile! nil)])]
                       #?(:clj (when arg-types
@@ -1062,7 +1062,8 @@
                                              arg-types)))
                                   stack)
                         {::instance-expr instance-expr
-                         ::method-name method-name})))
+                         ::method-name method-name
+                         :tag (:tag (meta expr))})))
              :cljs (let [allowed? (or unrestrict/*unrestricted*
                                       (identical? method-expr utils/allowed-append)
                                       (-> ctx :env deref :class->opts :allow))
