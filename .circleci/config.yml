@@ -7,7 +7,7 @@ jobs:
   jvm:
     docker:
       # specify the version you desire here
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+      - image: circleci/clojure:lein-2.9.8
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
@@ -92,7 +92,7 @@ jobs:
           destination: release
   linux:
     docker:
-      - image: circleci/clojure:openjdk-11-lein-2.9.3-buster
+      - image: circleci/clojure:lein-2.9.8
     working_directory: ~/repo
     environment:
       LEIN_ROOT: "true"
