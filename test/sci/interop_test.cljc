@@ -1,5 +1,6 @@
 (ns sci.interop-test
   (:require
+   #?(:clj [clojure.java.io :as io])
    [clojure.string :as str]
    [clojure.test :as test :refer [are deftest is testing #?(:cljs async)]]
    [sci.core :as sci]
@@ -364,4 +365,11 @@
        (testing "type hinting fn argument with callable returns nil on futuretask get"
          (is (= 3 (sci/eval-string "(defn fut [^java.util.concurrent.Callable f] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f)) (.get (fut (fn [] 3)))" type-hint-config))))
        (testing "type hinting on fn expression as argument with Callable returns nil on futuretask get"
-         (is (= 3 (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.util.concurrent.Callable (fn [] 3))) (.get fut)" type-hint-config)))))))
+         (is (= 3 (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.util.concurrent.Callable (fn [] 3))) (.get fut)" type-hint-config)))))
+     (testing "type hint on interop argument"
+       ;; this test assumes clojure/core.clj comes from a jar file
+       ;; the test will fail when not processing the type hint on the interop argument
+       (sci/eval-string "(.getJarEntry ^java.net.JarURLConnection (.openConnection resource))"
+                        {:bindings {'resource (io/resource "clojure/core.clj")}
+                         :classes {'java.net.URL java.net.URL
+                                   'java.net.JarURLConnection java.net.JarURLConnection}}))))
