@@ -7,6 +7,7 @@
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records]
+   [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [#?(:cljs kw-identical?)
                                      rethrow-with-location-of-node
@@ -170,7 +171,7 @@
              (not (contains? env sym)))
      (let [sym (types/eval sym ctx bindings)
            res (second
-                (@utils/lookup ctx sym false nil (qualified-symbol? sym)))]
+                (resolve/lookup ctx sym false nil (qualified-symbol? sym)))]
        (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
                     :clj (instance? sci.impl.types.Eval res))
          res)))))

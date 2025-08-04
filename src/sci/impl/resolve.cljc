@@ -201,9 +201,6 @@
           (check-permission! ctx sym kv))
         kv)))))
 
-;; workaround for evaluator also needing this function
-(vreset! utils/lookup lookup)
-
 (defn resolve-symbol*
   [ctx sym call? m]
   (or

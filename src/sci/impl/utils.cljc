@@ -193,7 +193,6 @@
 (def eval-form-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
 (def eval-string* (volatile! nil))
-(def lookup (volatile! nil))
 (def analyze (volatile! nil))
 
 (defn eval [sci-ctx form]
