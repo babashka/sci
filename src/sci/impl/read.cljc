@@ -5,8 +5,7 @@
             [sci.ctx-store :as store]
             [sci.impl.io :as io]
             [sci.impl.parser :as parser]
-            [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.utils :as utils]))
 
 (defn- eof-or-throw [opts v]
   (if (utils/kw-identical? parser/eof v)
@@ -69,25 +68,6 @@
   ([opts s]
    (let [reader (r/string-push-back-reader s)]
      (read opts reader))))
-
-(defn load-reader [reader]
-  (let [ctx (store/get-ctx)
-        reader
-        ;; TODO: move this logic to edamame
-        (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
-               :cljs (implements? r/IndexingReader reader))
-          reader
-          (r/indexing-push-back-reader reader))]
-    (vars/with-bindings (utils/load-thread-bindings ctx {utils/current-ns @utils/current-ns})
-      (loop [ret nil]
-        (let [x (parser/parse-next ctx reader)]
-          (if (utils/kw-identical? parser/eof x)
-            ret
-            (recur (utils/eval ctx x))))))))
-
-(defn load-string [s]
-  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
-    (load-reader rdr)))
 
 ;; used by source-fn
 (defn source-logging-reader

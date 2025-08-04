@@ -1,8 +1,11 @@
 (ns sci.impl.load
   {:no-doc true}
-  (:refer-clojure :exclude [loaded-libs])
+  (:refer-clojure :exclude [loaded-libs load-reader load-string])
   (:require
    [clojure.string :as str]
+   [clojure.tools.reader.reader-types :as r]
+   [sci.ctx-store :as store]
+   [sci.impl.parser :as parser]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [kw-identical? throw-error-with-location]]
    [sci.impl.vars :as vars]))
@@ -117,6 +120,25 @@
      :cljs
      (swap! (loaded-libs env) conj lib))
   nil)
+
+(defn load-reader [reader]
+  (let [ctx (store/get-ctx)
+        reader
+        ;; TODO: move this logic to edamame
+        (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
+               :cljs (implements? r/IndexingReader reader))
+          reader
+          (r/indexing-push-back-reader reader))]
+    (vars/with-bindings (utils/load-thread-bindings ctx {utils/current-ns @utils/current-ns})
+      (loop [ret nil]
+        (let [x (parser/parse-next ctx reader)]
+          (if (utils/kw-identical? parser/eof x)
+            ret
+            (recur (utils/eval ctx x))))))))
+
+(defn load-string [s]
+  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (load-reader rdr)))
 
 (defn handle-require-libspec
   [ctx lib opts]
