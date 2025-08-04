@@ -191,7 +191,6 @@
     (t/setVal current-ns ns-obj)))
 
 (def eval-form-state (volatile! nil))
-(def eval-require-state (volatile! nil))
 (def eval-use-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
 (def eval-refer-state (volatile! nil))

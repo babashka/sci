@@ -271,8 +271,6 @@
   [ctx & args]
   (load-libs ctx :require-macros args))
 
-(vreset! utils/eval-require-state eval-require)
-
 (defn eval-use
   [ctx & args]
   (load-libs ctx :use args))

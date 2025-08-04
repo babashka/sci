@@ -606,7 +606,7 @@
 ;;;; Require + resolve
 
 (defn require* [sci-ctx & args]
-  (apply @sci.impl.utils/eval-require-state sci-ctx args))
+  (apply load/eval-require sci-ctx args))
 
 (defn require [& args]
   (apply require* (store/get-ctx) args))
