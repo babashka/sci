@@ -166,20 +166,21 @@
 
 (defn init
   "Initializes options"
-  [{:keys [:bindings :env
-           :allow :deny
-           :aliases
-           :namespaces
-           :classes
-           :imports
-           :features
-           :load-fn
-           :readers
-           :reify-fn
-           :proxy-fn
-           #?(:cljs :async-load-fn)
-           #?(:cljs :js-libs)
-           :ns-aliases]}]
+  [{:keys [bindings env
+           allow deny
+           aliases
+           namespaces
+           classes
+           imports
+           features
+           load-fn
+           readers
+           reify-fn
+           proxy-fn
+           #?(:cljs async-load-fn)
+           #?(:cljs js-libs)
+           ns-aliases
+           load-thread-bindings]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         ns-aliases (merge default-ns-aliases ns-aliases)
@@ -193,28 +194,31 @@
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
+                   :load-thread-bindings load-thread-bindings
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
 (defn merge-opts [ctx opts]
   (let [!env (:env ctx)
         env @!env
-        {:keys [:bindings
-                :allow :deny
-                :aliases
-                :namespaces
-                :classes
-                :imports
-                :features
-                :load-fn
-                :readers
-                :reify-fn
-                #?(:cljs :async-load-fn)
-                #?(:cljs :js-libs)
-                :ns-aliases]
+        {:keys [bindings
+                allow deny
+                aliases
+                namespaces
+                classes
+                imports
+                features
+                load-fn
+                readers
+                reify-fn
+                #?(:cljs async-load-fn)
+                #?(:cljs js-libs)
+                ns-aliases
+                load-thread-bindings]
          :or {load-fn (:load-fn env)
               #?@(:cljs [async-load-fn (:async-load-fn env)])
-              features (:features ctx)}} opts
+              features (:features ctx)
+              load-thread-bindings (:load-thread-bindings ctx)}} opts
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
         _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
@@ -222,5 +226,6 @@
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
-                   :main-thread-id (:main-thread-id ctx))]
+                   :main-thread-id (:main-thread-id ctx)
+                   :load-thread-bindings load-thread-bindings)]
     ctx))

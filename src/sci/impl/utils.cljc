@@ -297,3 +297,10 @@
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
 (def special-syms '#{try finally do if new recur quote throw def . var set! let* loop* case*})
+
+(defn load-thread-bindings [ctx init-map]
+  (let [ltb (:load-thread-bindings ctx)
+        ltb-diff (remove #(contains? init-map %) ltb)
+        bindings (reduce (fn [acc b]
+                           (assoc acc b @b)) init-map ltb-diff)]
+    bindings))

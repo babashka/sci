@@ -172,8 +172,8 @@
                                                          (conj loading lib)))))]
                         (when source
                           (try (vars/with-bindings
-                                 {utils/current-ns curr-ns
-                                  utils/current-file file}
+                                 (utils/load-thread-bindings ctx {utils/current-ns curr-ns
+                                                                  utils/current-file file})
                                  (@utils/eval-string* ctx source))
                                (catch #?(:clj Exception :cljs js/Error) e
                                  (swap! env* update :namespaces dissoc lib)
