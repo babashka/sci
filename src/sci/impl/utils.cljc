@@ -191,9 +191,7 @@
     (t/setVal current-ns ns-obj)))
 
 (def eval-form-state (volatile! nil))
-(def eval-use-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
-(def eval-refer-state (volatile! nil))
 (def macroexpand* (volatile! nil))
 (def macroexpand-1* (volatile! nil))
 (def eval-string* (volatile! nil))

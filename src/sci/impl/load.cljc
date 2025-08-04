@@ -359,5 +359,3 @@
     (eval-refer-clojure ctx filters)
     (swap! (:env ctx) eval-refer* ns-sym filters))
   nil)
-
-(vreset! utils/eval-refer-state eval-refer)

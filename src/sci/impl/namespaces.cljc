@@ -625,7 +625,7 @@
   ([env sym] (sci-resolve* (store/get-ctx) env sym)))
 
 (defn sci-refer [& args]
-  (apply @sci.impl.utils/eval-refer-state (store/get-ctx) args))
+  (apply load/eval-refer (store/get-ctx) args))
 
 (defn sci-refer-clojure [_ _ & filters]
   `(clojure.core/refer '~'clojure.core ~@filters))
