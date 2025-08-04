@@ -81,8 +81,6 @@
              (let [ret (eval-form ctx expr)]
                (recur ret)))))))))
 
-(vreset! utils/eval-string* eval-string*)
-
 ;;;; Called from public API
 
 (defn eval-string

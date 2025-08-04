@@ -10,6 +10,36 @@
    [sci.impl.utils :as utils :refer [kw-identical? throw-error-with-location]]
    [sci.impl.vars :as vars]))
 
+(defn load-reader*
+  "Low level load-reader* that doesn't install any bindings"
+  [ctx reader]
+  (let [reader
+        ;; TODO: move this check to edamame
+        (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
+               :cljs (implements? r/IndexingReader reader))
+          reader
+          (r/indexing-push-back-reader reader))]
+    (loop [ret nil]
+      (let [x (parser/parse-next ctx reader)]
+        (if (utils/kw-identical? parser/eof x)
+          ret
+          (recur (utils/eval ctx x)))))))
+
+(defn load-string*
+  "Low level load-string* that doesn't install any bindings"
+  [ctx s]
+  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (load-reader* ctx rdr)))
+
+(defn load-reader [reader]
+  (let [ctx (store/get-ctx)]
+    (vars/with-bindings (utils/load-thread-bindings ctx {utils/current-ns @utils/current-ns})
+      (load-reader* ctx reader))))
+
+(defn load-string [s]
+  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (load-reader rdr)))
+
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
   (let [referred (:refers the-current-ns)
         only (when only (set only))
@@ -121,31 +151,6 @@
      (swap! (loaded-libs env) conj lib))
   nil)
 
-
-(defn load-reader*
-  "Low level load-reader* that doesn't install any bindings"
-  [ctx reader]
-  (let [reader
-        ;; TODO: move this check to edamame
-        (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
-               :cljs (implements? r/IndexingReader reader))
-          reader
-          (r/indexing-push-back-reader reader))]
-    (loop [ret nil]
-      (let [x (parser/parse-next ctx reader)]
-        (if (utils/kw-identical? parser/eof x)
-          ret
-          (recur (utils/eval ctx x)))))))
-
-(defn load-reader [reader]
-  (let [ctx (store/get-ctx)]
-    (vars/with-bindings (utils/load-thread-bindings ctx {utils/current-ns @utils/current-ns})
-      (load-reader* ctx reader))))
-
-(defn load-string [s]
-  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
-    (load-reader rdr)))
-
 (defn handle-require-libspec
   [ctx lib opts]
   (let [env* (:env ctx)
@@ -202,7 +207,7 @@
                           (try (vars/with-bindings
                                  (utils/load-thread-bindings ctx {utils/current-ns curr-ns
                                                                   utils/current-file file})
-                                 (@utils/eval-string* ctx source))
+                                 (load-string* ctx source))
                                (catch #?(:clj Exception :cljs js/Error) e
                                  (swap! env* update :namespaces dissoc lib)
                                  (throw e)))))
