@@ -121,20 +121,26 @@
      (swap! (loaded-libs env) conj lib))
   nil)
 
-(defn load-reader [reader]
-  (let [ctx (store/get-ctx)
-        reader
-        ;; TODO: move this logic to edamame
+
+(defn load-reader*
+  "Low level load-reader* that doesn't install any bindings"
+  [ctx reader]
+  (let [reader
+        ;; TODO: move this check to edamame
         (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
                :cljs (implements? r/IndexingReader reader))
           reader
           (r/indexing-push-back-reader reader))]
+    (loop [ret nil]
+      (let [x (parser/parse-next ctx reader)]
+        (if (utils/kw-identical? parser/eof x)
+          ret
+          (recur (utils/eval ctx x)))))))
+
+(defn load-reader [reader]
+  (let [ctx (store/get-ctx)]
     (vars/with-bindings (utils/load-thread-bindings ctx {utils/current-ns @utils/current-ns})
-      (loop [ret nil]
-        (let [x (parser/parse-next ctx reader)]
-          (if (utils/kw-identical? parser/eof x)
-            ret
-            (recur (utils/eval ctx x))))))))
+      (load-reader* ctx reader))))
 
 (defn load-string [s]
   (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
