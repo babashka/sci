@@ -1,6 +1,6 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:refer-clojure :exclude [eval demunge var?])
+  (:refer-clojure :exclude [eval demunge var? macroexpand macroexpand-1])
   (:require [clojure.string :as str]
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
@@ -192,8 +192,6 @@
 
 (def eval-form-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
-(def macroexpand* (volatile! nil))
-(def macroexpand-1* (volatile! nil))
 (def eval-string* (volatile! nil))
 (def lookup (volatile! nil))
 (def analyze (volatile! nil))
@@ -296,3 +294,7 @@
   `(do (dotimes [i# ~(dec n)]
          ~body)
        ~body))
+
+;; derived from (keys (. clojure.lang.Compiler specials))
+;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
+(def special-syms '#{try finally do if new recur quote throw def . var set! let* loop* case*})

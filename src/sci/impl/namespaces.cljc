@@ -37,6 +37,7 @@
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
    [sci.impl.load :as load]
+   [sci.impl.macroexpand :as mexpand]
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
@@ -771,10 +772,10 @@
 ;;;; Macroexpand
 
 (defn macroexpand* [expr]
-  (@sci.impl.utils/macroexpand* (store/get-ctx) expr))
+  (mexpand/macroexpand (store/get-ctx) expr))
 
 (defn macroexpand-1* [expr]
-  (@sci.impl.utils/macroexpand-1* (store/get-ctx) expr))
+  (mexpand/macroexpand-1 (store/get-ctx) expr))
 
 ;;;;
 
@@ -1990,7 +1991,7 @@
                       (clojure.walk/prewalk
                        (fn [x]
                          (if (seq? x)
-                           (@sci.impl.utils/macroexpand* ctx x) x))
+                           (mexpand/macroexpand ctx x) x))
                        form)))
                   'macroexpand-all
                   {:ns clojure-walk-namespace
@@ -2018,7 +2019,6 @@
  )
 
 (macros/usetime
- 
  ;; #_#?(:clj (alter-var-root #'clojure-core assoc
  ;;                       'locking (macrofy 'locking locking*)
  ;;                       '-locking-impl (copy-var -locking-impl clojure-core-ns))
