@@ -275,8 +275,6 @@
   [ctx & args]
   (load-libs ctx :use args))
 
-(vreset! utils/eval-use-state eval-use)
-
 (defn eval-refer-clojure [ctx exprs]
   (let [ns-sym 'clojure.core]
     (loop [exprs exprs]

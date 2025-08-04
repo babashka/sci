@@ -612,7 +612,7 @@
   (apply require* (store/get-ctx) args))
 
 (defn use [& args]
-  (apply @sci.impl.utils/eval-use-state (store/get-ctx) args))
+  (apply load/eval-use (store/get-ctx) args))
 
 (defn sci-resolve*
   ([sci-ctx sym]
