@@ -3,7 +3,6 @@
    #?(:clj [sci.addons :as addons])
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
-   [sci.addons.future :as f]
    [sci.core :as sci]
    [sci.impl.unrestrict :refer [*unrestricted*]]
    [sci.test-utils :as tu]))
@@ -262,11 +261,12 @@
        (sci/with-out-str (sci/eval-string "(def x 1) (add-watch #'x :foo (fn [k r o n] (prn :o o :n n))) (alter-var-root #'x (constantly 5))"))
        ":o 1 :n 5")))
 
-(deftest thread-binds
-  (is (true?
-       (let [warn-on-reflection (sci/new-dynamic-var '*warn-on-reflection* true)]
-         (sci/eval-string*
-          (sci/init (-> {:load-thread-bindings [warn-on-reflection]
-                         :namespaces {'clojure.core {'*warn-on-reflection* warn-on-reflection}}}
-                        (f/install)))
-          "@(future (load-string \"(set! *warn-on-reflection* true)\"))")))))
+#?(:clj
+   (deftest thread-binds
+     (is (true?
+          (let [warn-on-reflection (sci/new-dynamic-var '*warn-on-reflection* true)]
+            (sci/eval-string*
+             (sci/init (-> {:load-thread-bindings [warn-on-reflection]
+                            :namespaces {'clojure.core {'*warn-on-reflection* warn-on-reflection}}}
+                           (addons/future)))
+             "@(future (load-string \"(set! *warn-on-reflection* true)\"))"))))))
