@@ -264,9 +264,7 @@
 #?(:clj
    (deftest thread-binds
      (is (true?
-          (let [warn-on-reflection (sci/new-dynamic-var '*warn-on-reflection* true)]
-            (sci/eval-string*
-             (sci/init (-> {:load-thread-bindings [warn-on-reflection]
-                            :namespaces {'clojure.core {'*warn-on-reflection* warn-on-reflection}}}
-                           (addons/future)))
-             "@(future (load-string \"(set! *warn-on-reflection* true)\"))"))))))
+          (sci/eval-string*
+           (sci/init
+            (addons/future {}))
+           "@(future (load-string \"(set! *warn-on-reflection* true)\"))")))))
