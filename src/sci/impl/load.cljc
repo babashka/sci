@@ -205,8 +205,10 @@
                                                          (conj loading lib)))))]
                         (when source
                           (try (vars/with-bindings
-                                 (utils/load-thread-bindings ctx {utils/current-ns curr-ns
-                                                                  utils/current-file file})
+                                 {utils/current-ns curr-ns
+                                  utils/current-file file
+                                  #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
+                                            utils/unchecked-math-var @utils/unchecked-math-var])}
                                  (load-string* ctx source))
                                (catch #?(:clj Exception :cljs js/Error) e
                                  (swap! env* update :namespaces dissoc lib)

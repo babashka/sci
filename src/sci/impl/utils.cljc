@@ -303,3 +303,15 @@
         bindings (reduce (fn [acc b]
                            (assoc acc b @b)) init-map ltb-diff)]
     bindings))
+
+#?(:clj (def warn-on-reflection-var
+          (dynamic-var
+           '*warn-on-reflection* false
+           {:ns clojure-core-ns
+            :doc "When set to true, the compiler will emit warnings when reflection is\n  needed to resolve Java method calls or field accesses.\n\n  Defaults to false."})))
+
+#?(:clj (def unchecked-math-var
+          (dynamic-var
+           '*unchecked-math* clojure.core/*unchecked-math*
+           {:ns clojure-core-ns
+            :doc "While bound to true, compilations of +, -, *, inc, dec and the\n  coercions will be done without overflow checks. While bound\n  to :warn-on-boxed, same behavior as true, and a warning is emitted\n  when compilation uses boxed math. Default: false."})))
