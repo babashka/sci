@@ -210,7 +210,7 @@
                           (try (vars/with-bindings
                                  {utils/current-ns curr-ns
                                   utils/current-file file
-                                  parser/data-readers parser/data-readers
+                                  parser/data-readers @parser/data-readers
                                   #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
                                             utils/unchecked-math-var @utils/unchecked-math-var])}
                                  (load-string* ctx source))
