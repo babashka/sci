@@ -33,7 +33,10 @@
 
 (defn load-reader [reader]
   (let [ctx (store/get-ctx)]
-    (vars/with-bindings (utils/load-thread-bindings ctx {utils/current-ns @utils/current-ns})
+    (vars/with-bindings {utils/current-ns @utils/current-ns
+                         parser/data-readers @parser/data-readers
+                         #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
+                                   utils/unchecked-math-var @utils/unchecked-math-var])}
       (load-reader* ctx reader))))
 
 (defn load-string [s]
@@ -207,6 +210,7 @@
                           (try (vars/with-bindings
                                  {utils/current-ns curr-ns
                                   utils/current-file file
+                                  parser/data-readers parser/data-readers
                                   #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
                                             utils/unchecked-math-var @utils/unchecked-math-var])}
                                  (load-string* ctx source))

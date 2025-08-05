@@ -9,7 +9,8 @@
    [sci.impl.parser :as p]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]))
+   [sci.impl.vars :as vars]
+   [sci.impl.parser :as parser]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -72,7 +73,10 @@
    (eval-string* ctx s nil))
   ([ctx s opts]
    (vars/with-bindings
-     (utils/load-thread-bindings ctx {utils/current-ns (or (when opts (:ns opts)) @utils/current-ns)})
+     {utils/current-ns (or (when opts (:ns opts)) @utils/current-ns)
+      parser/data-readers @parser/data-readers
+      #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
+                utils/unchecked-math-var @utils/unchecked-math-var])}
      (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
            eval-string+? (when opts (:sci.impl/eval-string+ opts))]
        (loop [ret nil]
