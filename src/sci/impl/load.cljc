@@ -1,11 +1,47 @@
 (ns sci.impl.load
   {:no-doc true}
-  (:refer-clojure :exclude [loaded-libs])
+  (:refer-clojure :exclude [loaded-libs load-reader load-string])
   (:require
    [clojure.string :as str]
+   [clojure.tools.reader.reader-types :as r]
+   [sci.ctx-store :as store]
+   [sci.impl.parser :as parser]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [kw-identical? throw-error-with-location]]
    [sci.impl.vars :as vars]))
+
+(defn load-reader*
+  "Low level load-reader* that doesn't install any bindings"
+  [ctx reader]
+  (let [reader
+        ;; TODO: move this check to edamame
+        (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
+               :cljs (implements? r/IndexingReader reader))
+          reader
+          (r/indexing-push-back-reader reader))]
+    (loop [ret nil]
+      (let [x (parser/parse-next ctx reader)]
+        (if (utils/kw-identical? parser/eof x)
+          ret
+          (recur (utils/eval ctx x)))))))
+
+(defn load-string*
+  "Low level load-string* that doesn't install any bindings"
+  [ctx s]
+  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (load-reader* ctx rdr)))
+
+(defn load-reader [reader]
+  (let [ctx (store/get-ctx)]
+    (vars/with-bindings {utils/current-ns @utils/current-ns
+                         parser/data-readers @parser/data-readers
+                         #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
+                                   utils/unchecked-math-var @utils/unchecked-math-var])}
+      (load-reader* ctx reader))))
+
+(defn load-string [s]
+  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+    (load-reader rdr)))
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
   (let [referred (:refers the-current-ns)
@@ -173,8 +209,11 @@
                         (when source
                           (try (vars/with-bindings
                                  {utils/current-ns curr-ns
-                                  utils/current-file file}
-                                 (@utils/eval-string* ctx source))
+                                  utils/current-file file
+                                  parser/data-readers @parser/data-readers
+                                  #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
+                                            utils/unchecked-math-var @utils/unchecked-math-var])}
+                                 (load-string* ctx source))
                                (catch #?(:clj Exception :cljs js/Error) e
                                  (swap! env* update :namespaces dissoc lib)
                                  (throw e)))))

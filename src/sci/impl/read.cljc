@@ -1,12 +1,11 @@
 (ns sci.impl.read
   {:no-doc true}
-  (:refer-clojure :exclude [eval load-string load-reader read read-string read+string])
+  (:refer-clojure :exclude [read read-string read+string])
   (:require [clojure.tools.reader.reader-types :as r]
             [sci.ctx-store :as store]
             [sci.impl.io :as io]
             [sci.impl.parser :as parser]
-            [sci.impl.utils :as utils]
-            [sci.impl.vars :as vars]))
+            [sci.impl.utils :as utils]))
 
 (defn- eof-or-throw [opts v]
   (if (utils/kw-identical? parser/eof v)
@@ -69,25 +68,6 @@
   ([opts s]
    (let [reader (r/string-push-back-reader s)]
      (read opts reader))))
-
-(defn load-reader [reader]
-  (vars/with-bindings {utils/current-ns @utils/current-ns}
-    (let [reader
-          ;; TODO: move this logic to edamame
-          (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
-                 :cljs (implements? r/IndexingReader reader))
-            reader
-            (r/indexing-push-back-reader reader))
-          ctx (store/get-ctx)]
-      (loop [ret nil]
-        (let [x (parser/parse-next ctx reader)]
-          (if (utils/kw-identical? parser/eof x)
-            ret
-            (recur (utils/eval ctx x))))))))
-
-(defn load-string [s]
-  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
-    (load-reader rdr)))
 
 ;; used by source-fn
 (defn source-logging-reader

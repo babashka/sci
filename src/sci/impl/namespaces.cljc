@@ -36,13 +36,13 @@
    [sci.impl.for-macro :as for-macro]
    [sci.impl.hierarchies :as hierarchies]
    [sci.impl.io :as io]
-   [sci.impl.load :as load]
+   [sci.impl.load :as load :refer [load-string load-reader]]
    [sci.impl.macroexpand :as mexpand]
    [sci.impl.macros :as macros]
    [sci.impl.multimethods :as mm]
    [sci.impl.parser :as parser]
    [sci.impl.protocols :as protocols]
-   [sci.impl.read :as read :refer [load-string load-reader read read-string]]
+   [sci.impl.read :as read :refer [read read-string]]
    [sci.impl.records :as records]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
@@ -877,16 +877,6 @@
                                           (.createAsIfByAssoc PersistentArrayMap (to-array s))
                                           (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
 
-;; #?(:cljs
-;;    (defn -js-this []
-;;      (js* "this")))
-
-;; #?(:cljs
-;;    (defn this-as
-;;      [_ _ name & body]
-;;      `(let [~name (clojure.core/-js-this)]
-;;         ~@body)))
-
 #?(:clj (def clojure-version-var
           (sci.impl.utils/dynamic-var
            '*clojure-version* (update clojure.core/*clojure-version*
@@ -1172,10 +1162,12 @@
      '*3 *3
      '*e *e
      ;; end REPL variables
-     ;; clojure version
+     ;; clojure dynamic vars
      #?@(:clj ['*clojure-version* clojure-version-var
-               'clojure-version (copy-core-var clojure-version)])
-     ;; end clojure version
+               'clojure-version (copy-core-var clojure-version)
+               '*warn-on-reflection* utils/warn-on-reflection-var
+               '*unchecked-math* utils/unchecked-math-var])
+     ;; end clojure dynamic vars
      ;; multimethods
      'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)

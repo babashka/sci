@@ -192,7 +192,6 @@
 
 (def eval-form-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
-(def eval-string* (volatile! nil))
 (def analyze (volatile! nil))
 
 (defn eval [sci-ctx form]
@@ -297,3 +296,15 @@
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
 (def special-syms '#{try finally do if new recur quote throw def . var set! let* loop* case*})
+
+#?(:clj (def warn-on-reflection-var
+          (dynamic-var
+           '*warn-on-reflection* false
+           {:ns clojure-core-ns
+            :doc "When set to true, the compiler will emit warnings when reflection is\n  needed to resolve Java method calls or field accesses.\n\n  Defaults to false."})))
+
+#?(:clj (def unchecked-math-var
+          (dynamic-var
+           '*unchecked-math* clojure.core/*unchecked-math*
+           {:ns clojure-core-ns
+            :doc "While bound to true, compilations of +, -, *, inc, dec and the\n  coercions will be done without overflow checks. While bound\n  to :warn-on-boxed, same behavior as true, and a warning is emitted\n  when compilation uses boxed math. Default: false."})))

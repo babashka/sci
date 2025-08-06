@@ -166,20 +166,20 @@
 
 (defn init
   "Initializes options"
-  [{:keys [:bindings :env
-           :allow :deny
-           :aliases
-           :namespaces
-           :classes
-           :imports
-           :features
-           :load-fn
-           :readers
-           :reify-fn
-           :proxy-fn
-           #?(:cljs :async-load-fn)
-           #?(:cljs :js-libs)
-           :ns-aliases]}]
+  [{:keys [bindings env
+           allow deny
+           aliases
+           namespaces
+           classes
+           imports
+           features
+           load-fn
+           readers
+           reify-fn
+           proxy-fn
+           #?(:cljs async-load-fn)
+           #?(:cljs js-libs)
+           ns-aliases]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         ns-aliases (merge default-ns-aliases ns-aliases)
@@ -199,19 +199,19 @@
 (defn merge-opts [ctx opts]
   (let [!env (:env ctx)
         env @!env
-        {:keys [:bindings
-                :allow :deny
-                :aliases
-                :namespaces
-                :classes
-                :imports
-                :features
-                :load-fn
-                :readers
-                :reify-fn
-                #?(:cljs :async-load-fn)
-                #?(:cljs :js-libs)
-                :ns-aliases]
+        {:keys [bindings
+                allow deny
+                aliases
+                namespaces
+                classes
+                imports
+                features
+                load-fn
+                readers
+                reify-fn
+                #?(:cljs async-load-fn)
+                #?(:cljs js-libs)
+                ns-aliases]
          :or {load-fn (:load-fn env)
               #?@(:cljs [async-load-fn (:async-load-fn env)])
               features (:features ctx)}} opts
