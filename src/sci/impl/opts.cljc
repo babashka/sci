@@ -179,8 +179,7 @@
            proxy-fn
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
-           ns-aliases
-           load-thread-bindings]}]
+           ns-aliases]}]
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         ns-aliases (merge default-ns-aliases ns-aliases)
@@ -194,7 +193,6 @@
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
-                   :load-thread-bindings load-thread-bindings
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
@@ -213,12 +211,10 @@
                 reify-fn
                 #?(:cljs async-load-fn)
                 #?(:cljs js-libs)
-                ns-aliases
-                load-thread-bindings]
+                ns-aliases]
          :or {load-fn (:load-fn env)
               #?@(:cljs [async-load-fn (:async-load-fn env)])
-              features (:features ctx)
-              load-thread-bindings (:load-thread-bindings ctx)}} opts
+              features (:features ctx)}} opts
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
         _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
@@ -226,6 +222,5 @@
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
-                   :main-thread-id (:main-thread-id ctx)
-                   :load-thread-bindings load-thread-bindings)]
+                   :main-thread-id (:main-thread-id ctx))]
     ctx))
