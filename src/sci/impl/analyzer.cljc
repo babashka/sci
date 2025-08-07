@@ -650,7 +650,9 @@
 (defn init-var! [ctx name expr]
   (let [cnn (utils/current-ns-name)
         env (:env ctx)
-        the-current-ns (get-in @env [:namespaces cnn])
+        the-current-ns (get-in @env [:namespaces cnn]
+                               ;; namespace could be absent in config
+                               {})
         refers (:refers the-current-ns)
         the-current-ns (if-let [x (and refers (.get ^java.util.Map refers name))]
                          (throw-error-with-location

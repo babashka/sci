@@ -1751,6 +1751,9 @@
 (deftest issue-977-test
   (is (= :sci.impl.analyzer/recur (sci/eval-string "(ns sci.impl.analyzer) ((fn [] ::recur))"))))
 
+(deftest var-without-configured-namespace-test
+  (is (= "#'xxx/x" (str (sci/binding [sci/ns (sci/create-ns 'xxx)] (sci/eval-string "(def x 'x)"))))))
+
 ;;;; Scratch
 
 (comment
