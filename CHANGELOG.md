@@ -16,6 +16,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Add `load-reader`
 - Fix [#872](https://github.com/babashka/sci/issues/872): `*loaded-libs*` is now the single source of truth about loaded libs
 - Fix [#981](https://github.com/babashka/sci/issues/981): respect type hint on instance method callee
+- Add core dynamic vars like `*warn-on-reflection*` and bind them during
+  `load-string` etc. such that `set!`-ing then in a `future` works.
 
 ## 0.10.47 (2025-06-27)
 
