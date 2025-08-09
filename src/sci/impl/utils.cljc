@@ -10,9 +10,6 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-(derive :sci.error/realized-beyond-max :sci/error)
-(derive :sci.error/parse :sci/error)
-
 (defn constant? [x]
   (or (nil? x)
       (number? x)
