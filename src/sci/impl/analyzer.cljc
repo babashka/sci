@@ -1237,36 +1237,47 @@
   (resolve/resolve-symbol ctx var-name))
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
-  (cond (symbol? obj) ;; assume dynamic var
-        (let [sym obj
-              obj (resolve/resolve-symbol ctx obj)
-              v (analyze ctx v)]
-          (cond (utils/var? obj)
-                (sci.impl.types/->Node
-                 (let [v (t/eval v ctx bindings)]
-                   (t/setVal obj v))
-                 nil)
-                (:mutable (meta obj))
-                (let [instance (resolve/resolve-symbol ctx '__sci_this)
-                      mutator (get (:local->mutator ctx) sym)]
-                  (sci.impl.types/->Node
-                   (let [v (t/eval v ctx bindings)
-                         instance (t/eval instance ctx bindings)]
-                     (mutator instance v))
-                   nil))
-                :else (throw-error-with-location "Invalid assignment target" expr)))
-        #?@(:cljs [(seq? obj)
-                   (let [obj (analyze ctx obj)
-                         v (analyze ctx v)
-                         info (meta obj)
-                         k (subs (::method-name info) 1)
-                         obj (::instance-expr info)]
-                     (sci.impl.types/->Node
-                      (let [obj (t/eval obj ctx bindings)
-                            v (t/eval v ctx bindings)]
-                        (gobj/set obj k v))
-                      nil))])
-        :else (throw-error-with-location "Invalid assignment target" expr)))
+  (cond
+    #?@(:cljs [(and (= 4 (count expr))
+                    (str/starts-with? (str v) "-"))
+               (let [obj (analyze ctx obj)
+                     prop (munge (subs (str v) 1))
+                     v (analyze ctx (nth expr 3))]
+                 (sci.impl.types/->Node
+                  (let [obj (t/eval obj ctx bindings)
+                        v (t/eval v ctx bindings)]
+                    (gobj/set obj prop v))
+                  nil))])
+    (symbol? obj) ;; assume dynamic var
+    (let [sym obj
+          obj (resolve/resolve-symbol ctx obj)
+          v (analyze ctx v)]
+      (cond (utils/var? obj)
+            (sci.impl.types/->Node
+             (let [v (t/eval v ctx bindings)]
+               (t/setVal obj v))
+             nil)
+            (:mutable (meta obj))
+            (let [instance (resolve/resolve-symbol ctx '__sci_this)
+                  mutator (get (:local->mutator ctx) sym)]
+              (sci.impl.types/->Node
+               (let [v (t/eval v ctx bindings)
+                     instance (t/eval instance ctx bindings)]
+                 (mutator instance v))
+               nil))
+            :else (throw-error-with-location "Invalid assignment target" expr)))
+    #?@(:cljs [(seq? obj)
+               (let [obj (analyze ctx obj)
+                     v (analyze ctx v)
+                     info (meta obj)
+                     k (subs (::method-name info) 1)
+                     obj (::instance-expr info)]
+                 (sci.impl.types/->Node
+                  (let [obj (t/eval obj ctx bindings)
+                        v (t/eval v ctx bindings)]
+                    (gobj/set obj k v))
+                  nil))])
+    :else (throw-error-with-location "Invalid assignment target" expr)))
 
 ;;;; End vars
 
