@@ -1754,6 +1754,11 @@
 (deftest var-without-configured-namespace-test
   (is (= "#'xxx/x" (str (sci/binding [sci/ns (sci/create-ns 'xxx)] (sci/eval-string "(def x 'x)"))))))
 
+#?(:cljs
+   (deftest set!-property-test
+     (is (= {:a 1} (sci/eval-string "(do (def x #js {}) (set! x -a 1) (js->clj x :keywordize-keys true))")))
+     (is (= {:a {:a 1}} (sci/eval-string "(do (def x #js {:a #js {}}) (set! x.a -a 1) (js->clj x :keywordize-keys true))")))))
+
 ;;;; Scratch
 
 (comment
