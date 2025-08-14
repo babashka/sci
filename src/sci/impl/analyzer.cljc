@@ -957,6 +957,7 @@
               meth-name (if field-access
                           (subs method-name 1)
                           method-name)
+              meth-name (munge meth-name)
               stack (assoc (meta expr)
                            :ns @utils/current-ns
                            :file @utils/current-file)]
