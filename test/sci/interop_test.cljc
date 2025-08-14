@@ -373,3 +373,7 @@
                         {:bindings {'resource (io/resource "clojure/core.clj")}
                          :classes {'java.net.URL java.net.URL
                                    'java.net.JarURLConnection java.net.JarURLConnection}}))))
+
+#?(:cljs
+   (deftest issue-987-test
+     (is (= 1 (sci/eval-string "(def x #js {:foo_bar 1}) (.-foo-bar x)" {:classes {:allow :all}})))))
