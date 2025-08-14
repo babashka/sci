@@ -9,7 +9,6 @@
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
-   [sci.ctx-store :as store]
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
