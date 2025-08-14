@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Add core dynamic vars like `*warn-on-reflection*` and bind them during
   `load-string` etc. such that `set!`-ing then in a `future` works.
 - Fix [#984](https://github.com/babashka/sci/issues/984): support alternative `set!` syntax in CLJS
+- Fix [#987](https://github.com/babashka/sci/issues/987): method or property should be munged
 
 ## 0.10.47 (2025-06-27)
 
