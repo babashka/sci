@@ -1517,10 +1517,16 @@
                                         method (unchecked-get class method-name)]
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)
-                                 (let [method (unchecked-get class method-name)]
+                                 (let [method (unchecked-get class method-name)
+                                       stack (assoc m
+                                                    :ns @utils/current-ns
+                                                    :file @utils/current-file
+                                                    :sci.impl/f-meta f-meta)]
                                    (sci.impl.types/->Node
-                                    (interop/invoke-static-method ctx bindings class method children)
-                                    nil))))
+                                    (try (interop/invoke-static-method ctx bindings class method children)
+                                         (catch js/Error e
+                                           (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil stack))))
+                                    stack))))
                              (if ctor?
                                (sci.impl.types/->Node
                                 (let [arr (lookup-fn)
