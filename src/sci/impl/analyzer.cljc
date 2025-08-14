@@ -1524,8 +1524,8 @@
                                                     :sci.impl/f-meta f-meta)]
                                    (sci.impl.types/->Node
                                     (try (interop/invoke-static-method ctx bindings class method children)
-                                         (catch js/Error e
-                                           (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil stack))))
+                                         (catch :default e
+                                           (utils/rethrow-with-location-of-node ctx e this)))
                                     stack))))
                              (if ctor?
                                (sci.impl.types/->Node
