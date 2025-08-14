@@ -9,7 +9,6 @@
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
-   [sci.ctx-store :as store]
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -957,6 +956,7 @@
               meth-name (if field-access
                           (subs method-name 1)
                           method-name)
+              meth-name* meth-name
               meth-name (munge meth-name)
               stack (assoc (meta expr)
                            :ns @utils/current-ns
@@ -1013,7 +1013,7 @@
                                                    (aset arg-types idx t))))))))
                       (with-meta (sci.impl.types/->Node
                                   (eval/eval-instance-method-invocation
-                                   ctx bindings instance-expr meth-name field-access args arg-count
+                                   ctx bindings instance-expr meth-name meth-name* field-access args arg-count
                                    #?(:cljs nil
                                       :clj (when @has-types?
                                              arg-types)))
@@ -1038,7 +1038,7 @@
                          ;; default case
                          (sci.impl.types/->Node
                           (eval/eval-instance-method-invocation
-                           ctx bindings instance-expr meth-name field-access args allowed? nil nil)
+                           ctx bindings instance-expr meth-name meth-name* field-access args allowed? nil nil)
                           stack))
                        {::instance-expr instance-expr
                         ::method-name method-name}))))]
