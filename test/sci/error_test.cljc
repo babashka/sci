@@ -1,5 +1,6 @@
 (ns sci.error-test
   (:require #?(:clj [sci.addons.future :as fut])
+            #?(:cljs [clojure.string :as str])
             [clojure.test :as t :refer [deftest testing is]]
             [sci.core :as sci :refer [eval-string]]))
 
@@ -197,3 +198,11 @@
       (is false)
       (catch Exception e
         (is (= [line col] ((juxt :line :column) (ex-data e))) snippet)))))
+
+#?(:cljs
+   (deftest js-interop-test
+     (is (str/includes?
+          (->> (try (sci/eval-string "(defn broken [] [:dude (js/is_sure) :foo]) (broken)"
+                                     {:classes {'js js/globalThis :allow :all}}) (catch js/Error e (prn (ex-message e)) e))
+               (sci/stacktrace) (sci/format-stacktrace) str)
+          "1:24"))))
