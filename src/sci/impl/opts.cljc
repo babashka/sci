@@ -182,7 +182,7 @@
         raw-classes (merge default-classes classes)
         classes (normalize-classes raw-classes)
         namespaces (cond-> namespaces
-                     bindings (merge {'user bindings}))
+                     bindings (merge {'user (assoc bindings :obj utils/user-ns)}))
         _ (init-env! env aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         ctx (assoc (->ctx {} env features readers (or allow deny))
@@ -215,7 +215,7 @@
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
         namespaces (cond-> namespaces
-                     bindings (merge {'user bindings}))
+                     bindings (merge {'user (assoc bindings :obj utils/user-ns)}))
         _ (init-env! !env aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
