@@ -14,7 +14,7 @@
 
 (def namespace-syms (keys namespaces/namespaces))
 
-(defn init-env! [env bindings aliases namespaces classes raw-classes imports
+(defn init-env! [env aliases namespaces classes raw-classes imports
                  load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases]
   (swap! env (fn [env]
                (let [env-nss (:namespaces env)
@@ -24,10 +24,6 @@
                                              env-nss
                                              ;; or we need to install the default namespaces
                                              namespaces/namespaces)
-                                            (when-not env-nss
-                                              ;; can skip when env has already got namespaces
-                                              {'user (assoc bindings
-                                                            :obj utils/user-ns)})
                                             namespaces)
                      aliases (merge aliases
                                     (get-in env [:namespaces 'user :aliases]))
@@ -183,10 +179,11 @@
   (let [env (or env (atom {}))
         imports (merge default-imports imports)
         ns-aliases (merge default-ns-aliases ns-aliases)
-        bindings bindings
         raw-classes (merge default-classes classes)
         classes (normalize-classes raw-classes)
-        _ (init-env! env bindings aliases namespaces classes raw-classes imports
+        namespaces (cond-> namespaces
+                     bindings (merge {'user bindings}))
+        _ (init-env! env aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         ctx (assoc (->ctx {} env features readers (or allow deny))
                    :allow (when allow (process-permissions #{} allow))
@@ -217,7 +214,9 @@
               features (:features ctx)}} opts
         raw-classes (merge (:raw-classes @!env) classes)
         classes (normalize-classes raw-classes)
-        _ (init-env! !env bindings aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
+        namespaces (cond-> namespaces
+                     bindings (merge {'user bindings}))
+        _ (init-env! !env aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
