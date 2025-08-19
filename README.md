@@ -148,7 +148,7 @@ Providing a macro as a binding can be done by providing a normal function that:
 
 ``` clojure
 user=> (def do-twice ^:sci/macro (fn [_&form _&env x] (list 'do x x)))
-user=> (sci/eval-string "(do-twice (f))" {:bindings {'do-twice do-twice 'f #(println "hello")}})
+user=> (sci/eval-string "(do-twice (f))" {:namespaces {'user {'do-twice do-twice 'f #(println "hello")}}})
 hello
 hello
 nil
@@ -368,7 +368,7 @@ To enable printing to `stdout` and reading from `stdin` you can SCI-bind
   (let [name (sci/eval-string "(read-line)")]
     (sci/eval-string "(printf \"Hello %s!\" name)
                       (flush)"
-                     {:bindings {'name name}})))
+                     {:namespaces {'user {'name name}}})))
 Type your name!
 > Michiel
 Hello Michiel!
@@ -388,7 +388,7 @@ yello!
 ;; Let's hook foo up to SCI's context:
 user=> (defn wrapped-foo [] (binding [*out* @sci/out] (foo)))
 #'user/wrapped-foo
-user=> (sci/eval-string "(with-out-str (foo))" {:bindings {'foo wrapped-foo}})
+user=> (sci/eval-string "(with-out-str (foo))" {:namespaces {'user {'foo wrapped-foo}}})
 "yello!\n"
 ```
 

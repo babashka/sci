@@ -236,10 +236,8 @@
   is a map with symbols to values, e.g.: `{'foo.bar {'x 1}}`. These
   namespaces can be used with `require`.
 
-  - `:bindings`: `:bindings x` is the same as `:namespaces {'user x}`.
-
   - `:allow`: a seqable of allowed symbols. All symbols, even those
-  brought in via `:bindings` or `:namespaces` have to be explicitly
+  brought in via `:namespaces` have to be explicitly
   enumerated.
 
   - `:deny`: a seqable of disallowed symbols, e.g.: `[loop quote
@@ -247,7 +245,9 @@
 
   - `:features`: when provided a non-empty set of keywords, sci will process reader conditionals using these features (e.g. #{:bb}).
 
-  - `:ns-aliases`: a map of aliases to namespaces that are globally valid, e.g. `{'clojure.test 'cljs.test}`"
+  - `:ns-aliases`: a map of aliases to namespaces that are globally valid, e.g. `{'clojure.test 'cljs.test}`
+
+  - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))
   ([s opts]
    (i/eval-string s opts)))
