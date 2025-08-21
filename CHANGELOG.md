@@ -10,7 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.10.48 (2025-08-21)
+
+> [!IMPORTANT]
+> This release contains a potentially breaking change for CLJS, see [#987](https://github.com/babashka/sci/issues/987)
 
 - Add `*suppress-read*`
 - Add `load-reader`
@@ -19,7 +22,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Add core dynamic vars like `*warn-on-reflection*` and bind them during
   `load-string` etc. such that `set!`-ing then in a `future` works.
 - Fix [#984](https://github.com/babashka/sci/issues/984): support alternative `set!` syntax in CLJS
-- Fix [#987](https://github.com/babashka/sci/issues/987): method or property should be munged
+- Fix [#987](https://github.com/babashka/sci/issues/987): method or property name in interop should be munged
 - Fix [#986](https://github.com/babashka/sci/issues/986): preserve error location for js static method
 - Fix [#990](https://github.com/babashka/sci/issues/990): fix `merge-opts` with `:bindings` + deprecate `:bindings` (replaced by `:namespaces {'user ...}`)
 
