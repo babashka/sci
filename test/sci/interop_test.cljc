@@ -376,4 +376,5 @@
 
 #?(:cljs
    (deftest issue-987-test
-     (is (= 1 (sci/eval-string "(def x #js {:foo_bar 1}) (.-foo-bar x)" {:classes {:allow :all}})))))
+     (is (= 1 (sci/eval-string "(def x #js {:foo_bar 1}) (.-foo-bar x)" {:classes {:allow :all}})))
+     (is (= 1 (sci/eval-string "(def x #js {:foo_bar (fn [] 1)}) (.foo-bar x)" {:classes {:allow :all}})))))
