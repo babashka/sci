@@ -1560,11 +1560,11 @@
                                   (when arg-types
                                     (or (when-let [param-tags (-> f* (some-> meta :param-tags))]
                                           (vreset! has-types? true)
-                                          ;; TODO: take into account wildcard _ class!
                                           (areduce arg-types  idx _ret nil
                                                    (when-let [t (nth param-tags idx)]
-                                                     (when-let [t (interop/resolve-type-hint ctx t)]
-                                                       (aset arg-types idx t)))))
+                                                     (when-not (= '_ t)
+                                                       (when-let [t (interop/resolve-type-hint ctx t)]
+                                                         (aset arg-types idx t))))))
                                         (areduce args idx _ret nil
                                                  (let [arg (aget args idx)
                                                        arg-meta (meta arg)]
