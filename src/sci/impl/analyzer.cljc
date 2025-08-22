@@ -1542,22 +1542,33 @@
                                   (interop/invoke-static-method ctx bindings class method children))
                                 nil)))))
                       #?@(:clj [(and f-meta (:sci.impl.analyzer/interop f-meta))
-                                (let [[obj & children] (analyze-children ctx (rest expr))
+                                (let [[obj & args] (analyze-children ctx (rest expr))
                                       meth (-> (second f)
                                                str
                                                (subs 1))
                                       clazz (first f)
-                                      children (into-array Object children)
-                                      child-count (count children)
+                                      args (object-array args)
+                                      arg-count (count args)
                                       stack (assoc m
                                                    :ns @utils/current-ns
                                                    :file @utils/current-file
-                                                   :sci.impl/f-meta f-meta)]
+                                                   :sci.impl/f-meta f-meta)
+                                      ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
+                                                                        (make-array Class arg-count))
+                                      has-types? (volatile! nil)]
+                                  (when arg-types
+                                    (areduce args idx _ret nil
+                                             (let [arg (aget args idx)
+                                                   arg-meta (meta arg)]
+                                               (when-let [t (:tag arg-meta)]
+                                                 (when-let [t (interop/resolve-type-hint ctx t)]
+                                                   (do (vreset! has-types? true)
+                                                       (aset arg-types idx t)))))))
                                   (sci.impl.types/->Node
                                    (let [obj (sci.impl.types/eval obj ctx bindings)]
                                      (interop/invoke-instance-method ctx bindings obj clazz
                                                                      meth
-                                                                     children child-count nil))
+                                                                     args arg-count arg-types))
                                    stack))])
                       #?@(:clj [(and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
                                 (invoke-constructor-node ctx (first f) (rest expr))])
