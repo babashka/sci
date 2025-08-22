@@ -1464,17 +1464,17 @@
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
     (try
-      (let [f (first expr)]
-        (cond (symbol? f)
-              (let [fsym f
+      (let [f* (first expr)]
+        (cond (symbol? f*)
+              (let [fsym f*
                     ;; in call position Clojure prioritizes special symbols over
                     ;; bindings
-                    special-sym (get special-syms f)
+                    special-sym (get special-syms f*)
                     _ (when (and special-sym
                                  (:check-permissions ctx))
-                        (resolve/check-permission! ctx f [special-sym nil]))
+                        (resolve/check-permission! ctx f* [special-sym nil]))
                     f (or special-sym
-                          (resolve/resolve-symbol ctx f true))
+                          (resolve/resolve-symbol ctx f* true))
                     f-meta (meta f)
                     eval? (and f-meta (:sci.impl/op f-meta))
                     fast-path (-> f-meta :sci.impl/fast-path)
@@ -1555,15 +1555,23 @@
                                                    :sci.impl/f-meta f-meta)
                                       ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
                                                                         (make-array Class arg-count))
-                                      has-types? (volatile! nil)]
+                                      has-types? (volatile! nil)
+                                      ]
                                   (when arg-types
-                                    (areduce args idx _ret nil
-                                             (let [arg (aget args idx)
-                                                   arg-meta (meta arg)]
-                                               (when-let [t (:tag arg-meta)]
-                                                 (when-let [t (interop/resolve-type-hint ctx t)]
-                                                   (do (vreset! has-types? true)
-                                                       (aset arg-types idx t)))))))
+                                    (or (when-let [param-tags (-> f* (some-> meta :param-tags))]
+                                          (vreset! has-types? true)
+                                          ;; TODO: take into account wildcard _ class!
+                                          (areduce arg-types  idx _ret nil
+                                                   (when-let [t (nth param-tags idx)]
+                                                     (when-let [t (interop/resolve-type-hint ctx t)]
+                                                       (aset arg-types idx t)))))
+                                        (areduce args idx _ret nil
+                                                 (let [arg (aget args idx)
+                                                       arg-meta (meta arg)]
+                                                   (when-let [t (:tag arg-meta)]
+                                                     (when-let [t (interop/resolve-type-hint ctx t)]
+                                                       (do (vreset! has-types? true)
+                                                           (aset arg-types idx t))))))))
                                   (sci.impl.types/->Node
                                    (let [obj (sci.impl.types/eval obj ctx bindings)]
                                      (interop/invoke-instance-method ctx bindings obj clazz
@@ -1656,23 +1664,23 @@
                                                                             :file @utils/current-file
                                                                             :sci.impl/f-meta f-meta)]
                                                            (sci.impl.types/->Node nil stack)))))))
-              (keyword? f)
+              (keyword? f*)
               (let [children (analyze-children ctx (rest expr))
                     ccount (count children)]
                 (case ccount
                   1 (let [arg (nth children 0)]
                       (sci.impl.types/->Node
-                       (f (t/eval arg ctx bindings))
+                       (f* (t/eval arg ctx bindings))
                        nil))
                   2 (let [arg0 (nth children 0)
                           arg1 (nth children 1)]
                       (sci.impl.types/->Node
-                       (f (t/eval arg0 ctx bindings)
+                       (f* (t/eval arg0 ctx bindings)
                           (t/eval arg1 ctx bindings))
                        nil))
-                  (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f) expr)))
+                  (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f*) expr)))
               :else
-              (let [f (analyze ctx f)
+              (let [f (analyze ctx f*)
                     children (analyze-children ctx (rest expr))
                     stack (assoc m
                                  :ns @utils/current-ns
