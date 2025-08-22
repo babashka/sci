@@ -379,3 +379,7 @@
      (is (= 1 (sci/eval-string "(def x #js {:foo_bar 1}) (.-foo-bar x)" {:classes {:allow :all}})))
      (is (= 1 (sci/eval-string "(def x #js {:foo_bar (fn [] 1)}) (.foo-bar x)" {:classes {:allow :all}})))
      (is (= {:foo_bar 1} (sci/eval-string "(js->clj (doto #js {} (set! -foo-bar 1)) :keywordize-keys true)" {:classes {:allow :all}})))))
+
+(deftest issue-987-deftype-munged-fields-test
+  (is (= 1 (sci/eval-string "(deftype Foo [foo-bar]) (.-foo-bar (->Foo 1))" {:classes {:allow :all}})))
+  (is (= 1 (sci/eval-string "(deftype Foo [foo-bar]) (.-foo_bar (->Foo 1))" {:classes {:allow :all}}))))
