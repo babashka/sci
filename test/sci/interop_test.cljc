@@ -374,11 +374,12 @@
        (testing "type hinting on fn expression as argument with Callable returns nil on futuretask get"
          (is (= 3 (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.util.concurrent.Callable (fn [] 3))) (.get fut)" type-hint-config))))
        (testing "similar cases but with qualified interop"
-         (is (nil? (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
-                                     @(java.util.concurrent.ExecutorService/.submit thread-pool ^Runnable (fn [] 3))"
-                                    type-hint-config)))
-         (is (= 3 (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
-                                    @(java.util.concurrent.ExecutorService/.submit thread-pool ^Callable (fn [] 3))"
+         (is (= [nil nil 3 3] (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
+                                     [
+@(java.util.concurrent.ExecutorService/.submit thread-pool ^Runnable (fn [] 3))
+@(^[Runnable] java.util.concurrent.ExecutorService/.submit thread-pool (fn [] 3))
+@(java.util.concurrent.ExecutorService/.submit thread-pool ^Callable (fn [] 3))
+@(^[Callable ]java.util.concurrent.ExecutorService/.submit thread-pool (fn [] 3))]"
                                     type-hint-config)))))
      (testing "type hint on interop argument"
        ;; this test assumes clojure/core.clj comes from a jar file
