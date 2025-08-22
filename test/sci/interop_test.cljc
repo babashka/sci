@@ -379,7 +379,13 @@
                                     type-hint-config)))
          (is (= 3 (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
                                     @(java.util.concurrent.ExecutorService/.submit thread-pool ^Callable (fn [] 3))"
-                                    type-hint-config)))))
+                                   type-hint-config)))
+         (is (nil? (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
+@((identity ^[Runnable] java.util.concurrent.ExecutorService/.submit) thread-pool (fn [] 3))"
+                                   type-hint-config)))
+         (is (= 3 (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
+@((identity ^[Callable] java.util.concurrent.ExecutorService/.submit) thread-pool (fn [] 3))"
+                                   type-hint-config)))))
      (testing "type hint on interop argument"
        ;; this test assumes clojure/core.clj comes from a jar file
        ;; the test will fail when not processing the type hint on the interop argument
