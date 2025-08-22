@@ -338,7 +338,14 @@
 #?(:cljs (deftest local-interop-test
            (is (= 1 (tu/eval* "(let [j #js {:a (fn [] 1)}] (j.a))" nil)))))
 
-#?(:clj (def type-hint-config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors 'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor 'java.util.concurrent.Callable java.util.concurrent.Callable 'java.util.concurrent.FutureTask java.util.concurrent.FutureTask 'java.lang.Runnable java.lang.Runnable}}))
+#?(:clj (def type-hint-config {:classes {'java.util.concurrent.Executors java.util.concurrent.Executors
+                                         'java.util.concurrent.ThreadPoolExecutor java.util.concurrent.ThreadPoolExecutor
+                                         'java.util.concurrent.Callable java.util.concurrent.Callable
+                                         'java.util.concurrent.FutureTask java.util.concurrent.FutureTask
+                                         'java.lang.Runnable java.lang.Runnable
+                                         'java.util.concurrent.ExecutorService java.util.concurrent.ExecutorService}
+                               :imports {'Runnable 'java.lang.Runnable
+                                         'Callable 'java.util.concurrent.Callable}}))
 
 #?(:clj
    (deftest type-hint-test
@@ -365,14 +372,22 @@
        (testing "type hinting fn argument with callable returns nil on futuretask get"
          (is (= 3 (sci/eval-string "(defn fut [^java.util.concurrent.Callable f] (.submit (java.util.concurrent.Executors/newCachedThreadPool) f)) (.get (fut (fn [] 3)))" type-hint-config))))
        (testing "type hinting on fn expression as argument with Callable returns nil on futuretask get"
-         (is (= 3 (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.util.concurrent.Callable (fn [] 3))) (.get fut)" type-hint-config)))))
+         (is (= 3 (sci/eval-string "(def fut (.submit (java.util.concurrent.Executors/newCachedThreadPool) ^java.util.concurrent.Callable (fn [] 3))) (.get fut)" type-hint-config))))
+       (testing "similar cases but with qualified interop"
+         (is (nil? (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
+                                     @(java.util.concurrent.ExecutorService/.submit thread-pool ^Runnable (fn [] 3))"
+                                    type-hint-config)))
+         (is (= 3 (sci/eval-string "(def ^java.util.concurrent.ExecutorService thread-pool (java.util.concurrent.Executors/newCachedThreadPool))
+                                    @(java.util.concurrent.ExecutorService/.submit thread-pool ^Callable (fn [] 3))"
+                                    type-hint-config)))))
      (testing "type hint on interop argument"
        ;; this test assumes clojure/core.clj comes from a jar file
        ;; the test will fail when not processing the type hint on the interop argument
        (sci/eval-string "(.getJarEntry ^java.net.JarURLConnection (.openConnection resource))"
                         {:bindings {'resource (io/resource "clojure/core.clj")}
                          :classes {'java.net.URL java.net.URL
-                                   'java.net.JarURLConnection java.net.JarURLConnection}}))))
+                                   'java.net.JarURLConnection java.net.JarURLConnection}}))
+))
 
 #?(:cljs
    (deftest issue-987-munged-property-name-test
