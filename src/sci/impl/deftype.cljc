@@ -92,8 +92,7 @@
   (let [ctx (store/get-ctx)]
     (if (:sci.impl/macroexpanding ctx)
       (cons 'clojure.core/deftype (rest form))
-      (let [fields (mapv #(with-meta (munge %) (meta %)) fields)
-            factory-fn-str (str "->" record-name)
+      (let [factory-fn-str (str "->" record-name)
             factory-fn-sym (symbol factory-fn-str)
             rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
             protocol-impls (utils/split-when symbol? raw-protocol-impls)

@@ -118,12 +118,12 @@
 
 (def none-sentinel #?(:clj (Object.) :cljs (js/Object.)))
 
-(defn get-from-type [instance method-str method-str-unmunged #?(:clj arg-count :cljs args)]
+(defn get-from-type [instance _method-str method-str-unmunged #?(:clj arg-count :cljs args)]
   (if (zero? #?(:clj arg-count :cljs (alength args)))
     (if (instance? sci.impl.records.SciRecord instance)
       (get instance (keyword method-str-unmunged) none-sentinel)
       (if (instance? sci.impl.deftype.SciType instance)
-        (get (types/getVal instance) (symbol method-str) none-sentinel)
+        (get (types/getVal instance) (symbol method-str-unmunged) none-sentinel)
         none-sentinel))
     none-sentinel))
 
