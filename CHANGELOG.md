@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## 0.10.49 (2025-08-22)
 
 - Fix regression introduced in [#987](https://github.com/babashka/sci/issues/987)
+- Fix [#963](https://github.com/babashka/sci/issues/963): respect `:param-tags` on qualified instance method
 
 ## 0.10.48 (2025-08-21)
 

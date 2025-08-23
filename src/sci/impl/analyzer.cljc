@@ -1439,14 +1439,8 @@
            stack (assoc (meta expr)
                         :ns @utils/current-ns
                         :file @utils/current-file)]
-       (if-let [_fld (try (Reflector/getStaticField ^Class clazz ^String meth)
-                          (catch IllegalArgumentException _
-                            nil))]
-         (sci.impl.types/->Node
-          (interop/get-static-field clazz meth)
-          stack)
-         (if (str/starts-with? meth ".")
-           (let [meth (subs meth 1)
+       (cond (str/starts-with? meth ".")
+             (let [meth (subs meth 1)
                  arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
                              (let [param-count (count param-tags)
                                    ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
@@ -1465,12 +1459,18 @@
              (sci.impl.types/->Node
               f
               stack))
-           (sci.impl.types/->Node
-            (fn [& args]
-              (Reflector/invokeStaticMethod
-               clazz meth
-               ^objects (into-array Object args)))
-            stack))))))
+             (try (Reflector/getStaticField ^Class clazz ^String meth)
+                  (catch IllegalArgumentException _
+                    nil))
+             (sci.impl.types/->Node
+               (interop/get-static-field clazz meth)
+               stack)
+             :else (sci.impl.types/->Node
+                     (fn [& args]
+                       (Reflector/invokeStaticMethod
+                        clazz meth
+                        ^objects (into-array Object args)))
+                     stack)))))
 
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
