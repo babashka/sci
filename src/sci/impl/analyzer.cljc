@@ -1435,6 +1435,7 @@
 
 #?(:clj
    (defn analyze-interop [_ctx expr [^Class clazz meth]]
+     (prn :expr expr)
      (let [meth (str meth)
            stack (assoc (meta expr)
                         :ns @utils/current-ns
@@ -1448,6 +1449,8 @@
          (if (str/starts-with? meth ".")
            (let [meth (subs meth 1)
                  f (fn [obj & args]
+                     ;; TODO sucker
+                     ;; (Reflector/invokeMatchingMethod method methods target-class obj args-array arg-types)
                      (Reflector/invokeInstanceMethodOfClass
                       obj clazz meth
                       ^objects (into-array Object args)))]
