@@ -1456,7 +1456,7 @@
                                           (when-not (= '_ t)
                                             (when-let [t (interop/resolve-type-hint ctx t)]
                                               (aset arg-types idx t)))))
-                               (into-array Class (map #(interop/resolve-type-hint ctx %) param-tags))))
+                               arg-types))
                  f (fn [obj & args]
                      (let [args (object-array args)
                            arg-count (alength args)
