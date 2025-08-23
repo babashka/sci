@@ -1448,7 +1448,7 @@
          (if (str/starts-with? meth ".")
            (let [meth (subs meth 1)
                  arg-types (let [param-tags (some-> (meta expr) :param-tags)]
-                             (into-array Class (map #(interop/resolve-type-hint ctx %) param-tags)))
+                             (when param-tags (into-array Class (map #(interop/resolve-type-hint ctx %) param-tags))))
                  f (fn [obj & args]
                      (let [args (object-array args)
                            arg-count (alength args)
