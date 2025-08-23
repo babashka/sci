@@ -1434,7 +1434,7 @@
 
 
 #?(:clj
-   (defn analyze-interop [_ctx expr [^Class clazz meth]]
+   (defn analyze-interop [ctx expr [^Class clazz meth]]
      (let [meth (str meth)
            stack (assoc (meta expr)
                         :ns @utils/current-ns
@@ -1447,10 +1447,21 @@
           stack)
          (if (str/starts-with? meth ".")
            (let [meth (subs meth 1)
+                 arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
+                             (let [param-count (count param-tags)
+                                   ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
+                                                                     (make-array Class param-count))]
+                               (areduce arg-types  idx _ret nil
+                                        (when-let [t (nth param-tags idx)]
+                                          (when-not (= '_ t)
+                                            (when-let [t (interop/resolve-type-hint ctx t)]
+                                              (aset arg-types idx t)))))
+                               arg-types))
                  f (fn [obj & args]
-                     (Reflector/invokeInstanceMethodOfClass
-                      obj clazz meth
-                      ^objects (into-array Object args)))]
+                     (let [args (object-array args)
+                           arg-count (alength args)
+                           ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(Reflector/getMethods clazz arg-count meth false) :instance-methods)]
+                       (Reflector/invokeMatchingMethod meth methods clazz obj args arg-types)))]
              (sci.impl.types/->Node
               f
               stack))
