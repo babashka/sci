@@ -1447,8 +1447,16 @@
           stack)
          (if (str/starts-with? meth ".")
            (let [meth (subs meth 1)
-                 arg-types (let [param-tags (some-> (meta expr) :param-tags)]
-                             (when param-tags (into-array Class (map #(interop/resolve-type-hint ctx %) param-tags))))
+                 arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
+                             (let [param-count (count param-tags)
+                                   ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
+                                                                     (make-array Class param-count))]
+                               (areduce arg-types  idx _ret nil
+                                        (when-let [t (nth param-tags idx)]
+                                          (when-not (= '_ t)
+                                            (when-let [t (interop/resolve-type-hint ctx t)]
+                                              (aset arg-types idx t)))))
+                               (into-array Class (map #(interop/resolve-type-hint ctx %) param-tags))))
                  f (fn [obj & args]
                      (let [args (object-array args)
                            arg-count (alength args)
