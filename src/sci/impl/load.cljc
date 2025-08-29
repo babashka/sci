@@ -281,7 +281,8 @@
         opts (interleave flags (repeat true))
         args* (filter (complement keyword?) args*)]
     ;; check for unsupported options
-    (let [supported #{:as :reload :reload-all :require :use :verbose :refer #?(:cljs :require-macros)}
+    (let [supported #{:as :reload :reload-all :require :use :verbose :refer
+                      #?@(:cljs [:require-macros :require-global])}
           unsupported (seq (remove supported flags))]
       (when unsupported
         (throw-error-with-location (apply str "Unsupported option(s) supplied: "
@@ -309,6 +310,37 @@
 (defn eval-require-macros
   [ctx & args]
   (load-libs ctx :require-macros args))
+
+#?(:cljs
+   (defn eval-refer-global
+     [_ctx & {:keys [only rename]}]
+     (doseq [obj only]
+       (let [obj (get rename obj obj)]
+         ))))
+
+
+;; clazz (symbol (munge (str lib (when path
+;;                                            "$") path)))
+;;            env (-> env
+;;                    (assoc-in [:class->opts clazz :class] the-lib)
+;;                    (assoc-in [:raw-classes clazz] the-lib))
+;;            env (if-let [alias (:as opts)]
+;;                  (assoc-in env [:namespaces cnn :imports alias] clazz)
+;;                  env)
+;;            env (if-let [refers (:refer opts)]
+;;                  (let [rename (:rename opts)]
+;;                    (reduce (fn [env refer]
+;;                              (let [sub-sym (symbol (str lib "$$" (str refer)))
+;;                                    the-sublib (js/Reflect.get the-lib (str refer))
+;;                                    refer (get rename refer refer)]
+;;                                (-> env
+;;                                    (assoc-in [:namespaces cnn :imports refer] sub-sym)
+;;                                    (update-in [:namespaces cnn :refer 'clojure.core :exclude] (fnil conj #{}) refer)
+;;                                    (assoc-in [:class->opts sub-sym :class] the-sublib)
+;;                                    (assoc-in [:raw-classes sub-sym] the-sublib))))
+;;                            env refers))
+;;                  env)
+
 
 (defn eval-use
   [ctx & args]
