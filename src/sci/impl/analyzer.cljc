@@ -1234,11 +1234,10 @@
 
 ;;;; Vars
 
-(defn analyze-var [ctx [_ var-name]]
-  (second
-   (resolve/lookup (assoc ctx :bindings {}) var-name false nil true)))
-
-#_(sci.core/eval-string "(def x 2) (let [x 1 x #'x] x)")
+(defn analyze-var [ctx [_ var-name :as expr]]
+  (or (second
+       (resolve/lookup (assoc ctx :bindings {}) var-name false nil true))
+      (throw-error-with-location (str "Unable to resolve var: " var-name) expr)))
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
   (cond

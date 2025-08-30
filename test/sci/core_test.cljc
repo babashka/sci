@@ -342,9 +342,8 @@
      :cljs (is (nil? (sci/eval-string "(resolve 'js/Error)" {:classes {'js #js {:Error js/Error}}}))))
   (is (= 1 (eval* "((binding [*ns* 'user] (resolve 'inc)) 0)")))
   (is (= 2 (eval* "(def x 2) (let [x 1 x #'x] @x)")))
-  ;; TODO: crash: user=> (sci/eval-string "#'ffoooo")
-  nil
-  )
+  (is (thrown-with-msg? Exception #"dude" (eval* "(defn foo [] #'dude)")))
+  (is (thrown-with-msg? Exception #"inc" (sci/eval-string "(defn foo [] #'inc)" {:deny '[inc]}))))
 
 #?(:clj
    (deftest type-hint-let-test
