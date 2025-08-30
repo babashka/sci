@@ -1234,8 +1234,10 @@
 
 ;;;; Vars
 
-(defn analyze-var [ctx [_ var-name]]
-  (resolve/resolve-symbol ctx var-name))
+(defn analyze-var [ctx [_ var-name :as expr]]
+  (or (second
+       (resolve/lookup (assoc ctx :bindings {}) var-name false nil true))
+      (throw-error-with-location (str "Unable to resolve var: " var-name) expr)))
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
   (cond
