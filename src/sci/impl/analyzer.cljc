@@ -1235,7 +1235,10 @@
 ;;;; Vars
 
 (defn analyze-var [ctx [_ var-name]]
-  (resolve/resolve-symbol ctx var-name))
+  (second
+   (resolve/lookup (assoc ctx :bindings {}) var-name false nil true)))
+
+#_(sci.core/eval-string "(def x 2) (let [x 1 x #'x] x)")
 
 (defn analyze-set! [ctx [_ obj v :as expr]]
   (cond

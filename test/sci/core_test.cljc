@@ -340,7 +340,8 @@
   #?(:clj (is (nil? (sci/eval-string "(resolve 'java.lang.Exception/foo)"
                                      {:classes {'java.lang.Exception java.lang.Exception}})))
      :cljs (is (nil? (sci/eval-string "(resolve 'js/Error)" {:classes {'js #js {:Error js/Error}}}))))
-  (is (= 1 (eval* "((binding [*ns* 'user] (resolve 'inc)) 0)"))))
+  (is (= 1 (eval* "((binding [*ns* 'user] (resolve 'inc)) 0)")))
+  (is (= 2 (eval* "(def x 2) (let [x 1 x #'x] @x)"))))
 
 #?(:clj
    (deftest type-hint-let-test

@@ -53,10 +53,11 @@
      (if sym-ns
        (or
         #?(:clj
-           (when (and (= 1 (.length sym-name-str))
-                      (Character/isDigit (.charAt sym-name-str 0)))
-             (when-let [clazz (interop/resolve-array-class ctx sym-ns sym-name-str)]
-               [sym clazz])))
+           (when-not only-var?
+             (when (and (= 1 (.length sym-name-str))
+                        (Character/isDigit (.charAt sym-name-str 0)))
+               (when-let [clazz (interop/resolve-array-class ctx sym-ns sym-name-str)]
+                 [sym clazz]))))
         (when
             #?(:clj (= 'clojure.core sym-ns)
                :cljs (or (= 'clojure.core sym-ns)
@@ -167,35 +168,37 @@
      (or
       (when-let [[k v]
                  (find bindings sym)]
-        (let [idx (or (get (:iden->invoke-idx ctx) v)
-                      (let [oi (:outer-idens ctx)
-                            ob (oi v)]
-                        (update-parents ctx (:closure-bindings ctx) ob)))
-              #?@(:clj [tag (or  (:tag m)
-                                 (some-> k meta :tag))])
-              mutable? (when track-mutable?
-                         (when-let [m (some-> k meta)]
-                           #?(:clj (or (:volatile-mutable m)
-                                       (:unsynchronized-mutable m))
-                              :cljs (or (:mutable m)
-                                        (:volatile-mutable m)))))
-              v (if call? ;; resolve-symbol is already handled in the call case
-                  (mark-resolve-sym k idx)
-                  (let [v (cond-> (if mutable?
-                                    (let [ext-map (second (lookup ctx '__sci_this false))]
+        (if only-var?
+          [k nil]
+          (let [idx (or (get (:iden->invoke-idx ctx) v)
+                        (let [oi (:outer-idens ctx)
+                              ob (oi v)]
+                          (update-parents ctx (:closure-bindings ctx) ob)))
+                #?@(:clj [tag (or  (:tag m)
+                                   (some-> k meta :tag))])
+                mutable? (when track-mutable?
+                           (when-let [m (some-> k meta)]
+                             #?(:clj (or (:volatile-mutable m)
+                                         (:unsynchronized-mutable m))
+                                :cljs (or (:mutable m)
+                                          (:volatile-mutable m)))))
+                v (if call? ;; resolve-symbol is already handled in the call case
+                    (mark-resolve-sym k idx)
+                    (let [v (cond-> (if mutable?
+                                      (let [ext-map (second (lookup ctx '__sci_this false))]
+                                        (->Node
+                                          (let [this (sci.impl.types/eval ext-map ctx bindings)
+                                                inner (sci.impl.types/getVal this)]
+                                            (get inner sym))
+                                          nil))
                                       (->Node
-                                       (let [this (sci.impl.types/eval ext-map ctx bindings)
-                                             inner (sci.impl.types/getVal this)]
-                                         (get inner sym))
-                                       nil))
-                                    (->Node
-                                     (aget ^objects bindings idx)
-                                     nil))
-                            #?@(:clj [tag (with-meta
-                                            {:tag tag})])
-                            mutable? (vary-meta assoc :mutable true))]
-                    v))]
-          [k v]))
+                                        (aget ^objects bindings idx)
+                                        nil))
+                              #?@(:clj [tag (with-meta
+                                              {:tag tag})])
+                              mutable? (vary-meta assoc :mutable true))]
+                      v))]
+            [k v])))
       (when-let [kv (lookup* ctx sym call? only-var?)]
         (when (:check-permissions ctx)
           (check-permission! ctx sym kv))
