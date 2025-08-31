@@ -12,11 +12,11 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Add `println-str`
 - Fix [#997](https://github.com/babashka/sci/issues/997): Var is mistaken for local when used under the same name in a `let` body
 
 ## 0.10.49 (2025-08-22)
 
-- Add `println-str`
 - Fix regression introduced in [#987](https://github.com/babashka/sci/issues/987)
 - Fix [#963](https://github.com/babashka/sci/issues/963): respect `:param-tags` on qualified instance method
 
