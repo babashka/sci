@@ -1473,6 +1473,25 @@
                         clazz meth
                         ^objects (into-array Object args)))
                      stack)))))
+#?(:clj
+   (comment
+     ((fn
+        ([x] (/ 1 x))
+        ([x y] (. clojure.lang.Numbers (divide x y)))
+        ([x y & more]
+         (reduce / (/ x y) more)))
+      ##Inf 0.0)
+     (defn div [x y]
+       (if (double? x)
+         (let [x (double x)]
+           (. clojure.lang.Numbers (divide x y)))
+         (/ x y)))
+     (f 0 0)
+     (f ##Inf ##Inf)
+     (f 1 2)
+     (/ 1 2)
+     double?
+     ))
 
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
@@ -1619,14 +1638,28 @@
                                                :else (analyze ctx v top-level?))]
                             expanded)
                           (if-let [f (:sci.impl/inlined f-meta)]
-                            (return-call ctx
-                                         expr
-                                         f (analyze-children ctx (rest expr))
-                                         (assoc m
-                                                :ns @utils/current-ns
-                                                :file @utils/current-file
-                                                :sci.impl/f-meta f-meta)
-                                         nil)
+                            (let [children (analyze-children ctx (rest expr))
+                                  #?@(:clj [f (condp identical? f
+                                                ;; double arithmetic, e.g. no divide by zero
+                                                / (let [div (fn [x y]
+                                                              (if (double? x)
+                                                                (let [x (double x)]
+                                                                  (/ x y))
+                                                                (/ x y)))]
+                                                    (fn
+                                                      ([x] (div 1 x))
+                                                      ([x y] (div x y))
+                                                      ([x y & more]
+                                                       (reduce / (div x y) more))))
+                                                f)])]
+                              (return-call ctx
+                                             expr
+                                             f children
+                                             (assoc m
+                                                    :ns @utils/current-ns
+                                                    :file @utils/current-file
+                                                    :sci.impl/f-meta f-meta)
+                                             nil))
                             (if-let [op (:sci.impl/op (meta f))]
                               (case op
                                 :resolve-sym
