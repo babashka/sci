@@ -1,6 +1,6 @@
 (ns sci.impl.io
   {:no-doc true}
-  (:refer-clojure :exclude [pr prn pr-str prn-str print print-str println
+  (:refer-clojure :exclude [pr prn pr-str prn-str print print-str println println-str
                             newline flush with-out-str with-in-str read-line
                             printf #?@(:cljs [string-print])
                             #?@(:clj [print-simple])])
@@ -239,6 +239,27 @@
                *print-newline* @print-newline
                *print-dup* @print-dup-var]
        (apply cljs.core/println objs))))
+
+#?(:clj
+   (defn println-str
+     "println to a string, returning it"
+     [& xs]
+     (let [sw (java.io.StringWriter.)]
+       (vars/with-bindings {out sw}
+         (apply println xs))
+       (str sw)))
+   :cljs
+   (defn println-str
+     "println to a string, returning it"
+     [& objs]
+     (binding [*print-length* @print-length
+               *print-level* @print-level
+               *print-meta* @print-meta
+               *print-namespace-maps* @print-namespace-maps
+               *print-readably* @print-readably
+               *print-newline* @print-newline
+               *print-dup* @print-dup-var]
+       (apply cljs.core/println-str objs))))
 
 #?(:clj
    (defn printf

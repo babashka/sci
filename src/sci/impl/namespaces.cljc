@@ -1134,6 +1134,7 @@
      'prn (copy-core-var sci.impl.io/prn)
      'print (copy-core-var sci.impl.io/print)
      'println (copy-core-var sci.impl.io/println)
+     'println-str (copy-core-var sci.impl.io/println-str)
      'pr-str (copy-core-var sci.impl.io/pr-str)
      'prn-str (copy-core-var sci.impl.io/prn-str)
      'print-str (copy-core-var #?(:cljs sci.impl.io/print-str :clj print-str))
