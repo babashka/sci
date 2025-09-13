@@ -397,6 +397,8 @@
    (deftest issue-987-munged-property-name-test
      (is (= 1 (sci/eval-string "(def x #js {:foo_bar 1}) (.-foo-bar x)" {:classes {:allow :all}})))
      (is (= 1 (sci/eval-string "(def x #js {:foo_bar (fn [] 1)}) (.foo-bar x)" {:classes {:allow :all}})))
+     (testing "reserved keyword mungined is bypassed"
+       (is (= 1 (sci/eval-string "(def x #js {:catch (fn [] 1)}) (.catch x)" {:classes {:allow :all}}))))
      (is (= {:foo_bar 1} (sci/eval-string "(js->clj (doto #js {} (set! -foo-bar 1)) :keywordize-keys true)" {:classes {:allow :all}})))))
 
 #?(:clj

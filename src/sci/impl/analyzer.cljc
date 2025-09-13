@@ -957,7 +957,7 @@
                           (subs method-name 1)
                           method-name)
               meth-name* meth-name
-              meth-name (munge meth-name)
+              meth-name (#?(:clj munge :cljs utils/munge-str) meth-name)
               stack (assoc (meta expr)
                            :ns @utils/current-ns
                            :file @utils/current-file)]
