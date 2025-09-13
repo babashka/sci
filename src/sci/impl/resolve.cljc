@@ -71,7 +71,7 @@
             [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
                    (with-meta
                      [clazz #?(:clj sym-name
-                               :cljs (.split (str sym-name) "."))
+                               :cljs (.split (utils/munge-str (str sym-name)) "."))
                       sym-ns]
                      #?(:clj
                         (if (= "new" sym-name-str)
@@ -87,7 +87,8 @@
                       (let [stack (assoc (meta sym)
                                          :file @utils/current-file
                                          :ns @utils/current-ns)
-                            path (.split (str sym-name) ".")
+                            sym-name (utils/munge-str (str sym-name))
+                            path (.split sym-name ".")
                             len (alength path)]
                         (if (== 1 len)
                           (->Node
@@ -250,6 +251,7 @@
            #?(:cljs
               (when-let [[v segments] (resolve-prefix+path ctx sym m)]
                 (let [v (if (utils/var? v) (deref v) v)
+                      segments (mapv utils/munge-str segments)
                       segments (into-array segments)]
                   ;; NOTE: there is a reloading implication here...
                   (if call?

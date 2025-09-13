@@ -2,10 +2,12 @@
   {:no-doc true}
   (:refer-clojure :exclude [eval demunge var? macroexpand macroexpand-1])
   (:require [clojure.string :as str]
+            #?(:cljs [goog.object :as gobject])
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
             [sci.impl.vars :as vars]
             [sci.lang :as lang])
+  #?(:cljs (:import [goog.string StringBuffer]))
   #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical? dotimes+]])))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -307,3 +309,16 @@
            '*unchecked-math* clojure.core/*unchecked-math*
            {:ns clojure-core-ns
             :doc "While bound to true, compilations of +, -, *, inc, dec and the\n  coercions will be done without overflow checks. While bound\n  to :warn-on-boxed, same behavior as true, and a warning is emitted\n  when compilation uses boxed math. Default: false."})))
+
+#?(:cljs
+   (defn ^string munge-str [name]
+     (let [sb (StringBuffer.)]
+       (loop [i 0]
+         (when (< i (. name -length))
+           (let [c (.charAt name i)
+                 sub (gobject/get CHAR_MAP c)]
+             (if-not (nil? sub)
+               (.append sb sub)
+               (.append sb c))
+             (recur (inc i)))))
+       (.toString sb))))
