@@ -71,7 +71,7 @@
             [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
                    (with-meta
                      [clazz #?(:clj sym-name
-                               :cljs (.split (str sym-name) "."))
+                               :cljs (.split (utils/munge-str (str sym-name)) "."))
                       sym-ns]
                      #?(:clj
                         (if (= "new" sym-name-str)
