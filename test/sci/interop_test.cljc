@@ -394,12 +394,17 @@
 ))
 
 #?(:cljs
-   (deftest issue-987-munged-property-name-test
+   (deftest issue-987-munged-method-or-property-name-test
      (is (= 1 (sci/eval-string "(def x #js {:foo_bar 1}) (.-foo-bar x)" {:classes {:allow :all}})))
      (is (= 1 (sci/eval-string "(def x #js {:foo_bar (fn [] 1)}) (.foo-bar x)" {:classes {:allow :all}})))
-     (testing "reserved keyword mungined is bypassed"
-       (is (= 1 (sci/eval-string "(def x #js {:catch (fn [] 1)}) (.catch x)" {:classes {:allow :all}}))))
-     (is (= {:foo_bar 1} (sci/eval-string "(js->clj (doto #js {} (set! -foo-bar 1)) :keywordize-keys true)" {:classes {:allow :all}})))))
+     (testing "reserved keyword munging is bypassed"
+       (is (= 1 (sci/eval-string "(def x #js {:catch (fn [] 1)}) (.catch x)" {:classes {:allow :all}})))
+       #_(is (= 1 (sci/eval-string "(d/foo-bar)" {:imports {'d 'dude}
+                                                :classes {:allow :all 'dude #js {:foo_bar (fn [] 1)}}}))))
+     (is (= {:foo_bar 1} (sci/eval-string "(js->clj (doto #js {} (set! -foo-bar 1)) :keywordize-keys true)" {:classes {:allow :all}})))
+     (testing "dotted access"
+       (is (= 2 (sci/eval-string "(def x #js {:a 1 :foo_bar #js {:catch 2}}) x.foo-bar.catch" {:classes {'js goog/global}})))
+       (is (= 3 (sci/eval-string "(let [a #js {:foo_bar #js {:catch 3}}] a.foo-bar.catch)"))))))
 
 #?(:clj
    (deftest issue-987-deftype-munged-fields-test

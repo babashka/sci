@@ -250,6 +250,7 @@
            #?(:cljs
               (when-let [[v segments] (resolve-prefix+path ctx sym m)]
                 (let [v (if (utils/var? v) (deref v) v)
+                      segments (mapv utils/munge-str segments)
                       segments (into-array segments)]
                   ;; NOTE: there is a reloading implication here...
                   (if call?
