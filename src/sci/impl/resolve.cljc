@@ -87,7 +87,8 @@
                       (let [stack (assoc (meta sym)
                                          :file @utils/current-file
                                          :ns @utils/current-ns)
-                            path (.split (str sym-name) ".")
+                            sym-name (utils/munge-str (str sym-name))
+                            path (.split sym-name ".")
                             len (alength path)]
                         (if (== 1 len)
                           (->Node
