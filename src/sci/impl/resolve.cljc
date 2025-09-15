@@ -282,5 +282,5 @@
         #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? m)]
                    resolved))
         (throw-error-with-location
-         (str "Could not resolve symbol: " sym)
+         (str "Unable to resolve symbol: " sym)
          sym)))))
