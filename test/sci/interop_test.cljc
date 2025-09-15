@@ -74,7 +74,7 @@
      (is (= 32 (eval* "(. Integer -SIZE)")))
      (is (= 32 (eval* "(. Integer SIZE)")))
      (testing "calling static field on unconfigured classes is not allowed"
-       (is (thrown-with-msg? Exception #"not"
+       (is (thrown-with-msg? Exception #"Unable to resolve"
                              (eval* "clojure.lang.Var/rev"))))))
 
 #?(:clj
@@ -113,7 +113,7 @@
      (is (= 123 (eval* "(defmacro parse-int [x] `(. Integer (parseInt ~x)))
                         (parse-int \"123\")")))
      (testing "calling static methods on unconfigured classes is not allowed"
-       (is (thrown-with-msg? Exception #"not"
+       (is (thrown-with-msg? Exception #"Unable to resolve"
                              (eval* "(clojure.lang.Var/find 'clojure.core/int)"))))
      (is (= :dude (sci/eval-string
                    "(Class/forName \"java.lang.String\")"

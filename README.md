@@ -560,7 +560,7 @@ aren't visible to other users:
 (def forked (sci/fork sci-ctx))
 (sci/eval-string* forked "(def forked 1)")
 (sci/eval-string* forked "forked") ;;=> 1
-(sci/eval-string* sci-ctx "forked") ;;=> Could not resolved symbol: forked
+(sci/eval-string* sci-ctx "forked") ;;=> Unable to resolve symbol: forked
 ```
 
 ### Implementing require and load-file

@@ -50,7 +50,7 @@
     (is (= 16 (eval* "(ns foo (:refer-clojure :rename {bit-shift-left <<})) (<< 8 1)")))
     (is (thrown-with-msg?
          #?(:clj Exception :cljs js/Error)
-         #"not.*resolve.*bit-shift-left"
+         #"Unable to resolve.*bit-shift-left"
          (eval* "(ns foo (:refer-clojure :rename {bit-shift-left <<})) (bit-shift-left 8 1)"))))
   (when-not tu/native?
     (testing "load-fn + requiring-resolve"
@@ -73,11 +73,11 @@
   (is (= #{1 2} (eval* "(use '[clojure.set :only [union]]) (union #{1} #{2})")))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
-       #"not.*resolve.*union"
+       #"Unable to resolve.*union"
        (eval* "(use '[clojure.set :exclude [union]]) (union #{1} #{2})")))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
-       #"not.*resolve.*union"
+       #"Unable to resolve.*union"
        (eval* "(use '[clojure.set :only [difference]]) (union #{1} #{2})")))
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)

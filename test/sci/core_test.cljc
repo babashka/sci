@@ -1262,7 +1262,7 @@
                    (sci/eval-string* forked "y"))))
       (is (thrown-with-msg?
            #?(:clj Exception :cljs js/Error)
-           #"Could not resolve symbol: y" (sci/eval-string* ctx "y"))))))
+           #"Unable to resolve symbol: y" (sci/eval-string* ctx "y"))))))
 
 (defmacro do-twice [x] `(do ~x ~x))
 (defn ^:sci/macro do-twice* [_ _ x] `(do ~x ~x))
