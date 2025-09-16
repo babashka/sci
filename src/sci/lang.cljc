@@ -249,7 +249,10 @@
     (apply @this a b c d e f g h i j k l m n o p q r s t rest))
   #?(:clj
      (applyTo [this args]
-              (apply @this args))))
+              (apply @this args)))
+  #?@(:clj [Cloneable
+            (clone [_this]
+                   (new Var root sym meta thread-bound needs-ctx watches))]))
 
 #?(:clj
    ;; Use public interface for print-method so it can be overriden in bb itself

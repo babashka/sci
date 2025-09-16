@@ -269,8 +269,23 @@
   "Forks a context (as produced with `init`) into a new context. Any new
   vars created in the new context won't be visible in the original
   context."
-  [ctx]
-  (update ctx :env (fn [env] (atom @env))))
+  ([ctx]
+   (update ctx :env (fn [env] (atom @env))))
+  ([ctx {:keys [clone-vars]}]
+   (update ctx :env (fn [env]
+                      (let [env @env
+                            env (if clone-vars
+                                  (update env :namespaces
+                                          (fn [namespaces]
+                                            (update-vals namespaces (fn [namespace]
+                                                                      (update-vals namespace
+                                                                                   (fn [var]
+                                                                                     (if (utils/var? var)
+                                                                                       (.clone ^sci.lang.Var var)
+                                                                                       var)))))))
+
+                                  env)]
+                        (atom env))))))
 
 (defn eval-string*
   "Evaluates string `s` in the context of `ctx` (as produced with
