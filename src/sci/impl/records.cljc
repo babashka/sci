@@ -16,7 +16,7 @@
      (when (and (class? protocol)
                 (not (= Object protocol)))
        (utils/throw-error-with-location
-        (str "defrecord/deftypecurrently only support protocol implementations, found: " protocol-name)
+        (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name)
         expr))))
 
 (defmulti to-string types/type-impl)
