@@ -54,9 +54,9 @@
                {:ns user, :file nil, :line 1, :column 34, :name nil})
              stacktrace))
       (let [formatted (sci/format-stacktrace stacktrace)]
-        (is (= '("user/g - <expr>:1:27"
-                 "user/g - <expr>:1:15"
-                 "user   - <expr>:1:34")
+        (is (= '("user/g - NO_SOURCE_PATH:1:27"
+                 "user/g - NO_SOURCE_PATH:1:15"
+                 "user   - NO_SOURCE_PATH:1:34")
                formatted))))))
 
 #_(deftest locals-test
@@ -142,13 +142,13 @@
 
 (deftest analysis-error-test
   (is
-   (= ["user - <expr>:1:1"]
+   (= ["user - NO_SOURCE_PATH:1:1"]
       (sci/format-stacktrace
        (sci/stacktrace (try (sci/eval-string "(def n x)") (catch #?(:clj Exception :cljs js/Error) e e)))))))
 
 (deftest try-finally-test
   (is
-   (= ["clojure.core/assoc - <built-in>" "user/foo           - <expr>:1:14" "user/foo           - <expr>:1:1" "user               - <expr>:1:84" "user               - <expr>:1:65"]
+   (= ["clojure.core/assoc - <built-in>" "user/foo           - NO_SOURCE_PATH:1:14" "user/foo           - NO_SOURCE_PATH:1:1" "user               - NO_SOURCE_PATH:1:84" "user               - NO_SOURCE_PATH:1:65"]
       (sci/format-stacktrace
        (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:clj Exception :cljs js/Error) e e)))))))
 

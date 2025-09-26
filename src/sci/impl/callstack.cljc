@@ -71,7 +71,7 @@
                         :loc (str (or file
                                       (if built-in
                                         "<built-in>"
-                                        "<expr>"))
+                                        "NO_SOURCE_PATH"))
                                   (when line
                                     (str ":" line ":" column)))}))
                    st)
