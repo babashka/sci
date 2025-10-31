@@ -238,10 +238,11 @@
            found-m)))))
 
 #?(:clj
-   (defn- widen-boxed-args
-     "Widen boxed numeric arguments (e.g., Integer -> Long, Float -> Double)."
+   (defn- widen-boxed-args!
+     "Widen boxed numeric arguments (e.g., Integer -> Long, Float -> Double).
+      Mutates args"
      [^objects args]
-     (let [widened (object-array (alength args))]
+     (let [widened args]
        (dotimes [i (alength args)]
          (let [arg (aget args i)]
            (when (some? arg)
@@ -285,7 +286,7 @@
                           (.get methods 0)
                           (or (match-method methods args arg-types)
                               ;; widen boxed args and re-try
-                              (match-method methods (widen-boxed-args args) arg-types)))]
+                              (match-method methods (widen-boxed-args! args) arg-types)))]
           (if (nil? m)
             (throw (IllegalArgumentException.
                     (str "No matching method " method-name " found taking "
