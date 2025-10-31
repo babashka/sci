@@ -1,11 +1,12 @@
 (ns sci.vars-test
   (:require
-   #?(:clj [sci.addons :as addons])
+   #?@(:cljs [] :default [[sci.addons :as addons]])
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
    [sci.impl.unrestrict :refer [*unrestricted*]]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu])
+  #?(:cljr (:import [System.Threading Thread])))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -14,7 +15,7 @@
 
 (deftest dynamic-var-test
   (testing "set var root binding"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"root binding"
+    (is (thrown-with-msg? #?(:cljs js/Error :default Exception) #"root binding"
                           (eval* "(def ^:dynamic x 1) (set! x 2) x"))))
   (testing "set var thread-local binding"
     (is (= [0 1 2 0] (eval*
@@ -49,10 +50,10 @@
 
 (deftest binding-syntax-test
   (testing "no vector binding"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"vector"
+    (is (thrown-with-msg? #?(:cljs js/Error :default Exception) #"vector"
                           (eval* "(def ^:dynamic x 1) (binding #{x 1})"))))
   (testing "not even bindings"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"even"
+    (is (thrown-with-msg? #?(:cljs js/Error :default Exception) #"even"
                           (eval* "(def ^:dynamic x 1) (binding [x])")))))
 
 (deftest redefine-var-test
@@ -94,17 +95,17 @@
   (is (= 10 (eval* "(defn foo [& xs] (apply + xs)) (apply #'foo 1 2 3 [4])"))))
 
 (deftest macro-val-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljs js/Error :default Exception)
                         #"value of a macro"
                         (eval* "(defmacro foo []) foo")))
   (is (some? (eval* "(defmacro foo []) #'foo"))))
 
 (deftest unbound-call-test
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljs js/Error :default Exception)
                         #"unbound fn: #'user/x"
                         (eval* "(def x) (x 1)"))))
 
-#?(:clj
+#?(:cljs nil :default
    (when-not tu/native?
      (deftest binding-conveyor-test
        (is (= 1 (tu/eval* "(def ^:dynamic x 0) (binding [x 1] @(future x))"
@@ -114,43 +115,42 @@
                                 @(future (binding [x (inc x)] @(future (binding [x (inc x)] x)))))"
                            (addons/future {})))))))
 
-#?(:clj
+#?(:cljs nil :default
    (when-not tu/native?
      (deftest bound-fn-test
        (is (= :hello (tu/eval* "
 (def ^:dynamic *some-var* nil)
 (def state (promise))
 (defn f [] (deliver state *some-var*))
-
-(binding [*some-var* :hello]
-  (.start (java.lang.Thread. (bound-fn* f))))
+(def bfn (binding [*some-var* :hello] (bound-fn* f)))
+@(future (bfn))
 @state"
-                               {:classes {'java.lang.Thread java.lang.Thread}})))
+                               (addons/future {}))))
        (is (= :hello (tu/eval* "
 (def ^:dynamic *some-var* nil)
 (def state (promise))
 (defn f [] (deliver state *some-var*))
-
-(binding [*some-var* :hello]
-  (.start (java.lang.Thread. (bound-fn [] (f)))))
+(def bfn (binding [*some-var* :hello] (bound-fn [] (f))))
+@(future (bfn))
 @state"
-                               {:classes {'java.lang.Thread java.lang.Thread}}))))))
+                               (addons/future {})))))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest with-bindings-test
-     (is (= 6 (eval* "
+     (is (= 6 (eval* (-> "
 (let [sw (java.io.StringWriter.)]
   (with-bindings {#'*out* sw}
     (println \"hello\"))
   (let [res (str sw)]
-    (count res)))")))))
+    (count res)))"
+                         #?(:cljr (str/replace "java.io.StringWriter" "System.IO.StringWriter"))))))))
 
 (deftest with-bindings-api-test
   (when-not tu/native?
     (let [x (sci/new-dynamic-var 'x)]
       (is (= 1 (sci/with-bindings {x 1}
                  (sci/eval-string "*x*" {:bindings {'*x* x}})))))
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"bind non-dynamic"
+    (is (thrown-with-msg? #?(:cljs js/Error :default Exception) #"bind non-dynamic"
                           (sci/with-bindings {1 1}
                             (sci/eval-string "*x*" {:bindings {'*x* 1}}))))))
 
@@ -166,10 +166,10 @@
         (is (= 1 (sci/with-redefs [x 1]
                    (sci/eval-string "x" {:bindings {'x x}}))))
         (is (str/includes? (str/lower-case (str @x)) "unbound")))
-      (is (thrown-with-msg? #?(:clj Throwable :cljs js/Error) #"1 is not a var"
+      (is (thrown-with-msg? #?(:cljs js/Error :clj Throwable) #"1 is not a var"
                             (sci/with-redefs [1 1])))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest pmap-test
      (when-not tu/native?
        (is (= '(11 11 11)
@@ -178,7 +178,7 @@
 
 (def ^:dynamic *x* 10)
 
-#?(:clj
+#?(:cljs nil :default
    (deftest pmap-api-test
      (when-not tu/native?
        (let [x (sci/new-dynamic-var 'x 10)]
@@ -186,14 +186,14 @@
            (is (= '(11 11 11)
                   @(binding [*x* 11] (sci/future (sci/binding [x *x*] (sci/pmap identity [@x @x @x])))))))))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest promise-test
      (when-not tu/native?
        (is (= :delivered (tu/eval* "(let [x (promise)]
                                       (future (deliver x :delivered))
                                       (deref x))"
                                    (-> (addons/future {})
-                                       (assoc-in [:classes 'java.lang.Thread] Thread)))))
+                                       (assoc-in [:classes 'Thread] Thread)))))
        (is (= :failed (tu/eval* "(let [x (promise)]
                                    (deref x 1 :failed))"
                                 (addons/future {})))))))
@@ -208,9 +208,10 @@
 
 (deftest alter-var-root-test
   (is (= 2 (eval* "(def x 1) (alter-var-root #'x (fn foo [v] (inc x))) x")))
-  #?(:clj (testing "it is atomic"
-            (is (= 1000 (sci/eval-string "(def x 0) (do (doall (pmap #(alter-var-root #'x (fn foo [v] (+ v %))) (take 1000 (repeat 1)))) x)"
-                                         {:namespaces {'clojure.core {'pmap clojure.core/pmap}}})))))
+  #?(:cljs nil :default
+     (testing "it is atomic"
+       (is (= 1000 (sci/eval-string "(def x 0) (do (doall (pmap #(alter-var-root #'x (fn foo [v] (+ v %))) (take 1000 (repeat 1)))) x)"
+                                    {:namespaces {'clojure.core {'pmap clojure.core/pmap}}})))))
   (testing "alter-var-root uses root binding to update"
     (is (= 2 (eval* "(def ^:dynamic *x* 1) (binding [*x* 2] (alter-var-root #'*x* inc)) *x*"))))
   (testing "alter-var-root returns new value"
@@ -221,7 +222,7 @@
   (let [x (sci/new-dynamic-var '*x* (fn [] 10) {:ns (sci/create-ns 'user)
                                                 :sci/built-in true})]
     (is (thrown-with-msg?
-         #?(:clj Exception :cljs js/Error)
+         #?(:cljs js/Error :default Exception)
          #"Built-in var"
          (sci/eval-string
           "[(with-redefs [*x* (fn [] 11)] (*x*)) (*x*)]" {:bindings {'*x* x}}))))
@@ -241,12 +242,12 @@
 (deftest with-local-vars-test
   (is (= 2 (eval* "(with-local-vars [x 1] (+ 1 (var-get x)))")))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljs js/Error :default Exception)
        #"even"
        (sci/eval-string
         "(with-local-vars [x] (+ 1 (var-get x)))")))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljs js/Error :default Exception)
        #"vector"
        (sci/eval-string
         "(with-local-vars #{x 1} (+ 1 (var-get x)))"))))
@@ -261,7 +262,7 @@
        (sci/with-out-str (sci/eval-string "(def x 1) (add-watch #'x :foo (fn [k r o n] (prn :o o :n n))) (alter-var-root #'x (constantly 5))"))
        ":o 1 :n 5")))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest thread-binds
      (is (true?
           (sci/eval-string*

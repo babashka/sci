@@ -9,7 +9,7 @@
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (defn invoke-instance-field
   #?@(:cljs [[obj _target-class field-name]
@@ -22,7 +22,10 @@
          (if (and (not (Modifier/isStatic mod))
                   (Modifier/isPublic mod))
            (.get field obj)
-           (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]))
+           (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]
+      :cljr
+      [[obj ^Type target-class method]
+       (throw (ex-info (str "TODO CLR support: " `invoke-instance-field) {}))]))
 
 #?(:clj
    (defn meth-cache [ctx ^Class class meth-name len fetch-fn k]
@@ -54,9 +57,12 @@
                           (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
                  ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
                  ;; See getMatchingMethod in Reflector
-                 (Reflector/invokeMatchingMethod method methods target-class obj args-array arg-types)))))]))
+                 (Reflector/invokeMatchingMethod method methods target-class obj args-array arg-types)))))]
+      :cljr
+      [[ctx bindings obj ^Type target-class method ^objects args arg-count arg-types]
+       (throw (ex-info (str "TODO CLR support: " `invoke-instance-method) {}))]))
 
-(defn get-static-field [^Class class field-name-sym]
+(defn get-static-field [^#?(:clj {:tag Class} :cljr {:tag Type} :cljs {}) class field-name-sym]
   #?(:clj (Reflector/getStaticField class (str field-name-sym))
      :cljs (unchecked-get class field-name-sym)))
 
@@ -85,13 +91,16 @@
    (defn invoke-js-constructor* [ctx bindings constructor args]
      (js/Reflect.construct constructor (.map args #(sci.impl.types/eval % ctx bindings)))))
 
-#?(:clj
-   (defn invoke-constructor #?(:clj [^Class class args]
-                               :cljs [constructor args])
-     (Reflector/invokeConstructor class (object-array args))))
+#?(:cljs nil
+   :default
+   (defn invoke-constructor [class args]
+     #?(:clj (Reflector/invokeConstructor ^Class class (object-array args))
+        :cljr (throw (ex-info (str "TODO CLR: " `invoke-constructor))))))
 
-(defn invoke-static-method #?(:clj [ctx bindings ^Class class ^String method-name ^objects args len]
-                              :cljs [ctx bindings class method args])
+(defn invoke-static-method #?(:cljs [ctx bindings class method args]
+                              :default [ctx bindings
+                                        #?(:clj ^Class class :cljr ^Type class :default class)
+                                        ^String method-name ^objects args len])
   #?(:clj
      (let [args-array (object-array len)]
        ;; [a idx ret init expr]
@@ -103,7 +112,8 @@
          ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
          ;; See getMatchingMethod in Reflector
          (sci.impl.Reflector/invokeMatchingMethod method-name meths nil args-array)))
-     :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))))
+     :cljs (js/Reflect.apply method class (.map args #(sci.impl.types/eval % ctx bindings)))
+     :cljr (throw (ex-info (str "TODO CLR support: " `invoke-static-method) {}))))
 
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
@@ -127,11 +137,11 @@
   ;; almost the same, since `js/Foo` stays fully qualified
   (let [env @(:env ctx)
         class->opts (:class->opts env)
-        class-opts (or #?(:clj (get class->opts sym)
-                          :cljs (if-let [ns* (namespace sym)]
+        class-opts (or #?(:cljs (if-let [ns* (namespace sym)]
                                   (when (identical? "js" ns*)
                                     (get class->opts (symbol (name sym))))
-                                  (get class->opts sym)))
+                                  (get class->opts sym))
+                          :default (get class->opts sym))
                        (let [cnn (utils/current-ns-name)
                              imports (get-in env [:namespaces cnn :imports])]
                          (if-let [[_ v] (find imports sym)]
@@ -162,22 +172,26 @@
       'byte Byte/TYPE
       'bytes (Class/forName "[B")
       'char Character/TYPE
-      'chars (Class/forName "[C")}))
+      'chars (Class/forName "[C")})
+   :cljr (do (println (str "TODO CLR support: " `prim->class))
+             (def prim->class {})))
 
-#?(:clj
+#?(:cljs nil :default
    (defn resolve-type-hint [ctx sym]
-     (if (string? sym) (Class/forName sym)
+     (if (string? sym) (#?(:clj Class/forName :cljr Type/GetType) sym)
          (or (get prim->class sym)
              (:class (resolve-class-opts ctx sym))))))
 
-#?(:clj
+#?(:cljs nil :default
    (def ->array-class
      (memoize (fn [clazz dim]
                 (class (apply make-array clazz (vec (repeat dim 0))))))))
 
-#?(:clj
-   (defn resolve-array-class [ctx sym-ns ^String sym-name-str]
+#?(:cljs nil :default
+   (defn resolve-array-class
+     #?(:clj ^Class [ctx sym-ns ^String sym-name-str]
+        :cljr ^Type [ctx sym-ns ^String sym-name-str])
      (when-let [clazz (or (resolve-class ctx sym-ns)
                           (get prim->class sym-ns))]
-       (let [dim (- (int (.charAt sym-name-str 0)) 48)]
+       (let [dim (- (int (#?(:clj .charAt :cljr .get_Chars) sym-name-str 0)) 48)]
          (->array-class clazz dim)))))

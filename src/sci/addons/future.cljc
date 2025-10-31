@@ -1,8 +1,8 @@
 (ns sci.addons.future
   {:no-doc true}
   (:refer-clojure :exclude [future pmap])
-  (:require [sci.impl.copy-vars :refer [copy-core-var new-var macrofy]])
-  (:require [sci.impl.vars :as vars]))
+  (:require [sci.impl.copy-vars :refer [copy-core-var new-var macrofy]]
+            [sci.impl.vars :as vars]))
 
 (def future* (macrofy 'future
                (fn [_ _ & body]
@@ -19,7 +19,8 @@
 (defn pmap
   "Like clojure.core/pmap but also conveys sci bindings to the threads."
   ([f coll]
-   (let [n (+ 2 (.. Runtime getRuntime availableProcessors))
+   (let [n (+ 2 #?(:clj (.. Runtime getRuntime availableProcessors)
+                   :cljr Environment/ProcessorCount))
          rets (map #(future** (f %)) coll)
          step (fn step [[x & xs :as vs] fs]
                 (lazy-seq

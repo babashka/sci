@@ -4,7 +4,7 @@
             [sci.impl.types :as types]
             [sci.lang]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (defn sci-ns-name [^sci.lang.Namespace ns]
   (types/getName ns))

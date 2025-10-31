@@ -9,9 +9,9 @@
             [sci.impl.vars :as vars]
             [sci.lang]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
-#?(:clj
+#?(:cljs nil :default
    (defn assert-no-jvm-interface [protocol protocol-name expr]
      (when (and (class? protocol)
                 (not (= Object protocol)))
@@ -24,7 +24,8 @@
   (let [t (types/type-impl this)]
     (str (namespace t) "." (name t) "@"
          #?(:clj (Integer/toHexString (hash this))
-            :cljs (.toString (hash this) 16)))))
+            :cljs (.toString (hash this) 16)
+            :cljr (System.Convert/ToString ^long (hash this) (int 16))))))
 
 (defn clojure-str [v]
   (let [t (types/type-impl v)]
@@ -33,7 +34,104 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
-#?(:clj
+#?(:cljs nil 
+   :cljr
+   (deftype SciRecord [rec-name
+                       type
+                       var ext-map
+                       ^:unsynchronized-mutable my_hash
+                       ^:unsynchronized-mutable my_hasheq]
+     clojure.lang.IRecord ;; marker interface
+
+     clojure.lang.IHashEq
+     (hasheq [_]
+       (let [hq my_hasheq]
+         (if (zero? hq)
+           (let [type-hash (hash rec-name)
+                 h (int (bit-xor type-hash (clojure.lang.APersistentMap/mapHasheq ext-map)))]
+             (set! my_hasheq h)
+             h)
+           hq)))
+
+     clojure.lang.IObj
+     (meta [_]
+       (meta ext-map))
+     (withMeta [_ m]
+       (SciRecord.
+        rec-name type var (with-meta ext-map m) 0 0))
+
+     clojure.lang.ILookup
+     (valAt [_this k]
+       (.valAt ^clojure.lang.ILookup ext-map k))
+     (valAt [_ k else]
+       (.valAt ^clojure.lang.ILookup ext-map k else))
+
+     clojure.lang.IPersistentMap
+     (count [_]
+       (count ext-map))
+     (empty [_]
+       (throw (NotSupportedException. (str "Can't create empty: " (str rec-name)))))
+     (^clojure.lang.IPersistentMap cons [this e]
+       (cond
+         (map? e) (into this e)
+         (vector? e) (assoc this (nth e 0) (nth e 1))
+         :else (reduce conj this e)))
+     (equiv [this gs]
+       (boolean
+        (or (identical? this gs)
+            (when (instance? SciRecord gs)
+              (and (identical? rec-name (.-rec-name ^SciRecord gs))
+                   (= ext-map (.-ext-map ^SciRecord gs)))))))
+     (containsKey [_this k]
+       (.containsKey ^clojure.lang.IPersistentMap ext-map k))
+     (entryAt [_this k]
+       (.entryAt ^clojure.lang.IPersistentMap ext-map k))
+     (seq [_this] (.seq ^clojure.lang.IPersistentMap ext-map))
+     (^clojure.lang.IPersistentMap assoc [_this k v]
+       (SciRecord. rec-name type var (assoc ext-map k v) 0 0))
+     (without [_this k]
+       (SciRecord. rec-name type var (dissoc ext-map k) 0 0))
+
+     System.Collections.IDictionary
+     (get_Count [_this]
+       (count ext-map))
+     (get_IsReadOnly [_this]
+       true)
+     (get_Keys [_this]
+       (keys ext-map))
+     (get_Values [_this]
+       (vals ext-map))
+     (get_Item [_this k]
+       (get ext-map k))
+     (set_Item [_this _k _v]
+       (throw (NotSupportedException.)))
+     (Add [_this _k _v]
+       (throw (NotSupportedException.)))
+     (Clear [_this]
+       (throw (NotSupportedException.)))
+     (Contains [_this k]
+       (contains? ext-map k))
+     (Remove [_this _k]
+       (throw (NotSupportedException.)))
+
+     Object
+     (#?(:cljr ToString :default toString) [this]
+       (to-string this))
+
+     SciPrintMethod
+     (-sci-print-method [this w]
+       (if-let [rv var]
+         (let [m (meta rv)]
+           (if-let [pm (:sci.impl/print-method m)]
+             (pm this w)
+             (.Write ^System.IO.TextWriter w ^String (clojure-str this))))
+         (.Write ^System.IO.TextWriter w ^String (clojure-str this))))
+
+     sci.impl.types/SciTypeInstance
+     (-get-type [_]
+       type))
+       
+   :default
    (deftype SciRecord [rec-name
                        type
                        var ext-map
@@ -242,10 +340,12 @@
    (defmethod print-method SciRecord [v w]
      (-sci-print-method v w)))
 
-#?(:clj (defn ->record-impl [rec-name type var m]
-          (SciRecord. rec-name type var m 0 0))
-   :cljs (defn ->record-impl [rec-name type var m]
-           (SciRecord. rec-name type var m nil)))
+#?(:cljs (defn ->record-impl [rec-name type var m]
+           (SciRecord. rec-name type var m nil))
+   :cljr (defn ->record-impl [rec-name type var m]
+           (SciRecord. rec-name type var m 0 0))
+   :default (defn ->record-impl [rec-name type var m]
+              (SciRecord. rec-name type var m 0 0)))
 
 (defn defrecord [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
   (let [ctx (store/get-ctx)]
@@ -261,7 +361,7 @@
             field-set (set fields)
             protocol-impls
             (mapcat
-             (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
+             (fn [[protocol-name & impls] expr]
                (let [impls (group-by first impls)
                      protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
                      ;; _ (prn :protocol protocol)
@@ -272,7 +372,7 @@
                          (utils/throw-error-with-location
                           (str "Protocol not found: " protocol-name)
                           expr))
-                     #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name expr)])
+                     #?@(:cljs [] :default [_ (assert-no-jvm-interface protocol protocol-name expr)])
                      protocol (if (utils/var? protocol) @protocol protocol)
                      protocol-var (:var protocol)
                      _ (when protocol-var
@@ -281,7 +381,7 @@
                                               (fnil conj #{}) (protocols/type->str rec-type)))
                      protocol-ns (:ns protocol)
                      pns (cond protocol-ns (str (types/getName protocol-ns))
-                               (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
+                               (= #?(:cljs ::object :default Object) protocol) "sci.impl.records")
                      fq-meth-name #(if (simple-symbol? %)
                                      (symbol pns (str %))
                                      %)]
@@ -370,4 +470,4 @@
 (defn resolve-record-class
   [ctx class-sym]
   (when-let [x (resolve-record-or-protocol-class ctx class-sym)]
-    (when (instance? sci.lang.Type x) x)))
+    (when (instance? #?(:cljr sci.lang.SciCustomType :default sci.lang.Type) x) x)))

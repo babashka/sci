@@ -10,7 +10,7 @@
   (get-in @(:env (store/get-ctx)) [:namespaces 'clojure.core 'global-hierarchy]))
 
 (defn ->tag [x]
-  (if (instance? sci.lang.Type x)
+  (if (instance? #?(:cljr sci.lang.SciCustomType :default sci.lang.Type) x)
     (symbol (namespace x) (name x))
     x))
 

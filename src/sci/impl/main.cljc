@@ -24,6 +24,7 @@
         #?@(:clj [ctx (assoc-in ctx [:namespaces 'clojure.core 'time] (with-meta time* {:sci/macro true}))])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.System] System)])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.IllegalArgumentException] IllegalArgumentException)])
+        #?@(:cljr [ctx (assoc-in ctx [:classes `InvalidOperationException] InvalidOperationException)])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.Thread] Thread)])
         #?@(:clj [ctx (assoc-in ctx [:classes 'java.lang.Math] Math)])
         #?@(:clj [ctx (assoc-in ctx [:imports] {'System 'java.lang.System

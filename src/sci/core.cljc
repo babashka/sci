@@ -29,7 +29,7 @@
                               copy-ns]]
             [sci.impl.cljs])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (defn new-var
   "Returns a new sci var."
@@ -165,7 +165,8 @@
   calls."
     [& body]
     (macros/? :clj
-              `(let [out# (java.io.StringWriter.)]
+              `(let [out# (#?(:clj java.io.StringWriter.
+                              :cljs System.IO.StringWriter.))]
                  (with-bindings {out out#}
                    (do ~@body)
                    (str out#)))
@@ -185,24 +186,26 @@
                   (vars/binding-conveyor-fn))]
        (future-call f#))))
 
-#?(:clj (defn pmap
-          "Like clojure.core/pmap but also conveys sci bindings to the threads."
-          ([f coll]
-           (let [n (+ 2 (.. Runtime getRuntime availableProcessors))
-                 rets (map #(future (f %)) coll)
-                 step (fn step [[x & xs :as vs] fs]
-                        (lazy-seq
-                         (if-let [s (seq fs)]
-                           (cons (deref x) (step xs (rest s)))
-                           (map deref vs))))]
-             (step rets (drop n rets))))
-          ([f coll & colls]
-           (let [step (fn step [cs]
-                        (lazy-seq
-                         (let [ss (map seq cs)]
-                           (when (every? identity ss)
-                             (cons (map first ss) (step (map rest ss)))))))]
-             (pmap #(apply f %) (step (cons coll colls)))))))
+#?(:cljs nil :default
+   (defn pmap
+     "Like clojure.core/pmap but also conveys sci bindings to the threads."
+     ([f coll]
+      (let [n (+ 2 #?(:clj (.. Runtime getRuntime availableProcessors)
+                      :cljr Environment/ProcessorCount))
+            rets (map #(future (f %)) coll)
+            step (fn step [[x & xs :as vs] fs]
+                   (lazy-seq
+                    (if-let [s (seq fs)]
+                      (cons (deref x) (step xs (rest s)))
+                      (map deref vs))))]
+        (step rets (drop n rets))))
+     ([f coll & colls]
+      (let [step (fn step [cs]
+                   (lazy-seq
+                    (let [ss (map seq cs)]
+                      (when (every? identity ss)
+                        (cons (map first ss) (step (map rest ss)))))))]
+        (pmap #(apply f %) (step (cons coll colls)))))))
 
 (defn alter-var-root
   "Atomically alters the root binding of sci var v by applying f to its
@@ -504,7 +507,8 @@
                                                         m))})
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
-                          `(-copy-ns ~publics-map ~sci-ns)))))))
+                          `(-copy-ns ~publics-map ~sci-ns))
+                        :default nil)))))
 
 (defn add-import!
   "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
@@ -556,7 +560,7 @@
   In the future, more unrestricted access may be added, so only use this when you're not using SCI as a sandbox."
   []
   #?(:cljs (set! unrestrict/*unrestricted* true)
-     :clj (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
+     :default (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
 
 (defn var->symbol
   "Returns a fully qualified symbol from a `sci.lang.Var`"

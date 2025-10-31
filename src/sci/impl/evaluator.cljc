@@ -18,9 +18,9 @@
 
 (declare fn-call)
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
-(def #?(:clj ^:const macros :cljs macros)
+(def macros
   '#{do fn def defn
      syntax-quote})
 
@@ -53,8 +53,8 @@
     (get (get (get env :namespaces) cnn) var-name)))
 
 (defmacro resolve-symbol [bindings sym]
-  `(.get ~(with-meta bindings
-            {:tag 'java.util.Map}) ~sym))
+  #?(:clj `(.get ~(with-meta bindings {:tag 'java.util.Map}) ~sym)
+     :default `(get ~bindings ~sym)))
 
 (declare eval-string*)
 
@@ -63,7 +63,7 @@
    (let [v (types/eval case-val ctx bindings)
          found (get case-map v ::not-found)]
      (if (utils/kw-identical? ::not-found found)
-       (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+       (throw (new #?(:clj IllegalArgumentException :cljs js/Error :cljr InvalidOperationException)
                    (str "No matching clause: " v)))
        (types/eval found ctx bindings))))
   ([ctx bindings case-map case-val case-default]
@@ -82,7 +82,7 @@
                                  (seq catches)
                                  utils/*in-try*)]
       (types/eval body ctx bindings))
-    (catch #?(:clj Throwable :cljs :default) e
+    (catch #?(:clj Throwable :cljs :default :cljr Exception) e
       (if-let
        [[_ r]
         (reduce (fn [_ c]
@@ -92,7 +92,7 @@
                                  (if (instance? sci.impl.types/NodeR clazz)
                                    (instance? (types/eval clazz ctx bindings) e)
                                    (instance? clazz e)))
-                             :clj (instance? clazz e))
+                             :default (instance? clazz e))
                       (reduced
                        [::try-result
                         (do (aset ^objects bindings (:ex-idx c) e)
@@ -116,10 +116,10 @@
      (let [instance-expr* (types/eval instance-expr ctx bindings)]
        (interop/invoke-instance-field instance-expr* nil method-str))))
 
-(def none-sentinel #?(:clj (Object.) :cljs (js/Object.)))
+(def none-sentinel #?(:cljs (js/Object.) :default (Object.)))
 
-(defn get-from-type [instance _method-str method-str-unmunged #?(:clj arg-count :cljs args)]
-  (if (zero? #?(:clj arg-count :cljs (alength args)))
+(defn get-from-type [instance _method-str method-str-unmunged #?(:cljs args :default arg-count)]
+  (if (zero? #?(:cljs (alength args) :default arg-count))
     (if (instance? sci.impl.records.SciRecord instance)
       (get instance (keyword method-str-unmunged) none-sentinel)
       (if (instance? sci.impl.deftype.SciType instance)
@@ -132,26 +132,30 @@
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (types/eval instance-expr ctx bindings)
-        v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
+        v (get-from-type instance-expr* method-str method-str-unmunged #?(:cljs args :default arg-count))]
     (if-not (identical? none-sentinel v)
       v
-      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+      (let [instance-class (or tag-class (#?(:cljs type :default class) instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
             allowed? (or
                       #?(:cljs allowed)
                       (get class->opts :allow)
                       (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                   :cljs (.-name instance-class))
+                                                   :cljs (.-name instance-class)
+                                                   :cljr (.FullName ^Type instance-class))
                             instance-class-symbol (symbol instance-class-name)]
                         (get class->opts instance-class-symbol)))
-            ^Class target-class (if allowed? instance-class
-                                    (when-let [f (:public-class env)]
-                                      (f instance-expr*)))]
+            #?(:clj ^Class target-class
+               :cljr ^Type target-class
+               :default target-class)
+            (if allowed? instance-class
+              (when-let [f (:public-class env)]
+                (f instance-expr*)))]
         ;; we have to check options at run time, since we don't know what the class
         ;; of instance-expr is at analysis time
-        (when-not #?(:clj target-class
-                     :cljs allowed?)
+        (when-not #?(:cljs allowed?
+                     :default target-class)
           (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
         (if field-access
           (interop/invoke-instance-field instance-expr* target-class method-str)
@@ -173,7 +177,7 @@
            res (second
                 (resolve/lookup ctx sym false nil (qualified-symbol? sym)))]
        (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
-                    :clj (instance? sci.impl.types.Eval res))
+                    :default (instance? sci.impl.types.Eval res))
          res)))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
@@ -215,7 +219,7 @@
                                 (let [cnn (utils/current-ns-name)]
                                   (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
                                   @rec-var)
-                                (throw (new #?(:clj Exception :cljs js/Error)
+                                (throw (new #?(:cljs js/Error :default Exception)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil
                         classes)))
@@ -265,31 +269,32 @@
 (def-fn-call)
 
 ;; The following types cannot be treated as constants in the analyzer
-#?(:clj (extend-protocol types/Eval
-          java.lang.Class
-          (eval [expr _ _]
-            expr)
-          clojure.lang.PersistentArrayMap
-          (eval [expr _ _]
-            expr)
-          clojure.lang.PersistentVector
-          (eval [expr _ _]
-            expr)
-          clojure.lang.Symbol
-          (eval [expr _ _]
-            expr)
-          sci.lang.Namespace
-          (eval [expr _ _]
-            expr)
-          sci.lang.Var
-          (eval [expr _ _]
-            expr)
-          clojure.lang.MultiFn
-          (eval [expr _ _]
-            expr)
-          Object
-          (eval [expr _ _]
-            expr)
-          ;; literal nils are treated like constants, but nil might also happen
-          ;; as a result of analysis
-          nil (eval [_ _ _] nil)))
+#?(:cljs nil :default
+   (extend-protocol types/Eval
+     #?(:clj java.lang.Class :cljr Type)
+     (eval [expr _ _]
+       expr)
+     clojure.lang.PersistentArrayMap
+     (eval [expr _ _]
+       expr)
+     clojure.lang.PersistentVector
+     (eval [expr _ _]
+       expr)
+     clojure.lang.Symbol
+     (eval [expr _ _]
+       expr)
+     sci.lang.Namespace
+     (eval [expr _ _]
+       expr)
+     sci.lang.Var
+     (eval [expr _ _]
+       expr)
+     clojure.lang.MultiFn
+     (eval [expr _ _]
+       expr)
+     Object
+     (eval [expr _ _]
+       expr)
+     ;; literal nils are treated like constants, but nil might also happen
+     ;; as a result of analysis
+     nil (eval [_ _ _] nil)))

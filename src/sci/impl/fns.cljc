@@ -5,7 +5,7 @@
    [sci.impl.utils :as utils :refer [recur]])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn]])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (defmacro gen-fn
   ([n]
@@ -57,7 +57,7 @@
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (defn fun
-  ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+  ([#?(:cljs ctx :default ^clojure.lang.Associative ctx)
     enclosed-array
     fn-body
     fn-name
@@ -69,7 +69,7 @@
         (:invoc-size fn-body)
         (utils/current-ns-name)
         (:vararg-idx fn-body)))
-  ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+  ([#?(:cljs ctx :default ^clojure.lang.Associative ctx)
     enclosed-array
     fn-body
     fn-name
@@ -80,8 +80,8 @@
     invoc-size
     nsm vararg-idx]
    (let [f (if vararg-idx
-             (case #?(:clj (int fixed-arity)
-                      :cljs fixed-arity)
+             (case #?(:cljs fixed-arity
+                      :default (int fixed-arity))
                0 (gen-fn 0 true true)
                1 (gen-fn 1 true true)
                2 (gen-fn 2 true true)
@@ -103,8 +103,8 @@
                18 (gen-fn 18 true true)
                19 (gen-fn 19 true true)
                20 (gen-fn 20 true true))
-             (case #?(:clj (int fixed-arity)
-                      :cljs fixed-arity)
+             (case #?(:cljs fixed-arity
+                      :default (int fixed-arity))
                0 (gen-fn 0)
                1 (gen-fn 1)
                2 (gen-fn 2)

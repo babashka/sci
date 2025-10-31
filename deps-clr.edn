@@ -1,0 +1,7 @@
+{:paths ["src" "resources"]
+ :deps {borkdude/edamame {:git/url "https://github.com/borkdude/edamame"
+                          :git/tag "v1.5.33"
+                          :git/sha "f429cf7f44aa83d92f12fd5d52e06387c517a19d"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {io.github.dmiller/test-runner {:git/tag "v0.5.3clr" :git/sha "ae91dd2727bbf70eb3a6d869a19953de3819dfbc"}}
+           :main-opts ["-m" "cognitect.test-runner"]}}}

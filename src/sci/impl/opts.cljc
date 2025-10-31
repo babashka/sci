@@ -6,10 +6,9 @@
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.lang])
-  #?(:clj (:import
-           [sci.impl.types IReified])))
+  #?@(:cljs [] :default [(:import [sci.impl.types IReified])]))
 
-#?(:clj
+#?(:cljs nil :default
    (defrecord Env [namespaces imports load-fn]))
 
 (def namespace-syms (keys namespaces/namespaces))
@@ -43,11 +42,11 @@
                      #?@(:cljs [js-libs (merge (:js-libs env) js-libs)])]
                  ;; TODO: is the first case ever hit?
                  (if-not env
-                   #?(:clj (->Env namespaces imports load-fn)
-                      :cljs {:namespaces namespaces
+                   #?(:cljs {:namespaces namespaces
                              :imports imports
                              :load-fn load-fn
-                             :async-load-fn async-load-fn})
+                             :async-load-fn async-load-fn}
+                      :default (->Env namespaces imports load-fn))
                    (assoc env
                           :namespaces namespaces
                           :imports imports
@@ -63,33 +62,50 @@
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
 
 (def default-classes
-  #?(:clj {'java.lang.AssertionError AssertionError
-           'java.lang.Exception {:class Exception}
-           'java.lang.IllegalArgumentException java.lang.IllegalArgumentException
-           'clojure.lang.Delay clojure.lang.Delay
-           'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
-           'clojure.lang.LineNumberingPushbackReader clojure.lang.LineNumberingPushbackReader
-           'clojure.lang.LazySeq clojure.lang.LazySeq
-           'java.lang.String {:class String}
-           'java.io.StringWriter java.io.StringWriter
-           'java.io.StringReader java.io.StringReader
-           'java.lang.Integer Integer
-           'java.lang.Number Number
-           'java.lang.Double Double
-           'java.lang.ArithmeticException ArithmeticException
-           'java.lang.Object Object
-           'sci.lang.IVar sci.lang.IVar ;; deprecated
-           'sci.lang.Type sci.lang.Type
-           'sci.lang.Var sci.lang.Var}
-     :cljs {'Error {:class js/Error :constructor (fn
-                                                   ([msg] (js/Error. msg))
-                                                   ([msg filename] (js/Error. msg filename))
-                                                   ([msg filename line] (js/Error. msg filename line)))}
-            ;; this is here to satisfy the queue reader literal + advanced compilation
-            'cljs.core.PersistentQueue.EMPTY cljs.core/PersistentQueue.EMPTY
-            'goog.string.StringBuffer {:class goog.string/StringBuffer
-                                       :constructor #(goog.string/StringBuffer. %)}
-            'sci.lang.Type sci.lang.Type}))
+  #?(:cljs
+     {'Error {:class js/Error
+              :constructor (fn
+                             ([msg] (js/Error. msg))
+                             ([msg filename] (js/Error. msg filename))
+                             ([msg filename line] (js/Error. msg filename line)))}
+      'cljs.core.PersistentQueue.EMPTY cljs.core/PersistentQueue.EMPTY
+      'goog.string.StringBuffer {:class goog.string/StringBuffer
+                                 :constructor #(goog.string/StringBuffer. %)}
+      'sci.lang.Type sci.lang.Type}
+     :default
+     (merge
+      ;; Common between clj/cljr
+      {'clojure.lang.Delay clojure.lang.Delay
+       'clojure.lang.ExceptionInfo clojure.lang.ExceptionInfo
+       'clojure.lang.LazySeq clojure.lang.LazySeq
+       'sci.lang.IVar sci.lang.IVar ;; deprecated
+       'sci.lang.Var sci.lang.Var}
+      #?(:clj
+         {'clojure.lang.LineNumberingPushbackReader clojure.lang.LineNumberingPushbackReader
+          'java.io.StringReader java.io.StringReader
+          'java.io.StringWriter java.io.StringWriter
+          'java.lang.ArithmeticException ArithmeticException
+          'java.lang.AssertionError AssertionError
+          'java.lang.Double Double
+          'java.lang.Exception {:class Exception}
+          'java.lang.IllegalArgumentException java.lang.IllegalArgumentException
+          'java.lang.Integer Integer
+          'java.lang.Number Number
+          'java.lang.Object Object
+          'java.lang.String {:class String}
+          'sci.lang.Type sci.lang.Type}
+         :cljr
+         {'System.ArgumentException System.ArgumentException
+          'System.ArithmeticException System.ArithmeticException
+          'System.Double System.Double
+          'System.Exception {:class System.Exception}
+          'System.IO.StringReader System.IO.StringReader
+          'System.IO.StringWriter System.IO.StringWriter
+          'System.Int32 System.Int32
+          'System.Int64 System.Int64
+          'System.Object System.Object
+          'System.String {:class System.String}
+          'sci.lang.SciCustomType sci.lang.SciCustomType}))))
 
 (def default-imports
   #?(:clj '{AssertionError java.lang.AssertionError
@@ -100,6 +116,13 @@
             Number java.lang.Number
             Double java.lang.Double
             Object java.lang.Object}
+     :cljr '{Exception System.Exception
+             String System.String
+             ArithmeticException System.ArithmeticException
+             Integer System.Int32
+             Number System.Int64
+             Double System.Double
+             Object System.Object}
      :cljs {}))
 
 (defn stringify-keys [m]
@@ -128,24 +151,26 @@
        :class->opts (persistent! class->opts)})))
 
 (def default-reify-fn
-  #?(:clj (fn [{:keys [interfaces methods protocols]}]
-            (reify
-              Object
-              (toString [this]
-                ((get methods 'toString) this))
-              IReified
-              (getInterfaces [_this]
-                interfaces)
-              (getMethods [_this]
-                methods)
-              (getProtocols [_this]
-                protocols)))
-     :cljs (fn [_ _ _])))
+  #?(:cljs (fn [_ _ _])
+     :default (fn [{:keys [interfaces methods protocols]}]
+                (reify
+                  Object
+                  (#?(:clj toString :cljr ToString) [this]
+                    ((get methods '#?(:clj toString :cljr ToString))
+                     this))
+                  IReified
+                  (getInterfaces [_this]
+                    interfaces)
+                  (getMethods [_this]
+                    methods)
+                  (getProtocols [_this]
+                    protocols)))))
 
-#?(:clj (defrecord Ctx [bindings env
-                        features readers
-                        reload-all
-                        check-permissions]))
+#?(:cljs nil :default
+   (defrecord Ctx [bindings env
+                   features readers
+                   reload-all
+                   check-permissions]))
 
 (defn ->ctx [bindings env features readers check-permissions?]
   #?(:cljs {:bindings bindings
@@ -153,12 +178,12 @@
             :features features
             :readers readers
             :check-permissions check-permissions?}
-     :clj (->Ctx bindings env features readers false check-permissions?)))
+     :default (->Ctx bindings env features readers false check-permissions?)))
 
 (def default-ns-aliases
-  #?(:clj {}
-     :cljs {;; in SCI the core namespace is always called clojure.core
-            'cljs.core 'clojure.core}))
+  #?(:cljs {;; in SCI the core namespace is always called clojure.core
+            'cljs.core 'clojure.core}
+     :default {}))
 
 (defn init
   "Initializes options"
@@ -190,7 +215,8 @@
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
-                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
+                   #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]
+                       :cljr [:main-thread-id (.getId (System.Threading.Thread/CurrentThread))]))]
     ctx))
 
 (defn merge-opts [ctx opts]

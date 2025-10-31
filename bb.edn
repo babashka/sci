@@ -7,6 +7,8 @@
  :tasks
  {test:jvm  {:doc "Run CLJ tests with leiningen"
              :task (shell "script/test/jvm")}
+  test:clr  {:doc "Run CLR tests with cljr"
+             :task (shell "script/test/clr")}
 
   test:native  {:doc "Run CLJ tests with leiningen"
                 :task (do (shell "script/compile")

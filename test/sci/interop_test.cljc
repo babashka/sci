@@ -6,12 +6,13 @@
    [sci.core :as sci]
    [sci.test-utils :as tu]
    #?(:cljs [goog.object :as gobj]))
+  ;;TODO cljr PublicFields + tests
   #?(:clj (:import PublicFields)))
 
 (defn eval* [expr]
   (tu/eval* expr {}))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest instance-methods
      (is (= 3 (eval* "(.length \"foo\")")))
      (testing "calling instance methods on unconfigured classes is not allowed"
@@ -25,8 +26,12 @@
                              (eval* "(let [^Foo x ^Foo {}] (.foo x))"))))
      (testing "can get the name of arbitrary class by type hinting it as Object"
        (when-not tu/native?
-         (is (= "clojure.core$int_QMARK_" (tu/eval* "(defn foo [^Object x] (.getClass x)) (.getName (foo int?))"
-                                                    {:classes {'java.lang.Class Class}})))))
+         (is (= "clojure.core$int_QMARK_"
+                #?(:clj (tu/eval* "(defn foo [^Object x] (.getClass x)) (.getName (foo int?))"
+                                  {:classes {'java.lang.Class Class}})
+                   :cljr (tu/eval* "(defn foo [^Object x] (.GetType x)) (.Name (foo int?))"
+                                   {:classes {'System.Type Type}})
+                   :default ::new-platform)))))
      (testing "resolve target class at analysis time"
        (is (= "message" (eval* "
 (ns foo (:import [clojure.lang ExceptionInfo]))
@@ -35,10 +40,17 @@
 (foo/foo (ex-info \"message\" {}))"))))
      (testing "map interop"
        (when-not tu/native?
-         (is (= #{:a} (tu/eval* "(.keySet {:a 1})"
-                                {:classes {'java.util.Map 'java.util.Map
-                                           :public-class (fn [o]
-                                                           (when (instance? java.util.Map o) java.util.Map))}})))))))
+         (is (= #{:a}
+                #?(:clj (tu/eval* "(.keySet {:a 1})"
+                                  {:classes {'java.util.Map 'java.util.Map
+                                             :public-class (fn [o]
+                                                             (when (instance? java.util.Map o) java.util.Map))}})
+                   :cljr (tu/eval* "(.get_Keys {:a 1})"
+                                   {} ;;TODO ?
+                                   #_{:classes {'java.util.Map 'java.util.Map
+                                                :public-class (fn [o]
+                                                                (when (instance? java.util.Map o) java.util.Map))}})
+                   :default ::new-platform)))))))
 
 #?(:clj
    (deftest instance-fields
@@ -67,7 +79,7 @@
            (testing (pr-str expr)
              (is (= (eval expr) (tu/eval* (pr-str expr) classes)))))))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest static-fields
      (is (= 32 (eval* "Integer/SIZE")))
      (is (= 32 (eval* "(Integer/SIZE)")))
@@ -77,12 +89,12 @@
        (is (thrown-with-msg? Exception #"Unable to resolve"
                              (eval* "clojure.lang.Var/rev"))))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest constructor-test
      (is (= "dude" (eval* "(String. (str \"dude\"))")))
      (is (= "dude" (eval* "(new String (str \"dude\"))")))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest import-test
      (is (true? (eval* "(class? (import clojure.lang.ExceptionInfo))")))
      (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))
@@ -123,9 +135,29 @@
      (is (= :dude (sci/eval-string
                    "(sci.lang.Var/cloneThreadBindings)"
                    {:classes {'sci.lang.Var {:class sci.lang.Var
+                                             :static-methods {'cloneThreadBindings (fn [_Class] :dude)}}}}))))
+   :cljr
+   (deftest static-methods
+     (is (= 123 (eval* "(Int32/Parse \"123\")")))
+     (is (= 123 (eval* "(. Int32 (Parse \"123\"))")))
+     (is (= 123 (eval* "(. Int32 Parse \"123\")")))
+     (is (= 123 (eval* "(Int32/Parse (str \"12\" \"3\") (inc 9))")))
+     (is (= 123 (eval* "(defmacro parse-int [x] `(. Int32 (Parse ~x)))
+                        (parse-int \"123\")")))
+     (testing "calling static methods on unconfigured classes is not allowed"
+       (is (thrown-with-msg? Exception #"Unable to resolve"
+                             (eval* "(clojure.lang.Var/find 'clojure.core/int)"))))
+     (is (= :dude (sci/eval-string
+                   "(Class/forName \"java.lang.String\")"
+                   {:imports {'Class 'java.lang.Class}
+                    :classes {'java.lang.Class {:class Type
+                                                :static-methods {'forName (fn [_Class _forName] :dude)}}}})))
+     (is (= :dude (sci/eval-string
+                   "(sci.lang.Var/cloneThreadBindings)"
+                   {:classes {'sci.lang.Var {:class sci.lang.Var
                                              :static-methods {'cloneThreadBindings (fn [_Class] :dude)}}}})))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest clojure-1_12-interop-test
      (is (= [1 2 3] (eval* "(map Integer/parseInt [\"1\" \"2\" \"3\"])")))
      (is (= [1 2 3] (eval* "(map String/.length [\"1\" \"22\" \"333\"])")))
@@ -133,27 +165,29 @@
      (is (= 3 (eval* "(String/.length \"123\")")))
      (is (= "123" (eval* "(String/new \"123\")")))))
 
-#?(:clj
+#?(:cljs nil :default
    (when-not tu/native?
      (deftest clojure-1_12-array-test
-       (let [byte-1 (class (make-array Byte/TYPE 0))
-             byte-3 (class (make-array Byte/TYPE 0 0 0))
+       (let [byte-1 (class (make-array #?(:clj Byte/TYPE :cljr Byte) 0))
+             byte-3 (class (make-array #?(:clj Byte/TYPE :cljr Byte) 0 0 0))
              String-1 (class (make-array String 0))]
-         (is (= (class (make-array Long/TYPE 0)) (eval* "long/1")))
-         (is (= (class (make-array Long/TYPE 0 0)) (eval* "long/2") ))
-         (is (= (class (make-array Integer/TYPE 0)) (eval* "int/1")))
-         (is (= (class (make-array Double/TYPE 0)) (eval* "double/1") ))
-         (is (= (class (make-array Short/TYPE 0)) (eval* "short/1") ))
-         (is (= (class (make-array Boolean/TYPE 0)) (eval* "boolean/1")))
+         (is (= (class (make-array #?(:clj Long/TYPE :cljr Int64) 0)) (eval* "long/1")))
+         (is (= (class (make-array #?(:clj Long/TYPE :cljr Int64) 0 0)) (eval* "long/2") ))
+         (is (= (class (make-array #?(:clj Integer/TYPE :cljr Int32) 0)) (eval* "int/1")))
+         (is (= (class (make-array #?(:clj Double/TYPE :cljr Double) 0)) (eval* "double/1") ))
+         (is (= (class (make-array #?(:clj Short/TYPE :cljr Int16) 0)) (eval* "short/1") ))
+         (is (= (class (make-array #?(:clj Boolean/TYPE :cljr Boolean) 0)) (eval* "boolean/1")))
          (is (= byte-1 (eval* "byte/1")))
-         (is (= (class (make-array Float/TYPE 0)) (eval* "float/1")))
+         (is (= (class (make-array #?(:clj Float/TYPE :cljr Single) 0)) (eval* "float/1")))
          (is (= (class (make-array String 0)) (eval* "String/1")))
-         (is (= String-1 (eval* "java.lang.String/1")))
+         (is (= String-1 (eval* #?(:clj "java.lang.String/1" :cljr "System.String/1"))))
          (is (= (symbol (pr-str byte-1)) (eval* "`byte/1")))
          (is (= (symbol (pr-str byte-3)) (eval* "`byte/3")))
-         (is (= (symbol "java.util.UUID/1") (eval* "`java.util.UUID/1")))
+         #?(:clj (is (= (symbol "java.util.UUID/1") (eval* "`java.util.UUID/1")))
+            :cljr (is (= (symbol "System.Guid/1") (eval* "`System.Guid/1"))))
          (is (= (symbol (pr-str String-1)) (eval* "`String/1")))
-         (is (= (symbol (pr-str String-1)) (eval* "`java.lang.String/1")))
+         #?(:clj (is (= (symbol (pr-str String-1)) (eval* "`java.lang.String/1")))
+            :cljr (is (= (symbol (pr-str String-1)) (eval* "`System.String/1"))))
          (is (= [(symbol "long/2")] (eval* "['long/2]") (eval* "`[~'long/2]")))))))
 
 (when-not tu/native?
@@ -163,9 +197,10 @@
             (fn [form]
               (try
                 (tu/eval* (str form) {:classes {:allow :all
-                                                #?@(:clj ['Long Long])}})
+                                                #?@(:clj ['Long Long]
+                                                    :cljr ['Int64 Int64])}})
                 (is (= nil "shouldn't reach here") (str form))
-                (catch #?(:clj Exception :cljs :default) e
+                (catch #?(:cljs :default :default Exception) e
                   (ex-data e))))]
         (testing "instance members"
           (are [form]
@@ -178,7 +213,8 @@
             '(. 3 missingMem) '(. 3 missingMem 1 2)
             '(.missingMem 3)  '(.missingMem 3 1 2)
             ; these return nil in cljs
-            #?@(:clj ['(.-missingMem 3) '(. 3 -missingMem)])))
+            #?@(:cljs []
+                :default ['(.-missingMem 3) '(. 3 -missingMem)])))
         #?(:clj
            (testing "static members"
              (are [form]
@@ -192,17 +228,32 @@
                '(.missingMem Long)   '(.missingMem Long 1 2)
                '(Long/missingMem)    '(Long/missingMem 1 2)
                '(. Long -missingMem) '(.-missingMem Long)
-               #_#_'Long/missingMem      '(Long/-missingMem))))))))
+               #_#_'Long/missingMem      '(Long/-missingMem)))
+           :cljr
+           (testing "static members"
+             (are [form]
+               (let [actual (form-ex-data form)]
+                 (and (tu/submap? {:type   :sci/error
+                                   :line   1
+                                   :column 1}
+                        actual)
+                   (str/includes? (:message actual) "missingMem")))
+               '(. Int64 missingMem)  '(. Int64 missingMem 1 2)
+               '(.missingMem Int64)   '(.missingMem Int64 1 2)
+               '(Int64/missingMem)    '(Int64/missingMem 1 2)
+               '(. Int64 -missingMem) '(.-missingMem Int64)
+               #_#_'Int64/missingMem      '(Int64/-missingMem))))))))
 
 (deftest syntax-test
   (when-not tu/native?
     (doseq [expr ["(.)" "(. {})" "(.foo)"]]
-      (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error)
+      (is (thrown-with-msg? #?(:clj IllegalArgumentException :cljs js/Error :cljr Exception)
                             #"Malformed"
                             (try (eval* expr)
-                                 (catch #?(:clj Exception :cljs :default) e
-                                   (throw #?(:clj (.getCause e))
-                                          #?(:cljs (.-cause e))))))))))
+                                 (catch #?(:cljs :default :default Exception) e
+                                   (throw #?(:clj (.getCause e)
+                                             :cljs (.-cause e)
+                                             :cljr (ex-cause e))))))))))
 
 ;;;; CLJS
 
@@ -261,14 +312,12 @@
 
 #?(:cljs
    (when-not (tu/planck-env?)
-     #?(:cljs
-        (def fs (let [m (js->clj (js/require "fs"))]
-                  (zipmap (map symbol (keys m)) (vals m)))))
-     #?(:cljs
-        (deftest object-as-namespace-test
-          (is (str/includes?
-               (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
-               "EPL"))))))
+     (def fs (let [m (js->clj (js/require "fs"))]
+               (zipmap (map symbol (keys m)) (vals m))))
+     (deftest object-as-namespace-test
+       (is (str/includes?
+            (tu/eval* "(str (fs/readFileSync \"README.md\"))" {:namespaces {'fs fs}})
+            "EPL")))))
 
 #?(:cljs
    (deftest js-reader-test
@@ -345,7 +394,8 @@
                                          'java.lang.Runnable java.lang.Runnable
                                          'java.util.concurrent.ExecutorService java.util.concurrent.ExecutorService}
                                :imports {'Runnable 'java.lang.Runnable
-                                         'Callable 'java.util.concurrent.Callable}}))
+                                         'Callable 'java.util.concurrent.Callable}})
+   :cljr (println "TODO CLR" `type-hint-config))
 
 #?(:clj
    (deftest type-hint-test
@@ -391,7 +441,8 @@
                         {:bindings {'resource (io/resource "clojure/core.clj")}
                          :classes {'java.net.URL java.net.URL
                                    'java.net.JarURLConnection java.net.JarURLConnection}}))
-))
+)
+   :cljr (println "TODO CLR" `type-hint-test))
 
 #?(:cljs
    (deftest issue-987-munged-method-or-property-name-test
@@ -408,7 +459,7 @@
        (is (= 2 (sci/eval-string "(def x #js {:a 1 :foo_bar #js {:catch 2}}) x.foo-bar.catch" {:classes {'js goog/global}})))
        (is (= 3 (sci/eval-string "(let [a #js {:foo_bar #js {:catch 3}}] a.foo-bar.catch)"))))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest issue-987-deftype-munged-fields-test
      ;; these cases don't work in CLJS yet because {:classes {:allow :all}} takes the fast path
      ;; perhaps we can fix this by exposing the deftype as an Object in CLJS with mutated fields

@@ -16,18 +16,18 @@
                             exists?])
   (:require
    #?(:clj [borkdude.graal.locking])
-   #?(:clj [clojure.edn :as edn]
-      :cljs [cljs.reader :as edn])
+   #?(:cljs [cljs.reader :as edn]
+      :default [clojure.edn :as edn])
    #?(:clj [clojure.java.io :as jio])
-   #?(:clj [sci.impl.proxy :as proxy])
-   #?(:clj [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var avoid-method-too-large]]
-      :cljs [sci.impl.copy-vars :refer [new-var]])
+   #?@(:cljs [] :default [[sci.impl.proxy :as proxy]])
+   #?(:cljs [sci.impl.copy-vars :refer [new-var]]
+      :default [sci.impl.copy-vars :refer [copy-core-var copy-var macrofy new-var avoid-method-too-large]])
    #?(:cljs [sci.impl.resolve])
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.ctx-store :as store]
-   [sci.impl.cljs]
+   #?@(:cljr [] :default [sci.impl.cljs])
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
    [sci.impl.destructure :as destructure]
@@ -52,18 +52,20 @@
   #?(:cljs (:require-macros
             [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy avoid-method-too-large]])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (def clojure-core-ns sci.impl.utils/clojure-core-ns)
 
-#?(:clj (defn -locking-impl [lockee lock-fn]
-          (borkdude.graal.LockFix/lock lockee lock-fn)))
+#?(:cljs nil :default
+   (defn -locking-impl [lockee lock-fn]
+     #?(:clj (borkdude.graal.LockFix/lock lockee lock-fn)
+        :default (throw (ex-info (str "TODO " `-locking-impl) {})))))
 
 (defn locking* [_form _bindings
-                #?(:clj x :cljs _x) & body]
-  #?(:clj `(let [lockee# ~x]
-             (clojure.core/-locking-impl lockee# (^{:once true} fn* [] ~@body)))
-     :cljs `(do ~@body)))
+                #?(:cljs _x :default x) & body]
+  #?(:cljs `(do ~@body)
+     :default `(let [lockee# ~x]
+                 (clojure.core/-locking-impl lockee# (^{:once true} fn* [] ~@body)))))
 
 (defn ->*
   [_ _ x & forms]
@@ -146,7 +148,8 @@
           (if (next clauses)
             (second clauses)
             (throw (new #?(:clj IllegalArgumentException
-                           :cljs js/Error)
+                           :cljs js/Error
+                           :cljr InvalidOperationException)
                         "cond requires an even number of forms")))
           (cons 'clojure.core/cond (next (next clauses))))))
 
@@ -256,20 +259,22 @@
   [_ _ & names] `(do ~@(map #(list 'def (vary-meta % assoc :declared true)) names)))
 
 (def ex-message
-  (if-let [v (resolve 'clojure.core/ex-message)]
-    @v
-    (fn ex-message [ex]
-      (when (instance? #?(:clj Throwable :cljs js/Error) ex)
-        #?(:clj (.getMessage ^Throwable ex)
-           :cljs (.-message ex))))))
+  #?(:cljr clojure.core/ex-message
+     :default (if-let [v (resolve 'clojure.core/ex-message)]
+                @v
+                (fn ex-message [ex]
+                  (when (instance? #?(:clj Throwable :cljs js/Error) ex)
+                    #?(:clj (.getMessage ^Throwable ex)
+                       :cljs (.-message ex)))))))
 
 (def ex-cause
-  (if-let [v (resolve 'clojure.core/ex-cause)]
-    @v
-    (fn ex-message [ex]
-      (when (instance? #?(:clj Throwable :cljs ExceptionInfo) ex)
-        #?(:clj (.getCause ^Throwable ex)
-           :cljs (.-cause ex))))))
+  #?(:cljr clojure.core/ex-cause
+     :default (if-let [v (resolve 'clojure.core/ex-cause)]
+                @v
+                (fn ex-message [ex]
+                  (when (instance? #?(:clj Throwable :cljs ExceptionInfo) ex)
+                    #?(:clj (.getCause ^Throwable ex)
+                       :cljs (.-cause ex)))))))
 
 (def assert-var (sci.impl.utils/dynamic-var '*assert* true {:ns clojure-core-ns}))
 
@@ -277,11 +282,11 @@
   ([_&form _ x]
    (when @assert-var
      `(when-not ~x
-        (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " (pr-str '~x)))))))
+        (throw (#?(:cljs js/Error. :default AssertionError.) (str "Assert failed: " (pr-str '~x)))))))
   ([_&form _ x message]
    (when @assert-var
      `(when-not ~x
-        (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x))))))))
+        (throw (#?(:cljs js/Error. :default AssertionError.) (str "Assert failed: " ~message "\n" (pr-str '~x))))))))
 
 (defn areduce* [_ _ a idx ret init expr]
   `(let [a# ~a l# (alength a#)]
@@ -309,9 +314,10 @@
                                 (with-open ~(subvec bindings 2) ~@body)
                                 (finally
                                   (.close ~(bindings 0)))))
-    :else #?(:clj (throw (IllegalArgumentException.
-                          "with-open only allows Symbols in bindings"))
-             :cljs ::TODO)))
+    :else (throw (new #?(:clj IllegalArgumentException
+                         :cljs js/Error
+                         :cljr InvalidOperationException)
+                      "with-open only allows Symbols in bindings"))))
 
 (defn letfn* [_ _ fnspecs & body]
   (let [syms (map first fnspecs)]
@@ -359,8 +365,8 @@
 
 (defn delay*
   [_ _ & body]
-  #?(:clj `(new clojure.lang.Delay (fn [] ~@body))
-     :cljs `(new cljs.core/Delay (fn [] ~@body))))
+  #?(:cljs `(new cljs.core/Delay (fn [] ~@body))
+     :default `(new clojure.lang.Delay (fn [] ~@body))))
 
 (defn defn-*
   [_ _ name & decls]
@@ -376,7 +382,8 @@
                      n (count clause)]
                  (cond
                    (= 0 n) `(throw (new #?(:clj IllegalArgumentException
-                                           :cljs js/Error)
+                                           :cljs js/Error
+                                           :cljr InvalidOperationException)
                                         (str "No matching clause: " ~expr)))
                    (= 1 n) a
                    (= 2 n) `(if (~pred ~a ~expr)
@@ -438,10 +445,10 @@
   (sci.impl.utils/set-namespace! (store/get-ctx) ns-sym {}))
 
 (defn sci-the-ns* [ctx x]
-  (if (instance? #?(:clj sci.lang.Namespace
-                    :cljs sci.lang/Namespace) x) x
+  (if (instance? #?(:cljs sci.lang/Namespace
+                    :default sci.lang.Namespace) x) x
       (or (sci-find-ns* ctx x)
-          (throw (new #?(:clj Exception :cljs js/Error)
+          (throw (new #?(:clj Exception :cljs js/Error :cljr InvalidOperationException)
                       (str "No namespace: " x " found"))))))
 
 (defn sci-the-ns [x]
@@ -650,7 +657,8 @@
             (require* sci-ctx namespace)
             (sci-resolve* sci-ctx sym)))
       (throw (new #?(:clj IllegalArgumentException
-                     :cljs js/Error)
+                     :cljs js/Error
+                     :cljr InvalidOperationException)
                   (str "Not a qualified symbol: " sym))))))
 
 (defn sci-find-var [sym]
@@ -660,10 +668,12 @@
       (if-let [namespace (-> (store/get-ctx) :env deref :namespaces (get nsname))]
         (get namespace sym')
         (throw (new #?(:clj IllegalArgumentException
-                       :cljs js/Error)
+                       :cljs js/Error
+                       :cljr InvalidOperationException)
                     (str "No such namespace: " nsname)))))
     (throw (new #?(:clj IllegalArgumentException
-                   :cljs js/Error)
+                   :cljs js/Error
+                   :cljr InvalidOperationException)
                 (str "Not a qualified symbol: " sym)))))
 
 ;;;; End require + resolve
@@ -779,7 +789,7 @@
 
 ;;;;
 
-#?(:clj
+#?(:cljs nil :default
    (def clojure-lang
      {:private true
       :obj (sci.lang/->Namespace 'clojure.lang nil)
@@ -798,7 +808,7 @@
 ;;;; Record impl
 
 (defn -create-type [data]
-  (new sci.lang.Type data nil nil))
+  (new #?(:cljr sci.lang.SciCustomType :default sci.lang.Type) data nil nil))
 
 #_(defn -reg-key! [rec-type k v]
     (when (instance? sci.lang.Type rec-type)
@@ -818,7 +828,7 @@
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
    :private true
    'toString sci.impl.deftype/to-string
-   #?@(:clj ['equals sci.impl.deftype/equals])
+   #?@(:cljs [] :default ['equals sci.impl.deftype/equals])
    '-create-type -create-type
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal
@@ -877,43 +887,47 @@
                                           (.createAsIfByAssoc PersistentArrayMap (to-array s))
                                           (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
 
-#?(:clj (def clojure-version-var
-          (sci.impl.utils/dynamic-var
-           '*clojure-version* (update clojure.core/*clojure-version*
-                                      :qualifier (fn [qualifier]
-                                                   (if qualifier
-                                                     (str qualifier "-SCI")
-                                                     "SCI")))
-           {:ns clojure-core-ns
-            :doc "The version info for Clojure core, as a map containing :major :minor \n  :incremental and :qualifier keys. Feature releases may increment \n  :minor and/or :major, bugfix releases will increment :incremental. \n  Possible values of :qualifier include \"GA\", \"SNAPSHOT\", \"RC-x\" \"BETA-x\""})))
+#?(:cljs nil :default
+   (def clojure-version-var
+     (sci.impl.utils/dynamic-var
+       '*clojure-version* (update clojure.core/*clojure-version*
+                                  :qualifier (fn [qualifier]
+                                               (if qualifier
+                                                 (str qualifier "-SCI")
+                                                 "SCI")))
+       {:ns clojure-core-ns
+        :doc "The version info for Clojure core, as a map containing :major :minor \n  :incremental and :qualifier keys. Feature releases may increment \n  :minor and/or :major, bugfix releases will increment :incremental. \n  Possible values of :qualifier include \"GA\", \"SNAPSHOT\", \"RC-x\" \"BETA-x\""})))
 
-#?(:clj (defn
-          clojure-version
-          "Returns clojure version as a printable string."
-          []
-          (let [*clojure-version* @clojure-version-var]
-            (str (:major *clojure-version*)
-                 "."
-                 (:minor *clojure-version*)
-                 (when-let [i (:incremental *clojure-version*)]
-                   (str "." i))
-                 (when-let [q (:qualifier *clojure-version*)]
-                   (when (pos? (count q)) (str "-" q)))
-                 (when (:interim *clojure-version*)
-                   "-SNAPSHOT")))))
+#?(:cljs nil :default
+   (defn
+     clojure-version
+     "Returns clojure version as a printable string."
+     []
+     (let [*clojure-version* @clojure-version-var]
+       (str (:major *clojure-version*)
+            "."
+            (:minor *clojure-version*)
+            (when-let [i (:incremental *clojure-version*)]
+              (str "." i))
+            (when-let [q (:qualifier *clojure-version*)]
+              (when (pos? (count q)) (str "-" q)))
+            (when (:interim *clojure-version*)
+              "-SNAPSHOT")))))
 
-#?(:clj
+#?(:cljs nil :default
    (defmulti print-method (fn [x _w] (type x))
      :hierarchy
      (reify clojure.lang.IRef
-       (deref [_] (throw (java.lang.SecurityException.
+       (deref [_] (throw (#?(:clj java.lang.SecurityException.
+                             :cljr System.Security.SecurityException.)
                           "Print-method is not allowed by default since it mutates the global runtime. Add it to SCI ctx via {:namespaces {'clojure.core print-method}}"))))))
 
-#?(:clj
+#?(:cljs nil :default
    (defmulti print-dup (fn [x _w] (class x))
      :hierarchy
      (reify clojure.lang.IRef
-       (deref [_] (throw (java.lang.SecurityException.
+       (deref [_] (throw (#?(:clj java.lang.SecurityException.
+                             :cljr System.Security.SecurityException.)
                           "Print-dup is not allowed by default since it mutates the global runtime. Add it to SCI ctx via {:namespaces {'clojure.core print-dup}}"))))))
 
 #?(:cljs
@@ -984,7 +998,7 @@
 
 (defn loaded-libs** [syms]
   (utils/dynamic-var
-   '*loaded-libs* (#?(:clj ref :cljs atom)
+   '*loaded-libs* (#?(:cljs atom :default ref)
                    (into (sorted-set)
                          syms))
    {:doc "A ref to a sorted set of symbols representing loaded libs"
@@ -1042,8 +1056,8 @@
 
 (defn lazy-seq*
   [_ _ & body]
-  #?(:clj  (list 'new 'clojure.lang.LazySeq (list* '^{:once true} fn* [] body))
-     :cljs `(new cljs.core/LazySeq nil (fn [] ~@body) nil nil)))
+  #?(:cljs `(new cljs.core/LazySeq nil (fn [] ~@body) nil nil)
+     :default  (list 'new 'clojure.lang.LazySeq (list* '^{:once true} fn* [] body))))
 
 (defn time
   "Evaluates expr and prints the time it took. Returns the value of expr."
@@ -1051,8 +1065,8 @@
   `(let [start# (clojure.core/system-time)
          ret# ~expr]
      (prn (str "Elapsed time: "
-               #?(:clj (/ (double (- (clojure.core/system-time) start#)) 1000000.0)
-                  :cljs (.toFixed (- (clojure.core/system-time) start#) 6))
+               #?(:cljs (.toFixed (- (clojure.core/system-time) start#) 6)
+                  :default (/ (double (- (clojure.core/system-time) start#)) 1000000.0))
                " msecs"))
      ret#))
 
@@ -1082,26 +1096,31 @@
          `(some? ~x)))))
 
 #?(:clj (defn system-time []
-          (System/nanoTime)))
+          (System/nanoTime))
+   :cljr (defn system-time []
+           (let [ticks (System.Diagnostics.Stopwatch/GetTimestamp)
+                 freq (double (.Frequency System.Diagnostics.Stopwatch))]
+             (long (* 1e9 (/ ticks freq))))))
 
-#?(:clj
+#?(:cljs nil
+   :default
    (do
      (set! *warn-on-reflection* false)
      (defn reflective-aset [arr idx val]
        (clojure.lang.RT/aset arr idx val))
      (set! *warn-on-reflection* true)))
 
-#?(:clj (defn aset*
-          "Sets the value at the index/indices. Works on Java arrays of
-           reference types. Returns val."
-          ([arr idx val]
-           (let [ctype (.getComponentType (class arr))
-                 prim? (.isPrimitive ctype)]
-             (if prim?
-               (reflective-aset arr idx val)
-               (aset ^objects arr idx val))))
-          ([arr idx idx2 & idxv]
-           (apply aset* (aget ^objects arr idx) idx2 idxv))))
+#?(:cljs nil
+   :default (defn aset*
+              "Sets the value at the index/indices. Works on Java arrays of
+              reference types. Returns val."
+              ([arr idx val]
+               (let [ctype (#?(:clj .getComponentType :cljr .GetElementType) (class arr))]
+                 (if (#?(:clj .isPrimitive :cljr .IsPrimitive) ctype)
+                   (reflective-aset arr idx val)
+                   (aset ^objects arr idx val))))
+              ([arr idx idx2 & idxv]
+               (apply aset* (aget ^objects arr idx) idx2 idxv))))
 
 (defn eval* [form]
   (let [ctx (store/get-ctx)]
@@ -1137,14 +1156,14 @@
      'println-str (copy-core-var sci.impl.io/println-str)
      'pr-str (copy-core-var sci.impl.io/pr-str)
      'prn-str (copy-core-var sci.impl.io/prn-str)
-     'print-str (copy-core-var #?(:cljs sci.impl.io/print-str :clj print-str))
-     #?@(:clj ['print-method (copy-core-var print-method)])
-     #?@(:clj ['print-dup (copy-core-var print-dup)])
-     #?@(:clj ['printf (copy-core-var sci.impl.io/printf)])
-     #?@(:clj ['print-simple (copy-core-var sci.impl.io/print-simple)])
+     'print-str (copy-core-var #?(:cljs sci.impl.io/print-str :default print-str))
+     #?@(:cljs [] :default ['print-method (copy-core-var print-method)])
+     #?@(:cljs [] :default ['print-dup (copy-core-var print-dup)])
+     #?@(:cljs [] :default ['printf (copy-core-var sci.impl.io/printf)])
+     #?@(:cljs [] :default ['print-simple (copy-core-var sci.impl.io/print-simple)])
      'with-out-str (macrofy 'with-out-str sci.impl.io/with-out-str)
-     #?@(:clj ['with-in-str (macrofy 'with-in-str sci.impl.io/with-in-str)
-               'read-line (copy-core-var sci.impl.io/read-line)])
+     #?@(:cljs [] :default ['with-in-str (macrofy 'with-in-str sci.impl.io/with-in-str)
+                            'read-line (copy-core-var sci.impl.io/read-line)])
      ;; end io
      ;; read
      '*data-readers* parser/data-readers
@@ -1154,8 +1173,8 @@
      '*suppress-read* parser/suppress-read
      'read (copy-var read clojure-core-ns {:copy-meta-from 'clojure.core/read})
      'read-string (copy-var read-string clojure-core-ns {:copy-meta-from 'clojure.core/read-string})
-     #?@(:clj ['reader-conditional (copy-core-var reader-conditional)])
-     #?@(:clj ['reader-conditional? (copy-core-var reader-conditional?)])
+     #?@(:cljs [] :default ['reader-conditional (copy-core-var reader-conditional)])
+     #?@(:cljs [] :default ['reader-conditional? (copy-core-var reader-conditional?)])
      ;; end read
      ;; REPL variables
      '*1 *1
@@ -1164,10 +1183,10 @@
      '*e *e
      ;; end REPL variables
      ;; clojure dynamic vars
-     #?@(:clj ['*clojure-version* clojure-version-var
-               'clojure-version (copy-core-var clojure-version)
-               '*warn-on-reflection* utils/warn-on-reflection-var
-               '*unchecked-math* utils/unchecked-math-var])
+     #?@(:cljs [] :default ['*clojure-version* clojure-version-var
+                            'clojure-version (copy-core-var clojure-version)
+                            '*warn-on-reflection* utils/warn-on-reflection-var
+                            '*unchecked-math* utils/unchecked-math-var])
      ;; end clojure dynamic vars
      ;; multimethods
      'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
@@ -1193,8 +1212,8 @@
      'reify* (new-var 'reify* reify/reify* clojure-core-ns)
      'reify (macrofy 'reify reify/reify clojure-core-ns)
      'protocol-type-impl (new-var 'protocol-type-impl types/type-impl)
-     #?@(:clj ['proxy* (new-var 'proxy* proxy/proxy*)
-               'proxy (macrofy 'proxy proxy/proxy clojure-core-ns)])
+     #?@(:cljs [] :default ['proxy* (new-var 'proxy* proxy/proxy*)
+                            'proxy (macrofy 'proxy proxy/proxy clojure-core-ns)])
      'satisfies? (copy-var sci.impl.protocols/satisfies? clojure-core-ns {:name 'satisfies?})
      ;; end protocols
      ;; IDeref as protocol
@@ -1204,15 +1223,15 @@
      ;; end IDeref as protocol
      ;; IAtom / ISwap as protocol
      'swap! (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!})
-     'compare-and-set! #?(:clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
-                          :cljs (copy-core-var compare-and-set!))
+     'compare-and-set! #?(:cljs (copy-core-var compare-and-set!)
+                          :default (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!}))
      #?@(:cljs ['IReset core-protocols/reset-protocol
                 'ISwap core-protocols/swap-protocol
                 '-swap! (new-var '-swap! core-protocols/-swap!)
                 '-reset! (new-var '-reset! core-protocols/-reset!)])
      ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
-     #?@(:clj ['swap-vals! (copy-var core-protocols/swap-vals!* clojure-core-ns {:name 'swap-vals!})
-               'reset-vals! (copy-var core-protocols/reset-vals!* clojure-core-ns {:name 'reset-vals!})])
+     #?@(:cljs [] :default ['swap-vals! (copy-var core-protocols/swap-vals!* clojure-core-ns {:name 'swap-vals!})
+                            'reset-vals! (copy-var core-protocols/reset-vals!* clojure-core-ns {:name 'reset-vals!})])
 
      #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                         {:ns clojure-core-ns})])
@@ -1255,20 +1274,21 @@
      'amap (macrofy 'amap amap*)
      'ancestors (copy-var hierarchies/ancestors* clojure-core-ns {:name 'ancestors})
      'and (macrofy 'and and*)
-     #?@(:clj ['aset (copy-var aset* clojure-core-ns {:name 'aset})]
-         :default ['aset (copy-core-var aset)])
-     #?@(:clj ['aset-boolean (copy-core-var aset-boolean)
-               'aset-byte (copy-core-var aset-byte)
-               'aset-char (copy-core-var aset-char)
-               'aset-double (copy-core-var aset-double)
-               'aset-float (copy-core-var aset-float)
-               'aset-int (copy-core-var aset-int)
-               'aset-long (copy-core-var aset-long)
-               'aset-short (copy-core-var aset-short)])
-     'alength #?(:clj (copy-var alength clojure-core-ns {:inlined
-                                                         (fn [arr]
-                                                           (java.lang.reflect.Array/getLength arr))})
-                 :cljs (copy-core-var alength))
+     #?@(:cljs ['aset (copy-core-var aset)]
+         :default ['aset (copy-var aset* clojure-core-ns {:name 'aset})])
+     #?@(:cljs [] :default ['aset-boolean (copy-core-var aset-boolean)
+                            'aset-byte (copy-core-var aset-byte)
+                            'aset-char (copy-core-var aset-char)
+                            'aset-double (copy-core-var aset-double)
+                            'aset-float (copy-core-var aset-float)
+                            'aset-int (copy-core-var aset-int)
+                            'aset-long (copy-core-var aset-long)
+                            'aset-short (copy-core-var aset-short)])
+     'alength #?(:cljs (copy-core-var alength)
+                 :default (copy-var alength clojure-core-ns {:inlined
+                                                             (fn [arr]
+                                                               #?(:clj (java.lang.reflect.Array/getLength arr)
+                                                                  :default (. clojure.lang.RT (alength arr))))}))
      'any? (copy-core-var any?)
      'apply (copy-core-var apply)
      'areduce (macrofy 'areduce areduce*)
@@ -1286,7 +1306,7 @@
      'binding (macrofy 'binding sci-binding)
      'binding-conveyor-fn (copy-core-var sci.impl.vars/binding-conveyor-fn)
      'bit-and-not (copy-core-var bit-and-not)
-     #?@(:clj ['bit-clear (copy-core-var bit-clear)])
+     #?@(:cljs [] :default ['bit-clear (copy-core-var bit-clear)])
      'bit-set (copy-core-var bit-set)
      'bit-shift-left (copy-core-var bit-shift-left)
      'bit-shift-right (copy-core-var bit-shift-right)
@@ -1310,7 +1330,7 @@
      'case (macrofy 'case case**)
      'char (copy-core-var char)
      'char? (copy-core-var char?)
-     #?@(:clj ['class? (copy-core-var class?)])
+     #?@(:cljs [] :default ['class? (copy-core-var class?)])
      #?@(:cljs ['clj->js (copy-core-var clj->js)])
      'cond (macrofy 'cond cond*)
      'cond-> (macrofy 'cond-> cond->*)
@@ -1352,7 +1372,7 @@
                        clojure-core-ns)
      'delay (macrofy 'delay delay*)
      'delay? (copy-core-var delay?)
-     #?@(:clj ['deliver (copy-core-var deliver)])
+     #?@(:cljs [] :default ['deliver (copy-core-var deliver)])
      #?@(:cljs ['demunge (copy-core-var cljs.core/demunge)])
      'derive (copy-var hierarchies/derive* clojure-core-ns {:name 'derive})
      'descendants (copy-var hierarchies/descendants* clojure-core-ns {:name 'descendants})
@@ -1379,7 +1399,7 @@
      '->Eduction (copy-core-var ->Eduction)
      'empty (copy-core-var empty)
      'empty? (copy-core-var empty?)
-     #?@(:clj ['enumeration-seq (copy-core-var enumeration-seq)])
+     #?@(:cljs [] :default ['enumeration-seq (copy-core-var enumeration-seq)])
      'eval (copy-var eval* clojure-core-ns {:copy-meta-from 'clojure.core/eval})
      'even? (copy-core-var even?)
      'every? (copy-core-var every?)
@@ -1414,7 +1434,7 @@
      'force (copy-core-var force)
      'get (copy-core-var get)
      'get-thread-binding-frame-impl (new-var 'get-thread-binding-frame-impl sci.impl.vars/get-thread-binding-frame)
-     #?@(:clj ['get-thread-bindings (copy-var sci.impl.vars/get-thread-bindings clojure-core-ns {:name 'get-thread-bindings})])
+     #?@(:cljs [] :default ['get-thread-bindings (copy-var sci.impl.vars/get-thread-bindings clojure-core-ns {:name 'get-thread-bindings})])
      'get-in (copy-core-var get-in)
      'group-by (copy-core-var group-by)
      'gensym (copy-core-var gensym)
@@ -1441,7 +1461,7 @@
      'intern (copy-var sci-intern clojure-core-ns {:name 'intern})
      'into (copy-core-var into)
      'iterate (copy-core-var iterate)
-     #?@(:clj ['iterator-seq (copy-core-var iterator-seq)])
+     #?@(:cljs [] :default ['iterator-seq (copy-core-var iterator-seq)])
      'int (copy-core-var int)
      'int? (copy-core-var int?)
      'interpose (copy-core-var interpose)
@@ -1543,7 +1563,7 @@
      'partition-all (copy-core-var partition-all)
      'partition-by (copy-core-var partition-by)
      'persistent! (copy-core-var persistent!)
-     #?@(:clj ['promise (copy-core-var promise)])
+     #?@(:cljs [] :default ['promise (copy-core-var promise)])
      'push-thread-bindings (copy-var sci.impl.vars/push-thread-bindings clojure-core-ns {:name 'push-thread-bindings})
      'qualified-ident? (copy-core-var qualified-ident?)
      'qualified-symbol? (copy-core-var qualified-symbol?)
@@ -1554,9 +1574,9 @@
      'refer (copy-var sci-refer clojure-core-ns {:name 'refer})
      'refer-clojure (macrofy 'refer-clojure sci-refer-clojure)
      're-find (copy-core-var re-find)
-     #?@(:clj ['re-groups (copy-core-var re-groups)])
+     #?@(:cljs [] :default ['re-groups (copy-core-var re-groups)])
      're-pattern (copy-core-var re-pattern)
-     #?@(:clj ['re-matcher (copy-core-var re-matcher)])
+     #?@(:cljs [] :default ['re-matcher (copy-core-var re-matcher)])
      're-matches (copy-core-var re-matches)
      'realized? (copy-core-var realized?)
      'rem (copy-core-var rem)
@@ -1591,7 +1611,7 @@
      'set? (copy-core-var set?)
      'sequential? (copy-core-var sequential?)
      'select-keys (copy-core-var select-keys)
-     #?@(:clj ['short-array (copy-core-var short-array)])
+     #?@(:cljs [] :default ['short-array (copy-core-var short-array)])
      'simple-keyword? (copy-core-var simple-keyword?)
      'simple-symbol? (copy-core-var simple-symbol?)
      'some? (copy-core-var some?)
@@ -1614,11 +1634,10 @@
      'thread-bound? (copy-var sci-thread-bound? clojure-core-ns {:name 'thread-bound?})
      'time (copy-var time clojure-core-ns {:macro true})
      'subs (copy-core-var subs)
-     #?@(:clj ['supers (copy-core-var supers)])
+     #?@(:cljs [] :default ['supers (copy-core-var supers)])
      'symbol (copy-var symbol* clojure-core-ns {:name 'symbol})
      'symbol? (copy-core-var symbol?)
-     'system-time (copy-var #?(:clj system-time
-                               :cljs system-time) clojure-core-ns)
+     'system-time (copy-var system-time clojure-core-ns)
      'special-symbol? (copy-core-var special-symbol?)
      'subvec (copy-core-var subvec)
      'some-fn (copy-core-var some-fn)
@@ -1715,36 +1734,36 @@
 
      #?@(:cljs ['-write (copy-var -write clojure-core-ns)])
      'locking (macrofy 'locking locking*)
-     #?@(:clj ['-locking-impl (copy-var -locking-impl clojure-core-ns)])
-     #?@(:clj ['+' (copy-core-var +')
-               '-' (copy-core-var -')
-               '*' (copy-core-var *')
-               'boolean-array (copy-core-var boolean-array)
-               'byte-array (copy-core-var byte-array)
-               'bigint (copy-core-var bigint)
-               'bytes? (copy-core-var bytes?)
-               'biginteger (copy-core-var biginteger)
-               'bigdec (copy-core-var bigdec)
-               'char-array (copy-core-var char-array)
-               'char-escape-string (copy-core-var char-escape-string)
-               'char-name-string (copy-core-var char-name-string)
-               'class (copy-core-var class)
-               'dec' (copy-core-var dec')
-               'decimal? (copy-core-var decimal?)
-               'denominator (copy-core-var denominator)
-               'format (copy-core-var format)
-               'float-array (copy-core-var float-array)
-               'inc' (copy-core-var inc')
-               'line-seq (copy-core-var line-seq)
-               'num (copy-core-var num)
-               'namespace-munge (copy-core-var namespace-munge)
-               'numerator (copy-core-var numerator)
-               'replicate (copy-core-var replicate)
-               'rational? (copy-core-var rational?)
-               'ratio? (copy-core-var ratio?)
-               'rationalize (copy-core-var rationalize)
-               'seque (copy-core-var seque)
-               'xml-seq (copy-core-var xml-seq)])}))
+     #?@(:cljs [] :default ['-locking-impl (copy-var -locking-impl clojure-core-ns)])
+     #?@(:cljs [] :default ['+' (copy-core-var +')
+                            '-' (copy-core-var -')
+                            '*' (copy-core-var *')
+                            'boolean-array (copy-core-var boolean-array)
+                            'byte-array (copy-core-var byte-array)
+                            'bigint (copy-core-var bigint)
+                            'bytes? (copy-core-var bytes?)
+                            'biginteger (copy-core-var biginteger)
+                            'bigdec (copy-core-var bigdec)
+                            'char-array (copy-core-var char-array)
+                            'char-escape-string (copy-core-var char-escape-string)
+                            'char-name-string (copy-core-var char-name-string)
+                            'class (copy-core-var class)
+                            'dec' (copy-core-var dec')
+                            'decimal? (copy-core-var decimal?)
+                            'denominator (copy-core-var denominator)
+                            'format (copy-core-var format)
+                            'float-array (copy-core-var float-array)
+                            'inc' (copy-core-var inc')
+                            'line-seq (copy-core-var line-seq)
+                            'num (copy-core-var num)
+                            'namespace-munge (copy-core-var namespace-munge)
+                            'numerator (copy-core-var numerator)
+                            'replicate (copy-core-var replicate)
+                            'rational? (copy-core-var rational?)
+                            'ratio? (copy-core-var ratio?)
+                            'rationalize (copy-core-var rationalize)
+                            #?@(:cljr [] :default ['seque (copy-core-var seque)])
+                            'xml-seq (copy-core-var xml-seq)])}))
 
  (defn dir-fn
    [ns]
@@ -1805,9 +1824,10 @@
    str-or-pattern."
    [str-or-pattern]
    (let [ctx (store/get-ctx)
-         matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp) str-or-pattern)
+         matches? (if (instance? #?(:clj java.util.regex.Pattern :cljs js/RegExp :cljr System.Text.RegularExpressions.Regex)
+                                 str-or-pattern)
                     #(re-find str-or-pattern (str %))
-                    #(clojure.string/includes? (str %) (str str-or-pattern)))]
+                    #(str/includes? (str %) (str str-or-pattern)))]
      (sort (mapcat (fn [ns]
                      (let [ns-name (str ns)]
                        (map #(symbol ns-name (str %))
@@ -1849,18 +1869,20 @@
    Example: (source-fn 'filter)"
    [x]
    (let [ctx (store/get-ctx)]
-     (when-let [
-                v (sci-resolve* ctx x)]
-       (let [{:keys [#?(:clj :file) :line :ns]} (meta v)]
+     (when-let [v (sci-resolve* ctx x)]
+       (let [{:keys [#?@(:cljs [] :default [file]) line ns]} (meta v)]
          (when (and line ns)
-           (when-let [source (or #?(:clj (when file
-                                           (let [f (jio/file file)]
-                                             (when (.exists f) (slurp f)))))
+           (when-let [source (or #?@(:cljs []
+                                     :clj [(when-some [f (some-> file jio/file)]
+                                             (when (.exists f)
+                                               (slurp f)))]
+                                     :cljr [(when (some-> file System.IO.File/Exists)
+                                              (slurp file))])
                                  (when-let [load-fn (:load-fn @(:env ctx))]
                                    (:source (load-fn {:namespace (types/getName ns)}))))]
-             (let [lines (clojure.string/split source #"\n")
+             (let [lines (str/split source #"\n")
                    line (dec line)
-                   start (clojure.string/join "\n" (drop line lines))
+                   start (str/join "\n" (drop line lines))
                    reader (read/source-logging-reader start)
                    res (parser/parse-next ctx reader {:source true})]
                (:source (meta res)))))))))
@@ -1874,21 +1896,25 @@
    [_ _ n]
    `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
 
- #?(:clj
+ #?(:cljs nil :default
     (defn root-cause
       "Returns the initial cause of an exception or error by peeling off all of
    its wrappers"
       {:added "1.3"}
-      [^Throwable t]
+      [t]
       (loop [cause t]
-        (if (and (instance? clojure.lang.Compiler$CompilerException cause)
-                 (not= (.source ^clojure.lang.Compiler$CompilerException cause) "NO_SOURCE_FILE"))
+        (if (and (instance? #?(:clj clojure.lang.Compiler$CompilerException
+                               :cljr clojure.lang.Compiler+CompilerException) cause)
+                 (not= (.source #?(:clj ^clojure.lang.Compiler$CompilerException cause
+                                   :cljr ^clojure.lang.Compiler+CompilerException cause))
+                       "NO_SOURCE_FILE"))
           cause
-          (if-let [cause (.getCause cause)]
+          (if-let [cause #?(:clj (.getCause ^Throwable cause)
+                            :cljr (.InnerException ^Exception cause))]
             (recur cause)
             cause)))))
 
- #?(:clj
+ #?(:cljs nil :default
     (defn demunge
       "Given a string representation of a fn class,
    as in a stack trace element, returns a readable version."
@@ -1896,40 +1922,50 @@
       [fn-name]
       (clojure.lang.Compiler/demunge fn-name)))
 
- #?(:clj
+ #?(:cljs nil :default
     (defn stack-element-str
       "Returns a (possibly unmunged) string representation of a StackTraceElement"
       {:added "1.3"}
-      [^StackTraceElement el]
-      (let [file (.getFileName el)
-            clojure-fn? (and file (or (.endsWith file ".clj")
-                                      (.endsWith file ".cljc")
-                                      (= "NO_SOURCE_FILE" file)))]
+      [#?(:clj ^StackTraceElement el :cljr ^System.Diagnostics.StackFrame el :default el)]
+      (let [file (#?(:clj .getFileName :cljr .GetFileName) el)
+            clojure-fn? (and file (or (str/ends-with? file ".clj")
+                                      (str/ends-with? file ".cljc")
+                                      (= "NO_SOURCE_FILE" file)))
+            cname #?(:clj (.getClassName el)
+                     :cljr (-> el .GetMethod .DeclaringType .FullName))
+            fname #?(:clj (.getFileName el)
+                     :cljr (.GetFileName el))
+            line #?(:clj (.getLineNumber el)
+                    :cljr (.GetFileLineNumber el))]
         (str (if clojure-fn?
-               (demunge (.getClassName el))
-               (str (.getClassName el) "." (.getMethodName el)))
-             " (" (.getFileName el) ":" (.getLineNumber el) ")"))))
+               (demunge cname)
+               (str cname "." #?(:clj (.getMethodName el)
+                                 :cljr (-> el .GetMethod .Name))))
+             " (" fname ":" line ")"))))
 
- #?(:clj
+ #?(:cljs nil :default
     (defn pst
       "Prints a stack trace of the exception, to the depth requested. If none supplied, uses the root cause of the
    most recent repl exception (*e), and a depth of 12."
       {:added "1.3"}
       ([] (pst 12))
       ([e-or-depth]
-       (if (instance? Throwable e-or-depth)
+       (if (instance? #?(:clj Throwable :cljr Exception) e-or-depth)
          (pst e-or-depth 12)
          (pst (root-cause @*e) e-or-depth)))
-      ([^Throwable e depth]
+      ([#?(:clj ^Throwable e :cljr ^Exception e :default e) depth]
        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
-         (sci.impl.io/println (str (-> e class .getSimpleName) " "
-                                   (.getMessage e)
+         (sci.impl.io/println (str (-> e class #?(:clj .getSimpleName :cljr .Name)) " "
+                                   (#?(:clj .getMessage :cljr .Message) e)
                                    (when-let [info (ex-data e)] (str " " (pr-str info)))))
-         (let [st (.getStackTrace e)
-               cause (.getCause e)]
+         (let [st #?(:clj (.getStackTrace e)
+                     :cljr (-> e System.Diagnostics.StackTrace. .GetFrames))
+               cause (#?(:clj .getCause :cljr .InnerException) e)]
            (doseq [el (take depth
                             (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
-                                      (.getClassName ^StackTraceElement %))
+                                      #?(:clj (.getClassName ^StackTraceElement %)
+                                         :cljr (-> ^System.Diagnostics.StackFrame %
+                                                   .GetMethod .DeclaringType .FullName)))
                                     st))]
              (sci.impl.io/println (str \tab (stack-element-str el))))
            (when cause
@@ -1950,9 +1986,10 @@
     'apropos (new-var 'apropos apropos clojure-repl-namespace)
     'source (macrofy 'source source clojure-repl-namespace)
     'source-fn (new-var 'source-fn source-fn clojure-repl-namespace)
-    #?@(:clj ['pst (new-var 'pst pst clojure-repl-namespace)
-              'stack-element-str (new-var 'stack-element-str stack-element-str clojure-repl-namespace)
-              'demunge (new-var 'demunge demunge clojure-repl-namespace)])})
+    #?@(:cljs []
+        :default ['pst (new-var 'pst pst clojure-repl-namespace)
+                  'stack-element-str (new-var 'stack-element-str stack-element-str clojure-repl-namespace)
+                  'demunge (new-var 'demunge demunge clojure-repl-namespace)])})
 
  (defn apply-template
    [argv expr values]
@@ -1999,8 +2036,9 @@
     'walk (copy-var clojure.walk/walk clojure-walk-namespace)
     'postwalk (copy-var clojure.walk/postwalk clojure-walk-namespace)
     'prewalk (copy-var clojure.walk/prewalk clojure-walk-namespace)
-    #?@(:clj ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
-              'prewalk-demo (copy-var clojure.walk/prewalk-demo clojure-walk-namespace)])
+    #?@(:cljs []
+        :default ['postwalk-demo (copy-var clojure.walk/postwalk-demo clojure-walk-namespace)
+                  'prewalk-demo (copy-var clojure.walk/prewalk-demo clojure-walk-namespace)])
     'keywordize-keys (copy-var clojure.walk/keywordize-keys clojure-walk-namespace)
     'stringify-keys (copy-var clojure.walk/stringify-keys clojure-walk-namespace)
     'prewalk-replace (copy-var clojure.walk/prewalk-replace clojure-walk-namespace)
@@ -2012,6 +2050,7 @@
  )
 
 (macros/usetime
+ ;; TODO :cljr
  ;; #_#?(:clj (alter-var-root #'clojure-core assoc
  ;;                       'locking (macrofy 'locking locking*)
  ;;                       '-locking-impl (copy-var -locking-impl clojure-core-ns))
@@ -2019,7 +2058,7 @@
  ;;                                  'locking (macrofy 'locking locking*))))
 
  (def namespaces
-   {#?@(:clj ['clojure.lang clojure-lang])
+   {#?@(:cljs [] :default ['clojure.lang clojure-lang])
     'clojure.core clojure-core
     'clojure.string {:obj clojure-string-namespace
                      'blank? (copy-var clojure.string/blank? clojure-string-namespace)
@@ -2042,7 +2081,7 @@
                      'triml (copy-var clojure.string/triml clojure-string-namespace)
                      'trimr (copy-var clojure.string/trimr clojure-string-namespace)
                      'upper-case (copy-var clojure.string/upper-case clojure-string-namespace)
-                     #?@(:clj ['re-quote-replacement (copy-var clojure.string/re-quote-replacement clojure-string-namespace)])}
+                     #?@(:cljs [] :default ['re-quote-replacement (copy-var clojure.string/re-quote-replacement clojure-string-namespace)])}
     'clojure.set {:obj clojure-set-namespace
                   'difference (copy-var clojure.set/difference clojure-set-namespace)
                   'index (copy-var clojure.set/index clojure-set-namespace)
@@ -2060,11 +2099,11 @@
     'clojure.template clojure-template
     'clojure.repl clojure-repl
     'clojure.edn {:obj clojure-edn-namespace
-                  'read (copy-var #?(:clj  clojure.edn/read
-                                     :cljs cljs.reader/read) clojure-edn-namespace)
+                  'read (copy-var #?(:cljs cljs.reader/read
+                                     :default clojure.edn/read) clojure-edn-namespace)
                   'read-string (copy-var
-                                #?(:clj  clojure.edn/read-string
-                                   :cljs cljs.reader/read-string) clojure-edn-namespace)}
+                                #?(:cljs cljs.reader/read-string
+                                   :default clojure.edn/read-string) clojure-edn-namespace)}
     'sci.impl.records sci-impl-records
     'sci.impl.deftype sci-impl-deftype
     'sci.impl.protocols sci-impl-protocols}))
