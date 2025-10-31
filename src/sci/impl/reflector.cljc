@@ -304,5 +304,9 @@
               (when (nil? accessible-m)
                 (throw (IllegalArgumentException.
                         (str "Can't call public method of non-public class: " m))))
-              (let [ret (.invoke accessible-m target (box-args (.getParameterTypes accessible-m) args))]
-                (Reflector/prepRet (.getReturnType accessible-m) ret)))))))))
+              (try
+                (let [ret (.invoke accessible-m target (box-args (.getParameterTypes accessible-m) args))]
+                  (Reflector/prepRet (.getReturnType accessible-m) ret))
+                (catch Exception e
+                  (throw (clojure.lang.Util/sneakyThrow
+                          (or (.getCause e) e))))))))))))
