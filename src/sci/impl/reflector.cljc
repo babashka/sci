@@ -96,14 +96,14 @@
       Handles IFn -> Functional Interface adaptation."
      [^Class param-type ^Object arg]
      (if (and (instance? IFn arg)
-              (when-let [fi-method (maybe-fi-method param-type)]
+              (when-let [_fi-method (maybe-fi-method param-type)]
                 (not (.isInstance param-type arg))))
        ;; Adapt IFn obj to targetType using dynamic proxy
        (Proxy/newProxyInstance
         (RT/baseLoader)
         (into-array Class [param-type])
         (reify java.lang.reflect.InvocationHandler
-          (invoke [_ proxy method method-args]
+          (invoke [_ _proxy method method-args]
             (let [ret (.applyTo ^IFn arg (RT/seq method-args))]
               (coerce-adapter-return ret (.getReturnType ^Method method))))))
        ;; Standard boxing
