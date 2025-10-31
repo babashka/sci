@@ -157,7 +157,7 @@
        (nil? arg-type)
        (not (.isPrimitive param-type))
 
-       (or (= param-type arg-type) (.isAssignableFrom param-type arg-type))
+       (or (identical? param-type arg-type) (.isAssignableFrom param-type arg-type))
        true
 
        (and (maybe-fi-method param-type) (.isAssignableFrom IFn arg-type))
@@ -205,7 +205,7 @@
      [^objects params ^objects args ^objects arg-types]
      (if (nil? args)
        (zero? (alength params))
-       (and (= (alength params) (alength args))
+       (and (== (alength params) (alength args))
             (loop [i 0]
               (if (< i (alength params))
                 (let [arg (aget args i)
@@ -262,7 +262,6 @@
    (defn invoke-matching-method
      "Invoke a method matching the given name from a list of methods.
       This is the core SCI-specific method that supports type hints via arg-types.
-      
       Parameters:
       - method-name: String name of the method
       - methods: java.util.List of Method objects
@@ -283,7 +282,7 @@
                   (str "No matching method " method-name " found taking "
                        (alength ^objects args) " args"
                        (when context-class (str " for " context-class)))))
-          (let [^Method m (if (= 1 (count methods))
+          (let [^Method m (if (== 1 (count methods))
                             (first methods)
                             (or (match-method methods args arg-types)
                                 ;; widen boxed args and re-try
