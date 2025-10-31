@@ -44,3 +44,6 @@ src/scratch.clj
 src/scratch.cljs
 .lein-failures
 scratch.clj
+linux-install.sh
+install.sh
+install

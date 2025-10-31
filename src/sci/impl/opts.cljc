@@ -216,7 +216,7 @@
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]
-                       :cljr [:main-thread-id (.getId (System.Threading.Thread/CurrentThread))]))]
+                       :cljr [:main-thread-id (.ManagedThreadId (System.Threading.Thread/CurrentThread))]))]
     ctx))
 
 (defn merge-opts [ctx opts]

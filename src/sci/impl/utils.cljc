@@ -105,8 +105,8 @@
    (if (let [in-try #?(:cljs *in-try*
                        :default (or *in-try*
                                     (not= (:main-thread-id ctx)
-                                          (.getId #?(:clj (Thread/currentThread)
-                                                     :cljr (Thread/CurrentThread))))))]
+                                          #?(:clj (.getId (Thread/currentThread))
+                                             :cljr (.ManagedThreadId (System.Threading.Thread/CurrentThread))))))]
          (if (kw-identical? in-try :sci/error)
            ;; preserve location information
            false
