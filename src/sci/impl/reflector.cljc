@@ -241,7 +241,7 @@
      (let [widened (object-array (alength args))]
        (dotimes [i (alength args)]
          (let [arg (aget args i)]
-           (if (some? arg)
+           (when (some? arg)
              (let [val-class (.getClass ^Object arg)]
                (aset widened i
                      (cond
@@ -252,8 +252,7 @@
                        (.doubleValue ^Number arg)
 
                        :else
-                       arg)))
-             (aset widened i nil))))
+                       arg))))))
        widened)))
 
 #?(:clj
