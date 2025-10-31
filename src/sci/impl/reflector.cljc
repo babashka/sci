@@ -306,14 +306,9 @@
                                                                 (catch NoSuchMethodException _ nil))]
                                                   (not (.invoke ^Method can-access-method m (object-array [target]))))
                                                 (catch Exception _ false))))
-                                   ;; Use the static method from clojure.lang.Reflector
-                                   (let [reflector-class clojure.lang.Reflector
-                                         method (.getMethod reflector-class "getAsMethodOfAccessibleBase"
-                                                           (into-array Class [Class Method Object]))]
-                                     (.invoke method nil
-                                              (object-array [(or context-class (.getDeclaringClass m))
-                                                            m
-                                                            target])))
+                                   (clojure.lang.Reflector/getAsMethodOfAccessibleBase (or context-class (.getDeclaringClass m))
+                                                                                       m
+                                                                                       target)
                                    m)]
                 (when (nil? accessible-m)
                   (throw (IllegalArgumentException.
