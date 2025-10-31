@@ -275,11 +275,11 @@
                               target args nil))
      ([method-name methods context-class target args]
       (invoke-matching-method method-name methods context-class target args nil))
-     ([method-name ^java.util.List methods context-class target args arg-types]
+     ([method-name ^java.util.List methods context-class target ^objects args arg-types]
       (if (.isEmpty methods)
         (throw (IllegalArgumentException.
                 (str "No matching method " method-name " found taking "
-                     (alength ^objects args) " args"
+                     (alength args) " args"
                      (when context-class (str " for " context-class)))))
         (let [^Method m (if (== 1 (.size methods))
                           (.get methods 0)
@@ -289,7 +289,7 @@
           (if (nil? m)
             (throw (IllegalArgumentException.
                     (str "No matching method " method-name " found taking "
-                         (alength ^objects args) " args"
+                         (alength args) " args"
                          (when context-class (str " for " context-class)))))
             ;; Use Reflector's helper to find accessible version of method
             (let [^Method
@@ -304,9 +304,5 @@
               (when (nil? accessible-m)
                 (throw (IllegalArgumentException.
                         (str "Can't call public method of non-public class: " m))))
-              (try
-                (let [ret (.invoke accessible-m target (box-args (.getParameterTypes accessible-m) args))]
-                  (Reflector/prepRet (.getReturnType accessible-m) ret))
-                (catch Exception e
-                  (throw (clojure.lang.Util/sneakyThrow
-                          (or (.getCause e) e))))))))))))
+              (let [ret (.invoke accessible-m target (box-args (.getParameterTypes accessible-m) args))]
+                (Reflector/prepRet (.getReturnType accessible-m) ret)))))))))
