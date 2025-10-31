@@ -295,7 +295,7 @@
                     accessible-m (if (or (not (Modifier/isPublic
                                                 (.getModifiers (.getDeclaringClass m))))
                                          (and target
-                                              (.canAccess m target)))
+                                              (not (.canAccess m target))))
                                    (clojure.lang.Reflector/getAsMethodOfAccessibleBase (or context-class (.getDeclaringClass m))
                                                                                        m
                                                                                        target)
