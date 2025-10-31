@@ -9,10 +9,8 @@
   - FISupport - extracted from Compiler to support functional interface adaptation"
   {:no-doc true}
   #?(:clj
-     (:import [java.lang.reflect Method Modifier]
-              [clojure.lang Reflector Compiler IFn RT]
-              [java.lang.invoke MethodHandles MethodType]
-              [java.lang.reflect Proxy])))
+     (:import [java.lang.reflect Method Modifier Proxy]
+              [clojure.lang Reflector Compiler IFn RT])))
 
 #?(:clj (set! *warn-on-reflection* :warn-on-boxed))
 
@@ -296,15 +294,8 @@
               (let [^Method
                     accessible-m (if (or (not (Modifier/isPublic
                                                 (.getModifiers (.getDeclaringClass m))))
-                                         ;; Check canAccess on Java 9+
                                          (and target
-                                              (try
-                                                (when-let [can-access-method
-                                                           (try (.getMethod Method "canAccess"
-                                                                           (into-array Class [Object]))
-                                                                (catch NoSuchMethodException _ nil))]
-                                                  (not (.invoke ^Method can-access-method m (object-array [target]))))
-                                                (catch Exception _ false))))
+                                              (.canAccess m target)))
                                    (clojure.lang.Reflector/getAsMethodOfAccessibleBase (or context-class (.getDeclaringClass m))
                                                                                        m
                                                                                        target)
