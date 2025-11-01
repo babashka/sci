@@ -20,9 +20,8 @@
     [ana-macros constant? macro? rethrow-with-location-of-node
      set-namespace! recur special-syms]]
    [sci.impl.vars :as vars]
-   [sci.lang])
-  #?(:clj (:import
-           [sci.impl Reflector]))
+   [sci.lang]
+   #?(:clj [sci.impl.reflector :as reflector]))
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-recur
@@ -995,9 +994,8 @@
                           ;; of the same name, in which case it resolves to a
                           ;; call to the method.
                           (if-let [_
-                                   #?(:clj (try (Reflector/getStaticField ^Class instance-expr ^String method-name)
-                                                (catch IllegalArgumentException _ nil))
-                                      :cljr (throw (ex-info (str "TODO CLR " `analyze-dot) {})))]
+                                   (try (reflector/get-static-field instance-expr method-name)
+                                        (catch IllegalArgumentException _ nil))]
                             (sci.impl.types/->Node
                              (interop/get-static-field instance-expr method-name)
                              stack)
@@ -1465,12 +1463,12 @@
                  f (fn [obj & args]
                      (let [args (object-array args)
                            arg-count (alength args)
-                           ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(Reflector/getMethods clazz arg-count meth false) :instance-methods)]
-                       (Reflector/invokeMatchingMethod meth methods clazz obj args arg-types)))]
+                           ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
+                       (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
              (sci.impl.types/->Node
               f
               stack))
-             (try (Reflector/getStaticField ^Class clazz ^String meth)
+             (try (reflector/get-static-field ^Class clazz ^String meth)
                   (catch IllegalArgumentException _
                     nil))
              (sci.impl.types/->Node
@@ -1478,7 +1476,7 @@
                stack)
              :else (sci.impl.types/->Node
                      (fn [& args]
-                       (Reflector/invokeStaticMethod
+                       (reflector/invoke-static-method
                         clazz meth
                         ^objects (into-array Object args)))
                      stack))))
