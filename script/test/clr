@@ -28,14 +28,12 @@ TEST_NAMESPACES=(
   # --namespace sci.core-test                            # requires interop/defn
   # --namespace sci.error-test                           # requires interop
   --namespace sci.hello-world-test                       # passes ✓
-  # --namespace sci.hierarchies-test                     # requires interop
+  --namespace sci.hierarchies-test                     # requires interop
   # --namespace sci.impl.analyzer-test                   # requires interop
   # --namespace sci.impl.binding-array-refactor-test     # requires interop
   # --namespace sci.impl.vars-test                       # requires interop
   # --namespace sci.interop-test                         # requires interop
   # --namespace sci.io-test                              # requires interop
-  # --namespace sci.js-libs-test                         # requires JS/browser
-  # --namespace sci.js-test                              # requires JS/browser
   # --namespace sci.multimethods-test                    # requires interop
   # --namespace sci.namespaces-test                      # requires interop
   # --namespace sci.parse-test                           # has errors
