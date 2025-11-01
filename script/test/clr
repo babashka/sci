@@ -1,0 +1,51 @@
+#!/bin/bash
+# Run tests for sci under ClojureCLR
+#
+# This script uses the cljr CLI tool with deps-clr.edn to run the test suite.
+# Only test namespaces that currently pass on ClojureCLR are enabled.
+#
+# Prerequisites:
+# - cljr (ClojureCLR CLI tool) must be installed as a dotnet tool
+# - .NET 8.0 or later must be installed
+
+set -e
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/../.." && pwd )"
+
+echo "Running sci tests under ClojureCLR..."
+
+cd "$PROJECT_ROOT"
+
+# Define test namespaces to run
+# Only namespaces that currently pass on ClojureCLR are uncommented
+# Namespaces are sorted alphabetically for easier maintenance
+TEST_NAMESPACES=(
+  # --namespace sci.array-test                           # requires interop
+  # --namespace sci.async-test                           # requires JS/browser
+  # --namespace sci.core-protocols-test                  # requires interop
+  # --namespace sci.core-test                            # requires interop/defn
+  # --namespace sci.error-test                           # requires interop
+  --namespace sci.hello-world-test                       # passes ✓
+  --namespace sci.hierarchies-test                     # requires interop
+  # --namespace sci.impl.analyzer-test                   # requires interop
+  # --namespace sci.impl.binding-array-refactor-test     # requires interop
+  # --namespace sci.impl.vars-test                       # requires interop
+  # --namespace sci.interop-test                         # requires interop
+  # --namespace sci.io-test                              # requires interop
+  # --namespace sci.multimethods-test                    # requires interop
+  # --namespace sci.namespaces-test                      # requires interop
+  # --namespace sci.parse-test                           # has errors
+  # --namespace sci.pprint-test                          # requires interop
+  # --namespace sci.protocols-test                       # requires interop
+  # --namespace sci.proxy-test                           # requires interop
+  # --namespace sci.read-test                            # requires interop
+  # --namespace sci.records-test                         # requires interop
+  # --namespace sci.reify-test                           # requires interop
+  # --namespace sci.repl-test                            # requires interop
+  # --namespace sci.vars-test                            # requires interop
+)
+
+# Run tests with the specified namespaces
+cljr -M:test "${TEST_NAMESPACES[@]}" "$@"

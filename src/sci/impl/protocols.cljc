@@ -5,7 +5,7 @@
                             extends? implements? type->str])
   (:require
    [sci.ctx-store :as store]
-   #?(:clj [sci.impl.interop :as interop])
+   #?@(:cljs [] :default [[sci.impl.interop :as interop]])
    [sci.impl.deftype]
    [sci.impl.multimethods :as mms]
    [sci.impl.types :as types]
@@ -15,12 +15,12 @@
 #?(:cljs
    (def extend-default-val (str `default)))
 
-(defn default? [#?(:clj ctx
-                   :cljs _ctx) sym]
-  #?(:clj (and (or (= 'Object sym)
-                   (= 'java.lang.Object type))
-               (= Object (interop/resolve-class ctx 'Object)))
-     :cljs (= extend-default-val sym)))
+(defn default? [#?(:cljs _ctx
+                   :default ctx) sym]
+  #?(:cljs (= extend-default-val sym)
+     :default (and (or (= 'Object sym)
+                       (= `Object type))
+                   (= Object (interop/resolve-class ctx 'Object)))))
 
 (defn ->sigs [signatures]
   (into {}
@@ -75,12 +75,13 @@
                                                  method# (get meta# '~fq-name)]
                                              (if method#
                                                (apply method# x# args#)
-                                               (let [method# (get-method ~method-name (#?(:clj class :cljs type) x#))
+                                               (let [method# (get-method ~method-name (#?(:cljs type :default class) x#))
                                                      default# (get-method ~method-name :default)]
                                                  (if (not= method# default#)
                                                    (apply method# x# args#)
                                                    (throw (new #?(:clj IllegalArgumentException
-                                                                  :cljs js/Error)
+                                                                  :cljs js/Error
+                                                                  :cljr InvalidOperationException)
                                                                (str "No implementation of method: "
                                                                     ~(keyword method-name) " of protocol: "
                                                                     (var ~protocol-name) " found for: "
@@ -88,22 +89,24 @@
                                   (conj impls
                                         ;; fallback method for extension on IRecord
                                         `(defmethod ~method-name :default [x# & args#]
-                                           (let [method# (get-method ~method-name (#?(:clj class :cljs type) x#))
+                                           (let [method# (get-method ~method-name (#?(:cljs type :default class) x#))
                                                  default# (get-method ~method-name :default)]
                                              (if (not= method# default#)
                                                (apply method# x# args#)
                                                (throw (new #?(:clj IllegalArgumentException
-                                                              :cljs js/Error)
+                                                              :cljs js/Error
+                                                              :cljr InvalidOperationException)
                                                            (str "No implementation of method: "
                                                                 ~(keyword method-name) " of protocol: "
                                                                 ~(list 'var fq-protocol-name) " found for: "
                                                                 (clojure.core/protocol-type-impl x#)))))))))]
                       `(do
                          ~@impls
-                         #?(:clj (alter-var-root (var ~protocol-name)
-                                                 update :methods conj ~method-name)
-                            :cljs (def ~protocol-name
-                                    (update ~protocol-name :methods conj ~method-name))))))
+                         #?(:cljs (def ~protocol-name
+                                    (update ~protocol-name :methods conj ~method-name))
+                            :default (alter-var-root (var ~protocol-name)
+                                                     update :methods conj ~method-name)
+                            ))))
                   signatures
                   )
            ~(list 'quote protocol-name))]
@@ -143,12 +146,12 @@
                     (if-let [meth# (get m# '~fq)]
                       (apply meth# ~args)
                       ;; look for type specific method
-                      (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                      (let [meth# (get-method ~fq (#?(:cljs type :default class) farg#))
                             default# (get-method ~fq :default)]
                         (if (not= default# meth#)
                           (apply meth# ~args)
                           (do ~@body))))
-                    (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                    (let [meth# (get-method ~fq (#?(:cljs type :default class) farg#))
                           default# (get-method ~fq :default)]
                       (if (not= default# meth#)
                         (apply meth# ~args)
@@ -163,7 +166,7 @@
 (defn process-single
   [fq [args & body]]
   (list args `(let [farg# ~(first args)]
-                (let [meth# (get-method ~fq (#?(:clj class :cljs type) farg#))
+                (let [meth# (get-method ~fq (#?(:cljs type :default class) farg#))
                       default# (get-method ~fq :default)]
                   (if (not= default# meth#)
                     (apply meth# ~args)
@@ -228,14 +231,14 @@
         expansion
         `(do
            ~@(map (fn [[type & meths]]
-                    (let [type #?(:clj type
-                                  :cljs (get cljs-type-symbols type type))]
+                    (let [type #?(:cljs (get cljs-type-symbols type type)
+                                  :default type)]
                       (if #?(:cljs print-writer?
-                             :clj false)
+                             :default false)
                         #?(:cljs
                            `(clojure.core/alter-meta!
                              (var ~type) assoc :sci.impl/print-method (fn ~@(rest (first meths))))
-                           :clj nil)
+                           :default nil)
                         `(do
                            (clojure.core/alter-var-root
                             (var ~protocol-name) update :satisfies (fnil conj #{})
@@ -268,7 +271,8 @@
   (or (when-let [sats (:satisfies protocol)]
         (or
          #?(:clj (contains? sats "class java.lang.Object")
-            :cljs (contains? sats extend-default-val))
+            :cljs (contains? sats extend-default-val)
+            :cljr (throw (ex-info "TODO CLR: " `find-matching-non-default-method)))
          (when (nil? obj)
            (contains? sats "nil"))
          (when-let [t (types/type-impl obj)]
@@ -280,11 +284,11 @@
                      (:methods protocol)))))
 
 (defn satisfies? [protocol obj]
-  (if #?(:clj (instance? sci.impl.types.IReified obj)
-         ;; in CLJS we currently don't support mixing "classes" and protocols,
+  (if #?(;; in CLJS we currently don't support mixing "classes" and protocols,
          ;; hence, the instance is always a Reified, thus we can avoid calling
          ;; the slower satisfies?
-         :cljs (instance? sci.impl.types/Reified obj))
+         :cljs (instance? sci.impl.types/Reified obj)
+         :default (instance? sci.impl.types.IReified obj))
     (contains? (types/getProtocols obj) protocol)
     ;; can be record that is implementing this protocol
     ;; or a type like String, etc. that implements a protocol via extend-type, etc.
@@ -299,30 +303,30 @@
                 (find-matching-non-default-method protocol obj)))
        ;; NOTE: what if the protocol doesn't have any methods?
        ;; This probably needs fixing
-       :clj (or
-             (when-let [p (:protocol protocol)]
-               (clojure.core/satisfies? p obj))
-             (find-matching-non-default-method protocol obj)))))
+       :default (or
+                  (when-let [p (:protocol protocol)]
+                    (clojure.core/satisfies? p obj))
+                  (find-matching-non-default-method protocol obj)))))
 
 (defn instance-impl [clazz x]
   (cond
     ;; fast path for Clojure when using normal clazz
-    #?@(:clj [(class? clazz)
-              (instance? clazz x)])
-    (instance? sci.lang.Type clazz)
-    (if (#?(:clj instance?
-            :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
+    #?@(:cljs [] :default [(class? clazz)
+                           (instance? clazz x)])
+    (instance? #?(:cljr sci.lang.SciCustomType :default sci.lang.Type) clazz)
+    (if (#?(:cljs cljs.core/implements?
+            :default instance?) sci.impl.types.SciTypeInstance x)
       (= clazz (sci.impl.types/-get-type x))
       (= clazz (-> x meta :type)))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     (map? clazz)
-    #?(:clj (if-let [c (:class clazz)]
-              ;; this is a protocol which is an interface on the JVM
-              (or (satisfies? clazz x)
-                  ;; this is the fallback because we excluded defaults for the core protocols
-                  (instance? c x))
-              (satisfies? clazz x))
-       :cljs (satisfies? clazz x))
+    #?(:cljs (satisfies? clazz x)
+       :default (if-let [c (:class clazz)]
+                  ;; this is a protocol which is an interface on the JVM
+                  (or (satisfies? clazz x)
+                      ;; this is the fallback because we excluded defaults for the core protocols
+                      (instance? c x))
+                  (satisfies? clazz x)))
     ;; could we have a fast path for CLJS too? please let me know!
     :else (instance? clazz x)))
 

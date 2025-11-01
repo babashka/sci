@@ -12,7 +12,7 @@
    [sci.impl.vars :as vars]
    [sci.impl.parser :as parser]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (defn eval-form* [ctx form]
   (let [eval-file (:clojure.core/eval-file (meta form))]
@@ -39,11 +39,12 @@
                 analyzed (ana/analyze ctx form true)
                 binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
                 bindings (object-array binding-array-size)]
-            (if (instance? #?(:clj sci.impl.types.EvalForm
-                              :cljs sci.impl.types/EvalForm) analyzed)
+            (if (instance? #?(:cljs sci.impl.types/EvalForm
+                              :default sci.impl.types.EvalForm)
+                           analyzed)
               (eval-form* ctx (types/getVal analyzed))
               (try (types/eval analyzed ctx bindings)
-                   (catch #?(:clj Throwable :cljs js/Error) e
+                   (catch #?(:clj Throwable :cljs js/Error :cljr Exception) e
                      (utils/rethrow-with-location-of-node ctx bindings e analyzed))))))
         (let [upper-sym (gensym)
               cb (volatile! {upper-sym {0 {:syms {}}}})
@@ -54,7 +55,7 @@
               binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
               bindings (object-array binding-array-size)]
           (try (types/eval analyzed ctx bindings)
-               (catch #?(:clj Throwable :cljs js/Error) e
+               (catch #?(:clj Throwable :cljs js/Error :cljr Exception) e
                  (utils/rethrow-with-location-of-node ctx bindings e analyzed)))))
       (finally
         (when eval-file
@@ -75,8 +76,9 @@
    (vars/with-bindings
      {utils/current-ns (or (when opts (:ns opts)) @utils/current-ns)
       parser/data-readers @parser/data-readers
-      #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
-                utils/unchecked-math-var @utils/unchecked-math-var])}
+      #?@(:cljs []
+          :default [utils/warn-on-reflection-var @utils/warn-on-reflection-var
+                    utils/unchecked-math-var @utils/unchecked-math-var])}
      (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
            eval-string+? (when opts (:sci.impl/eval-string+ opts))]
        (loop [ret nil]

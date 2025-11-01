@@ -16,9 +16,10 @@
             [sci.impl.unrestrict :refer [*unrestricted*]])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
                                                    with-writeable-namespace
-                                                   with-writeable-var]])))
+                                                   with-writeable-var]]))
+  #?(:cljr (:import [System.Threading Thread])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (macros/deftime
   (defmacro with-writeable-namespace
@@ -39,27 +40,32 @@
    (def ^ThreadLocal dvals (proxy [ThreadLocal] []
                              (initialValue [] top-frame)))
    :cljs
-   (def dvals (volatile! top-frame)))
+   (def dvals (volatile! top-frame))
+   :cljr
+   ;; Atom<Map<Thread,Frame>>
+   ;; push/pop discipline keeps contained threads alive while in atom
+   (def dvals (atom {})))
 
 (defn get-thread-binding-frame ^Frame []
   #?(:clj (.get dvals)
-     :cljs @dvals))
+     :cljs @dvals
+     :cljr (@dvals (Thread/CurrentThread) top-frame)))
 
-(deftype TBox #?(:clj [thread ^:volatile-mutable val]
-                 :cljs [thread ^:mutable val])
+(deftype TBox #?(:cljs [thread ^:mutable val]
+                 :default [thread ^:volatile-mutable val])
   t/IBox
   (setVal [_this v]
     (set! val v))
   (getVal [_this] val))
 
 (defn clone-thread-binding-frame ^Frame []
-  (let [^Frame f #?(:clj (.get dvals)
-                    :cljs @dvals)]
+  (let [^Frame f (get-thread-binding-frame)]
     (Frame. (.-bindings f) nil)))
 
 (defn reset-thread-binding-frame [frame]
   #?(:clj (.set dvals frame)
-     :cljs (vreset! dvals frame)))
+     :cljs (vreset! dvals frame)
+     :cljr (swap! dvals assoc (Thread/CurrentThread) frame)))
 
 (defprotocol IVar
   (bindRoot [this v])
@@ -73,7 +79,7 @@
 (defprotocol DynVar
   (dynamic? [this]))
 
-(extend-type #?(:clj Object :cljs default)
+(extend-type #?(:cljs default :default Object)
   DynVar
   (dynamic? [_] false))
 
@@ -83,11 +89,13 @@
         bmap (reduce (fn [acc [var* val*]]
                        (when (not (dynamic? var*))
                          (throw (new #?(:clj IllegalStateException
-                                        :cljs js/Error)
+                                        :cljs js/Error
+                                        :cljr InvalidOperationException)
                                      (str "Can't dynamically bind non-dynamic var " var*))))
                        (setThreadBound var* true)
                        (assoc acc var* (TBox. #?(:clj (Thread/currentThread)
-                                                 :cljs nil) val*)))
+                                                 :cljs nil
+                                                 :cljr (Thread/CurrentThread)) val*)))
                      bmap
                      bindings)]
     (reset-thread-binding-frame (Frame. bmap frame))))
@@ -97,9 +105,10 @@
   (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
     (if (identical? top-frame f)
       #?(:clj (.remove dvals)
-         :cljs (vreset! dvals top-frame))
+         :cljs (vreset! dvals top-frame)
+         :cljr (swap! dvals dissoc (Thread/CurrentThread)))
       (reset-thread-binding-frame f))
-    (throw (new #?(:clj Exception :cljs js/Error) "No frame to pop."))))
+    (throw (new #?(:cljs js/Error :default Exception) "No frame to pop."))))
 
 (defn get-thread-bindings []
   (let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
@@ -115,10 +124,10 @@
 
 (defn get-thread-binding ^TBox [sci-var]
   (when-let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
-             ^Frame f #?(:clj (.get dvals)
-                         :cljs @dvals)]
+             ^Frame f (get-thread-binding-frame)]
     #?(:clj (.get ^java.util.Map (.-bindings f) sci-var)
-       :cljs (.get (.-bindings f) sci-var))))
+       :cljs (.get (.-bindings f) sci-var)
+       :cljr (get (.-bindings f) sci-var))))
 
 (defn binding-conveyor-fn
   [f]
@@ -142,60 +151,62 @@
 
 (defn throw-unbound-call-exception [the-var]
   (throw (new #?(:clj IllegalStateException
-                 :cljs js/Error) (str "Attempting to call unbound fn: " the-var))))
+                 :cljs js/Error
+                 :cljr InvalidOperationException)
+              (str "Attempting to call unbound fn: " the-var))))
 
 (deftype SciUnbound [the-var]
   Object
-  (toString [_]
+  (#?(:cljr ToString :default toString) [_]
     (str "Unbound: " the-var))
-  #?@(:clj [clojure.lang.IFn] :cljs [IFn])
-  (#?(:clj invoke :cljs -invoke) [_]
+  #?@(:cljs [IFn] :default [clojure.lang.IFn])
+  (#?(:cljs -invoke :default invoke) [_]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a]
+  (#?(:cljs -invoke :default invoke ) [_ a]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b]
+  (#?(:cljs -invoke :default invoke ) [_ a b]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c]
+  (#?(:cljs -invoke :default invoke ) [_ a b c]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n o]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n o p]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n o p q]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n o p q r]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n o p q r s]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n o p q r s t]
     (throw-unbound-call-exception the-var))
-  (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
+  (#?(:cljs -invoke :default invoke ) [_ a b c d e f g h i j k l m n o p q r s t rest]
     (throw-unbound-call-exception the-var))
-  #?(:clj
-     (applyTo [_ args]
-              (throw-unbound-call-exception the-var))))
+  #?@(:cljs []
+      :default [(applyTo [_ args]
+                 (throw-unbound-call-exception the-var))]))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 
@@ -242,13 +253,11 @@
 
 (defn alter-var-root
   ([v f]
-   #?(:clj
-      (locking v (bindRoot v (f (getRawRoot v))))
-      :cljs (bindRoot v (f (getRawRoot v)))))
+   #?(:cljs (bindRoot v (f (getRawRoot v)))
+      :default (locking v (bindRoot v (f (getRawRoot v))))))
   ([v f & args]
-   #?(:clj
-      (locking v (bindRoot v (apply f (getRawRoot v) args)))
-      :cljs (bindRoot v (apply f (getRawRoot v) args)))))
+   #?(:cljs (bindRoot v (apply f (getRawRoot v) args))
+      :default (locking v (bindRoot v (apply f (getRawRoot v) args))))))
 
 (comment
   (def v1 (SciVar. (fn [] 0) 'foo nil))

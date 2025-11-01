@@ -29,7 +29,8 @@
                                 (conj groups [k v])))
                             [] (partition 2 seq-exprs)))
         err (fn [& msg] (throw (new #?(:clj IllegalArgumentException
-                                       :cljs js/Error) ^String (apply str msg))))
+                                       :cljs js/Error
+                                       :cljr InvalidOperationException) ^String (apply str msg))))
         emit-bind (fn emit-bind [[[bind expr & mod-pairs]
                                   & [[_ next-expr] :as next-groups]]]
                     (let [giter (gensym "iter__")

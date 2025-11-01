@@ -1,12 +1,11 @@
 (ns sci.reify-test
-  (:require [clojure.test :refer #?(:clj [deftest is testing]
-                                    :cljs [deftest is testing])]
-            #?(:clj [sci.impl.types :as t])
+  (:require [clojure.test :refer [deftest is testing]]
+            #?@(:cljs [] :default [[sci.impl.types :as t]])
             [sci.test-utils :as tu])
-  #?(:clj (:import [sci.impl.types IReified])))
+  #?@(:cljs [] :default [(:import [sci.impl.types IReified])]))
 
 (deftest reify-test
-  #?(:clj
+  #?(:cljs nil :default []
      (do (testing "reifying Object"
            (is (= "this!" (tu/eval* "(str (reify Object (toString [this] \"this!\")))" nil))))
          (testing "metadata"
@@ -14,7 +13,7 @@
                   (tu/eval* "(meta ^{:k :v} (reify Object (toString [this] \"this!\")))" nil)))))))
 
 (deftest reify-mixed-protocol-class-test
-  #?(:clj
+  #?(:cljs nil :default []
      (when-not tu/native?
        (testing "reifying Object and IDeref"
          (is (= ["obj-str" "ideref-deref" "protocol-custom"]
@@ -58,12 +57,12 @@
   [(method r 1 2) (method r 1 2 3)])"
                      nil)))))
 
-#?(:clj
+#?(:cljs nil :default []
    (do (definterface Interface1 (method []))
        (definterface Interface2 (method [first]))))
 
 (deftest reify-with-matching-method-names
-  #?(:clj
+  #?(:cljs nil :default []
      (when-not tu/native?
        (let [mixed-opts
              {:classes {'Interface1 Interface1
@@ -153,8 +152,7 @@
                   (getMethods [this]
                     methods)
                   (getProtocols [this]
-                    protocols)))
-              }]
+                    protocols)))}]
          (testing "reify form from macro has (incorrectly) fully qualifed method name"
            (is (= 2
                   (tu/eval*
@@ -164,4 +162,5 @@
                                    (apply [_# x#]
                                      (~f x#))))
                               (.apply (clj-fn->function inc) 1)))
-                   opts))))))))
+                   opts))))))
+     :cljr (is (= ::TODO nil))))

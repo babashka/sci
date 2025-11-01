@@ -52,38 +52,38 @@
          sym-ns (get (:ns-aliases env) sym-ns sym-ns)]
      (if sym-ns
        (or
-        #?(:clj
+        #?(:cljs nil
+           :default
            (when-not only-var?
              (when (and (= 1 (.length sym-name-str))
-                        (Character/isDigit (.charAt sym-name-str 0)))
+                        #?(:clj (Character/isDigit (.charAt sym-name-str 0))
+                           :cljr (Char/IsDigit (.get_Chars sym-name-str 0))))
                (when-let [clazz (interop/resolve-array-class ctx sym-ns sym-name-str)]
                  [sym clazz]))))
         (when
-            #?(:clj (= 'clojure.core sym-ns)
-               :cljs (or (= 'clojure.core sym-ns)
-                         (= 'cljs.core sym-ns)))
+            #?(:cljs (or (= 'clojure.core sym-ns)
+                         (= 'cljs.core sym-ns))
+               :default (= 'clojure.core sym-ns))
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
               (when-let [v (when call? (get ana-macros sym-name))]
                 [sym v])))
         (some-> env :namespaces (get sym-ns) (find sym-name))
         (when-not only-var?
           (when-let [clazz (interop/resolve-class ctx sym-ns)]
-            [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
+            [sym (if (and call?
+                          #?@(:cljs []
+                              :default [(not (str/starts-with? sym-name-str "."))]))
                    (with-meta
-                     [clazz #?(:clj sym-name
-                               :cljs (.split (utils/munge-str (str sym-name)) "."))
+                     [clazz #?(:cljs (.split (utils/munge-str (str sym-name)) ".")
+                               :default sym-name)
                       sym-ns]
-                     #?(:clj
+                     #?(:cljs
+                        {:sci.impl.analyzer/static-access true}
+                        :default
                         (if (= "new" sym-name-str)
                           {:sci.impl.analyzer/invoke-constructor true}
-                          {:sci.impl.analyzer/static-access true})
-                        :cljs
-                        {:sci.impl.analyzer/static-access true}))
-                   #?(:clj
-                      (with-meta
-                        [clazz sym-name]
-                        {:sci.impl.analyzer/interop true})
-                      :cljs
+                          {:sci.impl.analyzer/static-access true})))
+                   #?(:cljs
                       (let [stack (assoc (meta sym)
                                          :file @utils/current-file
                                          :ns @utils/current-ns)
@@ -97,7 +97,11 @@
                           (->Node
                            (interop/get-static-fields clazz path)
                            stack))
-                        )))])))
+                        )
+                      :default
+                      (with-meta
+                        [clazz sym-name]
+                        {:sci.impl.analyzer/interop true})))])))
        ;; no sym-ns
        (or
         ;; prioritize refers over vars in the current namespace, see 527
@@ -120,13 +124,13 @@
              [sym c])
            ;; resolves record or protocol referenced as class
            ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
-           #?(:clj
-              (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
-                [sym x])
-              :cljs
+           #?(:cljs
               (when-not (:dotted-access ctx)
                 (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
-                  [sym x]))))))))))
+                  [sym x]))
+              :default
+              (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+                [sym x])))))))))
 
 (defn update-parents
   ":syms = closed over -> idx"
@@ -163,7 +167,7 @@
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
   ([ctx sym call? m] (lookup ctx sym call? m nil))
-  ([ctx sym call? #?(:clj m :cljs _) only-var?]
+  ([ctx sym call? #?(:cljs _ :default m) only-var?]
    (let [bindings (faster/get-2 ctx :bindings)
          track-mutable? (faster/get-2 ctx :deftype-fields)]
      (or
@@ -175,14 +179,14 @@
                         (let [oi (:outer-idens ctx)
                               ob (oi v)]
                           (update-parents ctx (:closure-bindings ctx) ob)))
-                #?@(:clj [tag (or  (:tag m)
-                                   (some-> k meta :tag))])
+                #?@(:cljs [] :default [tag (or (:tag m)
+                                               (some-> k meta :tag))])
                 mutable? (when track-mutable?
                            (when-let [m (some-> k meta)]
-                             #?(:clj (or (:volatile-mutable m)
-                                         (:unsynchronized-mutable m))
-                                :cljs (or (:mutable m)
-                                          (:volatile-mutable m)))))
+                             #?(:cljs (or (:mutable m)
+                                          (:volatile-mutable m))
+                                :default (or (:volatile-mutable m)
+                                             (:unsynchronized-mutable m)))))
                 v (if call? ;; resolve-symbol is already handled in the call case
                     (mark-resolve-sym k idx)
                     (let [v (cond-> (if mutable?
@@ -195,8 +199,8 @@
                                       (->Node
                                         (aget ^objects bindings idx)
                                         nil))
-                              #?@(:clj [tag (with-meta
-                                              {:tag tag})])
+                              #?@(:cljs []
+                                  :default [tag (with-meta {:tag tag})])
                               mutable? (vary-meta assoc :mutable true))]
                       v))]
             [k v])))
@@ -248,30 +252,29 @@
                  (recur (str new-sym) nxt-segments)))))))))
 
 #?(:cljs (defn resolve-dotted-access [ctx sym call? m]
-           #?(:cljs
-              (when-let [[v segments] (resolve-prefix+path ctx sym m)]
-                (let [v (if (utils/var? v) (deref v) v)
-                      segments (mapv utils/munge-str segments)
-                      segments (into-array segments)]
-                  ;; NOTE: there is a reloading implication here...
-                  (if call?
-                    [sym (with-meta
-                           [v segments]
-                           {:sci.impl.analyzer/static-access true})]
-                    (if (instance? sci.impl.types/NodeR v)
-                      [sym
-                       (sci.impl.types/->Node
-                        (interop/get-static-fields
-                         (sci.impl.types/eval v ctx bindings)
-                         segments)
-                        sym)]
-                      ;; This is x.a.b.c
-                      [sym (interop/get-static-fields v segments)
-                       ;; This would be the correct implementation if v would be mutated, but can be implemented as:
-                       ;; (.. x -a -b c)
-                       #_(sci.impl.types/->Node
-                            (interop/get-static-fields v segments)
-                            nil)])))))))
+           (when-let [[v segments] (resolve-prefix+path ctx sym m)]
+             (let [v (if (utils/var? v) (deref v) v)
+                   segments (mapv utils/munge-str segments)
+                   segments (into-array segments)]
+               ;; NOTE: there is a reloading implication here...
+               (if call?
+                 [sym (with-meta
+                        [v segments]
+                        {:sci.impl.analyzer/static-access true})]
+                 (if (instance? sci.impl.types/NodeR v)
+                   [sym
+                    (sci.impl.types/->Node
+                     (interop/get-static-fields
+                      (sci.impl.types/eval v ctx bindings)
+                      segments)
+                     sym)]
+                   ;; This is x.a.b.c
+                   [sym (interop/get-static-fields v segments)
+                    ;; This would be the correct implementation if v would be mutated, but can be implemented as:
+                    ;; (.. x -a -b c)
+                    #_(sci.impl.types/->Node
+                         (interop/get-static-fields v segments)
+                         nil)]))))))
 
 (defn resolve-symbol
   ([ctx sym] (resolve-symbol ctx sym false nil))
@@ -279,8 +282,7 @@
   ([ctx sym call? m]
    (second
     (or (resolve-symbol* ctx sym call? m)
-        #?(:cljs (let [resolved (resolve-dotted-access ctx sym call? m)]
-                   resolved))
+        #?(:cljs (resolve-dotted-access ctx sym call? m))
         (throw-error-with-location
          (str "Unable to resolve symbol: " sym)
          sym)))))

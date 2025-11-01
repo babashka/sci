@@ -6,10 +6,10 @@
 
 (defn assert-args [seq-exprs _body-exprs]
   (when-not (vector? seq-exprs)
-    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+    (throw (new #?(:clj IllegalArgumentException :cljs js/Error :cljr InvalidOperationException)
                 "doseq requires a vector for its binding")))
   (when-not (even? (count seq-exprs))
-    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+    (throw (new #?(:clj IllegalArgumentException :cljs js/Error :cljr InvalidOperationException)
                 "doseq requires an even number of forms in binding vector"))))
 
 (defn expand-doseq

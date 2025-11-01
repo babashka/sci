@@ -19,8 +19,7 @@
                   (= 'clojure.core/defrecord op) expr
                   :else
                   (let [f (try (resolve/resolve-symbol ctx op true)
-                               (catch #?(:clj Exception :cljs :default)
-                                   _ ::unresolved))]
+                               (catch #?(:cljs :default :default Exception) _ ::unresolved))]
                     (if (kw-identical? ::unresolved f)
                       expr
                       (let [var? (var? f)

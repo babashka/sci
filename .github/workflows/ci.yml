@@ -1,8 +1,15 @@
 name: CI
 
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+    - 'master'
+    
+  pull_request:
+    branches:
+    - 'master'
+env:
+  ACTIONS_CACHE_VERISON: 0
 
 # TODO: Add the deploy if needed
 jobs:
@@ -28,6 +35,47 @@ jobs:
 
       - name: Run JVM tests
         run: bb test:jvm
+
+  test-clojureclr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Install ClojureCLR and cljr
+        run: |
+          dotnet tool install --global Clojure.Main --version 1.12.3-alpha3
+          dotnet tool install --global Clojure.Cljr --version 0.1.0-alpha8
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Restore dependency cache
+        id: cache-deps
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.gitlibs
+          key: ${{ env.ACTIONS_CACHE_VERSION }}-clr-deps-${{ hashFiles('**/deps-clr.edn') }}
+          restore-keys: |
+            ${{ env.ACTIONS_CACHE_VERSION }}-clr-deps-
+
+      - name: Download dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: cljr -A:test -Stree
+
+      - name: Save dependency cache
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.gitlibs
+          key: ${{ env.ACTIONS_CACHE_VERSION }}-clr-deps-${{ hashFiles('**/deps-clr.edn') }}
+      
+      - name: Run CLR tests
+        run: ./script/test/clr
 
   test-node:
     runs-on: ubuntu-latest

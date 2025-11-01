@@ -9,7 +9,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (def ^:const eof :sci.impl.parser.edamame/eof)
 
@@ -100,10 +100,13 @@
               (res-without-sym sym)
               (let [sym-name (name sym)]
                 (or
-                 #?(:clj (when (and (= 1 (.length sym-name))
-                                    (Character/isDigit (.charAt sym-name 0)))
-                           (when-let [clazz ^Class (interop/resolve-array-class ctx sym-ns sym-name)]
-                             (symbol (pr-str clazz)))))
+                 #?@(:cljs []
+                     :default [(when (and (= 1 (#?(:clj .length :cljr .Length) sym-name))
+                                          (-> sym-name
+                                              (#?(:clj .charAt :cljr .get_Chars) 0)
+                                              #?(:clj Character/isDigit :cljr Char/IsDigit)))
+                                 (when-let [clazz (interop/resolve-array-class ctx sym-ns sym-name)]
+                                   (symbol (pr-str clazz))))])
                  (let [nss (get env :namespaces)]
                    (if (get nss sym-ns)
                      sym
@@ -114,7 +117,7 @@
                           (if-let [import (-> nss (get current-ns) :imports (get sym-ns))]
                             (symbol (str import) (name sym))
                             sym)
-                          :clj sym)))))))]
+                          :default sym)))))))]
     ret))
 
 (defn throw-eval-read [_]
@@ -171,13 +174,17 @@
                         (vary-meta v assoc
                                    :line (get-line-number r)
                                    :column (- (get-column-number r)
-                                              #?(:clj (.length (str v))
-                                                 :cljs (.-length (str v)))))
+                                              (#?(:clj .length
+                                                  :cljs .-length
+                                                  :cljr .Length)
+                                               (str v))))
                         v)))
-                  (catch #?(:clj clojure.lang.ExceptionInfo
-                            :cljs cljs.core/ExceptionInfo) e
-                    (throw (ex-info #?(:clj (.getMessage e)
-                                       :cljs (.-message e))
+                  (catch #?(:cljs cljs.core/ExceptionInfo
+                            :default clojure.lang.ExceptionInfo) e
+                    (throw (ex-info (#?(:clj .getMessage
+                                        :cljs .-message
+                                        :cljr .Message)
+                                     e)
                                     (assoc (ex-data e)
                                            :type :sci.error/parse
                                            :phase "parse"

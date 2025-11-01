@@ -18,17 +18,17 @@ user/f
 Macro
   foodoc")
            (str/trim (sci/with-out-str (eval* "(defmacro f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
-    (is (= (str/trim  #?(:clj "
+    (is (= (str/trim #?(:cljs "
+-------------------------
+clojure.core/inc
+([x])
+  Returns a number one greater than num."
+                        :default "
 -------------------------
 clojure.core/inc
 ([x])
   Returns a number one greater than num. Does not auto-promote
-  longs, will throw on overflow. See also: inc'"
-                         :cljs "
--------------------------
-clojure.core/inc
-([x])
-  Returns a number one greater than num."))
+  longs, will throw on overflow. See also: inc'"))
            (str/trim (sci/with-out-str (eval* "(clojure.repl/doc inc)")))))
     (is (= (str/trim
             "-------------------------\nfoo\n  foodoc\n")
@@ -62,7 +62,7 @@ foo-ns
   (when-not tu/native?
     (let [output (sci/with-out-str (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.string)"))]
       (is (str/includes? output "includes?"))))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljs js/Error :default Exception)
                         #"No namespace.*found"
                         (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.typo)"))))
 
@@ -72,13 +72,13 @@ foo-ns
     (is (contains? symbols 'clojure.string/includes?))))
 
 (deftest repl-pst-test
-  #?(:clj
+  #?(:cljs nil :default
      (when-not tu/native?
-       (let [sw (java.io.StringWriter.)]
+       (let [sw (#?(:clj java.io.StringWriter. :cljr System.IO.StringWriter.))]
          (sci/binding [sci/err sw]
            (eval* "(try (/ 1 0) (catch Exception e (clojure.repl/pst e 2)))"))
          (is (str/includes? (str sw) "Divide by zero")))
-       (let [sw (java.io.StringWriter.)]
+       (let [sw (#?(:clj java.io.StringWriter. :cljr System.IO.StringWriter.))]
          (sci/binding [sci/err sw]
            (eval* "(try (/ 1 0) (catch Exception e (clojure.repl/pst e 2)))"))
          (is (str/includes? (str/trim (str sw)) (str/trim "

@@ -6,24 +6,27 @@
 (defmacro nth-2
   [c i]
   (?
-   :clj `(.nth ~(with-meta c {:tag 'clojure.lang.Indexed}) ~i)
+   :clj #?(:clj `(.nth ~(with-meta c {:tag 'clojure.lang.Indexed}) ~i)
+           :default `(nth ~c ~i))
    :cljs `(~'-nth ~c ~i)))
 
 (defmacro assoc-3
   [m k v]
   (?
-   :clj `(.assoc ~(with-meta m {:tag 'clojure.lang.Associative}) ~k ~v)
+   :clj #?(:clj `(.assoc ~(with-meta m {:tag 'clojure.lang.Associative}) ~k ~v)
+           :default `(assoc ~m ~k ~v))
    :cljs `(~'-assoc ~m ~k ~v)))
 
 (defmacro get-2
   [m k]
   (?
-   :clj `(.get ~(with-meta m {:tag 'java.util.Map}) ~k)
+   :clj #?(:clj `(.get ~(with-meta m {:tag 'java.util.Map}) ~k)
+           :default `(get ~m ~k))
    :cljs `(.get ~m ~k)))
 
 (defmacro deref-1
   [ref]
   (?
-   :clj `(.deref ~(with-meta ref
-                    {:tag 'clojure.lang.IDeref}))
+   :clj #?(:clj `(.deref ~(with-meta ref {:tag 'clojure.lang.IDeref}))
+           :default `(deref ~ref))
    :cljs `(~'-deref ~ref)))

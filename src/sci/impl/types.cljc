@@ -1,22 +1,16 @@
 (ns sci.impl.types
   {:no-doc true}
   (:refer-clojure :exclude [eval])
-  #?(:clj (:require [sci.impl.macros :as macros]))
+  #?@(:cljs [] :default [(:require [sci.impl.macros :as macros])])
   #?(:cljs (:require-macros [sci.impl.macros :as macros]
                             [sci.impl.types :refer [->Node]]))
   #?(:clj (:import [sci.impl.types IReified])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljs nil :default (set! *warn-on-reflection* true))
 
 (defprotocol IBox
   (setVal [_this _v])
   (getVal [_this]))
-
-#?(:cljs
-   (defprotocol IReified
-     (getInterfaces [_])
-     (getMethods [_])
-     (getProtocols [_])))
 
 #?(:clj
    (do (defn getMethods [obj]
@@ -24,7 +18,12 @@
        (defn getInterfaces [obj]
          (.getInterfaces ^IReified obj))
        (defn getProtocols [obj]
-         (.getProtocols ^IReified obj))))
+         (.getProtocols ^IReified obj)))
+   :default
+   (defprotocol IReified
+     (getInterfaces [_])
+     (getMethods [_])
+     (getProtocols [_])))
 
 (deftype Reified [interfaces meths protocols]
   IReified
@@ -54,11 +53,11 @@
   "Externally available type implementation."
   [x]
   (or (some-> x meta :type)
-      (when (#?(:clj instance?
-                :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
+      (when (#?(:cljs cljs.core/implements?
+                :default instance?) sci.impl.types.SciTypeInstance x)
         (-get-type x))
       #?(:clj (class x) ;; no need to check for metadata anymore
-         :cljs (type x))))
+         :default (type x))))
 
 ;; returned from analyzer when macroexpansion needs interleaved eval
 (deftype EvalForm [form]
@@ -69,10 +68,11 @@
   (stack [this]))
 
 (extend-protocol Stack
-  #?(:clj Object :cljs default) (stack [_this] nil))
+  #?(:cljs default :default Object) (stack [_this] nil))
 
-#?(:clj (defprotocol Eval
-          (eval [expr ctx ^objects bindings])))
+#?(:cljs nil
+   :default (defprotocol Eval
+              (eval [expr ctx ^objects bindings])))
 
 #?(:cljs
    (defrecord NodeR [f stack]
@@ -101,15 +101,16 @@
                ~body)
              ~stack))))
 
-#?(:clj
+#?(:cljs nil
+   :default
    (deftype ConstantNode [x]
      Eval (eval [_expr _bindings _ctx]
             x)
      Stack (stack [_] nil)))
 
 (defn ->constant [x]
-  #?(:clj (->ConstantNode x)
-     :cljs x))
+  #?(:cljs x
+     :default (->ConstantNode x)))
 
 (defprotocol HasName ;; INamed was already taken by CLJS
   (getName [_]))

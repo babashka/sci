@@ -30,7 +30,8 @@
   (or *ctx*
       (let [msg "No context found in: sci.ctx-store/*ctx*. Please set it using sci.ctx-store/reset-ctx!"]
         (throw #?(:clj (java.lang.IllegalStateException. msg)
-                  :cljs (js/Error. msg))))))
+                  :cljs (js/Error. msg)
+                  :cljr (InvalidOperationException. msg))))))
 
 (defmacro with-ctx
   "Bind `ctx` during execution of body."

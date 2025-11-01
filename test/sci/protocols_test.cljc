@@ -4,8 +4,7 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.test-utils :as tu])
-  #?(:clj (:import [java.lang Long])))
+   [sci.test-utils :as tu]))
 
 (deftest protocol-test
   (let [prog "
@@ -56,6 +55,10 @@
                 :cljs (-> prog
                           (str/replace "String" "js/String")
                           (str/replace "Number" "js/Number")
+                          (str/replace "Object" ":default"))
+                :cljr (-> prog
+                          (str/replace "String" "System.String")
+                          (str/replace "Number" "Int64")
                           (str/replace "Object" ":default")))]
     (is (= ["foo-A!"
             "bar-A!"
@@ -67,25 +70,25 @@
             :bar/object
             :fooB/object
             true]
-           (tu/eval* prog #?(:clj {}
-                             :cljs {:classes {:allow :all
+           (tu/eval* prog #?(:cljs {:classes {:allow :all
                                               'js #js {:String js/String
-                                                       :Number js/Number}}}))))))
+                                                       :Number js/Number}}}
+                             :default {}))))))
 
 
 (defn eval* [prog]
-  (tu/eval* #?(:clj prog
-               :cljs (-> prog
+  (tu/eval* #?(:cljs (-> prog
                          (str/replace "Object" ":default")
-                         (str/replace "js/:default" "js/Object"))) ;lol
-            #?(:clj {}
-               :cljs {:classes {:allow :all
+                         (str/replace "js/:default" "js/Object")) ;lol
+               :default prog)
+            #?(:cljs {:classes {:allow :all
                                 'js #js {:Object js/Object
                                          :String js/String
                                          :Number js/Number
                                          :Array js/Array
                                          :Function js/Function
-                                         :Boolean js/Boolean}}})))
+                                         :Boolean js/Boolean}}}
+               :default {})))
 
 (deftest docstring-test
   (is (= "-------------------------\nuser/Foo\n  cool protocol\n" (tu/eval* "
@@ -139,9 +142,9 @@
 (defprotocol Area (get-area [this]))
 (extend-type String Area (get-area [_] 0))
 (extends? Area String)"
-        prog #?(:clj prog
-                :cljs (-> prog
-                          (str/replace "String" "js/String")))]
+        prog #?(:cljs (-> prog
+                          (str/replace "String" "js/String"))
+                :default prog)]
     (is (true? (eval* prog))))
   (testing "Aliases are allowed and ignored"
     (testing "extent-type"
@@ -155,9 +158,9 @@
 
 (= \"f\" (f/foo \"foo\"))
 "
-            prog #?(:clj prog
-                    :cljs (-> prog
-                              (str/replace "String" "js/String")))]
+            prog #?(:cljs (-> prog
+                              (str/replace "String" "js/String"))
+                    :default prog)]
         (is (true? (eval* prog)))))
     (testing "extend-protocol"
       (let [prog "
@@ -170,9 +173,9 @@
 
 (= \"f\" (f/foo \"foo\"))
 "
-            prog #?(:clj prog
-                    :cljs (-> prog
-                              (str/replace "String" "js/String")))]
+            prog #?(:cljs (-> prog
+                              (str/replace "String" "js/String"))
+                    :default prog)]
         (is (true? (eval* prog)))))))
 
 (deftest extend-via-metadata-test
@@ -190,8 +193,8 @@
 
 (def x (with-meta {} {`foox (fn [_] 1)}))
 (foo x)"]
-    (is (thrown-with-msg? #?(:clj Exception
-                             :cljs js/Error)
+    (is (thrown-with-msg? #?(:cljs js/Error
+                             :default Exception)
                           #"No implementation of method: :foo of protocol: #'user/Foo found for"
                           (tu/eval* prog {})))))
 
@@ -209,12 +212,12 @@
                   "(extend String IFruit {:subtotal (fn ([s] (count s)) ([s discount] (- (count s) discount)))})"
                   "(extend-protocol IFruit String (subtotal ([s] (count s)) ([s discount] (- (count s) discount))))"]
             :let [prog (prog expr)
-                  prog #?(:clj prog
-                          :cljs (-> prog
-                                    (str/replace "String" "js/String")))]]
+                  prog #?(:cljs (-> prog
+                                    (str/replace "String" "js/String"))
+                          :default prog)]]
       (is (= [100 95 3 1] (eval* prog))))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest import-test
      (testing "namespace with hyphen"
        (let [prog "
@@ -242,7 +245,7 @@
            [true :object]
            [true :object])
          (eval* (str "(defprotocol IFoo (foo [_]))
-(extend-type " #?(:clj "Object" :cljs "default") " IFoo (foo [_] :object))
+(extend-type " #?(:cljs "default" :default "Object") " IFoo (foo [_] :object))
 (map
  #(vector (satisfies? IFoo %) (foo %))
  [\"\" 1 inc true [] {}])")))))
@@ -291,7 +294,7 @@
                            (defrecord Foo [] IFoo (foo [_] :record))
                            (foo (->Foo))")))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest satisfies-host-protocol
      (let [ns (sci/create-ns 'clojure.core.protocols)]
        (is (true? (sci/eval-string "(satisfies? clojure.core.protocols/IKVReduce {})"
@@ -313,7 +316,7 @@
   (is (= [:object :meta]
          (eval* "(defprotocol Dude :extend-via-metadata true (foo [_])) (extend-type Object Dude (foo [_] :object)) (defrecord Rec []) [(foo (->Rec)) (foo (with-meta {} {'user/foo (fn [_] :meta)}))]"))))
 
-#?(:clj
+#?(:cljs nil :default
    (deftest IRecord-extension-test
      (testing "without default override"
        (is (= :record (sci/eval-string "(defprotocol Dude (dude [_])) (extend-protocol Dude clojure.lang.IRecord (dude [_] :record)) (defrecord Foo []) (dude (->Foo))"
@@ -366,19 +369,23 @@
          (-> "(defprotocol Marker)
 (extend-type java.lang.Long Marker)
 (satisfies? Marker 1)"
-             #?(:cljs (str/replace "java.lang.Long" "number"))
+             #?(:cljs (str/replace "java.lang.Long" "number")
+                :cljr (str/replace "java.lang.Long" "System.Int64"))
              (sci/eval-string
               #?(:clj {:classes {'java.lang.Long java.lang.Long}}
-                 :cljs {:classes {'js #js {:Number js/Number}}}))))))
+                 :cljs {:classes {'js #js {:Number js/Number}}}
+                 :cljr {:classes {'System.Int64 System.Int64}}))))))
   (is (true?
        (sci/binding [sci/out *out*]
          (-> "(defprotocol Marker)
 (extend-protocol Marker java.lang.Long)
 (satisfies? Marker 1)"
-             #?(:cljs (str/replace "java.lang.Long" "number"))
+             #?(:cljs (str/replace "java.lang.Long" "number")
+                :cljr (str/replace "java.lang.Long" "System.Int64"))
              (sci/eval-string
               #?(:clj {:classes {'java.lang.Long java.lang.Long}}
-                 :cljs {:classes {'js #js {:Number js/Number}}})))))))
+                 :cljs {:classes {'js #js {:Number js/Number}}}
+                 :cljr {:classes {'System.Int64 System.Int64}})))))))
 
 
 (deftest return-value-test
@@ -444,5 +451,7 @@
 (deftest protocol-satisfies-nil-and-boolean-test
   (is (true? (eval* "(defprotocol IFoo) (extend-type nil IFoo) (satisfies? IFoo nil)")))
   (is (true? (sci/eval-string "(defprotocol IFoo) (extend-type #?(:clj (class true) :cljs boolean) IFoo) (satisfies? IFoo false)"
-                              {:classes #?(:clj nil :cljs {'js #js {:Boolean js/Boolean}})
-                               :features #?(:clj #{:clj} :cljs #{:cljs})}))))
+                              {:classes #?(:cljs {'js #js {:Boolean js/Boolean}}
+                                           :default nil)
+                               :features #?(:cljs #{:cljs}
+                                            :default #{:clj})}))))

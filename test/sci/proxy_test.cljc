@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [sci.core :as sci]))
 
+#?(:cljs nil :default
 (deftest APersistentMap-proxy-test
   (let [obj (sci/eval-string
              "
@@ -11,8 +12,9 @@
    ([k default] (and (instance? clojure.lang.APersistentMap this) [:k k :default default]))))
 "
              {:classes {'clojure.lang.APersistentMap clojure.lang.APersistentMap}
-              :proxy-fn (fn [{:keys [:class :methods]}]
-                          (case (.getName ^Class class)
+              :proxy-fn (fn [{:keys [class methods]}]
+                          (case #?(:clj (.getName ^Class class)
+                                   :cljr (.FullName ^Type class))
                             "clojure.lang.APersistentMap"
                             (proxy [clojure.lang.APersistentMap] []
                               (valAt
@@ -30,8 +32,9 @@
    ([k default] (and (instance? clojure.lang.APersistentMap this) [:k k :default default]))))
 "
                {:classes {'clojure.lang.APersistentMap clojure.lang.APersistentMap}
-                :proxy-fn (fn [{:keys [:class :methods]}]
-                            (case (.getName ^Class class)
+                :proxy-fn (fn [{:keys [class methods]}]
+                            (case #?(:clj (.getName ^Class class)
+                                     :cljr (.FullName ^Type class))
                               "clojure.lang.APersistentMap"
                               (proxy [clojure.lang.APersistentMap] []
                                 (valAt
@@ -40,6 +43,4 @@
 
       (is (= [:k :f] (obj :f)))
       (is (= [:k :f :default :def] (obj :f :def))))))
-
-
-
+)

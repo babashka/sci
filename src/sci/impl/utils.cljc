@@ -8,7 +8,8 @@
             [sci.impl.vars :as vars]
             [sci.lang :as lang])
   #?(:cljs (:import [goog.string StringBuffer]))
-  #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical? dotimes+]])))
+  #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical? dotimes+]]))
+  #?(:cljr (:import [System.Threading Thread])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -23,7 +24,9 @@
       #?(:clj
          (instance? java.util.regex.Pattern x)
          :cljs
-         (instance? js/RegExp x))))
+         (instance? js/RegExp x)
+         :cljr 
+         (instance? System.Text.RegularExpressions.Regex x))))
 
 (defmacro kw-identical? [k v]
   (macros/?
@@ -32,8 +35,8 @@
 
 ;; NOTE: we could add a unique object to the context instead of using this
 ;; global one, which would be an even safer solution
-(def recur #?(:clj (Object.)
-              :cljs (js/Object.)))
+(def recur #?(:cljs (js/Object.)
+              :default (Object.)))
 
 (declare current-file current-ns)
 
@@ -61,10 +64,10 @@
      (symbol "append")))
 
 (defn demunge [s]
-  #?(:clj (clojure.lang.Compiler/demunge s)
-     :cljs (cljs.core/demunge s)))
+  #?(:cljs (cljs.core/demunge s)
+     :default (clojure.lang.Compiler/demunge s)))
 
-#?(:clj
+#?(:cljs nil :default
    (defn rewrite-ex-msg [ex-msg env fm]
      (when ex-msg
        (if-let [[_ printed-fn] (re-matches #"Wrong number of args \(\d+\) passed to: (.*)" ex-msg)]
@@ -97,12 +100,13 @@
          ex-msg))))
 
 (defn rethrow-with-location-of-node
-  ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
-  ([ctx _bindings ^Throwable e raw-node]
-   (if (let [in-try #?(:clj (or *in-try*
-                                (not= (:main-thread-id ctx)
-                                      (.getId (Thread/currentThread))))
-                       :cljs *in-try*)]
+  ([ctx e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
+  ([ctx _bindings ^Exception e raw-node]
+   (if (let [in-try #?(:cljs *in-try*
+                       :default (or *in-try*
+                                    (not= (:main-thread-id ctx)
+                                          #?(:clj (.getId (Thread/currentThread))
+                                             :cljr (.ManagedThreadId (System.Threading.Thread/CurrentThread))))))]
          (if (kw-identical? in-try :sci/error)
            ;; preserve location information
            false
@@ -111,7 +115,7 @@
      (throw e)
      (let [stack (t/stack raw-node)
            ;; _ (prn :stack stack)
-           #?@(:clj [fm (:sci.impl/f-meta stack)])
+           #?@(:cljs [] :default [fm (:sci.impl/f-meta stack)])
            env (:env ctx)
            id (:id ctx)
            d (ex-data e)
@@ -127,7 +131,8 @@
          (if wrapping-sci-error?
            (throw e)
            (let [ex-msg #?(:clj (.getMessage e)
-                           :cljs (.-message e))
+                           :cljs (.-message e)
+                           :default (ex-message e))
                  {:keys [:line :column :file]}
                  (or stack
                      (some-> env deref
@@ -135,8 +140,8 @@
                              deref last meta)
                      #_(meta node))]
              (if (and line column)
-               (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
-                               :cljs ex-msg)
+               (let [ex-msg #?(:cljs ex-msg
+                               :default (rewrite-ex-msg ex-msg env fm))
                      phase (:phase d)
                      new-exception
                      (let [new-d (cond-> {:type :sci/error
@@ -151,8 +156,8 @@
                (throw e)))))))))
 
 (defn- iobj? [obj]
-  (and #?(:clj (instance? clojure.lang.IObj obj)
-          :cljs (implements? IWithMeta obj))
+  (and #?(:cljs (implements? IWithMeta obj)
+          :default (instance? clojure.lang.IObj obj))
        (meta obj)))
 
 (defn vary-meta*
@@ -169,8 +174,8 @@
 
 (def allowed-loop (symbol "clojure.core/loop"))
 (def allowed-recur (symbol "recur"))
-(def var-unbound #?(:clj (Object.)
-                    :cljs (js/Object.)))
+(def var-unbound #?(:cljs (js/Object.)
+                    :default (Object.)))
 
 (defn namespace-object
   "Fetches namespaces from env if it exists. Else, if `create?`,
@@ -245,7 +250,8 @@
 
 (defn log [& xs]
   #?(:clj (.println System/err (str/join " " xs))
-     :cljs (.log js/console (str/join " " xs))))
+     :cljs (.log js/console (str/join " " xs))
+     :cljr (.WriteLn System.Console/Error (str/join " " xs))))
 
 (defn dynamic-var
   ([name]
@@ -286,8 +292,8 @@
   (instance? sci.lang.Var x))
 
 (defn namespace? [x]
-  (instance? #?(:clj sci.lang.Namespace
-                :cljs sci.lang/Namespace) x))
+  (instance? #?(:cljs sci.lang/Namespace
+                :default sci.lang.Namespace) x))
 
 (defmacro dotimes+ [n body]
   `(do (dotimes [i# ~(dec n)]
@@ -298,17 +304,21 @@
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
 (def special-syms '#{try finally do if new recur quote throw def . var set! let* loop* case*})
 
-#?(:clj (def warn-on-reflection-var
-          (dynamic-var
-           '*warn-on-reflection* false
-           {:ns clojure-core-ns
-            :doc "When set to true, the compiler will emit warnings when reflection is\n  needed to resolve Java method calls or field accesses.\n\n  Defaults to false."})))
+#?(:cljs nil
+   :default
+   (def warn-on-reflection-var
+     (dynamic-var
+       '*warn-on-reflection* false
+       {:ns clojure-core-ns
+        :doc "When set to true, the compiler will emit warnings when reflection is\n  needed to resolve Java method calls or field accesses.\n\n  Defaults to false."})))
 
-#?(:clj (def unchecked-math-var
-          (dynamic-var
-           '*unchecked-math* clojure.core/*unchecked-math*
-           {:ns clojure-core-ns
-            :doc "While bound to true, compilations of +, -, *, inc, dec and the\n  coercions will be done without overflow checks. While bound\n  to :warn-on-boxed, same behavior as true, and a warning is emitted\n  when compilation uses boxed math. Default: false."})))
+#?(:cljs nil
+   :default
+   (def unchecked-math-var
+     (dynamic-var
+       '*unchecked-math* clojure.core/*unchecked-math*
+       {:ns clojure-core-ns
+        :doc "While bound to true, compilations of +, -, *, inc, dec and the\n  coercions will be done without overflow checks. While bound\n  to :warn-on-boxed, same behavior as true, and a warning is emitted\n  when compilation uses boxed math. Default: false."})))
 
 #?(:cljs
    (defn ^string munge-str [name]
