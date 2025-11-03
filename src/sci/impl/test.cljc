@@ -20,7 +20,6 @@
      maybe-destructured rethrow-with-location-of-node set-namespace!]]
    [sci.impl.vars :as vars]
    #?(:cljs [cljs.tagged-literals :refer [JSValue]]))
-  #?(:clj (:import [sci.impl Reflector]))
   #?(:cljs
      (:require-macros
       [sci.impl.test :refer [Foo]]
