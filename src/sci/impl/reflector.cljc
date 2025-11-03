@@ -3,7 +3,7 @@
   "Minimal reflection support for SCI.
 
   JVM notes:
-  - mostly based on clojure.java.Reflector
+  - mostly based on clojure.java.Reflector (transliterated by Claude Sonnet 4.5)
     - made invokeMatchingMethod public via invoke-matching-method
       - added arg-types to allow type hints to steer reflection resolution
   - FISupport - extracted from Compiler to support functional interface adaptation"
