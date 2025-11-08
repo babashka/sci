@@ -323,7 +323,6 @@
                       impls)))
              protocol-impls
              raw-protocol-impls)
-            arg-syms (mapv #(symbol (name %)) keys)
             nil-map (zipmap (map keyword field-set) (repeat nil))]
         `(do
            (declare ~record-name ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
@@ -336,19 +335,20 @@
                 :sci.impl/var (list 'var record-name)
                 :sci.impl.record/map-constructor (list 'var map-factory-sym)}))
            (defn ~constructor-fn-sym
-             ([~@arg-syms]
-              (~constructor-fn-sym ~@arg-syms nil nil))
-             ([~@arg-syms meta# ext#]
-              (sci.impl.records/->record-impl '~rec-type
-                                              ~rec-type
+             (~fields
+              (~constructor-fn-sym ~@fields nil nil))
+             ([~@fields meta# ext#]
+              (sci.impl.records/->record-impl '~rec-type 
+                                              ~rec-type 
                                               (set (map keyword ~keys))
                                               (var ~record-name)
-                                              (cond-> (zipmap ~keys ~arg-syms)
-                                                      ext# (merge ext#)
-                                                      meta# (with-meta meta#)))))
+                                              (cond-> (zipmap ~keys ~fields)
+                                                ext# (merge ext#)
+                                                meta# (with-meta meta#)))))
+
            (defn ~factory-fn-sym
-             ([~@arg-syms]
-              (~constructor-fn-sym ~@arg-syms nil nil)))
+             (~fields
+              (~constructor-fn-sym ~@fields nil nil)))
            (defn ~map-factory-sym [m#]
              (sci.impl.records/->record-impl '~rec-type
                                              ~rec-type
