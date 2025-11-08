@@ -328,7 +328,7 @@
                 :sci.impl/var (list 'var record-name)
                 :sci.impl.record/map-constructor (list 'var map-factory-sym)}))
            (defn ~constructor-fn-sym
-             ([~@fields]
+             (~fields
               (~constructor-fn-sym ~@fields nil nil))
              ([~@fields meta# ext#]
               (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name)
@@ -336,7 +336,7 @@
                                                 ext# (merge ext#)
                                                 meta# (with-meta meta#)))))
            (defn ~factory-fn-sym
-             ([~@fields]
+             (~fields
               (~constructor-fn-sym ~@fields nil nil)))
            (defn ~map-factory-sym [m#]
              (sci.impl.records/->record-impl '~rec-type ~rec-type (var ~record-name) (merge '~nil-map m#)))
