@@ -247,11 +247,23 @@
 
 (deftest dissoc-test
   (testing "dissoc returns a map if any record basis field is removed"
-    (are [expected prog] (= expected (with-out-str (print (tu/eval* prog {}))))
-                         "{:a 1, :b 2}" "(defrecord Foo [a b c]) (def r (->Foo 1 2 3)) (dissoc r :c)"
-                         "{:a 1, :b 2}" "(defrecord Foo [a b c]) (def r (->Foo 1 2 3)) (dissoc r :c :d)"
-                         "{}" "(defrecord Foo [a b c]) (def r (->Foo 1 2 3)) (dissoc r :a :b :c)"))
+    (are [expected prog] (= expected (tu/eval* prog {}))
+                         "{:a 1, :b 2}" "(defrecord Foo [a b c])
+                                         (def r (->Foo 1 2 3))
+                                         (print-str (dissoc r :c))"
+                         "{:a 1, :b 2}" "(defrecord Foo [a b c])
+                                         (def r (->Foo 1 2 3))
+                                         (print-str (dissoc r :c :d))"
+                         "{}" "(defrecord Foo [a b c])
+                               (def r (->Foo 1 2 3))
+                               (print-str (dissoc r :a :b :c))"))
   (testing "dissoc keeps record type if no record basis field is removed"
-    (are [expected prog] (= expected (with-out-str (print (tu/eval* prog {}))))
-                         "#user.Foo{:a 1, :b 2, :c 3}" "(defrecord Foo [a b c]) (def r (->Foo 1 2 3)) (dissoc r :d)"
-                         "#user.Foo{:a 1, :b 2, :c 3, :e 5}" "(defrecord Foo [a b c]) (def r (->Foo 1 2 3)) (-> r (assoc :d 4 :e 5) (dissoc :d))")))
+    (are [expected prog] (= expected (tu/eval* prog {}))
+                         "#user.Foo{:a 1, :b 2, :c 3}" "(defrecord Foo [a b c])
+                                                        (def r (->Foo 1 2 3))
+                                                        (print-str (dissoc r :d))"
+                         "#user.Foo{:a 1, :b 2, :c 3, :e 5}" "(defrecord Foo [a b c])
+                                                              (def r (->Foo 1 2 3))
+                                                              (-> r (assoc :d 4 :e 5)
+                                                                    (dissoc :d)
+                                                                    print-str)")))
