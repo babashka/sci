@@ -263,6 +263,7 @@
             constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
             map-factory-sym (symbol (str "map" factory-fn-str))
             keys (mapv keyword fields)
+            key-set (set keys)
             rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
             protocol-impls (utils/split-when symbol? raw-protocol-impls)
             field-set (set fields)
@@ -340,7 +341,7 @@
              ([~@fields meta# ext#]
               (sci.impl.records/->record-impl '~rec-type 
                                               ~rec-type 
-                                              (set (map keyword ~keys))
+                                              ~key-set
                                               (var ~record-name)
                                               (cond-> (zipmap ~keys ~fields)
                                                 ext# (merge ext#)
@@ -352,7 +353,7 @@
            (defn ~map-factory-sym [m#]
              (sci.impl.records/->record-impl '~rec-type
                                              ~rec-type
-                                             (set (map keyword ~keys))
+                                             ~key-set
                                              (var ~record-name)
                                              (merge '~nil-map m#)))
            ~@protocol-impls
