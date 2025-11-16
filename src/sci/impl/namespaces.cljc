@@ -1243,6 +1243,7 @@
      '-> (macrofy '-> ->*)
      '->> (macrofy '->> ->>*)
      'as-> (macrofy 'as-> as->*)
+     'abs (copy-core-var abs)
      'comment (macrofy 'comment comment*)
      'add-watch (copy-core-var add-watch)
      'remove-watch (copy-core-var remove-watch)
