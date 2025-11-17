@@ -118,6 +118,11 @@
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))
 
+  (defmacro maybe-copy-core-var [sym]
+    (when (macros/? :clj (resolve sym)
+                    :cljs (sci.impl.cljs/cljs-resolve {} sym))
+      `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)})))
+
   (defmacro avoid-method-too-large [v]
     (macros/? :clj
               `(deref (delay ~v))

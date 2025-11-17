@@ -5,7 +5,8 @@
 
 (macros/deftime
   #?(:clj (do (def cljs-ns-publics (resolve 'cljs.analyzer.api/ns-publics))
-              (def cljs-find-ns (resolve 'cljs.analyzer.api/find-ns))))
+              (def cljs-find-ns (resolve 'cljs.analyzer.api/find-ns))
+              (def cljs-resolve (resolve 'cljs.analyzer.api/resolve))))
   #_:clj-kondo/ignore
   (defmacro ^:private require-cljs-analyzer-api []
     (macros/? :clj
