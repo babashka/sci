@@ -435,7 +435,7 @@
   (assert (symbol? ns-sym))
   #_(when-not (sci-find-ns ctx ns-sym)
       (sci-create-ns ctx ns-sym))
-  (sci.impl.utils/set-namespace! (store/get-ctx) ns-sym {}))
+  (sci.impl.utils/set-namespace! (store/get-ctx) ns-sym {} false))
 
 (defn sci-the-ns* [ctx x]
   (if (instance? #?(:clj sci.lang.Namespace
