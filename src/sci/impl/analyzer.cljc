@@ -1200,7 +1200,7 @@
         attr-map (if docstring
                    (assoc attr-map :doc docstring)
                    attr-map)]
-    (set-namespace! ctx ns-name attr-map)
+    (set-namespace! ctx ns-name attr-map true)
     (loop [exprs exprs
            ret []]
       (if exprs

@@ -185,11 +185,15 @@
             (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
             ns-obj)))))
 
-(defn set-namespace! [ctx ns-sym attr-map]
-  (let [env (:env ctx)
-        attr-map (merge (meta ns-sym) attr-map)
-        ns-obj (namespace-object env ns-sym true attr-map)]
-    (t/setVal current-ns ns-obj)))
+(defn set-namespace!
+  ([ctx ns-sym attr-map]
+   (set-namespace! ctx ns-sym attr-map false))
+  ([ctx ns-sym attr-map set-meta?]
+   (let [env (:env ctx)
+         attr-map (merge (meta ns-sym) attr-map)
+         ns-obj (namespace-object env ns-sym true attr-map)]
+     (when set-meta? (reset-meta! ns-obj attr-map))
+     (t/setVal current-ns ns-obj))))
 
 (def eval-form-state (volatile! nil))
 (def eval-resolve-state (volatile! nil))
