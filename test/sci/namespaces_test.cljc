@@ -384,4 +384,4 @@ bar/bar"}
                                     :file "foo/bar.clj"}))})))))
 
 (deftest issue-1011
-  (is (= {:b 1} (sci/eval-string "(ns foo {:a 1}) (ns foo {:b 1}) (in-ns 'foo) (meta (find-ns 'foo))"))))
+  (is (= {:b 1} (sci/eval-string "(ns foo {:a 1}) (ns foo {:b 1}) (in-ns 'foo) (meta *ns*)"))))
