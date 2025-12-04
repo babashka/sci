@@ -6,11 +6,10 @@
    [sci.ctx-store :as store]
    [sci.impl.analyzer :as ana]
    [sci.impl.opts :as opts]
-   [sci.impl.parser :as p]
+   [sci.impl.parser :as parser]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
-   [sci.impl.vars :as vars]
-   [sci.impl.parser :as parser]))
+   [sci.impl.vars :as vars]))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -80,8 +79,8 @@
      (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
            eval-string+? (when opts (:sci.impl/eval-string+ opts))]
        (loop [ret nil]
-         (let [expr (p/parse-next ctx reader)]
-           (if (utils/kw-identical? p/eof expr)
+         (let [expr (parser/parse-next ctx reader)]
+           (if (utils/kw-identical? parser/eof expr)
              (if eval-string+?
                {:val ret
                 :ns @utils/current-ns}
