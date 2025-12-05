@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [babashka/babashka#1886](https://github.com/babashka/babashka/issues/1886): Return a map when dissociating a
   record basis field.
 - Fix [#1011](https://github.com/babashka/sci/issues/1011): reset ns metadata when evaluating ns form multiple times
+- Fix for https://github.com/babashka/babashka/issues/1899
 
 ## 0.10.49 (2025-08-22)
 

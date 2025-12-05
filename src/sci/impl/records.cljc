@@ -66,8 +66,7 @@
      (meta [_]
        (meta ext-map))
      (withMeta [_ m]
-       (SciRecord.
-         rec-name type var basis-fields (with-meta ext-map m) 0 0))
+       (SciRecord. rec-name type basis-fields var (with-meta ext-map m) 0 0))
 
      clojure.lang.ILookup
      (valAt [_this k]

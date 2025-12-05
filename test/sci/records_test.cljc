@@ -266,4 +266,6 @@
                                                               (def r (->Foo 1 2 3))
                                                               (-> r (assoc :d 4 :e 5)
                                                                     (dissoc :d)
-                                                                    print-str)")))
+                                                                    print-str)"))
+  (testing "babashka #1899"
+    (is (= {} (sci/eval-string "(defrecord MyRecord [a]) (dissoc (with-meta (->MyRecord 1) {:foo :bar}) :a)")))))
