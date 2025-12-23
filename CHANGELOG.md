@@ -21,6 +21,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix [#1011](https://github.com/babashka/sci/issues/1011): reset ns metadata when evaluating ns form multiple times
 - Fix for https://github.com/babashka/babashka/issues/1899
 - Add support for `:refer-global` and `:require-global`
+- Fix [#1010](https://github.com/babashka/sci/issues/1010): add `js-in` in CLJS
 
 ## 0.10.49 (2025-08-22)
 

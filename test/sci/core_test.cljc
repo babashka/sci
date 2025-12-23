@@ -1762,6 +1762,10 @@
      (is (= {:a 1} (sci/eval-string "(do (def x #js {}) (set! x -a 1) (js->clj x :keywordize-keys true))")))
      (is (= {:a {:a 1}} (sci/eval-string "(do (def x #js {:a #js {}}) (set! x.a -a 1) (js->clj x :keywordize-keys true))")))))
 
+#?(:cljs
+   (deftest js-in-test
+     (is (true? (sci/eval-string "(js-in \"foo\" #js {:foo 1})")))))
+
 ;;;; Scratch
 
 (comment

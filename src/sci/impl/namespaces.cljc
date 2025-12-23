@@ -13,7 +13,7 @@
                             #?(:cljs alter-meta!)
                             memfn
                             time
-                            exists?])
+                            exists? js-in])
   (:require
    #?(:clj [borkdude.graal.locking])
    #?(:clj [clojure.edn :as edn]
@@ -1122,6 +1122,9 @@
           ([arr idx idx2 & idxv]
            (apply aset* (aget ^objects arr idx) idx2 idxv))))
 
+#?(:cljs (defn js-in [k obj]
+           (js/Reflect.has obj k)))
+
 (defn eval* [form]
   (let [ctx (store/get-ctx)]
     (eval ctx form)))
@@ -1473,6 +1476,7 @@
      #?@(:cljs ['js-obj (copy-core-var js-obj)])
      #?@(:cljs ['js-keys (copy-core-var js-keys)])
      #?@(:cljs ['js-delete (copy-core-var js-delete)])
+     #?@(:cljs ['js-in (copy-var js-in clojure-core-ns {:copy-meta-from clojure.core/js-in})])
      'juxt (copy-core-var juxt)
      'keep (copy-core-var keep)
      'keep-indexed (copy-core-var keep-indexed)
