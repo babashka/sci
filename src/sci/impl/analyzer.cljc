@@ -1206,7 +1206,8 @@
       (if exprs
         (let [[k & args :as expr] (first exprs)]
           (case k
-            (:require #?(:cljs :require-macros) :use :import :refer-clojure #?(:cljs :refer-global))
+            (:require #?(:cljs :require-macros) :use :import :refer-clojure #?(:cljs :refer-global)
+                      #?(:cljs :require-global))
             (recur (next exprs)
                    (conj ret
                          (return-ns-op
@@ -1214,6 +1215,7 @@
                                 :require load/eval-require
                                 #?@(:cljs [:require-macros load/eval-require-macros])
                                 #?@(:cljs [:refer-global load/eval-refer-global])
+                                #?@(:cljs [:require-global load/eval-require-global])
                                 :use load/eval-use
                                 :import eval/eval-import
                                 :refer-clojure (fn [ctx & args]
