@@ -615,6 +615,16 @@
 (defn use [& args]
   (apply load/eval-use (store/get-ctx) args))
 
+#?(:cljs
+   (defn refer-global* [_ _ & args]
+     (let [args (map (fn [x]
+                       (if (and (seq? x)
+                                (= 'quote (first x)))
+                         (second x)
+                         x))
+                     args)]
+       (apply load/eval-refer-global (store/get-ctx) args))))
+
 (defn sci-resolve*
   ([sci-ctx sym]
    (@sci.impl.utils/eval-resolve-state sci-ctx (:bindings sci-ctx) sym))
@@ -1553,6 +1563,8 @@
      're-seq (copy-core-var re-seq)
      'refer (copy-var sci-refer clojure-core-ns {:name 'refer})
      'refer-clojure (macrofy 'refer-clojure sci-refer-clojure)
+     #?@(:cljs ['refer-global (copy-var refer-global* clojure-core-ns {:macro true
+                                                                       :copy-meta-from 'cljs.core/refer-global})])
      're-find (copy-core-var re-find)
      #?@(:clj ['re-groups (copy-core-var re-groups)])
      're-pattern (copy-core-var re-pattern)

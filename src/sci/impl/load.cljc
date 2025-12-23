@@ -306,9 +306,27 @@
   [ctx & args]
   (load-libs ctx :require args))
 
-(defn eval-require-macros
-  [ctx & args]
-  (load-libs ctx :require-macros args))
+#?(:cljs
+   (defn eval-require-macros
+     [ctx & args]
+     (load-libs ctx :require-macros args)))
+
+#?(:cljs
+   (defn eval-refer-global
+     [ctx & {:keys [only rename]}]
+     (swap! (:env ctx)
+            (fn [env] (reduce (fn [env sym]
+                                (let [renamed (get rename sym sym)]
+                                  (if-let [obj (some-> (get-in env [:class->opts 'js :class])
+                                                       (aget sym))]
+                                    (-> env
+                                        (assoc-in [:class->opts renamed :class] obj)
+                                        (assoc-in [:raw-classes renamed] obj))
+                                    (throw-error-with-location (str "Unresolved global: " sym)
+                                                               sym))))
+                              env
+                              only)))
+     nil))
 
 (defn eval-use
   [ctx & args]
