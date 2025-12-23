@@ -1,6 +1,6 @@
 (ns sci.impl.utils
   {:no-doc true}
-  (:refer-clojure :exclude [eval demunge var? macroexpand macroexpand-1])
+  (:refer-clojure :exclude [eval demunge var? macroexpand macroexpand-1 munge-str])
   (:require [clojure.string :as str]
             #?(:cljs [goog.object :as gobject])
             [sci.impl.macros :as macros]
