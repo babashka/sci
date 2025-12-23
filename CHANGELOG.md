@@ -10,7 +10,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.11.50 (2025-12-23)
 
 - Add support for `:refer-global` and `:require-global`
 - Add `println-str`
