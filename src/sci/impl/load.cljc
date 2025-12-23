@@ -328,6 +328,24 @@
                               only)))
      nil))
 
+#?(:cljs
+   (defn eval-require-global
+     [ctx & clauses]
+     (swap! (:env ctx)
+            (fn [env]
+              (reduce (fn [env clause]
+                        (let [[lib-name & opts] clause
+                              [lib-name path] (lib+path (str lib-name))
+                              opts (apply hash-map opts)]
+                          (if-let [obj (some-> (get-in env [:class->opts 'js :class])
+                                               (aget lib-name))]
+                            (handle-js-lib env (assoc opts :path path) lib-name (utils/current-ns-name) obj)
+                            (throw-error-with-location (str "Unresolved global: " lib-name)
+                                                       lib-name))))
+                      env
+                      clauses)))
+     nil))
+
 (defn eval-use
   [ctx & args]
   (load-libs ctx :use args))
