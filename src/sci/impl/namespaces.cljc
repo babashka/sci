@@ -1296,6 +1296,7 @@
      'areduce (macrofy 'areduce areduce*)
      #?@(:cljs ['array? (copy-core-var array?)])
      #?@(:cljs ['array (copy-core-var array)])
+     #?@(:cljs ['array-seq (copy-core-var array-seq)])
      'array-map (copy-core-var array-map)
      '*assert* assert-var
      'assert (macrofy 'assert assert*)
