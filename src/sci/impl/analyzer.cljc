@@ -1,7 +1,6 @@
 (ns sci.impl.analyzer
   {:no-doc true
    :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [ctx this bindings]}}}}
-  (:refer-clojure :exclude [destructure macroexpand macroexpand-all macroexpand-1])
   (:require
    #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node) ->constant]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])

@@ -1,8 +1,8 @@
 (ns sci.core
   "The main SCI API namespace."
   (:refer-clojure :exclude [with-bindings with-in-str with-out-str
-                            with-redefs binding future pmap alter-var-root
-                            intern ns create-ns set! *1 *2 *3 *e
+                            binding future pmap alter-var-root
+                            intern ns create-ns *1 *2 *3 *e
                             ns-name assert print-dup find-ns all-ns ns-name
                             resolve])
   (:require
