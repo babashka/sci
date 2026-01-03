@@ -1024,7 +1024,7 @@
                                       (-> ctx :env deref :class->opts :allow))
                          args (into-array args)]
                      (with-meta
-                       (case [(boolean allowed?) (boolean field-access)]
+                       (case [(boolean allowed?) field-access]
                          [true true]
                          (sci.impl.types/->Node
                           (eval/allowed-instance-field-invocation ctx bindings instance-expr meth-name)
