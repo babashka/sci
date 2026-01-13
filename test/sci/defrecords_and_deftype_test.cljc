@@ -1,4 +1,4 @@
-(ns sci.defrecords-and-defype-test
+(ns sci.defrecords-and-deftype-test
   (:require
     [clojure.string :as str]
     [clojure.test :refer [are deftest is testing]]

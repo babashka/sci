@@ -1,24 +1,25 @@
 (ns sci.test-runner
-  (:require [cljs.test]
-            [sci.core-protocols-test]
-            [sci.core-test]
-            [sci.error-test]
-            [sci.hierarchies-test]
-            [sci.impl.analyzer-test]
-            [sci.impl.binding-array-refactor-test]
-            [sci.interop-test]
-            [sci.io-test]
-            [sci.js-test]
-            [sci.multimethods-test]
-            [sci.namespaces-test]
-            [sci.parse-test]
-            [sci.protocols-test]
-            [sci.read-test]
-            [sci.defrecords-and-defype-test]
-            [sci.reify-test]
-            [sci.repl-test]
-            [sci.test-utils :refer [planck-env?]]
-            [sci.vars-test]))
+  (:require
+   [cljs.test]
+   [sci.core-protocols-test]
+   [sci.core-test]
+   [sci.defrecords-and-deftype-test]
+   [sci.error-test]
+   [sci.hierarchies-test]
+   [sci.impl.analyzer-test]
+   [sci.impl.binding-array-refactor-test]
+   [sci.interop-test]
+   [sci.io-test]
+   [sci.js-test]
+   [sci.multimethods-test]
+   [sci.namespaces-test]
+   [sci.parse-test]
+   [sci.protocols-test]
+   [sci.read-test]
+   [sci.reify-test]
+   [sci.repl-test]
+   [sci.test-utils :refer [planck-env?]]
+   [sci.vars-test]))
 
 (defn exit
   "Exit with the given status."
@@ -61,4 +62,5 @@
    'sci.repl-test
    'sci.impl.analyzer-test
    'sci.impl.binding-array-refactor-test
-   'sci.vars-test))
+   'sci.vars-test
+   'sci.defrecords-and-deftype-test))
