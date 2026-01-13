@@ -14,7 +14,7 @@
             [sci.parse-test]
             [sci.protocols-test]
             [sci.read-test]
-            [sci.records-test]
+            [sci.defrecords-and-defype-test]
             [sci.reify-test]
             [sci.repl-test]
             [sci.test-utils :refer [planck-env?]]

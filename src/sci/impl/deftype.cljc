@@ -35,6 +35,12 @@
      (defmethod equals :default [this other]
        (identical? this other))))
 
+#?(:clj
+   (do
+     (defmulti hashCode types/type-impl)
+     (defmethod hashCode :default [this]
+       (System/identityHashCode this))))
+
 (defn clojure-str [v]
   ;; #object[user.Foo 0x743e63ce "user.Foo@743e63ce"]
   (let [n (types/type-impl v)]
@@ -53,6 +59,8 @@
     (to-string this))
   #?(:clj (equals [this other]
                   (sci.impl.deftype/equals this other)))
+  #?(:clj (hashCode [this]
+                    (sci.impl.deftype/hashCode this)))
 
   sci.impl.types/SciTypeInstance
   (-get-type [_]
