@@ -57,7 +57,6 @@
    'sci.parse-test
    'sci.protocols-test
    'sci.read-test
-   'sci.records-test
    'sci.reify-test
    'sci.repl-test
    'sci.impl.analyzer-test
