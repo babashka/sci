@@ -48,9 +48,47 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
+   [edamame.impl.syntax-quote :as sq]
    [sci.lang])
   #?(:cljs (:require-macros
             [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy avoid-method-too-large]])))
+
+#?(:clj (do (defn- resolve-alias [sym]
+              ((ns-aliases *ns*) sym))
+
+            (defn- resolve-ns [sym]
+              (or (resolve-alias sym)
+                  (find-ns sym)))
+
+            (defn ^:private ns-name* [x]
+              (if (instance? clojure.lang.Namespace x)
+                (name (ns-name x))
+                (name x)))))
+
+#?(:clj (defn ^:dynamic resolve-symbol
+          "Resolve a symbol s into its fully qualified namespace version"
+          [s]
+          (if (pos? (.indexOf (name s) "."))
+            (if (.endsWith (name s) ".")
+              (let [csym (symbol (subs (name s) 0 (dec (count (name s)))))]
+                (symbol (str (name (resolve-symbol csym)) ".")))
+              s)
+            (if-let [ns-str (namespace s)]
+              (let [ns (resolve-ns (symbol ns-str))]
+                (if (or (nil? ns)
+                        (= (ns-name* ns) ns-str)) ;; not an alias
+                  s
+                  (symbol (ns-name* ns) (name s))))
+              (if-let [o ((ns-map *ns*) s)]
+                (if (class? o)
+                  (symbol (.getName ^Class o))
+                  (if (var? o)
+                    (symbol (-> ^clojure.lang.Var o .ns ns-name*) (-> ^clojure.lang.Var o .sym name))))
+                (symbol (ns-name* *ns*) (name s)))))))
+
+#?(:clj
+   (defn syntax-quote [form]
+     (sq/syntax-quote {:syntax-quote {:resolve-symbol resolve-symbol}} nil form)))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -71,7 +109,7 @@
     (if forms
       (let [form (first forms)
             threaded (if (seq? form)
-                       (with-meta `(~(first form) ~x ~@(next form)) (meta form))
+                       (with-meta #edamame/sq(~(first form) ~x ~@(next form)) (meta form))
                        (list form x))]
         (recur threaded (next forms)))
       x)))
@@ -82,16 +120,16 @@
     (if forms
       (let [form (first forms)
             threaded (if (seq? form)
-                       (with-meta `(~(first form) ~@(next form)  ~x) (meta form))
+                       (with-meta #edamame/sq(~(first form) ~@(next form)  ~x) (meta form))
                        (list form x))]
         (recur threaded (next forms)))
       x)))
 
 (defn as->*
   [_ _ expr name & forms]
-  `(let [~name ~expr
+  #edamame/sq(let [~name ~expr
          ~@(interleave (repeat name) (butlast forms))]
-     ~(if (empty? forms)
+               ~(if (empty? forms)
         name
         (last forms))))
 
@@ -104,7 +142,7 @@
   (assert (= 2 (count bindings)))
   (let [i (first bindings)
         n (second bindings)]
-    `(let [n# (long ~n)]
+    #edamame/sq(let [n# (long ~n)]
        (~sci.impl.utils/allowed-loop [~i 0]
         (when (< ~i n#)
           ~@body
@@ -129,7 +167,7 @@
   "doto from clojure.core"
   [_&form _&env x & forms]
   (let [gx (gensym)]
-    `(let [~gx ~x]
+    #edamame/sq(let [~gx ~x]
        ~@(map (fn [f]
                 (with-meta
                   (if (seq? f)
@@ -156,11 +194,11 @@
   (let [g (gensym)
         steps (map (fn [[test step]] `(if ~test (-> ~g ~step) ~g))
                    (partition 2 clauses))]
-    `(let [~g ~expr
-           ~@(interleave (repeat g) (butlast steps))]
-       ~(if (empty? steps)
-          g
-          (last steps)))))
+    #edamame/sq(let [~g ~expr
+                     ~@(interleave (repeat g) (butlast steps))]
+                 ~(if (empty? steps)
+                    g
+                    (last steps)))))
 
 (defn cond->>*
   [_&form _&env expr & clauses]
@@ -168,7 +206,7 @@
   (let [g (gensym)
         steps (map (fn [[test step]] `(if ~test (->> ~g ~step) ~g))
                    (partition 2 clauses))]
-    `(let [~g ~expr
+    #edamame/sq(let [~g ~expr
            ~@(interleave (repeat g) (butlast steps))]
        ~(if (empty? steps)
           g
@@ -180,9 +218,9 @@
   ([&form _&env bindings then else & _oldform]
    (let [form (bindings 0) tst (bindings 1)
          tmp (gensym "temp")]
-     `(let [~tmp ~tst]
+     #edamame/sq(let [~tmp ~tst]
         (if ~tmp
-          ~(with-meta `(let [~form ~tmp]
+          ~(with-meta #edamame/sq(let [~form ~tmp]
                          ~then)
              (meta &form))
           ~else)))))
@@ -193,11 +231,11 @@
   ([&form _&env bindings then else & _oldform]
    (let [form (bindings 0) tst (bindings 1)
          tmp (gensym "temp")]
-     `(let [~tmp ~tst]
+     #edamame/sq(let [~tmp ~tst]
         (if (nil? ~tmp)
           ~else
           ~(with-meta
-             `(let [~form ~tmp]
+             #edamame/sq(let [~form ~tmp]
                 ~then)
              (meta &form)))))))
 
