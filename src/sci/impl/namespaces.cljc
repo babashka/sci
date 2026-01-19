@@ -51,7 +51,21 @@
    [edamame.impl.syntax-quote :as sq]
    [sci.lang])
   #?(:cljs (:require-macros
-            [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy avoid-method-too-large]])))
+            [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy avoid-method-too-large]]
+            [sci.impl.namespaces :refer [def-syntax-quote-self-hosted]])))
+
+(macros/deftime
+  (defmacro def-syntax-quote-self-hosted
+    []
+    ;; this branch is hit by self-hosted
+    (macros/? :clj
+              nil
+              :cljs
+              #?(:cljs `(defn ~'syntax-quote ~'[form]
+                          (sq/syntax-quote {:syntax-quote {:resolve-symbol identity}} nil ~'form))
+                 :default nil))))
+
+(macros/usetime (def-syntax-quote-self-hosted))
 
 #?(:clj (do (defn- resolve-alias [sym]
               ((ns-aliases *ns*) sym))
@@ -99,9 +113,9 @@
 
 (defn locking* [_form _bindings
                 #?(:clj x :cljs _x) & body]
-  #?(:clj `(let [lockee# ~x]
+  #?(:clj #edamame/sq(let [lockee# ~x]
              (clojure.core/-locking-impl lockee# (^{:once true} fn* [] ~@body)))
-     :cljs `(do ~@body)))
+     :cljs #edamame/sq(do ~@body)))
 
 (defn ->*
   [_ _ x & forms]
@@ -152,7 +166,7 @@
   "if-not from clojure.core"
   ([&form &env test then] (if-not* &form &env test then nil))
   ([_&form _&env test then else]
-   `(if (not ~test) ~then ~else)))
+   #edamame/sq(if (not ~test) ~then ~else)))
 
 (defn when*
   [_ _ test & body]
@@ -171,8 +185,8 @@
        ~@(map (fn [f]
                 (with-meta
                   (if (seq? f)
-                    `(~(first f) ~gx ~@(next f))
-                    `(~f ~gx))
+                    #edamame/sq(~(first f) ~gx ~@(next f))
+                    #edamame/sq(~f ~gx))
                   (meta f)))
               forms)
        ~gx)))
@@ -192,7 +206,7 @@
   [_&form _&env expr & clauses]
   (assert (even? (count clauses)))
   (let [g (gensym)
-        steps (map (fn [[test step]] `(if ~test (-> ~g ~step) ~g))
+        steps (map (fn [[test step]] #edamame/sq(if ~test (-> ~g ~step) ~g))
                    (partition 2 clauses))]
     #edamame/sq(let [~g ~expr
                      ~@(interleave (repeat g) (butlast steps))]
@@ -204,7 +218,7 @@
   [_&form _&env expr & clauses]
   (assert (even? (count clauses)))
   (let [g (gensym)
-        steps (map (fn [[test step]] `(if ~test (->> ~g ~step) ~g))
+        steps (map (fn [[test step]] #edamame/sq(if ~test (->> ~g ~step) ~g))
                    (partition 2 clauses))]
     #edamame/sq(let [~g ~expr
            ~@(interleave (repeat g) (butlast steps))]
@@ -243,36 +257,36 @@
   [&form _&env bindings & body]
   (let [form (bindings 0) tst (bindings 1)
         tmp (gensym "temp")]
-    `(let [~tmp ~tst]
+    #edamame/sq(let [~tmp ~tst]
        (when ~tmp
          ~(with-meta
-            `(let [~form ~tmp]
+            #edamame/sq(let [~form ~tmp]
                ~@body)
             (meta &form))))))
 
 (defn when-first* [_ _ bindings & body]
   (let [[x xs] bindings]
-    `(when-let [xs# (seq ~xs)]
+    #edamame/sq(when-let [xs# (seq ~xs)]
        (let [~x (first xs#)]
          ~@body))))
 
 (defn when-some* [&form _ bindings & body]
   (let [form (bindings 0) tst (bindings 1)
         tmp (gensym "temp")]
-    `(let [~tmp ~tst]
+    #edamame/sq(let [~tmp ~tst]
        (if (nil? ~tmp)
          nil
          ~(with-meta
-            `(let [~form ~tmp]
+            #edamame/sq(let [~form ~tmp]
                ~@body)
             (meta &form))))))
 
 (defn some->*
   [_&form _&env expr & forms]
   (let [g (gensym)
-        steps (map (fn [step] `(if (nil? ~g) nil (-> ~g ~step)))
+        steps (map (fn [step] #edamame/sq(if (nil? ~g) nil (-> ~g ~step)))
                    forms)]
-    `(let [~g ~expr
+    #edamame/sq(let [~g ~expr
            ~@(interleave (repeat g) (butlast steps))]
        ~(if (empty? steps)
           g
@@ -281,9 +295,9 @@
 (defn some->>*
   [_ _ expr & forms]
   (let [g (gensym)
-        steps (map (fn [step] `(if (nil? ~g) nil (->> ~g ~step)))
+        steps (map (fn [step] #edamame/sq(if (nil? ~g) nil (->> ~g ~step)))
                    forms)]
-    `(let [~g ~expr
+    #edamame/sq(let [~g ~expr
            ~@(interleave (repeat g) (butlast steps))]
        ~(if (empty? steps)
           g
@@ -291,7 +305,7 @@
 
 (defn declare*
   "defs the supplied var names with no bindings, useful for making forward declarations."
-  [_ _ & names] `(do ~@(map #(list 'def (vary-meta % assoc :declared true)) names)))
+  [_ _ & names] #edamame/sq(do ~@(map #(list 'def (vary-meta % assoc :declared true)) names)))
 
 (def ex-message
   (if-let [v (resolve 'clojure.core/ex-message)]
@@ -314,22 +328,22 @@
 (defn assert*
   ([_&form _ x]
    (when @assert-var
-     `(when-not ~x
+     #edamame/sq(when-not ~x
         (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " (pr-str '~x)))))))
   ([_&form _ x message]
    (when @assert-var
-     `(when-not ~x
+     #edamame/sq(when-not ~x
         (throw (#?(:clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x))))))))
 
 (defn areduce* [_ _ a idx ret init expr]
-  `(let [a# ~a l# (alength a#)]
+  #edamame/sq(let [a# ~a l# (alength a#)]
      (loop  [~idx 0 ~ret ~init]
        (if (< ~idx l#)
          (recur (unchecked-inc-int ~idx) ~expr)
          ~ret))))
 
 (defn amap* [_ _ a idx ret expr]
-  `(let [a# ~a l# (alength a#)
+  #edamame/sq(let [a# ~a l# (alength a#)
          ~ret (aclone a#)]
      (loop  [~idx 0]
        (if (< ~idx  l#)
@@ -341,8 +355,8 @@
 (defn with-open*
   [_ _ bindings & body]
   (cond
-    (= 0 (count bindings)) `(do ~@body)
-    (symbol? (bindings 0)) `(let ~(subvec bindings 0 2)
+    (= 0 (count bindings)) #edamame/sq(do ~@body)
+    (symbol? (bindings 0)) #edamame/sq(let ~(subvec bindings 0 2)
                               (try
                                 (with-open ~(subvec bindings 2) ~@body)
                                 (finally
@@ -353,12 +367,12 @@
 
 (defn letfn* [_ _ fnspecs & body]
   (let [syms (map first fnspecs)]
-    `(let ~(vec (interleave syms (repeat '(clojure.core/-new-var))))
+    #edamame/sq(let ~(vec (interleave syms (repeat '(clojure.core/-new-var))))
        ~@(map (fn [sym fn-spec]
-                `(clojure.core/alter-var-root ~sym (constantly (fn ~sym ~@(rest fn-spec)))))
+                #edamame/sq(clojure.core/alter-var-root ~sym (constantly (fn ~sym ~@(rest fn-spec)))))
               syms fnspecs)
        (let ~(vec (interleave syms (map (fn [sym]
-                                          `(clojure.core/var-get ~sym))
+                                          #edamame/sq(clojure.core/var-get ~sym))
                                         syms)))
          ~@body))))
 
@@ -369,7 +383,7 @@
   (when-not (even? (count name-vals-vec))
     (sci.impl.utils/throw-error-with-location "with-local-vars requires an even number of forms in binding vector"
                                               form))
-  `(let [~@(interleave (take-nth 2 name-vals-vec)
+  #edamame/sq(let [~@(interleave (take-nth 2 name-vals-vec)
                        (repeat '(clojure.core/-new-dynamic-var)))]
      (clojure.core/push-thread-bindings (hash-map ~@name-vals-vec))
      (try
@@ -382,7 +396,7 @@
    was swapped in."
   [_ _ vol f & args]
   (let [v vol]
-    `(vreset! ~v (~f (deref ~v) ~@args))))
+    #edamame/sq(vreset! ~v (~f (deref ~v) ~@args))))
 
 (def memfn
   "Expands into code that creates a fn that expects to be passed an
@@ -392,17 +406,17 @@
   ^:sci/macro (fn [_ _ name & args]
                 (let [t (with-meta (gensym "target")
                           (meta name))]
-                  `(fn [~t ~@args]
+                  #edamame/sq(fn [~t ~@args]
                      (. ~t (~name ~@args))))))
 
 (defn delay*
   [_ _ & body]
-  #?(:clj `(new clojure.lang.Delay (fn [] ~@body))
-     :cljs `(new cljs.core/Delay (fn [] ~@body))))
+  #?(:clj #edamame/sq(new clojure.lang.Delay (fn [] ~@body))
+     :cljs #edamame/sq(new cljs.core/Delay (fn [] ~@body))))
 
 (defn defn-*
   [_ _ name & decls]
-  (list* `defn (with-meta name (assoc (meta name) :private true)) decls))
+  (list* #edamame/sq defn (with-meta name (assoc (meta name) :private true)) decls))
 
 (defn condp*
   [_ _ pred expr & clauses]
@@ -413,39 +427,39 @@
                      (split-at (if (= :>> (second args)) 3 2) args)
                      n (count clause)]
                  (cond
-                   (= 0 n) `(throw (new #?(:clj IllegalArgumentException
+                   (= 0 n) #edamame/sq(throw (new #?(:clj IllegalArgumentException
                                            :cljs js/Error)
                                         (str "No matching clause: " ~expr)))
                    (= 1 n) a
-                   (= 2 n) `(if (~pred ~a ~expr)
+                   (= 2 n) #edamame/sq(if (~pred ~a ~expr)
                               ~b
                               ~(emit pred expr more))
-                   :else `(if-let [p# (~pred ~a ~expr)]
+                   :else #edamame/sq(if-let [p# (~pred ~a ~expr)]
                             (~c p#)
                             ~(emit pred expr more)))))]
-    `(let [~gpred ~pred
+    #edamame/sq(let [~gpred ~pred
            ~gexpr ~expr]
        ~(emit gpred gexpr clauses))))
 
 (defn defonce*
   [_ _ name expr]
-  `(let [v# (def ~name)]
+  #edamame/sq(let [v# (def ~name)]
      (when-not (~'has-root-impl v#)
        (def ~name ~expr))))
 
 (defn while*
   [_ _ test & body]
-  `(loop []
+  #edamame/sq(loop []
      (when ~test
        ~@body
        (recur))))
 
 (defn double-dot
-  ([_ _ x form] `(. ~x ~form))
-  ([_ _ x form & more] `(.. (. ~x ~form) ~@more)))
+  ([_ _ x form] #edamame/sq(. ~x ~form))
+  ([_ _ x form & more] #edamame/sq(.. (. ~x ~form) ~@more)))
 
 (defn lazy-cat* [_ _ & colls]
-  `(concat ~@(map #(list `lazy-seq %) colls)))
+  #edamame/sq(concat ~@(map #(list #edamame/sq lazy-seq %) colls)))
 
 (defn has-root-impl [sci-var]
   (sci.impl.vars/hasRoot sci-var))
@@ -686,7 +700,7 @@
   (apply load/eval-refer (store/get-ctx) args))
 
 (defn sci-refer-clojure [_ _ & filters]
-  `(clojure.core/refer '~'clojure.core ~@filters))
+  #edamame/sq(clojure.core/refer '~'clojure.core ~@filters))
 
 (defn sci-ns-resolve
   ([ns sym]
@@ -741,7 +755,7 @@
 
 (defn sci-with-bindings
   [_ _ binding-map & body]
-  `(clojure.core/with-bindings* ~binding-map (fn [] ~@body)))
+  #edamame/sq(clojure.core/with-bindings* ~binding-map (fn [] ~@body)))
 
 (defn sci-binding
   [form _ bindings & body]
@@ -754,10 +768,10 @@
   (let [var-ize (fn [var-vals]
                   (loop [ret [] vvs (seq var-vals)]
                     (if vvs
-                      (recur  (conj (conj ret `(var ~(first vvs))) (second vvs))
+                      (recur  (conj (conj ret #edamame/sq(var ~(first vvs))) (second vvs))
                               (next (next vvs)))
                       (seq ret))))]
-    `(let []
+    #edamame/sq(let []
        ;; important: outside try
        (clojure.core/push-thread-bindings (hash-map ~@(var-ize bindings)))
        (try
@@ -781,7 +795,7 @@
   This may be used to define a helper function which runs on a different
   thread, but needs the same bindings in place."
   [_ _ & fntail]
-  `(clojure.core/bound-fn* (fn ~@fntail)))
+  #edamame/sq(clojure.core/bound-fn* (fn ~@fntail)))
 
 (defn sci-thread-bound? [& vars]
   (every? #(sci.impl.vars/get-thread-binding %) vars))
@@ -801,8 +815,8 @@
 
 (defn sci-with-redefs
   [_ _ bindings & body]
-  `(clojure.core/with-redefs-fn
-     ~(zipmap (map #(list `var %) (take-nth 2 bindings))
+  #edamame/sq(clojure.core/with-redefs-fn
+     ~(zipmap (map #(list #edamame/sq var %) (take-nth 2 bindings))
               (take-nth 2 (next bindings)))
      (fn [] ~@body)))
 
@@ -912,7 +926,7 @@
             (when-not (or (> major 1)
                           (and (= 1 major)
                                (>= minor 11)))
-              `(do ~@body)))))
+              #edamame/sq(do ~@body)))))
 
 #?(:clj
    (when-<-clojure-1.11.0
@@ -993,7 +1007,7 @@
     (utils/throw-error-with-location "let requires a vector for its binding" expr))
   (when-not (even? (count bindings))
     (utils/throw-error-with-location "let requires an even number of forms in binding vector" expr))
-  `(let* ~(destructure/destructure bindings (meta expr))
+  #edamame/sq(let* ~(destructure/destructure bindings (meta expr))
      ~@body))
 
 (defn loop**
@@ -1006,7 +1020,7 @@
              bindings
              (destructure/destructure bindings))]
     (if (identical? db bindings)
-      `(loop* ~bindings ~@body)
+      #edamame/sq(loop* ~bindings ~@body)
       (let [vs (take-nth 2 (drop 1 bindings))
             bs (take-nth 2 bindings)
             gs (map (fn [b] (if (symbol? b) b (gensym))) bs)
@@ -1015,7 +1029,7 @@
                             (conj ret g v)
                             (conj ret g v b g)))
                         [] (map vector bs vs gs))]
-        `(let ~bfs
+        #edamame/sq(let ~bfs
            (loop* ~(vec (interleave gs gs))
                   (let ~(vec (interleave bs gs))
                     ~@body)))))))
@@ -1025,7 +1039,7 @@
   ([_ _] nil)
   ([_ _ x] x)
   ([_ _ x & next]
-   `(let [or# ~x]
+   #edamame/sq(let [or# ~x]
       (if or# or# (or ~@next)))))
 
 (defn and*
@@ -1033,12 +1047,12 @@
   ([_ _] true)
   ([_ _ x] x)
   ([_ _ x & next]
-   `(let [and# ~x]
+   #edamame/sq(let [and# ~x]
       (if and# (and ~@next) and#))))
 
 (defn case**
   "This is a macro for compatiblity. Only there for docs and macroexpand, faster impl in analyzer.cljc"
-  [_ _ & body] `(case* ~@body))
+  [_ _ & body] #edamame/sq(case* ~@body))
 
 (defn loaded-libs** [syms]
   (utils/dynamic-var
@@ -1064,7 +1078,7 @@
   [_form _ name & references]
   (let [process-reference
         (fn [[kname & args :as expr]]
-          (with-meta `(~(symbol "clojure.core" (clojure.core/name kname))
+          (with-meta #edamame/sq(~(symbol "clojure.core" (clojure.core/name kname))
                        ~@(map #(list 'quote %) args))
             (meta expr)))
         docstring  (when (string? (first references)) (first references))
@@ -1080,17 +1094,17 @@
         #_#_gen-class-clause (first (filter #(= :gen-class (first %)) references))
         #_#_gen-class-call
         (when gen-class-clause
-          (list* `gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
+          (list* #edamame/sq gen-class :name (.replace (str name) \- \_) :impl-ns name :main true (next gen-class-clause)))
         references (remove #(= :gen-class (first %)) references)
                                         ;ns-effect (clojure.core/in-ns name)
         name-metadata (meta name)
-        exp `(do
+        exp #edamame/sq(do
                (clojure.core/in-ns '~name)
                ~@(when name-metadata
-                   `(clojure.core/alter-meta! (find-ns '~name) (constantly  ~name-metadata)))
+                   #edamame/sq(clojure.core/alter-meta! (find-ns '~name) (constantly  ~name-metadata)))
                #_~@(when gen-class-call (list gen-class-call))
                #_~@(when (and (not= name 'clojure.core) (not-any? #(= :refer-clojure (first %)) references))
-                     `((clojure.core/refer '~'clojure.core)))
+                     #edamame/sq((clojure.core/refer '~'clojure.core)))
                ~@(map process-reference references)
                (if (= '~name 'clojure.core)
                  nil
@@ -1101,12 +1115,12 @@
 (defn lazy-seq*
   [_ _ & body]
   #?(:clj  (list 'new 'clojure.lang.LazySeq (list* '^{:once true} fn* [] body))
-     :cljs `(new cljs.core/LazySeq nil (fn [] ~@body) nil nil)))
+     :cljs #edamame/sq(new cljs.core/LazySeq nil (fn [] ~@body) nil nil)))
 
 (defn time
   "Evaluates expr and prints the time it took. Returns the value of expr."
   [_ _ expr]
-  `(let [start# (clojure.core/system-time)
+  #edamame/sq(let [start# (clojure.core/system-time)
          ret# ~expr]
      (prn (str "Elapsed time: "
                #?(:clj (/ (double (- (clojure.core/system-time) start#)) 1000000.0)
@@ -1137,7 +1151,7 @@
            (or (boolean (sci-find-ns* ctx x))
                (boolean (try (sci.impl.resolve/resolve-symbol ctx x nil nil)
                              (catch :default _ nil)))))
-         `(some? ~x)))))
+         #edamame/sq(some? ~x)))))
 
 #?(:clj (defn system-time []
           (System/nanoTime)))
@@ -1823,7 +1837,7 @@
 
  (defn dir
    [_ _ nsname]
-   `(doseq [v# (clojure.repl/dir-fn '~nsname)]
+   #edamame/sq(doseq [v# (clojure.repl/dir-fn '~nsname)]
       (println v#)))
 
  (defn print-doc
@@ -1841,7 +1855,7 @@
 
  (defn doc
    [_ _ sym]
-   `(if-let [var# (resolve '~sym)]
+   #edamame/sq(if-let [var# (resolve '~sym)]
       (when (var? var#)
         (~'clojure.repl/print-doc (meta var#)))
       (if-let [ns# (find-ns '~sym)]
@@ -1939,7 +1953,7 @@
 
    Example: (source filter)"
    [_ _ n]
-   `(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
+   #edamame/sq(println (or (~'clojure.repl/source-fn '~n) (str "Source not found"))))
 
  #?(:clj
     (defn root-cause
@@ -2030,7 +2044,7 @@
  (defn do-template
    [_ _ argv expr & values]
    (let [c (count argv)]
-     `(do ~@(map (fn [a] (apply-template argv expr a))
+     #edamame/sq(do ~@(map (fn [a] (apply-template argv expr a))
                  (partition c values)))))
 
  (def clojure-template-namespace (sci.lang/->Namespace 'clojure.template nil))
