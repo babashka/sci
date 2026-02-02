@@ -71,12 +71,6 @@
        (types/eval case-default ctx bindings)
        (types/eval found ctx bindings)))))
 
-#_(defn- sci-error-ex?
-  "Returns true if e is a sci/error wrapper exception"
-  [e]
-  (and (instance? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e)
-       (isa? (:type (ex-data e)) :sci/error)))
-
 (defn eval-try
   [ctx bindings body catches finally sci-error]
   (try
@@ -88,28 +82,25 @@
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
       (if-let
-       [[_ r]
-        (reduce (fn [_ c]
-                  (let [clazz (:class c)
-                        ;; For catch matching, check both e and its cause if e is a sci/error wrapper
-                        ;; Only unwrap for non-^:sci/error catches - the ^:sci/error catch wants
-                        ;; the wrapped exception with location info
-                        e-for-match (if (and sci-error
-                                             (not (:sci-error c)))
-                                      (ex-cause e)
-                                      e)]
-                    (when #?(:cljs
-                             (or (utils/kw-identical? :default clazz)
-                                 (if (instance? sci.impl.types/NodeR clazz)
-                                   (instance? (types/eval clazz ctx bindings) e-for-match)
-                                   (instance? clazz e-for-match)))
-                             :clj (instance? clazz e-for-match))
-                      (reduced
-                       [::try-result
-                        (do (aset ^objects bindings (:ex-idx c) e)
-                            (types/eval (:body c) ctx bindings))]))))
-                nil
-                catches)]
+          [[_ r]
+           (reduce (fn [_ c]
+                     (let [clazz (:class c)
+                           e (if (and sci-error
+                                      (not (:sci-error c)))
+                               (ex-cause e)
+                               e)]
+                       (when #?(:cljs
+                                (or (utils/kw-identical? :default clazz)
+                                    (if (instance? sci.impl.types/NodeR clazz)
+                                      (instance? (types/eval clazz ctx bindings) e)
+                                      (instance? clazz e)))
+                                :clj (instance? clazz e))
+                         (reduced
+                          [::try-result
+                           (do (aset ^objects bindings (:ex-idx c) e)
+                               (types/eval (:body c) ctx bindings))]))))
+                   nil
+                   catches)]
         r
         (rethrow-with-location-of-node ctx bindings e body)))
     (finally
