@@ -2,12 +2,14 @@
   {:no-doc true
    :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [ctx this bindings]}}}}
   (:require
+   #?(:clj [sci.impl.reflector :as reflector])
    #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node) ->constant]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
    #?(:cljs [goog.object :as gobj])
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
+   [sci.impl.callstack :as callstack]
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -20,8 +22,7 @@
     [ana-macros constant? macro? rethrow-with-location-of-node
      set-namespace! recur special-syms]]
    [sci.impl.vars :as vars]
-   [sci.lang]
-   #?(:clj [sci.impl.reflector :as reflector]))
+   [sci.lang])
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-recur
@@ -358,6 +359,14 @@
                             (assoc-in [:bindings fn-name] fn-id))
                 ctx)
         fn-name (or defn-name fn-name)
+        ;; Track lexical stack for current-stacktrace
+        ctx (if fn-name
+              (let [stack-frame (-> (utils/make-stack (meta fn-expr))
+                                    (assoc :name fn-name)
+                                    callstack/select
+                                    callstack/clean-ns)]
+                (update ctx :lexical-stack (fnil conj []) stack-frame))
+              ctx)
         bindings (:bindings ctx)
         bound-idens (set (vals bindings))
         ;; reverse-bindings (zipmap binding-vals (keys bindings))
@@ -1444,271 +1453,275 @@
                         :file @utils/current-file)]
        (cond (str/starts-with? meth ".")
              (let [meth (subs meth 1)
-                 arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
-                             (let [param-count (count param-tags)
-                                   ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
-                                                                     (make-array Class param-count))]
-                               (areduce arg-types  idx _ret nil
-                                        (when-let [t (nth param-tags idx)]
-                                          (when-not (= '_ t)
-                                            (when-let [t (interop/resolve-type-hint ctx t)]
-                                              (aset arg-types idx t)))))
-                               arg-types))
-                 f (fn [obj & args]
-                     (let [args (object-array args)
-                           arg-count (alength args)
-                           ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
-                       (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
-             (sci.impl.types/->Node
-              f
-              stack))
+                   arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
+                               (let [param-count (count param-tags)
+                                     ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
+                                                                       (make-array Class param-count))]
+                                 (areduce arg-types idx _ret nil
+                                          (when-let [t (nth param-tags idx)]
+                                            (when-not (= '_ t)
+                                              (when-let [t (interop/resolve-type-hint ctx t)]
+                                                (aset arg-types idx t)))))
+                                 arg-types))
+                   f (fn [obj & args]
+                       (let [args (object-array args)
+                             arg-count (alength args)
+                             ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
+                         (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
+               (sci.impl.types/->Node
+                f
+                stack))
              (try (reflector/get-static-field ^Class clazz ^String meth)
                   (catch IllegalArgumentException _
                     nil))
              (sci.impl.types/->Node
-               (interop/get-static-field clazz meth)
-               stack)
+              (interop/get-static-field clazz meth)
+              stack)
              :else (sci.impl.types/->Node
-                     (fn [& args]
-                       (reflector/invoke-static-method
-                        clazz meth
-                        ^objects (into-array Object args)))
-                     stack)))))
+                    (fn [& args]
+                      (reflector/invoke-static-method
+                       clazz meth
+                       ^objects (into-array Object args)))
+                    stack)))))
 
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
     (try
       (let [f* (first expr)]
-        (cond (symbol? f*)
-              (let [fsym f*
+        (cond
+              ;; Handle current-stacktrace special form
+          (= 'sci.impl/current-stacktrace f*)
+          (->constant (:lexical-stack ctx))
+
+          (symbol? f*)
+          (let [fsym f*
                     ;; in call position Clojure prioritizes special symbols over
                     ;; bindings
-                    special-sym (get special-syms f*)
-                    _ (when (and special-sym
-                                 (:check-permissions ctx))
-                        (resolve/check-permission! ctx f* [special-sym nil]))
-                    f (or special-sym
-                          (resolve/resolve-symbol ctx f* true))
-                    f-meta (meta f)
-                    eval? (and f-meta (:sci.impl/op f-meta))
-                    fast-path (-> f-meta :sci.impl/fast-path)
-                    f (or fast-path f)]
-                (cond (and f-meta (::static-access f-meta))
-                      #?(:clj
-                         (let [[clazz meth class-expr] f]
-                           (analyze-dot ctx (with-meta (list* '. clazz meth (rest expr))
-                                              (assoc m :class-expr class-expr))))
-                         :cljs
-                         (let [[class method-path] f
-                               last-path (last method-path)
-                               ctor? (= "" last-path)
-                               method-len (count method-path)
-                               subpath (.slice method-path 0 (dec method-len))
-                               lookup-fn (if (= 1 method-len)
-                                           (constantly #js [class last-path])
+                special-sym (get special-syms f*)
+                _ (when (and special-sym
+                             (:check-permissions ctx))
+                    (resolve/check-permission! ctx f* [special-sym nil]))
+                f (or special-sym
+                      (resolve/resolve-symbol ctx f* true))
+                f-meta (meta f)
+                eval? (and f-meta (:sci.impl/op f-meta))
+                fast-path (-> f-meta :sci.impl/fast-path)
+                f (or fast-path f)]
+            (cond (and f-meta (::static-access f-meta))
+                  #?(:clj
+                     (let [[clazz meth class-expr] f]
+                       (analyze-dot ctx (with-meta (list* '. clazz meth (rest expr))
+                                          (assoc m :class-expr class-expr))))
+                     :cljs
+                     (let [[class method-path] f
+                           last-path (last method-path)
+                           ctor? (= "" last-path)
+                           method-len (count method-path)
+                           subpath (.slice method-path 0 (dec method-len))
+                           lookup-fn (if (= 1 method-len)
+                                       (constantly #js [class last-path])
                                            ;; This might fail at analysis time
-                                           (fn []
-                                             #js [(interop/get-static-fields class subpath)
-                                                  last-path]))
-                               [class method-name] (try (lookup-fn)
-                                                        (catch :default _ nil))
-                               children (analyze-children ctx (rest expr))
-                               children (into-array children)]
-                           (if class
+                                       (fn []
+                                         #js [(interop/get-static-fields class subpath)
+                                              last-path]))
+                           [class method-name] (try (lookup-fn)
+                                                    (catch :default _ nil))
+                           children (analyze-children ctx (rest expr))
+                           children (into-array children)]
+                       (if class
                              ;; if class isn't found at analysis time, we
                              ;; delay lookup to runtime the performance
                              ;; difference isn't that great, so if turns out
                              ;; to be a problem that we're eagerly looking up
                              ;; the invoked class here, we can switch to the
                              ;; else branch by default
-                             (if ctor?
-                               (let [ctor class]
-                                 (sci.impl.types/->Node
-                                  (interop/invoke-js-constructor* ctx bindings ctor children)
-                                  nil))
-                               (if (instance? t/NodeR class)
-                                 (sci.impl.types/->Node
-                                  (let [class (t/eval class ctx bindings)
-                                        method (unchecked-get class method-name)]
-                                    (interop/invoke-static-method ctx bindings class method children))
-                                  nil)
-                                 (let [method (unchecked-get class method-name)
-                                       stack (assoc m
-                                                    :ns @utils/current-ns
-                                                    :file @utils/current-file
-                                                    :sci.impl/f-meta f-meta)]
-                                   (sci.impl.types/->Node
-                                    (try (interop/invoke-static-method ctx bindings class method children)
-                                         (catch :default e
-                                           (utils/rethrow-with-location-of-node ctx e this)))
-                                    stack))))
-                             (if ctor?
-                               (sci.impl.types/->Node
-                                (let [arr (lookup-fn)
-                                      ctor (aget arr 0)]
-                                  (interop/invoke-js-constructor* ctx bindings ctor children))
-                                nil)
-                               (sci.impl.types/->Node
-                                (let [arr (lookup-fn)
-                                      class (aget arr 0)
-                                      method-name (aget arr 1)
-                                      method (unchecked-get class method-name)]
-                                  (interop/invoke-static-method ctx bindings class method children))
-                                nil)))))
-                      #?@(:clj [(and f-meta (:sci.impl.analyzer/interop f-meta))
-                                (let [[obj & args] (analyze-children ctx (rest expr))
-                                      meth (-> (second f)
-                                               str
-                                               (subs 1))
-                                      clazz (first f)
-                                      args (object-array args)
-                                      arg-count (count args)
-                                      stack (assoc m
-                                                   :ns @utils/current-ns
-                                                   :file @utils/current-file
-                                                   :sci.impl/f-meta f-meta)
-                                      ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
-                                                                        (make-array Class arg-count))
-                                      has-types? (volatile! nil)
-                                      ]
-                                  (when arg-types
-                                    (or (when-let [param-tags (-> f* (some-> meta :param-tags))]
-                                          (vreset! has-types? true)
-                                          (areduce arg-types  idx _ret nil
-                                                   (when-let [t (nth param-tags idx)]
-                                                     (when-not (= '_ t)
-                                                       (when-let [t (interop/resolve-type-hint ctx t)]
-                                                         (aset arg-types idx t))))))
-                                        (areduce args idx _ret nil
-                                                 (let [arg (aget args idx)
-                                                       arg-meta (meta arg)]
-                                                   (when-let [t (:tag arg-meta)]
-                                                     (when-let [t (interop/resolve-type-hint ctx t)]
-                                                       (do (vreset! has-types? true)
-                                                           (aset arg-types idx t))))))))
-                                  (sci.impl.types/->Node
-                                   (let [obj (sci.impl.types/eval obj ctx bindings)]
-                                     (interop/invoke-instance-method ctx bindings obj clazz
-                                                                     meth
-                                                                     args arg-count arg-types))
-                                   stack))])
-                      #?@(:clj [(and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
-                                (invoke-constructor-node ctx (first f) (rest expr))])
-                      (and (not eval?) ;; the symbol is not a binding
-                           (symbol? f)
-                           (or
-                            special-sym
-                            (contains? ana-macros f)))
-                      (dispatch-special ctx expr f)
-                      :else
-                      (try
-                        (if (macro? f)
-                          (let [;; Fix for #603
-                                #?@(:cljs [f (if (utils/var? f)
-                                               @f
-                                               f)
-                                           f (or (.-afn ^js f) f)])
-                                v (apply f expr (:bindings ctx) (rest expr))
-                                v (if (seq? v)
-                                    (with-meta v (merge m (meta v)))
-                                    v)
-                                expanded (cond (:sci.impl/macroexpanding ctx) v
-                                               (and top-level? (seq? v) (= 'do (first v)))
-                                               ;; hand back control to eval-form for
-                                               ;; interleaved analysis and eval
-                                               (t/->EvalForm v)
-                                               :else (analyze ctx v top-level?))]
-                            expanded)
-                          (if-let [f (:sci.impl/inlined f-meta)]
-                            (return-call ctx
-                                         expr
-                                         f (analyze-children ctx (rest expr))
-                                         (assoc m
+                         (if ctor?
+                           (let [ctor class]
+                             (sci.impl.types/->Node
+                              (interop/invoke-js-constructor* ctx bindings ctor children)
+                              nil))
+                           (if (instance? t/NodeR class)
+                             (sci.impl.types/->Node
+                              (let [class (t/eval class ctx bindings)
+                                    method (unchecked-get class method-name)]
+                                (interop/invoke-static-method ctx bindings class method children))
+                              nil)
+                             (let [method (unchecked-get class method-name)
+                                   stack (assoc m
                                                 :ns @utils/current-ns
                                                 :file @utils/current-file
-                                                :sci.impl/f-meta f-meta)
-                                         nil)
-                            (if-let [op (:sci.impl/op (meta f))]
-                              (case op
-                                :resolve-sym
-                                (return-binding-call ctx
-                                                     expr
-                                                     (:sci.impl/idx (meta f))
-                                                     f (analyze-children ctx (rest expr))
-                                                     (assoc m
-                                                            :ns @utils/current-ns
-                                                            :file @utils/current-file
-                                                            :sci.impl/f-meta f-meta))
-                                (let [children (analyze-children ctx (rest expr))]
-                                  (return-call ctx
-                                               expr
-                                               f children (assoc m
-                                                                 :ns @utils/current-ns
-                                                                 :file @utils/current-file
-                                                                 :sci.impl/f-meta f-meta)
-                                               nil)))
-                              (let [self-ref? (:self-ref? ctx)]
-                                (if (and self-ref? (self-ref? f))
-                                  (let [children (analyze-children ctx (rest expr))]
-                                    (return-call ctx
+                                                :sci.impl/f-meta f-meta)]
+                               (sci.impl.types/->Node
+                                (try (interop/invoke-static-method ctx bindings class method children)
+                                     (catch :default e
+                                       (utils/rethrow-with-location-of-node ctx e this)))
+                                stack))))
+                         (if ctor?
+                           (sci.impl.types/->Node
+                            (let [arr (lookup-fn)
+                                  ctor (aget arr 0)]
+                              (interop/invoke-js-constructor* ctx bindings ctor children))
+                            nil)
+                           (sci.impl.types/->Node
+                            (let [arr (lookup-fn)
+                                  class (aget arr 0)
+                                  method-name (aget arr 1)
+                                  method (unchecked-get class method-name)]
+                              (interop/invoke-static-method ctx bindings class method children))
+                            nil)))))
+                  #?@(:clj [(and f-meta (:sci.impl.analyzer/interop f-meta))
+                            (let [[obj & args] (analyze-children ctx (rest expr))
+                                  meth (-> (second f)
+                                           str
+                                           (subs 1))
+                                  clazz (first f)
+                                  args (object-array args)
+                                  arg-count (count args)
+                                  stack (assoc m
+                                               :ns @utils/current-ns
+                                               :file @utils/current-file
+                                               :sci.impl/f-meta f-meta)
+                                  ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
+                                                                    (make-array Class arg-count))
+                                  has-types? (volatile! nil)]
+                              (when arg-types
+                                (or (when-let [param-tags (-> f* (some-> meta :param-tags))]
+                                      (vreset! has-types? true)
+                                      (areduce arg-types idx _ret nil
+                                               (when-let [t (nth param-tags idx)]
+                                                 (when-not (= '_ t)
+                                                   (when-let [t (interop/resolve-type-hint ctx t)]
+                                                     (aset arg-types idx t))))))
+                                    (areduce args idx _ret nil
+                                             (let [arg (aget args idx)
+                                                   arg-meta (meta arg)]
+                                               (when-let [t (:tag arg-meta)]
+                                                 (when-let [t (interop/resolve-type-hint ctx t)]
+                                                   (do (vreset! has-types? true)
+                                                       (aset arg-types idx t))))))))
+                              (sci.impl.types/->Node
+                               (let [obj (sci.impl.types/eval obj ctx bindings)]
+                                 (interop/invoke-instance-method ctx bindings obj clazz
+                                                                 meth
+                                                                 args arg-count arg-types))
+                               stack))])
+                  #?@(:clj [(and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
+                            (invoke-constructor-node ctx (first f) (rest expr))])
+                  (and (not eval?) ;; the symbol is not a binding
+                       (symbol? f)
+                       (or
+                        special-sym
+                        (contains? ana-macros f)))
+                  (dispatch-special ctx expr f)
+                  :else
+                  (try
+                    (if (macro? f)
+                      (let [;; Fix for #603
+                            #?@(:cljs [f (if (utils/var? f)
+                                           @f
+                                           f)
+                                       f (or (.-afn ^js f) f)])
+                            v (apply f expr (:bindings ctx) (rest expr))
+                            v (if (seq? v)
+                                (with-meta v (merge m (meta v)))
+                                v)
+                            expanded (cond (:sci.impl/macroexpanding ctx) v
+                                           (and top-level? (seq? v) (= 'do (first v)))
+                                               ;; hand back control to eval-form for
+                                               ;; interleaved analysis and eval
+                                           (t/->EvalForm v)
+                                           :else (analyze ctx v top-level?))]
+                        expanded)
+                      (if-let [f (:sci.impl/inlined f-meta)]
+                        (return-call ctx
+                                     expr
+                                     f (analyze-children ctx (rest expr))
+                                     (assoc m
+                                            :ns @utils/current-ns
+                                            :file @utils/current-file
+                                            :sci.impl/f-meta f-meta)
+                                     nil)
+                        (if-let [op (:sci.impl/op (meta f))]
+                          (case op
+                            :resolve-sym
+                            (return-binding-call ctx
                                                  expr
-                                                 f children (assoc m
-                                                                   :ns @utils/current-ns
-                                                                   :file @utils/current-file
-                                                                   :sci.impl/f-meta f-meta)
-                                                 (fn [_ bindings _]
-                                                   (deref
-                                                    (eval/resolve-symbol bindings fsym)))))
-                                  (let [children (analyze-children ctx (rest expr))]
-                                    (return-call ctx
-                                                 expr
-                                                 f children (assoc m
-                                                                   :ns @utils/current-ns
-                                                                   :file @utils/current-file
-                                                                   :sci.impl/f-meta f-meta)
-                                                 #?(:cljs (when (utils/var? f) (fn [_ _ v]
-                                                                                 (deref v))) :clj nil))))))))
-                        (catch #?(:clj Exception :cljs js/Error) e
+                                                 (:sci.impl/idx (meta f))
+                                                 f (analyze-children ctx (rest expr))
+                                                 (assoc m
+                                                        :ns @utils/current-ns
+                                                        :file @utils/current-file
+                                                        :sci.impl/f-meta f-meta))
+                            (let [children (analyze-children ctx (rest expr))]
+                              (return-call ctx
+                                           expr
+                                           f children (assoc m
+                                                             :ns @utils/current-ns
+                                                             :file @utils/current-file
+                                                             :sci.impl/f-meta f-meta)
+                                           nil)))
+                          (let [self-ref? (:self-ref? ctx)]
+                            (if (and self-ref? (self-ref? f))
+                              (let [children (analyze-children ctx (rest expr))]
+                                (return-call ctx
+                                             expr
+                                             f children (assoc m
+                                                               :ns @utils/current-ns
+                                                               :file @utils/current-file
+                                                               :sci.impl/f-meta f-meta)
+                                             (fn [_ bindings _]
+                                               (deref
+                                                (eval/resolve-symbol bindings fsym)))))
+                              (let [children (analyze-children ctx (rest expr))]
+                                (return-call ctx
+                                             expr
+                                             f children (assoc m
+                                                               :ns @utils/current-ns
+                                                               :file @utils/current-file
+                                                               :sci.impl/f-meta f-meta)
+                                             #?(:cljs (when (utils/var? f) (fn [_ _ v]
+                                                                             (deref v))) :clj nil))))))))
+                    (catch #?(:clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
                           ;; stack on it, the only interesting bit it the map
                           ;; with :ns and :file
-                          (rethrow-with-location-of-node ctx e
-                                                         (let [stack (assoc m
-                                                                            :ns @utils/current-ns
-                                                                            :file @utils/current-file
-                                                                            :sci.impl/f-meta f-meta)]
-                                                           (sci.impl.types/->Node nil stack)))))))
-              (keyword? f*)
-              (let [children (analyze-children ctx (rest expr))
-                    ccount (count children)]
-                (case ccount
-                  1 (let [arg (nth children 0)]
-                      (sci.impl.types/->Node
-                       (f* (t/eval arg ctx bindings))
-                       nil))
-                  2 (let [arg0 (nth children 0)
-                          arg1 (nth children 1)]
-                      (sci.impl.types/->Node
-                       (f* (t/eval arg0 ctx bindings)
-                          (t/eval arg1 ctx bindings))
-                       nil))
-                  (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f*) expr)))
-              :else
-              (let [f (analyze ctx f*)
-                    children (analyze-children ctx (rest expr))
-                    stack (assoc m
-                                 :ns @utils/current-ns
-                                 :file @utils/current-file)]
-                (return-call ctx
-                             expr
-                             f children stack
-                             #?(:cljs (if (utils/var? f)
-                                        (fn [ctx bindings f]
-                                          (t/eval @f ctx bindings))
-                                        (fn [ctx bindings f]
-                                          (t/eval f ctx bindings)))
-                                :clj (fn [ctx bindings f]
-                                       (t/eval f ctx bindings)))))))
+                      (rethrow-with-location-of-node ctx e
+                                                     (let [stack (assoc m
+                                                                        :ns @utils/current-ns
+                                                                        :file @utils/current-file
+                                                                        :sci.impl/f-meta f-meta)]
+                                                       (sci.impl.types/->Node nil stack)))))))
+          (keyword? f*)
+          (let [children (analyze-children ctx (rest expr))
+                ccount (count children)]
+            (case ccount
+              1 (let [arg (nth children 0)]
+                  (sci.impl.types/->Node
+                   (f* (t/eval arg ctx bindings))
+                   nil))
+              2 (let [arg0 (nth children 0)
+                      arg1 (nth children 1)]
+                  (sci.impl.types/->Node
+                   (f* (t/eval arg0 ctx bindings)
+                       (t/eval arg1 ctx bindings))
+                   nil))
+              (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f*) expr)))
+          :else
+          (let [f (analyze ctx f*)
+                children (analyze-children ctx (rest expr))
+                stack (assoc m
+                             :ns @utils/current-ns
+                             :file @utils/current-file)]
+            (return-call ctx
+                         expr
+                         f children stack
+                         #?(:cljs (if (utils/var? f)
+                                    (fn [ctx bindings f]
+                                      (t/eval @f ctx bindings))
+                                    (fn [ctx bindings f]
+                                      (t/eval f ctx bindings)))
+                            :clj (fn [ctx bindings f]
+                                   (t/eval f ctx bindings)))))))
       (catch #?(:clj Exception
                 :cljs :default) e
         (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil (utils/make-stack m)))))))
