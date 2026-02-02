@@ -73,6 +73,12 @@
        (types/eval case-default ctx bindings)
        (types/eval found ctx bindings)))))
 
+(defn- sci-error-ex?
+  "Returns true if e is a sci/error wrapper exception"
+  [e]
+  (and (instance? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e)
+       (isa? (:type (ex-data e)) :sci/error)))
+
 (defn eval-try
   [ctx bindings body catches finally sci-error]
   (try
@@ -86,13 +92,20 @@
       (if-let
        [[_ r]
         (reduce (fn [_ c]
-                  (let [clazz (:class c)]
+                  (let [clazz (:class c)
+                        ;; For catch matching, check both e and its cause if e is a sci/error wrapper
+                        ;; This allows specific catches to work even when sci-error wraps exceptions
+                        e-for-match (if (and sci-error
+                                             (sci-error-ex? e)
+                                             (ex-cause e))
+                                      (ex-cause e)
+                                      e)]
                     (when #?(:cljs
                              (or (kw-identical? :default clazz)
                                  (if (instance? sci.impl.types/NodeR clazz)
-                                   (instance? (types/eval clazz ctx bindings) e)
-                                   (instance? clazz e)))
-                             :clj (instance? clazz e))
+                                   (instance? (types/eval clazz ctx bindings) e-for-match)
+                                   (instance? clazz e-for-match)))
+                             :clj (instance? clazz e-for-match))
                       (reduced
                        [::try-result
                         (do (aset ^objects bindings (:ex-idx c) e)

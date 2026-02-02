@@ -1,9 +1,9 @@
 (ns sci.core-test
   (:require
+   #?(:clj [sci.ctx-store :as store])
    [clojure.edn :as edn]
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
-   #?(:clj [sci.ctx-store :as store])
    [sci.copy-ns-test-ns]
    [sci.core :as sci :refer [eval-string]]
    [sci.impl.unrestrict :as unrestrict]
@@ -755,7 +755,7 @@
 (def state (atom []))
 (doseq [i [1 2 3]] (swap! state conj i))
 @state"
-                     {}))))
+                           {}))))
 
 (deftest for-test
   (is (= '([1 4] [1 6])
@@ -902,7 +902,7 @@
        (is (thrown? js/Error
                     (sci/eval-string "(try (throw \"blah\") (catch js/Error e (str e e)))")))
        (is (= "blahblah" (sci/eval-string "(try (throw \"blah\") (catch :default e (str e e)))")))))
-  (is (= [1](sci/eval-string "(defn catch [] 1) (try [(catch)])"))))
+  (is (= [1] (sci/eval-string "(defn catch [] 1) (try [(catch)])"))))
 
 (deftest syntax-quote-test
   (is (= '(clojure.core/list 10 10)
@@ -1107,8 +1107,7 @@
   (is (= '(clojure.core/defrecord Foo []) (eval* "(macroexpand '(defrecord Foo []))")))
   (is (= '(. nil log) (eval* "(macroexpand-1 '(.log))")))
   (is (= '(. js/console log) (eval* "(macroexpand-1 '(.log js/console))")))
-  (is (= '(. js/console log 1 2 3) (eval* "(macroexpand-1 '(.log js/console 1 2 3))")))
-  )
+  (is (= '(. js/console log 1 2 3) (eval* "(macroexpand-1 '(.log js/console 1 2 3))"))))
 
 (deftest macroexpand-call-test
   (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))
@@ -1157,7 +1156,7 @@
                          {:load-fn (fn [{:keys [:namespace]}]
                                      (case namespace
                                        foo {:file "foo.clj"
-                                             :source "(ns foo) (println \"hello\")"}))})))))))
+                                            :source "(ns foo) (println \"hello\")"}))})))))))
 
 (deftest reload-all-test
   (when-not tu/native?
@@ -1454,7 +1453,7 @@
     (is (= 2 (sci/eval-form @C 'n/foo)))))
 
 (deftest merge-opts-preserves-features-test
-  (let [ctx(sci/init {:features #{:cljs}})]
+  (let [ctx (sci/init {:features #{:cljs}})]
     (is (= 2 (sci/eval-string* ctx "#?(:clj 1 :cljs 2)")))
     (is (= 2 (sci/eval-string* (sci/merge-opts ctx {}) "#?(:clj 1 :cljs 2)")))))
 
@@ -1654,6 +1653,40 @@
                                      'format-stacktrace sci/format-stacktrace}}})]
     (is (str/includes? (str st) "1:31"))))
 
+#?(:clj
+   (deftest sci-error-multiple-catches-test
+     (testing "^:sci/error works with multiple catch clauses"
+       (let [result (sci/eval-string
+                     "(defn foo [] (/ 1 0))
+                      (defn bar []
+                        (try (foo)
+                          (catch ArithmeticException e
+                            {:caught :arithmetic :msg (ex-message e)})
+                          (catch ^:sci/error Exception e
+                            {:caught :exception})))
+                      (bar)"
+                     {:classes {'ArithmeticException ArithmeticException}})]
+         (is (= :arithmetic (:caught result)))
+         (is (str/includes? (:msg result) "Divide by zero"))))
+     (testing "^:sci/error Exception catch still gets location info"
+       (let [result (sci/eval-string
+                     "(require '[sci.core :as sci])
+                      (defn foo [] (assoc :foo :bar))
+                      (defn bar []
+                        (try (foo)
+                          (catch ArithmeticException e
+                            {:caught :arithmetic})
+                          (catch ^:sci/error Exception e
+                            {:caught :exception :st (sci/format-stacktrace (sci/stacktrace e))})))
+                      (bar)"
+                     {:classes {'ArithmeticException ArithmeticException}
+                      :namespaces {'sci.core {'stacktrace sci/stacktrace
+                                              'format-stacktrace sci/format-stacktrace}}})]
+         (is (= :exception (:caught result)))
+         ;; Check that we have location info (user/foo on line 2)
+         (is (str/includes? (str (:st result)) "user/foo"))
+         (is (str/includes? (str (:st result)) ":2:"))))))
+
 (deftest var->sym-test
   (is (= 'clojure.core/inc (sci/var->symbol (sci/eval-string "#'inc")))))
 
@@ -1726,7 +1759,7 @@
      (is (true? (sci/eval-string "(exists? js/console.log)" {:classes {'js js/globalThis
                                                                        :allow :all}})))
      (is (false? (sci/eval-string "(exists? js/foo.bar)" {:classes {'js js/globalThis
-                                                                               :allow :all}})))
+                                                                    :allow :all}})))
      (is (false? (sci/eval-string "(exists? js/console.log.foobar)" {:classes {'js js/globalThis
                                                                                :allow :all}})))
      (is (false? (sci/eval-string "(exists? console.log)" {:classes {'js js/globalThis
