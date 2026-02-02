@@ -1,6 +1,5 @@
 (ns sci.impl.evaluator
   {:no-doc true}
-  (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
    [sci.impl.deftype]
@@ -9,8 +8,7 @@
    [sci.impl.records]
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [#?(:cljs kw-identical?)
-                                     rethrow-with-location-of-node
+   [sci.impl.utils :as utils :refer [rethrow-with-location-of-node
                                      throw-error-with-location]]
    [sci.impl.vars :as vars]
    [sci.lang])
@@ -94,14 +92,16 @@
         (reduce (fn [_ c]
                   (let [clazz (:class c)
                         ;; For catch matching, check both e and its cause if e is a sci/error wrapper
-                        ;; This allows specific catches to work even when sci-error wraps exceptions
+                        ;; Only unwrap for non-^:sci/error catches - the ^:sci/error catch wants
+                        ;; the wrapped exception with location info
                         e-for-match (if (and sci-error
+                                             (not (:sci-error? c))
                                              (sci-error-ex? e)
                                              (ex-cause e))
                                       (ex-cause e)
                                       e)]
                     (when #?(:cljs
-                             (or (kw-identical? :default clazz)
+                             (or (utils/kw-identical? :default clazz)
                                  (if (instance? sci.impl.types/NodeR clazz)
                                    (instance? (types/eval clazz ctx bindings) e-for-match)
                                    (instance? clazz e-for-match)))

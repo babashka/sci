@@ -895,17 +895,17 @@
                                                                        (assoc binding ex-iden))))
                                           (assoc-in [:iden->invoke-idx ex-iden] ex-idx))
                                   analyzed-body (analyze ctx
-                                                         (cons 'do body))]
+                                                         (cons 'do body))
+                                  sci-error (some-> ex meta :sci/error)]
                               {:class clazz
                                :ex-idx ex-idx
                                :body analyzed-body
-                               :ex ex})
+                               :ex ex
+                               :sci-error sci-error})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
-        sci-error (some (fn [{:keys [ex]}]
-                          (and (= #?(:clj 'Exception
-                                     :cljs 'js/Error) ex)
-                               (some-> ex meta :sci/error)))
+        sci-error (some (fn [{:keys [sci-error]}]
+                          sci-error)
                         catches)
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]

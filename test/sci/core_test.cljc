@@ -5,7 +5,7 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.copy-ns-test-ns]
-   [sci.core :as sci :refer [eval-string]]
+   [sci.core :as sci]
    [sci.impl.unrestrict :as unrestrict]
    [sci.test-utils :as tu]))
 
@@ -967,7 +967,7 @@
            (when-not tu/native?
              (is (= ":dude\n:dude\n"
                     (let [out (sci/with-out-str
-                                (eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"))]
+                                (sci/eval-string "(defmacro foo [x] (list 'do x x)) (foo (prn :dude))"))]
                       out))))))
 
 (deftest declare-test
