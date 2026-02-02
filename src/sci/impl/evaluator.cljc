@@ -71,7 +71,7 @@
        (types/eval case-default ctx bindings)
        (types/eval found ctx bindings)))))
 
-(defn- sci-error-ex?
+#_(defn- sci-error-ex?
   "Returns true if e is a sci/error wrapper exception"
   [e]
   (and (instance? #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e)
@@ -95,9 +95,7 @@
                         ;; Only unwrap for non-^:sci/error catches - the ^:sci/error catch wants
                         ;; the wrapped exception with location info
                         e-for-match (if (and sci-error
-                                             (not (:sci-error? c))
-                                             (sci-error-ex? e)
-                                             (ex-cause e))
+                                             (not (:sci-error c)))
                                       (ex-cause e)
                                       e)]
                     (when #?(:cljs
