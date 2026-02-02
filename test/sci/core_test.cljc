@@ -1653,9 +1653,9 @@
                                      'format-stacktrace sci/format-stacktrace}}})]
     (is (str/includes? (str st) "1:31"))))
 
-#?(:clj
-   (deftest sci-error-multiple-catches-test
-     (testing "^:sci/error works with multiple catch clauses"
+(deftest sci-error-multiple-catches-test
+  #?(:clj
+     (testing "^:sci/error works with multiple catch clauses - specific catch first"
        (let [result (sci/eval-string
                      "(defn foo [] (/ 1 0))
                       (defn bar []
@@ -1667,25 +1667,28 @@
                       (bar)"
                      {:classes {'ArithmeticException ArithmeticException}})]
          (is (= :arithmetic (:caught result)))
-         (is (str/includes? (:msg result) "Divide by zero"))))
-     (testing "^:sci/error Exception catch still gets location info"
-       (let [result (sci/eval-string
-                     "(require '[sci.core :as sci])
-                      (defn foo [] (assoc :foo :bar))
-                      (defn bar []
-                        (try (foo)
-                          (catch ArithmeticException e
-                            {:caught :arithmetic})
-                          (catch ^:sci/error Exception e
-                            {:caught :exception :st (sci/format-stacktrace (sci/stacktrace e))})))
-                      (bar)"
-                     {:classes {'ArithmeticException ArithmeticException}
-                      :namespaces {'sci.core {'stacktrace sci/stacktrace
-                                              'format-stacktrace sci/format-stacktrace}}})]
-         (is (= :exception (:caught result)))
-         ;; Check that we have location info (user/foo on line 2)
-         (is (str/includes? (str (:st result)) "user/foo"))
-         (is (str/includes? (str (:st result)) ":2:"))))))
+         (is (str/includes? (:msg result) "Divide by zero")))))
+  (testing "^:sci/error Exception catch still gets location info with multiple catches"
+    (let [result (sci/eval-string
+                  (-> "(require '[sci.core :as sci])
+                        (defn foo [] (assoc :foo :bar))
+                        (defn bar []
+                          (try (foo)
+                            (catch java.io.FileNotFoundException e
+                              {:caught :not-found})
+                            (catch ^:sci/error Exception e
+                              {:caught :exception :st (sci/format-stacktrace (sci/stacktrace e))})))
+                        (bar)"
+                      #?(:cljs (str/replace "java.io.FileNotFoundException" "js/RangeError"))
+                      #?(:cljs (str/replace "Exception" "js/Error")))
+                  {:classes #?(:clj {'java.io.FileNotFoundException java.io.FileNotFoundException}
+                               :cljs {:allow :all 'js js/global})
+                   :namespaces {'sci.core {'stacktrace sci/stacktrace
+                                           'format-stacktrace sci/format-stacktrace}}})]
+      (is (= :exception (:caught result)))
+      ;; Check that we have location info (user/foo on line 2)
+      (is (str/includes? (str (:st result)) "user/foo"))
+      (is (str/includes? (str (:st result)) ":2:")))))
 
 (deftest var->sym-test
   (is (= 'clojure.core/inc (sci/var->symbol (sci/eval-string "#'inc")))))
