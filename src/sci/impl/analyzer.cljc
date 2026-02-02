@@ -904,9 +904,7 @@
                                :sci-error sci-error})
                             (throw-error-with-location (str "Unable to resolve classname: " ex) ex))))
                       catches)
-        sci-error (some (fn [{:keys [sci-error]}]
-                          sci-error)
-                        catches)
+        sci-error (some :sci-error catches)
         finally (when finally
                   (analyze ctx (cons 'do (rest finally))))]
     (sci.impl.types/->Node
