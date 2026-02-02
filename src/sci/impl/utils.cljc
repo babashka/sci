@@ -273,21 +273,6 @@
                {:ns clojure-core-ns
                 :doc "A sci.lang.Namespace object representing the current namespace."}))
 
-;; Call stack for current-stacktrace
-(def ^:dynamic *call-stack* nil)
-
-(defn push-call-stack! [frame]
-  (when *call-stack*
-    (vswap! *call-stack* conj frame)))
-
-(defn pop-call-stack! []
-  (when *call-stack*
-    (vswap! *call-stack* pop)))
-
-(defn get-call-stack []
-  (when *call-stack*
-    @*call-stack*))
-
 (defn current-ns-name []
   (let [curr-ns @current-ns]
     (if (symbol? curr-ns) curr-ns (t/getName curr-ns))))

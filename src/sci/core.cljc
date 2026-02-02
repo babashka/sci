@@ -359,14 +359,6 @@
   [stacktrace]
   (cs/format-stacktrace stacktrace))
 
-(defn current-stacktrace
-  "Returns the current call stack at the point of invocation.
-   Returns a list of stack frame maps with keys :ns, :name, :file, :line, :column.
-   Only works when *call-stack* is bound (via binding)."
-  []
-  (when-let [stack (utils/get-call-stack)]
-    (cs/stacktrace (volatile! stack))))
-
 (defn ns-name
   "Returns name of SCI ns as symbol."
   [sci-ns]

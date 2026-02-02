@@ -2,7 +2,6 @@
   {:no-doc true
    :clj-kondo/config '{:linters {:unresolved-symbol {:exclude [ctx this bindings]}}}}
   (:require
-   #?(:clj [sci.impl.reflector :as reflector])
    #?(:clj [sci.impl.types :as t :refer [#?(:cljs ->Node) ->constant]])
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
    #?(:cljs [goog.object :as gobj])
@@ -21,7 +20,8 @@
     [ana-macros constant? macro? rethrow-with-location-of-node
      set-namespace! recur special-syms]]
    [sci.impl.vars :as vars]
-   [sci.lang])
+   [sci.lang]
+   #?(:clj [sci.impl.reflector :as reflector]))
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-recur
@@ -1342,48 +1342,30 @@
                               [i `(let ~binds
                                     (if ~'wrap
                                       (sci.impl.types/->Node
-                                       (do
-                                         (utils/push-call-stack! ~'stack)
-                                         (try
-                                           ((~'wrap ~'ctx ~'bindings ~'f)
-                                            ~@(map (fn [j]
-                                                     `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                   (range i)))
-                                           (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                             (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
-                                           (finally
-                                             (utils/pop-call-stack!))))
+                                       (try
+                                         ((~'wrap ~'ctx ~'bindings ~'f)
+                                          ~@(map (fn [j]
+                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                                 (range i)))
+                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
                                        ~'stack)
                                       (sci.impl.types/->Node
-                                       (do
-                                         (utils/push-call-stack! ~'stack)
-                                         (try
-                                           (~'f
-                                            ~@(map (fn [j]
-                                                     `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                   (range i)))
-                                           (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                             (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
-                                           (finally
-                                             (utils/pop-call-stack!))))
+                                       (try
+                                         (~'f
+                                          ~@(map (fn [j]
+                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                                 (range i)))
+                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
                                        ~'stack)))])
                             let-bindings)
                     `[(if ~'wrap
                         (sci.impl.types/->Node
-                         (do
-                           (utils/push-call-stack! ~'stack)
-                           (try
-                             (eval/fn-call ~'ctx ~'bindings (~'wrap ~'ctx ~'bindings ~'f) ~'analyzed-children)
-                             (finally
-                               (utils/pop-call-stack!))))
+                         (eval/fn-call ~'ctx ~'bindings (~'wrap ~'ctx ~'bindings ~'f) ~'analyzed-children)
                          ~'stack)
                         (sci.impl.types/->Node
-                         (do
-                           (utils/push-call-stack! ~'stack)
-                           (try
-                             (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)
-                             (finally
-                               (utils/pop-call-stack!))))
+                         (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)
                          ~'stack))]))
                tag# ~'(:tag (meta expr))]
            (cond-> node#
@@ -1462,36 +1444,36 @@
                         :file @utils/current-file)]
        (cond (str/starts-with? meth ".")
              (let [meth (subs meth 1)
-                   arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
-                               (let [param-count (count param-tags)
-                                     ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
-                                                                       (make-array Class param-count))]
-                                 (areduce arg-types idx _ret nil
-                                          (when-let [t (nth param-tags idx)]
-                                            (when-not (= '_ t)
-                                              (when-let [t (interop/resolve-type-hint ctx t)]
-                                                (aset arg-types idx t)))))
-                                 arg-types))
-                   f (fn [obj & args]
-                       (let [args (object-array args)
-                             arg-count (alength args)
-                             ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
-                         (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
-               (sci.impl.types/->Node
-                f
-                stack))
+                 arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
+                             (let [param-count (count param-tags)
+                                   ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
+                                                                     (make-array Class param-count))]
+                               (areduce arg-types  idx _ret nil
+                                        (when-let [t (nth param-tags idx)]
+                                          (when-not (= '_ t)
+                                            (when-let [t (interop/resolve-type-hint ctx t)]
+                                              (aset arg-types idx t)))))
+                               arg-types))
+                 f (fn [obj & args]
+                     (let [args (object-array args)
+                           arg-count (alength args)
+                           ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
+                       (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
+             (sci.impl.types/->Node
+              f
+              stack))
              (try (reflector/get-static-field ^Class clazz ^String meth)
                   (catch IllegalArgumentException _
                     nil))
              (sci.impl.types/->Node
-              (interop/get-static-field clazz meth)
-              stack)
+               (interop/get-static-field clazz meth)
+               stack)
              :else (sci.impl.types/->Node
-                    (fn [& args]
-                      (reflector/invoke-static-method
-                       clazz meth
-                       ^objects (into-array Object args)))
-                    stack)))))
+                     (fn [& args]
+                       (reflector/invoke-static-method
+                        clazz meth
+                        ^objects (into-array Object args)))
+                     stack)))))
 
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
@@ -1587,11 +1569,12 @@
                                                    :sci.impl/f-meta f-meta)
                                       ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
                                                                         (make-array Class arg-count))
-                                      has-types? (volatile! nil)]
+                                      has-types? (volatile! nil)
+                                      ]
                                   (when arg-types
                                     (or (when-let [param-tags (-> f* (some-> meta :param-tags))]
                                           (vreset! has-types? true)
-                                          (areduce arg-types idx _ret nil
+                                          (areduce arg-types  idx _ret nil
                                                    (when-let [t (nth param-tags idx)]
                                                      (when-not (= '_ t)
                                                        (when-let [t (interop/resolve-type-hint ctx t)]
@@ -1707,7 +1690,7 @@
                           arg1 (nth children 1)]
                       (sci.impl.types/->Node
                        (f* (t/eval arg0 ctx bindings)
-                           (t/eval arg1 ctx bindings))
+                          (t/eval arg1 ctx bindings))
                        nil))
                   (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f*) expr)))
               :else
