@@ -59,25 +59,6 @@
                  "user   - NO_SOURCE_PATH:1:34")
                formatted))))))
 
-(deftest current-stacktrace-test
-  (testing "lexical stack with fn - includes line/column"
-    (let [stacktrace (sci/binding [sci/file "test.clj"]
-                       (eval-string "((fn outer [] ((fn inner [] (sci.impl/current-stacktrace)))))"))]
-      (is (= [{:ns 'user, :name 'outer, :file "test.clj", :line 1, :column 2}
-              {:ns 'user, :name 'inner, :file "test.clj", :line 1, :column 16}]
-             stacktrace))))
-  (testing "lexical stack with defn - file but no line/column (macro expansion)"
-    (let [stacktrace (sci/binding [sci/file "test.clj"]
-                       (eval-string "
-(defn outer []
-  (defn inner []
-    (sci.impl/current-stacktrace))
-  (inner))
-(outer)"))]
-      (is (= [{:ns 'user, :name 'outer, :file "test.clj"}
-              {:ns 'user, :name 'inner, :file "test.clj"}]
-             stacktrace)))))
-
 #_(deftest locals-test
     (testing "defn does not introduce fn-named local binding"
       (let [locals

@@ -12,122 +12,107 @@ preceding ones, which we can add during analysis time.
 
 # Plan: Stack Trace at Point of Execution
 
-## Summary
+## Problem
 
-Add `sci.core/current-stacktrace` to return the lexical stack (enclosing forms/functions) at any point during execution. Stack info is built during analysis and inlined as a constant, so zero runtime overhead.
-
-## API
+When catching exceptions with `^:sci/error`, you only get the immediate error frame, not the full call chain:
 
 ```clojure
-;; sci.core/current-stacktrace is a special var recognized by the analyzer.
-;; When called from SCI code, returns the lexical stack at that point:
-;; => [{:ns user :name inner :file "script.clj" :line 1 :column 14}
-;;     {:ns user :name outer :file "script.clj" :line 2 :column 14}]
+(defn baz []
+  (try
+    (assoc :foo :bar :baz)
+    (catch ^:sci/error Exception e
+      (-> e ex-data :sci.impl/callstack deref))))
+
+(defn bar [] (baz))
+(defn foo [] (bar))
+(foo)
+;; Stack has only 1 frame (assoc), missing baz, bar, foo
+```
+
+This is because the stack is built during exception **propagation**. When you catch early with `^:sci/error`, propagation stops and you only get the immediate frame.
+
+## Solution
+
+Maintain a runtime call stack that gets pushed/popped as functions are entered/exited. The **infrastructure** (push/pop code) is generated at analysis time, but executes at runtime - exactly like the existing exception handling try/catch wrappers.
+
+## How Exception Stack Works (for reference)
+
+Currently, when an exception occurs:
+1. Each function call is wrapped in try/catch (set up at analysis time)
+2. When exception is thrown, each wrapper catches it, adds its frame via `rethrow-with-location-of-node`, and rethrows
+3. Stack is built up as exception propagates
+
+Example output from `bb`:
+```
+user/inner - /tmp/test.bb:1:16
+user/inner - /tmp/test.bb:1:1
+user/outer - /tmp/test.bb:2:16
+user/outer - /tmp/test.bb:2:1
+user       - /tmp/test.bb:3:1
+```
+
+## Proposed Approach
+
+Similar to exception handling, but track the stack actively:
+
+1. **At analysis time**: Modify `gen-return-call` to wrap function calls with push/pop logic
+2. **At runtime**: Each call pushes its frame to a thread-local stack, executes, then pops
+3. **`current-stacktrace`**: Simply reads the current stack
+
+### Implementation
+
+In `gen-return-call` (analyzer.cljc), wrap calls like:
+
+```clojure
+;; Pseudocode for generated node
+(let [stack-frame {...}]  ;; computed at analysis time
+  (push-frame! stack-frame)
+  (try
+    (f arg0 arg1 ...)
+    (finally
+      (pop-frame!))))
+```
+
+The stack would be stored in a dynamic var or thread-local, similar to how `*in-try*` works.
+
+### API
+
+```clojure
+;; Host-level API
+(sci.core/current-stacktrace)
+;; => [{:ns user :name outer :file "script.clj" :line 2 :column 16}
+;;     {:ns user :name foo :file "script.clj" :line 3 :column 1}]
 
 ;; Host exposes to users as they wish:
 (def ctx (sci/init {:namespaces
                     {'debug {'stacktrace sci.core/current-stacktrace}}}))
-
-;; SCI user calls it:
-(defn my-fn []
-  (debug/stacktrace))  ;; analyzer inlines the lexical stack here
 ```
-
-## Implementation
-
-### Approach
-Treat `current-stacktrace` as a **special form** recognized by the analyzer. When the analyzer encounters a call to the function, it replaces it with a constant containing the current lexical stack. Zero runtime cost.
-
-### Step 1: Track lexical stack during analysis
-
-In `src/sci/impl/analyzer.cljc`:
-- Add `:lexical-stack` key to `ctx` (initially `[]`)
-- Push stack frame when entering `defn`/`fn`/`let`/`loop` (line ~355, ~540, ~767)
-- Use `make-stack` from utils to create frames
-
-```clojure
-;; In analyze-fn*, after creating fn-name:
-(let [stack-frame (utils/make-stack (meta fn-expr))
-      stack-frame (assoc stack-frame :name fn-name)
-      ctx (update ctx :lexical-stack (fnil conj []) stack-frame)]
-  ...)
-```
-
-### Step 2: Handle current-stacktrace calls
-
-In `src/sci/impl/analyzer.cljc`, in `analyze-call`:
-- Check if resolved symbol is `current-stacktrace`
-- If so, return a constant node with `(:lexical-stack ctx)`
-
-```clojure
-;; In analyze-call, after resolving f:
-(if (= 'sci.core/current-stacktrace (some-> f meta :sci/built-in))
-  (->constant (:lexical-stack ctx))
-  ;; ... normal call handling
-  )
-```
-
-### Step 3: Register the function
-
-In `src/sci/impl/namespaces.cljc`:
-- Add `current-stacktrace` to `sci.core` namespace
-- Mark it with metadata so analyzer can recognize it
-
-In `src/sci/core.cljc`:
-- Add public `current-stacktrace` function (for documentation/API)
 
 ### Files to modify
 
 | File | Changes |
 |------|---------|
-| `src/sci/impl/analyzer.cljc` | Track `:lexical-stack` in ctx, push on fn/let/loop entry, handle `current-stacktrace` calls |
-| `src/sci/impl/namespaces.cljc` | Add `current-stacktrace` to `sci.core` namespace with marker metadata |
-| `src/sci/core.cljc` | Add `current-stacktrace` for public API/docs |
+| `src/sci/impl/analyzer.cljc` | Modify `gen-return-call` to add push/pop around calls |
+| `src/sci/impl/utils.cljc` | Add dynamic var for current call stack, push/pop functions |
+| `src/sci/core.cljc` | Add `current-stacktrace` public function |
 
-## Note on aliasing
+### Performance consideration
 
-When host exposes `current-stacktrace` under a different name:
-```clojure
-(sci/init {:namespaces {'debug {'st sci.core/current-stacktrace}}})
-```
-The analyzer resolves `debug/st` to the same var, recognizes it by identity (via metadata marker), and inlines the stack. The var carries the marker, not the symbol.
+This adds overhead to every function call. Options:
+1. Always enabled (simpler, some overhead)
+2. Opt-in via context flag `{:track-stacktrace true}`
+3. Only enable when `current-stacktrace` is used in the code (analyzer detects usage)
 
 ## Verification
 
-1. Add test in `test/sci/stacktrace_test.cljc`:
 ```clojure
 (deftest current-stacktrace-test
-  (let [ctx (sci/init {:namespaces
-                       {'debug {'stacktrace sci.core/current-stacktrace}}})
-        result (sci/eval-string* ctx
-                 "(defn inner [] (debug/stacktrace))
-                  (defn outer [] (inner))
-                  (outer)")]
-    (is (= 'inner (:name (first result))))
-    (is (= 'outer (:name (second result))))))
+  (let [result (sci/eval-string "
+(defn inner [] (sci.core/current-stacktrace))
+(defn outer [] (inner))
+(outer)")]
+    ;; Should show outer as caller, not inner (inner is current fn)
+    (is (= 'outer (:name (first result))))))
 ```
 
-2. Run: `script/test/jvm`
-
----
-
-## POC Results
-
-Minimal POC implemented in `analyzer.cljc` only (2 changes). Results:
-
-### With plain `fn` (line/column preserved):
-```clojure
-(sci/eval-string "((fn outer [] ((fn inner [] (sci.impl/current-stacktrace)))))")
-;; => [{:line 1, :column 2, :ns user, :file nil, :name outer}
-;;     {:line 1, :column 16, :ns user, :file nil, :name inner}]
-```
-
-### With `defn` (line/column lost due to macro expansion):
-```clojure
-(sci/eval-string "(defn outer [] (defn inner [] (sci.impl/current-stacktrace)) (inner)) (outer)")
-;; => [{:ns user, :file nil, :name outer}
-;;     {:ns user, :file nil, :name inner}]
-```
-
-### Known limitation
-`defn` macro expansion creates a new `fn*` form without preserving line/column from original expression. This can be fixed by passing metadata through the macro expansion.
+Run: `script/test/jvm`
