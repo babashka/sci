@@ -1342,30 +1342,48 @@
                               [i `(let ~binds
                                     (if ~'wrap
                                       (sci.impl.types/->Node
-                                       (try
-                                         ((~'wrap ~'ctx ~'bindings ~'f)
-                                          ~@(map (fn [j]
-                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                 (range i)))
-                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                                       (do
+                                         (utils/push-call-stack! ~'stack)
+                                         (try
+                                           ((~'wrap ~'ctx ~'bindings ~'f)
+                                            ~@(map (fn [j]
+                                                     `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                                   (range i)))
+                                           (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                             (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
+                                           (finally
+                                             (utils/pop-call-stack!))))
                                        ~'stack)
                                       (sci.impl.types/->Node
-                                       (try
-                                         (~'f
-                                          ~@(map (fn [j]
-                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                 (range i)))
-                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                                       (do
+                                         (utils/push-call-stack! ~'stack)
+                                         (try
+                                           (~'f
+                                            ~@(map (fn [j]
+                                                     `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                                   (range i)))
+                                           (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                             (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
+                                           (finally
+                                             (utils/pop-call-stack!))))
                                        ~'stack)))])
                             let-bindings)
                     `[(if ~'wrap
                         (sci.impl.types/->Node
-                         (eval/fn-call ~'ctx ~'bindings (~'wrap ~'ctx ~'bindings ~'f) ~'analyzed-children)
+                         (do
+                           (utils/push-call-stack! ~'stack)
+                           (try
+                             (eval/fn-call ~'ctx ~'bindings (~'wrap ~'ctx ~'bindings ~'f) ~'analyzed-children)
+                             (finally
+                               (utils/pop-call-stack!))))
                          ~'stack)
                         (sci.impl.types/->Node
-                         (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)
+                         (do
+                           (utils/push-call-stack! ~'stack)
+                           (try
+                             (eval/fn-call ~'ctx ~'bindings ~'f ~'analyzed-children)
+                             (finally
+                               (utils/pop-call-stack!))))
                          ~'stack))]))
                tag# ~'(:tag (meta expr))]
            (cond-> node#

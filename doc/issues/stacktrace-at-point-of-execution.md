@@ -31,61 +31,56 @@ When catching exceptions with `^:sci/error`, you only get the immediate error fr
 
 This is because the stack is built during exception **propagation**. When you catch early with `^:sci/error`, propagation stops and you only get the immediate frame.
 
-## Solution
+## Why Analysis-Time Only Doesn't Work
 
-Maintain a runtime call stack that gets pushed/popped as functions are entered/exited. The **infrastructure** (push/pop code) is generated at analysis time, but executes at runtime - exactly like the existing exception handling try/catch wrappers.
+Each node gets its stack frame embedded at analysis time. However, **function bodies are analyzed once at definition time**, not re-analyzed at each call site.
 
-## How Exception Stack Works (for reference)
-
-Currently, when an exception occurs:
-1. Each function call is wrapped in try/catch (set up at analysis time)
-2. When exception is thrown, each wrapper catches it, adds its frame via `rethrow-with-location-of-node`, and rethrows
-3. Stack is built up as exception propagates
-
-Example output from `bb`:
-```
-user/inner - /tmp/test.bb:1:16
-user/inner - /tmp/test.bb:1:1
-user/outer - /tmp/test.bb:2:16
-user/outer - /tmp/test.bb:2:1
-user       - /tmp/test.bb:3:1
+Example:
+```clojure
+(defn inner [] (current-stacktrace))  ;; analyzed here - don't know who will call inner
+(defn outer [] (inner))               ;; creates call node, but inner's body already analyzed
+(outer)
 ```
 
-## Proposed Approach
+When `(current-stacktrace)` inside `inner` is analyzed, `outer` doesn't exist yet. The runtime call chain (`outer` -> `inner`) can only be known at runtime.
 
-Similar to exception handling, but track the stack actively:
+## Solution: Runtime Tracking with Minimal Overhead
 
-1. **At analysis time**: Modify `gen-return-call` to wrap function calls with push/pop logic
-2. **At runtime**: Each call pushes its frame to a thread-local stack, executes, then pops
-3. **`current-stacktrace`**: Simply reads the current stack
+Each node already has its stack frame embedded at analysis time. We add push/pop at runtime, but with **near-zero overhead when not enabled**.
+
+### How It Works
+
+1. **`*call-stack*` dynamic var** (in utils.cljc): `nil` by default
+2. **Push/pop functions** only do work when `*call-stack*` is non-nil:
+   ```clojure
+   (defn push-call-stack! [frame]
+     (when *call-stack*           ;; nil check = near-zero overhead
+       (vswap! *call-stack* conj frame)))
+   ```
+3. **To enable tracking**: bind `*call-stack*` to `(volatile! [])`
+4. **`current-stacktrace`**: reads from the volatile
 
 ### Implementation
 
-In `gen-return-call` (analyzer.cljc), wrap calls like:
+**1. Modify `gen-return-call`** (analyzer.cljc) - add push/pop around calls:
 
 ```clojure
-;; Pseudocode for generated node
-(let [stack-frame {...}]  ;; computed at analysis time
-  (push-frame! stack-frame)
+;; Inside ->Node body (runs at runtime):
+(do
+  (utils/push-call-stack! stack)  ;; stack is the node's frame, set at analysis time
   (try
     (f arg0 arg1 ...)
+    (catch Throwable e
+      (rethrow-with-location-of-node ctx bindings e this))
     (finally
-      (pop-frame!))))
+      (utils/pop-call-stack!))))
 ```
 
-The stack would be stored in a dynamic var or thread-local, similar to how `*in-try*` works.
-
-### API
+**2. `current-stacktrace`** (core.cljc):
 
 ```clojure
-;; Host-level API
-(sci.core/current-stacktrace)
-;; => [{:ns user :name outer :file "script.clj" :line 2 :column 16}
-;;     {:ns user :name foo :file "script.clj" :line 3 :column 1}]
-
-;; Host exposes to users as they wish:
-(def ctx (sci/init {:namespaces
-                    {'debug {'stacktrace sci.core/current-stacktrace}}}))
+(defn current-stacktrace []
+  (utils/get-call-stack))
 ```
 
 ### Files to modify
@@ -93,26 +88,42 @@ The stack would be stored in a dynamic var or thread-local, similar to how `*in-
 | File | Changes |
 |------|---------|
 | `src/sci/impl/analyzer.cljc` | Modify `gen-return-call` to add push/pop around calls |
-| `src/sci/impl/utils.cljc` | Add dynamic var for current call stack, push/pop functions |
-| `src/sci/core.cljc` | Add `current-stacktrace` public function |
+| `src/sci/impl/utils.cljc` | ✅ Already done: `*call-stack*`, `push-call-stack!`, `pop-call-stack!`, `get-call-stack` |
+| `src/sci/core.cljc` | Update `current-stacktrace` to call `utils/get-call-stack` |
 
-### Performance consideration
+### Performance
 
-This adds overhead to every function call. Options:
-1. Always enabled (simpler, some overhead)
-2. Opt-in via context flag `{:track-stacktrace true}`
-3. Only enable when `current-stacktrace` is used in the code (analyzer detects usage)
+- **When not tracking** (`*call-stack*` is nil): just a nil check per function call
+- **When tracking**: push/pop on volatile per function call
+
+### API Usage
+
+```clojure
+;; Host enables tracking by binding *call-stack*:
+(binding [sci.impl.utils/*call-stack* (volatile! [])]
+  (sci/eval-string* ctx "(outer)"))
+
+;; Or expose via context for SCI code to use:
+(def ctx (sci/init {:namespaces
+                    {'debug {'stacktrace sci/current-stacktrace}}}))
+```
 
 ## Verification
 
+Test in `test/sci/error_test.cljc`:
+
 ```clojure
 (deftest current-stacktrace-test
-  (let [result (sci/eval-string "
+  (testing "returns call chain at point of execution"
+    (let [ctx (sci/init {:namespaces {'sci.core {'current-stacktrace sci/current-stacktrace}}})
+          stacktrace (sci/binding [sci/file "test.clj"]
+                       (sci/eval-string* ctx "
 (defn inner [] (sci.core/current-stacktrace))
 (defn outer [] (inner))
-(outer)")]
-    ;; Should show outer as caller, not inner (inner is current fn)
-    (is (= 'outer (:name (first result))))))
+(outer)"))]
+      (is (= [{:ns 'user, :name 'inner, :file "test.clj", :line 2, :column 16}
+              {:ns 'user, :name 'outer, :file "test.clj", :line 3, :column 15}]
+             (mapv #(select-keys % [:ns :name :file :line :column]) stacktrace))))))
 ```
 
 Run: `script/test/jvm`

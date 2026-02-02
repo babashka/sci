@@ -2,7 +2,8 @@
   (:require #?(:clj [sci.addons.future :as fut])
             #?(:cljs [clojure.string :as str])
             [clojure.test :as t :refer [deftest testing is]]
-            [sci.core :as sci :refer [eval-string]]))
+            [sci.core :as sci :refer [eval-string]]
+            [sci.impl.utils :as utils]))
 
 #?(:cljs (def Exception js/Error))
 
@@ -58,6 +59,29 @@
                  "user/g - NO_SOURCE_PATH:1:15"
                  "user   - NO_SOURCE_PATH:1:34")
                formatted))))))
+
+(deftest current-stacktrace-test
+  (testing "returns call chain at point of execution"
+    (let [ctx (sci/init {:namespaces {'sci.core {'current-stacktrace sci/current-stacktrace}}})
+          stacktrace (binding [utils/*call-stack* (volatile! [])]
+                       (sci/binding [sci/file "test.clj"]
+                         (sci/eval-string* ctx "
+(defn inner [] (sci.core/current-stacktrace))
+(defn outer [] (inner))
+(outer)")))
+          ;; Remove nil :name entries from the result
+          clean-frame (fn [m]
+                        (let [m (select-keys m [:ns :name :file :line :column])]
+                          (if (nil? (:name m))
+                            (dissoc m :name)
+                            m)))]
+      ;; Full call chain like exception stack trace
+      (is (= [{:ns 'user, :name 'inner, :file "test.clj", :line 2, :column 16}
+              {:ns 'user, :name 'inner, :file "test.clj", :line 2, :column 1}
+              {:ns 'user, :name 'outer, :file "test.clj", :line 3, :column 16}
+              {:ns 'user, :name 'outer, :file "test.clj", :line 3, :column 1}
+              {:ns 'user, :file "test.clj", :line 4, :column 1}]
+             (mapv clean-frame stacktrace))))))
 
 #_(deftest locals-test
     (testing "defn does not introduce fn-named local binding"
