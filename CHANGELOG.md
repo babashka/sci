@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Support `hashCode` on `deftype`
+- Fix [#931](https://github.com/babashka/sci/issues/931): support multiple `catch` in combination with `^:sci/error`
 
 ## 0.11.50 (2025-12-23)
 
