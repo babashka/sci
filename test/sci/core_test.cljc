@@ -1654,10 +1654,9 @@
     (is (str/includes? (str st) "1:31"))))
 
 (deftest sci-error-multiple-catches-test
-  #?(:clj
-     (testing "^:sci/error works with multiple catch clauses - specific catch first"
-       (let [result (sci/eval-string
-                     "(defn foo [] (/ 1 0))
+  (testing "^:sci/error works with multiple catch clauses - specific catch first"
+    (let [result (sci/eval-string
+                  (-> "(defn foo [] (/ 1 0))
                       (defn bar []
                         (try (foo)
                           (catch ArithmeticException e
@@ -1665,23 +1664,28 @@
                           (catch ^:sci/error Exception e
                             {:caught :exception})))
                       (bar)"
-                     {:classes {'ArithmeticException ArithmeticException}})]
-         (is (= :arithmetic (:caught result)))
-         (is (str/includes? (:msg result) "Divide by zero")))))
+                      #?(:cljs (str/replace "ArithmeticException" "js/RangeError"))
+                      #?(:cljs (str/replace "Exception" "js/Error"))
+                      #?(:cljs (str/replace "(/ 1 0)" "(js/Array. -1)")))
+                  {:classes #?(:clj {'ArithmeticException ArithmeticException}
+                               :cljs {:allow :all 'js js/global})})]
+      (is (= :arithmetic (:caught result)))
+      (is (str/includes? (:msg result) #?(:clj "Divide by zero"
+                                          :cljs "Invalid array length")))))
   (testing "^:sci/error Exception catch still gets location info with multiple catches"
     (let [result (sci/eval-string
                   (-> "(require '[sci.core :as sci])
                         (defn foo [] (assoc :foo :bar))
                         (defn bar []
                           (try (foo)
-                            (catch java.io.FileNotFoundException e
+                            (catch ArithmeticException e
                               {:caught :not-found})
                             (catch ^:sci/error Exception e
                               {:caught :exception :st (sci/format-stacktrace (sci/stacktrace e))})))
                         (bar)"
-                      #?(:cljs (str/replace "java.io.FileNotFoundException" "js/RangeError"))
+                      #?(:cljs (str/replace "ArithmeticException" "js/RangeError"))
                       #?(:cljs (str/replace "Exception" "js/Error")))
-                  {:classes #?(:clj {'java.io.FileNotFoundException java.io.FileNotFoundException}
+                  {:classes #?(:clj {'ArithmeticException ArithmeticException}
                                :cljs {:allow :all 'js js/global})
                    :namespaces {'sci.core {'stacktrace sci/stacktrace
                                            'format-stacktrace sci/format-stacktrace}}})]
