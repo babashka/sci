@@ -1,6 +1,5 @@
 (ns sci.impl.evaluator
   {:no-doc true}
-  (:refer-clojure :exclude [eval])
   (:require
    [clojure.string :as str]
    [sci.impl.deftype]
@@ -9,8 +8,7 @@
    [sci.impl.records]
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [#?(:cljs kw-identical?)
-                                     rethrow-with-location-of-node
+   [sci.impl.utils :as utils :refer [rethrow-with-location-of-node
                                      throw-error-with-location]]
    [sci.impl.vars :as vars]
    [sci.lang])
@@ -84,21 +82,25 @@
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
       (if-let
-       [[_ r]
-        (reduce (fn [_ c]
-                  (let [clazz (:class c)]
-                    (when #?(:cljs
-                             (or (kw-identical? :default clazz)
-                                 (if (instance? sci.impl.types/NodeR clazz)
-                                   (instance? (types/eval clazz ctx bindings) e)
-                                   (instance? clazz e)))
-                             :clj (instance? clazz e))
-                      (reduced
-                       [::try-result
-                        (do (aset ^objects bindings (:ex-idx c) e)
-                            (types/eval (:body c) ctx bindings))]))))
-                nil
-                catches)]
+          [[_ r]
+           (reduce (fn [_ c]
+                     (let [clazz (:class c)
+                           e (if (and sci-error
+                                      (not (:sci-error c)))
+                               (ex-cause e)
+                               e)]
+                       (when #?(:cljs
+                                (or (utils/kw-identical? :default clazz)
+                                    (if (instance? sci.impl.types/NodeR clazz)
+                                      (instance? (types/eval clazz ctx bindings) e)
+                                      (instance? clazz e)))
+                                :clj (instance? clazz e))
+                         (reduced
+                          [::try-result
+                           (do (aset ^objects bindings (:ex-idx c) e)
+                               (types/eval (:body c) ctx bindings))]))))
+                   nil
+                   catches)]
         r
         (rethrow-with-location-of-node ctx bindings e body)))
     (finally
