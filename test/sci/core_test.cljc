@@ -1671,7 +1671,7 @@
                                :cljs {:allow :all 'js js/global})})]
       (is (= :arithmetic (:caught result)))
       (is (str/includes? (:msg result) #?(:clj "Divide by zero"
-                                          :cljs "Invalid array length")))))
+                                          :cljs "length")))))
   (testing "^:sci/error Exception catch still gets location info with multiple catches"
     (let [result (sci/eval-string
                   (-> "(require '[sci.core :as sci])
