@@ -294,12 +294,14 @@
         name-m (meta name)
         m (conj (if name-m name-m {}) m)
         macro? (:macro name-m)
+        async? (:async name-m)
         expr (cons `fn fdecl)
         expr (list 'def (with-meta name m)
                    (if (or macro? name)
                      (with-meta expr
-                       {:sci.impl/fn {:macro macro?
-                                      :fn-name name}})
+                       (cond-> {:sci.impl/fn {:macro macro?
+                                              :fn-name name}}
+                         async? (assoc :async true)))
                      expr))]
     expr))
 

@@ -9,6 +9,7 @@
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
+   [sci.impl.async-macro :as async-macro]
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -351,6 +352,16 @@
         bodies (if (seq? (first body))
                  body
                  [body])
+        async? (:async fn-expr-m)
+        ;; Transform async function bodies: (await ...) -> .then chains
+        bodies (if async?
+                 (map (fn [body]
+                        (let [arglist (first body)
+                              body-exprs (rest body)]
+                          (cons arglist
+                                (map async-macro/transform-async-body body-exprs))))
+                      bodies)
+                 bodies)
         fn-id (gensym)
         parents ((fnil conj []) (:parents ctx) fn-id)
         ctx (assoc ctx :parents parents)
