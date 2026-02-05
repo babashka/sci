@@ -153,3 +153,31 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-try-catch-test
+  (testing "^:async fn with try/catch"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       ;; Test catching a rejected promise
+                       v1 (sci/eval-string* ctx
+                            "(defn ^:async safe-fetch []
+                               (try
+                                 (await (js/Promise.reject (js/Error. \"oops\")))
+                                 (catch :default e
+                                   \"caught\")))
+                             (safe-fetch)")
+                       ;; Test successful try (no catch)
+                       v2 (sci/eval-string* ctx
+                            "(defn ^:async safe-fetch2 []
+                               (try
+                                 (await (js/Promise.resolve 42))
+                                 (catch :default e
+                                   \"caught\")))
+                             (safe-fetch2)")]
+                 (p/let [r1 v1
+                         r2 v2]
+                   (is (= "caught" r1))
+                   (is (= 42 r2))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))

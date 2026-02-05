@@ -108,6 +108,51 @@
         (first acc)
         (list* 'do acc)))))
 
+(defn transform-try
+  "Transform try/catch/finally with await into Promise .catch/.finally chains.
+   (try (await p) (catch :default e handler) (finally cleanup))
+   ->
+   (-> (js/Promise.resolve p) (.catch (fn [e] handler)) (.finally (fn [] cleanup)))"
+  [ctx exprs]
+  (let [;; Separate body from catch/finally clauses
+        catch-finally? (fn [form]
+                         (and (seq? form)
+                              (#{'catch 'finally} (first form))))
+        body-exprs (take-while (complement catch-finally?) exprs)
+        clauses (drop-while (complement catch-finally?) exprs)
+        catch-clauses (filter #(and (seq? %) (= 'catch (first %))) clauses)
+        finally-clause (first (filter #(and (seq? %) (= 'finally (first %))) clauses))
+        ;; Transform body as a do block
+        transformed-body (if (= 1 (count body-exprs))
+                           (transform-async-body ctx (first body-exprs))
+                           (transform-do ctx body-exprs))
+        ;; Wrap in Promise.resolve if not already a promise chain
+        promise-chain (if (and (seq? transformed-body)
+                               (or (= '.then (first transformed-body))
+                                   (= 'js/Promise.resolve (first transformed-body))))
+                        transformed-body
+                        (wrap-promise transformed-body))]
+    ;; Add .catch clauses
+    (let [with-catch (reduce
+                       (fn [chain catch-clause]
+                         ;; (catch Type e handler-body...)
+                         (let [[_ _type binding & handler-body] catch-clause
+                               transformed-handler (if (= 1 (count handler-body))
+                                                     (transform-async-body ctx (first handler-body))
+                                                     (transform-do ctx handler-body))]
+                           (list '.catch chain (list 'fn [binding] transformed-handler))))
+                       promise-chain
+                       catch-clauses)
+          ;; Add .finally if present
+          with-finally (if finally-clause
+                         (let [[_ & finally-body] finally-clause
+                               transformed-finally (if (= 1 (count finally-body))
+                                                     (transform-async-body ctx (first finally-body))
+                                                     (transform-do ctx finally-body))]
+                           (list '.finally with-catch (list 'fn [] transformed-finally)))
+                         with-catch)]
+      with-finally)))
+
 (defn transform-expr-with-await
   "Transform an expression containing await by extracting the await
    and wrapping in .then."
@@ -147,7 +192,7 @@
           expanded (if (and (seq? body)
                            (symbol? (first body))
                            (not (await-call? body))
-                           (not (#{'let 'let* 'do 'fn 'fn* 'if 'quote} (first body))))
+                           (not (#{'let 'let* 'do 'fn 'fn* 'if 'quote 'try} (first body))))
                      (macroexpand/macroexpand ctx body)
                      body)
           ;; If expansion changed the form, recursively transform
@@ -161,6 +206,9 @@
 
         (and (seq? body) (= 'do (first body)))
         (transform-do ctx (rest body))
+
+        (and (seq? body) (= 'try (first body)))
+        (transform-try ctx (rest body))
 
         ;; Handle any other expression containing await
         (contains-await? body)
