@@ -359,7 +359,7 @@
                         (let [arglist (first body)
                               body-exprs (rest body)]
                           (cons arglist
-                                (map async-macro/transform-async-body body-exprs))))
+                                (map #(async-macro/transform-async-body ctx %) body-exprs))))
                       bodies)
                  bodies)
         fn-id (gensym)
