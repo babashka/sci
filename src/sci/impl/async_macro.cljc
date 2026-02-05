@@ -354,3 +354,10 @@
   (->> body-exprs
        (map #(transform-async-body ctx locals %))
        ensure-promise-result))
+
+;; TODO:
+
+
+;; cljs.user=> (.then (sci/eval-string "((^:async fn [] (await 1)))" {:classes {'js js/globalThis :allow :all}}) prn)
+;; Execution error (ExceptionInfo) at (<cljs repl>:1).
+;; Unable to resolve symbol: await
