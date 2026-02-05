@@ -357,6 +357,15 @@
 
 ;; TODO:
 
+;; cljs.user=> (.then (sci/eval-string "(defn ^:async foo [] (+ ((fn [x] (do 1 2 (await x))) 1) (await 2))) (foo)" {:classes {'js js/globalThis :allow :all}}) prn)
+;; async transform:
+;; in:  (+ ((fn [x] (do 1 2 await__126)) 1) (await 2))
+;; out: (.then (js/Promise.resolve 2) (fn [await__127] (+ ((fn [x] (do 1 2 await__126)) 1) await__127)))
+;; async transform:
+;; in:  (+ ((fn [x] (do 1 2 (await x))) 1) (await 2))
+;; out: (.then (js/Promise.resolve x) (fn [await__126] (.then (js/Promise.resolve 2) (fn [await__127] (+ ((fn [x] (do 1 2 await__126)) 1) await__127)))))
+;; Execution error (ExceptionInfo) at (<cljs repl>:1).
+;; Unable to resolve symbol: x
 
 ;; cljs.user=> (.then (sci/eval-string "((^:async fn [] (await 1)))" {:classes {'js js/globalThis :allow :all}}) prn)
 ;; Execution error (ExceptionInfo) at (<cljs repl>:1).
