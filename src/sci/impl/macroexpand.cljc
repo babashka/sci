@@ -1,6 +1,6 @@
 (ns sci.impl.macroexpand
   {:no-doc true}
-  (:refer-clojure :exclude [eval demunge var? macroexpand macroexpand-1])
+  (:refer-clojure :exclude [demunge var? macroexpand macroexpand-1])
   (:require [clojure.string :as str]
             [sci.ctx-store :as store]
             [sci.impl.resolve :as resolve]
