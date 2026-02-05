@@ -134,3 +134,22 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-if-test
+  (testing "^:async fn with if and await"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v1 (sci/eval-string* ctx
+                            "(defn ^:async choose [b]
+                               (if (await (js/Promise.resolve b))
+                                 (await (js/Promise.resolve 1))
+                                 (await (js/Promise.resolve 2))))
+                             (choose true)")
+                       v2 (sci/eval-string* ctx "(choose false)")]
+                 (p/let [r1 v1
+                         r2 v2]
+                   (is (= 1 r1))
+                   (is (= 2 r2))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
