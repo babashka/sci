@@ -217,7 +217,7 @@
                              (not (contains? locals op))  ;; Don't expand if locally bound
                              (not (await-call? body))
                              (not (#{'let 'let* 'do 'fn 'fn* 'if 'quote 'try} op)))
-                      (macroexpand/macroexpand ctx body)
+                      (macroexpand/macroexpand-1 ctx body)
                       body)
            ;; If expansion changed the form, recursively transform
            body (if (not= expanded body)
