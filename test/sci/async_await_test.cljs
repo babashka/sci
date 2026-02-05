@@ -210,3 +210,45 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-nested-async-fn-test
+  (testing "^:async fn with nested ^:async fn in let binding"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (let [add-async (^:async fn [x y] (+ (await x) y))]
+                                (add-async (js/Promise.resolve 1) 2)))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= 3 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-param-shadowing-macro-test
+  (testing "^:async fn with parameter shadowing macro"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo [->]
+                              (-> (await (js/Promise.resolve 1)) 1))
+                            (foo (fn [x y] (+ x y)))")]
+                 (p/let [result v]
+                   (is (= 2 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-no-await-returns-promise-test
+  (testing "^:async fn without await still returns a promise"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo [x] (+ x 1))
+                            (foo 41)")]
+                 (p/let [result v]
+                   (is (= 42 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))

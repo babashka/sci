@@ -262,7 +262,7 @@
 
 (declare update-parents)
 
-(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id]
+(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id async?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -284,6 +284,11 @@
         ctx (update ctx :parents conj (or var-arg-name fixed-arity))
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
+        ;; Transform async bodies before analysis
+        body-exprs (if async?
+                     (let [locals (set (keys (:bindings ctx)))]
+                       (async-macro/transform-async-fn-body ctx locals body-exprs))
+                     body-exprs)
         body (return-do (with-recur-target ctx true) fn-expr body-exprs)
         iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
@@ -353,15 +358,6 @@
                  body
                  [body])
         async? (:async fn-expr-m)
-        ;; Transform async function bodies: (await ...) -> .then chains
-        bodies (if async?
-                 (map (fn [body]
-                        (let [arglist (first body)
-                              body-exprs (rest body)]
-                          (cons arglist
-                                (map #(async-macro/transform-async-body ctx %) body-exprs))))
-                      bodies)
-                 bodies)
         fn-id (gensym)
         parents ((fnil conj []) (:parents ctx) fn-id)
         ctx (assoc ctx :parents parents)
@@ -378,7 +374,7 @@
                          (fn [{:keys [:max-fixed :min-varargs] :as acc} body]
                            (let [orig-body body
                                  arglist (first body)
-                                 body (expand-fn-args+body ctx body macro? fn-name fn-id)
+                                 body (expand-fn-args+body ctx body macro? fn-name fn-id async?)
                                  ;; body (assoc body :sci.impl/arglist arglist)
                                  var-arg-name (:var-arg-name body)
                                  fixed-arity (:fixed-arity body)
