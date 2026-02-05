@@ -21,6 +21,9 @@ lein test :only sci.core-test/core-test
 # Run ClojureScript tests in Node.js (both :none and :advanced optimizations)
 script/test/node
 
+# Run specific CLJS test namespace with cljs-test-runner (requires :test alias for deps)
+clojure -M:test:cljs-test-runner -d test -n sci.async-await-test
+
 # Compile native binary (requires GRAALVM_HOME)
 script/compile
 

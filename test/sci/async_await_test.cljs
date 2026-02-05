@@ -181,3 +181,32 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-nested-await-test
+  (testing "^:async fn with nested await in expression"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (inc (await (inc (await (js/Promise.resolve 1))))))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= 3 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-local-shadowing-macro-test
+  (testing "^:async fn with local binding shadowing macro"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (let [-> (fn [x y] (+ x y))]
+                                (-> (await (js/Promise.resolve 1)) 1)))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= 2 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
