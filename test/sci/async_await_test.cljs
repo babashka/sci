@@ -3,493 +3,283 @@
             [promesa.core :as p]
             [sci.core :as sci]))
 
-(deftest async-fn-simple-await-test
-  (testing "^:async fn with await in let"
+;; Let bindings: simple, sequential, mixed, nested
+(deftest async-fn-let-bindings-test
+  (testing "let bindings with await"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (let [x (await (js/Promise.resolve 1))]
-                                (inc x)))
-                            (foo)")]
-                 ;; v should be a Promise that resolves to 2
+                           "(defn ^:async test-let []
+                              {:simple
+                               (let [x (await (js/Promise.resolve 1))]
+                                 (inc x))
+
+                               :sequential
+                               (let [x (await (js/Promise.resolve 1))
+                                     y (await (js/Promise.resolve 2))]
+                                 (+ x y))
+
+                               :mixed
+                               (let [x 1
+                                     y (await (js/Promise.resolve 2))
+                                     z 3]
+                                 (+ x y z))
+
+                               :nested
+                               (let [x (await (js/Promise.resolve 10))]
+                                 (let [y (await (js/Promise.resolve 11))]
+                                   (+ x y)))
+
+                               :destructuring
+                               (let [[x y] (await (js/Promise.resolve [1 2]))]
+                                 (+ x y))})
+                            (test-let)")]
                  (p/let [result v]
-                   (is (= 2 result))))
+                   (is (= {:simple 2 :sequential 3 :mixed 6 :nested 21 :destructuring 3} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-sequential-awaits-test
-  (testing "^:async fn with sequential awaits"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async bar []
-                              (let [x (await (js/Promise.resolve 1))
-                                    y (await (js/Promise.resolve 2))]
-                                (+ x y)))
-                            (bar)")]
-                 (p/let [result v]
-                   (is (= 3 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-mixed-bindings-test
-  (testing "^:async fn with mixed bindings"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async baz []
-                              (let [x 1
-                                    y (await (js/Promise.resolve 2))
-                                    z 3]
-                                (+ x y z)))
-                            (baz)")]
-                 (p/let [result v]
-                   (is (= 6 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-nested-let-test
-  (testing "^:async fn with nested let forms"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async qux []
-                              (let [x (await (js/Promise.resolve 10))]
-                                (let [y (await (js/Promise.resolve 11))]
-                                  (+ x y))))
-                            (qux)")]
-                 (p/let [result v]
-                   (is (= 21 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-do-test
-  (testing "^:async fn with do and await"
+;; Do and expressions with await
+(deftest async-fn-do-expressions-test
+  (testing "do and expressions with await"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
                            "(def a (atom 0))
-                            (defn ^:async quux []
-                              (do
-                                (reset! a 1)
-                                (await (js/Promise.resolve nil))
-                                (swap! a inc)
-                                @a))
-                            (quux)")]
+                            (defn ^:async test-do []
+                              {:do-basic
+                               (do
+                                 (reset! a 1)
+                                 (await (js/Promise.resolve nil))
+                                 (swap! a inc)
+                                 @a)
+
+                               :await-in-expr
+                               (let [x (await (js/Promise.resolve 10))]
+                                 (let [y (inc (await (js/Promise.resolve 11)))]
+                                   (+ x y)))
+
+                               :await-in-do-binding
+                               (let [x (await (js/Promise.resolve 10))]
+                                 (let [y (do (await (js/Promise.resolve 11)))]
+                                   (+ x y)))
+
+                               :nested-await
+                               (inc (await (inc (await (js/Promise.resolve 1)))))})
+                            (test-do)")]
                  (p/let [result v]
-                   (is (= 2 result))))
+                   (is (= {:do-basic 2 :await-in-expr 22 :await-in-do-binding 21 :nested-await 3} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-await-in-expr-test
-  (testing "^:async fn with await inside expression"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async calc []
-                              (let [x (await (js/Promise.resolve 10))]
-                                (let [y (inc (await (js/Promise.resolve 11)))]
-                                  (+ x y))))
-                            (calc)")]
-                 (p/let [result v]
-                   (is (= 22 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-await-in-do-binding-test
-  (testing "^:async fn with await inside do in binding"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async calc2 []
-                              (let [x (await (js/Promise.resolve 10))]
-                                (let [y (do (await (js/Promise.resolve 11)))]
-                                  (+ x y))))
-                            (calc2)")]
-                 (p/let [result v]
-                   (is (= 21 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-thread-macro-test
-  (testing "^:async fn with -> threading macro"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async calc3 []
-                              (-> (js/Promise.resolve 10)
-                                  (await)
-                                  (+ 5)))
-                            (calc3)")]
-                 (p/let [result v]
-                   (is (= 15 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-if-test
-  (testing "^:async fn with if and await"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v1 (sci/eval-string* ctx
-                            "(defn ^:async choose [b]
-                               (if (await (js/Promise.resolve b))
-                                 (await (js/Promise.resolve 1))
-                                 (await (js/Promise.resolve 2))))
-                             (choose true)")
-                       v2 (sci/eval-string* ctx "(choose false)")]
-                 (p/let [r1 v1
-                         r2 v2]
-                   (is (= 1 r1))
-                   (is (= 2 r2))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-try-catch-test
-  (testing "^:async fn with try/catch"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       ;; Test catching a rejected promise
-                       v1 (sci/eval-string* ctx
-                            "(defn ^:async safe-fetch []
-                               (try
-                                 (await (js/Promise.reject (js/Error. \"oops\")))
-                                 (catch :default e
-                                   \"caught\")))
-                             (safe-fetch)")
-                       ;; Test successful try (no catch)
-                       v2 (sci/eval-string* ctx
-                            "(defn ^:async safe-fetch2 []
-                               (try
-                                 (await (js/Promise.resolve 42))
-                                 (catch :default e
-                                   \"caught\")))
-                             (safe-fetch2)")]
-                 (p/let [r1 v1
-                         r2 v2]
-                   (is (= "caught" r1))
-                   (is (= 42 r2))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-nested-await-test
-  (testing "^:async fn with nested await in expression"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (inc (await (inc (await (js/Promise.resolve 1))))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= 3 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-local-shadowing-macro-test
-  (testing "^:async fn with local binding shadowing macro"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (let [-> (fn [x y] (+ x y))]
-                                (-> (await (js/Promise.resolve 1)) 1)))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= 2 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-nested-async-fn-test
-  (testing "^:async fn with nested ^:async fn in let binding"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (let [add-async (^:async fn [x y] (+ (await x) y))]
-                                (add-async (js/Promise.resolve 1) 2)))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= 3 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-param-shadowing-macro-test
-  (testing "^:async fn with parameter shadowing macro"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo [->]
-                              (-> (await (js/Promise.resolve 1)) 1))
-                            (foo (fn [x y] (+ x y)))")]
-                 (p/let [result v]
-                   (is (= 2 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-no-await-returns-promise-test
-  (testing "^:async fn without await still returns a promise"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo [x] (+ x 1))
-                            (foo 41)")]
-                 (p/let [result v]
-                   (is (= 42 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-anonymous-fn-test
-  (testing "^:async anonymous fn with await"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "((^:async fn [] (await (js/Promise.resolve 42))))")]
-                 (p/let [result v]
-                   (is (= 42 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-macro-expanding-to-await-test
-  (testing "^:async fn with macro that expands to await"
+;; Threading macros and macro expansion
+(deftest async-fn-macros-test
+  (testing "macros with await"
     (async done
            (-> (p/let [ctx (sci/init {:namespaces {'user {'my-await ^:sci/macro (fn [_ _ x] (list 'await x))}}
                                       :classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (inc (my-await (js/Promise.resolve 1))))
-                            (foo)")]
+                           "(defn ^:async test-macros []
+                              {:thread-first
+                               (-> (js/Promise.resolve 10)
+                                   (await)
+                                   (+ 5))
+
+                               :local-shadowing
+                               (let [-> (fn [x y] (+ x y))]
+                                 (-> (await (js/Promise.resolve 1)) 1))
+
+                               ;; inner fn must be async to use await
+                               :param-shadowing
+                               (await ((^:async fn [->]
+                                         (-> (await (js/Promise.resolve 1)) 1))
+                                       (fn [x y] (+ x y))))
+
+                               :custom-macro
+                               (inc (my-await (js/Promise.resolve 1)))})
+                            (test-macros)")]
                  (p/let [result v]
-                   (is (= 2 result))))
+                   (is (= {:thread-first 15 :local-shadowing 2 :param-shadowing 2 :custom-macro 2} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-destructuring-await-test
-  (testing "^:async fn with destructuring in let binding with await"
+;; Async/anonymous functions
+(deftest async-fn-functions-test
+  (testing "async and anonymous functions"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (let [[x y] (await (js/Promise.resolve [1 2]))]
-                                (+ x y)))
-                            (foo)")]
+                           "(defn ^:async test-fns []
+                              {:nested-async-fn
+                               (let [add-async (^:async fn [x y] (+ (await x) y))]
+                                 (await (add-async (js/Promise.resolve 1) 2)))
+
+                               ;; async fns return promises, must await
+                               :no-await-returns-promise
+                               (await ((^:async fn [x] (+ x 1)) 41))
+
+                               :anonymous-async
+                               (await ((^:async fn [] (await (js/Promise.resolve 42)))))
+
+                               :async-calling-async
+                               (let [async-add (^:async fn [x y]
+                                                 (+ (await (js/Promise.resolve x))
+                                                    (await (js/Promise.resolve y))))
+                                     async-mul (^:async fn [x y]
+                                                 (* (await (async-add x 1))
+                                                    (await (js/Promise.resolve y))))]
+                                 (await (async-mul 2 3)))})
+                            (test-fns)")]
                  (p/let [result v]
-                   (is (= 3 result))))
+                   (is (= {:nested-async-fn 3 :no-await-returns-promise 42 :anonymous-async 42 :async-calling-async 9} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-doseq-await-test
-  (testing "^:async fn with doseq and await (loop/recur)"
+;; Try/catch/finally and throw
+(deftest async-fn-try-catch-test
+  (testing "try/catch/finally with await"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (let [a (atom [])]
-                                (doseq [x [1 2 3]]
-                                  (swap! a conj (await (js/Promise.resolve x))))
-                                @a))
-                            (foo)")]
+                           "(defn ^:async test-try []
+                              {:catch-rejected
+                               (try
+                                 (await (js/Promise.reject (js/Error. \"oops\")))
+                                 (catch :default e
+                                   \"caught\"))
+
+                               :no-error
+                               (try
+                                 (await (js/Promise.resolve 42))
+                                 (catch :default e
+                                   \"caught\"))
+
+                               :throw-with-await
+                               (try
+                                 (throw (js/Error. (await (js/Promise.resolve \"err\"))))
+                                 (catch :default e
+                                   (.-message e)))})
+                            (test-try)")]
                  (p/let [result v]
-                   (is (= [1 2 3] result))))
+                   (is (= {:catch-rejected "caught" :no-error 42 :throw-with-await "err"} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-loop-recur-await-test
-  (testing "^:async fn with direct loop/recur and await"
+;; Case with await
+(deftest async-fn-case-test
+  (testing "case with await"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (loop [x 0 acc []]
-                                (if (< x 3)
-                                  (recur (inc x) (conj acc (await (js/Promise.resolve x))))
-                                  acc)))
-                            (foo)")]
+                           "(defn ^:async test-case []
+                              {:await-in-test
+                               (case (await (js/Promise.resolve 1))
+                                 1 :one
+                                 2 :two)
+
+                               :await-in-result
+                               (case 2
+                                 1 :one
+                                 2 (await (js/Promise.resolve :two)))
+
+                               :await-in-default
+                               (case 999
+                                 1 :one
+                                 2 :two
+                                 (await (js/Promise.resolve :default-value)))
+
+                               ;; match constant is literal, not expanded
+                               :match-constant-literal
+                               (case (await (js/Promise.resolve 'await))
+                                 (await 1) :matched-await-list
+                                 2 :two
+                                 :default)})
+                            (test-case)")]
                  (p/let [result v]
-                   (is (= [0 1 2] result))))
+                   (is (= {:await-in-test :one :await-in-result :two :await-in-default :default-value :match-constant-literal :matched-await-list} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-case-await-in-test-expr-test
-  (testing "^:async fn with case and await in test expression"
+;; Letfn with await
+(deftest async-fn-letfn-test
+  (testing "letfn with await"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (case (await (js/Promise.resolve 1))
-                                1 :one
-                                2 :two))
-                            (foo)")]
+                           "(defn ^:async test-letfn []
+                              {:basic
+                               (letfn [(helper [x] (inc x))]
+                                 (helper (await (js/Promise.resolve 1))))
+
+                               :in-binding
+                               (let [g (letfn [(f [x] x)]
+                                         (await (js/Promise.resolve 1)))]
+                                 [g])})
+                            (test-letfn)")]
                  (p/let [result v]
-                   (is (= :one result))))
+                   (is (= {:basic 2 :in-binding [1]} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-case-await-in-match-constant-test
-  (testing "^:async fn with case and await-like form in match constant (should not expand)"
+;; Loop/recur with await
+(deftest async-fn-loop-recur-test
+  (testing "loop/recur with await"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           ";; (await 1) as match constant is a literal list, not expanded
-                            (defn ^:async foo []
-                              (case (await (js/Promise.resolve 'await))
-                                (await 1) :matched-await-list
-                                2 :two
-                                :default))
-                            (foo)")]
+                           "(defn ^:async test-loop []
+                              {:basic-loop
+                               (loop [x 0 acc []]
+                                 (if (< x 3)
+                                   (recur (inc x) (conj acc (await (js/Promise.resolve x))))
+                                   acc))
+
+                               :doseq
+                               (let [a (atom [])]
+                                 (doseq [x [1 2 3]]
+                                   (swap! a conj (await (js/Promise.resolve x))))
+                                 @a)})
+                            (test-loop)")]
                  (p/let [result v]
-                   (is (= :matched-await-list result))))
+                   (is (= {:basic-loop [0 1 2] :doseq [1 2 3]} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-case-await-in-result-expr-test
-  (testing "^:async fn with case and await in result expression"
+;; Collection literals with await
+(deftest async-fn-collection-literals-test
+  (testing "collection literals with await"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (case 2
-                                1 :one
-                                2 (await (js/Promise.resolve :two))))
-                            (foo)")]
+                           "(defn ^:async test-colls []
+                              {:vector
+                               [(await (js/Promise.resolve 1))
+                                (await (js/Promise.resolve 2))
+                                (+ 1 (await (js/Promise.resolve 2)))]
+
+                               :set
+                               #{(await (js/Promise.resolve 1))
+                                 (await (js/Promise.resolve 2))}
+
+                               :map
+                               {(await (js/Promise.resolve :a)) (await (js/Promise.resolve 1))
+                                :b (await (js/Promise.resolve 2))}})
+                            (test-colls)")]
                  (p/let [result v]
-                   (is (= :two result))))
+                   (is (= {:vector [1 2 3] :set #{1 2} :map {:a 1 :b 2}} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
 
-(deftest async-fn-case-await-in-default-test
-  (testing "^:async fn with case and await in default expression"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (case 999
-                                1 :one
-                                2 :two
-                                (await (js/Promise.resolve :default-value))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :default-value result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-letfn-await-test
-  (testing "^:async fn with letfn and await"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (letfn [(helper [x] (inc x))]
-                                (helper (await (js/Promise.resolve 1)))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= 2 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-letfn-await-in-binding-test
-  (testing "^:async fn with letfn containing await used as let binding"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (let [g (letfn [(f [x] x)]
-                                        (await (js/Promise.resolve 1)))]
-                                [g]))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= [1] result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-throw-await-test
-  (testing "^:async fn with throw and await"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (try
-                                (throw (js/Error. (await (js/Promise.resolve \"err\"))))
-                                (catch :default e
-                                  (.-message e))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= "err" result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-vector-literal-await-test
-  (testing "^:async fn with await inside vector literal"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              [(await (js/Promise.resolve 1))
-                               (await (js/Promise.resolve 2))
-                               (+ 1 (await (js/Promise.resolve 2)))])
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= [1 2 3] result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-set-literal-await-test
-  (testing "^:async fn with await inside set literal"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              #{(await (js/Promise.resolve 1))
-                                (await (js/Promise.resolve 2))})
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= #{1 2} result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
-(deftest async-fn-map-literal-await-test
-  (testing "^:async fn with await inside map literal"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              {(await (js/Promise.resolve :a)) (await (js/Promise.resolve 1))
-                               :b (await (js/Promise.resolve 2))})
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= {:a 1 :b 2} result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
-
+;; Comprehensive integration test
 (deftest async-fn-integration-test
   (testing "^:async fn integration test with multiple features combined"
     (async done

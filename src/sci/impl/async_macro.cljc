@@ -173,9 +173,10 @@
                             ;; Use transform-do to properly chain promises in body
                             (transform-do ctx new-locals body))]
             (if (seq acc-bindings)
-              (list 'let* (vec acc-bindings)
-                    (promise-then transformed-init
-                                  (list 'fn* [binding-name] rest-body)))
+              ;; Wrap let* containing promise in mark-promise so it's detected
+              (mark-promise (list 'let* (vec acc-bindings)
+                                  (promise-then transformed-init
+                                                (list 'fn* [binding-name] rest-body))))
               (promise-then transformed-init
                             (list 'fn* [binding-name] rest-body))))
           ;; No await in this binding - accumulate and continue
@@ -347,18 +348,36 @@
                                             clause-pairs))
                 transformed-default (when has-default?
                                       (transform-async-body ctx locals default-expr))
-                all-transformed (if has-default?
-                                  (concat transformed-pairs [transformed-default])
-                                  transformed-pairs)
-                ;; Check if any result is a promise - if so, we need special handling
-                ;; For now, just rebuild and let it potentially fail at runtime
-                rebuilt-case (apply list case*-sym transformed-test all-transformed)]
+                ;; Check if any result is a promise-form
+                result-exprs (concat (map second (partition 2 transformed-pairs))
+                                     (when has-default? [transformed-default]))
+                any-result-is-promise? (some promise-form? result-exprs)
+                ;; If any result is promise, wrap non-promise results so all branches return promises
+                normalized-pairs (if any-result-is-promise?
+                                   (mapcat (fn [[match-const result]]
+                                             [match-const (if (promise-form? result)
+                                                            result
+                                                            (wrap-promise result))])
+                                           (partition 2 transformed-pairs))
+                                   transformed-pairs)
+                normalized-default (when has-default?
+                                     (if (and any-result-is-promise?
+                                              (not (promise-form? transformed-default)))
+                                       (wrap-promise transformed-default)
+                                       transformed-default))
+                all-normalized (if has-default?
+                                 (concat normalized-pairs [normalized-default])
+                                 normalized-pairs)
+                rebuilt-case (apply list case*-sym transformed-test all-normalized)]
             (if (promise-form? transformed-test)
               (let [test-binding (gensym "case_test__")]
                 (promise-then transformed-test
                               (list 'fn* [test-binding]
-                                    (apply list case*-sym test-binding all-transformed))))
-              rebuilt-case))
+                                    (apply list case*-sym test-binding all-normalized))))
+              ;; Mark as promise-producing if any branch has promise
+              (if any-result-is-promise?
+                (mark-promise rebuilt-case)
+                rebuilt-case)))
 
           ;; Do form
           do
