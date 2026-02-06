@@ -138,6 +138,7 @@
 (defn transform-loop*
   "Transform loop* with await into a recursive promise-returning function.
    Wraps init values in let* to preserve sequential scoping (each init sees previous bindings).
+   Returns original loop unchanged if there are no promises.
 
    (loop* [x 0] (if (< x 3) (do (await p) (recur (inc x))) x))
    =>
@@ -148,24 +149,26 @@
         pairs (partition 2 bindings)
         param-names (mapv first pairs)
         init-values (mapv second pairs)
-        ;; Add params to locals for body transformation
         body-locals (into locals param-names)
-        ;; Replace recur with loop function call
+        ;; Replace recur with loop function call and transform body
         body-with-replaced-recur (map #(replace-recur % loop-fn-name) body)
-        ;; Transform the body using transform-do to properly chain promises
         transformed-body (transform-do ctx body-locals body-with-replaced-recur)
-        ;; Ensure promise result
-        promised-body (if (promise-form? transformed-body)
-                        transformed-body
-                        (wrap-promise transformed-body))
-        ;; Build the loop function
-        loop-fn (list 'fn* loop-fn-name param-names promised-body)
-        ;; Build the loop call - uses param names since they'll be bound by let*
-        loop-call (wrap-promise (apply list loop-fn param-names))
-        ;; Build let* bindings: [param1 init1 param2 init2 ...]
-        let-bindings (vec (interleave param-names init-values))]
-    ;; Wrap in let* and transform - this handles sequential scoping and promise chaining
-    (transform-let* ctx locals let-bindings (list loop-call))))
+        ;; Transform inits via let* to check for promises (also handles sequential scoping)
+        let-bindings (vec (interleave param-names init-values))
+        transformed-let-check (transform-let* ctx locals let-bindings (list transformed-body))
+        ;; Check if body or inits have any promises
+        has-promise? (or (promise-form? transformed-body)
+                         (promise-form? transformed-let-check))]
+    (if has-promise?
+      ;; Has promises - build async loop
+      (let [promised-body (if (promise-form? transformed-body)
+                            transformed-body
+                            (wrap-promise transformed-body))
+            loop-fn (list 'fn* loop-fn-name param-names promised-body)
+            loop-call (wrap-promise (apply list loop-fn param-names))]
+        (transform-let* ctx locals let-bindings (list loop-call)))
+      ;; No promises - return original loop unchanged
+      (list* 'loop* bindings body))))
 
 (defn transform-try
   "Transform try/catch/finally with await into Promise .catch/.finally chains.
