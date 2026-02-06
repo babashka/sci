@@ -577,200 +577,74 @@
                (p/finally done)))))
 
 ;; Comprehensive if edge case tests - regression tests for promise branch normalization
-(deftest async-fn-if-await-in-test-truthy-test
-  (testing "^:async fn with await in if test only (truthy result)"
+;; Key regression: when one branch has await and the other doesn't, both must return promises
+(deftest async-fn-if-edge-cases-test
+  (testing "if with await - all edge cases"
     (async done
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if (await (js/Promise.resolve true))
-                                :then
-                                :else))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :then result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                           "(defn ^:async test-if-cases []
+                              {:await-in-test-truthy
+                               (if (await (js/Promise.resolve true)) :then :else)
 
-(deftest async-fn-if-await-in-test-falsy-test
-  (testing "^:async fn with await in if test only (falsy result)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if (await (js/Promise.resolve false))
-                                :then
-                                :else))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :else result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               :await-in-test-falsy
+                               (if (await (js/Promise.resolve false)) :then :else)
 
-(deftest async-fn-if-await-in-then-only-test
-  (testing "^:async fn with await in then branch only (truthy test)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if true
-                                (await (js/Promise.resolve :then-value))
-                                :else-value))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :then-value result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               :await-in-then-only
+                               (if true (await (js/Promise.resolve :then-value)) :else-value)
 
-(deftest async-fn-if-await-in-else-only-test
-  (testing "^:async fn with await in else branch only (falsy test)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if false
-                                :then-value
-                                (await (js/Promise.resolve :else-value))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :else-value result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               :await-in-else-only
+                               (if false :then-value (await (js/Promise.resolve :else-value)))
 
-(deftest async-fn-if-await-in-else-take-then-test
-  (testing "^:async fn with await in else but taking then branch (regression: p.then not a function)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if true
-                                :plain-value
-                                (await (js/Promise.resolve :never))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :plain-value result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               ;; REGRESSION: await in else but taking then (was: p.then not a function)
+                               :await-in-else-take-then
+                               (if true :plain-value (await (js/Promise.resolve :never)))
 
-(deftest async-fn-if-await-in-then-take-else-test
-  (testing "^:async fn with await in then but taking else branch (regression: p.then not a function)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if false
-                                (await (js/Promise.resolve :never))
-                                :plain-value))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :plain-value result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               ;; REGRESSION: await in then but taking else (was: p.then not a function)
+                               :await-in-then-take-else
+                               (if false (await (js/Promise.resolve :never)) :plain-value)
 
-(deftest async-fn-if-await-both-branches-truthy-test
-  (testing "^:async fn with await in both branches (truthy test)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if true
-                                (await (js/Promise.resolve :then-value))
-                                (await (js/Promise.resolve :else-value))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :then-value result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               :await-both-truthy
+                               (if true (await (js/Promise.resolve :then)) (await (js/Promise.resolve :else)))
 
-(deftest async-fn-if-await-both-branches-falsy-test
-  (testing "^:async fn with await in both branches (falsy test)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if false
-                                (await (js/Promise.resolve :then-value))
-                                (await (js/Promise.resolve :else-value))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :else-value result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               :await-both-falsy
+                               (if false (await (js/Promise.resolve :then)) (await (js/Promise.resolve :else)))
 
-(deftest async-fn-if-no-else-await-in-test-test
-  (testing "^:async fn with no else and await in test (when-like)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if (await (js/Promise.resolve true))
-                                :result))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :result result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               :no-else-await-in-test
+                               (if (await (js/Promise.resolve true)) :result)
 
-(deftest async-fn-if-no-else-await-in-then-test
-  (testing "^:async fn with no else and await in then"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (if true
-                                (await (js/Promise.resolve :result))))
-                            (foo)")]
-                 (p/let [result v]
-                   (is (= :result result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               :no-else-await-in-then
+                               (if true (await (js/Promise.resolve :result)))
 
-(deftest async-fn-if-nested-mixed-await-test
-  (testing "^:async fn with nested if and mixed await (regression: original chaos test)"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              ;; Loop where recur arg has if with one promise branch
-                              (loop [sum 0 items [{:x 10} 5 {:x 20}]]
-                                (if (seq items)
-                                  (let [item (first items)]
-                                    (recur (+ sum (if (map? item)
-                                                    (:x item)
-                                                    (await (js/Promise.resolve item))))
-                                           (rest items)))
-                                  sum)))
-                            (foo)")]
-                 (p/let [result v]
-                   ;; sum = 10 + 5 + 20 = 35
-                   (is (= 35 result))))
-               (p/catch (fn [err]
-                          (is false (str err))))
-               (p/finally done)))))
+                               ;; REGRESSION: loop with if having mixed branches
+                               :nested-loop-mixed
+                               (loop [sum 0 items [{:x 10} 5 {:x 20}]]
+                                 (if (seq items)
+                                   (let [item (first items)]
+                                     (recur (+ sum (if (map? item)
+                                                     (:x item)
+                                                     (await (js/Promise.resolve item))))
+                                            (rest items)))
+                                   sum))
 
-(deftest async-fn-if-in-expression-position-test
-  (testing "^:async fn with if in expression position with mixed branches"
-    (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
-                       v (sci/eval-string* ctx
-                           "(defn ^:async foo []
-                              (+ 100
-                                 (if false
-                                   (await (js/Promise.resolve 1))
-                                   42)))
-                            (foo)")]
+                               ;; REGRESSION: if in expression position with mixed branches
+                               :expr-position-mixed
+                               (+ 100 (if false (await (js/Promise.resolve 1)) 42))})
+                            (test-if-cases)")]
                  (p/let [result v]
-                   (is (= 142 result))))
+                   (is (= {:await-in-test-truthy :then
+                           :await-in-test-falsy :else
+                           :await-in-then-only :then-value
+                           :await-in-else-only :else-value
+                           :await-in-else-take-then :plain-value
+                           :await-in-then-take-else :plain-value
+                           :await-both-truthy :then
+                           :await-both-falsy :else
+                           :no-else-await-in-test :result
+                           :no-else-await-in-then :result
+                           :nested-loop-mixed 35
+                           :expr-position-mixed 142}
+                          result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
