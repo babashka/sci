@@ -62,29 +62,50 @@ Transform async function bodies at analysis time into Promise `.then` chains.
 
 ## Implementation
 
+### Performance: Helper Functions
+
+For performance, the transformation emits calls to helper functions in `sci.impl.async-await` rather than raw JS interop. These helpers:
+1. Are native CLJS functions that compile to efficient JS
+2. Serve as reliable markers for `promise-form?` detection
+3. Avoid SCI's interpreted interop overhead
+
+```clojure
+;; In src/sci/impl/namespaces.cljc (CLJS only)
+(defn promise-resolve [v] (js/Promise.resolve v))
+(defn promise-then [p f] (.then p f))
+(defn promise-catch [p f] (.catch p f))
+(defn promise-finally [p f] (.finally p f))
+```
+
+The namespace is registered as `sci.impl.async-await` (internal, not for user consumption).
+
 ### Key Insight: Promise Form Detection
 
 The core insight is using `promise-form?` to detect which subexpressions produce promises:
 
 ```clojure
 (defn- promise-form?
-  "Check if form is already a promise-producing expression"
+  "Check if form is already a promise-producing expression.
+   Detects calls to sci.impl.async-await helpers."
   [form]
   (and (seq? form)
-       (or (= '.then (first form))
-           (= '.catch (first form))
-           (= '.finally (first form))
-           (= 'js/Promise.resolve (first form)))))
+       (let [op (first form)]
+         (or (= 'sci.impl.async-await/then op)
+             (= 'sci.impl.async-await/catch op)
+             (= 'sci.impl.async-await/finally op)
+             (= 'sci.impl.async-await/resolve op)))))
 ```
 
 When transforming expressions:
 1. Recursively transform all subforms first (this expands macros)
 2. Check if any transformed subform is a `promise-form?`
-3. If so, chain with `.then` to sequence the promise
+3. If so, chain with helper functions to sequence the promise
 
 This avoids needing a separate "contains await" check and handles macro expansion naturally.
 
 ### Transformation Algorithm
+
+All examples below use `sip` as an alias for `sci.impl.async-await` for brevity.
 
 **For `let*`:**
 ```clojure
@@ -95,9 +116,9 @@ This avoids needing a separate "contains await" check and handles macro expansio
 
 ;; Transforms to:
 (let* [x 1]
-  (.then (js/Promise.resolve p1)
+  (sip/then (sip/resolve p1)
     (fn [y]
-      (.then (js/Promise.resolve p2)
+      (sip/then (sip/resolve p2)
         (fn [z]
           (+ x y z))))))
 ```
@@ -110,9 +131,9 @@ This avoids needing a separate "contains await" check and handles macro expansio
   result)
 
 ;; Transforms to:
-(.then (js/Promise.resolve p1)
+(sip/then (sip/resolve p1)
   (fn [_]
-    (.then (js/Promise.resolve p2)
+    (sip/then (sip/resolve p2)
       (fn [_]
         result))))
 ```
@@ -124,11 +145,11 @@ This avoids needing a separate "contains await" check and handles macro expansio
   (await else-p))
 
 ;; Transforms to:
-(.then (js/Promise.resolve p)
+(sip/then (sip/resolve p)
   (fn [test__123]
     (if test__123
-      (js/Promise.resolve then-p)
-      (js/Promise.resolve else-p))))
+      (sip/resolve then-p)
+      (sip/resolve else-p))))
 ```
 
 **For `loop*/recur`:**
@@ -142,12 +163,12 @@ Loops with await are transformed into recursive promise-returning functions:
     x))
 
 ;; Transforms to:
-(js/Promise.resolve
+(sip/resolve
   ((fn loop_fn__123 [x]
      (if (< x 3)
-       (.then (js/Promise.resolve x)
+       (sip/then (sip/resolve x)
          (fn [_] (loop_fn__123 (inc x))))
-       (js/Promise.resolve x)))
+       (sip/resolve x)))
    0))
 ```
 
@@ -166,8 +187,8 @@ Key points:
     (cleanup)))
 
 ;; Transforms to:
-(.finally
-  (.catch (js/Promise.resolve p)
+(sip/finally
+  (sip/catch (sip/resolve p)
     (fn [e] (handle e)))
   (fn [] (cleanup)))
 ```
@@ -182,7 +203,7 @@ Important: Match constants are NOT transformed, only test expression and result 
   :default)
 
 ;; Transforms to:
-(.then (js/Promise.resolve p)
+(sip/then (sip/resolve p)
   (fn [case_test__123]
     (case* case_test__123
       1 :one
@@ -208,7 +229,8 @@ body (if async?
 
 | File | Description |
 |------|-------------|
-| `src/sci/impl/async_macro.cljc` | Transformation functions (~350 lines) |
+| `src/sci/impl/async_macro.cljc` | Transformation functions (~370 lines) |
+| `src/sci/impl/namespaces.cljc` | Helper functions + `sci.impl.async-await` namespace registration |
 | `src/sci/impl/analyzer.cljc` | ~10 lines added for async detection |
 | `test/sci/async_await_test.cljs` | Comprehensive test suite |
 
@@ -236,6 +258,14 @@ Test cases cover:
 
 ## Design Decisions
 
+### Why helper functions instead of raw interop?
+
+The transformation emits `(sci.impl.async-await/then ...)` instead of `(.then ...)` for two reasons:
+
+1. **Performance**: Helper functions are native CLJS that compile to direct JS interop, avoiding SCI's interpreted method dispatch overhead. This matters for tight loops with many awaits.
+
+2. **Reliable detection**: Using our own symbols as markers for `promise-form?` is more robust than checking for generic `.then` syntax. Users might write `.then` directly in their code, which shouldn't be mistaken for transformed await calls.
+
 ### Why `promise-form?` detection instead of `contains-await?`
 
 Initially we tried tracking whether expressions contain `await` calls. This had issues:
@@ -247,7 +277,7 @@ Using `promise-form?` on transformed results:
 2. Single pass transformation
 3. More robust: if something produces a promise, chain it
 
-### Why wrap await args in `js/Promise.resolve`?
+### Why wrap await args in `sci.impl.async-await/resolve`?
 
 This ensures non-promise values work correctly:
 ```clojure
