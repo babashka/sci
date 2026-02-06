@@ -328,3 +328,70 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-case-await-in-test-expr-test
+  (testing "^:async fn with case and await in test expression"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (case (await (js/Promise.resolve 1))
+                                1 :one
+                                2 :two))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= :one result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-case-await-in-match-constant-test
+  (testing "^:async fn with case and await-like form in match constant (should not expand)"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           ";; (await 1) as match constant is a literal list, not expanded
+                            (defn ^:async foo []
+                              (case (await (js/Promise.resolve 'await))
+                                (await 1) :matched-await-list
+                                2 :two
+                                :default))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= :matched-await-list result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-case-await-in-result-expr-test
+  (testing "^:async fn with case and await in result expression"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (case 2
+                                1 :one
+                                2 (await (js/Promise.resolve :two))))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= :two result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-case-await-in-default-test
+  (testing "^:async fn with case and await in default expression"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (case 999
+                                1 :one
+                                2 :two
+                                (await (js/Promise.resolve :default-value))))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= :default-value result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))

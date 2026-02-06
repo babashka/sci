@@ -250,7 +250,7 @@
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
-                          (not (#{'await 'let* 'loop* 'do 'fn 'fn* 'if 'quote 'try} op)))
+                          (not (#{'await 'let* 'loop* 'do 'fn 'fn* 'if 'quote 'try 'case*} op)))
                    (macroexpand/macroexpand-1 ctx body)
                    body)]
     (if (not= expanded body)
@@ -273,6 +273,37 @@
         (and (seq? body) (= 'loop* (first body)))
         (let [[_ bindings & exprs] body]
           (transform-loop* ctx locals bindings exprs))
+
+        ;; Case* form - transform test expr and result exprs, but NOT match constants
+        ;; Structure: (case* test match1 result1 match2 result2 ... [default])
+        (and (seq? body) (= 'case* (first body)))
+        (let [[case*-sym test-expr & clauses] body
+              transformed-test (transform-async-body ctx locals test-expr)
+              ;; Transform result expressions (every second element), keep match constants
+              ;; If odd number of clauses, last one is default
+              clause-pairs (partition 2 clauses)
+              has-default? (odd? (count clauses))
+              default-expr (when has-default? (last clauses))
+              ;; Transform results in pairs
+              transformed-pairs (mapcat (fn [[match-const result-expr]]
+                                          [match-const (transform-async-body ctx locals result-expr)])
+                                        (if has-default?
+                                          (butlast clause-pairs)
+                                          clause-pairs))
+              transformed-default (when has-default?
+                                    (transform-async-body ctx locals default-expr))
+              all-transformed (if has-default?
+                                (concat transformed-pairs [transformed-default])
+                                transformed-pairs)
+              ;; Check if any result is a promise - if so, we need special handling
+              ;; For now, just rebuild and let it potentially fail at runtime
+              rebuilt-case (apply list case*-sym transformed-test all-transformed)]
+          (if (promise-form? transformed-test)
+            (let [test-binding (gensym "case_test__")]
+              (list '.then transformed-test
+                    (list 'fn [test-binding]
+                          (apply list case*-sym test-binding all-transformed))))
+            rebuilt-case))
 
         ;; Do form
         (and (seq? body) (= 'do (first body)))
@@ -320,5 +351,5 @@
   (let [ret (->> body-exprs
                  (map #(transform-async-body ctx locals %))
                  ensure-promise-result)]
-    #_(prn :ret ret)
+    ;; (prn :ret ret)
     ret))
