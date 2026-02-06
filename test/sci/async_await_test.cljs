@@ -239,7 +239,10 @@
 (deftest async-fn-loop-recur-test
   (testing "loop/recur with await"
     (async done
-           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}
+                                      :namespaces {'user {'my-recur ^:sci/macro
+                                                          (fn [_ _ & args]
+                                                            (cons 'recur args))}}})
                        v (sci/eval-string* ctx
                            "(defn ^:async test-loop []
                               {:basic-loop
@@ -265,11 +268,18 @@
                                (loop [x 0]
                                  (if (< x 1)
                                    (recur (inc x))
-                                   '(recur :done)))})
+                                   '(recur :done)))
+
+                               ;; REGRESSION: macro expanding to recur should work
+                               :macro-recur
+                               (loop [x 0 acc []]
+                                 (if (< x 3)
+                                   (my-recur (inc x) (conj acc (await (js/Promise.resolve x))))
+                                   acc))})
                             (test-loop)")]
                  (p/let [result v]
                    (is (= {:basic-loop [0 1 2] :doseq [1 2 3] :binding-sees-previous 3
-                            :quoted-recur '(recur :done)} result))))
+                            :quoted-recur '(recur :done) :macro-recur [0 1 2]} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))

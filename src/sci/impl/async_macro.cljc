@@ -81,22 +81,6 @@
         (first acc)
         (list* 'do acc)))))
 
-(defn replace-recur
-  "Replace (recur ...) with (loop-fn-name ...) in form.
-   Skips fn/fn* bodies since recur there refers to a different target.
-   Only walks seq forms since recur can only appear in tail position."
-  [form loop-fn-name]
-  (cond
-    (and (seq? form) (= 'recur (first form)))
-    (cons loop-fn-name (rest form))
-
-    (and (seq? form) (#{'fn 'fn* 'loop* 'quote} (first form)))
-    form  ;; Don't descend into nested fn, loop, or quote
-
-    (seq? form)
-    (apply list (map #(replace-recur % loop-fn-name) form))
-
-    :else form))
 
 (defn transform-let*
   "Transform let* with await calls into .then chains."
@@ -144,9 +128,9 @@
         param-names (mapv first pairs)
         init-values (mapv second pairs)
         body-locals (into locals param-names)
-        ;; Replace recur with loop function call and transform body
-        body-with-replaced-recur (map #(replace-recur % loop-fn-name) body)
-        transformed-body (transform-do ctx body-locals body-with-replaced-recur)
+        ;; Pass recur-target through ctx so transform-async-body replaces recur after macro expansion
+        loop-ctx (assoc ctx :recur-target loop-fn-name)
+        transformed-body (transform-do loop-ctx body-locals body)
         ;; Transform inits via let* to check for promises (also handles sequential scoping)
         let-bindings (vec (interleave param-names init-values))
         transformed-let-check (transform-let* ctx locals let-bindings (list transformed-body))
@@ -278,7 +262,7 @@
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
-                          (not (#{'await 'let* 'loop* 'do 'fn* 'if 'quote 'try 'case*} op)))
+                          (not (#{'recur 'await 'let* 'loop* 'do 'fn* 'if 'quote 'try 'case*} op)))
                    (macroexpand/macroexpand-1 ctx-with-locals body)
                    body)]
     (if (not= expanded body)
@@ -287,6 +271,14 @@
       ;; No expansion, handle based on form type
       (if (seq? body)
         (case op
+          ;; Recur - replace with loop function call (after macro expansion)
+          ;; Delegate to transform-expr-with-await to handle promise args
+          recur
+          (let [recur-target (:recur-target ctx)]
+            (if recur-target
+              (transform-expr-with-await ctx locals (apply list recur-target (rest body)))
+              body))
+
           ;; Direct await call
           await
           (let [await-arg (second body)
@@ -381,7 +373,7 @@
                   (list 'if transformed-test transformed-then transformed-else)
                   (list 'if transformed-test transformed-then)))))
 
-          ;; fn* - don't recurse into (handled by analyzer)
+          ;; fn* - don't recurse into (handled by analyzer separately)
           fn* body
           ;; quote: just return expression as is
           quote body
