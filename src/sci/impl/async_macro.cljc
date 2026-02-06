@@ -83,24 +83,18 @@
 
 (defn replace-recur
   "Replace (recur ...) with (loop-fn-name ...) in form.
-   Skips fn/fn* bodies since recur there refers to a different target."
+   Skips fn/fn* bodies since recur there refers to a different target.
+   Only walks seq forms since recur can only appear in tail position."
   [form loop-fn-name]
   (cond
     (and (seq? form) (= 'recur (first form)))
     (cons loop-fn-name (rest form))
 
-    (and (seq? form) (#{'fn 'fn* 'loop*} (first form)))
-    form  ;; Don't descend into nested fn or loop
+    (and (seq? form) (#{'fn 'fn* 'loop* 'quote} (first form)))
+    form  ;; Don't descend into nested fn, loop, or quote
 
     (seq? form)
     (apply list (map #(replace-recur % loop-fn-name) form))
-
-    (vector? form)
-    (mapv #(replace-recur % loop-fn-name) form)
-
-    (map? form)
-    (into {} (map (fn [[k v]] [(replace-recur k loop-fn-name)
-                               (replace-recur v loop-fn-name)]) form))
 
     :else form))
 

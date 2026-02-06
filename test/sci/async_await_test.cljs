@@ -258,10 +258,18 @@
                                ;; -> is first bound to a fn, so (-> 1) in second binding calls that fn
                                :binding-sees-previous
                                (loop [-> (fn [x] (inc x)) x (-> 1)]
-                                 (-> x))})
+                                 (-> x))
+
+                               ;; REGRESSION: quoted recur should not be replaced
+                               :quoted-recur
+                               (loop [x 0]
+                                 (if (< x 1)
+                                   (recur (inc x))
+                                   '(recur :done)))})
                             (test-loop)")]
                  (p/let [result v]
-                   (is (= {:basic-loop [0 1 2] :doseq [1 2 3] :binding-sees-previous 3} result))))
+                   (is (= {:basic-loop [0 1 2] :doseq [1 2 3] :binding-sees-previous 3
+                            :quoted-recur '(recur :done)} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
