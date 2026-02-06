@@ -169,10 +169,20 @@
                                (try
                                  (throw (js/Error. \"sync\"))
                                  (catch :default e
-                                   (.-message e)))})
+                                   (.-message e)))
+
+                               ;; REGRESSION: ex-info data should be preserved through async catch
+                               :ex-data
+                               (try
+                                 (let [x (await (js/Promise.resolve 1))]
+                                   (throw (ex-info \"boom\" {:val x})))
+                                 (catch :default e
+                                   {:message (ex-message e)
+                                    :data (ex-data e)}))})
                             (test-try)")]
                  (p/let [result v]
-                   (is (= {:catch-rejected "caught" :no-error 42 :throw-with-await "err" :sync-throw "sync"} result))))
+                   (is (= {:catch-rejected "caught" :no-error 42 :throw-with-await "err" :sync-throw "sync"
+                            :ex-data {:message "boom" :data {:val 1}}} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))

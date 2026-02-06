@@ -81,7 +81,6 @@
         (first acc)
         (list* 'do acc)))))
 
-
 (defn transform-let*
   "Transform let* with await calls into .then chains."
   [ctx locals bindings body]
@@ -189,11 +188,15 @@
                          (promise-form? transformed-finally))]
     (if has-promise?
       ;; Use promise chains - wrap body in .then so sync throws are caught
+      ;; Catch handlers unwrap SCI error wrapping to preserve original ex-data
       (let [promise-chain (promise-then (wrap-promise nil)
                                         (list 'fn* ['_] transformed-body))
+            unwrap-binding (gensym "raw_err__")
             with-catch (reduce
                         (fn [chain {:keys [binding transformed]}]
-                          (promise-catch chain (list 'fn* [binding] transformed)))
+                          (promise-catch chain (list 'fn* [unwrap-binding]
+                                                     (list 'let* [binding (list 'sci.impl.async-await/unwrap-error unwrap-binding)]
+                                                           transformed))))
                         promise-chain
                         transformed-catches)
             with-finally (if transformed-finally
