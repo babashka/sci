@@ -444,6 +444,52 @@
                           (is false (str err))))
                (p/finally done)))))
 
+(deftest async-fn-vector-literal-await-test
+  (testing "^:async fn with await inside vector literal"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              [(await (js/Promise.resolve 1))
+                               (await (js/Promise.resolve 2))
+                               (+ 1 (await (js/Promise.resolve 2)))])
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= [1 2 3] result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-set-literal-await-test
+  (testing "^:async fn with await inside set literal"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              #{(await (js/Promise.resolve 1))
+                                (await (js/Promise.resolve 2))})
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= #{1 2} result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-map-literal-await-test
+  (testing "^:async fn with await inside map literal"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              {(await (js/Promise.resolve :a)) (await (js/Promise.resolve 1))
+                               :b (await (js/Promise.resolve 2))})
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= {:a 1 :b 2} result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
 (deftest async-fn-integration-test
   (testing "^:async fn integration test with multiple features combined"
     (async done
@@ -508,18 +554,24 @@
                                              :nested-result)))]
                                     ;; for comprehension with await
                                     p [(vec (for [x (await (js/Promise.resolve [1 2]))]
-                                              (* x 2)))]]
+                                              (* x 2)))]
+                                    ;; set literal with await
+                                    q [#{(await (js/Promise.resolve :x))
+                                         (await (js/Promise.resolve :y))}]
+                                    ;; map literal with await in keys and values
+                                    r [{(await (js/Promise.resolve :key)) (await (js/Promise.resolve :val))}]]
                                 {:a a :b b :c c :d d :e e :f f :g g :h h :i i :j j :k k
                                  :l l :l-side-effects l-side-effects
                                  :m m :m-side-effects m-side-effects
-                                 :n n :o o :p p}))
+                                 :n n :o o :p p :q q :r r}))
                             (test-complex)")]
                  (p/let [result v]
                    (is (= {:a [1] :b [7] :c [17] :d [3] :e [42] :f [:matched-x] :g [10] :h [11] :i [101]
                            :j [:found] :k [3]
                            :l [false] :l-side-effects [0]
                            :m [:truthy] :m-side-effects [0]
-                           :n [9] :o [:nested-result] :p [[2 4]]} result))))
+                           :n [9] :o [:nested-result] :p [[2 4]]
+                           :q [#{:x :y}] :r [{:key :val}]} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))

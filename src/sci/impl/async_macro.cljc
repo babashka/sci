@@ -92,12 +92,12 @@
             (if (seq acc)
               ;; Have accumulated expressions before promise - mark the do as promise-producing
               (let [then-expr (if rest-body
-                                (promise-then transformed (list 'fn ['_] rest-body))
+                                (promise-then transformed (list 'fn* ['_] rest-body))
                                 transformed)]
                 (mark-promise (list* 'do (conj acc then-expr))))
               ;; No accumulated expressions
               (if rest-body
-                (promise-then transformed (list 'fn ['_] rest-body))
+                (promise-then transformed (list 'fn* ['_] rest-body))
                 transformed)))
           ;; No promise, accumulate
           (recur rest-exprs (conj acc transformed))))
@@ -150,7 +150,7 @@
                         transformed-body
                         (wrap-promise transformed-body))
         ;; Build the loop function
-        loop-fn (list 'fn loop-fn-name param-names promised-body)
+        loop-fn (list 'fn* loop-fn-name param-names promised-body)
         ;; Immediately invoke with initial values
         loop-call (apply list loop-fn init-values)]
     ;; Wrap in js/Promise.resolve so it's recognized as promise-producing
@@ -175,9 +175,9 @@
             (if (seq acc-bindings)
               (list 'let* (vec acc-bindings)
                     (promise-then transformed-init
-                                  (list 'fn [binding-name] rest-body)))
+                                  (list 'fn* [binding-name] rest-body)))
               (promise-then transformed-init
-                            (list 'fn [binding-name] rest-body))))
+                            (list 'fn* [binding-name] rest-body))))
           ;; No await in this binding - accumulate and continue
           (recur (rest pairs)
                  (conj acc-bindings binding-name transformed-init)
@@ -213,25 +213,25 @@
                         (wrap-promise transformed-body))
         ;; Add .catch clauses
         with-catch (reduce
-                       (fn [chain catch-clause]
-                         ;; (catch Type e handler-body...)
-                         (let [[_ _type binding & handler-body] catch-clause
-                               ;; Add catch binding to locals for handler
-                               handler-locals (conj locals binding)
-                               transformed-handler (if (= 1 (count handler-body))
-                                                     (transform-async-body ctx handler-locals (first handler-body))
-                                                     (transform-do ctx handler-locals handler-body))]
-                           (promise-catch chain (list 'fn [binding] transformed-handler))))
-                       promise-chain
-                       catch-clauses)
-          ;; Add .finally if present
-          with-finally (if finally-clause
-                         (let [[_ & finally-body] finally-clause
-                               transformed-finally (if (= 1 (count finally-body))
-                                                     (transform-async-body ctx locals (first finally-body))
-                                                     (transform-do ctx locals finally-body))]
-                           (promise-finally with-catch (list 'fn [] transformed-finally)))
-                         with-catch)]
+                    (fn [chain catch-clause]
+                      ;; (catch Type e handler-body...)
+                      (let [[_ _type binding & handler-body] catch-clause
+                            ;; Add catch binding to locals for handler
+                            handler-locals (conj locals binding)
+                            transformed-handler (if (= 1 (count handler-body))
+                                                  (transform-async-body ctx handler-locals (first handler-body))
+                                                  (transform-do ctx handler-locals handler-body))]
+                        (promise-catch chain (list 'fn* [binding] transformed-handler))))
+                    promise-chain
+                    catch-clauses)
+        ;; Add .finally if present
+        with-finally (if finally-clause
+                       (let [[_ & finally-body] finally-clause
+                             transformed-finally (if (= 1 (count finally-body))
+                                                   (transform-async-body ctx locals (first finally-body))
+                                                   (transform-do ctx locals finally-body))]
+                         (promise-finally with-catch (list 'fn* [] transformed-finally)))
+                       with-catch)]
     with-finally))
 
 (defn- transform-coll-with-await
@@ -240,23 +240,24 @@
   [ctx locals elements rebuild-fn]
   (let [transformed (doall (map #(transform-async-body ctx locals %) elements))]
     (if (some promise-form? transformed)
-      ;; Chain promises sequentially
-      (loop [elems-before []
-             remaining transformed]
-        (if (seq remaining)
-          (let [elem (first remaining)]
-            (if (promise-form? elem)
-              ;; Found promise - chain from here
-              (let [await-sym (gensym "await__")
-                    rest-elems (rest remaining)
-                    rebuilt (rebuild-fn (concat elems-before [await-sym] rest-elems))
-                    ;; Recursively transform in case there are more promises
-                    rest-expr (transform-async-body ctx (conj locals await-sym) rebuilt)]
-                (promise-then elem (list 'fn [await-sym] rest-expr)))
-              ;; Not a promise, accumulate
-              (recur (conj elems-before elem) (rest remaining))))
-          ;; Shouldn't reach here
-          (rebuild-fn transformed)))
+      ;; Chain promises sequentially - don't re-transform already transformed elements
+      (letfn [(chain-remaining [elems-before remaining]
+                (if (seq remaining)
+                  (let [elem (first remaining)]
+                    (if (promise-form? elem)
+                      ;; Found promise - chain from here
+                      (let [await-sym (gensym "await__")
+                            rest-transformed (rest remaining)
+                            ;; Recursively chain the rest WITHOUT re-transforming
+                            rest-expr (chain-remaining (conj elems-before await-sym)
+                                                       rest-transformed)]
+                        (promise-then elem (list 'fn* [await-sym] rest-expr)))
+                      ;; Not a promise, accumulate
+                      (chain-remaining (conj elems-before elem)
+                                       (rest remaining))))
+                  ;; No more elements - rebuild collection
+                  (rebuild-fn elems-before)))]
+        (chain-remaining [] transformed))
       ;; No promises
       (rebuild-fn transformed))))
 
@@ -281,7 +282,7 @@
                       rebuilt (apply list op (concat args-before [await-sym] rest-args))
                       ;; Recursively transform in case there are more promises
                       rest-expr (transform-async-body ctx (conj locals await-sym) rebuilt)]
-                  (promise-then arg (list 'fn [await-sym] rest-expr)))
+                  (promise-then arg (list 'fn* [await-sym] rest-expr)))
                 ;; Not a promise, accumulate
                 (recur (conj args-before arg)
                        (rest remaining-args))))
@@ -302,7 +303,7 @@
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
-                          (not (#{'await 'let* 'loop* 'do 'fn 'fn* 'if 'quote 'try 'case*
+                          (not (#{'await 'let* 'loop* 'do 'fn* 'if 'quote 'try 'case*
                                   'sci.impl.async-await/promise} op)))
                    (macroexpand/macroexpand-1 ctx body)
                    body)]
@@ -355,7 +356,7 @@
             (if (promise-form? transformed-test)
               (let [test-binding (gensym "case_test__")]
                 (promise-then transformed-test
-                              (list 'fn [test-binding]
+                              (list 'fn* [test-binding]
                                     (apply list case*-sym test-binding all-transformed))))
               rebuilt-case))
 
@@ -377,7 +378,7 @@
             (if (promise-form? transformed-test)
               (let [test-binding (gensym "test__")]
                 (promise-then transformed-test
-                              (list 'fn [test-binding]
+                              (list 'fn* [test-binding]
                                     (if transformed-else
                                       (list 'if test-binding transformed-then transformed-else)
                                       (list 'if test-binding transformed-then)))))
@@ -385,19 +386,22 @@
                 (list 'if transformed-test transformed-then transformed-else)
                 (list 'if transformed-test transformed-then))))
 
-          ;; fn/fn* - don't recurse into (handled by analyzer)
-          (fn fn*)
-          body
+          ;; fn* - don't recurse into (handled by analyzer)
+          fn* body
 
           ;; General expression - transform subforms
           (transform-expr-with-await ctx locals body))
-        ;; Not a seq - check for vector or map
+        ;; Not a seq - check for vector, set, or map
         (cond
           ;; Vector literal - transform elements
           (vector? body)
           (transform-coll-with-await ctx locals body vec)
 
-          ;; Map literal - transform values (keys and values as pairs)
+          ;; Set literal - transform elements
+          (set? body)
+          (transform-coll-with-await ctx locals body set)
+
+          ;; Map literal - transform keys and values as pairs
           (map? body)
           (transform-coll-with-await ctx locals
                                      (mapcat identity body)  ;; flatten to [k1 v1 k2 v2 ...]
