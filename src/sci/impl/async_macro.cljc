@@ -54,19 +54,6 @@
                  (= 'sci.impl.async-await/finally op)
                  (= 'sci.impl.async-await/resolve op))))))
 
-(defn- ensure-promise-result
-  "Ensure async function body returns a promise.
-   Wraps the last expression in js/Promise.resolve if not already a promise."
-  [body-exprs]
-  (if (empty? body-exprs)
-    (list (wrap-promise nil))
-    (let [exprs (vec body-exprs)
-          last-idx (dec (count exprs))
-          last-expr (nth exprs last-idx)]
-      (if (promise-form? last-expr)
-        body-exprs
-        (assoc exprs last-idx (wrap-promise last-expr))))))
-
 (declare transform-async-body)
 
 (defn transform-do
@@ -117,48 +104,6 @@
 
     :else form))
 
-(defn transform-loop*
-  "Transform loop* with await into a recursive promise-returning function.
-   (loop* [x 0] (if (< x 3) (do (await p) (recur (inc x))) x))
-   =>
-   ((fn loop-fn [x] (if (< x 3) (.then p (fn [_] (loop-fn (inc x)))) (js/Promise.resolve x))) 0)"
-  [ctx locals bindings body]
-  (let [loop-fn-name (gensym "loop_fn__")
-        pairs (partition 2 bindings)
-        param-names (mapv first pairs)
-        init-values (map second pairs)
-        ;; Transform init values - they may contain await
-        transformed-inits (doall (map #(transform-async-body ctx locals %) init-values))
-        ;; Add params to locals
-        body-locals (into locals param-names)
-        ;; Replace recur with loop function call
-        body-with-replaced-recur (map #(replace-recur % loop-fn-name) body)
-        ;; Transform the body using transform-do to properly chain promises
-        transformed-body (transform-do ctx body-locals body-with-replaced-recur)
-        ;; Ensure promise result
-        promised-body (if (promise-form? transformed-body)
-                        transformed-body
-                        (wrap-promise transformed-body))
-        ;; Build the loop function
-        loop-fn (list 'fn* loop-fn-name param-names promised-body)
-        ;; Build the loop call, chaining any promise init values
-        make-loop-call (fn [init-vals]
-                         (wrap-promise (apply list loop-fn init-vals)))]
-    ;; If any init value is a promise, chain them
-    (if (some promise-form? transformed-inits)
-      (letfn [(chain-inits [vals-before remaining]
-                (if (seq remaining)
-                  (let [v (first remaining)]
-                    (if (promise-form? v)
-                      (let [await-sym (gensym "init__")]
-                        (promise-then v (list 'fn* [await-sym]
-                                              (chain-inits (conj vals-before await-sym)
-                                                           (rest remaining)))))
-                      (chain-inits (conj vals-before v) (rest remaining))))
-                  (make-loop-call vals-before)))]
-        (chain-inits [] transformed-inits))
-      (make-loop-call transformed-inits))))
-
 (defn transform-let*
   "Transform let* with await calls into .then chains."
   [ctx locals bindings body]
@@ -189,6 +134,38 @@
             (mark-promise (list 'let* (vec acc-bindings) transformed-body))
             (list 'let* (vec acc-bindings) transformed-body))
           transformed-body)))))
+
+(defn transform-loop*
+  "Transform loop* with await into a recursive promise-returning function.
+   Wraps init values in let* to preserve sequential scoping (each init sees previous bindings).
+
+   (loop* [x 0] (if (< x 3) (do (await p) (recur (inc x))) x))
+   =>
+   (let* [x 0]
+     ((fn loop-fn [x] (if (< x 3) (.then p (fn [_] (loop-fn (inc x)))) (js/Promise.resolve x))) x))"
+  [ctx locals bindings body]
+  (let [loop-fn-name (gensym "loop_fn__")
+        pairs (partition 2 bindings)
+        param-names (mapv first pairs)
+        init-values (mapv second pairs)
+        ;; Add params to locals for body transformation
+        body-locals (into locals param-names)
+        ;; Replace recur with loop function call
+        body-with-replaced-recur (map #(replace-recur % loop-fn-name) body)
+        ;; Transform the body using transform-do to properly chain promises
+        transformed-body (transform-do ctx body-locals body-with-replaced-recur)
+        ;; Ensure promise result
+        promised-body (if (promise-form? transformed-body)
+                        transformed-body
+                        (wrap-promise transformed-body))
+        ;; Build the loop function
+        loop-fn (list 'fn* loop-fn-name param-names promised-body)
+        ;; Build the loop call - uses param names since they'll be bound by let*
+        loop-call (wrap-promise (apply list loop-fn param-names))
+        ;; Build let* bindings: [param1 init1 param2 init2 ...]
+        let-bindings (vec (interleave param-names init-values))]
+    ;; Wrap in let* and transform - this handles sequential scoping and promise chaining
+    (transform-let* ctx locals let-bindings (list loop-call))))
 
 (defn transform-try
   "Transform try/catch/finally with await into Promise .catch/.finally chains.
@@ -419,6 +396,19 @@
           (transform-coll-with-await ctx locals (mapcat identity body) #(apply hash-map %) body)
 
           :else body)))))
+
+(defn- ensure-promise-result
+  "Ensure async function body returns a promise.
+   Wraps the last expression in js/Promise.resolve if not already a promise."
+  [body-exprs]
+  (if (empty? body-exprs)
+    (list (wrap-promise nil))
+    (let [exprs (vec body-exprs)
+          last-idx (dec (count exprs))
+          last-expr (nth exprs last-idx)]
+      (if (promise-form? last-expr)
+        body-exprs
+        (assoc exprs last-idx (wrap-promise last-expr))))))
 
 (defn transform-async-fn-body
   "Transform async function body expressions and ensure result is a promise.

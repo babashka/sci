@@ -252,10 +252,16 @@
                                (let [a (atom [])]
                                  (doseq [x [1 2 3]]
                                    (swap! a conj (await (js/Promise.resolve x))))
-                                 @a)})
+                                 @a)
+
+                               ;; REGRESSION: loop bindings should see previous bindings
+                               ;; -> is first bound to a fn, so (-> 1) in second binding calls that fn
+                               :binding-sees-previous
+                               (loop [-> (fn [x] (inc x)) x (-> 1)]
+                                 (-> x))})
                             (test-loop)")]
                  (p/let [result v]
-                   (is (= {:basic-loop [0 1 2] :doseq [1 2 3]} result))))
+                   (is (= {:basic-loop [0 1 2] :doseq [1 2 3] :binding-sees-previous 3} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
