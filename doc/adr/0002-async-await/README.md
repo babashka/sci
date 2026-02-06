@@ -171,19 +171,20 @@ Loops with await are transformed into recursive promise-returning functions, wra
 
 ;; Transforms to:
 (let* [x 0]
-  (sip/resolve
-    ((fn loop_fn__123 [x]
-       (if (< x 3)
-         (sip/then (sip/resolve x)
-           (fn [_] (loop_fn__123 (inc x))))
-         (sip/resolve x)))
-     x)))
+  ((fn loop_fn__123 [x]
+     (if (< x 3)
+       (sip/then (sip/resolve x)
+         (fn [_] (loop_fn__123 (inc x))))
+       (sip/resolve x)))
+   x))
 ```
 
 Key points:
+- If no await in loop, returns original `(loop* ...)` unchanged (no promise overhead)
 - Init values are wrapped in `let*` so each sees previous bindings (important when a binding shadows a macro like `->`)
 - `recur` calls are replaced with recursive function calls
-- The loop function always returns a promise
+- The loop function always returns a promise (body wrapped if needed)
+- Loop call is marked as promise-producing via metadata (no extra resolve wrapper)
 - Nested `fn`/`fn*`/`loop*` bodies are not descended into (recur targets different loop)
 
 **For `try/catch/finally`:**
@@ -243,7 +244,7 @@ body (if async?
 
 | File | Description |
 |------|-------------|
-| `src/sci/impl/async_macro.cljc` | Transformation functions (~370 lines) |
+| `src/sci/impl/async_macro.cljc` | Transformation functions (~430 lines) |
 | `src/sci/impl/namespaces.cljc` | Helper functions + `sci.impl.async-await` namespace registration |
 | `src/sci/impl/analyzer.cljc` | ~10 lines added for async detection |
 | `test/sci/async_await_test.cljs` | Comprehensive test suite |
