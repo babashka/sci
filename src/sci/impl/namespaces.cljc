@@ -1127,7 +1127,7 @@
            (js/Reflect.has obj k)))
 
 ;; Promise helpers for async/await transformation (CLJS only)
-;; These provide efficient interop and serve as markers for promise-form? detection
+;; These provide efficient interop as inlined functions
 #?(:cljs
    (do
      (defn promise-resolve
@@ -2132,8 +2132,4 @@
                  'catch (new-var 'catch promise-catch async-await-namespace
                                  {:sci.impl/inlined promise-catch})
                  'finally (new-var 'finally promise-finally async-await-namespace
-                                   {:sci.impl/inlined promise-finally})
-                 ;; Identity macro used as marker for promise-producing forms
-                 ;; Gets expanded away, leaving just the body
-                 'promise (new-var 'promise (fn [_ _ body] body) async-await-namespace
-                                   {:macro true})}])}))
+                                   {:sci.impl/inlined promise-finally})}])}))

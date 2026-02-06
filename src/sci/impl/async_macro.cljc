@@ -38,22 +38,21 @@
   (list 'sci.impl.async-await/finally promise-expr callback))
 
 (defn mark-promise
-  "Mark a form as promise-producing. This marker is detected by promise-form?
-   and stripped away by the analyzer."
+  "Mark a form as promise-producing using metadata."
   [form]
-  (list 'sci.impl.async-await/promise form))
+  (vary-meta form assoc :sci.impl/promise true))
 
 (defn- promise-form?
   "Check if form is already a promise-producing expression.
-   Detects calls to sci.impl.async-await helpers and the promise marker."
+   Detects metadata marker or calls to sci.impl.async-await helpers."
   [form]
-  (and (seq? form)
-       (let [op (first form)]
-         (or (= 'sci.impl.async-await/then op)
-             (= 'sci.impl.async-await/catch op)
-             (= 'sci.impl.async-await/finally op)
-             (= 'sci.impl.async-await/resolve op)
-             (= 'sci.impl.async-await/promise op)))))
+  (or (:sci.impl/promise (meta form))
+      (and (seq? form)
+           (let [op (first form)]
+             (or (= 'sci.impl.async-await/then op)
+                 (= 'sci.impl.async-await/catch op)
+                 (= 'sci.impl.async-await/finally op)
+                 (= 'sci.impl.async-await/resolve op))))))
 
 (defn- ensure-promise-result
   "Ensure async function body returns a promise.
@@ -300,8 +299,7 @@
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
-                          (not (#{'await 'let* 'loop* 'do 'fn* 'if 'quote 'try 'case*
-                                  'sci.impl.async-await/promise} op)))
+                          (not (#{'await 'let* 'loop* 'do 'fn* 'if 'quote 'try 'case*} op)))
                    (macroexpand/macroexpand-1 ctx body)
                    body)]
     (if (not= expanded body)
