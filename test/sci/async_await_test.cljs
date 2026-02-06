@@ -395,3 +395,35 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-letfn-await-test
+  (testing "^:async fn with letfn and await"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (letfn [(helper [x] (inc x))]
+                                (helper (await (js/Promise.resolve 1)))))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= 2 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-throw-await-test
+  (testing "^:async fn with throw and await"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (try
+                                (throw (js/Error. (await (js/Promise.resolve \"err\"))))
+                                (catch :default e
+                                  (.-message e))))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= "err" result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
