@@ -72,7 +72,7 @@
                                 (first transformed-body)
                                 (cons 'do transformed-body))))]
             (if (seq acc-bindings)
-              (list 'let (vec acc-bindings)
+              (list 'let* (vec acc-bindings)
                     (list '.then transformed-init
                           (list 'fn [binding-name] rest-body)))
               (list '.then transformed-init
@@ -84,7 +84,7 @@
       ;; No more pairs, emit remaining bindings + body (recursively transformed)
       (let [transformed-body (map #(transform-async-body ctx current-locals %) body)]
         (if (seq acc-bindings)
-          (list* 'let (vec acc-bindings) transformed-body)
+          (list* 'let* (vec acc-bindings) transformed-body)
           (if (= 1 (count transformed-body))
             (first transformed-body)
             (cons 'do transformed-body)))))))
@@ -204,7 +204,7 @@
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
-                          (not (#{'await 'let 'let* 'do 'fn 'fn* 'if 'quote 'try} op)))
+                          (not (#{'await 'let* 'do 'fn 'fn* 'if 'quote 'try} op)))
                    (macroexpand/macroexpand-1 ctx body)
                    body)]
     (if (not= expanded body)
@@ -218,8 +218,8 @@
               transformed-arg (transform-async-body ctx locals await-arg)]
           (wrap-promise transformed-arg))
 
-        ;; Let form
-        (and (seq? body) (#{'let 'let*} (first body)))
+        ;; Let* form (let expands to let* first)
+        (and (seq? body) (= 'let* (first body)))
         (let [[_ bindings & exprs] body]
           (transform-let* ctx locals bindings exprs))
 
