@@ -398,12 +398,17 @@
                 else-is-promise? (promise-form? transformed-else)
                 ;; If either branch is a promise-form, ensure BOTH branches return promises
                 ;; so we can safely call .then on the if result
+                ;; Also handle missing else when then is promise (implicit nil else)
                 final-then (if (and else-is-promise? (not then-is-promise?))
                              (wrap-promise transformed-then)
                              transformed-then)
-                final-else (if (and then-is-promise? (not else-is-promise?) transformed-else)
-                             (wrap-promise transformed-else)
-                             transformed-else)
+                final-else (cond
+                             ;; else is promise but then isn't - wrap then (handled above), keep else
+                             else-is-promise? transformed-else
+                             ;; then is promise but else isn't (including nil) - wrap else
+                             then-is-promise? (wrap-promise transformed-else)
+                             ;; neither is promise - keep as-is
+                             :else transformed-else)
                 branches-have-promise? (or then-is-promise? else-is-promise?)]
             (if (promise-form? transformed-test)
               (let [test-binding (gensym "test__")]

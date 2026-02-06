@@ -406,6 +406,10 @@
                                :no-else-await-in-then
                                (if true (await (js/Promise.resolve :result)))
 
+                               ;; REGRESSION: no else, await in then, but test is false (implicit nil)
+                               :no-else-await-in-then-falsy
+                               (if false (await (js/Promise.resolve :never)))
+
                                ;; REGRESSION: loop with if having mixed branches
                                :nested-loop-mixed
                                (loop [sum 0 items [{:x 10} 5 {:x 20}]]
@@ -432,6 +436,7 @@
                            :await-both-falsy :else
                            :no-else-await-in-test :result
                            :no-else-await-in-then :result
+                           :no-else-await-in-then-falsy nil
                            :nested-loop-mixed 35
                            :expr-position-mixed 142}
                           result))))
