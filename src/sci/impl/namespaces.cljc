@@ -1148,7 +1148,9 @@
      (defn promise-finally
        "Add finally handler to a promise. Used by async transformer."
        [p f]
-       (.finally p f))))
+       (.finally p f))
+
+     (def async-await-namespace (sci.lang/->Namespace 'sci.impl.async-await nil))))
 
 (defn eval* [form]
   (let [ctx (store/get-ctx)]
@@ -2121,8 +2123,13 @@
     'sci.impl.records sci-impl-records
     'sci.impl.deftype sci-impl-deftype
     'sci.impl.protocols sci-impl-protocols
-    #?@(:cljs ['sci.impl.async-await {:obj (sci.lang/->Namespace 'sci.impl.async-await nil)
-                                  'resolve (new-var 'resolve promise-resolve)
-                                  'then (new-var 'then promise-then)
-                                  'catch (new-var 'catch promise-catch)
-                                  'finally (new-var 'finally promise-finally)}])}))
+    #?@(:cljs ['sci.impl.async-await
+                {:obj async-await-namespace
+                 'resolve (new-var 'resolve promise-resolve async-await-namespace
+                                   {:sci.impl/inlined promise-resolve})
+                 'then (new-var 'then promise-then async-await-namespace
+                                {:sci.impl/inlined promise-then})
+                 'catch (new-var 'catch promise-catch async-await-namespace
+                                 {:sci.impl/inlined promise-catch})
+                 'finally (new-var 'finally promise-finally async-await-namespace
+                                   {:sci.impl/inlined promise-finally})}])}))
