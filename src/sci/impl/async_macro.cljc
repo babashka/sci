@@ -42,16 +42,23 @@
   [promise-expr callback]
   (list 'sci.impl.async-await/finally promise-expr callback))
 
+(defn mark-promise
+  "Mark a form as promise-producing. This marker is detected by promise-form?
+   and stripped away by the analyzer."
+  [form]
+  (list 'sci.impl.async-await/promise form))
+
 (defn- promise-form?
   "Check if form is already a promise-producing expression.
-   Detects calls to sci.impl.promise helpers."
+   Detects calls to sci.impl.async-await helpers and the promise marker."
   [form]
   (and (seq? form)
        (let [op (first form)]
          (or (= 'sci.impl.async-await/then op)
              (= 'sci.impl.async-await/catch op)
              (= 'sci.impl.async-await/finally op)
-             (= 'sci.impl.async-await/resolve op)))))
+             (= 'sci.impl.async-await/resolve op)
+             (= 'sci.impl.async-await/promise op)))))
 
 (defn- ensure-promise-result
   "Ensure async function body returns a promise.
@@ -83,11 +90,11 @@
                             (transform-do ctx locals rest-exprs)
                             nil)]
             (if (seq acc)
-              ;; Have accumulated expressions before promise
+              ;; Have accumulated expressions before promise - mark the do as promise-producing
               (let [then-expr (if rest-body
                                 (promise-then transformed (list 'fn ['_] rest-body))
                                 transformed)]
-                (list* 'do (conj acc then-expr)))
+                (mark-promise (list* 'do (conj acc then-expr))))
               ;; No accumulated expressions
               (if rest-body
                 (promise-then transformed (list 'fn ['_] rest-body))
@@ -178,7 +185,11 @@
       ;; No more pairs, emit remaining bindings + body (recursively transformed)
       (let [transformed-body (transform-do ctx current-locals body)]
         (if (seq acc-bindings)
-          (list 'let* (vec acc-bindings) transformed-body)
+          ;; If body is promise-form, mark the whole let* as promise-producing
+          (let [result (list 'let* (vec acc-bindings) transformed-body)]
+            (if (promise-form? transformed-body)
+              (mark-promise result)
+              result))
           transformed-body)))))
 
 (defn transform-try
@@ -261,10 +272,12 @@
   [ctx locals body]
   (let [op (when (seq? body) (first body))
         ;; Try to expand macros first to see awaits hidden inside macro calls
+        ;; Don't expand our own promise marker - it should only be expanded by the regular analyzer
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
-                          (not (#{'await 'let* 'loop* 'do 'fn 'fn* 'if 'quote 'try 'case*} op)))
+                          (not (#{'await 'let* 'loop* 'do 'fn 'fn* 'if 'quote 'try 'case*
+                                  'sci.impl.async-await/promise} op)))
                    (macroexpand/macroexpand-1 ctx body)
                    body)]
     (if (not= expanded body)

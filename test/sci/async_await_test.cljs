@@ -411,6 +411,22 @@
                           (is false (str err))))
                (p/finally done)))))
 
+(deftest async-fn-letfn-await-in-binding-test
+  (testing "^:async fn with letfn containing await used as let binding"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (let [g (letfn [(f [x] x)]
+                                        (await (js/Promise.resolve 1)))]
+                                [g]))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= [1] result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
 (deftest async-fn-throw-await-test
   (testing "^:async fn with throw and await"
     (async done
@@ -424,6 +440,44 @@
                             (foo)")]
                  (p/let [result v]
                    (is (= "err" result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-integration-test
+  (testing "^:async fn integration test with multiple features combined"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async test-complex []
+                              (let [a (await (js/Promise.resolve 1))
+                                    b (-> a inc (* 2) (+ (await (js/Promise.resolve 3))))
+                                    c (if (await (js/Promise.resolve true))
+                                        (let [x (await (js/Promise.resolve 10))]
+                                          (+ x b))
+                                        0)
+                                    d (loop [i 0 acc 0]
+                                        (if (< i 3)
+                                          (recur (inc i) (+ acc (await (js/Promise.resolve i))))
+                                          acc))
+                                    e (try
+                                        (+ (await (js/Promise.resolve 100))
+                                           (throw (js/Error. \"oops\")))
+                                        (catch :default err
+                                          (await (js/Promise.resolve 42))))
+                                    f (case (await (js/Promise.resolve :x))
+                                        :x (await (js/Promise.resolve :matched-x))
+                                        :y :matched-y
+                                        :default)
+                                    g (letfn [(double [n] (* 2 n))]
+                                        (let [v (await (js/Promise.resolve 5))]
+                                          (double v)))
+                                    h (await ((^:async fn [x] (+ x (await (js/Promise.resolve 1)))) 10))
+                                    i ((fn [x] (+ x 1)) (await (js/Promise.resolve 100)))]
+                                {:a a :b b :c c :d d :e e :f f :g g :h h :i i}))
+                            (test-complex)")]
+                 (p/let [result v]
+                   (is (= {:a 1 :b 7 :c 17 :d 3 :e 42 :f :matched-x :g 10 :h 11 :i 101} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))

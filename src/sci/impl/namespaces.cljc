@@ -2132,4 +2132,8 @@
                  'catch (new-var 'catch promise-catch async-await-namespace
                                  {:sci.impl/inlined promise-catch})
                  'finally (new-var 'finally promise-finally async-await-namespace
-                                   {:sci.impl/inlined promise-finally})}])}))
+                                   {:sci.impl/inlined promise-finally})
+                 ;; Identity macro used as marker for promise-producing forms
+                 ;; Gets expanded away, leaving just the body
+                 'promise (new-var 'promise (fn [_ _ body] body) async-await-namespace
+                                   {:macro true})}])}))
