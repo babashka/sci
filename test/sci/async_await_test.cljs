@@ -450,75 +450,76 @@
            (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
                        v (sci/eval-string* ctx
                            "(defn ^:async test-complex []
-                              (let [a (await (js/Promise.resolve 1))
-                                    b (-> a inc (* 2) (+ (await (js/Promise.resolve 3))))
-                                    c (if (await (js/Promise.resolve true))
-                                        (let [x (await (js/Promise.resolve 10))]
-                                          (+ x b))
-                                        0)
-                                    d (loop [i 0 acc 0]
-                                        (if (< i 3)
-                                          (recur (inc i) (+ acc (await (js/Promise.resolve i))))
-                                          acc))
-                                    e (try
-                                        (+ (await (js/Promise.resolve 100))
-                                           (throw (js/Error. \"oops\")))
-                                        (catch :default err
-                                          (await (js/Promise.resolve 42))))
-                                    f (case (await (js/Promise.resolve :x))
-                                        :x (await (js/Promise.resolve :matched-x))
-                                        :y :matched-y
-                                        :default)
-                                    g (letfn [(double [n] (* 2 n))]
-                                        (let [v (await (js/Promise.resolve 5))]
-                                          (double v)))
-                                    h (await ((^:async fn [x] (+ x (await (js/Promise.resolve 1)))) 10))
-                                    i ((fn [x] (+ x 1)) (await (js/Promise.resolve 100)))
-                                    j (or (await (js/Promise.resolve nil))
-                                          (await (js/Promise.resolve false))
-                                          (await (js/Promise.resolve :found)))
-                                    k (and (await (js/Promise.resolve 1))
-                                           (await (js/Promise.resolve 2))
-                                           (await (js/Promise.resolve 3)))
+                              ;; All results boxed in vectors to detect unwrapped promises
+                              (let [a [(await (js/Promise.resolve 1))]
+                                    b [(-> (first a) inc (* 2) (+ (await (js/Promise.resolve 3))))]
+                                    c [(if (await (js/Promise.resolve true))
+                                         (let [x (await (js/Promise.resolve 10))]
+                                           (+ x (first b)))
+                                         0)]
+                                    d [(loop [i 0 acc 0]
+                                         (if (< i 3)
+                                           (recur (inc i) (+ acc (await (js/Promise.resolve i))))
+                                           acc))]
+                                    e [(try
+                                         (+ (await (js/Promise.resolve 100))
+                                            (throw (js/Error. \"oops\")))
+                                         (catch :default err
+                                           (await (js/Promise.resolve 42))))]
+                                    f [(case (await (js/Promise.resolve :x))
+                                         :x (await (js/Promise.resolve :matched-x))
+                                         :y :matched-y
+                                         :default)]
+                                    g [(letfn [(double [n] (* 2 n))]
+                                         (let [v (await (js/Promise.resolve 5))]
+                                           (double v)))]
+                                    h [(await ((^:async fn [x] (+ x (await (js/Promise.resolve 1)))) 10))]
+                                    i [((fn [x] (+ x 1)) (await (js/Promise.resolve 100)))]
+                                    j [(or (await (js/Promise.resolve nil))
+                                           (await (js/Promise.resolve false))
+                                           (await (js/Promise.resolve :found)))]
+                                    k [(and (await (js/Promise.resolve 1))
+                                            (await (js/Promise.resolve 2))
+                                            (await (js/Promise.resolve 3)))]
                                     ;; test and short-circuit with falsy
                                     and-atom (atom 0)
-                                    l (and (await (js/Promise.resolve false))
-                                           (do (swap! and-atom inc) :never))
-                                    l-side-effects @and-atom
+                                    l [(and (await (js/Promise.resolve false))
+                                            (do (swap! and-atom inc) :never))]
+                                    l-side-effects [@and-atom]
                                     ;; test or short-circuit with truthy
                                     or-atom (atom 0)
-                                    m (or (await (js/Promise.resolve :truthy))
-                                          (do (swap! or-atom inc) :never))
-                                    m-side-effects @or-atom
+                                    m [(or (await (js/Promise.resolve :truthy))
+                                           (do (swap! or-atom inc) :never))]
+                                    m-side-effects [@or-atom]
                                     ;; async fn calling another async fn
-                                    n (let [async-add (^:async fn [x y]
-                                                        (+ (await (js/Promise.resolve x))
-                                                           (await (js/Promise.resolve y))))
-                                            async-mul (^:async fn [x y]
-                                                        (* (await (async-add x 1))
-                                                           (await (js/Promise.resolve y))))]
-                                        (await (async-mul 2 3)))
+                                    n [(let [async-add (^:async fn [x y]
+                                                         (+ (await (js/Promise.resolve x))
+                                                            (await (js/Promise.resolve y))))
+                                             async-mul (^:async fn [x y]
+                                                         (* (await (async-add x 1))
+                                                            (await (js/Promise.resolve y))))]
+                                         (await (async-mul 2 3)))]
                                     ;; nested do blocks
-                                    o (do
-                                        (do
-                                          (await (js/Promise.resolve :inner))
-                                          (do
-                                            (await (js/Promise.resolve :deeper))
-                                            :nested-result)))
+                                    o [(do
+                                         (do
+                                           (await (js/Promise.resolve :inner))
+                                           (do
+                                             (await (js/Promise.resolve :deeper))
+                                             :nested-result)))]
                                     ;; for comprehension with await
-                                    p (vec (for [x (await (js/Promise.resolve [1 2]))]
-                                             (* x 2)))]
+                                    p [(vec (for [x (await (js/Promise.resolve [1 2]))]
+                                              (* x 2)))]]
                                 {:a a :b b :c c :d d :e e :f f :g g :h h :i i :j j :k k
                                  :l l :l-side-effects l-side-effects
                                  :m m :m-side-effects m-side-effects
                                  :n n :o o :p p}))
                             (test-complex)")]
                  (p/let [result v]
-                   (is (= {:a 1 :b 7 :c 17 :d 3 :e 42 :f :matched-x :g 10 :h 11 :i 101
-                           :j :found :k 3
-                           :l false :l-side-effects 0
-                           :m :truthy :m-side-effects 0
-                           :n 9 :o :nested-result :p [2 4]} result))))
+                   (is (= {:a [1] :b [7] :c [17] :d [3] :e [42] :f [:matched-x] :g [10] :h [11] :i [101]
+                           :j [:found] :k [3]
+                           :l [false] :l-side-effects [0]
+                           :m [:truthy] :m-side-effects [0]
+                           :n [9] :o [:nested-result] :p [[2 4]]} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))

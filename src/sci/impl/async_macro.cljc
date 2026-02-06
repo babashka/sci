@@ -234,6 +234,32 @@
                          with-catch)]
     with-finally))
 
+(defn- transform-coll-with-await
+  "Transform a collection (vector or map entries), chaining any promise-producing elements.
+   rebuild-fn takes the transformed elements and rebuilds the collection."
+  [ctx locals elements rebuild-fn]
+  (let [transformed (doall (map #(transform-async-body ctx locals %) elements))]
+    (if (some promise-form? transformed)
+      ;; Chain promises sequentially
+      (loop [elems-before []
+             remaining transformed]
+        (if (seq remaining)
+          (let [elem (first remaining)]
+            (if (promise-form? elem)
+              ;; Found promise - chain from here
+              (let [await-sym (gensym "await__")
+                    rest-elems (rest remaining)
+                    rebuilt (rebuild-fn (concat elems-before [await-sym] rest-elems))
+                    ;; Recursively transform in case there are more promises
+                    rest-expr (transform-async-body ctx (conj locals await-sym) rebuilt)]
+                (promise-then elem (list 'fn [await-sym] rest-expr)))
+              ;; Not a promise, accumulate
+              (recur (conj elems-before elem) (rest remaining))))
+          ;; Shouldn't reach here
+          (rebuild-fn transformed)))
+      ;; No promises
+      (rebuild-fn transformed))))
+
 (defn transform-expr-with-await
   "Transform a general expression, chaining any promise-producing subforms."
   [ctx locals expr]
@@ -365,8 +391,21 @@
 
           ;; General expression - transform subforms
           (transform-expr-with-await ctx locals body))
-        ;; Not a seq, return as-is
-        body))))
+        ;; Not a seq - check for vector or map
+        (cond
+          ;; Vector literal - transform elements
+          (vector? body)
+          (transform-coll-with-await ctx locals body vec)
+
+          ;; Map literal - transform values (keys and values as pairs)
+          (map? body)
+          (transform-coll-with-await ctx locals
+                                     (mapcat identity body)  ;; flatten to [k1 v1 k2 v2 ...]
+                                     #(apply hash-map %))
+
+          ;; Other non-seq (symbol, keyword, number, etc.) - return as-is
+          :else
+          body)))))
 
 (defn transform-async-fn-body
   "Transform async function body expressions and ensure result is a promise.
