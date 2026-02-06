@@ -271,90 +271,88 @@
       ;; Macro expanded, recurse with expanded form
       (transform-async-body ctx locals expanded)
       ;; No expansion, handle based on form type
-      (cond
-        ;; Direct await call
-        (await-call? body)
-        (let [await-arg (second body)
-              transformed-arg (transform-async-body ctx locals await-arg)]
-          (wrap-promise transformed-arg))
+      (if (seq? body)
+        (case op
+          ;; Direct await call
+          await
+          (let [await-arg (second body)
+                transformed-arg (transform-async-body ctx locals await-arg)]
+            (wrap-promise transformed-arg))
 
-        ;; Let* form (let expands to let* first)
-        (and (seq? body) (= 'let* (first body)))
-        (let [[_ bindings & exprs] body]
-          (transform-let* ctx locals bindings exprs))
+          ;; Let* form (let expands to let* first)
+          let*
+          (let [[_ bindings & exprs] body]
+            (transform-let* ctx locals bindings exprs))
 
-        ;; Loop* form - convert to recursive function
-        (and (seq? body) (= 'loop* (first body)))
-        (let [[_ bindings & exprs] body]
-          (transform-loop* ctx locals bindings exprs))
+          ;; Loop* form - convert to recursive function
+          loop*
+          (let [[_ bindings & exprs] body]
+            (transform-loop* ctx locals bindings exprs))
 
-        ;; Case* form - transform test expr and result exprs, but NOT match constants
-        ;; Structure: (case* test match1 result1 match2 result2 ... [default])
-        (and (seq? body) (= 'case* (first body)))
-        (let [[case*-sym test-expr & clauses] body
-              transformed-test (transform-async-body ctx locals test-expr)
-              ;; Transform result expressions (every second element), keep match constants
-              ;; If odd number of clauses, last one is default
-              clause-pairs (partition 2 clauses)
-              has-default? (odd? (count clauses))
-              default-expr (when has-default? (last clauses))
-              ;; Transform results in pairs
-              transformed-pairs (mapcat (fn [[match-const result-expr]]
-                                          [match-const (transform-async-body ctx locals result-expr)])
-                                        (if has-default?
-                                          (butlast clause-pairs)
-                                          clause-pairs))
-              transformed-default (when has-default?
-                                    (transform-async-body ctx locals default-expr))
-              all-transformed (if has-default?
-                                (concat transformed-pairs [transformed-default])
-                                transformed-pairs)
-              ;; Check if any result is a promise - if so, we need special handling
-              ;; For now, just rebuild and let it potentially fail at runtime
-              rebuilt-case (apply list case*-sym transformed-test all-transformed)]
-          (if (promise-form? transformed-test)
-            (let [test-binding (gensym "case_test__")]
-              (promise-then transformed-test
-                            (list 'fn [test-binding]
-                                  (apply list case*-sym test-binding all-transformed))))
-            rebuilt-case))
+          ;; Case* form - transform test expr and result exprs, but NOT match constants
+          ;; Structure: (case* test match1 result1 match2 result2 ... [default])
+          case*
+          (let [[case*-sym test-expr & clauses] body
+                transformed-test (transform-async-body ctx locals test-expr)
+                ;; Transform result expressions (every second element), keep match constants
+                ;; If odd number of clauses, last one is default
+                clause-pairs (partition 2 clauses)
+                has-default? (odd? (count clauses))
+                default-expr (when has-default? (last clauses))
+                ;; Transform results in pairs
+                transformed-pairs (mapcat (fn [[match-const result-expr]]
+                                            [match-const (transform-async-body ctx locals result-expr)])
+                                          (if has-default?
+                                            (butlast clause-pairs)
+                                            clause-pairs))
+                transformed-default (when has-default?
+                                      (transform-async-body ctx locals default-expr))
+                all-transformed (if has-default?
+                                  (concat transformed-pairs [transformed-default])
+                                  transformed-pairs)
+                ;; Check if any result is a promise - if so, we need special handling
+                ;; For now, just rebuild and let it potentially fail at runtime
+                rebuilt-case (apply list case*-sym transformed-test all-transformed)]
+            (if (promise-form? transformed-test)
+              (let [test-binding (gensym "case_test__")]
+                (promise-then transformed-test
+                              (list 'fn [test-binding]
+                                    (apply list case*-sym test-binding all-transformed))))
+              rebuilt-case))
 
-        ;; Do form
-        (and (seq? body) (= 'do (first body)))
-        (transform-do ctx locals (rest body))
+          ;; Do form
+          do
+          (transform-do ctx locals (rest body))
 
-        ;; Try form
-        (and (seq? body) (= 'try (first body)))
-        (transform-try ctx locals (rest body))
+          ;; Try form
+          try
+          (transform-try ctx locals (rest body))
 
-        ;; If form
-        (and (seq? body) (= 'if (first body)))
-        (let [[_ test then else] body
-              transformed-test (transform-async-body ctx locals test)
-              transformed-then (transform-async-body ctx locals then)
-              transformed-else (when else
-                                 (transform-async-body ctx locals else))]
-          (if (promise-form? transformed-test)
-            (let [test-binding (gensym "test__")]
-              (promise-then transformed-test
-                            (list 'fn [test-binding]
-                                  (if transformed-else
-                                    (list 'if test-binding transformed-then transformed-else)
-                                    (list 'if test-binding transformed-then)))))
-            (if transformed-else
-              (list 'if transformed-test transformed-then transformed-else)
-              (list 'if transformed-test transformed-then))))
+          ;; If form
+          if
+          (let [[_ test then else] body
+                transformed-test (transform-async-body ctx locals test)
+                transformed-then (transform-async-body ctx locals then)
+                transformed-else (when else
+                                   (transform-async-body ctx locals else))]
+            (if (promise-form? transformed-test)
+              (let [test-binding (gensym "test__")]
+                (promise-then transformed-test
+                              (list 'fn [test-binding]
+                                    (if transformed-else
+                                      (list 'if test-binding transformed-then transformed-else)
+                                      (list 'if test-binding transformed-then)))))
+              (if transformed-else
+                (list 'if transformed-test transformed-then transformed-else)
+                (list 'if transformed-test transformed-then))))
 
-        ;; fn/fn* - don't recurse into (handled by analyzer)
-        (and (seq? body) (#{'fn 'fn*} (first body)))
-        body
+          ;; fn/fn* - don't recurse into (handled by analyzer)
+          (fn fn*)
+          body
 
-        ;; General expression - transform subforms
-        (seq? body)
-        (transform-expr-with-await ctx locals body)
-
+          ;; General expression - transform subforms
+          (transform-expr-with-await ctx locals body))
         ;; Not a seq, return as-is
-        :else
         body))))
 
 (defn transform-async-fn-body
