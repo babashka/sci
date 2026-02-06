@@ -22,18 +22,6 @@
   [form]
   (and (seq? form) (= 'await (first form))))
 
-(defn contains-await?
-  "Check if form contains any (await ...) calls at current scope.
-   Skips all fn/fn* bodies - awaits there belong to the inner function's scope."
-  [form]
-  (cond
-    (await-call? form) true
-    (and (seq? form) (#{'fn 'fn*} (first form))) false
-    (seq? form) (some contains-await? form)
-    (vector? form) (some contains-await? form)
-    (map? form) (some contains-await? (concat (keys form) (vals form)))
-    :else false))
-
 (defn wrap-promise
   "Wrap value in js/Promise.resolve to handle non-Promise values"
   [expr]
@@ -65,37 +53,45 @@
 
 (defn transform-let*
   "Transform let* with await calls into .then chains."
-  [ctx locals bindings body]
+  [ctx locals found-await? bindings body]
   (loop [pairs (partition 2 bindings)
          acc-bindings []
          current-locals locals]
     (if-let [[binding-name init] (first pairs)]
-      (let [has-await? (or (await-call? init) (contains-await? init))]
+      ;; Transform the init first to expand macros and find awaits
+      (let [await-before? @found-await?
+            _ (reset! found-await? false)
+            transformed-init (transform-async-body ctx current-locals found-await? init)
+            has-await? @found-await?]
+        ;; Restore found-await? state (we found await if we did before OR now)
+        (reset! found-await? (or await-before? has-await?))
         (if has-await?
           ;; Has await - emit .then, wrap remaining in continuation
-          (let [transformed-init (if (await-call? init)
-                                   (wrap-promise (second init))
-                                   (transform-async-body ctx current-locals init))
+          (let [;; If it's a direct await call that was transformed, use it directly
+                ;; Otherwise wrap in promise
+                promise-expr (if (promise-form? transformed-init)
+                               transformed-init
+                               (wrap-promise transformed-init))
                 rest-pairs (rest pairs)
                 new-locals (conj current-locals binding-name)
                 rest-body (if (seq rest-pairs)
-                            (transform-let* ctx new-locals (vec (mapcat identity rest-pairs)) body)
-                            (let [transformed-body (map #(transform-async-body ctx new-locals %) body)]
+                            (transform-let* ctx new-locals found-await? (vec (mapcat identity rest-pairs)) body)
+                            (let [transformed-body (map #(transform-async-body ctx new-locals found-await? %) body)]
                               (if (= 1 (count transformed-body))
                                 (first transformed-body)
                                 (cons 'do transformed-body))))]
             (if (seq acc-bindings)
               (list 'let (vec acc-bindings)
-                    (list '.then transformed-init
+                    (list '.then promise-expr
                           (list 'fn [binding-name] rest-body)))
-              (list '.then transformed-init
+              (list '.then promise-expr
                     (list 'fn [binding-name] rest-body))))
-          ;; No await - accumulate binding as-is
+          ;; No await in this binding - accumulate and continue
           (recur (rest pairs)
-                 (conj acc-bindings binding-name init)
+                 (conj acc-bindings binding-name transformed-init)
                  (conj current-locals binding-name))))
       ;; No more pairs, emit remaining bindings + body (recursively transformed)
-      (let [transformed-body (map #(transform-async-body ctx current-locals %) body)]
+      (let [transformed-body (map #(transform-async-body ctx current-locals found-await? %) body)]
         (if (seq acc-bindings)
           (list* 'let (vec acc-bindings) transformed-body)
           (if (= 1 (count transformed-body))
@@ -104,41 +100,61 @@
 
 (defn transform-do
   "Transform do with await calls into .then chains."
-  [ctx locals exprs]
+  [ctx locals found-await? exprs]
   (loop [exprs exprs
          acc []]
     (if (seq exprs)
       (let [expr (first exprs)
-            rest-exprs (rest exprs)]
-        (if (await-call? expr)
-          ;; Found await - wrap rest in .then
-          (let [promise (wrap-promise (second expr))
-                rest-body (if (seq rest-exprs)
-                            (transform-do ctx locals rest-exprs)
-                            nil)]
-            (if (seq acc)
-              ;; Have accumulated expressions before await
-              (let [then-expr (if rest-body
-                                (list '.then promise (list 'fn ['_] rest-body))
-                                promise)]
-                (list* 'do (conj acc then-expr)))
-              ;; No accumulated expressions
-              (if rest-body
-                (list '.then promise (list 'fn ['_] rest-body))
-                promise)))
-          ;; Not an await, accumulate and continue
-          (recur rest-exprs (conj acc (transform-async-body ctx locals expr)))))
+            rest-exprs (rest exprs)
+            ;; Check for direct await call before transformation
+            direct-await? (await-call? expr)]
+        (if direct-await?
+          ;; Direct await - wrap rest in .then
+          (do
+            (reset! found-await? true)
+            (let [promise (wrap-promise (second expr))
+                  rest-body (if (seq rest-exprs)
+                              (transform-do ctx locals found-await? rest-exprs)
+                              nil)]
+              (if (seq acc)
+                ;; Have accumulated expressions before await
+                (let [then-expr (if rest-body
+                                  (list '.then promise (list 'fn ['_] rest-body))
+                                  promise)]
+                  (list* 'do (conj acc then-expr)))
+                ;; No accumulated expressions
+                (if rest-body
+                  (list '.then promise (list 'fn ['_] rest-body))
+                  promise))))
+          ;; Not a direct await, transform and check if it produced a promise
+          (let [await-before? @found-await?
+                _ (reset! found-await? false)
+                transformed (transform-async-body ctx locals found-await? expr)
+                has-await? @found-await?]
+            (reset! found-await? (or await-before? has-await?))
+            (if has-await?
+              ;; Transformation found an await - need to chain
+              (let [rest-body (if (seq rest-exprs)
+                                (transform-do ctx locals found-await? rest-exprs)
+                                nil)]
+                (if (seq acc)
+                  (let [then-expr (if rest-body
+                                    (list '.then transformed (list 'fn ['_] rest-body))
+                                    transformed)]
+                    (list* 'do (conj acc then-expr)))
+                  (if rest-body
+                    (list '.then transformed (list 'fn ['_] rest-body))
+                    transformed)))
+              ;; No await, accumulate
+              (recur rest-exprs (conj acc transformed))))))
       ;; No more exprs
       (if (= 1 (count acc))
         (first acc)
         (list* 'do acc)))))
 
 (defn transform-try
-  "Transform try/catch/finally with await into Promise .catch/.finally chains.
-   (try (await p) (catch :default e handler) (finally cleanup))
-   ->
-   (-> (js/Promise.resolve p) (.catch (fn [e] handler)) (.finally (fn [] cleanup)))"
-  [ctx locals exprs]
+  "Transform try/catch/finally with await into Promise .catch/.finally chains."
+  [ctx locals found-await? exprs]
   (let [;; Separate body from catch/finally clauses
         catch-finally? (fn [form]
                          (and (seq? form)
@@ -149,12 +165,10 @@
         finally-clause (first (filter #(and (seq? %) (= 'finally (first %))) clauses))
         ;; Transform body as a do block
         transformed-body (if (= 1 (count body-exprs))
-                           (transform-async-body ctx locals (first body-exprs))
-                           (transform-do ctx locals body-exprs))
+                           (transform-async-body ctx locals found-await? (first body-exprs))
+                           (transform-do ctx locals found-await? body-exprs))
         ;; Wrap in Promise.resolve if not already a promise chain
-        promise-chain (if (and (seq? transformed-body)
-                               (or (= '.then (first transformed-body))
-                                   (= 'js/Promise.resolve (first transformed-body))))
+        promise-chain (if (promise-form? transformed-body)
                         transformed-body
                         (wrap-promise transformed-body))]
     ;; Add .catch clauses
@@ -165,8 +179,8 @@
                                ;; Add catch binding to locals for handler
                                handler-locals (conj locals binding)
                                transformed-handler (if (= 1 (count handler-body))
-                                                     (transform-async-body ctx handler-locals (first handler-body))
-                                                     (transform-do ctx handler-locals handler-body))]
+                                                     (transform-async-body ctx handler-locals found-await? (first handler-body))
+                                                     (transform-do ctx handler-locals found-await? handler-body))]
                            (list '.catch chain (list 'fn [binding] transformed-handler))))
                        promise-chain
                        catch-clauses)
@@ -174,140 +188,117 @@
           with-finally (if finally-clause
                          (let [[_ & finally-body] finally-clause
                                transformed-finally (if (= 1 (count finally-body))
-                                                     (transform-async-body ctx locals (first finally-body))
-                                                     (transform-do ctx locals finally-body))]
+                                                     (transform-async-body ctx locals found-await? (first finally-body))
+                                                     (transform-do ctx locals found-await? finally-body))]
                            (list '.finally with-catch (list 'fn [] transformed-finally)))
                          with-catch)]
       with-finally)))
 
-(defn- replace-first-await
-  "Replace the first (await ...) in form with replacement.
-   Sets await-atom to the await argument when found.
-   Skips fn/fn* bodies - awaits there belong to inner function."
-  [form await-atom replacement]
-  (cond
-    ;; Already found an await
-    @await-atom
-    form
-
-    ;; Found await - capture and replace
-    (await-call? form)
-    (do (reset! await-atom (second form))
-        replacement)
-
-    ;; Skip fn/fn* bodies entirely
-    (and (seq? form) (#{'fn 'fn*} (first form)))
-    form
-
-    ;; Recurse into sequences
-    (seq? form)
-    (let [result (reduce (fn [acc item]
-                           (conj acc (replace-first-await item await-atom replacement)))
-                         []
-                         form)]
-      (apply list result))
-
-    ;; Recurse into vectors
-    (vector? form)
-    (reduce (fn [acc item]
-              (conj acc (replace-first-await item await-atom replacement)))
-            []
-            form)
-
-    ;; Recurse into maps
-    (map? form)
-    (reduce (fn [acc [k v]]
-              (assoc acc
-                     (replace-first-await k await-atom replacement)
-                     (replace-first-await v await-atom replacement)))
-            {}
-            form)
-
-    ;; Other values pass through
-    :else
-    form))
-
 (defn transform-expr-with-await
   "Transform an expression containing await by extracting the await
-   and wrapping in .then."
-  [ctx locals expr]
+   and wrapping in .then. The found-await? atom tracks if await was found."
+  [ctx locals found-await? expr]
   (if (await-call? expr)
-    ;; Direct await - transform the argument if it needs async transformation
-    (let [await-arg (second expr)
-          transformed-arg (if (contains-await? await-arg)
-                            (transform-async-body ctx locals await-arg)
-                            await-arg)]
-      (wrap-promise transformed-arg))
-    ;; Find and extract the first await, replace with gensym, wrap in .then
-    (let [await-sym (gensym "await__")
-          await-expr (atom nil)
-          replaced (replace-first-await expr await-expr await-sym)]
-      (if @await-expr
-        ;; Found an await - transform both the await arg and the replaced expr
-        (let [;; Transform the await argument if it needs async transformation
-              transformed-await-arg (if (contains-await? @await-expr)
-                                      (transform-async-body ctx locals @await-expr)
-                                      @await-expr)
-              ;; Add the await-sym to locals for the continuation
-              new-locals (conj locals await-sym)
-              ;; Transform the replaced expr if it still needs transformation
-              transformed-replaced (if (contains-await? replaced)
-                                     (transform-async-body ctx new-locals replaced)
-                                     replaced)]
-          (list '.then (wrap-promise transformed-await-arg)
-                (list 'fn [await-sym] transformed-replaced)))
-        ;; No await found (shouldn't happen if contains-await? was true)
-        expr))))
+    ;; Direct await - transform the argument and wrap in promise
+    (do
+      (reset! found-await? true)
+      (let [await-arg (second expr)
+            transformed-arg (transform-async-body ctx locals found-await? await-arg)]
+        (wrap-promise transformed-arg)))
+    ;; General expression - transform all subforms, track if any had await
+    (if (seq? expr)
+      (let [op (first expr)
+            args (rest expr)
+            ;; Transform all arguments, collecting results and tracking await
+            await-before? @found-await?
+            _ (reset! found-await? false)
+            transformed-args (doall (map #(transform-async-body ctx locals found-await? %) args))
+            any-await? @found-await?]
+        (reset! found-await? (or await-before? any-await?))
+        (if any-await?
+          ;; Some argument had an await - need to sequence them
+          ;; Find the first argument that's a promise and chain the rest
+          (loop [args-before []
+                 remaining-args (map vector args transformed-args)
+                 needs-chain? false]
+            (if (seq remaining-args)
+              (let [[orig-arg transformed-arg] (first remaining-args)]
+                (if (and (not needs-chain?) (promise-form? transformed-arg))
+                  ;; Found first promise - chain from here
+                  (let [await-sym (gensym "await__")
+                        rest-args (rest remaining-args)
+                        rest-expr (if (seq rest-args)
+                                    ;; Build expression with remaining args
+                                    (let [rebuilt (apply list op
+                                                         (concat args-before
+                                                                 [await-sym]
+                                                                 (map second rest-args)))]
+                                      ;; Recursively transform in case there are more awaits
+                                      (transform-async-body ctx (conj locals await-sym) found-await? rebuilt))
+                                    ;; No more args, just use the await-sym
+                                    (apply list op (concat args-before [await-sym])))]
+                    (list '.then transformed-arg
+                          (list 'fn [await-sym] rest-expr)))
+                  ;; Not a promise yet, accumulate
+                  (recur (conj args-before transformed-arg)
+                         (rest remaining-args)
+                         (or needs-chain? (promise-form? transformed-arg)))))
+              ;; All args processed, no promise found (shouldn't happen if any-await? is true)
+              (apply list op transformed-args)))
+          ;; No await found in args, return rebuilt expression
+          (apply list op transformed-args)))
+      ;; Not a seq, return as-is
+      expr)))
 
 (defn transform-async-body
   "Walk body and transform await calls. Expands macros first if needed.
-   locals is a set of locally bound symbols that should not be macro-expanded."
+   locals is a set of locally bound symbols that should not be macro-expanded.
+   found-await? is an atom that gets set to true when await is encountered."
   ([ctx body]
-   (transform-async-body ctx #{} body))
-  ([ctx locals body]
+   (transform-async-body ctx #{} (atom false) body))
+  ([ctx locals found-await? body]
    (let [op (when (seq? body) (first body))
          ;; Try to expand macros first to see awaits hidden inside macro calls
          expanded (if (and (seq? body)
                            (symbol? op)
                            (not (contains? locals op))  ;; Don't expand if locally bound
-                           (not (#{'await 'let 'let* 'do 'fn* 'if 'quote 'try} op)))
+                           (not (#{'await 'let 'let* 'do 'fn 'fn* 'if 'quote 'try} op)))
                     (macroexpand/macroexpand-1 ctx body)
                     body)]
      (if (not= expanded body)
        ;; Macro expanded, recurse with expanded form
-       (transform-async-body ctx locals expanded)
-       ;; No expansion, check for await
+       (transform-async-body ctx locals found-await? expanded)
+       ;; No expansion, handle based on form type
        (cond
-         ;; No await in this form, return as-is
-         (not (contains-await? body))
-         body
+         ;; Direct await call
+         (await-call? body)
+         (do
+           (reset! found-await? true)
+           (let [await-arg (second body)
+                 transformed-arg (transform-async-body ctx locals found-await? await-arg)]
+             (wrap-promise transformed-arg)))
 
-         ;; Has await - transform based on form type
+         ;; Let form
          (and (seq? body) (#{'let 'let*} (first body)))
          (let [[_ bindings & exprs] body]
-           (transform-let* ctx locals bindings exprs))
+           (transform-let* ctx locals found-await? bindings exprs))
 
+         ;; Do form
          (and (seq? body) (= 'do (first body)))
-         (transform-do ctx locals (rest body))
+         (transform-do ctx locals found-await? (rest body))
 
+         ;; Try form
          (and (seq? body) (= 'try (first body)))
-         (transform-try ctx locals (rest body))
+         (transform-try ctx locals found-await? (rest body))
 
+         ;; If form
          (and (seq? body) (= 'if (first body)))
          (let [[_ test then else] body
-               transformed-test (if (contains-await? test)
-                                  (transform-async-body ctx locals test)
-                                  test)
-               transformed-then (if (contains-await? then)
-                                  (transform-async-body ctx locals then)
-                                  then)
+               transformed-test (transform-async-body ctx locals found-await? test)
+               transformed-then (transform-async-body ctx locals found-await? then)
                transformed-else (when else
-                                  (if (contains-await? else)
-                                    (transform-async-body ctx locals else)
-                                    else))
-               test-is-promise? (and (seq? transformed-test)
-                                     (or (= '.then (first transformed-test))
-                                         (= 'js/Promise.resolve (first transformed-test))))]
+                                  (transform-async-body ctx locals found-await? else))
+               test-is-promise? (promise-form? transformed-test)]
            (if test-is-promise?
              (let [test-binding (gensym "test__")]
                (list '.then transformed-test
@@ -319,14 +310,23 @@
                (list 'if transformed-test transformed-then transformed-else)
                (list 'if transformed-test transformed-then))))
 
-         ;; General case - extract await and wrap in .then
+         ;; fn/fn* - don't recurse into (handled by analyzer)
+         (and (seq? body) (#{'fn 'fn*} (first body)))
+         body
+
+         ;; General expression - transform subforms
+         (seq? body)
+         (transform-expr-with-await ctx locals found-await? body)
+
+         ;; Not a seq, return as-is
          :else
-         (transform-expr-with-await ctx locals body))))))
+         body)))))
 
 (defn transform-async-fn-body
   "Transform async function body expressions and ensure result is a promise.
    This is the main entry point for async function transformation."
   [ctx locals body-exprs]
-  (->> body-exprs
-       (map #(transform-async-body ctx locals %))
-       ensure-promise-result))
+  (let [found-await? (atom false)]
+    (->> body-exprs
+         (map #(transform-async-body ctx locals found-await? %))
+         ensure-promise-result)))

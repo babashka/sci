@@ -264,3 +264,18 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-macro-expanding-to-await-test
+  (testing "^:async fn with macro that expands to await"
+    (async done
+           (-> (p/let [ctx (sci/init {:namespaces {'user {'my-await ^:sci/macro (fn [_ _ x] (list 'await x))}}
+                                      :classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (inc (my-await (js/Promise.resolve 1))))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= 2 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
