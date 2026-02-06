@@ -1145,14 +1145,15 @@
        [p f]
        (.catch p f))
 
-     (defn unwrap-error
-       "Unwrap SCI error wrapping to get the original exception.
-        SCI wraps exceptions with {:type :sci/error} for location tracking,
+     (defn promise-catch-for-try
+       "Add error handler that unwraps SCI error wrapping before calling handler.
+        SCI's interpreter wraps exceptions with {:type :sci/error} for location tracking,
         but async catch handlers need the original exception (like sync eval-try uses ex-cause)."
-       [e]
-       (if (= :sci/error (:type (ex-data e)))
-         (or (ex-cause e) e)
-         e))
+       [p f]
+       (.catch p (fn [e]
+                   (f (if (= :sci/error (:type (ex-data e)))
+                        (or (ex-cause e) e)
+                        e)))))
 
      (defn promise-finally
        "Add finally handler to a promise. Used by async transformer."
@@ -2140,7 +2141,7 @@
                                 {:sci.impl/inlined promise-then})
                  'catch (new-var 'catch promise-catch async-await-namespace
                                  {:sci.impl/inlined promise-catch})
-                 'unwrap-error (new-var 'unwrap-error unwrap-error async-await-namespace
-                                        {:sci.impl/inlined unwrap-error})
+                 'catch-for-try (new-var 'catch-for-try promise-catch-for-try async-await-namespace
+                                         {:sci.impl/inlined promise-catch-for-try})
                  'finally (new-var 'finally promise-finally async-await-namespace
                                    {:sci.impl/inlined promise-finally})}])}))

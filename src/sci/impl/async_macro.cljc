@@ -32,6 +32,11 @@
   [promise-expr callback]
   (list 'sci.impl.async-await/catch promise-expr callback))
 
+(defn promise-catch-for-try
+  "Create a .catch chain that unwraps SCI error wrapping before calling handler"
+  [promise-expr callback]
+  (list 'sci.impl.async-await/catch-for-try promise-expr callback))
+
 (defn promise-finally
   "Create a .finally chain"
   [promise-expr callback]
@@ -51,6 +56,7 @@
            (let [op (first form)]
              (or (= 'sci.impl.async-await/then op)
                  (= 'sci.impl.async-await/catch op)
+                 (= 'sci.impl.async-await/catch-for-try op)
                  (= 'sci.impl.async-await/finally op)
                  (= 'sci.impl.async-await/resolve op))))))
 
@@ -188,15 +194,12 @@
                          (promise-form? transformed-finally))]
     (if has-promise?
       ;; Use promise chains - wrap body in .then so sync throws are caught
-      ;; Catch handlers unwrap SCI error wrapping to preserve original ex-data
+      ;; catch-for-try unwraps SCI error wrapping to preserve original ex-data
       (let [promise-chain (promise-then (wrap-promise nil)
                                         (list 'fn* ['_] transformed-body))
-            unwrap-binding (gensym "raw_err__")
             with-catch (reduce
                         (fn [chain {:keys [binding transformed]}]
-                          (promise-catch chain (list 'fn* [unwrap-binding]
-                                                     (list 'let* [binding (list 'sci.impl.async-await/unwrap-error unwrap-binding)]
-                                                           transformed))))
+                          (promise-catch-for-try chain (list 'fn* [binding] transformed)))
                         promise-chain
                         transformed-catches)
             with-finally (if transformed-finally
