@@ -489,16 +489,36 @@
                                     or-atom (atom 0)
                                     m (or (await (js/Promise.resolve :truthy))
                                           (do (swap! or-atom inc) :never))
-                                    m-side-effects @or-atom]
+                                    m-side-effects @or-atom
+                                    ;; async fn calling another async fn
+                                    n (let [async-add (^:async fn [x y]
+                                                        (+ (await (js/Promise.resolve x))
+                                                           (await (js/Promise.resolve y))))
+                                            async-mul (^:async fn [x y]
+                                                        (* (await (async-add x 1))
+                                                           (await (js/Promise.resolve y))))]
+                                        (await (async-mul 2 3)))
+                                    ;; nested do blocks
+                                    o (do
+                                        (do
+                                          (await (js/Promise.resolve :inner))
+                                          (do
+                                            (await (js/Promise.resolve :deeper))
+                                            :nested-result)))
+                                    ;; for comprehension with await
+                                    p (vec (for [x (await (js/Promise.resolve [1 2]))]
+                                             (* x 2)))]
                                 {:a a :b b :c c :d d :e e :f f :g g :h h :i i :j j :k k
                                  :l l :l-side-effects l-side-effects
-                                 :m m :m-side-effects m-side-effects}))
+                                 :m m :m-side-effects m-side-effects
+                                 :n n :o o :p p}))
                             (test-complex)")]
                  (p/let [result v]
                    (is (= {:a 1 :b 7 :c 17 :d 3 :e 42 :f :matched-x :g 10 :h 11 :i 101
                            :j :found :k 3
                            :l false :l-side-effects 0
-                           :m :truthy :m-side-effects 0} result))))
+                           :m :truthy :m-side-effects 0
+                           :n 9 :o :nested-result :p [2 4]} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
