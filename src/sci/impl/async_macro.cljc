@@ -17,11 +17,6 @@
       (.then (js/Promise.resolve 1) (fn [x] (inc x))))"
   (:require [sci.impl.macroexpand :as macroexpand]))
 
-(defn await-call?
-  "Check if form is (await ...)"
-  [form]
-  (and (seq? form) (= 'await (first form))))
-
 (defn wrap-promise
   "Wrap value in promise resolve to handle non-Promise values"
   [expr]
@@ -77,29 +72,28 @@
 
 (defn transform-do
   "Transform do with await calls into .then chains."
-  ([ctx locals exprs] (transform-do ctx locals exprs exprs))
-  ([ctx locals exprs original-exprs]
-   (loop [exprs exprs
-          acc []]
-     (if (seq exprs)
-       (let [expr (first exprs)
-             rest-exprs (rest exprs)
-             transformed (transform-async-body ctx locals expr)]
-         (if (promise-form? transformed)
-           ;; Found promise - wrap rest in .then
-           (let [rest-body (when (seq rest-exprs) (transform-do ctx locals rest-exprs))]
-             (if (seq acc)
-               (mark-promise (list* 'do (conj acc (if rest-body
-                                                    (promise-then transformed (list 'fn* ['_] rest-body))
-                                                    transformed))))
-               (if rest-body
-                 (promise-then transformed (list 'fn* ['_] rest-body))
-                 transformed)))
-           (recur rest-exprs (conj acc transformed))))
-       ;; No more exprs - return original if unchanged
-       (if (= 1 (count acc))
-         (if (= (first acc) (first original-exprs)) (first original-exprs) (first acc))
-         (if (= acc (vec original-exprs)) (list* 'do original-exprs) (list* 'do acc)))))))
+  [ctx locals exprs]
+  (loop [exprs exprs
+         acc []]
+    (if (seq exprs)
+      (let [expr (first exprs)
+            rest-exprs (rest exprs)
+            transformed (transform-async-body ctx locals expr)]
+        (if (promise-form? transformed)
+          ;; Found promise - wrap rest in .then
+          (let [rest-body (when (seq rest-exprs) (transform-do ctx locals rest-exprs))]
+            (if (seq acc)
+              (mark-promise (list* 'do (conj acc (if rest-body
+                                                   (promise-then transformed (list 'fn* ['_] rest-body))
+                                                   transformed))))
+              (if rest-body
+                (promise-then transformed (list 'fn* ['_] rest-body))
+                transformed)))
+          (recur rest-exprs (conj acc transformed))))
+      ;; No more exprs
+      (if (= 1 (count acc))
+        (first acc)
+        (list* 'do acc)))))
 
 (defn replace-recur
   "Replace (recur ...) with (loop-fn-name ...) in form.
@@ -171,8 +165,7 @@
   [ctx locals bindings body]
   (loop [pairs (partition 2 bindings)
          acc-bindings []
-         current-locals locals
-         changed? false]
+         current-locals locals]
     (if-let [[binding-name init] (first pairs)]
       (let [transformed-init (transform-async-body ctx current-locals init)]
         (if (promise-form? transformed-init)
@@ -189,17 +182,13 @@
           ;; No await - accumulate and continue
           (recur (rest pairs)
                  (conj acc-bindings binding-name transformed-init)
-                 (conj current-locals binding-name)
-                 (or changed? (not= init transformed-init)))))
+                 (conj current-locals binding-name))))
       ;; No more pairs
       (let [transformed-body (transform-do ctx current-locals body)]
         (if (seq acc-bindings)
           (if (promise-form? transformed-body)
             (mark-promise (list 'let* (vec acc-bindings) transformed-body))
-            ;; Return original if nothing changed
-            (if (and (not changed?) (= transformed-body (if (= 1 (count body)) (first body) (list* 'do body))))
-              (list 'let* bindings (if (= 1 (count body)) (first body) (list* 'do body)))
-              (list 'let* (vec acc-bindings) transformed-body)))
+            (list 'let* (vec acc-bindings) transformed-body))
           transformed-body)))))
 
 (defn transform-try
