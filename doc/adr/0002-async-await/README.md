@@ -86,15 +86,18 @@ The core insight is using `promise-form?` to detect which subexpressions produce
 ```clojure
 (defn- promise-form?
   "Check if form is already a promise-producing expression.
-   Detects calls to sci.impl.async-await helpers."
+   Detects metadata marker or calls to sci.impl.async-await helpers."
   [form]
-  (and (seq? form)
-       (let [op (first form)]
-         (or (= 'sci.impl.async-await/then op)
-             (= 'sci.impl.async-await/catch op)
-             (= 'sci.impl.async-await/finally op)
-             (= 'sci.impl.async-await/resolve op)))))
+  (or (:sci.impl/promise (meta form))
+      (and (seq? form)
+           (let [op (first form)]
+             (or (= 'sci.impl.async-await/then op)
+                 (= 'sci.impl.async-await/catch op)
+                 (= 'sci.impl.async-await/finally op)
+                 (= 'sci.impl.async-await/resolve op))))))
 ```
+
+Forms that produce promises but aren't direct helper calls (like `if` with promise branches) are marked with metadata via `(vary-meta form assoc :sci.impl/promise true)`. This avoids needing a noop wrapper macro.
 
 When transforming expressions:
 1. Recursively transform all subforms first (this expands macros)
@@ -152,8 +155,12 @@ All examples below use `sip` as an alias for `sci.impl.async-await` for brevity.
       (sip/resolve else-p))))
 ```
 
+Key points:
+- When one branch has await and the other doesn't, both are normalized to return promises (prevents "p.then is not a function" errors)
+- Missing else with await in then is handled correctly (implicit nil wrapped in promise)
+
 **For `loop*/recur`:**
-Loops with await are transformed into recursive promise-returning functions:
+Loops with await are transformed into recursive promise-returning functions, wrapped in `let*` to preserve sequential scoping:
 
 ```clojure
 (loop [x 0]
@@ -163,16 +170,18 @@ Loops with await are transformed into recursive promise-returning functions:
     x))
 
 ;; Transforms to:
-(sip/resolve
-  ((fn loop_fn__123 [x]
-     (if (< x 3)
-       (sip/then (sip/resolve x)
-         (fn [_] (loop_fn__123 (inc x))))
-       (sip/resolve x)))
-   0))
+(let* [x 0]
+  (sip/resolve
+    ((fn loop_fn__123 [x]
+       (if (< x 3)
+         (sip/then (sip/resolve x)
+           (fn [_] (loop_fn__123 (inc x))))
+         (sip/resolve x)))
+     x)))
 ```
 
 Key points:
+- Init values are wrapped in `let*` so each sees previous bindings (important when a binding shadows a macro like `->`)
 - `recur` calls are replaced with recursive function calls
 - The loop function always returns a promise
 - Nested `fn`/`fn*`/`loop*` bodies are not descended into (recur targets different loop)
@@ -188,10 +197,15 @@ Key points:
 
 ;; Transforms to:
 (sip/finally
-  (sip/catch (sip/resolve p)
+  (sip/catch
+    (sip/then (sip/resolve nil) (fn [_] (sip/resolve p)))  ;; Body wrapped in .then
     (fn [e] (handle e)))
   (fn [] (cleanup)))
 ```
+
+Key points:
+- Body is wrapped in `.then` callback so synchronous throws are caught by `.catch`
+- If no await in try/catch/finally, returns original expression unchanged (no promise overhead)
 
 **For `case*`:**
 Important: Match constants are NOT transformed, only test expression and result expressions:
@@ -243,10 +257,11 @@ Test cases cover:
 - Multiple sequential awaits
 - Await in expressions (not just bindings)
 - Threading macros with await
-- if/when/cond with await
+- if/when/cond with await (including mixed promise/non-promise branches)
 - do with await
-- try/catch/finally with await
+- try/catch/finally with await (including sync throw)
 - loop/recur with await
+- Loop bindings that shadow macros (e.g., `[-> fn x (-> 1)]`)
 - case with await (in test expr, results, default)
 - Destructuring with await
 - doseq with await
@@ -255,6 +270,7 @@ Test cases cover:
 - Nested async functions
 - Returning non-promise values (auto-wrapped)
 - User-defined macros expanding to await
+- Collection literals (vectors, sets, maps) with await
 
 ## Design Decisions
 
@@ -287,6 +303,17 @@ This ensures non-promise values work correctly:
 ### Why recursive functions for loop/recur?
 
 Direct translation to recursive calls is simpler than state machines and works well with promises. The browser's event loop handles "stack overflow" naturally since each `.then` callback runs in a fresh stack frame.
+
+### Why metadata markers instead of a wrapper macro?
+
+Forms like `(if test then-with-await else)` produce promises but aren't direct helper calls. We need to mark them as promise-producing for containing expressions. Using metadata `^{:sci.impl/promise true}` is cleaner than a noop wrapper macro because:
+1. No macro expansion needed later
+2. Form structure stays unchanged
+3. More idiomatic Clojure
+
+### Why wrap loop inits in let*?
+
+Loop bindings are sequential - each init can see previous bindings. When a binding shadows a macro (like `(loop [-> inc x (-> 1)] ...)`), the second init `(-> 1)` should call the function, not expand as the threading macro. Wrapping in `let*` ensures proper scoping during analysis.
 
 ## Limitations
 
