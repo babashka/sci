@@ -277,11 +277,15 @@
   (let [op (when (seq? body) (first body))
         ;; Try to expand macros first to see awaits hidden inside macro calls
         ;; Don't expand our own promise marker - it should only be expanded by the regular analyzer
+        ;; Pass locals to ctx :bindings so macros see them in &env
+        ctx-with-locals (if (seq locals)
+                          (update ctx :bindings merge (zipmap locals locals))
+                          ctx)
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
                           (not (#{'await 'let* 'loop* 'do 'fn* 'if 'quote 'try 'case*} op)))
-                   (macroexpand/macroexpand-1 ctx body)
+                   (macroexpand/macroexpand-1 ctx-with-locals body)
                    body)]
     (if (not= expanded body)
       ;; Macro expanded, recurse with expanded form

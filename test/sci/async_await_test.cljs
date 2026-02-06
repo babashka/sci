@@ -456,3 +456,30 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+;; Macros that check &env should see locals tracked by async transformer
+(deftest async-fn-env-locals-test
+  (testing "macro checking &env sees locals from async transformer"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}
+                                      :namespaces {'user {'thread-aware
+                                                          ^:sci/macro
+                                                          (fn [_&form &env x]
+                                                            ;; If -> is a local, just return x
+                                                            ;; If -> is the macro, thread through inc
+                                                            (if (contains? &env '->)
+                                                              x
+                                                              (list '-> x 'inc)))}}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async test-env []
+                              ;; -> is shadowed by a local function
+                              (let [-> (fn [x] (* x 2))]
+                                ;; The macro should see -> in &env and just return the await
+                                (thread-aware (await (js/Promise.resolve 10)))))
+                            (test-env)")]
+                 (p/let [result v]
+                   ;; Macro sees -> in &env, returns (await ...) unchanged, result is 10
+                   (is (= 10 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
