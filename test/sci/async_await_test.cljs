@@ -162,10 +162,17 @@
                                (try
                                  (throw (js/Error. (await (js/Promise.resolve \"err\"))))
                                  (catch :default e
+                                   (.-message e)))
+
+                               ;; REGRESSION: synchronous throw must be caught
+                               :sync-throw
+                               (try
+                                 (throw (js/Error. \"sync\"))
+                                 (catch :default e
                                    (.-message e)))})
                             (test-try)")]
                  (p/let [result v]
-                   (is (= {:catch-rejected "caught" :no-error 42 :throw-with-await "err"} result))))
+                   (is (= {:catch-rejected "caught" :no-error 42 :throw-with-await "err" :sync-throw "sync"} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))

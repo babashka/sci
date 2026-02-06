@@ -139,6 +139,8 @@
         pairs (partition 2 bindings)
         param-names (mapv first pairs)
         init-values (map second pairs)
+        ;; Transform init values - they may contain await
+        transformed-inits (doall (map #(transform-async-body ctx locals %) init-values))
         ;; Add params to locals
         body-locals (into locals param-names)
         ;; Replace recur with loop function call
@@ -151,10 +153,23 @@
                         (wrap-promise transformed-body))
         ;; Build the loop function
         loop-fn (list 'fn* loop-fn-name param-names promised-body)
-        ;; Immediately invoke with initial values
-        loop-call (apply list loop-fn init-values)]
-    ;; Wrap in js/Promise.resolve so it's recognized as promise-producing
-    (wrap-promise loop-call)))
+        ;; Build the loop call, chaining any promise init values
+        make-loop-call (fn [init-vals]
+                         (wrap-promise (apply list loop-fn init-vals)))]
+    ;; If any init value is a promise, chain them
+    (if (some promise-form? transformed-inits)
+      (letfn [(chain-inits [vals-before remaining]
+                (if (seq remaining)
+                  (let [v (first remaining)]
+                    (if (promise-form? v)
+                      (let [await-sym (gensym "init__")]
+                        (promise-then v (list 'fn* [await-sym]
+                                              (chain-inits (conj vals-before await-sym)
+                                                           (rest remaining)))))
+                      (chain-inits (conj vals-before v) (rest remaining))))
+                  (make-loop-call vals-before)))]
+        (chain-inits [] transformed-inits))
+      (make-loop-call transformed-inits))))
 
 (defn transform-let*
   "Transform let* with await calls into .then chains."
@@ -208,10 +223,10 @@
         transformed-body (if (= 1 (count body-exprs))
                            (transform-async-body ctx locals (first body-exprs))
                            (transform-do ctx locals body-exprs))
-        ;; Wrap in Promise.resolve if not already a promise chain
-        promise-chain (if (promise-form? transformed-body)
-                        transformed-body
-                        (wrap-promise transformed-body))
+        ;; Wrap body in a .then callback so synchronous throws are caught by .catch
+        ;; (then (resolve nil) (fn [_] body)) ensures throws happen inside the promise chain
+        promise-chain (promise-then (wrap-promise nil)
+                                    (list 'fn* ['_] transformed-body))
         ;; Add .catch clauses
         with-catch (reduce
                     (fn [chain catch-clause]
@@ -340,12 +355,10 @@
                 clause-pairs (partition 2 clauses)
                 has-default? (odd? (count clauses))
                 default-expr (when has-default? (last clauses))
-                ;; Transform results in pairs
+                ;; Transform results in pairs (partition 2 already drops the default if odd)
                 transformed-pairs (mapcat (fn [[match-const result-expr]]
                                             [match-const (transform-async-body ctx locals result-expr)])
-                                          (if has-default?
-                                            (butlast clause-pairs)
-                                            clause-pairs))
+                                          clause-pairs)
                 transformed-default (when has-default?
                                       (transform-async-body ctx locals default-expr))
                 ;; Check if any result is a promise-form
