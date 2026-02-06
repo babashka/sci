@@ -254,73 +254,71 @@
   "Walk body and transform await calls. Expands macros first if needed.
    locals is a set of locally bound symbols that should not be macro-expanded.
    found-await? is an atom that gets set to true when await is encountered."
-  ([ctx body]
-   (transform-async-body ctx #{} (atom false) body))
-  ([ctx locals found-await? body]
-   (let [op (when (seq? body) (first body))
-         ;; Try to expand macros first to see awaits hidden inside macro calls
-         expanded (if (and (seq? body)
-                           (symbol? op)
-                           (not (contains? locals op))  ;; Don't expand if locally bound
-                           (not (#{'await 'let 'let* 'do 'fn 'fn* 'if 'quote 'try} op)))
-                    (macroexpand/macroexpand-1 ctx body)
-                    body)]
-     (if (not= expanded body)
-       ;; Macro expanded, recurse with expanded form
-       (transform-async-body ctx locals found-await? expanded)
-       ;; No expansion, handle based on form type
-       (cond
-         ;; Direct await call
-         (await-call? body)
-         (do
-           (reset! found-await? true)
-           (let [await-arg (second body)
-                 transformed-arg (transform-async-body ctx locals found-await? await-arg)]
-             (wrap-promise transformed-arg)))
+  [ctx locals found-await? body]
+  (let [op (when (seq? body) (first body))
+        ;; Try to expand macros first to see awaits hidden inside macro calls
+        expanded (if (and (seq? body)
+                          (symbol? op)
+                          (not (contains? locals op))  ;; Don't expand if locally bound
+                          (not (#{'await 'let 'let* 'do 'fn 'fn* 'if 'quote 'try} op)))
+                   (macroexpand/macroexpand-1 ctx body)
+                   body)]
+    (if (not= expanded body)
+      ;; Macro expanded, recurse with expanded form
+      (transform-async-body ctx locals found-await? expanded)
+      ;; No expansion, handle based on form type
+      (cond
+        ;; Direct await call
+        (await-call? body)
+        (do
+          (reset! found-await? true)
+          (let [await-arg (second body)
+                transformed-arg (transform-async-body ctx locals found-await? await-arg)]
+            (wrap-promise transformed-arg)))
 
-         ;; Let form
-         (and (seq? body) (#{'let 'let*} (first body)))
-         (let [[_ bindings & exprs] body]
-           (transform-let* ctx locals found-await? bindings exprs))
+        ;; Let form
+        (and (seq? body) (#{'let 'let*} (first body)))
+        (let [[_ bindings & exprs] body]
+          (transform-let* ctx locals found-await? bindings exprs))
 
-         ;; Do form
-         (and (seq? body) (= 'do (first body)))
-         (transform-do ctx locals found-await? (rest body))
+        ;; Do form
+        (and (seq? body) (= 'do (first body)))
+        (transform-do ctx locals found-await? (rest body))
 
-         ;; Try form
-         (and (seq? body) (= 'try (first body)))
-         (transform-try ctx locals found-await? (rest body))
+        ;; Try form
+        (and (seq? body) (= 'try (first body)))
+        (transform-try ctx locals found-await? (rest body))
 
-         ;; If form
-         (and (seq? body) (= 'if (first body)))
-         (let [[_ test then else] body
-               transformed-test (transform-async-body ctx locals found-await? test)
-               transformed-then (transform-async-body ctx locals found-await? then)
-               transformed-else (when else
-                                  (transform-async-body ctx locals found-await? else))
-               test-is-promise? (promise-form? transformed-test)]
-           (if test-is-promise?
-             (let [test-binding (gensym "test__")]
-               (list '.then transformed-test
-                     (list 'fn [test-binding]
-                           (if transformed-else
-                             (list 'if test-binding transformed-then transformed-else)
-                             (list 'if test-binding transformed-then)))))
-             (if transformed-else
-               (list 'if transformed-test transformed-then transformed-else)
-               (list 'if transformed-test transformed-then))))
+        ;; If form
+        (and (seq? body) (= 'if (first body)))
+        (let [[_ test then else] body
+              transformed-test (transform-async-body ctx locals found-await? test)
+              transformed-then (transform-async-body ctx locals found-await? then)
+              transformed-else (when else
+                                 (transform-async-body ctx locals found-await? else))
+              test-is-promise? (promise-form? transformed-test)]
+          (if test-is-promise?
+            (let [test-binding (gensym "test__")]
+              (list '.then transformed-test
+                    (list 'fn [test-binding]
+                          (if transformed-else
+                            (list 'if test-binding transformed-then transformed-else)
+                            (list 'if test-binding transformed-then)))))
+            (if transformed-else
+              (list 'if transformed-test transformed-then transformed-else)
+              (list 'if transformed-test transformed-then))))
 
-         ;; fn/fn* - don't recurse into (handled by analyzer)
-         (and (seq? body) (#{'fn 'fn*} (first body)))
-         body
+        ;; fn/fn* - don't recurse into (handled by analyzer)
+        (and (seq? body) (#{'fn 'fn*} (first body)))
+        body
 
-         ;; General expression - transform subforms
-         (seq? body)
-         (transform-expr-with-await ctx locals found-await? body)
+        ;; General expression - transform subforms
+        (seq? body)
+        (transform-expr-with-await ctx locals found-await? body)
 
-         ;; Not a seq, return as-is
-         :else
-         body)))))
+        ;; Not a seq, return as-is
+        :else
+        body))))
 
 (defn transform-async-fn-body
   "Transform async function body expressions and ensure result is a promise.
