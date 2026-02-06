@@ -279,3 +279,18 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-destructuring-await-test
+  (testing "^:async fn with destructuring in let binding with await"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (let [[x y] (await (js/Promise.resolve [1 2]))]
+                                (+ x y)))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= 3 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
