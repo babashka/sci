@@ -53,42 +53,6 @@
 
 (declare transform-async-body)
 
-(defn transform-let*
-  "Transform let* with await calls into .then chains."
-  [ctx locals bindings body]
-  (loop [pairs (partition 2 bindings)
-         acc-bindings []
-         current-locals locals]
-    (if-let [[binding-name init] (first pairs)]
-      (let [transformed-init (transform-async-body ctx current-locals init)]
-        (if (promise-form? transformed-init)
-          ;; Has await - emit .then, wrap remaining in continuation
-          (let [rest-pairs (rest pairs)
-                new-locals (conj current-locals binding-name)
-                rest-body (if (seq rest-pairs)
-                            (transform-let* ctx new-locals (vec (mapcat identity rest-pairs)) body)
-                            (let [transformed-body (map #(transform-async-body ctx new-locals %) body)]
-                              (if (= 1 (count transformed-body))
-                                (first transformed-body)
-                                (cons 'do transformed-body))))]
-            (if (seq acc-bindings)
-              (list 'let* (vec acc-bindings)
-                    (list '.then transformed-init
-                          (list 'fn [binding-name] rest-body)))
-              (list '.then transformed-init
-                    (list 'fn [binding-name] rest-body))))
-          ;; No await in this binding - accumulate and continue
-          (recur (rest pairs)
-                 (conj acc-bindings binding-name transformed-init)
-                 (conj current-locals binding-name))))
-      ;; No more pairs, emit remaining bindings + body (recursively transformed)
-      (let [transformed-body (map #(transform-async-body ctx current-locals %) body)]
-        (if (seq acc-bindings)
-          (list* 'let* (vec acc-bindings) transformed-body)
-          (if (= 1 (count transformed-body))
-            (first transformed-body)
-            (cons 'do transformed-body)))))))
-
 (defn transform-do
   "Transform do with await calls into .then chains."
   [ctx locals exprs]
@@ -119,6 +83,88 @@
       (if (= 1 (count acc))
         (first acc)
         (list* 'do acc)))))
+
+(defn replace-recur
+  "Replace (recur ...) with (loop-fn-name ...) in form.
+   Skips fn/fn* bodies since recur there refers to a different target."
+  [form loop-fn-name]
+  (cond
+    (and (seq? form) (= 'recur (first form)))
+    (cons loop-fn-name (rest form))
+
+    (and (seq? form) (#{'fn 'fn* 'loop*} (first form)))
+    form  ;; Don't descend into nested fn or loop
+
+    (seq? form)
+    (apply list (map #(replace-recur % loop-fn-name) form))
+
+    (vector? form)
+    (mapv #(replace-recur % loop-fn-name) form)
+
+    (map? form)
+    (into {} (map (fn [[k v]] [(replace-recur k loop-fn-name)
+                               (replace-recur v loop-fn-name)]) form))
+
+    :else form))
+
+(defn transform-loop*
+  "Transform loop* with await into a recursive promise-returning function.
+   (loop* [x 0] (if (< x 3) (do (await p) (recur (inc x))) x))
+   =>
+   ((fn loop-fn [x] (if (< x 3) (.then p (fn [_] (loop-fn (inc x)))) (js/Promise.resolve x))) 0)"
+  [ctx locals bindings body]
+  (let [loop-fn-name (gensym "loop_fn__")
+        pairs (partition 2 bindings)
+        param-names (mapv first pairs)
+        init-values (map second pairs)
+        ;; Add params to locals
+        body-locals (into locals param-names)
+        ;; Replace recur with loop function call
+        body-with-replaced-recur (map #(replace-recur % loop-fn-name) body)
+        ;; Transform the body using transform-do to properly chain promises
+        transformed-body (transform-do ctx body-locals body-with-replaced-recur)
+        ;; Ensure promise result
+        promised-body (if (promise-form? transformed-body)
+                        transformed-body
+                        (wrap-promise transformed-body))
+        ;; Build the loop function
+        loop-fn (list 'fn loop-fn-name param-names promised-body)
+        ;; Immediately invoke with initial values
+        loop-call (apply list loop-fn init-values)]
+    ;; Wrap in js/Promise.resolve so it's recognized as promise-producing
+    (wrap-promise loop-call)))
+
+(defn transform-let*
+  "Transform let* with await calls into .then chains."
+  [ctx locals bindings body]
+  (loop [pairs (partition 2 bindings)
+         acc-bindings []
+         current-locals locals]
+    (if-let [[binding-name init] (first pairs)]
+      (let [transformed-init (transform-async-body ctx current-locals init)]
+        (if (promise-form? transformed-init)
+          ;; Has await - emit .then, wrap remaining in continuation
+          (let [rest-pairs (rest pairs)
+                new-locals (conj current-locals binding-name)
+                rest-body (if (seq rest-pairs)
+                            (transform-let* ctx new-locals (vec (mapcat identity rest-pairs)) body)
+                            ;; Use transform-do to properly chain promises in body
+                            (transform-do ctx new-locals body))]
+            (if (seq acc-bindings)
+              (list 'let* (vec acc-bindings)
+                    (list '.then transformed-init
+                          (list 'fn [binding-name] rest-body)))
+              (list '.then transformed-init
+                    (list 'fn [binding-name] rest-body))))
+          ;; No await in this binding - accumulate and continue
+          (recur (rest pairs)
+                 (conj acc-bindings binding-name transformed-init)
+                 (conj current-locals binding-name))))
+      ;; No more pairs, emit remaining bindings + body (recursively transformed)
+      (let [transformed-body (transform-do ctx current-locals body)]
+        (if (seq acc-bindings)
+          (list 'let* (vec acc-bindings) transformed-body)
+          transformed-body)))))
 
 (defn transform-try
   "Transform try/catch/finally with await into Promise .catch/.finally chains."
@@ -204,7 +250,7 @@
         expanded (if (and (seq? body)
                           (symbol? op)
                           (not (contains? locals op))  ;; Don't expand if locally bound
-                          (not (#{'await 'let* 'do 'fn 'fn* 'if 'quote 'try} op)))
+                          (not (#{'await 'let* 'loop* 'do 'fn 'fn* 'if 'quote 'try} op)))
                    (macroexpand/macroexpand-1 ctx body)
                    body)]
     (if (not= expanded body)
@@ -222,6 +268,11 @@
         (and (seq? body) (= 'let* (first body)))
         (let [[_ bindings & exprs] body]
           (transform-let* ctx locals bindings exprs))
+
+        ;; Loop* form - convert to recursive function
+        (and (seq? body) (= 'loop* (first body)))
+        (let [[_ bindings & exprs] body]
+          (transform-loop* ctx locals bindings exprs))
 
         ;; Do form
         (and (seq? body) (= 'do (first body)))

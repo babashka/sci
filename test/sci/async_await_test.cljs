@@ -294,3 +294,37 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-fn-doseq-await-test
+  (testing "^:async fn with doseq and await (loop/recur)"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (let [a (atom [])]
+                                (doseq [x [1 2 3]]
+                                  (swap! a conj (await (js/Promise.resolve x))))
+                                @a))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= [1 2 3] result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
+(deftest async-fn-loop-recur-await-test
+  (testing "^:async fn with direct loop/recur and await"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async foo []
+                              (loop [x 0 acc []]
+                                (if (< x 3)
+                                  (recur (inc x) (conj acc (await (js/Promise.resolve x))))
+                                  acc)))
+                            (foo)")]
+                 (p/let [result v]
+                   (is (= [0 1 2] result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
