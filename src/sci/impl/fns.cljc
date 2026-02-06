@@ -167,8 +167,14 @@
              loc))))))
 
 (defn fn**
-  [form _ & sigs]
-  (let [name (if (symbol? (first sigs)) (first sigs) nil)
+  [form _env & sigs]
+  (let [fn-sym (first form)
+        fn-sym-meta (meta fn-sym)
+        ;; Preserve :async metadata from fn symbol (for ^:async fn)
+        fn*-sym (cond-> (symbol 'fn*)
+                  fn-sym-meta
+                  (with-meta fn-sym-meta))
+        name (if (symbol? (first sigs)) (first sigs) nil)
         sigs (if name (next sigs) sigs)
         sigs (if (vector? (first sigs))
                (list sigs)
@@ -219,8 +225,8 @@
         new-sigs (map psig sigs)
         expr (with-meta
                (if name
-                 (list* 'fn* name new-sigs)
-                 (cons 'fn* new-sigs))
+                 (list* fn*-sym name new-sigs)
+                 (cons fn*-sym new-sigs))
                (meta form))]
     expr))
 

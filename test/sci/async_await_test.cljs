@@ -252,3 +252,15 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-anonymous-fn-test
+  (testing "^:async anonymous fn with await"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "((^:async fn [] (await (js/Promise.resolve 42))))")]
+                 (p/let [result v]
+                   (is (= 42 result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))

@@ -343,7 +343,7 @@
          f)
        nil))))
 
-(defn analyze-fn* [ctx [_fn name? & body :as fn-expr]]
+(defn analyze-fn* [ctx [fn-sym name? & body :as fn-expr]]
   (let [fn-expr-m (meta fn-expr)
         fn-extra-m (:sci.impl/fn fn-expr-m)
         macro? (:macro fn-extra-m)
@@ -357,7 +357,9 @@
         bodies (if (seq? (first body))
                  body
                  [body])
-        async? (:async fn-expr-m)
+        ;; Check both expr metadata and fn symbol metadata for :async
+        async? (or (:async fn-expr-m)
+                   (:async (meta fn-sym)))
         fn-id (gensym)
         parents ((fnil conj []) (:parents ctx) fn-id)
         ctx (assoc ctx :parents parents)
