@@ -457,6 +457,28 @@
                           (is false (str err))))
                (p/finally done)))))
 
+;; Macros that expand to code containing quote - ensure we handle it correctly
+;; (reify does this internally, but we use a simpler custom macro for testing)
+(deftest async-fn-quoted-expansion-test
+  (testing "macro expanding to quoted form with await"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}
+                                      :namespaces {'user {'with-source
+                                                          ^:sci/macro
+                                                          (fn [_&form _&env expr]
+                                                            ;; Returns [result 'original-expr]
+                                                            (list 'vector expr (list 'quote expr)))}}})
+                       v (sci/eval-string* ctx
+                           "(defn ^:async test-quoted []
+                              (let [x (await (js/Promise.resolve 42))]
+                                (with-source (inc x))))
+                            (test-quoted)")]
+                 (p/let [result v]
+                   (is (= [43 '(inc x)] result))))
+               (p/catch (fn [err]
+                          (is false (str err))))
+               (p/finally done)))))
+
 ;; Macros that check &env should see locals tracked by async transformer
 (deftest async-fn-env-locals-test
   (testing "macro checking &env sees locals from async transformer"

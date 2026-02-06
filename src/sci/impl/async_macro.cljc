@@ -389,6 +389,8 @@
 
           ;; fn* - don't recurse into (handled by analyzer)
           fn* body
+          ;; quote: just return expression as is
+          quote body
 
           ;; General expression - transform subforms
           (transform-expr-with-await ctx locals body))
