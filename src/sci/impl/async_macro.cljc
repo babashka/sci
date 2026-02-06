@@ -22,11 +22,13 @@
   [form]
   (and (seq? form) (= 'await (first form))))
 
+;; TODO: we need to mark or own promise-producing forms into a dummy macro maybe?
 (defn wrap-promise
   "Wrap value in js/Promise.resolve to handle non-Promise values"
   [expr]
   (list 'js/Promise.resolve expr))
 
+;; TODO: we need to mark or own promise-producing forms into a dummy macro maybe?
 (defn- promise-form?
   "Check if form is already a promise-producing expression"
   [form]
@@ -136,9 +138,9 @@
         ;; Wrap in Promise.resolve if not already a promise chain
         promise-chain (if (promise-form? transformed-body)
                         transformed-body
-                        (wrap-promise transformed-body))]
-    ;; Add .catch clauses
-    (let [with-catch (reduce
+                        (wrap-promise transformed-body))
+        ;; Add .catch clauses
+        with-catch (reduce
                        (fn [chain catch-clause]
                          ;; (catch Type e handler-body...)
                          (let [[_ _type binding & handler-body] catch-clause
@@ -158,7 +160,7 @@
                                                      (transform-do ctx locals finally-body))]
                            (list '.finally with-catch (list 'fn [] transformed-finally)))
                          with-catch)]
-      with-finally)))
+    with-finally))
 
 (defn transform-expr-with-await
   "Transform a general expression, chaining any promise-producing subforms."
@@ -263,6 +265,9 @@
   "Transform async function body expressions and ensure result is a promise.
    This is the main entry point for async function transformation."
   [ctx locals body-exprs]
-  (->> body-exprs
-       (map #(transform-async-body ctx locals %))
-       ensure-promise-result))
+  #_(prn :in body-exprs)
+  (let [ret (->> body-exprs
+                 (map #(transform-async-body ctx locals %))
+                 ensure-promise-result)]
+    #_(prn :ret ret)
+    ret))
