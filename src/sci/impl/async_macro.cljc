@@ -189,7 +189,7 @@
                            (transform-do ctx locals body-exprs))
         ;; Transform catch handlers
         transformed-catches (mapv (fn [catch-clause]
-                                    (let [[catch-sym type binding & handler-body] catch-clause
+                                    (let [[_catch-sym type binding & handler-body] catch-clause
                                           handler-locals (conj locals binding)
                                           transformed-handler (if (= 1 (count handler-body))
                                                                 (transform-async-body ctx handler-locals (first handler-body))
