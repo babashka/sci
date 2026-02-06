@@ -165,7 +165,8 @@
                             transformed-body
                             (wrap-promise transformed-body))
             loop-fn (list 'fn* loop-fn-name param-names promised-body)
-            loop-call (wrap-promise (apply list loop-fn param-names))]
+            ;; Mark as promise (not wrap) since loop-fn already returns a promise
+            loop-call (mark-promise (apply list loop-fn param-names))]
         (transform-let* ctx locals let-bindings (list loop-call)))
       ;; No promises - return original loop unchanged
       (list* 'loop* bindings body))))
