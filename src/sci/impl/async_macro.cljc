@@ -270,8 +270,7 @@
          expanded (if (and (seq? body)
                            (symbol? op)
                            (not (contains? locals op))  ;; Don't expand if locally bound
-                           (not (await-call? body))
-                           (not (#{'let 'let* 'do 'fn* 'if 'quote 'try} op)))
+                           (not (#{'await 'let 'let* 'do 'fn* 'if 'quote 'try} op)))
                     (macroexpand/macroexpand-1 ctx body)
                     body)]
      (if (not= expanded body)
