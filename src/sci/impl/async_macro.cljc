@@ -374,17 +374,32 @@
                 transformed-test (transform-async-body ctx locals test)
                 transformed-then (transform-async-body ctx locals then)
                 transformed-else (when else
-                                   (transform-async-body ctx locals else))]
+                                   (transform-async-body ctx locals else))
+                then-is-promise? (promise-form? transformed-then)
+                else-is-promise? (promise-form? transformed-else)
+                ;; If either branch is a promise-form, ensure BOTH branches return promises
+                ;; so we can safely call .then on the if result
+                final-then (if (and else-is-promise? (not then-is-promise?))
+                             (wrap-promise transformed-then)
+                             transformed-then)
+                final-else (if (and then-is-promise? (not else-is-promise?) transformed-else)
+                             (wrap-promise transformed-else)
+                             transformed-else)
+                branches-have-promise? (or then-is-promise? else-is-promise?)]
             (if (promise-form? transformed-test)
               (let [test-binding (gensym "test__")]
                 (promise-then transformed-test
                               (list 'fn* [test-binding]
-                                    (if transformed-else
-                                      (list 'if test-binding transformed-then transformed-else)
-                                      (list 'if test-binding transformed-then)))))
-              (if transformed-else
-                (list 'if transformed-test transformed-then transformed-else)
-                (list 'if transformed-test transformed-then))))
+                                    (if final-else
+                                      (list 'if test-binding final-then final-else)
+                                      (list 'if test-binding final-then)))))
+              ;; If branches have promises, mark the whole if as promise-producing
+              (let [result (if final-else
+                             (list 'if transformed-test final-then final-else)
+                             (list 'if transformed-test final-then))]
+                (if branches-have-promise?
+                  (mark-promise result)
+                  result))))
 
           ;; fn* - don't recurse into (handled by analyzer)
           fn* body
