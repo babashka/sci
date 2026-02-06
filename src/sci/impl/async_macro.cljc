@@ -22,21 +22,36 @@
   [form]
   (and (seq? form) (= 'await (first form))))
 
-;; TODO: we need to mark or own promise-producing forms into a dummy macro maybe?
 (defn wrap-promise
-  "Wrap value in js/Promise.resolve to handle non-Promise values"
+  "Wrap value in promise resolve to handle non-Promise values"
   [expr]
-  (list 'js/Promise.resolve expr))
+  (list 'sci.impl.async-await/resolve expr))
 
-;; TODO: we need to mark or own promise-producing forms into a dummy macro maybe?
+(defn promise-then
+  "Create a .then chain"
+  [promise-expr callback]
+  (list 'sci.impl.async-await/then promise-expr callback))
+
+(defn promise-catch
+  "Create a .catch chain"
+  [promise-expr callback]
+  (list 'sci.impl.async-await/catch promise-expr callback))
+
+(defn promise-finally
+  "Create a .finally chain"
+  [promise-expr callback]
+  (list 'sci.impl.async-await/finally promise-expr callback))
+
 (defn- promise-form?
-  "Check if form is already a promise-producing expression"
+  "Check if form is already a promise-producing expression.
+   Detects calls to sci.impl.promise helpers."
   [form]
   (and (seq? form)
-       (or (= '.then (first form))
-           (= '.catch (first form))
-           (= '.finally (first form))
-           (= 'js/Promise.resolve (first form)))))
+       (let [op (first form)]
+         (or (= 'sci.impl.async-await/then op)
+             (= 'sci.impl.async-await/catch op)
+             (= 'sci.impl.async-await/finally op)
+             (= 'sci.impl.async-await/resolve op)))))
 
 (defn- ensure-promise-result
   "Ensure async function body returns a promise.
@@ -70,12 +85,12 @@
             (if (seq acc)
               ;; Have accumulated expressions before promise
               (let [then-expr (if rest-body
-                                (list '.then transformed (list 'fn ['_] rest-body))
+                                (promise-then transformed (list 'fn ['_] rest-body))
                                 transformed)]
                 (list* 'do (conj acc then-expr)))
               ;; No accumulated expressions
               (if rest-body
-                (list '.then transformed (list 'fn ['_] rest-body))
+                (promise-then transformed (list 'fn ['_] rest-body))
                 transformed)))
           ;; No promise, accumulate
           (recur rest-exprs (conj acc transformed))))
@@ -152,10 +167,10 @@
                             (transform-do ctx new-locals body))]
             (if (seq acc-bindings)
               (list 'let* (vec acc-bindings)
-                    (list '.then transformed-init
-                          (list 'fn [binding-name] rest-body)))
-              (list '.then transformed-init
-                    (list 'fn [binding-name] rest-body))))
+                    (promise-then transformed-init
+                                  (list 'fn [binding-name] rest-body)))
+              (promise-then transformed-init
+                            (list 'fn [binding-name] rest-body))))
           ;; No await in this binding - accumulate and continue
           (recur (rest pairs)
                  (conj acc-bindings binding-name transformed-init)
@@ -195,7 +210,7 @@
                                transformed-handler (if (= 1 (count handler-body))
                                                      (transform-async-body ctx handler-locals (first handler-body))
                                                      (transform-do ctx handler-locals handler-body))]
-                           (list '.catch chain (list 'fn [binding] transformed-handler))))
+                           (promise-catch chain (list 'fn [binding] transformed-handler))))
                        promise-chain
                        catch-clauses)
           ;; Add .finally if present
@@ -204,7 +219,7 @@
                                transformed-finally (if (= 1 (count finally-body))
                                                      (transform-async-body ctx locals (first finally-body))
                                                      (transform-do ctx locals finally-body))]
-                           (list '.finally with-catch (list 'fn [] transformed-finally)))
+                           (promise-finally with-catch (list 'fn [] transformed-finally)))
                          with-catch)]
     with-finally))
 
@@ -229,8 +244,7 @@
                       rebuilt (apply list op (concat args-before [await-sym] rest-args))
                       ;; Recursively transform in case there are more promises
                       rest-expr (transform-async-body ctx (conj locals await-sym) rebuilt)]
-                  (list '.then arg
-                        (list 'fn [await-sym] rest-expr)))
+                  (promise-then arg (list 'fn [await-sym] rest-expr)))
                 ;; Not a promise, accumulate
                 (recur (conj args-before arg)
                        (rest remaining-args))))
@@ -300,9 +314,9 @@
               rebuilt-case (apply list case*-sym transformed-test all-transformed)]
           (if (promise-form? transformed-test)
             (let [test-binding (gensym "case_test__")]
-              (list '.then transformed-test
-                    (list 'fn [test-binding]
-                          (apply list case*-sym test-binding all-transformed))))
+              (promise-then transformed-test
+                            (list 'fn [test-binding]
+                                  (apply list case*-sym test-binding all-transformed))))
             rebuilt-case))
 
         ;; Do form
@@ -322,11 +336,11 @@
                                  (transform-async-body ctx locals else))]
           (if (promise-form? transformed-test)
             (let [test-binding (gensym "test__")]
-              (list '.then transformed-test
-                    (list 'fn [test-binding]
-                          (if transformed-else
-                            (list 'if test-binding transformed-then transformed-else)
-                            (list 'if test-binding transformed-then)))))
+              (promise-then transformed-test
+                            (list 'fn [test-binding]
+                                  (if transformed-else
+                                    (list 'if test-binding transformed-then transformed-else)
+                                    (list 'if test-binding transformed-then)))))
             (if transformed-else
               (list 'if transformed-test transformed-then transformed-else)
               (list 'if transformed-test transformed-then))))

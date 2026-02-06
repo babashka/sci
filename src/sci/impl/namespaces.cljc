@@ -1126,6 +1126,30 @@
 #?(:cljs (defn js-in [k obj]
            (js/Reflect.has obj k)))
 
+;; Promise helpers for async/await transformation (CLJS only)
+;; These provide efficient interop and serve as markers for promise-form? detection
+#?(:cljs
+   (do
+     (defn promise-resolve
+       "Wrap value in a resolved promise. Used by async transformer."
+       [v]
+       (js/Promise.resolve v))
+
+     (defn promise-then
+       "Chain a callback on a promise. Used by async transformer."
+       [p f]
+       (.then p f))
+
+     (defn promise-catch
+       "Add error handler to a promise. Used by async transformer."
+       [p f]
+       (.catch p f))
+
+     (defn promise-finally
+       "Add finally handler to a promise. Used by async transformer."
+       [p f]
+       (.finally p f))))
+
 (defn eval* [form]
   (let [ctx (store/get-ctx)]
     (eval ctx form)))
@@ -2096,4 +2120,9 @@
                                    :cljs cljs.reader/read-string) clojure-edn-namespace)}
     'sci.impl.records sci-impl-records
     'sci.impl.deftype sci-impl-deftype
-    'sci.impl.protocols sci-impl-protocols}))
+    'sci.impl.protocols sci-impl-protocols
+    #?@(:cljs ['sci.impl.async-await {:obj (sci.lang/->Namespace 'sci.impl.async-await nil)
+                                  'resolve (new-var 'resolve promise-resolve)
+                                  'then (new-var 'then promise-then)
+                                  'catch (new-var 'catch promise-catch)
+                                  'finally (new-var 'finally promise-finally)}])}))
