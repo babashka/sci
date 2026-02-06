@@ -473,11 +473,32 @@
                                         (let [v (await (js/Promise.resolve 5))]
                                           (double v)))
                                     h (await ((^:async fn [x] (+ x (await (js/Promise.resolve 1)))) 10))
-                                    i ((fn [x] (+ x 1)) (await (js/Promise.resolve 100)))]
-                                {:a a :b b :c c :d d :e e :f f :g g :h h :i i}))
+                                    i ((fn [x] (+ x 1)) (await (js/Promise.resolve 100)))
+                                    j (or (await (js/Promise.resolve nil))
+                                          (await (js/Promise.resolve false))
+                                          (await (js/Promise.resolve :found)))
+                                    k (and (await (js/Promise.resolve 1))
+                                           (await (js/Promise.resolve 2))
+                                           (await (js/Promise.resolve 3)))
+                                    ;; test and short-circuit with falsy
+                                    and-atom (atom 0)
+                                    l (and (await (js/Promise.resolve false))
+                                           (do (swap! and-atom inc) :never))
+                                    l-side-effects @and-atom
+                                    ;; test or short-circuit with truthy
+                                    or-atom (atom 0)
+                                    m (or (await (js/Promise.resolve :truthy))
+                                          (do (swap! or-atom inc) :never))
+                                    m-side-effects @or-atom]
+                                {:a a :b b :c c :d d :e e :f f :g g :h h :i i :j j :k k
+                                 :l l :l-side-effects l-side-effects
+                                 :m m :m-side-effects m-side-effects}))
                             (test-complex)")]
                  (p/let [result v]
-                   (is (= {:a 1 :b 7 :c 17 :d 3 :e 42 :f :matched-x :g 10 :h 11 :i 101} result))))
+                   (is (= {:a 1 :b 7 :c 17 :d 3 :e 42 :f :matched-x :g 10 :h 11 :i 101
+                           :j :found :k 3
+                           :l false :l-side-effects 0
+                           :m :truthy :m-side-effects 0} result))))
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
