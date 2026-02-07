@@ -9,7 +9,7 @@
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
-   [sci.impl.async-macro :as async-macro]
+   #?(:cljs [sci.impl.async-macro :as async-macro])
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -285,10 +285,11 @@
         _ (vswap! (:closure-bindings ctx) assoc-in (conj (:parents ctx) :syms) (zipmap param-idens (range)))
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         ;; Transform async bodies before analysis
-        body-exprs (if async?
-                     (let [locals (set (keys (:bindings ctx)))]
-                       (async-macro/transform-async-fn-body ctx locals body-exprs))
-                     body-exprs)
+        body-exprs #?(:clj body-exprs
+                      :cljs (if async?
+                             (let [locals (set (keys (:bindings ctx)))]
+                               (async-macro/transform-async-fn-body ctx locals body-exprs))
+                             body-exprs))
         body (return-do (with-recur-target ctx true) fn-expr body-exprs)
         iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
