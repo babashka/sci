@@ -19,6 +19,8 @@
   ;;       "if any branch is a promise, wrap all non-promise branches in resolve".
   ;; TODO: Simplify case* handler (~33 lines with nested conditionals) -
   ;;       the branch normalization extraction above would help.
+  ;; TODO: prevent let and possibly other macros to expand? let is possible since we emit fns with bindings that destructure?
+  ;;       or do we get into trouble with locals that aren't properly known? I don't think so since the fn will be analyzed by the analyzer
   (:require [sci.impl.macroexpand :as macroexpand]))
 
 (defn wrap-promise
