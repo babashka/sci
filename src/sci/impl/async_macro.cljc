@@ -15,8 +15,6 @@
   Transforms to:
     (defn foo []
       (.then (js/Promise.resolve 1) (fn [x] (inc x))))"
-  ;; TODO: Simplify case* handler - the clause reconstruction logic
-  ;;       (interleave match-constants results) appears in both branches.
   ;; TODO: prevent let and possibly other macros to expand? let is possible since we emit fns with bindings that destructure?
   ;;       or do we get into trouble with locals that aren't properly known? I don't think so since the fn will be analyzed by the analyzer
   (:require [sci.impl.macroexpand :as macroexpand]))
@@ -327,13 +325,15 @@
                 all-results (cond-> transformed-results
                               has-default? (conj transformed-default))
                 [any-result-is-promise? normalized-results] (normalize-branches all-results)
-                test-is-promise? (promise-form? transformed-test)]
+                test-is-promise? (promise-form? transformed-test)
+                ;; Reconstruct clauses from match constants + results + optional default
+                rebuild-clauses (fn [results]
+                                  (let [case-results (if has-default? (butlast results) results)]
+                                    (concat (interleave match-constants case-results)
+                                            (when has-default? [(last results)]))))]
             (if (or test-is-promise? any-result-is-promise?)
               ;; Has promises - chain
-              (let [norm-case-results (if has-default? (butlast normalized-results) normalized-results)
-                    norm-default (when has-default? (last normalized-results))
-                    all-clauses (concat (interleave match-constants norm-case-results)
-                                        (when has-default? [norm-default]))]
+              (let [all-clauses (rebuild-clauses normalized-results)]
                 (if test-is-promise?
                   (let [test-binding (gensym "case_test__")]
                     (promise-then transformed-test
@@ -341,8 +341,7 @@
                                         (apply list case*-sym test-binding all-clauses))))
                   (mark-promise (apply list case*-sym transformed-test all-clauses))))
               ;; No promises - return original if unchanged
-              (let [all-clauses (concat (interleave match-constants transformed-results)
-                                        (when has-default? [transformed-default]))]
+              (let [all-clauses (rebuild-clauses all-results)]
                 (if (and (= transformed-test test-expr) (= (seq all-clauses) (seq clauses)))
                   body
                   (apply list case*-sym transformed-test all-clauses)))))
