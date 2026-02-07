@@ -99,3 +99,7 @@ Enable JS interop in the SCI context:
   (greet \"world\")")
 ;; => #<Promise "Hello, world!">
 ```
+
+## Implementation details
+
+For details on how async/await is implemented (transformation algorithm, design decisions, etc.), see the [ADR](adr/0002-async-await/README.md).
