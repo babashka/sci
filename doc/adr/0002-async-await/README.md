@@ -54,11 +54,14 @@ Transform async function bodies at analysis time into Promise `.then` chains.
 - `loop*/recur`
 - `try/catch/finally`
 - `case*` (and `case` via macro expansion)
+- `quote` (passed through unchanged)
+- `fn*` (not descended into — nested fns are handled by the analyzer separately)
 
 **Macros:**
 - All macros are expanded before await detection
-- This includes user-defined macros that expand to `await` calls
+- This includes user-defined macros that expand to `await` or `recur` calls
 - Standard macros like `->`, `->>`, `when`, `cond`, `doseq`, etc. work automatically
+- Locals are tracked and passed to `ctx :bindings` so macros see them in `&env` (e.g., a macro checking if `->` is locally bound)
 
 ## Implementation
 
@@ -74,6 +77,11 @@ For performance, the transformation emits calls to helper functions in `sci.impl
 (defn promise-resolve [v] (js/Promise.resolve v))
 (defn promise-then [p f] (.then p f))
 (defn promise-catch [p f] (.catch p f))
+(defn promise-catch-for-try [p f]
+  (.catch p (fn [e]
+              (f (if (= :sci/error (:type (ex-data e)))
+                   (or (ex-cause e) e)
+                   e)))))
 (defn promise-finally [p f] (.finally p f))
 ```
 
@@ -91,10 +99,8 @@ The core insight is using `promise-form?` to detect which subexpressions produce
   (or (:sci.impl/promise (meta form))
       (and (seq? form)
            (let [op (first form)]
-             (or (= 'sci.impl.async-await/then op)
-                 (= 'sci.impl.async-await/catch op)
-                 (= 'sci.impl.async-await/finally op)
-                 (= 'sci.impl.async-await/resolve op))))))
+             (and (symbol? op)
+                  (= "sci.impl.async-await" (namespace op)))))))
 ```
 
 Forms that produce promises but aren't direct helper calls (like `if` with promise branches) are marked with metadata via `(vary-meta form assoc :sci.impl/promise true)`. This avoids needing a noop wrapper macro.
@@ -182,10 +188,10 @@ Loops with await are transformed into recursive promise-returning functions, wra
 Key points:
 - If no await in loop, returns original `(loop* ...)` unchanged (no promise overhead)
 - Init values are wrapped in `let*` so each sees previous bindings (important when a binding shadows a macro like `->`)
-- `recur` calls are replaced with recursive function calls
+- `recur` is handled post-macro-expansion in `transform-async-body` via `:recur-target` in ctx — this means macros that expand to `recur` work correctly
+- Recur args may themselves contain await, so they are processed via `transform-expr-with-await` to chain promises
 - The loop function always returns a promise (body wrapped if needed)
 - Loop call is marked as promise-producing via metadata (no extra resolve wrapper)
-- Nested `fn`/`fn*`/`loop*` bodies are not descended into (recur targets different loop)
 
 **For `try/catch/finally`:**
 ```clojure
@@ -198,14 +204,15 @@ Key points:
 
 ;; Transforms to:
 (sip/finally
-  (sip/catch
+  (sip/catch-for-try
     (sip/then (sip/resolve nil) (fn [_] (sip/resolve p)))  ;; Body wrapped in .then
-    (fn [e] (handle e)))
+    (fn [e] (handle e)))  ;; catch-for-try unwraps SCI error wrapping
   (fn [] (cleanup)))
 ```
 
 Key points:
 - Body is wrapped in `.then` callback so synchronous throws are caught by `.catch`
+- Uses `catch-for-try` instead of plain `catch` — this unwraps SCI's error wrapping (`rethrow-with-location-of-node` adds `{:type :sci/error}` ex-data and wraps the original as `ex-cause`) so that user code sees the original exception with its ex-data preserved
 - If no await in try/catch/finally, returns original expression unchanged (no promise overhead)
 
 **For `case*`:**
@@ -244,7 +251,7 @@ body (if async?
 
 | File | Description |
 |------|-------------|
-| `src/sci/impl/async_macro.cljc` | Transformation functions (~430 lines) |
+| `src/sci/impl/async_macro.cljc` | Transformation functions (~420 lines) |
 | `src/sci/impl/namespaces.cljc` | Helper functions + `sci.impl.async-await` namespace registration |
 | `src/sci/impl/analyzer.cljc` | ~10 lines added for async detection |
 | `test/sci/async_await_test.cljs` | Comprehensive test suite |
@@ -271,7 +278,12 @@ Test cases cover:
 - Nested async functions
 - Returning non-promise values (auto-wrapped)
 - User-defined macros expanding to await
+- User-defined macros expanding to recur
+- Quoted forms inside async bodies (not descended into)
+- Macros that expand to quoted forms (e.g., reify-like patterns)
+- ex-data preservation through async try/catch
 - Collection literals (vectors, sets, maps) with await
+- Transformation performance benchmark
 
 ## Design Decisions
 
@@ -312,9 +324,34 @@ Forms like `(if test then-with-await else)` produce promises but aren't direct h
 2. Form structure stays unchanged
 3. More idiomatic Clojure
 
+### Why handle recur in transform-async-body instead of a pre-pass?
+
+Initially `recur` was replaced with recursive function calls in a separate `replace-recur` pass before transformation. This had two problems:
+
+1. **Macros expanding to recur**: A macro like `(defmacro my-recur [& args] (cons 'recur args))` wouldn't be expanded yet during the pre-pass, so the recur would be missed.
+2. **Quoted recur**: The pre-pass had to be careful not to descend into `(quote ...)` forms.
+
+By handling `recur` inline in `transform-async-body` (after macro expansion), both issues are solved naturally. The loop passes `:recur-target` through `ctx`, and when `transform-async-body` encounters `recur`, it replaces it with a call to the loop function. Since `recur` args may contain `await`, they are processed via `transform-expr-with-await`.
+
+### Why `catch-for-try` instead of plain `catch`?
+
+SCI's `rethrow-with-location-of-node` wraps exceptions with `{:type :sci/error}` ex-data and stores the original as `ex-cause`. In synchronous try/catch, the dynamic var `*in-try*` prevents this wrapping. But dynamic bindings don't persist across `.then` chains, so async throws get wrapped.
+
+`catch-for-try` is a runtime function that unwraps this: if the caught exception has `{:type :sci/error}` ex-data, it passes `(ex-cause e)` to the handler instead, preserving the original exception and its ex-data.
+
+An alternative approach of using `binding [*in-try* true]` in the `.then` callback was tried but failed because throws happen in inner `.then` callbacks (from awaits), not the outer one where the binding is set.
+
 ### Why wrap loop inits in let*?
 
 Loop bindings are sequential - each init can see previous bindings. When a binding shadows a macro (like `(loop [-> inc x (-> 1)] ...)`), the second init `(-> 1)` should call the function, not expand as the threading macro. Wrapping in `let*` ensures proper scoping during analysis.
+
+### Why `chain-promises` as a shared helper?
+
+Both `transform-expr-with-await` (for function calls like `(+ (await p1) (await p2))`) and `transform-coll-with-await` (for `[(await p1) (await p2)]`) need the same chaining logic: walk transformed elements, and when one is a promise, bind it via `.then` and continue with the resolved value. `chain-promises` extracts this shared pattern, taking a `rebuild-fn` that assembles the final form from resolved elements.
+
+### Why does `normalize-branches` return `[normalized? branches]`?
+
+When `if` or `case*` has mixed promise/non-promise branches, all branches must return promises so the containing expression can chain `.then` on the result. `normalize-branches` wraps non-promise branches in `resolve`. It returns a boolean alongside the result because checking "did normalization happen?" by comparing before/after is unreliable — if only one branch is a promise, the non-promise branch changes but the promise branch doesn't, making equality checks confusing. A single reduce pass that tracks `has-promise?` during traversal is both simpler and correct.
 
 ## Limitations
 
