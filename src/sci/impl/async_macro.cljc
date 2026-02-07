@@ -15,9 +15,6 @@
   Transforms to:
     (defn foo []
       (.then (js/Promise.resolve 1) (fn [x] (inc x))))"
-  ;; TODO: Unify transform-expr-with-await and transform-coll-with-await into a single
-  ;;       function - both transform a sequence of elements, chain promise-producing ones,
-  ;;       and rebuild with a function.
   ;; TODO: Extract branch normalization helper for if and case* - both do
   ;;       "if any branch is a promise, wrap all non-promise branches in resolve".
   ;; TODO: Simplify case* handler (~33 lines with nested conditionals) -
@@ -216,24 +213,29 @@
       ;; No promises - return original try expression unchanged
       (list* 'try exprs))))
 
+(defn- chain-promises
+  "Chain a sequence of already-transformed elements, replacing promise-producing ones
+   with gensym bindings via .then chains. Calls rebuild-fn with all resolved elements."
+  [transformed rebuild-fn]
+  (letfn [(chain [elems-before remaining]
+            (if (seq remaining)
+              (let [elem (first remaining)]
+                (if (promise-form? elem)
+                  (let [await-sym (gensym "await__")]
+                    (promise-then elem (list 'fn* [await-sym]
+                                             (chain (conj elems-before await-sym)
+                                                    (rest remaining)))))
+                  (chain (conj elems-before elem) (rest remaining))))
+              (rebuild-fn elems-before)))]
+    (chain [] transformed)))
+
 (defn- transform-coll-with-await
   "Transform a collection (vector or map entries), chaining any promise-producing elements.
    rebuild-fn takes the transformed elements and rebuilds the collection."
   [ctx locals elements rebuild-fn original]
   (let [transformed (doall (map #(transform-async-body ctx locals %) elements))]
     (if (some promise-form? transformed)
-      ;; Chain promises sequentially
-      (letfn [(chain-remaining [elems-before remaining]
-                (if (seq remaining)
-                  (let [elem (first remaining)]
-                    (if (promise-form? elem)
-                      (let [await-sym (gensym "await__")]
-                        (promise-then elem (list 'fn* [await-sym]
-                                                 (chain-remaining (conj elems-before await-sym)
-                                                                  (rest remaining)))))
-                      (chain-remaining (conj elems-before elem) (rest remaining))))
-                  (rebuild-fn elems-before)))]
-        (chain-remaining [] transformed))
+      (chain-promises transformed rebuild-fn)
       ;; No promises - return original if unchanged
       (if (= transformed (seq elements)) original (rebuild-fn transformed)))))
 
@@ -245,18 +247,7 @@
           args (rest expr)
           transformed-args (doall (map #(transform-async-body ctx locals %) args))]
       (if (some promise-form? transformed-args)
-        ;; Chain promises
-        (loop [args-before []
-               remaining-args transformed-args]
-          (if (seq remaining-args)
-            (let [arg (first remaining-args)]
-              (if (promise-form? arg)
-                (let [await-sym (gensym "await__")
-                      rebuilt (apply list op (concat args-before [await-sym] (rest remaining-args)))]
-                  (promise-then arg (list 'fn* [await-sym]
-                                          (transform-async-body ctx (conj locals await-sym) rebuilt))))
-                (recur (conj args-before arg) (rest remaining-args))))
-            (apply list op transformed-args)))
+        (chain-promises transformed-args #(apply list op %))
         ;; No promises - return original if unchanged
         (if (= transformed-args (seq args)) expr (apply list op transformed-args))))
     expr))
