@@ -15,6 +15,13 @@
   Transforms to:
     (defn foo []
       (.then (js/Promise.resolve 1) (fn [x] (inc x))))"
+  ;; TODO: Unify transform-expr-with-await and transform-coll-with-await into a single
+  ;;       function - both transform a sequence of elements, chain promise-producing ones,
+  ;;       and rebuild with a function.
+  ;; TODO: Extract branch normalization helper for if and case* - both do
+  ;;       "if any branch is a promise, wrap all non-promise branches in resolve".
+  ;; TODO: Simplify case* handler (~33 lines with nested conditionals) -
+  ;;       the branch normalization extraction above would help.
   (:require [sci.impl.macroexpand :as macroexpand]))
 
 (defn wrap-promise
