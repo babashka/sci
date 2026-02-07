@@ -692,6 +692,21 @@ To use SCI as a native shared library from e.g. C++, Rust, Python, read this [tu
 (assoc {} :a (eval '(+ 1 2 3))) ;;=> {:a 6}
 ```
 
+## Async/Await in ClojureScript
+
+SCI supports `async`/`await` syntax for working with JavaScript Promises:
+
+``` clojure
+(sci/eval-string* ctx "
+  (defn ^:async fetch-and-inc []
+    (let [x (await (js/Promise.resolve 1))]
+      (inc x)))
+  (fetch-and-inc)")
+;; => #<Promise 2>
+```
+
+See [doc/async-await.md](doc/async-await.md) for full documentation.
+
 ## Async evaluation in ClojureScript
 
 See [doc/async.md](doc/async.md).

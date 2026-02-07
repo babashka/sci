@@ -1126,6 +1126,42 @@
 #?(:cljs (defn js-in [k obj]
            (js/Reflect.has obj k)))
 
+;; Promise helpers for async/await transformation (CLJS only)
+;; These provide efficient interop as inlined functions
+#?(:cljs
+   (do
+     (defn promise-resolve
+       "Wrap value in a resolved promise. Used by async transformer."
+       [v]
+       (js/Promise.resolve v))
+
+     (defn promise-then
+       "Chain a callback on a promise. Used by async transformer."
+       [p f]
+       (.then p f))
+
+     (defn promise-catch
+       "Add error handler to a promise. Used by async transformer."
+       [p f]
+       (.catch p f))
+
+     (defn promise-catch-for-try
+       "Add error handler that unwraps SCI error wrapping before calling handler.
+        SCI's interpreter wraps exceptions with {:type :sci/error} for location tracking,
+        but async catch handlers need the original exception (like sync eval-try uses ex-cause)."
+       [p f]
+       (.catch p (fn [e]
+                   (f (if (= :sci/error (:type (ex-data e)))
+                        (or (ex-cause e) e)
+                        e)))))
+
+     (defn promise-finally
+       "Add finally handler to a promise. Used by async transformer."
+       [p f]
+       (.finally p f))
+
+     (def async-await-namespace (sci.lang/->Namespace 'sci.impl.async-await nil))))
+
 (defn eval* [form]
   (let [ctx (store/get-ctx)]
     (eval ctx form)))
@@ -2096,4 +2132,16 @@
                                    :cljs cljs.reader/read-string) clojure-edn-namespace)}
     'sci.impl.records sci-impl-records
     'sci.impl.deftype sci-impl-deftype
-    'sci.impl.protocols sci-impl-protocols}))
+    'sci.impl.protocols sci-impl-protocols
+    #?@(:cljs ['sci.impl.async-await
+                {:obj async-await-namespace
+                 'resolve (new-var 'resolve promise-resolve async-await-namespace
+                                   {:sci.impl/inlined promise-resolve})
+                 'then (new-var 'then promise-then async-await-namespace
+                                {:sci.impl/inlined promise-then})
+                 'catch (new-var 'catch promise-catch async-await-namespace
+                                 {:sci.impl/inlined promise-catch})
+                 'catch-for-try (new-var 'catch-for-try promise-catch-for-try async-await-namespace
+                                         {:sci.impl/inlined promise-catch-for-try})
+                 'finally (new-var 'finally promise-finally async-await-namespace
+                                   {:sci.impl/inlined promise-finally})}])}))
