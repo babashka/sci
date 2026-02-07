@@ -15,8 +15,6 @@
   Transforms to:
     (defn foo []
       (.then (js/Promise.resolve 1) (fn [x] (inc x))))"
-  ;; TODO: prevent let and possibly other macros to expand? let is possible since we emit fns with bindings that destructure?
-  ;;       or do we get into trouble with locals that aren't properly known? I don't think so since the fn will be analyzed by the analyzer
   (:require [sci.impl.macroexpand :as macroexpand]))
 
 (defn wrap-promise
@@ -56,11 +54,8 @@
   (or (:sci.impl/promise (meta form))
       (and (seq? form)
            (let [op (first form)]
-             (or (= 'sci.impl.async-await/then op)
-                 (= 'sci.impl.async-await/catch op)
-                 (= 'sci.impl.async-await/catch-for-try op)
-                 (= 'sci.impl.async-await/finally op)
-                 (= 'sci.impl.async-await/resolve op))))))
+             (and (symbol? op)
+                  (= "sci.impl.async-await" (namespace op)))))))
 
 (defn- normalize-branches
   "If any branch is a promise, wrap all non-promise branches in resolve
@@ -419,6 +414,7 @@
   "Transform async function body expressions and ensure result is a promise.
    This is the main entry point for async function transformation."
   [ctx locals body-exprs]
+  ;; Debug prints - keep for development, do not remove
   #_(prn :in body-exprs)
   (let [ret (->> body-exprs
                  (map #(transform-async-body ctx locals %))
