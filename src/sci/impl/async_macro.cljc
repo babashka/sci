@@ -15,10 +15,8 @@
   Transforms to:
     (defn foo []
       (.then (js/Promise.resolve 1) (fn [x] (inc x))))"
-  ;; TODO: Extract branch normalization helper for if and case* - both do
-  ;;       "if any branch is a promise, wrap all non-promise branches in resolve".
-  ;; TODO: Simplify case* handler (~33 lines with nested conditionals) -
-  ;;       the branch normalization extraction above would help.
+  ;; TODO: Simplify case* handler - the clause reconstruction logic
+  ;;       (interleave match-constants results) appears in both branches.
   ;; TODO: prevent let and possibly other macros to expand? let is possible since we emit fns with bindings that destructure?
   ;;       or do we get into trouble with locals that aren't properly known? I don't think so since the fn will be analyzed by the analyzer
   (:require [sci.impl.macroexpand :as macroexpand]))
@@ -65,6 +63,21 @@
                  (= 'sci.impl.async-await/catch-for-try op)
                  (= 'sci.impl.async-await/finally op)
                  (= 'sci.impl.async-await/resolve op))))))
+
+(defn- normalize-branches
+  "If any branch is a promise, wrap all non-promise branches in resolve
+   so all branches consistently return promises. Returns [normalized? branches]."
+  [branches]
+  (let [[has-promise? result]
+        (reduce (fn [[has-promise? acc] branch]
+                  (if (promise-form? branch)
+                    [true (conj acc branch)]
+                    [has-promise? (conj acc branch)]))
+                [false []]
+                branches)]
+    (if has-promise?
+      [true (mapv #(if (promise-form? %) % (wrap-promise %)) result)]
+      [false branches])))
 
 (declare transform-async-body)
 
@@ -308,30 +321,28 @@
                 clause-pairs (partition 2 clauses)
                 has-default? (odd? (count clauses))
                 default-expr (when has-default? (last clauses))
-                transformed-pairs (mapcat (fn [[m r]] [m (transform-async-body ctx locals r)]) clause-pairs)
+                match-constants (mapv first clause-pairs)
+                transformed-results (mapv #(transform-async-body ctx locals (second %)) clause-pairs)
                 transformed-default (when has-default? (transform-async-body ctx locals default-expr))
-                result-exprs (concat (map second (partition 2 transformed-pairs))
-                                     (when has-default? [transformed-default]))
-                test-is-promise? (promise-form? transformed-test)
-                any-result-is-promise? (some promise-form? result-exprs)]
+                all-results (cond-> transformed-results
+                              has-default? (conj transformed-default))
+                [any-result-is-promise? normalized-results] (normalize-branches all-results)
+                test-is-promise? (promise-form? transformed-test)]
             (if (or test-is-promise? any-result-is-promise?)
-              ;; Has promises - normalize and chain
-              (let [normalized-pairs (if any-result-is-promise?
-                                       (mapcat (fn [[m r]] [m (if (promise-form? r) r (wrap-promise r))])
-                                               (partition 2 transformed-pairs))
-                                       transformed-pairs)
-                    normalized-default (when has-default?
-                                         (if (and any-result-is-promise? (not (promise-form? transformed-default)))
-                                           (wrap-promise transformed-default) transformed-default))
-                    all-normalized (if has-default? (concat normalized-pairs [normalized-default]) normalized-pairs)]
+              ;; Has promises - chain
+              (let [norm-case-results (if has-default? (butlast normalized-results) normalized-results)
+                    norm-default (when has-default? (last normalized-results))
+                    all-clauses (concat (interleave match-constants norm-case-results)
+                                        (when has-default? [norm-default]))]
                 (if test-is-promise?
                   (let [test-binding (gensym "case_test__")]
                     (promise-then transformed-test
                                   (list 'fn* [test-binding]
-                                        (apply list case*-sym test-binding all-normalized))))
-                  (mark-promise (apply list case*-sym transformed-test all-normalized))))
+                                        (apply list case*-sym test-binding all-clauses))))
+                  (mark-promise (apply list case*-sym transformed-test all-clauses))))
               ;; No promises - return original if unchanged
-              (let [all-clauses (if has-default? (concat transformed-pairs [transformed-default]) transformed-pairs)]
+              (let [all-clauses (concat (interleave match-constants transformed-results)
+                                        (when has-default? [transformed-default]))]
                 (if (and (= transformed-test test-expr) (= (seq all-clauses) (seq clauses)))
                   body
                   (apply list case*-sym transformed-test all-clauses)))))
@@ -350,27 +361,20 @@
                 transformed-test (transform-async-body ctx locals test)
                 transformed-then (transform-async-body ctx locals then)
                 transformed-else (when else (transform-async-body ctx locals else))
-                then-is-promise? (promise-form? transformed-then)
-                else-is-promise? (promise-form? transformed-else)
-                test-is-promise? (promise-form? transformed-test)]
-            (if (or test-is-promise? then-is-promise? else-is-promise?)
-              ;; Has promises - normalize branches and chain
-              (let [final-then (if (and else-is-promise? (not then-is-promise?))
-                                 (wrap-promise transformed-then) transformed-then)
-                    final-else (cond
-                                 else-is-promise? transformed-else
-                                 then-is-promise? (wrap-promise transformed-else)
-                                 :else transformed-else)]
-                (if test-is-promise?
-                  (let [test-binding (gensym "test__")]
-                    (promise-then transformed-test
-                                  (list 'fn* [test-binding]
-                                        (if final-else
-                                          (list 'if test-binding final-then final-else)
-                                          (list 'if test-binding final-then)))))
-                  (mark-promise (if final-else
-                                  (list 'if transformed-test final-then final-else)
-                                  (list 'if transformed-test final-then)))))
+                test-is-promise? (promise-form? transformed-test)
+                [any-branch-promise? [final-then final-else]] (normalize-branches [transformed-then transformed-else])]
+            (if (or test-is-promise? any-branch-promise?)
+              ;; Has promises - chain
+              (if test-is-promise?
+                (let [test-binding (gensym "test__")]
+                  (promise-then transformed-test
+                                (list 'fn* [test-binding]
+                                      (if final-else
+                                        (list 'if test-binding final-then final-else)
+                                        (list 'if test-binding final-then)))))
+                (mark-promise (if final-else
+                                (list 'if transformed-test final-then final-else)
+                                (list 'if transformed-test final-then))))
               ;; No promises - return original if unchanged
               (if (and (= transformed-test test) (= transformed-then then)
                        (= transformed-else else))
