@@ -10,8 +10,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.12.51 (2025-02-07)
 
+- Support `async/await` in ClojureScript. See [docs](https://github.com/babashka/sci/blob/master/doc/async-await.md).
 - Support `hashCode` on `deftype`
 - Fix [#931](https://github.com/babashka/sci/issues/931): support multiple `catch` in combination with `^:sci/error`
 
