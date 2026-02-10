@@ -290,11 +290,14 @@
                              (let [locals (set (keys (:bindings ctx)))]
                                (async-macro/transform-async-fn-body ctx locals body-exprs))
                              body-exprs))
+        #?@(:cljs [this-as-vol (volatile! false)
+                   ctx (assoc ctx :this-as this-as-vol)])
         body (return-do (with-recur-target ctx true) fn-expr body-exprs)
         iden->invoke-idx (get-in @(:closure-bindings ctx) (conj (:parents ctx) :syms))]
     (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
       var-arg-name
-      (assoc :vararg-idx (get iden->invoke-idx (last param-idens))))))
+      (assoc :vararg-idx (get iden->invoke-idx (last param-idens)))
+      #?@(:cljs [@this-as-vol (assoc :this-as true)]))))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -309,11 +312,12 @@
         copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
         invoc-size (:invoc-size fn-body)
         body (:body fn-body)
-        vararg-idx (:vararg-idx fn-body)]
+        vararg-idx (:vararg-idx fn-body)
+        #?@(:cljs [this-as (:this-as fn-body)])]
     (sci.impl.types/->Node
      (let [enclosed-array (bindings-fn bindings)
            f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                      body invoc-size nsm vararg-idx)
+                      body invoc-size nsm vararg-idx #?(:cljs this-as))
            f (if (nil? fn-meta) f
                  (let [fn-meta (t/eval fn-meta ctx bindings)]
                    (vary-meta f merge fn-meta)))
@@ -340,7 +344,7 @@
     (fn [enclosed-array]
       (sci.impl.types/->Node
        (let [f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                        body invoc-size nsm vararg-idx)]
+                        body invoc-size nsm vararg-idx #?(:cljs (:this-as fn-body)))]
          f)
        nil))))
 
@@ -1610,7 +1614,10 @@
                       (try
                         (if (macro? f)
                           (let [;; Fix for #603
-                                #?@(:cljs [f (if (utils/var? f)
+                                #?@(:cljs [_ (when-let [ta (:this-as ctx)]
+                                               (when (= 'this-as fsym)
+                                                 (vreset! ta true)))
+                                           f (if (utils/var? f)
                                                @f
                                                f)
                                            f (or (.-afn ^js f) f)])

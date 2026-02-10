@@ -13,11 +13,10 @@
 
 (defmacro wrap-this-as [form]
   (macros/? :clj form
-            :cljs `(cljs.core/this-as ~'__sci_this__
-                     (set! -js-this ~'__sci_this__)
-                     (let [ret# ~form]
-                       (set! -js-this -js-global-this)
-                       ret#))))
+            :cljs `(do
+                     (when ~'needs-this
+                       (set! -js-this (~'js* "this")))
+                     ~form)))
 
 (defmacro gen-fn
   ([n]
@@ -82,18 +81,21 @@
         (:body fn-body)
         (:invoc-size fn-body)
         (utils/current-ns-name)
-        (:vararg-idx fn-body)))
+        (:vararg-idx fn-body)
+        #?(:cljs (:this-as fn-body))))
   ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
     enclosed-array
-    fn-body
+    _fn-body
     fn-name
     macro?
     fixed-arity
     enclosed->invocation
     body
     invoc-size
-    nsm vararg-idx]
-   (let [f (if vararg-idx
+    nsm vararg-idx
+    #?(:cljs this-as)]
+   (let [#?@(:cljs [needs-this this-as])
+         f (if vararg-idx
              (case #?(:clj (int fixed-arity)
                       :cljs fixed-arity)
                0 (gen-fn 0 true true)

@@ -418,13 +418,21 @@
 
 #?(:cljs
    (deftest this-as-test
-     (testing "this-as in JS object method"
+     (testing "this-as captures method receiver"
        (is (= "hello"
-              (tu/eval* "(def obj
-                           (this-as self
-                             #js {:text \"\"
-                                  :setText (fn [t] (set! (.-text self) t))
-                                  :getText (fn [] (.-text self))}))
-                         (.setText obj \"hello\")
-                         (.getText obj)"
-                        {:classes {:allow :all}}))))))
+              (tu/eval* "(defn foo [] (this-as t (.-text t)))
+                         (.foo #js {:text \"hello\" :foo foo})"
+                        {:classes {:allow :all}}))))
+     (testing "this-as with loop inside"
+       (is (= "hello"
+              (tu/eval* "(defn foo []
+                           (this-as t
+                             (loop [] (.-text t))))
+                         (.foo #js {:text \"hello\" :foo foo})"
+                        {:classes {:allow :all}}))))
+     (testing "this-as with loop returns receiver"
+       (is (true?
+            (tu/eval* "(defn foo [] (this-as t (loop [] t)))
+                       (def x #js {:foo foo})
+                       (= x (.foo x))"
+                      {:classes {:allow :all}}))))))
