@@ -8,8 +8,7 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-#?(:cljs (def -js-global-this (cljs.core/this-as this this)))
-#?(:cljs (def -js-this -js-global-this))
+#?(:cljs (def -js-this nil))
 
 (defmacro wrap-this-as [form]
   (macros/? :clj form

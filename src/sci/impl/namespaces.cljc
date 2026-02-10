@@ -1127,7 +1127,7 @@
            (js/Reflect.has obj k)))
 
 #?(:cljs (defn -js-this [] fns/-js-this))
-#?(:cljs (defn -clear-js-this [] (set! fns/-js-this fns/-js-global-this)))
+#?(:cljs (defn -clear-js-this [] (set! fns/-js-this nil)))
 
 #?(:cljs (defn this-as [_form _env name & body]
            `(let [~name (~'-js-this)]
