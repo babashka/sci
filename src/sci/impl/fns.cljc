@@ -8,6 +8,8 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
+#?(:cljs (def this-as-sentinel #js {}))
+
 (defmacro wrap-this-as [& body]
   (macros/? :clj `(do ~@body)
             :cljs `(do

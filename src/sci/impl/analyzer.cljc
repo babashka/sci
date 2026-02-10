@@ -555,7 +555,7 @@
           [ctx let-nodes idens]
           (reduce
            (fn [[ctx let-nodes idens] [binding-name binding-value]]
-             (let [this-as-binding? #?(:cljs (:sci/this-as (meta binding-name)) :clj nil)
+             (let [this-as-binding? #?(:cljs (identical? fns/this-as-sentinel (:sci.impl.namespaces/this-as (meta binding-name))) :clj nil)
                    m (meta binding-value)
                    t (when m (:tag m))
                    binding-name (if t (vary-meta binding-name

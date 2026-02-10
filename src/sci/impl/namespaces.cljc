@@ -1127,7 +1127,7 @@
            (js/Reflect.has obj k)))
 
 #?(:cljs (defn this-as [_form _env name & body]
-           `(let [~(with-meta name {:sci/this-as true}) nil]
+           `(let [~(with-meta name {::this-as fns/this-as-sentinel}) nil]
               ~@body)))
 
 ;; Promise helpers for async/await transformation (CLJS only)
