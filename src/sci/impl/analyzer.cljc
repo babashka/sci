@@ -555,27 +555,34 @@
           [ctx let-nodes idens]
           (reduce
            (fn [[ctx let-nodes idens] [binding-name binding-value]]
-             (let [this-as-binding? #?(:cljs (identical? fns/this-as-sentinel (:sci.impl.namespaces/this-as (meta binding-name))) :clj nil)
+             (let [#?@(:cljs [this-as-binding?
+                              (identical? fns/this-as-sentinel binding-value)])
                    m (meta binding-value)
                    t (when m (:tag m))
                    binding-name (if t (vary-meta binding-name
                                                  assoc :tag t)
                                     binding-name)
-                   v (when-not this-as-binding? (analyze ctx binding-value))
                    new-iden (gensym)
                    cb (:closure-bindings ctx)
                    idx (update-parents ctx cb new-iden)
+                   _ #?(:cljs (when this-as-binding?
+                                (when-let [ta (:this-as ctx)]
+                                  (vreset! ta idx)))
+                        :clj nil)
+                   v #?(:clj (analyze ctx binding-value)
+                        :cljs (if this-as-binding?
+                                (sci.impl.types/->Node
+                                 (aget ^objects bindings idx)
+                                 nil)
+                                (analyze ctx binding-value)))
                    iden->invoke-idx (:iden->invoke-idx ctx)
                    iden->invoke-idx (assoc iden->invoke-idx new-iden idx)
                    ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)]
-               #?(:cljs (when-let [ta (:this-as ctx)]
-                          (when this-as-binding?
-                            (vreset! ta idx))))
                [(update ctx :bindings #(-> %
                                            (dissoc binding-name)
                                            (assoc binding-name new-iden)))
-                (if this-as-binding? let-nodes (conj let-nodes v))
-                (if this-as-binding? idens (conj idens new-iden))]))
+                (conj let-nodes v)
+                (conj idens new-iden)]))
            [ctx [] []]
            (partition 2 destructured-let-bindings))
           body (return-do (with-recur-target ctx rt) expr exprs)

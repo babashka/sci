@@ -24,35 +24,36 @@ Three layers:
 
 1. **Capture** (`gen-fn` in `fns.cljc`): SCI functions that use `this-as` have `wrap-this-as` store JS `this` directly into the invoc-array at the binding's index via `(js* "this")`.
 
-2. **Macro** (`namespaces.cljc`): The `this-as` SCI macro expands to a `let` with `:sci/this-as` metadata on the binding name. The analyzer detects this metadata and allocates an invoc-array slot without initializing it — `wrap-this-as` fills it at function entry.
+2. **Macro** (`namespaces.cljc`): The `this-as` SCI macro expands to `(let [name sentinel] body)`, where `sentinel` is a private JS object (`fns/this-as-sentinel`). The sentinel acts as a marker that the analyzer recognizes.
 
-3. **Detection** (`analyzer.cljc`): During analysis, `analyze-let*` detects the `:sci/this-as` metadata, records the invoc-array index in a volatile, and skips the let-node so runtime code doesn't overwrite the slot. `expand-fn-args+body` passes this index to `gen-fn` via the FnBody's `:this-as-idx`.
+3. **Detection** (`analyzer.cljc`): During analysis, `analyze-let*` checks each binding value with `identical?` against the sentinel. When matched, it records the invoc-array index in a volatile and emits a node that reads from that slot. `expand-fn-args+body` passes this index to `gen-fn` via the FnBody's `:this-as-idx`.
 
 ### Implementation details
 
 In `namespaces.cljc`:
 
 ```clojure
-;; SCI macro — the binding gets metadata that the analyzer detects
 #?(:cljs (defn this-as [_form _env name & body]
-           `(let [~(with-meta name {:sci/this-as true}) nil]
+           `(let [~name ~fns/this-as-sentinel]
               ~@body)))
 ```
 
-In `analyzer.cljc`, `analyze-let*` detects the metadata:
+In `analyzer.cljc`, `analyze-let*` detects the sentinel value and emits a read-from-slot node:
 
 ```clojure
-(let [this-as-binding? #?(:cljs (:sci/this-as (meta binding-name)) :clj nil)
-      v (when-not this-as-binding? (analyze ctx binding-value))
+(let [this-as-binding? #?(:cljs (identical? fns/this-as-sentinel binding-value) :clj nil)
+      ...
+      idx (update-parents ctx cb new-iden)
+      v (if this-as-binding?
+          (sci.impl.types/->Node (aget ^objects bindings idx) nil)
+          (analyze ctx binding-value))
       ...]
-  ;; Record the index; skip let-node so runtime doesn't overwrite the slot
-  #?(:cljs (when-let [ta (:this-as ctx)]
-             (when this-as-binding?
-               (vreset! ta idx))))
   [(update ctx :bindings ...)
-   (if this-as-binding? let-nodes (conj let-nodes v))
-   (if this-as-binding? idens (conj idens new-iden))])
+   (conj let-nodes v)
+   (conj idens new-iden)])
 ```
+
+The read-from-slot node evaluates to the value already in `bindings[idx]` — which `wrap-this-as` populated with `this` at function entry. The let machinery then stores this value back to the same slot, a harmless no-op.
 
 `expand-fn-args+body` creates a volatile and attaches the index to FnBody:
 
@@ -67,7 +68,8 @@ In `analyzer.cljc`, `analyze-let*` detects the metadata:
 In `fns.cljc`:
 
 ```clojure
-;; No-op on JVM; on CLJS, stores this directly into the invoc-array slot
+#?(:cljs (def this-as-sentinel #js {}))
+
 (defmacro wrap-this-as [& body]
   (macros/? :clj `(do ~@body)
             :cljs `(do
@@ -80,17 +82,17 @@ In `fns.cljc`:
 
 ### Why this approach
 
-An earlier design used a CLJS-level global mutable (`-js-this`) as a bridge: `wrap-this-as` would set the global, and the `this-as` macro would read it. This worked but required cleanup (`try/finally` to clear the reference) and added an extra indirection.
+An earlier design used a CLJS-level global mutable as a bridge: `wrap-this-as` would set the global, and the `this-as` macro would read it via a function call. This worked but required cleanup (`try/finally` to clear the reference) and leaked extra vars into the SCI namespace.
 
-The invoc-array approach is simpler: `this` is written directly to the binding's slot in the invoc-array, the same storage used for all local variables. No globals, no cleanup, no `try/finally`.
+The invoc-array approach is simpler: `this` is written directly to the binding's slot, the same storage used for all local variables. No globals, no cleanup, no `try/finally`.
+
+### Why a sentinel object
+
+The sentinel (`#js {}`) is a private JS object defined in `fns.cljc`. Since each `#js {}` is a unique object and the sentinel is not exposed in the SCI namespace, user code cannot produce a value that passes the `identical?` check. This prevents accidental or deliberate triggering of the `this-as` binding behavior.
 
 ### Why conditional capture matters
 
 The initial prototype captured `this` unconditionally on every SCI function entry. Benchmarking showed ~19% overhead on `reduce` with 10M iterations — tight loops that call SCI functions millions of times. By detecting `this-as` usage during analysis and only capturing when needed, the overhead drops to zero for functions that don't use `this-as`.
-
-### Why skipping the let-node matters
-
-The `this-as` macro expands to `(let [name nil] body)`. Without special handling, the analyzer would create a let-node that stores `nil` into the invoc-array slot at runtime — overwriting the `this` value that `wrap-this-as` stored at function entry. By skipping the let-node (but still allocating the binding and its index), the slot is filled only by `wrap-this-as`.
 
 ## SCI internals: `loop` and `this-as`
 
