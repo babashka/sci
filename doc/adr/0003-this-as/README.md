@@ -14,17 +14,7 @@ SCI is an interpreter, not a compiler. There is no compilation step where `js*` 
 
 How do we capture JavaScript's `this` and make it available inside the SCI interpreter?
 
-When an SCI function is called as a JS method (e.g., via `.apply`, `Reflect.apply`, or property access), JavaScript sets `this` on the call. But the SCI interpreter runs inside that function as `(types/eval body ctx invoc-array)` — the interpreter has no way to access the JS `this` of its enclosing function.
-
-## Prior attempt
-
-Commit `1d945760` added a `wrap-this-as` macro that wrapped `gen-fn` bodies with `cljs.core/this-as`, capturing JS `this` into a CLJS local `__sci_impl_this__`. However:
-
-- Only the 0-arity case in `gen-fn` was wrapped (N-arity was missed)
-- No bridge existed to expose the captured value to SCI userland (no SCI macro, no accessor function)
-- The namespace entries remained commented out
-
-The attempt was incomplete and was not shipped.
+When an SCI function is called as a JS method (e.g., via `Reflect.apply` in SCI's interop layer), JavaScript sets `this` on the call. But the SCI interpreter runs inside that function as `(types/eval body ctx invoc-array)` — the interpreter has no way to access the JS `this` of its enclosing function.
 
 ## Solution
 
@@ -32,44 +22,72 @@ The attempt was incomplete and was not shipped.
 
 Three layers:
 
-1. **Capture** (`gen-fn` in `fns.cljc`): Every SCI function wraps its body with `cljs.core/this-as`, storing JS `this` into a CLJS-level mutable (`-js-this`) before the interpreter runs.
+1. **Capture** (`gen-fn` in `fns.cljc`): SCI functions that use `this-as` wrap their body with `wrap-this-as`, which reads JS `this` via `(js* "this")` and stores it into a CLJS-level mutable (`-js-this`).
 
-2. **Bridge** (`namespaces.cljc`): A function `-js-this` exposed to SCI reads the mutable. The `this-as` SCI macro expands to `(let [name (-js-this)] body...)`.
+2. **Bridge** (`namespaces.cljc`): A function `-js-this` exposed to SCI reads the mutable. The `this-as` SCI macro expands to `(let [name (-js-this)] (try body (finally (-clear-js-this))))`.
 
-3. **Cleanup** (`wrap-this-as`): After the function body returns, `-js-this` is reset to the global `this` to avoid holding references to potentially large objects.
+3. **Detection** (`analyzer.cljc`): During analysis, a volatile tracks whether `this-as` is used inside a function body. Only functions that use `this-as` pay the capture cost.
 
 ### Implementation details
 
 In `fns.cljc`:
 
 ```clojure
-;; Store the global this as the default value
-#?(:cljs (def -js-global-this (cljs.core/this-as this this)))
-#?(:cljs (def -js-this -js-global-this))
+#?(:cljs (def -js-this nil))
 
-;; No-op on JVM, captures this on CLJS
+;; No-op on JVM; on CLJS, conditionally captures this
 (defmacro wrap-this-as [form]
   (macros/? :clj form
-            :cljs `(cljs.core/this-as ~'__sci_this__
-                     (set! -js-this ~'__sci_this__)
-                     (let [ret# ~form]
-                       (set! -js-this -js-global-this)
-                       ret#))))
+            :cljs `(do
+                     (when ~'needs-this
+                       (set! -js-this (~'js* "this")))
+                     ~form)))
 ```
 
-Both arity cases in `gen-fn` (0-arity and N-arity) are wrapped with `wrap-this-as`.
+Both arity cases in `gen-fn` (0-arity and N-arity) are wrapped with `wrap-this-as`. The `needs-this` local is bound from a `:this-as` flag passed to `fun`.
+
+In `analyzer.cljc`, `expand-fn-args+body` creates a volatile before analyzing the fn body:
+
+```clojure
+#?@(:cljs [this-as-vol (volatile! false)
+           ctx (assoc ctx :this-as this-as-vol)])
+body (return-do ...)
+...
+(cond-> (->FnBody ...)
+  #?@(:cljs [@this-as-vol (assoc :this-as true)]))
+```
+
+In `analyze-call`, when a macro is about to be expanded, the symbol is checked:
+
+```clojure
+#?@(:cljs [_ (when-let [ta (:this-as ctx)]
+               (when (= 'this-as fsym)
+                 (vreset! ta true)))])
+```
+
+This piggybacks on the existing analysis pass — no separate tree walk needed.
 
 In `namespaces.cljc`:
 
 ```clojure
-;; Accessor function — reads the CLJS mutable from SCI
+;; Accessor — reads the CLJS mutable from SCI
 #?(:cljs (defn -js-this [] fns/-js-this))
 
-;; SCI macro — captures this eagerly into a let binding
+;; Cleanup — clears the reference after use
+#?(:cljs (defn -clear-js-this [] (set! fns/-js-this nil)))
+
+;; SCI macro — captures this eagerly, cleans up after
 #?(:cljs (defn this-as [_form _env name & body]
            `(let [~name (~'-js-this)]
-              ~@body)))
+              (try
+                ~@body
+                (finally
+                  (~'-clear-js-this))))))
 ```
+
+### Why conditional capture matters
+
+The initial implementation captured `this` unconditionally on every SCI function entry. Benchmarking showed ~19% overhead on `reduce` with 10M iterations — tight loops that call SCI functions millions of times. By detecting `this-as` usage during analysis and only capturing when needed, the overhead drops to zero for functions that don't use `this-as`.
 
 ### Why a CLJS-level mutable works
 
@@ -77,7 +95,7 @@ CLJS is single-threaded. The mutable `-js-this` is set at function entry (before
 
 ### Reference cleanup
 
-After a function returns, `-js-this` is reset to `-js-global-this` (the global `this` captured at module load time). This prevents holding references to potentially large objects after a method call completes, which could delay GC if the program goes idle.
+The `this-as` macro wraps the body in `try/finally` to call `-clear-js-this`, which resets `-js-this` to `nil`. This prevents holding references to potentially large objects after a method call completes.
 
 ## Async considerations
 
@@ -94,35 +112,17 @@ SCI's async transformer desugars `await` into `.then` chains. The `.then` callba
 
 The `let` binding closes over the `.then` callback boundary.
 
-**`this-as` after `await`** — gives `undefined` (not the original receiver):
+**`this-as` after `await`** — gives `nil` (not the original receiver):
 
 ```clojure
 (^:async fn []
   (let [result (await some-promise)]
-    (this-as self                        ;; self = undefined
+    (this-as self                        ;; self = nil
       (.-name self))))
 ```
 
 This matches JavaScript `.then` behavior — callbacks don't preserve `this`. Note that native JS `async/await` *does* preserve `this` across `await`, but SCI desugars to `.then`, so the behavior differs. Users should capture `this-as` before any `await`.
 
-**No stale values**: Every SCI function entry (including `.then` callbacks) overwrites `-js-this` via `wrap-this-as` before any user code runs. There is no scenario where a stale `this` from a previous call leaks through.
+## SCI internals: `loop` and `this-as`
 
-## Performance
-
-Benchmarked with `:optimizations :none` on Node.js. The `wrap-this-as` overhead is one `this` read, two `set!` operations, and one extra `let` per SCI function call.
-
-| Benchmark | Without | With | Overhead |
-|---|---|---|---|
-| loop/recur 10M | 3175ms | 3171ms | ~0% (recur stays in same fn) |
-| reduce 1M | 201ms | 240ms | ~19% |
-| recursive 500x1000 | 199ms | 218ms | ~10% |
-| varargs 500K | 385ms | 401ms | ~4% |
-| multi-arity 500K | 670ms | 691ms | ~3% |
-| closures 500K | 422ms | 436ms | ~3% |
-| map 1M | 105ms | 98ms | ~noise |
-
-The overhead is most visible in `reduce` and recursion — tight loops that call SCI functions millions of times. The `loop/recur` case is unaffected since `recur` doesn't re-enter the function. Real-world code is unlikely to be dominated by function call overhead.
-
-### Stack depth
-
-The extra `let` frame adds to the JS call stack. This could reduce maximum recursion depth for non-TCO recursive SCI functions. Users should prefer `loop/recur` for deep iteration.
+SCI's `loop` expands into an anonymous `fn*` internally. Each such function gets its own `:this-as` volatile during analysis. Since `this-as` is not used inside the loop body (it's in the enclosing function), the loop function's `needs-this` is false and `wrap-this-as` is a no-op. The captured `this` value flows through normally via the `let` binding.
