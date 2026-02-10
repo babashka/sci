@@ -717,48 +717,18 @@ Currently SCI has limited support for `deftype` and does not support `definterfa
 
 ### This-as
 
-Currently SCI does not support `this-as` in JS hosts. As a workaround you can program in this style:
+SCI supports `this-as` in JS hosts to capture JavaScript's `this`:
 
 ``` clojure
 (def obj
-  (let [;; construct the object:
-        this #js {:text "foo"}
-        ;; construct object functions:
-        setText (fn [text] (set! (.-text this) text))
-        getText (fn [] (.-text this))]
-    ;; attach object functions:
-    (set! (.-setText this) setText)
-    (set! (.-getText this) getText)
-    ;; return object:
-    this))
+  (this-as self
+    #js {:text ""
+         :setText (fn [t] (set! (.-text self) t))
+         :getText (fn [] (.-text self))}))
 
 (.setText obj "hello")
 (prn (.getText obj)) ;; "hello"
 ```
-
-<!-- A drop-in replacement that covers a subset of `this-as` usage might be implemented like this: -->
-
-<!-- ``` Clojure -->
-<!-- (defmacro ^:private new-var [] -->
-<!--   `(def ~(gensym))) -->
-
-<!-- (defmacro this-as [binding & body] -->
-<!--   `(let [~binding (new-var) -->
-<!--          obj# (do ~@body)] -->
-<!--      (alter-var-root ~(list 'var binding) (constantly obj#)) -->
-<!--      ;; remove var from namespace -->
-<!--      (ns-unmap *ns* (:name (meta ~binding))) -->
-<!--      obj#)) -->
-
-<!-- (def obj -->
-<!--   (this-as this -->
-<!--     #js {:text "" -->
-<!--          :setText (fn [t] (set! (.-text this) t)) -->
-<!--          :getText (fn [] (.-text this))})) -->
-
-<!-- (.setText obj "hello") -->
-<!-- (prn (.getText obj)) ;; "hello" -->
-<!-- ``` -->
 
 ## Laziness
 

@@ -1,11 +1,23 @@
 (ns sci.impl.fns
   {:no-doc true}
   (:require
+   [sci.impl.macros :as macros]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [recur]])
-  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn]])))
+  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn wrap-this-as]])))
 
 #?(:clj (set! *warn-on-reflection* true))
+
+#?(:cljs (def -js-global-this (cljs.core/this-as this this)))
+#?(:cljs (def -js-this -js-global-this))
+
+(defmacro wrap-this-as [form]
+  (macros/? :clj form
+            :cljs `(cljs.core/this-as ~'__sci_this__
+                     (set! -js-this ~'__sci_this__)
+                     (let [ret# ~form]
+                       (set! -js-this -js-global-this)
+                       ret#))))
 
 (defmacro gen-fn
   ([n]
@@ -18,17 +30,18 @@
        `(let [recur# recur]
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
-            (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                  (object-array ~'invoc-size))]
-              (when ~'enclosed->invocation
-                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-              ~@(when varargs
-                  [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
-              (loop []
-                (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                  (if (identical? recur# ret#)
-                    (recur)
-                    ret#)))))))
+            (wrap-this-as
+             (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                   (object-array ~'invoc-size))]
+               (when ~'enclosed->invocation
+                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+               ~@(when varargs
+                   [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+               (loop []
+                 (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
+                   (if (identical? recur# ret#)
+                     (recur)
+                     ret#))))))))
      (let [fn-params (vec (repeatedly n gensym))
            varargs-param (when varargs (gensym))
            asets `(do ~@(map (fn [fn-param idx]
@@ -38,18 +51,19 @@
        `(let [recur# recur]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
-            (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                  (object-array ~'invoc-size))]
-              (when ~'enclosed->invocation
-                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-              ~asets
-              ~@(when varargs
-                  [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
-              (loop []
-                (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
-                  (if (identical? recur# ret#)
-                    (recur)
-                    ret#))))))))))
+            (wrap-this-as
+             (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                   (object-array ~'invoc-size))]
+               (when ~'enclosed->invocation
+                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+               ~asets
+               ~@(when varargs
+                   [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+               (loop []
+                 (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
+                   (if (identical? recur# ret#)
+                     (recur)
+                     ret#)))))))))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
