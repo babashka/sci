@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- Support [#564](https://github.com/babashka/sci/issues/564): `this-as` in ClojureScript
+
 ## 0.12.51 (2025-02-07)
 
 - Support `async/await` in ClojureScript. See [docs](https://github.com/babashka/sci/blob/master/doc/async-await.md).

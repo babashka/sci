@@ -1126,6 +1126,10 @@
 #?(:cljs (defn js-in [k obj]
            (js/Reflect.has obj k)))
 
+#?(:cljs (defn this-as [_form _env name & body]
+           `(let [~name ~fns/this-as-sentinel]
+              ~@body)))
+
 ;; Promise helpers for async/await transformation (CLJS only)
 ;; These provide efficient interop as inlined functions
 #?(:cljs
@@ -1673,8 +1677,7 @@
      'shuffle (copy-core-var shuffle)
      'sort (copy-core-var sort)
      'sort-by (copy-core-var sort-by)
-     ;; #?@(:cljs ['-js-this -js-this
-     ;;            'this-as (macrofy 'this-as this-as clojure-core-ns)])
+     #?@(:cljs ['this-as (macrofy 'this-as this-as clojure-core-ns)])
      'test (copy-core-var test)
      'thread-bound? (copy-var sci-thread-bound? clojure-core-ns {:name 'thread-bound?})
      'time (copy-var time clojure-core-ns {:macro true})

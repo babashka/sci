@@ -415,3 +415,24 @@
      (is (= 1 (sci/eval-string "(deftype Foo [foo-bar]) (.-foo-bar (->Foo 1))" {:classes {:allow :all}})))
      ;; this doesn't work yet either, but not common in Clojure
      #_(is (= 1 (sci/eval-string "(deftype Foo [foo-bar]) (.-foo_bar (->Foo 1))" {:classes {:allow :all}})))))
+
+#?(:cljs
+   (deftest this-as-test
+     (testing "this-as captures method receiver"
+       (is (= "hello"
+              (tu/eval* "(defn foo [] (this-as t (.-text t)))
+                         (.foo #js {:text \"hello\" :foo foo})"
+                        {:classes {:allow :all}}))))
+     (testing "this-as with loop inside"
+       (is (= "hello"
+              (tu/eval* "(defn foo []
+                           (this-as t
+                             (loop [] (.-text t))))
+                         (.foo #js {:text \"hello\" :foo foo})"
+                        {:classes {:allow :all}}))))
+     (testing "this-as with loop returns receiver"
+       (is (true?
+            (tu/eval* "(defn foo [] (this-as t (loop [] t)))
+                       (def x #js {:foo foo})
+                       (= x (.foo x))"
+                      {:classes {:allow :all}}))))))
