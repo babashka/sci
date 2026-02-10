@@ -297,7 +297,7 @@
     (cond-> (->FnBody binding-vector body fixed-arity var-arg-name self-ref-idx iden->invoke-idx)
       var-arg-name
       (assoc :vararg-idx (get iden->invoke-idx (last param-idens)))
-      #?@(:cljs [@this-as-vol (assoc :this-as true)]))))
+      #?@(:cljs [@this-as-vol (assoc :this-as-idx @this-as-vol)]))))
 
 (defn analyzed-fn-meta [ctx m]
   (let [;; seq expr has location info with 2 keys
@@ -313,11 +313,11 @@
         invoc-size (:invoc-size fn-body)
         body (:body fn-body)
         vararg-idx (:vararg-idx fn-body)
-        #?@(:cljs [this-as (:this-as fn-body)])]
+        #?@(:cljs [this-as-idx (:this-as-idx fn-body)])]
     (sci.impl.types/->Node
      (let [enclosed-array (bindings-fn bindings)
            f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                      body invoc-size nsm vararg-idx #?(:cljs this-as))
+                      body invoc-size nsm vararg-idx #?(:cljs this-as-idx))
            f (if (nil? fn-meta) f
                  (let [fn-meta (t/eval fn-meta ctx bindings)]
                    (vary-meta f merge fn-meta)))
@@ -344,7 +344,7 @@
     (fn [enclosed-array]
       (sci.impl.types/->Node
        (let [f (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                        body invoc-size nsm vararg-idx #?(:cljs (:this-as fn-body)))]
+                        body invoc-size nsm vararg-idx #?(:cljs (:this-as-idx fn-body)))]
          f)
        nil))))
 
@@ -555,23 +555,27 @@
           [ctx let-nodes idens]
           (reduce
            (fn [[ctx let-nodes idens] [binding-name binding-value]]
-             (let [m (meta binding-value)
+             (let [this-as-binding? #?(:cljs (:sci/this-as (meta binding-name)) :clj nil)
+                   m (meta binding-value)
                    t (when m (:tag m))
                    binding-name (if t (vary-meta binding-name
                                                  assoc :tag t)
                                     binding-name)
-                   v (analyze ctx binding-value)
+                   v (when-not this-as-binding? (analyze ctx binding-value))
                    new-iden (gensym)
                    cb (:closure-bindings ctx)
                    idx (update-parents ctx cb new-iden)
                    iden->invoke-idx (:iden->invoke-idx ctx)
                    iden->invoke-idx (assoc iden->invoke-idx new-iden idx)
                    ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)]
+               #?(:cljs (when-let [ta (:this-as ctx)]
+                          (when this-as-binding?
+                            (vreset! ta idx))))
                [(update ctx :bindings #(-> %
                                            (dissoc binding-name)
                                            (assoc binding-name new-iden)))
-                (conj let-nodes v)
-                (conj idens new-iden)]))
+                (if this-as-binding? let-nodes (conj let-nodes v))
+                (if this-as-binding? idens (conj idens new-iden))]))
            [ctx [] []]
            (partition 2 destructured-let-bindings))
           body (return-do (with-recur-target ctx rt) expr exprs)
@@ -1614,10 +1618,7 @@
                       (try
                         (if (macro? f)
                           (let [;; Fix for #603
-                                #?@(:cljs [_ (when-let [ta (:this-as ctx)]
-                                               (when (= 'this-as fsym)
-                                                 (vreset! ta true)))
-                                           f (if (utils/var? f)
+                                #?@(:cljs [f (if (utils/var? f)
                                                @f
                                                f)
                                            f (or (.-afn ^js f) f)])

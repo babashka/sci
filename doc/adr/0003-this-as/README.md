@@ -22,80 +22,79 @@ When an SCI function is called as a JS method (e.g., via `Reflect.apply` in SCI'
 
 Three layers:
 
-1. **Capture** (`gen-fn` in `fns.cljc`): SCI functions that use `this-as` wrap their body with `wrap-this-as`, which reads JS `this` via `(js* "this")` and stores it into a CLJS-level mutable (`-js-this`).
+1. **Capture** (`gen-fn` in `fns.cljc`): SCI functions that use `this-as` have `wrap-this-as` store JS `this` directly into the invoc-array at the binding's index via `(js* "this")`.
 
-2. **Bridge** (`namespaces.cljc`): A function `-js-this` exposed to SCI reads the mutable. The `this-as` SCI macro expands to `(let [name (-js-this)] (try body (finally (-clear-js-this))))`.
+2. **Macro** (`namespaces.cljc`): The `this-as` SCI macro expands to a `let` with `:sci/this-as` metadata on the binding name. The analyzer detects this metadata and allocates an invoc-array slot without initializing it — `wrap-this-as` fills it at function entry.
 
-3. **Detection** (`analyzer.cljc`): During analysis, a volatile tracks whether `this-as` is used inside a function body. Only functions that use `this-as` pay the capture cost.
+3. **Detection** (`analyzer.cljc`): During analysis, `analyze-let*` detects the `:sci/this-as` metadata, records the invoc-array index in a volatile, and skips the let-node so runtime code doesn't overwrite the slot. `expand-fn-args+body` passes this index to `gen-fn` via the FnBody's `:this-as-idx`.
 
 ### Implementation details
-
-In `fns.cljc`:
-
-```clojure
-#?(:cljs (def -js-this nil))
-
-;; No-op on JVM; on CLJS, conditionally captures this
-(defmacro wrap-this-as [form]
-  (macros/? :clj form
-            :cljs `(do
-                     (when ~'needs-this
-                       (set! -js-this (~'js* "this")))
-                     ~form)))
-```
-
-Both arity cases in `gen-fn` (0-arity and N-arity) are wrapped with `wrap-this-as`. The `needs-this` local is bound from a `:this-as` flag passed to `fun`.
-
-In `analyzer.cljc`, `expand-fn-args+body` creates a volatile before analyzing the fn body:
-
-```clojure
-#?@(:cljs [this-as-vol (volatile! false)
-           ctx (assoc ctx :this-as this-as-vol)])
-body (return-do ...)
-...
-(cond-> (->FnBody ...)
-  #?@(:cljs [@this-as-vol (assoc :this-as true)]))
-```
-
-In `analyze-call`, when a macro is about to be expanded, the symbol is checked:
-
-```clojure
-#?@(:cljs [_ (when-let [ta (:this-as ctx)]
-               (when (= 'this-as fsym)
-                 (vreset! ta true)))])
-```
-
-This piggybacks on the existing analysis pass — no separate tree walk needed.
 
 In `namespaces.cljc`:
 
 ```clojure
-;; Accessor — reads the CLJS mutable from SCI
-#?(:cljs (defn -js-this [] fns/-js-this))
-
-;; Cleanup — clears the reference after use
-#?(:cljs (defn -clear-js-this [] (set! fns/-js-this nil)))
-
-;; SCI macro — captures this eagerly, cleans up after
+;; SCI macro — the binding gets metadata that the analyzer detects
 #?(:cljs (defn this-as [_form _env name & body]
-           `(let [~name (~'-js-this)]
-              (try
-                ~@body
-                (finally
-                  (~'-clear-js-this))))))
+           `(let [~(with-meta name {:sci/this-as true}) nil]
+              ~@body)))
 ```
+
+In `analyzer.cljc`, `analyze-let*` detects the metadata:
+
+```clojure
+(let [this-as-binding? #?(:cljs (:sci/this-as (meta binding-name)) :clj nil)
+      v (when-not this-as-binding? (analyze ctx binding-value))
+      ...]
+  ;; Record the index; skip let-node so runtime doesn't overwrite the slot
+  #?(:cljs (when-let [ta (:this-as ctx)]
+             (when this-as-binding?
+               (vreset! ta idx))))
+  [(update ctx :bindings ...)
+   (if this-as-binding? let-nodes (conj let-nodes v))
+   (if this-as-binding? idens (conj idens new-iden))])
+```
+
+`expand-fn-args+body` creates a volatile and attaches the index to FnBody:
+
+```clojure
+#?@(:cljs [this-as-vol (volatile! false)
+           ctx (assoc ctx :this-as this-as-vol)])
+...
+(cond-> (->FnBody ...)
+  #?@(:cljs [@this-as-vol (assoc :this-as-idx @this-as-vol)]))
+```
+
+In `fns.cljc`:
+
+```clojure
+;; No-op on JVM; on CLJS, stores this directly into the invoc-array slot
+(defmacro wrap-this-as [& body]
+  (macros/? :clj `(do ~@body)
+            :cljs `(do
+                     (when ~'this-as-idx
+                       (aset ~'invoc-array ~'this-as-idx (~'js* "this")))
+                     ~@body)))
+```
+
+`gen-fn` creates the invoc-array first, then calls `wrap-this-as` before evaluating the body. The `this-as-idx` local is bound from the FnBody field passed through `fun`.
+
+### Why this approach
+
+An earlier design used a CLJS-level global mutable (`-js-this`) as a bridge: `wrap-this-as` would set the global, and the `this-as` macro would read it. This worked but required cleanup (`try/finally` to clear the reference) and added an extra indirection.
+
+The invoc-array approach is simpler: `this` is written directly to the binding's slot in the invoc-array, the same storage used for all local variables. No globals, no cleanup, no `try/finally`.
 
 ### Why conditional capture matters
 
-The initial implementation captured `this` unconditionally on every SCI function entry. Benchmarking showed ~19% overhead on `reduce` with 10M iterations — tight loops that call SCI functions millions of times. By detecting `this-as` usage during analysis and only capturing when needed, the overhead drops to zero for functions that don't use `this-as`.
+The initial prototype captured `this` unconditionally on every SCI function entry. Benchmarking showed ~19% overhead on `reduce` with 10M iterations — tight loops that call SCI functions millions of times. By detecting `this-as` usage during analysis and only capturing when needed, the overhead drops to zero for functions that don't use `this-as`.
 
-### Why a CLJS-level mutable works
+### Why skipping the let-node matters
 
-CLJS is single-threaded. The mutable `-js-this` is set at function entry (before any user code) and read by `this-as` (which captures it immediately into a `let`). Even if nested SCI function calls overwrite the mutable, the user's `let` binding is already captured.
+The `this-as` macro expands to `(let [name nil] body)`. Without special handling, the analyzer would create a let-node that stores `nil` into the invoc-array slot at runtime — overwriting the `this` value that `wrap-this-as` stored at function entry. By skipping the let-node (but still allocating the binding and its index), the slot is filled only by `wrap-this-as`.
 
-### Reference cleanup
+## SCI internals: `loop` and `this-as`
 
-The `this-as` macro wraps the body in `try/finally` to call `-clear-js-this`, which resets `-js-this` to `nil`. This prevents holding references to potentially large objects after a method call completes.
+SCI's `loop` expands into an anonymous `fn*` internally. Each such function gets its own `:this-as` volatile during analysis. Since `this-as` is not used inside the loop body (it's in the enclosing function), the loop function's `this-as-idx` is false and `wrap-this-as` is a no-op. The captured `this` value flows through normally via the invoc-array binding.
 
 ## Async considerations
 
@@ -122,7 +121,3 @@ The `let` binding closes over the `.then` callback boundary.
 ```
 
 This matches JavaScript `.then` behavior — callbacks don't preserve `this`. Note that native JS `async/await` *does* preserve `this` across `await`, but SCI desugars to `.then`, so the behavior differs. Users should capture `this-as` before any `await`.
-
-## SCI internals: `loop` and `this-as`
-
-SCI's `loop` expands into an anonymous `fn*` internally. Each such function gets its own `:this-as` volatile during analysis. Since `this-as` is not used inside the loop body (it's in the enclosing function), the loop function's `needs-this` is false and `wrap-this-as` is a no-op. The captured `this` value flows through normally via the `let` binding.

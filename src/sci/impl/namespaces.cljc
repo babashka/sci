@@ -1126,15 +1126,9 @@
 #?(:cljs (defn js-in [k obj]
            (js/Reflect.has obj k)))
 
-#?(:cljs (defn -js-this [] fns/-js-this))
-#?(:cljs (defn -clear-js-this [] (set! fns/-js-this nil)))
-
 #?(:cljs (defn this-as [_form _env name & body]
-           `(let [~name (~'-js-this)]
-              (try
-                ~@body
-                (finally
-                  (~'-clear-js-this))))))
+           `(let [~(with-meta name {:sci/this-as true}) nil]
+              ~@body)))
 
 ;; Promise helpers for async/await transformation (CLJS only)
 ;; These provide efficient interop as inlined functions
@@ -1683,9 +1677,7 @@
      'shuffle (copy-core-var shuffle)
      'sort (copy-core-var sort)
      'sort-by (copy-core-var sort-by)
-     #?@(:cljs ['-js-this (new-var '-js-this -js-this clojure-core-ns)
-                '-clear-js-this (new-var '-clear-js-this -clear-js-this clojure-core-ns)
-                'this-as (macrofy 'this-as this-as clojure-core-ns)])
+     #?@(:cljs ['this-as (macrofy 'this-as this-as clojure-core-ns)])
      'test (copy-core-var test)
      'thread-bound? (copy-var sci-thread-bound? clojure-core-ns {:name 'thread-bound?})
      'time (copy-var time clojure-core-ns {:macro true})

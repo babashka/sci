@@ -8,14 +8,12 @@
 
 #?(:clj (set! *warn-on-reflection* true))
 
-#?(:cljs (def -js-this nil))
-
-(defmacro wrap-this-as [form]
-  (macros/? :clj form
+(defmacro wrap-this-as [& body]
+  (macros/? :clj `(do ~@body)
             :cljs `(do
-                     (when ~'needs-this
-                       (set! -js-this (~'js* "this")))
-                     ~form)))
+                     (when ~'this-as-idx
+                       (aset ~'invoc-array ~'this-as-idx (~'js* "this")))
+                     ~@body)))
 
 (defmacro gen-fn
   ([n]
@@ -28,11 +26,11 @@
        `(let [recur# recur]
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
-            (wrap-this-as
-             (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                   (object-array ~'invoc-size))]
-               (when ~'enclosed->invocation
-                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                  (object-array ~'invoc-size))]
+              (when ~'enclosed->invocation
+                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+              (wrap-this-as
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
@@ -49,12 +47,12 @@
        `(let [recur# recur]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
-            (wrap-this-as
-             (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                   (object-array ~'invoc-size))]
-               (when ~'enclosed->invocation
-                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-               ~asets
+            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+                                  (object-array ~'invoc-size))]
+              (when ~'enclosed->invocation
+                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+              ~asets
+              (wrap-this-as
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
@@ -81,7 +79,7 @@
         (:invoc-size fn-body)
         (utils/current-ns-name)
         (:vararg-idx fn-body)
-        #?(:cljs (:this-as fn-body))))
+        #?(:cljs (:this-as-idx fn-body))))
   ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
     enclosed-array
     _fn-body
@@ -92,8 +90,8 @@
     body
     invoc-size
     nsm vararg-idx
-    #?(:cljs this-as)]
-   (let [#?@(:cljs [needs-this this-as])
+    #?(:cljs this-as-idx)]
+   (let [
          f (if vararg-idx
              (case #?(:clj (int fixed-arity)
                       :cljs fixed-arity)
