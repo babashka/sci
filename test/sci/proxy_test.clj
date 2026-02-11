@@ -1,6 +1,7 @@
 (ns sci.proxy-test
   (:require [clojure.test :refer [deftest is testing]]
-            [sci.core :as sci]))
+            [sci.core :as sci]
+            [sci.impl.types :as types]))
 
 (deftest APersistentMap-proxy-test
   (let [obj (sci/eval-string

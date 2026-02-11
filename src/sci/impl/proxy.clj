@@ -28,6 +28,6 @@
     (let [{interfaces true protocols false} (group-by class? interfaces)]
       (pfn {:class abstract-class
             :interfaces (set interfaces)
-            :protocols protocols
+            :protocols (set protocols)
             :methods methods}))
     (throw (Exception. "no proxy-fn"))))
