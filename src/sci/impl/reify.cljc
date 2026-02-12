@@ -20,10 +20,12 @@
      :cljs [_form classes methods])
      #?(:clj (let [{interfaces true protocols false} (group-by class? classes)]
             (if-let [factory (:reify-fn (store/get-ctx))]
-              (with-meta (factory {:interfaces (set interfaces)
-                                   :methods methods
-                                   :protocols (set protocols)})
-                (meta form))
+              (if-let [obj (factory {:interfaces (set interfaces)
+                                     :methods methods
+                                     :protocols (set protocols)})]
+                (with-meta obj (meta form))
+                (throw (ex-info (str "Unsupported interface in reify: " (first interfaces))
+                                {:interfaces interfaces})))
               (throw (ex-info (str "No reify factory for: " interfaces)
                               {:class class}))))
      ;; NOTE: in CLJS everything is a protocol in reify, except Object
