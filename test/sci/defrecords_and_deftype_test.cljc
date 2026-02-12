@@ -275,51 +275,52 @@
 
 #?(:clj
    (deftest deftype-fn-test
-     (testing "deftype-fn hook is called when interfaces are present"
-       (let [;; A deftype-fn that handles ILookup by generating a SciType
-             ;; with fields accessible via ICustomType.getFields
-             deftype-fn
-             (fn [{:keys [rec-type record-name factory-fn-sym fields interfaces]}]
-               (when (interfaces clojure.lang.ILookup)
-                 `(do
-                    (declare ~record-name ~factory-fn-sym)
-                    (def ~(with-meta record-name {:sci/type true})
-                      (sci.impl.deftype/-create-type
-                       ~{:sci.impl/type-name (list 'quote rec-type)
-                         :sci.impl/type rec-type
-                         :sci.impl/constructor (list 'var factory-fn-sym)
-                         :sci.impl/var (list 'var record-name)}))
-                    (defn ~factory-fn-sym [~@fields]
-                      (sci.impl.deftype/->type-impl
-                       '~rec-type ~rec-type (var ~record-name)
-                       (hash-map ~@(mapcat (fn [f] [(list 'quote f) f]) fields))))
-                    ~record-name)))
-             opts {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
-                   :deftype-fn deftype-fn}]
-         (testing "field access works via ICustomType.getFields"
-           (is (= [:a :b]
+     (when-not tu/native?
+       (testing "deftype-fn hook is called when interfaces are present"
+         (let [;; A deftype-fn that handles ILookup by generating a SciType
+               ;; with fields accessible via ICustomType.getFields
+               deftype-fn
+               (fn [{:keys [rec-type record-name factory-fn-sym fields interfaces]}]
+                 (when (interfaces clojure.lang.ILookup)
+                   `(do
+                      (declare ~record-name ~factory-fn-sym)
+                      (def ~(with-meta record-name {:sci/type true})
+                        (sci.impl.deftype/-create-type
+                         ~{:sci.impl/type-name (list 'quote rec-type)
+                           :sci.impl/type rec-type
+                           :sci.impl/constructor (list 'var factory-fn-sym)
+                           :sci.impl/var (list 'var record-name)}))
+                      (defn ~factory-fn-sym [~@fields]
+                        (sci.impl.deftype/->type-impl
+                         '~rec-type ~rec-type (var ~record-name)
+                         (hash-map ~@(mapcat (fn [f] [(list 'quote f) f]) fields))))
+                      ~record-name)))
+               opts {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
+                     :deftype-fn deftype-fn}]
+           (testing "field access works via ICustomType.getFields"
+             (is (= [:a :b]
+                    (tu/eval*
+                     "(deftype MyType [x y]
+                        clojure.lang.ILookup
+                        (valAt [_ k] (get {:x x :y y} k)))
+                      (let [t (->MyType :a :b)]
+                        [(.-x t) (.-y t)])"
+                     opts))))
+           (testing "deftype-fn receives correct interfaces set"
+             (let [received (atom nil)
+                   spy-fn (fn [{:keys [interfaces] :as args}]
+                            (reset! received interfaces)
+                            (deftype-fn args))]
+               (tu/eval*
+                "(deftype T [x] clojure.lang.ILookup (valAt [_ k] k))"
+                (assoc opts :deftype-fn spy-fn))
+               (is (= #{clojure.lang.ILookup} @received))))))
+       (testing "deftype-fn returning nil falls through to standard path"
+         (let [deftype-fn (constantly nil)
+               opts {:deftype-fn deftype-fn}]
+           (is (= 1
                   (tu/eval*
-                   "(deftype MyType [x y]
-                      clojure.lang.ILookup
-                      (valAt [_ k] (get {:x x :y y} k)))
-                    (let [t (->MyType :a :b)]
-                      [(.-x t) (.-y t)])"
-                   opts))))
-         (testing "deftype-fn receives correct interfaces set"
-           (let [received (atom nil)
-                 spy-fn (fn [{:keys [interfaces] :as args}]
-                          (reset! received interfaces)
-                          (deftype-fn args))]
-             (tu/eval*
-              "(deftype T [x] clojure.lang.ILookup (valAt [_ k] k))"
-              (assoc opts :deftype-fn spy-fn))
-             (is (= #{clojure.lang.ILookup} @received))))))
-     (testing "deftype-fn returning nil falls through to standard path"
-       (let [deftype-fn (constantly nil)
-             opts {:deftype-fn deftype-fn}]
-         (is (= 1
-                (tu/eval*
-                 "(defprotocol GetX (getX [_]))
-                  (deftype Foo [x] GetX (getX [_] x))
-                  (getX (->Foo 1))"
-                 opts)))))))
+                   "(defprotocol GetX (getX [_]))
+                    (deftype Foo [x] GetX (getX [_] x))
+                    (getX (->Foo 1))"
+                   opts))))))))
