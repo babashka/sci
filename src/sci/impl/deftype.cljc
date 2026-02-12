@@ -89,7 +89,8 @@
   types/IBox
   (getVal [_] ext-map)
 
-  sci.impl.types.ICustomType
+  #?@(:clj [sci.impl.types.ICustomType]
+      :cljs [types/ICustomType])
   (getMethods [_] nil)
   (getInterfaces [_] nil)
   (getProtocols [_] nil)
