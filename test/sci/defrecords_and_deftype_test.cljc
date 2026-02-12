@@ -1,10 +1,10 @@
 (ns sci.defrecords-and-deftype-test
   (:require
-    [clojure.string :as str]
-    [clojure.test :refer [are deftest is testing]]
-    [sci.core :as sci]
-    #?(:clj [sci.impl.types :as types])
-    [sci.test-utils :as tu]))
+   [clojure.string :as str]
+   [clojure.test :refer [are deftest is testing]]
+   [sci.core :as sci]
+   #?(:clj [sci.impl.deftype :as deftype])
+   [sci.test-utils :as tu]))
 
 (deftest protocol-test
   (let [prog "
@@ -277,25 +277,18 @@
    (deftest deftype-fn-test
      (when-not tu/native?
        (testing "deftype-fn hook is called when interfaces are present"
-         (let [;; A deftype-fn that handles ILookup by generating a SciType
-               ;; with fields accessible via ICustomType.getFields
+         (let [;; A constructor fn that creates a SciType from the map.
+               ;; Registered in the SCI ctx under test.helpers/my-ctor.
+               my-ctor
+               (fn [{:keys [fields]}]
+                 (deftype/->type-impl nil nil nil fields))
+               ;; deftype-fn returns a fully qualified symbol naming the constructor.
                deftype-fn
-               (fn [{:keys [rec-type record-name factory-fn-sym fields interfaces]}]
-                 (when (interfaces clojure.lang.ILookup)
-                   `(do
-                      (declare ~record-name ~factory-fn-sym)
-                      (def ~(with-meta record-name {:sci/type true})
-                        (sci.impl.deftype/-create-type
-                         ~{:sci.impl/type-name (list 'quote rec-type)
-                           :sci.impl/type rec-type
-                           :sci.impl/constructor (list 'var factory-fn-sym)
-                           :sci.impl/var (list 'var record-name)}))
-                      (defn ~factory-fn-sym [~@fields]
-                        (sci.impl.deftype/->type-impl
-                         '~rec-type ~rec-type (var ~record-name)
-                         (hash-map ~@(mapcat (fn [f] [(list 'quote f) f]) fields))))
-                      ~record-name)))
+               (fn [{:keys [interfaces]}]
+                 (when (contains? interfaces clojure.lang.ILookup)
+                   'test.helpers/my-ctor))
                opts {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
+                     :namespaces {'test.helpers {'my-ctor my-ctor}}
                      :deftype-fn deftype-fn}]
            (testing "field access works via ICustomType.getFields"
              (is (= [:a :b]

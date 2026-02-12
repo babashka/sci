@@ -103,6 +103,22 @@
    (defmethod print-method SciType [v w]
      (-sci-print-method v w)))
 
+(defn ^:private emit-deftype
+  "Generate the common deftype boilerplate: declare, def type, defn factory, protocol-impls."
+  [rec-type record-name factory-fn-sym factory-fn-body & [protocol-impls]]
+  `(do
+     (declare ~record-name ~factory-fn-sym)
+     (def ~(with-meta record-name
+             {:sci/type true})
+       (sci.impl.deftype/-create-type
+        ~{:sci.impl/type-name (list 'quote rec-type)
+          :sci.impl/type rec-type
+          :sci.impl/constructor (list 'var factory-fn-sym)
+          :sci.impl/var (list 'var record-name)}))
+     ~factory-fn-body
+     ~@protocol-impls
+     ~record-name))
+
 #?(:clj
    (defn ^:private standard-scitype-path
      "Standard SciType path for deftype — protocol-only implementations."
@@ -119,10 +135,6 @@
                          expr))
                     _ (assert-no-jvm-interface protocol protocol-name expr)
                     protocol (if (utils/var? protocol) @protocol protocol)
-                    protocol-var (:var protocol)
-                    _ (when protocol-var
-                        (vars/alter-var-root protocol-var update :satisfies
-                                             (fnil conj #{}) (symbol (str rec-type))))
                     protocol-ns (:ns protocol)
                     pns (cond protocol-ns (str (types/getName protocol-ns))
                               (= Object protocol) "sci.impl.deftype")
@@ -165,19 +177,10 @@
                      impls)))
             protocol-impls
             raw-protocol-impls)]
-       `(do
-          (declare ~record-name ~factory-fn-sym)
-          (def ~(with-meta record-name
-                  {:sci/type true})
-            (sci.impl.deftype/-create-type
-             ~{:sci.impl/type-name (list 'quote rec-type)
-               :sci.impl/type rec-type
-               :sci.impl/constructor (list 'var factory-fn-sym)
-               :sci.impl/var (list 'var record-name)}))
-          (defn ~factory-fn-sym [& args#]
-            (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
-          ~@protocol-impls
-          ~record-name))))
+       (emit-deftype rec-type record-name factory-fn-sym
+                     `(defn ~factory-fn-sym [& args#]
+                        (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+                     protocol-impls))))
 
 (defn deftype [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
   (let [ctx (store/get-ctx)]
@@ -207,20 +210,48 @@
                                             (remove #(= Object (:resolved %)))
                                             (map :resolved))
                                   resolved-impls)
-                 ;; Try the deftype-fn if interfaces are present and a factory exists
-                 custom-result (when (and (seq interfaces) deftype-fn)
-                                 (deftype-fn {:ctx ctx
-                                              :form form
-                                              :rec-type rec-type
-                                              :record-name record-name
-                                              :factory-fn-sym factory-fn-sym
-                                              :fields fields
-                                              :field-set field-set
-                                              :interfaces interfaces
-                                              :protocol-impls protocol-impls
-                                              :resolved-impls resolved-impls}))]
-             (if custom-result
-               custom-result
+                 ;; Collect protocols (non-class, non-Object)
+                 protocols (into #{}
+                                 (comp (remove :class?)
+                                       (remove #(= Object (:resolved %)))
+                                       (map :resolved))
+                                 resolved-impls)
+                 ;; Register satisfies? for all protocols (common to both paths)
+                 _ (doseq [protocol protocols]
+                     (when-let [protocol-var (:var protocol)]
+                       (vars/alter-var-root protocol-var update :satisfies
+                                            (fnil conj #{}) (symbol (str rec-type)))))
+                 ;; Try the deftype-fn if interfaces are present and a factory exists.
+                 ;; deftype-fn returns a fully qualified symbol naming a constructor
+                 ;; function mapped in the SCI ctx, or nil to fall through.
+                 constructor-sym (when (and (seq interfaces) deftype-fn)
+                                   (deftype-fn {:interfaces interfaces}))]
+             (if constructor-sym
+               (let [;; Compile protocol-impl methods into fn forms
+                     all-methods (atom {})
+                     _ (doseq [[_protocol-name & impls] protocol-impls]
+                         (doseq [impl impls]
+                           (let [mname (symbol (clojure.core/name (first impl)))
+                                 args-and-body (rest impl)]
+                             (swap! all-methods update mname (fnil conj []) args-and-body))))
+                     method-entries (mapcat
+                                    (fn [[mname impls]]
+                                      (let [arities (mapv (fn [[args & body]]
+                                                            `(~args ~@body)) impls)]
+                                        [(list 'quote mname)
+                                         (if (= 1 (count arities))
+                                           `(fn ~@(first arities))
+                                           `(fn ~@arities))]))
+                                    @all-methods)
+                     field-entries (mapcat (fn [f] [(list 'quote f) f]) fields)
+                     protocols-form (if (seq protocols)
+                                     `#{~@(map (fn [p] (list 'deref (:var p))) protocols)}
+                                     `#{})]
+                 (emit-deftype rec-type record-name factory-fn-sym
+                               `(defn ~factory-fn-sym [~@fields]
+                                  (~constructor-sym {:methods (hash-map ~@method-entries)
+                                                     :fields (hash-map ~@field-entries)
+                                                     :protocols ~protocols-form}))))
                (standard-scitype-path ctx form rec-type record-name factory-fn-sym
                                       fields field-set protocol-impls raw-protocol-impls)))
            :cljs
@@ -289,16 +320,7 @@
                            impls)))
                   protocol-impls
                   raw-protocol-impls)]
-             `(do
-                (declare ~record-name ~factory-fn-sym)
-                (def ~(with-meta record-name
-                        {:sci/type true})
-                  (sci.impl.deftype/-create-type
-                   ~{:sci.impl/type-name (list 'quote rec-type)
-                     :sci.impl/type rec-type
-                     :sci.impl/constructor (list 'var factory-fn-sym)
-                     :sci.impl/var (list 'var record-name)}))
-                (defn ~factory-fn-sym [& args#]
-                  (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
-                ~@protocol-impls
-                ~record-name)))))))
+             (emit-deftype rec-type record-name factory-fn-sym
+                          `(defn ~factory-fn-sym [& args#]
+                             (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+                          protocol-impls)))))))
