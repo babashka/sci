@@ -1,9 +1,10 @@
 (ns sci.defrecords-and-deftype-test
   (:require
-    [clojure.string :as str]
-    [clojure.test :refer [are deftest is testing]]
-    [sci.core :as sci]
-    [sci.test-utils :as tu]))
+   [clojure.string :as str]
+   [clojure.test :refer [are deftest is testing]]
+   [sci.core :as sci]
+   #?(:clj [sci.impl.deftype :as deftype])
+   [sci.test-utils :as tu]))
 
 (deftest protocol-test
   (let [prog "
@@ -271,3 +272,56 @@
                                                                     print-str)"))
   (testing "babashka #1899"
     (is (= {} (sci/eval-string "(defrecord MyRecord [a]) (dissoc (with-meta (->MyRecord 1) {:foo :bar}) :a)")))))
+
+#?(:clj
+   (deftest deftype-fn-test
+     (when-not tu/native?
+       (testing "deftype-fn hook is called when interfaces are present"
+         (let [;; A constructor fn that creates a SciType from the map.
+               ;; Registered in the SCI ctx under test.helpers/my-ctor.
+               my-ctor
+               (fn [{:keys [fields]}]
+                 (deftype/->type-impl nil nil nil fields))
+               ;; deftype-fn returns a map with :constructor, or nil.
+               deftype-fn
+               (fn [{:keys [interfaces]}]
+                 (when (contains? interfaces clojure.lang.ILookup)
+                   {:constructor-fn 'test.helpers/my-ctor}))
+               opts {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
+                     :namespaces {'test.helpers {'my-ctor my-ctor}}
+                     :deftype-fn deftype-fn}]
+           (testing "field access works via ICustomType.getFields"
+             (is (= [:a :b]
+                    (tu/eval*
+                     "(deftype MyType [x y]
+                        clojure.lang.ILookup
+                        (valAt [_ k] (get {:x x :y y} k)))
+                      (let [t (->MyType :a :b)]
+                        [(.-x t) (.-y t)])"
+                     opts))))
+           (testing "deftype-fn receives correct interfaces set"
+             (let [received (atom nil)
+                   spy-fn (fn [{:keys [interfaces] :as args}]
+                            (reset! received interfaces)
+                            (deftype-fn args))]
+               (tu/eval*
+                "(deftype T [x] clojure.lang.ILookup (valAt [_ k] k))"
+                (assoc opts :deftype-fn spy-fn))
+               (is (= #{clojure.lang.ILookup} @received))))))
+       (testing "deftype-fn returning nil falls through to standard path"
+         (let [deftype-fn (constantly nil)
+               opts {:deftype-fn deftype-fn}]
+           (is (= 1
+                  (tu/eval*
+                   "(defprotocol GetX (getX [_]))
+                    (deftype Foo [x] GetX (getX [_] x))
+                    (getX (->Foo 1))"
+                   opts)))))
+       (testing "deftype-fn error replaces default error message"
+         (let [deftype-fn (fn [_] {:error "custom hint: use IPersistentMap"})
+               opts {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
+                     :deftype-fn deftype-fn}]
+           (is (thrown-with-msg? Exception #"custom hint: use IPersistentMap"
+                  (tu/eval*
+                   "(deftype Foo [x] clojure.lang.ILookup (valAt [_ k] k))"
+                   opts))))))))

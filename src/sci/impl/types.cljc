@@ -4,7 +4,7 @@
   #?(:clj (:require [sci.impl.macros :as macros]))
   #?(:cljs (:require-macros [sci.impl.macros :as macros]
                             [sci.impl.types :refer [->Node]]))
-  #?(:clj (:import [sci.impl.types IReified])))
+  #?(:clj (:import [sci.impl.types ICustomType])))
 
 #?(:clj (set! *warn-on-reflection* true))
 
@@ -13,24 +13,28 @@
   (getVal [_this]))
 
 #?(:cljs
-   (defprotocol IReified
+   (defprotocol ICustomType
      (getInterfaces [_])
      (getMethods [_])
-     (getProtocols [_])))
+     (getProtocols [_])
+     (getFields [_])))
 
 #?(:clj
    (do (defn getMethods [obj]
-         (.getMethods ^IReified obj))
+         (.getMethods ^ICustomType obj))
        (defn getInterfaces [obj]
-         (.getInterfaces ^IReified obj))
+         (.getInterfaces ^ICustomType obj))
        (defn getProtocols [obj]
-         (.getProtocols ^IReified obj))))
+         (.getProtocols ^ICustomType obj))
+       (defn getFields [obj]
+         (.getFields ^ICustomType obj))))
 
 (deftype Reified [interfaces meths protocols]
-  IReified
+  ICustomType
   (getInterfaces [_] interfaces)
   (getMethods [_] meths)
-  (getProtocols [_] protocols))
+  (getProtocols [_] protocols)
+  (getFields [_] nil))
 
 (defprotocol SciTypeInstance
   (-get-type [_])
@@ -40,12 +44,12 @@
   "Must be varargs because used in multimethods
   Only for internal use!"
   [x & _]
-  (or (when #?(:clj (instance? sci.impl.types.IReified x)
-               :cljs (cljs.core/implements? sci.impl.types.IReified x))
-        :sci.impl.protocols/reified)
-      (when (#?(:clj instance?
+  (or (when (#?(:clj instance?
                 :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
         (-get-type x))
+      (when #?(:clj (instance? sci.impl.types.ICustomType x)
+               :cljs (cljs.core/implements? sci.impl.types.ICustomType x))
+        :sci.impl.protocols/reified)
       (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))

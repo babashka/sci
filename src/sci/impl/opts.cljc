@@ -7,7 +7,7 @@
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.lang])
   #?(:clj (:import
-           [sci.impl.types IReified])))
+           [sci.impl.types ICustomType])))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -133,13 +133,15 @@
               Object
               (toString [this]
                 ((get methods 'toString) this))
-              IReified
+              ICustomType
               (getInterfaces [_this]
                 interfaces)
               (getMethods [_this]
                 methods)
               (getProtocols [_this]
-                protocols)))
+                protocols)
+              (getFields [_this]
+                nil)))
      :cljs (fn [_ _ _])))
 
 #?(:clj (defrecord Ctx [bindings env
@@ -173,6 +175,7 @@
            readers
            reify-fn
            proxy-fn
+           deftype-fn
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
            ns-aliases]}]
@@ -190,6 +193,7 @@
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
+                   :deftype-fn deftype-fn
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
@@ -206,6 +210,7 @@
                 load-fn
                 readers
                 reify-fn
+                deftype-fn
                 #?(:cljs async-load-fn)
                 #?(:cljs js-libs)
                 ns-aliases]
@@ -221,5 +226,6 @@
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
+                   :deftype-fn deftype-fn
                    :main-thread-id (:main-thread-id ctx))]
     ctx))

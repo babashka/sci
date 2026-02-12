@@ -3,7 +3,7 @@
                                     :cljs [deftest is testing])]
             #?(:clj [sci.impl.types :as t])
             [sci.test-utils :as tu])
-  #?(:clj (:import [sci.impl.types IReified])))
+  #?(:clj (:import [sci.impl.types ICustomType])))
 
 (deftest reify-test
   #?(:clj
@@ -85,13 +85,15 @@
                   (assoc [this k v]
                     ((get methods 'assoc) this k v))
 
-                  IReified
+                  ICustomType
                   (getInterfaces [this]
                     interfaces)
                   (getMethods [this]
                     methods)
                   (getProtocols [this]
-                    protocols)))}
+                    protocols)
+                  (getFields [this]
+                    nil)))}
              prog "
 (defprotocol Protocol1
   (method [this first second]))
@@ -137,7 +139,7 @@
      (when-not tu/native?
        (let [opts
              {:classes {:public-class (fn [x]
-                                        (when (instance? IReified x)
+                                        (when (instance? ICustomType x)
                                           (first (t/getInterfaces x))))
                         'java.util.function.Function java.util.function.Function}
               :reify-fn
@@ -147,13 +149,15 @@
                   (apply [this arg]
                     ((get methods 'apply) this arg))
 
-                  IReified
+                  ICustomType
                   (getInterfaces [this]
                     interfaces)
                   (getMethods [this]
                     methods)
                   (getProtocols [this]
-                    protocols)))
+                    protocols)
+                  (getFields [this]
+                    nil)))
               }]
          (testing "reify form from macro has (incorrectly) fully qualifed method name"
            (is (= 2
