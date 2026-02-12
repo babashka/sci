@@ -11,7 +11,7 @@
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.10.3"]
                  [borkdude/edamame "1.5.37"]
-                 [org.babashka/sci.impl.types "0.0.2"]
+                 [org.babashka/sci.impl.types "0.0.3"]
                  [borkdude/graal.locking "0.0.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.10.3 {:depdencies [[org.clojure/clojure "1.10.3"]]}

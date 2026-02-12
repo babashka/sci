@@ -124,8 +124,9 @@
   (if (zero? #?(:clj arg-count :cljs (alength args)))
     (if (instance? sci.impl.records.SciRecord instance)
       (get instance (keyword method-str-unmunged) none-sentinel)
-      (if (instance? sci.impl.deftype.SciType instance)
-        (get (types/getVal instance) (symbol method-str-unmunged) none-sentinel)
+      (if #?(:clj (instance? sci.impl.types.ICustomType instance)
+             :cljs (implements? sci.impl.types.ICustomType instance))
+        (get (types/getFields instance) (symbol method-str-unmunged) none-sentinel)
         none-sentinel))
     none-sentinel))
 

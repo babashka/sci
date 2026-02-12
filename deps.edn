@@ -1,6 +1,6 @@
 {:paths ["resources" "src"]
  :deps {borkdude/edamame {:mvn/version "1.5.37"}
-        org.babashka/sci.impl.types {:mvn/version "0.0.2"}
+        org.babashka/sci.impl.types {:mvn/version "0.0.3"}
         borkdude/graal.locking {:mvn/version "0.0.2"}}
  :aliases
  {:examples {:extra-paths ["examples"]}
