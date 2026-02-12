@@ -103,80 +103,81 @@
    (defmethod print-method SciType [v w]
      (-sci-print-method v w)))
 
-(defn ^:private standard-scitype-path
-  "Standard SciType path for deftype — protocol-only implementations."
-  [ctx form rec-type record-name factory-fn-sym fields field-set
-   protocol-impls raw-protocol-impls]
-  (let [protocol-impls
-        (mapcat
-         (fn [[protocol-name & impls] expr]
-           (let [impls (group-by first impls)
-                 protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                 _ (when-not protocol
-                     (utils/throw-error-with-location
-                      (str "Protocol not found: " protocol-name)
-                      expr))
-                 _ (assert-no-jvm-interface protocol protocol-name expr)
-                 protocol (if (utils/var? protocol) @protocol protocol)
-                 protocol-var (:var protocol)
-                 _ (when protocol-var
-                     (vars/alter-var-root protocol-var update :satisfies
-                                          (fnil conj #{}) (symbol (str rec-type))))
-                 protocol-ns (:ns protocol)
-                 pns (cond protocol-ns (str (types/getName protocol-ns))
-                           (= Object protocol) "sci.impl.deftype")
-                 fq-meth-name #(if (simple-symbol? %)
-                                 (symbol pns (str %))
-                                 %)]
-             (map (fn [[method-name bodies]]
-                    (let [bodies (map rest bodies)
-                          bodies (mapv (fn [impl]
-                                         (let [args (first impl)
-                                               body (rest impl)
-                                               destr (utils/maybe-destructured args body)
-                                               args (:params destr)
-                                               body (:body destr)
-                                               orig-this-sym (first args)
-                                               rest-args (rest args)
-                                               this-sym (if true #_shadows-this?
-                                                            '__sci_this
-                                                            orig-this-sym)
-                                               args (vec (cons this-sym rest-args))
-                                               ext-map-binding (gensym)
-                                               bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
-                                               bindings (concat bindings
-                                                                (mapcat (fn [field]
-                                                                          [field (list 'get ext-map-binding (list 'quote field))])
-                                                                        (reduce disj field-set args)))
-                                               bindings (concat bindings [orig-this-sym this-sym])
-                                               bindings (vec bindings)]
-                                           `(~args
-                                             (let ~bindings
-                                               ~@body)))) bodies)]
-                      (@utils/analyze (assoc ctx
-                                             :deftype-fields field-set
-                                             :local->mutator (zipmap field-set
-                                                                     (map (fn [field]
-                                                                            (fn [this v]
-                                                                              (types/-mutate this field v)))
-                                                                          field-set)))
-                       `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
-                  impls)))
-         protocol-impls
-         raw-protocol-impls)]
-    `(do
-       (declare ~record-name ~factory-fn-sym)
-       (def ~(with-meta record-name
-               {:sci/type true})
-         (sci.impl.deftype/-create-type
-          ~{:sci.impl/type-name (list 'quote rec-type)
-            :sci.impl/type rec-type
-            :sci.impl/constructor (list 'var factory-fn-sym)
-            :sci.impl/var (list 'var record-name)}))
-       (defn ~factory-fn-sym [& args#]
-         (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
-       ~@protocol-impls
-       ~record-name)))
+#?(:clj
+   (defn ^:private standard-scitype-path
+     "Standard SciType path for deftype — protocol-only implementations."
+     [ctx form rec-type record-name factory-fn-sym fields field-set
+      protocol-impls raw-protocol-impls]
+     (let [protocol-impls
+           (mapcat
+            (fn [[protocol-name & impls] expr]
+              (let [impls (group-by first impls)
+                    protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
+                    _ (when-not protocol
+                        (utils/throw-error-with-location
+                         (str "Protocol not found: " protocol-name)
+                         expr))
+                    _ (assert-no-jvm-interface protocol protocol-name expr)
+                    protocol (if (utils/var? protocol) @protocol protocol)
+                    protocol-var (:var protocol)
+                    _ (when protocol-var
+                        (vars/alter-var-root protocol-var update :satisfies
+                                             (fnil conj #{}) (symbol (str rec-type))))
+                    protocol-ns (:ns protocol)
+                    pns (cond protocol-ns (str (types/getName protocol-ns))
+                              (= Object protocol) "sci.impl.deftype")
+                    fq-meth-name #(if (simple-symbol? %)
+                                    (symbol pns (str %))
+                                    %)]
+                (map (fn [[method-name bodies]]
+                       (let [bodies (map rest bodies)
+                             bodies (mapv (fn [impl]
+                                            (let [args (first impl)
+                                                  body (rest impl)
+                                                  destr (utils/maybe-destructured args body)
+                                                  args (:params destr)
+                                                  body (:body destr)
+                                                  orig-this-sym (first args)
+                                                  rest-args (rest args)
+                                                  this-sym (if true #_shadows-this?
+                                                               '__sci_this
+                                                               orig-this-sym)
+                                                  args (vec (cons this-sym rest-args))
+                                                  ext-map-binding (gensym)
+                                                  bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
+                                                  bindings (concat bindings
+                                                                   (mapcat (fn [field]
+                                                                             [field (list 'get ext-map-binding (list 'quote field))])
+                                                                           (reduce disj field-set args)))
+                                                  bindings (concat bindings [orig-this-sym this-sym])
+                                                  bindings (vec bindings)]
+                                              `(~args
+                                                (let ~bindings
+                                                  ~@body)))) bodies)]
+                         (@utils/analyze (assoc ctx
+                                                :deftype-fields field-set
+                                                :local->mutator (zipmap field-set
+                                                                        (map (fn [field]
+                                                                               (fn [this v]
+                                                                                 (types/-mutate this field v)))
+                                                                             field-set)))
+                          `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
+                     impls)))
+            protocol-impls
+            raw-protocol-impls)]
+       `(do
+          (declare ~record-name ~factory-fn-sym)
+          (def ~(with-meta record-name
+                  {:sci/type true})
+            (sci.impl.deftype/-create-type
+             ~{:sci.impl/type-name (list 'quote rec-type)
+               :sci.impl/type rec-type
+               :sci.impl/constructor (list 'var factory-fn-sym)
+               :sci.impl/var (list 'var record-name)}))
+          (defn ~factory-fn-sym [& args#]
+            (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+          ~@protocol-impls
+          ~record-name))))
 
 (defn deftype [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
   (let [ctx (store/get-ctx)]
