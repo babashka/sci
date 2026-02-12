@@ -11,11 +11,12 @@
 #?(:clj (set! *warn-on-reflection* true))
 
 #?(:clj
-   (defn assert-no-jvm-interface [protocol protocol-name expr]
+   (defn assert-no-jvm-interface [protocol protocol-name expr error-hint]
      (when (and (class? protocol)
                 (not (= Object protocol)))
        (utils/throw-error-with-location
-        (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name)
+        (or error-hint
+            (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name))
         expr))))
 
 (defn hex-hash [this]
@@ -123,7 +124,7 @@
    (defn ^:private standard-scitype-path
      "Standard SciType path for deftype — protocol-only implementations."
      [ctx form rec-type record-name factory-fn-sym fields field-set
-      protocol-impls raw-protocol-impls]
+      protocol-impls raw-protocol-impls error-hint]
      (let [protocol-impls
            (mapcat
             (fn [[protocol-name & impls] expr]
@@ -133,7 +134,7 @@
                         (utils/throw-error-with-location
                          (str "Protocol not found: " protocol-name)
                          expr))
-                    _ (assert-no-jvm-interface protocol protocol-name expr)
+                    _ (assert-no-jvm-interface protocol protocol-name expr error-hint)
                     protocol (if (utils/var? protocol) @protocol protocol)
                     protocol-ns (:ns protocol)
                     pns (cond protocol-ns (str (types/getName protocol-ns))
@@ -222,10 +223,12 @@
                        (vars/alter-var-root protocol-var update :satisfies
                                             (fnil conj #{}) (symbol (str rec-type)))))
                  ;; Try the deftype-fn if interfaces are present and a factory exists.
-                 ;; deftype-fn returns a fully qualified symbol naming a constructor
-                 ;; function mapped in the SCI ctx, or nil to fall through.
-                 constructor-sym (when (and (seq interfaces) deftype-fn)
-                                   (deftype-fn {:interfaces interfaces}))]
+                 ;; deftype-fn returns a map with :constructor-fn (symbol) or :error (string),
+                 ;; or nil to fall through to the standard path.
+                 deftype-fn-result (when (and (seq interfaces) deftype-fn)
+                                    (deftype-fn {:interfaces interfaces}))
+                 constructor-sym (:constructor-fn deftype-fn-result)
+                 error-hint (:error deftype-fn-result)]
              (if constructor-sym
                (let [;; Compile protocol-impl methods into fn forms
                      all-methods (atom {})
@@ -253,7 +256,7 @@
                                                      :fields (hash-map ~@field-entries)
                                                      :protocols ~protocols-form}))))
                (standard-scitype-path ctx form rec-type record-name factory-fn-sym
-                                      fields field-set protocol-impls raw-protocol-impls)))
+                                      fields field-set protocol-impls raw-protocol-impls error-hint)))
            :cljs
            (let [protocol-impls
                  (mapcat

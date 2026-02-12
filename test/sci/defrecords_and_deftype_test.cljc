@@ -282,11 +282,11 @@
                my-ctor
                (fn [{:keys [fields]}]
                  (deftype/->type-impl nil nil nil fields))
-               ;; deftype-fn returns a fully qualified symbol naming the constructor.
+               ;; deftype-fn returns a map with :constructor, or nil.
                deftype-fn
                (fn [{:keys [interfaces]}]
                  (when (contains? interfaces clojure.lang.ILookup)
-                   'test.helpers/my-ctor))
+                   {:constructor-fn 'test.helpers/my-ctor}))
                opts {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
                      :namespaces {'test.helpers {'my-ctor my-ctor}}
                      :deftype-fn deftype-fn}]
@@ -316,4 +316,12 @@
                    "(defprotocol GetX (getX [_]))
                     (deftype Foo [x] GetX (getX [_] x))
                     (getX (->Foo 1))"
+                   opts)))))
+       (testing "deftype-fn error replaces default error message"
+         (let [deftype-fn (fn [_] {:error "custom hint: use IPersistentMap"})
+               opts {:classes {'clojure.lang.ILookup clojure.lang.ILookup}
+                     :deftype-fn deftype-fn}]
+           (is (thrown-with-msg? Exception #"custom hint: use IPersistentMap"
+                  (tu/eval*
+                   "(deftype Foo [x] clojure.lang.ILookup (valAt [_ k] k))"
                    opts))))))))
