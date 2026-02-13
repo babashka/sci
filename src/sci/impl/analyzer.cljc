@@ -954,21 +954,57 @@
 
 ;;;; Interop
 
+#?(:clj
+   (defn- resolve-tag-class [ctx instance-expr]
+     (utils/vary-meta*
+      instance-expr
+      (fn [m]
+        (if-let [t (:tag m)]
+          (let [clazz (or (interop/resolve-class ctx t)
+                          (records/resolve-record-class ctx t)
+                          (throw-error-with-location
+                           (str "Unable to resolve classname: " t) t))]
+            (assoc m :tag-class clazz))
+          m)))))
+
+#?(:clj
+   (defn- analyze-instance-method [ctx instance-expr method-expr args expr]
+     (let [method-name (name method-expr)
+           field-access (str/starts-with? method-name "-")
+           meth-name (if field-access (subs method-name 1) method-name)
+           meth-name* meth-name
+           meth-name (#?(:clj munge :cljs utils/munge-str) meth-name)
+           stack (assoc (meta expr)
+                        :ns @utils/current-ns
+                        :file @utils/current-file)
+           arg-count (count args)
+           args (object-array args)
+           ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
+                                             (make-array Class arg-count))
+           has-types? (volatile! nil)]
+       (when arg-types
+         (areduce args idx _ret nil
+                  (let [arg (aget args idx)
+                        arg-meta (meta arg)]
+                    (when-let [t (:tag arg-meta)]
+                      (when-let [t (interop/resolve-type-hint ctx t)]
+                        (do (vreset! has-types? true)
+                            (aset arg-types idx t)))))))
+       (with-meta (sci.impl.types/->Node
+                   (eval/eval-instance-method-invocation
+                    ctx bindings instance-expr meth-name meth-name* field-access args arg-count
+                    (when @has-types? arg-types))
+                   stack)
+         {::instance-expr instance-expr
+          ::method-name method-name
+          :tag (:tag (meta expr))}))))
+
 (defn analyze-dot [ctx [_dot instance-expr method-expr & args :as expr]]
   (let [ctx (without-recur-target ctx)
         [method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
-        #?@(:clj [instance-expr (utils/vary-meta*
-                                 instance-expr
-                                 (fn [m]
-                                   (if-let [t (:tag m)]
-                                     (let [clazz (or (interop/resolve-class ctx t)
-                                                     (records/resolve-record-class ctx t)
-                                                     (throw-error-with-location
-                                                      (str "Unable to resolve classname: " t) t))]
-                                       (assoc m :tag-class clazz))
-                                     m)))])
+        #?@(:clj [instance-expr (resolve-tag-class ctx instance-expr)])
         method-name (name method-expr)
         args (when args (analyze-children ctx args))
         res
@@ -1018,29 +1054,7 @@
                              stack)
                             (static-method)))
                         (static-method)))
-                    (let [arg-count #?(:cljs nil :clj (count args))
-                          args (object-array args)
-                          #?@(:clj [^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
-                                                                      (make-array Class arg-count))
-                                    has-types? (volatile! nil)])]
-                      #?(:clj (when arg-types
-                                (areduce args idx _ret nil
-                                         (let [arg (aget args idx)
-                                               arg-meta (meta arg)]
-                                           (when-let [t (:tag arg-meta)]
-                                             (when-let [t (interop/resolve-type-hint ctx t)]
-                                               (do (vreset! has-types? true)
-                                                   (aset arg-types idx t))))))))
-                      (with-meta (sci.impl.types/->Node
-                                  (eval/eval-instance-method-invocation
-                                   ctx bindings instance-expr meth-name meth-name* field-access args arg-count
-                                   #?(:cljs nil
-                                      :clj (when @has-types?
-                                             arg-types)))
-                                  stack)
-                        {::instance-expr instance-expr
-                         ::method-name method-name
-                         :tag (:tag (meta expr))})))
+                    (analyze-instance-method ctx instance-expr method-expr args expr))
              :cljs (let [allowed? (or unrestrict/*unrestricted*
                                       (identical? method-expr utils/allowed-append)
                                       (-> ctx :env deref :class->opts :allow))
@@ -1078,7 +1092,12 @@
   (when (< (count expr) 2)
     (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
                 "Malformed member expression, expecting (.member target ...)")))
-  (analyze-dot ctx (with-meta (list '. obj (cons (symbol (subs (name method-name) 1)) args)) (meta expr))))
+  #?(:clj (let [ctx (without-recur-target ctx)
+                method-sym (symbol (subs (name method-name) 1))
+                instance-expr (resolve-tag-class ctx (analyze ctx obj))
+                args (when args (analyze-children ctx args))]
+            (analyze-instance-method ctx instance-expr method-sym args expr))
+     :cljs (analyze-dot ctx (with-meta (list '. obj (cons (symbol (subs (name method-name) 1)) args)) (meta expr)))))
 
 #?(:clj
    (defn- invoke-constructor-node [ctx class args]
