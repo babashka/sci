@@ -33,6 +33,10 @@
 (defn foo [e] (.getMessage ^ExceptionInfo e))
 (ns bar (:require [foo]))
 (foo/foo (ex-info \"message\" {}))"))))
+     (testing "instance method on class object via .method syntax"
+       (when-not tu/native?
+         (is (= "java.lang.String" (tu/eval* "(.getName String)"
+                                              {:classes {'java.lang.Class Class}})))))
      (testing "map interop"
        (when-not tu/native?
          (is (= #{:a} (tu/eval* "(.keySet {:a 1})"
