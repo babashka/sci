@@ -989,8 +989,8 @@
               meth-name (if field-access
                           (subs method-name 1)
                           method-name)
-              meth-name* meth-name
-              meth-name (#?(:clj munge :cljs utils/munge-str) meth-name)
+              #?@(:cljs [meth-name* meth-name])
+              #?@(:cljs [meth-name (utils/munge-str meth-name)])
               stack (assoc (meta expr)
                            :ns @utils/current-ns
                            :file @utils/current-file)]
@@ -1006,15 +1006,14 @@
                                                 (get method-expr))]
                                (return-call ctx expr f (cons instance-expr args) stack nil)
                                (sci.impl.types/->Node
-                                (interop/invoke-static-method ctx bindings instance-expr method-name
+                                (interop/invoke-static-method ctx bindings instance-expr meth-name
                                                               args arg-count)
                                 stack)))]
                       (if (nil? args)
                         (if field-access
-                          (let [method-name (subs method-name 1)]
-                            (sci.impl.types/->Node
-                             (interop/get-static-field instance-expr method-name)
-                             stack))
+                          (sci.impl.types/->Node
+                           (interop/get-static-field instance-expr meth-name)
+                           stack)
                           ;; https://clojure.org/reference/java_interop
                           ;; If the second operand is a symbol and no args are
                           ;; supplied it is taken to be a field access - the
