@@ -307,39 +307,42 @@
           (let [[_ bindings & exprs] body]
             (transform-loop* ctx locals bindings exprs))
 
-          ;; Case* form - transform test expr and result exprs, but NOT match constants
+          ;; Case* form (JVM format): (case* ge shift mask default imap switch-type check-type skip-check)
+          ;; imap: {key [test-constant result-expr], ...}
           case*
-          (let [[case*-sym test-expr & clauses] body
-                transformed-test (transform-async-body ctx locals test-expr)
-                clause-pairs (partition 2 clauses)
-                has-default? (odd? (count clauses))
-                default-expr (when has-default? (last clauses))
-                match-constants (mapv first clause-pairs)
-                transformed-results (mapv #(transform-async-body ctx locals (second %)) clause-pairs)
-                transformed-default (when has-default? (transform-async-body ctx locals default-expr))
-                all-results (cond-> transformed-results
-                              has-default? (conj transformed-default))
-                [any-result-is-promise? normalized-results] (normalize-branches all-results)
-                test-is-promise? (promise-form? transformed-test)
-                ;; Reconstruct clauses from match constants + results + optional default
-                rebuild-clauses (fn [results]
-                                  (let [case-results (if has-default? (butlast results) results)]
-                                    (concat (interleave match-constants case-results)
-                                            (when has-default? [(last results)]))))]
-            (if (or test-is-promise? any-result-is-promise?)
-              ;; Has promises - chain
-              (let [all-clauses (rebuild-clauses normalized-results)]
-                (if test-is-promise?
-                  (let [test-binding (gensym "case_test__")]
-                    (promise-then transformed-test
-                                  (list 'fn* [test-binding]
-                                        (apply list case*-sym test-binding all-clauses))))
-                  (mark-promise (apply list case*-sym transformed-test all-clauses))))
+          (let [[_ ge shift mask default imap switch-type check-type skip-check] body
+                transformed-ge (transform-async-body ctx locals ge)
+                transformed-default (transform-async-body ctx locals default)
+                transformed-imap (reduce-kv
+                                  (fn [m k [test-const result]]
+                                    (assoc m k [test-const (transform-async-body ctx locals result)]))
+                                  {} imap)
+                result-exprs (mapv (fn [[_ [_ result]]] result) transformed-imap)
+                all-results (conj result-exprs transformed-default)
+                [any-result-promise? normalized-results] (normalize-branches all-results)
+                ge-is-promise? (promise-form? transformed-ge)
+                ;; Rebuild imap and default from normalized results
+                normalized-default (last normalized-results)
+                normalized-imap (let [keys-in-order (keys transformed-imap)]
+                                  (zipmap keys-in-order
+                                          (map (fn [k result]
+                                                 (let [[test-const _] (get transformed-imap k)]
+                                                   [test-const result]))
+                                               keys-in-order normalized-results)))
+                rebuild (fn [ge default imap]
+                          (list 'case* ge shift mask default imap switch-type check-type skip-check))]
+            (if (or ge-is-promise? any-result-promise?)
+              (if ge-is-promise?
+                (let [ge-binding (gensym "case_test__")]
+                  (promise-then transformed-ge
+                                (list 'fn* [ge-binding]
+                                      (rebuild ge-binding normalized-default normalized-imap))))
+                (mark-promise (rebuild transformed-ge normalized-default normalized-imap)))
               ;; No promises - return original if unchanged
-              (let [all-clauses (rebuild-clauses all-results)]
-                (if (and (= transformed-test test-expr) (= (seq all-clauses) (seq clauses)))
-                  body
-                  (apply list case*-sym transformed-test all-clauses)))))
+              (if (and (= transformed-ge ge) (= transformed-default default)
+                       (= transformed-imap imap))
+                body
+                (rebuild transformed-ge transformed-default transformed-imap))))
 
           ;; Do form
           do
