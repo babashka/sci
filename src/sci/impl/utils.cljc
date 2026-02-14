@@ -213,7 +213,7 @@
 
 (def ana-macros
   '#{do if and or fn fn* def defn
-     lazy-seq case try defmacro
+     lazy-seq try defmacro
      expand-dot* expand-constructor new . import in-ns ns var
      set! resolve})
 

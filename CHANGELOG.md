@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- `case` now macroexpands to JVM-compatible `case*` format, enabling tools like riddley and cloverage to work with SCI
 - Fix `.method` on class objects (e.g. `(.getDeclaredField String "value")`) routing to static instead of instance method path
 - Support [#564](https://github.com/babashka/sci/issues/564): `this-as` in ClojureScript
 

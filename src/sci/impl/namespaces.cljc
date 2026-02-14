@@ -999,8 +999,34 @@
       (if and# (and ~@next) and#))))
 
 (defn case**
-  "This is a macro for compatiblity. Only there for docs and macroexpand, faster impl in analyzer.cljc"
-  [_ _ & body] `(case* ~@body))
+  [_ _ e & clauses]
+  (let [ge (gensym)
+        ex-class #?(:clj 'java.lang.IllegalArgumentException :cljs 'js/Error)
+        default (if (odd? (count clauses))
+                  (last clauses)
+                  `(throw (new ~ex-class (str "No matching clause: " ~ge))))
+        clauses (if (odd? (count clauses)) (butlast clauses) clauses)
+        pairs (partition 2 clauses)
+        expanded (mapcat (fn [[test expr]]
+                           (if (seq? test)
+                             (map (fn [t] [t expr]) test)
+                             [[test expr]]))
+                         pairs)
+        imap (loop [expanded (seq expanded)
+                    imap {}
+                    seen #{}
+                    i 0]
+               (if expanded
+                 (let [[test expr] (first expanded)]
+                   (when (contains? seen test)
+                     (throw (#?(:clj IllegalArgumentException. :cljs js/Error.)
+                             (str "Duplicate case test constant: " test))))
+                   (recur (next expanded)
+                          (assoc imap i [test expr])
+                          (conj seen test)
+                          (inc i)))
+                 imap))]
+    `(let* [~ge ~e] (case* ~ge 0 0 ~default ~imap :sparse :hash-equiv nil))))
 
 (defn loaded-libs** [syms]
   (utils/dynamic-var

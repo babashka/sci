@@ -839,43 +839,20 @@
       (throw-error-with-location "Too many arguments to if" expr))))
 
 (defn analyze-case*
+  ;; JVM case* format: (case* ge shift mask default imap switch-type check-type skip-check)
+  ;; imap: {key [test-constant result-expr], ...}
   [ctx expr]
-  (let [ctx-wo-rt (without-recur-target ctx)
-        case-val (analyze ctx-wo-rt (second expr))
-        clauses (nnext expr)
-        match-clauses (take-nth 2 clauses)
-        result-clauses (analyze-children ctx (take-nth 2 (rest clauses)))
-        [default? case-default] (when (odd? (count clauses))
-                                  [true (analyze ctx (last clauses))])
-        cases (interleave match-clauses result-clauses)
-        assoc-new (fn [m k v]
-                    (if-not (contains? m k)
-                      (assoc m k v)
-                      (throw-error-with-location (str "Duplicate case test constant " k)
-                                                 expr)))
-        case-map (loop [cases (seq cases)
-                        ret-map {}]
-                   (if cases
-                     (let [[k v & cases] cases]
-                       (if (seq? k)
-                         (recur
-                          cases
-                          (reduce (fn [acc k]
-                                    (assoc-new acc k v))
-                                  ret-map
-                                  k))
-                         (recur
-                          cases
-                          (assoc-new ret-map k v))))
-                     ret-map))
-        f (if default?
-            (sci.impl.types/->Node
-             (eval/eval-case ctx bindings case-map case-val case-default)
-             nil)
-            (sci.impl.types/->Node
-             (eval/eval-case ctx bindings case-map case-val)
-             nil))]
-    f))
+  (let [[_ ge _shift _mask default imap] expr
+        ctx-wo-rt (without-recur-target ctx)
+        case-val (analyze ctx-wo-rt ge)
+        case-default (analyze ctx default)
+        case-map (reduce-kv
+                   (fn [m _k [test result]]
+                     (assoc m test (analyze ctx result)))
+                   {} imap)]
+    (sci.impl.types/->Node
+     (eval/eval-case ctx bindings case-map case-val case-default)
+     nil)))
 
 (defn analyze-try
   [ctx expr]
@@ -1457,8 +1434,7 @@
     def (analyze-def ctx expr)
     loop* (analyze-loop* ctx expr)
     if (return-if ctx expr)
-    ;; case macro expands into case* with no changes via fast-path
-    (case case*) (analyze-case* ctx expr)
+    case* (analyze-case* ctx expr)
     try (analyze-try ctx expr)
     throw (analyze-throw ctx expr)
     expand-dot* (expand-dot* ctx expr)

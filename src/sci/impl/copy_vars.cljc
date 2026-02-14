@@ -46,7 +46,6 @@
           inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
-                        (= 'case sym)
                         (= 'ns sym)
                         (= 'lazy-seq sym))
           varm (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
