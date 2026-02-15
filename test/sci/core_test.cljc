@@ -1116,7 +1116,12 @@
   (is (= '(clojure.core/defrecord Foo []) (eval* "(macroexpand '(defrecord Foo []))")))
   (is (= '(. nil log) (eval* "(macroexpand-1 '(.log))")))
   (is (= '(. js/console log) (eval* "(macroexpand-1 '(.log js/console))")))
-  (is (= '(. js/console log 1 2 3) (eval* "(macroexpand-1 '(.log js/console 1 2 3))"))))
+  (is (= '(. js/console log 1 2 3) (eval* "(macroexpand-1 '(.log js/console 1 2 3))")))
+  #?(:clj (testing "macroexpand-1 wraps class target in identity"
+            (is (= '(. (clojure.core/identity String) getDeclaredFields)
+                   (eval* "(macroexpand-1 '(.getDeclaredFields String))")))
+            (is (= '(. "foo" length)
+                   (eval* "(macroexpand-1 '(.length \"foo\"))"))))))
 
 (deftest macroexpand-call-test
   (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))
