@@ -191,21 +191,34 @@
         class-name (symbol (str (munge ns-name) "." record-name))
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)
+        method-counts (mapv #(count (rest %)) protocol-impls)
         methods (mapcat rest protocol-impls)]
     (list* 'deftype* tagged-name class-name fields
-           :implements (with-meta interfaces {:protocol-impls protocol-impls})
+           :implements (with-meta interfaces {:method-counts method-counts})
            methods)))
 
 (defn analyze-deftype*
   "Analyzer handler for deftype* special form.
    Generates the type definition and protocol implementations,
    then analyzes the result."
-  [ctx [_ tagged-name class-name fields _kw interfaces :as form]]
+  [ctx [_ tagged-name class-name fields _kw interfaces & methods :as form]]
   (let [record-name (symbol (name tagged-name))
         rec-type class-name
         factory-fn-str (str "->" record-name)
         factory-fn-sym (symbol factory-fn-str)
-        protocol-impls (:protocol-impls (meta interfaces))
+        method-counts (:method-counts (meta interfaces))
+        protocol-impls
+        (let [all-methods (vec methods)]
+          (loop [ifaces (seq interfaces)
+                 counts (seq method-counts)
+                 offset (int 0)
+                 result []]
+            (if ifaces
+              (let [cnt (int (first counts))
+                    impls (subvec all-methods offset (+ offset cnt))]
+                (recur (next ifaces) (next counts) (+ offset cnt)
+                       (conj result (into [(first ifaces)] impls))))
+              result)))
         field-set (set fields)
         result
         #?(:clj

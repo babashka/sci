@@ -398,3 +398,14 @@
               "(defprotocol IFoo (foo [_]))
                (first (macroexpand '(deftype Bar [x] IFoo (foo [_] x))))"
               {}))))))
+
+(deftest deftype*-uses-flat-methods-not-metadata-test
+  (testing "modifying flat methods in deftype* form takes effect (code walkers)"
+    (is (= 42
+           (tu/eval*
+            "(defprotocol IVal (get-val [_]))
+             (let [expanded (macroexpand-1 '(deftype Foo [] IVal (get-val [_] 0)))
+                   ;; Replace the method body: change 0 to 42
+                   modified (concat (butlast expanded) [(list 'get-val ['_] 42)])]
+               (eval (list 'do modified '(get-val (->Foo)))))"
+            {})))))
