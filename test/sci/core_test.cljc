@@ -1121,7 +1121,13 @@
             (is (= '(. (clojure.core/identity String) getDeclaredFields)
                    (eval* "(macroexpand-1 '(.getDeclaredFields String))")))
             (is (= '(. "foo" length)
-                   (eval* "(macroexpand-1 '(.length \"foo\"))"))))))
+                   (eval* "(macroexpand-1 '(.length \"foo\"))")))))
+  #?(:clj (testing "macroexpand-1 accepts env as first argument"
+            (is (= '(if 1 1 (clojure.core/cond))
+                   (eval* "(macroexpand-1 {'a 1} '(cond 1 1))")))
+            (is (= '(cond 1 1)
+                   (eval* "(macroexpand-1 {'cond 1} '(cond 1 1))"))
+                "local shadows macro"))))
 
 (deftest macroexpand-call-test
   (is (= [1 1] (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] [x x]) (macroexpand '(foo 1))")))

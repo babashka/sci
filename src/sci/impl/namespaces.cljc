@@ -790,11 +790,21 @@
 
 ;;;; Macroexpand
 
-(defn macroexpand* [expr]
-  (mexpand/macroexpand (store/get-ctx) expr))
+(defn macroexpand*
+  ([expr]
+   (mexpand/macroexpand (store/get-ctx) expr))
+  ([env expr]
+   (mexpand/macroexpand (cond-> (store/get-ctx)
+                          env (update :bindings merge env))
+                        expr)))
 
-(defn macroexpand-1* [expr]
-  (mexpand/macroexpand-1 (store/get-ctx) expr))
+(defn macroexpand-1*
+  ([expr]
+   (mexpand/macroexpand-1 (store/get-ctx) expr))
+  ([env expr]
+   (mexpand/macroexpand-1 (cond-> (store/get-ctx)
+                            env (update :bindings merge env))
+                          expr)))
 
 ;;;;
 

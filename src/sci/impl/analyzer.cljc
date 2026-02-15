@@ -23,6 +23,7 @@
     [ana-macros constant? macro? rethrow-with-location-of-node
      set-namespace! recur special-syms]]
    [sci.impl.vars :as vars]
+   [sci.ctx-store :as store]
    [sci.lang])
   #?(:cljs
      (:require-macros
@@ -1625,7 +1626,8 @@
                                                @f
                                                f)
                                            f (or (.-afn ^js f) f)])
-                                v (apply f expr (:bindings ctx) (rest expr))
+                                v (store/with-ctx ctx
+                                    (apply f expr (:bindings ctx) (rest expr)))
                                 v (if (seq? v)
                                     (with-meta v (merge m (meta v)))
                                     v)
