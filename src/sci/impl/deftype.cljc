@@ -200,7 +200,7 @@
   "Analyzer handler for deftype* special form.
    Generates the type definition and protocol implementations,
    then analyzes the result."
-  [ctx [_ tagged-name class-name fields _kw interfaces & methods :as form]]
+  [ctx [_ tagged-name class-name fields _kw interfaces :as form]]
   (let [record-name (symbol (name tagged-name))
         rec-type class-name
         factory-fn-str (str "->" record-name)
