@@ -10,6 +10,7 @@
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
    #?(:cljs [sci.impl.async-macro :as async-macro])
+   [sci.impl.deftype]
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -1449,7 +1450,8 @@
     or (return-or ctx expr (rest expr))
     and (return-and ctx expr (rest expr))
     ns (analyze-ns-form ctx expr)
-    lazy-seq (analyze-lazy-seq ctx expr)))
+    lazy-seq (analyze-lazy-seq ctx expr)
+    deftype* (sci.impl.deftype/analyze-deftype* ctx expr)))
 
 
 #?(:clj

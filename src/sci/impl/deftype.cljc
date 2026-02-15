@@ -124,17 +124,17 @@
    (defn ^:private standard-scitype-path
      "Standard SciType path for deftype — protocol-only implementations."
      [ctx form rec-type record-name factory-fn-sym fields field-set
-      protocol-impls raw-protocol-impls error-hint]
+      protocol-impls error-hint]
      (let [protocol-impls
            (mapcat
-            (fn [[protocol-name & impls] expr]
+            (fn [[protocol-name & impls]]
               (let [impls (group-by first impls)
                     protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
                     _ (when-not protocol
                         (utils/throw-error-with-location
                          (str "Protocol not found: " protocol-name)
-                         expr))
-                    _ (assert-no-jvm-interface protocol protocol-name expr error-hint)
+                         form))
+                    _ (assert-no-jvm-interface protocol protocol-name form error-hint)
                     protocol (if (utils/var? protocol) @protocol protocol)
                     protocol-ns (:ns protocol)
                     pns (cond protocol-ns (str (types/getName protocol-ns))
@@ -176,25 +176,53 @@
                                                                              field-set)))
                           `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                      impls)))
-            protocol-impls
-            raw-protocol-impls)]
+            protocol-impls)]
        (emit-deftype rec-type record-name factory-fn-sym
                      `(defn ~factory-fn-sym [& args#]
                         (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
                      protocol-impls))))
 
-(defn deftype [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
-  (let [ctx (store/get-ctx)]
-    (if (:sci.impl/macroexpanding ctx)
-      (cons 'clojure.core/deftype (rest form))
-      (let [factory-fn-str (str "->" record-name)
-            factory-fn-sym (symbol factory-fn-str)
-            rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
-            protocol-impls (utils/split-when symbol? raw-protocol-impls)
-            field-set (set fields)]
+(defn deftype-macro
+  "Macro expansion for deftype. Emits a deftype* form like JVM Clojure.
+   Protocol names are collected into the :implements vector, methods follow."
+  [[_fname] _ record-name fields & raw-protocol-impls]
+  (let [ns-name (utils/current-ns-name)
+        tagged-name (symbol (str ns-name) (str record-name))
+        class-name (symbol (str (munge ns-name) "." record-name))
+        protocol-impls (utils/split-when symbol? raw-protocol-impls)
+        interfaces (mapv first protocol-impls)
+        method-counts (mapv #(count (rest %)) protocol-impls)
+        methods (mapcat rest protocol-impls)]
+    (list* 'deftype* tagged-name class-name fields
+           :implements (with-meta interfaces {:method-counts method-counts})
+           methods)))
+
+(defn analyze-deftype*
+  "Analyzer handler for deftype* special form.
+   Generates the type definition and protocol implementations,
+   then analyzes the result."
+  [ctx [_ tagged-name class-name fields _kw interfaces & methods :as form]]
+  (let [record-name (symbol (name tagged-name))
+        rec-type class-name
+        factory-fn-str (str "->" record-name)
+        factory-fn-sym (symbol factory-fn-str)
+        method-counts (:method-counts (meta interfaces))
+        protocol-impls
+        (let [all-methods (vec methods)]
+          (loop [ifaces (seq interfaces)
+                 counts (seq method-counts)
+                 offset (int 0)
+                 result []]
+            (if ifaces
+              (let [cnt (int (first counts))
+                    impls (subvec all-methods offset (+ offset cnt))]
+                (recur (next ifaces) (next counts) (+ offset cnt)
+                       (conj result (into [(first ifaces)] impls))))
+              result)))
+        field-set (set fields)
+        result
         #?(:clj
            (let [deftype-fn (:deftype-fn ctx)
-                 ;; Resolve all protocol-impl names and collect interfaces
                  resolved-impls
                  (mapv (fn [[protocol-name & impls]]
                          (let [resolved (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
@@ -211,41 +239,36 @@
                                             (remove #(= Object (:resolved %)))
                                             (map :resolved))
                                   resolved-impls)
-                 ;; Collect protocols (non-class, non-Object)
                  protocols (into #{}
                                  (comp (remove :class?)
                                        (remove #(= Object (:resolved %)))
                                        (map :resolved))
                                  resolved-impls)
-                 ;; Register satisfies? for all protocols (common to both paths)
                  _ (doseq [protocol protocols]
                      (when-let [protocol-var (:var protocol)]
                        (vars/alter-var-root protocol-var update :satisfies
                                             (fnil conj #{}) (symbol (str rec-type)))))
-                 ;; Try the deftype-fn if interfaces are present and a factory exists.
-                 ;; deftype-fn returns a map with :constructor-fn (symbol) or :error (string),
-                 ;; or nil to fall through to the standard path.
                  deftype-fn-result (when (and (seq interfaces) deftype-fn)
                                     (deftype-fn {:interfaces interfaces}))
                  constructor-sym (:constructor-fn deftype-fn-result)
                  error-hint (:error deftype-fn-result)]
              (if constructor-sym
-               (let [;; Compile protocol-impl methods into fn forms
-                     all-methods (atom {})
+               (let [all-methods (atom {})
                      _ (doseq [[_protocol-name & impls] protocol-impls]
                          (doseq [impl impls]
                            (let [mname (symbol (clojure.core/name (first impl)))
                                  args-and-body (rest impl)]
                              (swap! all-methods update mname (fnil conj []) args-and-body))))
-                     method-entries (mapcat
-                                    (fn [[mname impls]]
-                                      (let [arities (mapv (fn [[args & body]]
-                                                            `(~args ~@body)) impls)]
-                                        [(list 'quote mname)
-                                         (if (= 1 (count arities))
-                                           `(fn ~@(first arities))
-                                           `(fn ~@arities))]))
-                                    @all-methods)
+                     method-entries
+                     (mapcat
+                      (fn [[mname impls]]
+                        (let [arities (mapv (fn [[args & body]]
+                                              `(~args ~@body)) impls)]
+                          [(list 'quote mname)
+                           (if (= 1 (count arities))
+                             `(fn ~@(first arities))
+                             `(fn ~@arities))]))
+                      @all-methods)
                      field-entries (mapcat (fn [f] [(list 'quote f) f]) fields)
                      protocols-form (if (seq protocols)
                                      `#{~@(map (fn [p] (list 'deref (:var p))) protocols)}
@@ -256,11 +279,11 @@
                                                      :fields (hash-map ~@field-entries)
                                                      :protocols ~protocols-form}))))
                (standard-scitype-path ctx form rec-type record-name factory-fn-sym
-                                      fields field-set protocol-impls raw-protocol-impls error-hint)))
+                                      fields field-set protocol-impls error-hint)))
            :cljs
            (let [protocol-impls
                  (mapcat
-                  (fn [[protocol-name & impls] expr]
+                  (fn [[protocol-name & impls]]
                     (let [impls (group-by first impls)
                           protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
                           protocol (or protocol
@@ -271,7 +294,7 @@
                           _ (when-not protocol
                               (utils/throw-error-with-location
                                (str "Protocol not found: " protocol-name)
-                               expr))
+                               form))
                           protocol (if (utils/var? protocol) @protocol protocol)
                           protocol-var (:var protocol)
                           _ (when protocol-var
@@ -321,9 +344,9 @@
                                                                                      field-set)))
                                   `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))))
                            impls)))
-                  protocol-impls
-                  raw-protocol-impls)]
+                  protocol-impls)]
              (emit-deftype rec-type record-name factory-fn-sym
                           `(defn ~factory-fn-sym [& args#]
                              (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
-                          protocol-impls)))))))
+                          protocol-impls)))]
+    (types/->EvalForm result)))
