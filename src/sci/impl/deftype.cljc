@@ -192,8 +192,11 @@
         class-name (symbol (str (munge ns-name) "." record-name))
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)
+        method-counts (mapv #(count (rest %)) protocol-impls)
         methods (mapcat rest protocol-impls)]
-    (list* 'deftype* tagged-name class-name fields :implements interfaces methods)))
+    (list* 'deftype* tagged-name class-name fields
+           :implements (with-meta interfaces {:method-counts method-counts})
+           methods)))
 
 (defn analyze-deftype*
   "Analyzer handler for deftype* special form.
@@ -204,48 +207,31 @@
         rec-type class-name
         factory-fn-str (str "->" record-name)
         factory-fn-sym (symbol factory-fn-str)
-        ;; Resolve each interface once and build protocol-impls by matching methods.
-        resolved-by-name
-        (into {}
-              (map (fn [iface-name]
-                     (let [resolved (@utils/eval-resolve-state ctx (:bindings ctx) iface-name)
-                           resolved-val (when resolved
-                                          (if (utils/var? resolved) @resolved resolved))]
-                       [iface-name resolved-val])))
-              interfaces)
+        ;; Reconstruct protocol-impls grouping from method-counts metadata.
+        method-counts (:method-counts (meta interfaces))
         protocol-impls
         (let [all-methods (vec methods)]
-          (mapv (fn [iface-name]
-                  (let [resolved-val (get resolved-by-name iface-name)
-                        proto-meths (cond
-                                      (map? resolved-val)
-                                      (or (when-let [sigs (:sigs resolved-val)]
-                                            (into #{} (map (comp symbol name)) (keys sigs)))
-                                          #?(:clj (when-let [^Class c (:class resolved-val)]
-                                                    (set (map #(symbol (.getName ^java.lang.reflect.Method %))
-                                                              (.getMethods c))))
-                                             :cljs nil))
-                                      #?@(:clj [(class? resolved-val)
-                                                (set (map #(symbol (.getName ^java.lang.reflect.Method %))
-                                                          (.getMethods ^Class resolved-val)))])
-                                      :else #?(:clj #{}
-                                               :cljs (case iface-name
-                                                       Object #{'toString}
-                                                       IPrintWithWriter #{'-pr-writer}
-                                                       #{})))
-                        matching (filterv (fn [m]
-                                           (and (seq? m)
-                                                (contains? proto-meths (symbol (name (first m))))))
-                                         all-methods)]
-                    (into [iface-name] matching)))
-                interfaces))
+          (loop [ifaces (seq interfaces)
+                 counts (seq method-counts)
+                 offset 0
+                 result []]
+            (if ifaces
+              (let [cnt (first counts)
+                    impls (subvec all-methods offset (+ offset cnt))]
+                (recur (next ifaces) (next counts) (+ offset cnt)
+                       (conj result (into [(first ifaces)] impls))))
+              result)))
         field-set (set fields)
         result
         #?(:clj
            (let [deftype-fn (:deftype-fn ctx)
                  resolved-impls
                  (mapv (fn [[protocol-name & impls]]
-                         (let [resolved-val (get resolved-by-name protocol-name)]
+                         (let [resolved (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
+                               _ (when-not resolved
+                                   (utils/throw-error-with-location
+                                    (str "Protocol not found: " protocol-name) form))
+                               resolved-val (if (utils/var? resolved) @resolved resolved)]
                            {:protocol-name protocol-name
                             :resolved resolved-val
                             :class? (class? resolved-val)
