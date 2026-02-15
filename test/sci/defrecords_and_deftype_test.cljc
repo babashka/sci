@@ -325,3 +325,76 @@
                   (tu/eval*
                    "(deftype Foo [x] clojure.lang.ILookup (valAt [_ k] k))"
                    opts))))))))
+
+(deftest deftype-macro-expanding-to-deftype-test
+  (testing "macro in another ns that expands to deftype with namespace-qualified method names"
+    (is (= 1
+           (tu/eval*
+            "(ns my.proto)
+             (defprotocol GetX (getX [_]))
+
+             (ns my.macros (:require [my.proto]))
+             (defmacro defwrapper [name fields & impls]
+               `(deftype ~name ~fields my.proto/GetX ~@impls))
+
+             (ns my.user (:require [my.macros :refer [defwrapper]]
+                                   [my.proto :refer [getX]]))
+             (defwrapper Foo [x] (getX [_] x))
+             (getX (->Foo 1))"
+            {})))))
+
+(deftest deftype-via-defcache-like-macro-test
+  (testing "macro that expands to deftype with multiple protocols, like core.cache/defcache"
+    (is (= [:hit :miss]
+           (tu/eval*
+            "(ns my.cache)
+             (defprotocol CacheP
+               (lookup [_ k])
+               (has? [_ k]))
+
+             (defprotocol Stringy
+               (to-str [_]))
+
+             (defmacro defcache [type-name fields & specifics]
+               (let [base (first fields)]
+                 `(deftype ~type-name ~fields
+                    ~@specifics
+                    Stringy
+                    (to-str [_] (str ~base)))))
+
+             (ns my.app (:require [my.cache :refer [defcache lookup has? to-str]]))
+             (defcache MyCache [data]
+               my.cache/CacheP
+               (lookup [_ k] (get data k))
+               (has? [_ k] (contains? data k)))
+
+             (let [c (->MyCache {:a :hit})]
+               [(lookup c :a) (if (has? c :b) :hit :miss)])"
+            {})))))
+
+(deftest deftype-macroexpand-1-produces-deftype*-test
+  (testing "macroexpand-1 of deftype produces a deftype* form, enabling code walkers like riddley"
+    (is (= 'deftype*
+           (tu/eval*
+            "(defprotocol IFoo (foo [_]))
+             (first (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x))))"
+            {})))
+    (testing "deftype* form contains expected structure"
+      (is (true?
+           (tu/eval*
+            "(defprotocol IFoo (foo [_]))
+             (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))]
+               (and (= 'deftype* (first expanded))
+                    ;; fields are present
+                    (= '[x] (nth expanded 3))
+                    ;; :implements keyword present
+                    (= :implements (nth expanded 4))
+                    ;; interfaces vector
+                    (vector? (nth expanded 5))))"
+            {}))))
+    (testing "macroexpand does not expand deftype* further (it is a special form)"
+      (is (= 'deftype*
+             (tu/eval*
+              "(defprotocol IFoo (foo [_]))
+               (first (macroexpand '(deftype Bar [x] IFoo (foo [_] x))))"
+              {}))))))

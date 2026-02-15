@@ -298,7 +298,7 @@
 
 ;; derived from (keys (. clojure.lang.Compiler specials))
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
-(def special-syms '#{try finally do if new recur quote throw def . var set! let* loop* case*})
+(def special-syms '#{try finally do if new recur quote throw def . var set! let* loop* case* deftype*})
 
 #?(:clj (def warn-on-reflection-var
           (dynamic-var

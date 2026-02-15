@@ -1438,7 +1438,7 @@
      'defn- (macrofy 'defn- defn-*)
      'defonce (macrofy 'defonce defonce*)
      'defrecord (macrofy 'defrecord sci.impl.records/defrecord clojure-core-ns)
-     'deftype (macrofy 'deftype sci.impl.deftype/deftype
+     'deftype (macrofy 'deftype sci.impl.deftype/deftype-macro
                        clojure-core-ns)
      'delay (macrofy 'delay delay*)
      'delay? (copy-core-var delay?)
