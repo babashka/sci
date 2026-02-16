@@ -396,6 +396,13 @@
        (is (true? (sci/eval-string
                    "(let [^java.util.function.Predicate p even?, q p] (.test q 42))"
                    {:classes {'java.util.function.Predicate java.util.function.Predicate}}))))
+     (testing "tag inference: Runnable vs Callable"
+       (is (nil? (sci/eval-string
+                  "(let [^java.lang.Runnable f (fn [] 42), g f] (.run g))"
+                  {:classes {'java.lang.Runnable java.lang.Runnable}})))
+       (is (= 42 (sci/eval-string
+                   "(let [^java.util.concurrent.Callable f (fn [] 42), g f] (.call g))"
+                   {:classes {'java.util.concurrent.Callable java.util.concurrent.Callable}}))))
      (testing "type hint on interop argument"
        ;; this test assumes clojure/core.clj comes from a jar file
        ;; the test will fail when not processing the type hint on the interop argument
