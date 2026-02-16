@@ -102,6 +102,34 @@ form
      (testing "symbol normally gets line number attached, but we can't do this with pushbackreader"
        (is (= 'a (sci/eval-string (pr-str '(read (java.io.PushbackReader. (java.io.StringReader. "a")))) {:classes {'java.io.PushbackReader java.io.PushbackReader}}))))))
 
+#?(:clj
+   (deftest read-eof-value-test
+     (let [opts {:classes {'java.io.PushbackReader java.io.PushbackReader
+                           'java.io.StringReader java.io.StringReader}}]
+       (testing "read with nil eof-value returns nil at EOF"
+         (is (= [42 nil]
+                (sci/eval-string
+                 "(with-open [r (java.io.PushbackReader. (java.io.StringReader. \"42\"))]
+                    [(read r false nil) (read r false nil)])"
+                 opts))))
+       (testing "read with false eof-value returns false at EOF"
+         (is (= [42 false]
+                (sci/eval-string
+                 "(with-open [r (java.io.PushbackReader. (java.io.StringReader. \"42\"))]
+                    [(read r false false) (read r false false)])"
+                 opts))))
+       (testing "read with custom eof-value returns it at EOF"
+         (is (= [42 :my-eof]
+                (sci/eval-string
+                 "(with-open [r (java.io.PushbackReader. (java.io.StringReader. \"42\"))]
+                    [(read r false :my-eof) (read r false :my-eof)])"
+                 opts))))
+       (testing "read with eof-error? true throws at EOF"
+         (is (thrown-with-msg? Exception #"EOF while reading"
+               (sci/eval-string
+                "(read (java.io.PushbackReader. (java.io.StringReader. \"\")))"
+                opts)))))))
+
 #?(:clj (deftest suppress-read-test
           (sci/eval-string
            "(tagged-literal? (binding [*suppress-read* true] (read-string \"#foo 1\")))")))

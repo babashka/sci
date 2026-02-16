@@ -9,12 +9,13 @@
 
 (defn- eof-or-throw [opts v]
   (if (utils/kw-identical? parser/eof v)
-    (if-let [eof (:eof opts)]
-      (if (not (utils/kw-identical? :eofthrow eof))
-        eof
-        (throw (ex-info "EOF while reading"
-                        {:type :sci.error/parse
-                         :opts opts})))
+    (if (contains? opts :eof)
+      (let [eof (:eof opts)]
+        (if (not (utils/kw-identical? :eofthrow eof))
+          eof
+          (throw (ex-info "EOF while reading"
+                          {:type :sci.error/parse
+                           :opts opts}))))
       (throw (ex-info "EOF while reading"
                       {:type :sci.error/parse
                        :opts opts})))
@@ -44,12 +45,14 @@
    (read stream true nil))
   ([stream eof-error? eof-value]
    (read stream eof-error? eof-value false))
-  ([stream _eof-error? eof-value _recursive?]
-   (let [v (parser/parse-next (store/get-ctx) stream
-                              (-> {:eof eof-value}
+  ([stream eof-error? eof-value _recursive?]
+   (let [opts (cond-> {}
+                (not eof-error?) (assoc :eof eof-value))
+         v (parser/parse-next (store/get-ctx) stream
+                              (-> opts
                                   (with-resolver)
                                   (with-suppressed)))]
-     (eof-or-throw {:eof eof-value} v)))
+     (eof-or-throw opts v)))
   ([opts stream]
    (let [opts (-> opts with-resolver with-suppressed)
          opts (if (:read-cond opts)
