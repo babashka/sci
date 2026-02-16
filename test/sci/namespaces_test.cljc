@@ -180,7 +180,9 @@
 (deftest ns-map-test
   (is (eval* "(some? (get (ns-map *ns*) 'inc))"))
   #?(:clj (is (eval* "(some? (get (ns-map *ns*) 'String))")))
-  (is (eval* "(defn- foo []) (some? (get (ns-map *ns*) 'foo))")))
+  (is (eval* "(defn- foo []) (some? (get (ns-map *ns*) 'foo))"))
+  (testing "ns-map reflects interned vars shadowing refers"
+    (is (= :foo (eval* "(defn inc [x] :foo) ((get (ns-map *ns*) 'inc) 1)")))))
 
 (deftest ns-unmap-test
   (is (eval* "(def foo 1) (ns-unmap *ns* 'foo) (nil? (resolve 'foo))"))

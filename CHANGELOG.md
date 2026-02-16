@@ -15,6 +15,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix `read` with `nil` or `false` as eof-value throwing instead of returning the eof-value
 - Fix `letfn` with duplicate function names crashing with ClassCastException
 - `macroexpand-1` now expands `(ClassName. args)` to `(new ClassName args)`, matching JVM Clojure
+- Fix `ns-map` not reflecting vars that shadow referred vars (e.g. `(defn inc ...)`)
 - `deftype` now macroexpands to `deftype*`, matching JVM Clojure, enabling code walkers like riddley
 - `case` now macroexpands to JVM-compatible `case*` format, enabling tools like riddley and cloverage to work with SCI
 - Fix `.method` on class objects (e.g. `(.getDeclaredField String "value")`) routing to static instead of instance method path

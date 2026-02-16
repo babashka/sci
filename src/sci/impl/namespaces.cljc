@@ -523,9 +523,9 @@
 
 (defn sci-ns-map [sci-ns]
   (let [ctx (store/get-ctx)]
-    (merge (sci-ns-interns* ctx sci-ns)
+    (merge (sci-ns-imports* ctx sci-ns)
            (sci-ns-refers* ctx sci-ns)
-           (sci-ns-imports* ctx sci-ns))))
+           (sci-ns-interns* ctx sci-ns))))
 
 (defn sci-ns-unmap [sci-ns sym]
   (let [ctx (store/get-ctx)]
