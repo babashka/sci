@@ -75,10 +75,12 @@
             val# (deref var#)
             m# (-> var# meta)
             name# (or ~nm (:name m#))
-            new-m# {:doc (:doc m#)
-                    :name name#
-                    :arglists (:arglists m#)
-                    :ns ns#}]
+            tag# (:tag m#)
+            new-m# (cond-> {:doc (:doc m#)
+                            :name name#
+                            :arglists (:arglists m#)
+                            :ns ns#}
+                     tag# (assoc :tag tag#))]
         (cond (:dynamic m#)
               (new-dynamic-var name# val# new-m#)
               (or (:macro m#) (:sci/macro m#))
@@ -94,12 +96,14 @@
         arglists (:arglists m)
         dynamic (:dynamic m)
         macro (:macro m)
-        new-m (cond-> {:ns sci-ns
+        tag (:tag m)
+    new-m (cond-> {:ns sci-ns
                        :name nm}
                 macro (assoc :macro true)
                 doc (assoc :doc doc)
                 arglists (assoc :arglists arglists)
-                dynamic (assoc :dynamic dynamic))]
+                dynamic (assoc :dynamic dynamic)
+                tag (assoc :tag tag))]
     (new-var nm @clojure-var new-m)))
 
 (macros/deftime

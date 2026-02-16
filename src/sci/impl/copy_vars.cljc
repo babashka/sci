@@ -55,11 +55,13 @@
                                                     :cljs (atom nil))])]
                     (macros/? :clj #?(:clj  (let [m (meta the-var)
                                                   dyn (:dynamic m)
-                                                  arglists (:arglists m)]
+                                                  arglists (:arglists m)
+                                                  tag (:tag m)]
                                               (cond-> (if elide-vars {} {:doc (:doc m)})
                                                 dyn (assoc :dynamic dyn)
                                                 (if elide-vars false arglists)
                                                 (assoc :arglists (list 'quote (:arglists m)))
+                                                tag (assoc :tag tag)
                                                 fast-path (assoc :sci.impl/fast-path (list 'quote sym))))
                                       :cljs nil)
                               :cljs (let [r (cljs-resolve &env fqsym)
