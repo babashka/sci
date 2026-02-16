@@ -1122,6 +1122,9 @@
                    (eval* "(macroexpand-1 '(.getDeclaredFields String))")))
             (is (= '(. "foo" length)
                    (eval* "(macroexpand-1 '(.length \"foo\"))")))))
+  #?(:clj (testing "macroexpand-1 expands ClassName. constructor sugar"
+            (is (= '(new String "ABC")
+                   (eval* "(macroexpand-1 '(String. \"ABC\"))")))))
   #?(:clj (testing "macroexpand-1 accepts env as first argument"
             (is (= '(if 1 1 (clojure.core/cond))
                    (eval* "(macroexpand-1 {'a 1} '(cond 1 1))")))

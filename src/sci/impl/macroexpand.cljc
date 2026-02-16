@@ -19,25 +19,30 @@
                   ;; (contains? #{'for} op) (analyze ctx expr)
                   (= 'clojure.core/defrecord op) expr
                   :else
-                  (let [f (try (resolve/resolve-symbol ctx op true)
-                               (catch #?(:clj Exception :cljs :default)
-                                   _ ::unresolved))]
-                    (if (kw-identical? ::unresolved f)
-                      expr
-                      (let [var? (var? f)
-                            macro-var? (and var?
-                                            (vars/isMacro f))
-                            f (if macro-var? @f f)]
-                        (if (or macro-var? (macro? f))
-                          (apply f original-expr (:bindings ctx) (rest expr))
-                          (if (str/starts-with? (str op) ".")
-                            (let [target (second expr)
-                                  target (if (and (symbol? target)
-                                                  (interop/resolve-class ctx target))
-                                           (list 'clojure.core/identity target)
-                                           target)]
-                              (list* '. target (symbol (subs (str op) 1)) (nnext expr)))
-                            expr))))))
+                  (let [sname (str op)]
+                    (if (and (str/ends-with? sname ".")
+                             (not (str/starts-with? sname ".")))
+                      ;; ClassName. constructor sugar -> (new ClassName args...)
+                      (list* 'new (symbol (subs sname 0 (dec (count sname)))) (rest expr))
+                      (let [f (try (resolve/resolve-symbol ctx op true)
+                                   (catch #?(:clj Exception :cljs :default)
+                                       _ ::unresolved))]
+                        (if (kw-identical? ::unresolved f)
+                          expr
+                          (let [var? (var? f)
+                                macro-var? (and var?
+                                                (vars/isMacro f))
+                                f (if macro-var? @f f)]
+                            (if (or macro-var? (macro? f))
+                              (apply f original-expr (:bindings ctx) (rest expr))
+                              (if (str/starts-with? sname ".")
+                                (let [target (second expr)
+                                      target (if (and (symbol? target)
+                                                      (interop/resolve-class ctx target))
+                                               (list 'clojure.core/identity target)
+                                               target)]
+                                  (list* '. target (symbol (subs sname 1)) (nnext expr)))
+                                expr))))))))
             expr))
         expr))))
 
