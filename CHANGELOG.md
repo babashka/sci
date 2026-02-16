@@ -19,6 +19,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - `deftype` now macroexpands to `deftype*`, matching JVM Clojure, enabling code walkers like riddley
 - `case` now macroexpands to JVM-compatible `case*` format, enabling tools like riddley and cloverage to work with SCI
 - Preserve `:tag` metadata in `copy-var`
+- Fix NPE in `resolve` when called at runtime (e.g. inside a macro body during code walking) by skipping analysis-only idx machinery
 - Fix `.method` on class objects (e.g. `(.getDeclaredField String "value")`) routing to static instead of instance method path
 - `macroexpand-1` of `(.method ClassName)` now wraps class targets in `identity`, matching Clojure behavior
 - `macroexpand-1` now accepts an optional env map as first argument, like `cljs.analyzer/macroexpand-1`

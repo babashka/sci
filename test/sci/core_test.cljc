@@ -449,7 +449,15 @@
   (is (= [6] (eval* "[(-> 3 inc inc inc)]")))
   (is (= [{3 6}] (eval* "[{(->> 2 inc) (-> 3 inc inc inc)}]")))
   (is (eval* (str `(#(< 10 % 18) 15))))
-  (is (eval* (str `(#(and (int? %) (< 10 % 18)))) 15)))
+  (is (eval* (str `(#(and (int? %) (< 10 % 18)))) 15))
+  #?(:clj
+     (testing "macroexpand-1 with env does not NPE when macro calls resolve on a local"
+       (is (= '(f 1)
+              (tu/eval* "
+(defmacro resolving-macro [form]
+  (resolve (first form))
+  form)
+(macroexpand-1 '{f nil} '(resolving-macro (f 1)))" {}))))))
 
 (deftest permission-test
   (is (tu/eval* "(int? 1)" {:allow '[int?]}))
