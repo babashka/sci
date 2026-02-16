@@ -34,7 +34,7 @@
      (def ^:private object-methods
        #{"equals" "toString" "hashCode"})
 
-     (defn- maybe-fi-method
+     (defn maybe-fi-method
        "Return FI method if:
         1) Target is a functional interface and not already implemented by AFn
         2) Target method matches one of our fn invoker methods (0 <= arity <= 10)"
@@ -98,7 +98,7 @@
        ret)))
 
 #?(:clj
-   (defn- box-arg
+   (defn box-arg
      "Box an argument to match the parameter type.
       Handles IFn -> Functional Interface adaptation."
      [^Class param-type ^Object arg]

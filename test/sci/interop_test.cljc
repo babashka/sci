@@ -388,6 +388,14 @@
 @((identity ^[Callable] java.util.concurrent.ExecutorService/.submit) thread-pool (fn [] 3))
 ]"
                                     type-hint-config)))))
+     (testing "functional interface adaptation on instance target"
+       (is (true? (sci/eval-string
+                   "(let [^java.util.function.Predicate p even?] (.test p 42))"
+                   {:classes {'java.util.function.Predicate java.util.function.Predicate}}))))
+     (testing "functional interface adaptation with inferred tag"
+       (is (true? (sci/eval-string
+                   "(let [^java.util.function.Predicate p even?, q p] (.test q 42))"
+                   {:classes {'java.util.function.Predicate java.util.function.Predicate}}))))
      (testing "type hint on interop argument"
        ;; this test assumes clojure/core.clj comes from a jar file
        ;; the test will fail when not processing the type hint on the interop argument

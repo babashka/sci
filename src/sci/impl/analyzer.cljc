@@ -577,6 +577,12 @@
                                  (aget ^objects bindings idx)
                                  nil)
                                 (analyze ctx binding-value)))
+                   ;; Propagate inferred tag from analyzed value to binding name
+                   #?@(:clj [name-tag (-> binding-name meta :tag)
+                             binding-tag (or name-tag (-> v meta :tag))
+                             binding-name (if (and binding-tag (not name-tag))
+                                            (vary-meta binding-name assoc :tag binding-tag)
+                                            binding-name)])
                    iden->invoke-idx (:iden->invoke-idx ctx)
                    iden->invoke-idx (assoc iden->invoke-idx new-iden idx)
                    ctx (assoc ctx :iden->invoke-idx iden->invoke-idx)]
@@ -947,6 +953,25 @@
           m)))))
 
 #?(:clj
+   (defn- maybe-wrap-fi-adapter
+     "Wrap instance-expr with FI adaptation if tag-class is a functional interface.
+      Analysis-time check, eval-time adaptation (mirrors Compiler.java line 7072)."
+     [instance-expr]
+     (let [tag-class (-> instance-expr meta :tag-class)]
+       (if (and (instance? Class tag-class) (reflector/maybe-fi-method tag-class))
+         (let [orig instance-expr]
+           (with-meta
+             (sci.impl.types/->Node
+              (let [val (t/eval orig ctx bindings)]
+                (if (and (instance? clojure.lang.IFn val)
+                         (not (instance? tag-class val)))
+                  (reflector/box-arg tag-class val)
+                  val))
+              nil)
+             (meta instance-expr)))
+         instance-expr))))
+
+#?(:clj
    (defn- analyze-instance-method [ctx instance-expr method-expr args expr]
      (let [method-name (name method-expr)
            field-access (str/starts-with? method-name "-")
@@ -984,6 +1009,7 @@
                                  (cons method-expr args))
         instance-expr (analyze ctx instance-expr)
         #?@(:clj [instance-expr (resolve-tag-class ctx instance-expr)])
+        #?@(:clj [instance-expr (maybe-wrap-fi-adapter instance-expr)])
         method-name (name method-expr)
         args (when args (analyze-children ctx args))
         res
@@ -1072,7 +1098,7 @@
                 "Malformed member expression, expecting (.member target ...)")))
   #?(:clj (let [ctx (without-recur-target ctx)
                 method-sym (symbol (subs (name method-name) 1))
-                instance-expr (resolve-tag-class ctx (analyze ctx obj))
+                instance-expr (maybe-wrap-fi-adapter (resolve-tag-class ctx (analyze ctx obj)))
                 args (when args (analyze-children ctx args))]
             (analyze-instance-method ctx instance-expr method-sym args expr))
      :cljs (analyze-dot ctx (with-meta (list '. obj (cons (symbol (subs (name method-name) 1)) args)) (meta expr)))))

@@ -12,6 +12,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Support functional interface (FI) adaptation for instance targets (e.g. `(let [^Predicate p even?] (.test p 42))`)
+- Infer type tags from let binding values to binding names (e.g. `(let [^String s "foo", q s] (.length q))`)
 - Fix `read` with `nil` or `false` as eof-value throwing instead of returning the eof-value
 - Fix `letfn` with duplicate function names crashing with ClassCastException
 - `macroexpand-1` now expands `(ClassName. args)` to `(new ClassName args)`, matching JVM Clojure
