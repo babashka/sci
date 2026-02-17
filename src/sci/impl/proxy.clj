@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [proxy])
   (:require [sci.ctx-store :as store]))
 
-(defn proxy [form _ classes _args & methods]
+(defn proxy [form _ classes args & methods]
   (let [abstract-class (first classes)
         interfaces (vec (rest classes))
         methods (into {}
@@ -20,14 +20,15 @@
                                                bodies)]
                                [(list 'quote meth-name) (list* 'fn bodies)]))
                            methods))]
-    `(clojure.core/proxy* '~form ~abstract-class ~interfaces ~methods)))
+    `(clojure.core/proxy* '~form ~abstract-class ~interfaces ~args ~methods)))
 
 (defn proxy*
-  [_form abstract-class interfaces methods]
+  [_form abstract-class interfaces args methods]
   (if-let [pfn (:proxy-fn (store/get-ctx))]
     (let [{interfaces true protocols false} (group-by class? interfaces)]
       (pfn {:class abstract-class
             :interfaces (set interfaces)
             :protocols (set protocols)
+            :args args
             :methods methods}))
     (throw (Exception. "no proxy-fn"))))
