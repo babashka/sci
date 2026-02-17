@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Add `proxy-super`, `proxy-call-with-super`, `update-proxy` and `proxy-mappings`
 - Support functional interface (FI) adaptation for instance targets (e.g. `(let [^Predicate p even?] (.test p 42))`)
 - Infer type tags from let binding values to binding names (e.g. `(let [^String s "foo", q s] (.length q))`)
 - Fix `read` with `nil` or `false` as eof-value throwing instead of returning the eof-value

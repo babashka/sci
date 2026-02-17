@@ -1294,7 +1294,11 @@
      'reify (macrofy 'reify reify/reify clojure-core-ns)
      'protocol-type-impl (new-var 'protocol-type-impl types/type-impl)
      #?@(:clj ['proxy* (new-var 'proxy* proxy/proxy*)
-               'proxy (macrofy 'proxy proxy/proxy clojure-core-ns)])
+               'proxy (macrofy 'proxy proxy/proxy clojure-core-ns)
+               'proxy-super (copy-var proxy-super clojure-core-ns {:macro true})
+               'proxy-call-with-super (copy-core-var proxy-call-with-super)
+               'update-proxy (copy-core-var update-proxy)
+               'proxy-mappings (copy-core-var proxy-mappings)])
      'satisfies? (copy-var sci.impl.protocols/satisfies? clojure-core-ns {:name 'satisfies?})
      ;; end protocols
      ;; IDeref as protocol
