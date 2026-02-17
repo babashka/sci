@@ -16,7 +16,7 @@
                                             [bodies]
                                             bodies)
                                    bodies (map (fn [[args & body]]
-                                                 (list* (into ['this] args) body))
+                                                 (list* (into [(with-meta 'this {:tag abstract-class})] args) body))
                                                bodies)]
                                [(list 'quote meth-name) (list* 'fn bodies)]))
                            methods))]

@@ -57,106 +57,108 @@
       (equals [other]
         (if-let [f (get methods 'equals)]
           (f this other)
-          (proxy-super equals other))))
-))
+          (proxy-super equals other))))))
+
+(defn- apersistentmap-proxy-fn [{:keys [class methods]}]
+  (case (.getName ^Class class)
+    "clojure.lang.APersistentMap"
+    (proxy [clojure.lang.APersistentMap] []
+      (iterator [] ((get methods 'iterator) this))
+      (containsKey [k] ((get methods 'containsKey) this k))
+      (entryAt [k] ((get methods 'entryAt) this k))
+      (valAt
+        ([k] ((get methods 'valAt) this k))
+        ([k default] ((get methods 'valAt) this k default)))
+      (cons [v]
+        (if-let [m (get methods 'cons)]
+          (m this v)
+          (proxy-super cons v)))
+      (count [] ((get methods 'count) this))
+      (assoc [k v] ((get methods 'assoc) this k v))
+      (without [k] ((get methods 'without) this k))
+      (seq [] ((get methods 'seq) this))
+      (meta [] ((get methods 'meta) this))
+      (withMeta [md] ((get methods 'withMeta) this md))
+      (toString []
+        (if-let [m (get methods 'toString)]
+          (m this)
+          (proxy-super toString))))))
 
 (def ^:private proxy-super-opts
   {:classes {:allow :all}
    :proxy-fn object-proxy-fn})
 
-(deftest proxy-super-toString-test
-  (testing "proxy-super calls superclass toString"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (toString [] (str \"prefix:\" (proxy-super toString))))]
-                     (.startsWith (str p) \"prefix:\"))"
-                  proxy-super-opts)]
-      (is (true? result))))
-  (testing "proxy-super toString returns the default Object toString"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (toString [] (proxy-super toString)))]
-                     (.contains (str p) \"@\"))"
-                  proxy-super-opts)]
-      (is (true? result)))))
+(def ^:private apersistentmap-opts
+  {:classes {'clojure.lang.APersistentMap clojure.lang.APersistentMap
+             :allow :all}
+   :proxy-fn apersistentmap-proxy-fn})
 
-(deftest proxy-super-without-override-test
-  (testing "proxy without toString override uses default"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] [])]
-                     (.contains (str p) \"@\"))"
-                  proxy-super-opts)]
-      (is (true? result)))))
+(deftest proxy-super-Object-test
+  (testing "proxy-super on Object: toString, hashCode, equals"
+    (is (= {:starts-with-prefix true
+            :hashcode-gt-999 true
+            :equals-self true
+            :not-equals-other true}
+           (sci/eval-string
+            "(let [p (proxy [Object] []
+                        (toString [] (str \"prefix:\" (proxy-super toString)))
+                        (hashCode [] (+ 1000 (proxy-super hashCode)))
+                        (equals [other] (proxy-super equals other)))]
+                {:starts-with-prefix (.startsWith (str p) \"prefix:\")
+                 :hashcode-gt-999 (> (.hashCode p) 999)
+                 :equals-self (.equals p p)
+                 :not-equals-other (not (.equals p (Object.)))})"
+            proxy-super-opts))))
+  (testing "proxy without override uses default"
+    (is (true? (sci/eval-string
+                "(let [p (proxy [Object] [])]
+                   (.contains (str p) \"@\"))"
+                proxy-super-opts))))
+  (testing "proxy-super restores mappings after call"
+    (is (true? (sci/eval-string
+                "(let [p (proxy [Object] []
+                            (toString [] (str \"custom:\" (proxy-super toString))))]
+                   (let [r1 (str p) r2 (str p)]
+                     (and (.startsWith r1 \"custom:\")
+                          (.startsWith r2 \"custom:\"))))"
+                proxy-super-opts)))))
 
-(deftest proxy-super-hashCode-test
-  (testing "proxy-super hashCode calls superclass"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (hashCode [] (+ 1000 (proxy-super hashCode))))]
-                     (> (.hashCode p) 999))"
-                  proxy-super-opts)]
-      (is (true? result)))))
-
-(deftest proxy-super-equals-test
-  (testing "proxy-super equals calls superclass"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (equals [other]
-                               (proxy-super equals other)))]
-                     (and (.equals p p)
-                          (not (.equals p (Object.)))))"
-                  proxy-super-opts)]
-      (is (true? result)))))
-
-(deftest proxy-super-with-args-test
-  (testing "proxy-super passes arguments to superclass equals"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (equals [other]
-                               (proxy-super equals other)))]
-                     ;; equals with self should be true, with different object false
-                     [(boolean (.equals p p))
-                      (boolean (.equals p (Object.)))])"
-                  proxy-super-opts)]
-      (is (= [true false] result)))))
+(deftest proxy-super-APersistentMap-test
+  (testing "proxy-super cons delegates to APersistentMap.cons which calls assoc"
+    (is (= {:assoc-called [:a 1]}
+           (sci/eval-string
+            "(let [m (proxy [clojure.lang.APersistentMap] []
+                       (iterator [] (.iterator {}))
+                       (containsKey [k] false)
+                       (entryAt [k] nil)
+                       (valAt ([k] nil) ([k d] d))
+                       (cons [v] (proxy-super cons v))
+                       (count [] 0)
+                       (assoc [k v] {:assoc-called [k v]})
+                       (without [k] nil)
+                       (seq [] nil)
+                       (meta [] nil)
+                       (withMeta [md] nil))]
+               (conj m [:a 1]))"
+            apersistentmap-opts)))))
 
 (deftest proxy-mappings-test
-  (testing "proxy-mappings returns the fn map"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (toString [] \"hello\"))]
-                     (map? (proxy-mappings p)))"
-                  proxy-super-opts)]
-      (is (true? result))))
-  (testing "proxy-mappings contains the overridden method"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (toString [] \"hello\"))]
-                     (contains? (proxy-mappings p) \"toString\"))"
-                  proxy-super-opts)]
-      (is (true? result)))))
+  (testing "proxy-mappings returns a map containing the overridden method"
+    (is (= {:is-map true :has-toString true}
+           (sci/eval-string
+            "(let [p (proxy [Object] []
+                        (toString [] \"hello\"))]
+               {:is-map (map? (proxy-mappings p))
+                :has-toString (contains? (proxy-mappings p) \"toString\")})"
+            proxy-super-opts)))))
 
 (deftest update-proxy-test
   (testing "update-proxy changes method behavior"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (toString [] \"original\"))]
-                     (let [before (str p)]
-                       (update-proxy p {\"toString\" (fn [this] \"updated\")})
-                       [before (str p)]))"
-                  proxy-super-opts)]
-      (is (= ["original" "updated"] result)))))
-
-(deftest proxy-super-restores-mappings-test
-  (testing "proxy-super restores original mappings after call"
-    (let [result (sci/eval-string
-                  "(let [p (proxy [Object] []
-                             (toString []
-                               (str \"custom:\" (proxy-super toString))))]
-                     ;; call twice to verify mappings are restored
-                     (let [r1 (str p)
-                           r2 (str p)]
-                       (and (.startsWith r1 \"custom:\")
-                            (.startsWith r2 \"custom:\"))))"
-                  proxy-super-opts)]
-      (is (true? result)))))
+    (is (= ["original" "updated"]
+           (sci/eval-string
+            "(let [p (proxy [Object] []
+                        (toString [] \"original\"))]
+               (let [before (str p)]
+                 (update-proxy p {\"toString\" (fn [this] \"updated\")})
+                 [before (str p)]))"
+            proxy-super-opts)))))
