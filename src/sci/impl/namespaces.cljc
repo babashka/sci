@@ -1148,6 +1148,8 @@
        (clojure.lang.RT/aset arr idx val))
      (set! *warn-on-reflection* true)))
 
+(+ 1 2 3)
+
 #?(:clj (defn aset*
           "Sets the value at the index/indices. Works on Java arrays of
            reference types. Returns val."
