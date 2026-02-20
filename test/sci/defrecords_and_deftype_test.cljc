@@ -144,7 +144,7 @@
   (testing "defrecord inside non-top-level form"
     (is (= {:a 1} (tu/eval* "(let [x 1] (defrecord Foo [a]) (into {} (->Foo 1)))" {})))
     (is (= {:a 1} (tu/eval* "(let [x 1] (defrecord Foo [a]) (into {} (map->Foo {:a 1})))" {})))
-    (is (str/includes? (str (tu/eval* "(let [x 1] (defrecord Foo [a]) (->Foo 1))" {})) "Foo")))
+    (is (str/includes? (tu/eval* "(let [x 1] (defrecord Foo [a]) (str (->Foo 1)))" {}) "Foo")))
   (testing "meta and ext"
     (is (true? (tu/eval* "(defrecord Dude [x]) (let [x (new Dude 1 {:meta 1} {:ext 2})]
 (and (= 1 (:x x)) (= 1 (:meta (meta x))) (= 2 (:ext x))))" {})))))
@@ -206,7 +206,7 @@
                    {})))
   (testing "deftype inside non-top-level form (issue #1936)"
     (is (nil? (tu/eval* "(let [x 1] (deftype MyType [field]) (empty (->MyType \"\")))" {})))
-    (is (str/includes? (str (tu/eval* "(let [x 1] (deftype MyType [field]) (->MyType \"hello\"))" {}))
+    (is (str/includes? (tu/eval* "(let [x 1] (deftype MyType [field]) (str (->MyType \"hello\")))" {})
                         "MyType")))
   (testing "getting value of shadowed field"
     (is (= 10
