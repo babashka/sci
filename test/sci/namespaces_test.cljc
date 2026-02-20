@@ -175,7 +175,9 @@
 (deftest ns-refers-test
   (is (eval* "(some? (get (ns-refers *ns*) 'inc))"))
   (is (eval* "(def x 1) (nil? (get (ns-refers *ns*) 'x))"))
-  (is (eval* "(require '[clojure.string :refer [includes?]]) (some? (get (ns-refers *ns*) 'includes?))")))
+  (is (eval* "(require '[clojure.string :refer [includes?]]) (some? (get (ns-refers *ns*) 'includes?))"))
+  (testing "private vars are not referred"
+    (is (eval* "(every? (fn [[_ v]] (not (:private (meta v)))) (ns-refers *ns*))"))))
 
 (deftest ns-map-test
   (is (eval* "(some? (get (ns-map *ns*) 'inc))"))

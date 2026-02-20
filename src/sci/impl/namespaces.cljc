@@ -514,7 +514,11 @@
         env @(:env ctx)
         refers (get-in env [:namespaces name :refers])
         clojure-core (get-in env [:namespaces 'clojure.core])
-        clojure-core (clean-ns clojure-core)]
+        clojure-core (clean-ns clojure-core)
+        clojure-core (into {} (remove (fn [[_ v]]
+                                        (and (utils/var? v)
+                                             (:private (meta v)))))
+                            clojure-core)]
     (merge clojure-core refers)))
 
 (defn sci-ns-refers [sci-ns]
