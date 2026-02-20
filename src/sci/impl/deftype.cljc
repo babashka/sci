@@ -113,7 +113,6 @@
              {:sci/type true})
        (sci.impl.deftype/-create-type
         ~{:sci.impl/type-name (list 'quote rec-type)
-          :sci.impl/type rec-type
           :sci.impl/constructor (list 'var factory-fn-sym)
           :sci.impl/var (list 'var record-name)}))
      ~factory-fn-body
@@ -179,7 +178,7 @@
             protocol-impls)]
        (emit-deftype rec-type record-name factory-fn-sym
                      `(defn ~factory-fn-sym [& args#]
-                        (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+                        (sci.impl.deftype/->type-impl '~rec-type ~record-name (var ~record-name) (zipmap ~(list 'quote fields) args#)))
                      protocol-impls))))
 
 (defn deftype-macro
@@ -201,7 +200,7 @@
   "Analyzer handler for deftype* special form.
    Generates the type definition and protocol implementations,
    then analyzes the result."
-  [ctx [_ tagged-name class-name fields _kw interfaces & methods :as form]]
+  [ctx [_ tagged-name class-name fields _kw interfaces & methods :as form] top-level?]
   (let [record-name (symbol (name tagged-name))
         rec-type class-name
         factory-fn-str (str "->" record-name)
@@ -347,6 +346,8 @@
                   protocol-impls)]
              (emit-deftype rec-type record-name factory-fn-sym
                           `(defn ~factory-fn-sym [& args#]
-                             (sci.impl.deftype/->type-impl '~rec-type ~rec-type (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+                             (sci.impl.deftype/->type-impl '~rec-type ~record-name (var ~record-name) (zipmap ~(list 'quote fields) args#)))
                           protocol-impls)))]
-    (types/->EvalForm result)))
+    (if top-level?
+      (types/->EvalForm result)
+      (@utils/analyze ctx result))))

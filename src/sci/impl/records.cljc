@@ -338,8 +338,8 @@
              (~fields
               (~constructor-fn-sym ~@fields nil nil))
              ([~@fields meta# ext#]
-              (sci.impl.records/->record-impl '~rec-type 
-                                              ~rec-type 
+              (sci.impl.records/->record-impl '~rec-type
+                                              ~record-name
                                               ~key-set
                                               (var ~record-name)
                                               (cond-> (zipmap ~keys ~fields)
@@ -351,7 +351,7 @@
               (~constructor-fn-sym ~@fields nil nil)))
            (defn ~map-factory-sym [m#]
              (sci.impl.records/->record-impl '~rec-type
-                                             ~rec-type
+                                             ~record-name
                                              ~key-set
                                              (var ~record-name)
                                              (merge '~nil-map m#)))

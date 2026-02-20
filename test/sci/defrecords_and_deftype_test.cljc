@@ -141,6 +141,10 @@
             "(defprotocol IFoo (foo [this]))
              (defrecord Foo [x] IFoo (foo [this] (Foo. x)))
              (into {} (foo (Foo. 1)))" {}))))
+  (testing "defrecord inside non-top-level form"
+    (is (= {:a 1} (tu/eval* "(let [x 1] (defrecord Foo [a]) (into {} (->Foo 1)))" {})))
+    (is (= {:a 1} (tu/eval* "(let [x 1] (defrecord Foo [a]) (into {} (map->Foo {:a 1})))" {})))
+    (is (str/includes? (str (tu/eval* "(let [x 1] (defrecord Foo [a]) (->Foo 1))" {})) "Foo")))
   (testing "meta and ext"
     (is (true? (tu/eval* "(defrecord Dude [x]) (let [x (new Dude 1 {:meta 1} {:ext 2})]
 (and (= 1 (:x x)) (= 1 (:meta (meta x))) (= 2 (:ext x))))" {})))))
@@ -200,6 +204,10 @@
                                 "^:volatile-mutable" #?(:clj "^:volatile-mutable"
                                                         :cljs "^:mutable"))
                    {})))
+  (testing "deftype inside non-top-level form (issue #1936)"
+    (is (nil? (tu/eval* "(let [x 1] (deftype MyType [field]) (empty (->MyType \"\")))" {})))
+    (is (str/includes? (str (tu/eval* "(let [x 1] (deftype MyType [field]) (->MyType \"hello\"))" {}))
+                        "MyType")))
   (testing "getting value of shadowed field"
     (is (= 10
            (tu/eval* (str/replace "(defprotocol ICounter (inc! [_])) (deftype Cnt [^:volatile-mutable n] ICounter (inc! [_] (let [n 10] n))) (inc! (->Cnt 1))"
@@ -298,6 +306,15 @@
                         (valAt [_ k] (get {:x x :y y} k)))
                       (let [t (->MyType :a :b)]
                         [(.-x t) (.-y t)])"
+                     opts))))
+           (testing "deftype-fn inside non-top-level form"
+             (is (= [:a :b]
+                    (tu/eval*
+                     "(let [x 1]
+                        (deftype MyType [x y]
+                          clojure.lang.ILookup
+                          (valAt [_ k] (get {:x x :y y} k)))
+                        [(.-x (->MyType :a :b)) (.-y (->MyType :a :b))])"
                      opts))))
            (testing "deftype-fn receives correct interfaces set"
              (let [received (atom nil)

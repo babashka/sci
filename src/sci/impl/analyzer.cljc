@@ -1454,7 +1454,7 @@
                           (pop-thread-bindings)
                           :cljs (set! utils/*top-level-location* nil))))))))
 
-(defn dispatch-special [ctx expr f]
+(defn dispatch-special [ctx expr f top-level?]
   (case f
     do (return-do ctx expr (rest expr))
     let* (analyze-let* ctx expr (second expr) (nnext expr))
@@ -1479,7 +1479,7 @@
     and (return-and ctx expr (rest expr))
     ns (analyze-ns-form ctx expr)
     lazy-seq (analyze-lazy-seq ctx expr)
-    deftype* (sci.impl.deftype/analyze-deftype* ctx expr)))
+    deftype* (sci.impl.deftype/analyze-deftype* ctx expr top-level?)))
 
 
 #?(:clj
@@ -1644,7 +1644,7 @@
                            (or
                             special-sym
                             (contains? ana-macros f)))
-                      (dispatch-special ctx expr f)
+                      (dispatch-special ctx expr f top-level?)
                       :else
                       (try
                         (if (macro? f)
