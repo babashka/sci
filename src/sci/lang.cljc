@@ -99,7 +99,8 @@
          #?(:clj ^:volatile-mutable needs-ctx
             :cljs ^:mutable needs-ctx)
          #?(:clj ^:volatile-mutable watches
-            :cljs ^:mutable watches)]
+            :cljs ^:mutable watches)
+         ns]
   #?(:clj
      ;; marker interface, clj only for now
      sci.lang.IVar)

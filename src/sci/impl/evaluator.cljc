@@ -32,11 +32,13 @@
           (let [the-current-ns (get (get env :namespaces) cnn)
                 prev (get the-current-ns var-name)
                 prev (if-not (utils/var? prev)
-                       (sci.lang.Var. prev (symbol (str cnn) (str var-name))
-                                      (meta prev)
-                                      false
-                                      false
-                                      nil)
+                       (let [m (meta prev)]
+                         (sci.lang.Var. prev (symbol (str cnn) (str var-name))
+                                        m
+                                        false
+                                        false
+                                        nil
+                                        (:ns m)))
                        prev)
                 v (if (identical? utils/var-unbound init)
                     (doto prev

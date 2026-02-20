@@ -704,7 +704,8 @@
                                                         :file @utils/current-file}
                                                        false
                                                        false
-                                                       nil)
+                                                       nil
+                                                       @utils/current-ns)
                                     (vars/unbind)))))]
     (swap! env
            (fn [env]

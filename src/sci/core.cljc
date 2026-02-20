@@ -36,14 +36,18 @@
   ([name] (doto (new-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-var name init-val (meta name)))
-  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :name (utils/unqualify-symbol name)) false false nil)))
+  ([name init-val meta]
+   (let [meta (assoc meta :name (utils/unqualify-symbol name))]
+     (sci.lang.Var. init-val name meta false false nil (:ns meta)))))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
   ([name] (doto (new-dynamic-var name nil nil)
             (vars/unbind)))
   ([name init-val] (new-dynamic-var name init-val (meta name)))
-  ([name init-val meta] (sci.lang.Var. init-val name (assoc meta :dynamic true :name (utils/unqualify-symbol name)) false false nil)))
+  ([name init-val meta]
+   (let [meta (assoc meta :dynamic true :name (utils/unqualify-symbol name))]
+     (sci.lang.Var. init-val name meta false false nil (:ns meta)))))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -54,10 +58,12 @@
   "Same as new-var but adds :macro true to meta as well
   as :sci/macro true to meta of the fn itself."
   ([name init-val] (new-macro-var name init-val (meta name)))
-  ([name init-val meta] (sci.lang.Var.
-                         (vary-meta init-val
-                                    assoc :sci/macro true)
-                         name (assoc meta :macro true :name (utils/unqualify-symbol name)) false false nil)))
+  ([name init-val meta]
+   (let [meta (assoc meta :macro true :name (utils/unqualify-symbol name))]
+     (sci.lang.Var.
+      (vary-meta init-val
+                 assoc :sci/macro true)
+      name meta false false nil (:ns meta)))))
 
 (defmacro copy-var
   "Copies contents from var `sym` to a new sci var. The value `ns` is an

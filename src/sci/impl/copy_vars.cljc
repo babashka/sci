@@ -107,14 +107,14 @@
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if macro
         (macros/? :clj
-                  #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx nil)
-                     :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil))
-                  :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil))
+                  #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx nil ~ns)
+                     :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
+                  :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
         (if elide-vars
             (if (or dyn ctx)
-              `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil)
+              `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)
               sym)
-           `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil)))))
+           `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)))))
   (defmacro copy-core-var
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))
