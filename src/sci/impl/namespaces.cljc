@@ -415,13 +415,6 @@
 
 ;;;; Namespaces / vars
 
-(defn sci-alias [alias-sym ns-sym]
-  (swap! (:env (store/get-ctx))
-         (fn [env]
-           (let [current-ns (sci.impl.utils/current-ns-name)]
-             (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym))))
-  nil)
-
 (defn sci-create-ns [ns-sym]
   (sci.impl.utils/namespace-object (:env (store/get-ctx)) ns-sym true nil))
 
@@ -456,6 +449,16 @@
 (defn sci-ns-name [ns]
   (let [ctx (store/get-ctx)]
     (sci-ns-name* ctx ns)))
+
+(defn sci-alias [alias-sym ns-sym]
+  (let [ctx (store/get-ctx)
+        ns-sym (if (symbol? ns-sym) ns-sym
+                   (sci-ns-name* ctx ns-sym))]
+    (swap! (:env ctx)
+           (fn [env]
+             (let [current-ns (sci.impl.utils/current-ns-name)]
+               (assoc-in env [:namespaces current-ns :aliases alias-sym] ns-sym)))))
+  nil)
 
 (defn sci-ns-aliases* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)

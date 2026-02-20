@@ -14,6 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 - Add `ns` field to `sci.lang.Var` for compatibility with code that accesses `.ns` on vars
 - `ns-aliases` now returns identical namespace objects as `find-ns`
+- `alias` now accepts namespace objects in addition to symbols
 - `copy-var` and `copy-var*` now preserve `:private` metadata
 - Add `proxy-super`, `proxy-call-with-super`, `update-proxy` and `proxy-mappings`
 - Support functional interface (FI) adaptation for instance targets (e.g. `(let [^Predicate p even?] (.test p 42))`)

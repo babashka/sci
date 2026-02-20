@@ -94,6 +94,9 @@
   (is (= 'clojure.set (eval* "(ns-name (the-ns (the-ns 'clojure.set)))")))
   (is (= 'clojure.core (eval* "(alias 'c 'clojure.core) (ns-name (get (ns-aliases *ns*) 'c))")))
   (is (true? (eval* "(alias 'c 'clojure.core) (identical? (find-ns 'clojure.core) (get (ns-aliases *ns*) 'c))")))
+  (testing "alias accepts namespace objects"
+    (is (= 'clojure.core (eval* "(alias 'c (find-ns 'clojure.core)) (ns-name (get (ns-aliases *ns*) 'c))")))
+    (is (= 'my.new.ns (eval* "(alias 'mns (create-ns 'my.new.ns)) (ns-name (get (ns-aliases *ns*) 'mns))"))))
   (is (contains? (set (eval* "(clojure.repl/dir-fn 'clojure.string)"))
                  'last-index-of))
   (is (true? (eval* "(def foo-ns (create-ns 'foo)) (def another-foo-ns (create-ns 'foo))
