@@ -462,7 +462,7 @@
         aliases (get-in @(:env ctx) [:namespaces name :aliases])]
     (zipmap (keys aliases)
             (map (fn [sym]
-                   (sci.lang/->Namespace sym nil))
+                   (sci.impl.utils/namespace-object (:env ctx) sym false nil))
                  (vals aliases)))))
 
 (defn sci-ns-aliases [sci-ns]
