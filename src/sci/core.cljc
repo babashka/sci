@@ -82,11 +82,13 @@
             m# (-> var# meta)
             name# (or ~nm (:name m#))
             tag# (:tag m#)
+            private# (:private m#)
             new-m# (cond-> {:doc (:doc m#)
                             :name name#
                             :arglists (:arglists m#)
                             :ns ns#}
-                     tag# (assoc :tag tag#))]
+                     tag# (assoc :tag tag#)
+                     private# (assoc :private private#))]
         (cond (:dynamic m#)
               (new-dynamic-var name# val# new-m#)
               (or (:macro m#) (:sci/macro m#))
@@ -102,6 +104,7 @@
         arglists (:arglists m)
         dynamic (:dynamic m)
         macro (:macro m)
+        private (:private m)
         tag (:tag m)
     new-m (cond-> {:ns sci-ns
                        :name nm}
@@ -109,6 +112,7 @@
                 doc (assoc :doc doc)
                 arglists (assoc :arglists arglists)
                 dynamic (assoc :dynamic dynamic)
+                private (assoc :private private)
                 tag (assoc :tag tag))]
     (new-var nm @clojure-var new-m)))
 

@@ -55,10 +55,12 @@
                                                     :cljs (atom nil))])]
                     (macros/? :clj #?(:clj  (let [m (meta the-var)
                                                   dyn (:dynamic m)
+                                                  private (:private m)
                                                   arglists (:arglists m)
                                                   tag (:tag m)]
                                               (cond-> (if elide-vars {} {:doc (:doc m)})
                                                 dyn (assoc :dynamic dyn)
+                                                private (assoc :private private)
                                                 (if elide-vars false arglists)
                                                 (assoc :arglists (list 'quote (:arglists m)))
                                                 tag (assoc :tag tag)

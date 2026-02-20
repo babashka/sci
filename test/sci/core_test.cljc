@@ -1321,6 +1321,12 @@
     (is (= "-------------------------\nfoo/do-twice\n([x])\nMacro\n" do-twice-doc))
     (is (= "-------------------------\nfoo/always-foo\n([& _args])\n" always-foo-doc))))
 
+(defn- private-fn [] :private)
+
+(deftest copy-var-private-test
+  (is (true? (:private (meta (sci/copy-var private-fn (sci/create-ns 'foo)))))
+      "copy-var preserves :private metadata"))
+
 (defn update-vals*
   "Same as `update-vals` from clojure 1.11 but included here so tests
   can run with older versions of Clojure/Script."
