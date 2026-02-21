@@ -145,22 +145,34 @@
             class->opts (:class->opts env)
             allowed? (or
                       #?(:cljs allowed)
-                      (get class->opts :allow)
-                      (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                   :cljs (.-name instance-class))
-                            instance-class-symbol (symbol instance-class-name)]
-                        (get class->opts instance-class-symbol)))
-            ^Class target-class (if allowed? instance-class
-                                    (when-let [f (:public-class env)]
-                                      (f instance-expr*)))]
-        ;; we have to check options at run time, since we don't know what the class
-        ;; of instance-expr is at analysis time
-        (when-not #?(:clj target-class
-                     :cljs allowed?)
-          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        (if field-access
-          (interop/invoke-instance-field instance-expr* target-class method-str)
-          (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))
+                      (get class->opts :allow))
+            normal-interop
+            (fn [target-class]
+              (if field-access
+                (interop/invoke-instance-field instance-expr* target-class method-str)
+                (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types)))]
+        (if allowed?
+          (normal-interop instance-class)
+          (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                       :cljs (.-name instance-class))
+                instance-class-symbol (symbol instance-class-name)]
+            (if-let [class-config (get class->opts instance-class-symbol)]
+              (if-let [instance-methods (:instance-methods class-config)]
+
+                (if-let [f (get instance-methods (symbol method-str))]
+                  (apply f instance-expr* args)
+                  (if (:deny instance-methods)
+                    (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
+                    (normal-interop instance-class)))
+                (normal-interop instance-class))
+              (let [^Class target-class (when-let [f (:public-class env)]
+                                          (f instance-expr*))]
+
+                ;; we have to check options at run time, since we don't know what the class
+                ;; of instance-expr is at analysis time
+                (if target-class
+                  (normal-interop target-class)
+                  (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))))))))))
 
 ;;;; End interop
 

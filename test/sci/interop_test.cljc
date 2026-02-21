@@ -42,7 +42,31 @@
          (is (= #{:a} (tu/eval* "(.keySet {:a 1})"
                                 {:classes {'java.util.Map 'java.util.Map
                                            :public-class (fn [o]
-                                                           (when (instance? java.util.Map o) java.util.Map))}})))))))
+                                                           (when (instance? java.util.Map o) java.util.Map))}})))))
+
+     (testing "single method override"
+       (when-not tu/native?
+         (let [config {:classes {'java.lang.String
+                                 {:class java.lang.String
+                                  :instance-methods {'toString
+                                                   ;; REVIEW should toString also receive the class like the functions in :static-methods
+                                                     (fn [_s]
+                                                       :dude)}}}}]
+           (is (= :dude (tu/eval* "(.toString \"your name\")" config)))
+           (is (= 9 (tu/eval* "(.length \"your name\")" config))))))
+
+     (testing "single method allowed"
+       (when-not tu/native?
+         (let [config {:classes {'java.lang.String
+                                 {:class java.lang.String
+                                  :instance-methods {:deny true
+                                                     'toString
+                                                   ;; REVIEW should toString also receive the class like the functions in :static-methods
+                                                     (fn [_s]
+                                                       :dude)}}}}]
+           (is (= :dude (tu/eval* "(.toString \"your name\")" config)))
+           (is (thrown-with-msg? Exception #"allowed"
+                                 (tu/eval* "(.length \"your name\")" config))))))))
 
 #?(:clj
    (deftest instance-fields
