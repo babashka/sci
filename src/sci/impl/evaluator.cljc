@@ -157,9 +157,13 @@
                                        :cljs (.-name instance-class))
                 instance-class-symbol (symbol instance-class-name)]
             (if-let [class-config (get class->opts instance-class-symbol)]
-              (if-let [f (some-> class-config :instance-methods
-                                 (get (symbol method-str)))]
-                (apply f instance-expr* args)
+              (if-let [instance-methods (:instance-methods class-config)]
+
+                (if-let [f (get instance-methods (symbol method-str))]
+                  (apply f instance-expr* args)
+                  (if (:deny instance-methods)
+                    (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
+                    (normal-interop instance-class)))
                 (normal-interop instance-class))
               (let [^Class target-class (when-let [f (:public-class env)]
                                           (f instance-expr*))]
