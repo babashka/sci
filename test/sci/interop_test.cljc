@@ -44,6 +44,15 @@
                                            :public-class (fn [o]
                                                            (when (instance? java.util.Map o) java.util.Map))}})))))))
 
+     (testing "method override"
+       (is (= :dude (tu/eval* "(.toString \"your name\")"
+                              {:classes {'java.lang.String 
+                                         {:class java.lang.String
+                                          :instance-methods {'toString
+                                                             ;; REVIEW should toString also receive the class like the :static-methods
+                                                             (fn [_s] 
+                                                               :dude)}}}}))))))
+
 #?(:clj
    (deftest instance-fields
      (is (= 3 (sci/eval-string "(.-x (PublicFields.))" {:classes {'PublicFields PublicFields}})))))
