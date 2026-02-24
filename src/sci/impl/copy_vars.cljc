@@ -40,14 +40,21 @@
     (let [sym (dequote sym)
           macro (when opts (:macro opts))
           nm (when opts (:name opts))
-          [fqsym sym resolved-var] (if (qualified-symbol? sym)
-                                     [sym (symbol (name sym)) (resolve sym)]
-                                     (if (and (:sci.impl/public opts) (:ns &env))
-                                       ;; CLJS: use &env namespace, no CLJ resolve needed
-                                       [(symbol (name (:name (:ns &env))) (str sym)) sym nil]
-                                       (if-let [v (resolve sym)]
-                                         [(symbol v) sym v]
-                                         [(symbol "clojure.core" (str sym)) sym nil])))
+          [fqsym sym resolved-var] (if (:ns &env)
+                                     ;; CLJS compilation: no CLJ resolve
+                                     (if (qualified-symbol? sym)
+                                       [sym (symbol (name sym)) nil]
+                                       (if (:sci.impl/public opts)
+                                         [(symbol (name (:name (:ns &env))) (str sym)) sym nil]
+                                         [(symbol "clojure.core" (str sym)) sym nil]))
+                                     ;; CLJ compilation: resolve upfront
+                                     #?(:clj (if (qualified-symbol? sym)
+                                               [sym (symbol (name sym)) (resolve sym)]
+                                               (if-let [v (resolve sym)]
+                                                 [(symbol v) sym v]
+                                                 [(symbol "clojure.core" (str sym)) sym nil]))
+                                        ;; self-hosted CLJS: dead branch, &env always has :ns
+                                        :cljs [(symbol "clojure.core" (str sym)) sym nil]))
           inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
