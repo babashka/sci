@@ -112,11 +112,7 @@
                                 :cljs (let [r (cljs-resolve &env sym)
                                             m (:meta r)]
                                         (or (:macro r) (:macro m) (:sci/macro m))))))
-          dyn (or (:dynamic opts)
-                  (when public
-                    #?(:clj (macros/? :clj (:dynamic (meta the-var))
-                                      :cljs nil)
-                       :cljs nil)))
+          dyn (:dynamic opts)
           opts (if macro (assoc opts :macro true) opts)
           meta-sym (or (when-not public (:name opts))
                        (:copy-meta-from opts)
@@ -126,8 +122,7 @@
                             (symbol? meta-sym)
                             (not (qualified-symbol? meta-sym)))
                      #?(:clj (if-let [v (resolve meta-sym)]
-                               (symbol (str (.-ns ^clojure.lang.Var v))
-                                       (str (.-sym ^clojure.lang.Var v)))
+                               (symbol v)
                                meta-sym)
                         :cljs meta-sym)
                      meta-sym)
