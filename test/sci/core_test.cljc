@@ -1331,6 +1331,29 @@
   (is (true? (:private (meta (sci/copy-var private-fn (sci/create-ns 'foo)))))
       "copy-var preserves :private metadata"))
 
+(defn wrapper-fn
+  "wrapper doc"
+  [& args]
+  (apply always-foo args))
+
+(deftest copy-var-copy-meta-from-test
+  (let [foo-ns (sci/create-ns 'foo)
+        v (sci/copy-var wrapper-fn foo-ns {:copy-meta-from sci.core-test/always-foo})]
+    (is (= :foo (@v)))
+    #?(:clj (is (= (:file (meta v)) (:file (meta #'always-foo)))))
+    #?(:clj (is (= (:line (meta v)) (:line (meta #'always-foo)))))
+    (is (= (:arglists (meta v)) (:arglists (meta #'always-foo)))))
+  #?(:clj
+     (let [foo-ns (sci/create-ns 'foo)
+           v (sci/copy-var do-twice foo-ns {:copy-meta-from sci.core-test/do-twice :macro true})]
+       (is (:macro (meta v)))
+       (is (= (:file (meta v)) (:file (meta #'do-twice))))
+       (is (= "2\n2\n"
+              (sci/with-out-str
+                (sci/eval-string "(foo/do-twice (prn 2))"
+                                 {:namespaces {'foo {'do-twice v}}})))))))
+
+
 (defn update-vals*
   "Same as `update-vals` from clojure 1.11 but included here so tests
   can run with older versions of Clojure/Script."
