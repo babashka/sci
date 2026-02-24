@@ -1,5 +1,6 @@
 (ns sci.impl.copy-vars
-  {:no-doc true}
+  {:no-doc true
+   :doc "See doc/impl/copy-var.md for architecture overview."}
   (:require
    [sci.impl.cljs]
    [sci.impl.macros :as macros]
