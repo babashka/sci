@@ -59,7 +59,8 @@
                                                   arglists (:arglists m)
                                                   tag (:tag m)
                                                   file (:file m)
-                                                  line (:line m)]
+                                                  line (:line m)
+                                                  column (:column m)]
                                               (cond-> (if elide-vars {} {:doc (:doc m)})
                                                 dyn (assoc :dynamic dyn)
                                                 private (assoc :private private)
@@ -68,7 +69,8 @@
                                                 tag (assoc :tag tag)
                                                 fast-path (assoc :sci.impl/fast-path (list 'quote sym))
                                                 (if elide-vars false file) (assoc :file file)
-                                                (if elide-vars false line) (assoc :line line)))
+                                                (if elide-vars false line) (assoc :line line)
+                                                (if elide-vars false column) (assoc :column column)))
                                       :cljs nil)
                               :cljs (let [r (cljs-resolve &env fqsym)
                                           m (:meta r)

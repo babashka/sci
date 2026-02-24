@@ -1,6 +1,6 @@
 (ns sci.error-test
   (:require #?(:clj [sci.addons.future :as fut])
-            #?(:cljs [clojure.string :as str])
+            [clojure.string :as str]
             [clojure.test :as t :refer [deftest testing is]]
             [sci.core :as sci :refer [eval-string]]))
 
@@ -14,8 +14,8 @@
 (foo)")
              (catch #?(:clj Exception
                        :cljs js/Error) e
-               (map #(-> %
-                         (select-keys [:ns :name :line :column]))
+               (map #(cond-> (select-keys % [:ns :name :line :column])
+                      (= 'clojure.core (:ns %)) (select-keys [:ns :name]))
                     (sci/stacktrace e))))
         expected '({:ns clojure.core, :name subs}
                    {:ns user, :name bar, :line 2, :column 14}
@@ -149,8 +149,9 @@
 (deftest try-finally-test
   (is
    (= ["clojure.core/assoc - <built-in>" "user/foo           - NO_SOURCE_PATH:1:14" "user/foo           - NO_SOURCE_PATH:1:1" "user               - NO_SOURCE_PATH:1:84" "user               - NO_SOURCE_PATH:1:65"]
-      (sci/format-stacktrace
-       (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:clj Exception :cljs js/Error) e e)))))))
+      (mapv #(str/replace % #"clojure/core\.clj:\d+:\d+" "<built-in>")
+            (sci/format-stacktrace
+             (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:clj Exception :cljs js/Error) e e))))))))
 
 (deftest macroexpansion-with-unresolved-symbol-has-location-test
   (let [data (try (sci/eval-string "(defmacro dude [& body] `(do ~@body)) (dude x)") (catch Exception e (ex-data e)))]
