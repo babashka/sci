@@ -40,17 +40,14 @@
     (let [sym (dequote sym)
           macro (when opts (:macro opts))
           nm (when opts (:name opts))
-          [fqsym sym] (if (qualified-symbol? sym)
-                         [sym (symbol (name sym))]
-                         (if (:sci.impl/public opts)
-                           (if (:ns &env)
-                             ;; CLJS: use &env namespace
-                             [(symbol (name (:name (:ns &env))) (str sym)) sym]
-                             ;; CLJ: resolve the symbol
-                             (if-let [v (resolve sym)]
-                               [(symbol v) sym]
-                               [(symbol "clojure.core" (str sym)) sym]))
-                           [(symbol "clojure.core" (str sym)) sym]))
+          [fqsym sym resolved-var] (if (qualified-symbol? sym)
+                                     [sym (symbol (name sym)) (resolve sym)]
+                                     (if (and (:sci.impl/public opts) (:ns &env))
+                                       ;; CLJS: use &env namespace, no CLJ resolve needed
+                                       [(symbol (name (:name (:ns &env))) (str sym)) sym nil]
+                                       (if-let [v (resolve sym)]
+                                         [(symbol v) sym v]
+                                         [(symbol "clojure.core" (str sym)) sym nil])))
           inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
@@ -59,8 +56,9 @@
           varm (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
                     macro (assoc :macro true)
                     inline (assoc :sci.impl/inlined (:inlined opts fqsym)))
-                  (let [#?@(:clj [the-var (macros/? :clj (resolve fqsym)
-                                                    :cljs (atom nil))])]
+                  (let [#?@(:clj [the-var (or resolved-var
+                                              (macros/? :clj (resolve fqsym)
+                                                        :cljs (atom nil)))])]
                     (macros/? :clj #?(:clj  (let [m (meta the-var)
                                                   dyn (:dynamic m)
                                                   private (:private m)
@@ -114,9 +112,10 @@
        nil))
   (defmacro copy-var
     [sym ns & [opts]]
-    (let [#?@(:clj [the-var (macros/? :clj (resolve sym)
-                                      :cljs (atom nil))])
-          public (:sci.impl/public opts)
+    (let [public (:sci.impl/public opts)
+          #?@(:clj [the-var (when-not public
+                              (macros/? :clj (resolve sym)
+                                        :cljs (atom nil)))])
           dyn (:dynamic opts)
           meta-sym (or (when-not public (:name opts))
                        (:copy-meta-from opts)
@@ -124,7 +123,7 @@
           base-meta (var-meta &env meta-sym opts)
           macro (or (:macro opts) (:macro base-meta))
           varm (cond-> (assoc base-meta :ns ns)
-                 (not (:sci.impl/public opts)) (assoc :sci/built-in true)
+                 (not public) (assoc :sci/built-in true)
                  dyn (assoc :dynamic dyn))
           nm (:name varm)
           ctx (:ctx opts)
@@ -136,10 +135,12 @@
                  init)]
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if macro
-        (macros/? :clj
-                  #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx nil ~ns)
-                     :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
-                  :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
+        (if public
+          `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)
+          (macros/? :clj
+                    #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx nil ~ns)
+                       :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
+                    :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)))
         (if elide-vars
             (if (or dyn ctx)
               `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)
