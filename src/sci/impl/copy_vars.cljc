@@ -41,8 +41,10 @@
           macro (when opts (:macro opts))
           nm (when opts (:name opts))
           [fqsym sym] (if (qualified-symbol? sym)
-                     [sym (symbol (name sym))]
-                     [(symbol "clojure.core" (str sym)) sym])
+                         [sym (symbol (name sym))]
+                         (if (and (:sci.impl/public opts) (:ns &env))
+                           [(symbol (name (:name (:ns &env))) (str sym)) sym]
+                           [(symbol "clojure.core" (str sym)) sym]))
           inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
@@ -126,27 +128,7 @@
                                meta-sym)
                         :cljs meta-sym)
                      meta-sym)
-          base-meta (macros/? :clj
-                              (var-meta &env meta-sym opts)
-                              :cljs (if public
-                                      ;; For public API in CLJS, resolve via CLJS analyzer
-                                      ;; since var-meta's CLJ path can't resolve non-core CLJS vars
-                                      (let [fqsym (if (qualified-symbol? meta-sym)
-                                                    meta-sym
-                                                    (symbol (name (:name (:ns &env)))
-                                                            (str meta-sym)))
-                                            r (cljs-resolve &env fqsym)
-                                            m (:meta r)
-                                            r-dyn (:dynamic m)
-                                            r-private (:private m)
-                                            arglists (or (:arglists m) (:arglists r))]
-                                        (cond-> {:name (list 'quote (symbol (name meta-sym)))
-                                                 :arglists (ensure-quote arglists)
-                                                 :doc (or (:doc m) (:doc r))}
-                                          macro (assoc :macro true)
-                                          r-dyn (assoc :dynamic r-dyn)
-                                          r-private (assoc :private r-private)))
-                                      (var-meta &env meta-sym opts)))
+          base-meta (var-meta &env meta-sym opts)
           varm (cond-> (assoc base-meta :ns ns)
                  (not (:sci.impl/public opts)) (assoc :sci/built-in true)
                  dyn (assoc :dynamic dyn))

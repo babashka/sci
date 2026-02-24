@@ -84,6 +84,16 @@ Environment variables:
 - The `:namespaces` option pre-populates namespaces with vars
 - Context (`sci/init`) maintains state across evaluations; use `sci/fork` for isolated copies
 
+## Cross-Platform Macro System (`sci.impl.macros`)
+
+The `macros/?` macro decides between CLJ and CLJS code paths by checking `(contains? &env '&env)`. This has a critical implication:
+
+- Inside `defmacro` bodies, `&env` is an implicit local binding, so the check is **true** — `macros/?` emits `(if (:ns &env) <cljs-branch> <clj-branch>)`, a **runtime** check. Both branches are live code.
+- The same applies to functions that take `&env` as a parameter (e.g. `var-meta` in `copy_vars.cljc`).
+- Do **not** assume one branch is dead code. Changes to either branch affect behavior.
+- `macros/deftime` on CLJ expands to `do`. It wraps compile-time-only code (macros, helper functions used by macros).
+- `#?(:clj ...)` reader conditionals ARE compile-time — those branches are truly dead on the other platform. Don't confuse `#?(:clj ...)` with `macros/? :clj ...`.
+
 # Clojure REPL Evaluation
 
 The command `clj-nrepl-eval` is installed on your path for evaluating Clojure code via nREPL.
