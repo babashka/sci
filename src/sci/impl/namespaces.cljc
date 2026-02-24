@@ -1219,6 +1219,7 @@
 (macros/usetime
 
  (def clojure-core
+   (merge
    (avoid-method-too-large
     {:obj clojure-core-ns
      '*ns* sci.impl.utils/current-ns
@@ -1569,8 +1570,9 @@
      #?@(:cljs ['js-keys (copy-core-var js-keys)])
      #?@(:cljs ['js-delete (copy-core-var js-delete)])
      #?@(:cljs ['js-in (copy-var js-in clojure-core-ns {:copy-meta-from clojure.core/js-in})])
-     'juxt (copy-core-var juxt)
-     'keep (copy-core-var keep)
+     'juxt (copy-core-var juxt)})
+   (avoid-method-too-large
+    {'keep (copy-core-var keep)
      'keep-indexed (copy-core-var keep-indexed)
      'key (copy-core-var key)
      'keys (copy-core-var keys)
@@ -1862,7 +1864,7 @@
                'ratio? (copy-core-var ratio?)
                'rationalize (copy-core-var rationalize)
                'seque (copy-core-var seque)
-               'xml-seq (copy-core-var xml-seq)])}))
+               'xml-seq (copy-core-var xml-seq)])})))
 
  (defn dir-fn
    [ns]

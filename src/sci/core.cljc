@@ -83,12 +83,16 @@
             name# (or ~nm (:name m#))
             tag# (:tag m#)
             private# (:private m#)
+            file# (:file m#)
+            line# (:line m#)
             new-m# (cond-> {:doc (:doc m#)
                             :name name#
                             :arglists (:arglists m#)
                             :ns ns#}
                      tag# (assoc :tag tag#)
-                     private# (assoc :private private#))]
+                     private# (assoc :private private#)
+                     file# (assoc :file file#)
+                     line# (assoc :line line#))]
         (cond (:dynamic m#)
               (new-dynamic-var name# val# new-m#)
               (or (:macro m#) (:sci/macro m#))
@@ -106,6 +110,8 @@
         macro (:macro m)
         private (:private m)
         tag (:tag m)
+        file (:file m)
+        line (:line m)
     new-m (cond-> {:ns sci-ns
                        :name nm}
                 macro (assoc :macro true)
@@ -113,7 +119,9 @@
                 arglists (assoc :arglists arglists)
                 dynamic (assoc :dynamic dynamic)
                 private (assoc :private private)
-                tag (assoc :tag tag))]
+                tag (assoc :tag tag)
+                file (assoc :file file)
+                line (assoc :line line))]
     (new-var nm @clojure-var new-m)))
 
 (macros/deftime
@@ -418,7 +426,9 @@
                                    :macro
                                    :sci/macro
                                    :doc
-                                   :dynamic])
+                                   :dynamic
+                                   :file
+                                   :line])
                    normalize-meta)))
 
 (macros/deftime

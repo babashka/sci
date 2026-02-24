@@ -296,6 +296,10 @@
   (testing "metadata isn't evaluated on defn expression"
     (eval* "^{:inverse-of foo} (defn bar [])")))
 
+(deftest source-fn-test
+  (testing "source-fn on built-in var does not throw"
+    (is (nil? (eval* "(clojure.repl/source-fn 'inc)")))))
+
 (deftest defn-kwargs-test
   (is (= {:a 1} (sci/eval-string "(defn foo [& {:keys [a]}] {:a a}) (foo :a 1)")))
   (is (= {:a 1} (sci/eval-string "(defn foo [& {:keys [a]}] {:a a}) (foo {:a 1})"))))
