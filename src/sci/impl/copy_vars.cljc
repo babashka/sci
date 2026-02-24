@@ -36,14 +36,20 @@
   (defn core-sym [sym]
     (symbol "clojure.core" (name sym)))
 
-  (defn var-meta [&env sym opts & _a]
+  (defn var-meta [&env sym opts]
     (let [sym (dequote sym)
           macro (when opts (:macro opts))
           nm (when opts (:name opts))
           [fqsym sym] (if (qualified-symbol? sym)
                          [sym (symbol (name sym))]
-                         (if (and (:sci.impl/public opts) (:ns &env))
-                           [(symbol (name (:name (:ns &env))) (str sym)) sym]
+                         (if (:sci.impl/public opts)
+                           (if (:ns &env)
+                             ;; CLJS: use &env namespace
+                             [(symbol (name (:name (:ns &env))) (str sym)) sym]
+                             ;; CLJ: resolve the symbol
+                             (if-let [v (resolve sym)]
+                               [(symbol v) sym]
+                               [(symbol "clojure.core" (str sym)) sym]))
                            [(symbol "clojure.core" (str sym)) sym]))
           inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
@@ -119,15 +125,6 @@
           meta-sym (or (when-not public (:name opts))
                        (:copy-meta-from opts)
                        sym)
-          ;; For CLJ public API: qualify unqualified non-core syms so var-meta resolves them
-          meta-sym (if (and public
-                            (symbol? meta-sym)
-                            (not (qualified-symbol? meta-sym)))
-                     #?(:clj (if-let [v (resolve meta-sym)]
-                               (symbol v)
-                               meta-sym)
-                        :cljs meta-sym)
-                     meta-sym)
           base-meta (var-meta &env meta-sym opts)
           varm (cond-> (assoc base-meta :ns ns)
                  (not (:sci.impl/public opts)) (assoc :sci/built-in true)
