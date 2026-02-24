@@ -112,19 +112,25 @@
                                 :cljs (let [r (cljs-resolve &env sym)
                                             m (:meta r)]
                                         (or (:macro r) (:macro m) (:sci/macro m))))))
-          dyn (:dynamic opts)
+          dyn (or (:dynamic opts)
+                  (when public
+                    #?(:clj (macros/? :clj (:dynamic (meta the-var))
+                                      :cljs nil)
+                       :cljs nil)))
           opts (if macro (assoc opts :macro true) opts)
-          meta-sym (or (:name opts) (:copy-meta-from opts) sym)
+          meta-sym (or (when-not public (:name opts))
+                       (:copy-meta-from opts)
+                       sym)
           ;; For CLJ public API: qualify unqualified non-core syms so var-meta resolves them
-          meta-sym (macros/? :clj
-                             (if (and public (not (qualified-symbol? meta-sym)))
-                               #?(:clj (if-let [v (resolve meta-sym)]
-                                         (symbol (str (.-ns ^clojure.lang.Var v))
-                                                 (str (.-sym ^clojure.lang.Var v)))
-                                         meta-sym)
-                                  :cljs meta-sym)
+          meta-sym (if (and public
+                            (symbol? meta-sym)
+                            (not (qualified-symbol? meta-sym)))
+                     #?(:clj (if-let [v (resolve meta-sym)]
+                               (symbol (str (.-ns ^clojure.lang.Var v))
+                                       (str (.-sym ^clojure.lang.Var v)))
                                meta-sym)
-                             :cljs meta-sym)
+                        :cljs meta-sym)
+                     meta-sym)
           base-meta (macros/? :clj
                               (var-meta &env meta-sym opts)
                               :cljs (if public
@@ -151,7 +157,12 @@
                  dyn (assoc :dynamic dyn))
           nm (:name varm)
           ctx (:ctx opts)
-          init (:init opts sym)]
+          init (:init opts sym)
+          ;; Public API must use (deref (var sym)) to access private vars
+          init (if (and public (not (:init opts)))
+                 #?(:clj `(deref (var ~sym))
+                    :cljs init)
+                 init)]
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if macro
         (macros/? :clj
