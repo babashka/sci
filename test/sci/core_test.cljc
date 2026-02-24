@@ -1329,7 +1329,13 @@
 
 (deftest copy-var-private-test
   (is (true? (:private (meta (sci/copy-var private-fn (sci/create-ns 'foo)))))
-      "copy-var preserves :private metadata"))
+      "copy-var preserves :private metadata for same-namespace var")
+  #?(:clj
+     (let [v (sci/copy-var sci.copy-ns-test-ns/private-fn (sci/create-ns 'foo))]
+       (is (true? (:private (meta v)))
+           "copy-var preserves :private metadata for cross-namespace var")
+       (is (= :private-from-other-ns (@v))
+           "copy-var can access private var value from another namespace"))))
 
 (defn wrapper-fn
   "wrapper doc"

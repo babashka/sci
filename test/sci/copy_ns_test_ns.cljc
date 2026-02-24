@@ -21,3 +21,5 @@
 (defn ^:sci/macro vec-macro
   [_ _ x]
   `[~x ~x])
+
+(defn- private-fn [] :private-from-other-ns)

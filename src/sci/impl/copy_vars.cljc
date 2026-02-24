@@ -120,9 +120,6 @@
   (defmacro copy-var
     [sym ns & [opts]]
     (let [public (:sci.impl/public opts)
-          #?@(:clj [the-var (when-not public
-                              (macros/? :clj (resolve sym)
-                                        :cljs (atom nil)))])
           dyn (:dynamic opts)
           meta-sym (or (when-not public (:name opts))
                        (:copy-meta-from opts)
@@ -135,19 +132,16 @@
           nm (:name varm)
           ctx (:ctx opts)
           init (:init opts sym)
-          ;; Public API must use (deref (var sym)) to access private vars
-          init (if (and public (not (:init opts)))
+          ;; Macros: can't take value of a macro symbol directly
+          ;; Private vars: can't reference across namespaces with bare symbol
+          init (if (and (or macro (:private base-meta))
+                        (not (contains? opts :init)))
                  #?(:clj `(deref (var ~sym))
                     :cljs init)
                  init)]
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if macro
-        (if public
-          `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)
-          (macros/? :clj
-                    #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx nil ~ns)
-                       :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
-                    :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)))
+        `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)
         (if elide-vars
             (if (or dyn ctx)
               `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)
