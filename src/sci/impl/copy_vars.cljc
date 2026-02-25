@@ -94,8 +94,7 @@
                                             macro? (and (not macro) (:sci.impl/public opts)
                                                         (or (:macro r) (:macro m) (:sci/macro m)))
                                             arglists (or (:arglists m) (:arglists r))]
-                                        (cond-> {:arglists (ensure-quote arglists)
-                                                 :doc (or (:doc m) (:doc r))}
+                                        (cond-> {:doc (or (:doc m) (:doc r))}
                                           dyn (assoc :dynamic dyn)
                                           private (assoc :private private)
                                           macro? (assoc :macro true)
@@ -124,7 +123,7 @@
                        (:copy-meta-from opts)
                        sym)
           base-meta (var-meta &env meta-sym opts)
-          macro (or (:macro opts) (:macro base-meta))
+          macro (:macro base-meta)
           varm (cond-> (assoc base-meta :ns ns)
                  (not public) (assoc :sci/built-in true)
                  dyn (assoc :dynamic dyn))
