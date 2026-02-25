@@ -149,7 +149,7 @@
 (deftest try-finally-test
   (is
    (= ["clojure.core/assoc - <built-in>" "user/foo           - NO_SOURCE_PATH:1:14" "user/foo           - NO_SOURCE_PATH:1:1" "user               - NO_SOURCE_PATH:1:84" "user               - NO_SOURCE_PATH:1:65"]
-      (mapv #(str/replace % #"clojure/core\.clj:\d+:\d+" "<built-in>")
+      (mapv #(str/replace % #"cl(?:ojure/core\.clj|js/core\.cljs):\d+:\d+" "<built-in>")
             (sci/format-stacktrace
              (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:clj Exception :cljs js/Error) e e))))))))
 

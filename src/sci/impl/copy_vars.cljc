@@ -1,5 +1,6 @@
 (ns sci.impl.copy-vars
-  {:no-doc true}
+  {:no-doc true
+   :doc "See doc/impl/copy-var.md for architecture overview."}
   (:require
    [sci.impl.cljs]
    [sci.impl.macros :as macros]
@@ -36,53 +37,51 @@
   (defn core-sym [sym]
     (symbol "clojure.core" (name sym)))
 
-  (defn var-meta [&env sym opts & _a]
+  (defn var-meta [&env sym opts]
     (let [sym (dequote sym)
-          macro (when opts (:macro opts))
-          nm (when opts (:name opts))
-          [fqsym sym] (if (qualified-symbol? sym)
-                     [sym (symbol (name sym))]
-                     [(symbol "clojure.core" (str sym)) sym])
+          macro (:macro opts)
+          nm (:name opts)
+          [fqsym sym m]
+          (if (:ns &env)
+            ;; CLJS compilation: resolve via cljs analyzer
+            (let [r (cljs-resolve &env sym)]
+              [(or (:name r) sym) (symbol (name sym)) (merge r (:meta r))])
+            ;; CLJ compilation: resolve upfront
+            ;; v may be nil for syms passed via macrofy that don't resolve
+            #?(:clj (let [v (resolve sym)]
+                      [(if v (symbol v) sym)
+                       (symbol (name sym))
+                       (meta v)])
+               ;; self-hosted CLJS: dead branch, &env always has :ns
+               :cljs nil))
           inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
                         (= 'ns sym)
                         (= 'lazy-seq sym))
-          varm (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
-                    macro (assoc :macro true)
-                    inline (assoc :sci.impl/inlined (:inlined opts fqsym)))
-                  (let [#?@(:clj [the-var (macros/? :clj (resolve fqsym)
-                                                    :cljs (atom nil))])]
-                    (macros/? :clj #?(:clj  (let [m (meta the-var)
-                                                  dyn (:dynamic m)
-                                                  private (:private m)
-                                                  arglists (:arglists m)
-                                                  tag (:tag m)
-                                                  file (:file m)
-                                                  line (:line m)
-                                                  column (:column m)]
-                                              (cond-> (if elide-vars {} {:doc (:doc m)})
-                                                dyn (assoc :dynamic dyn)
-                                                private (assoc :private private)
-                                                (if elide-vars false arglists)
-                                                (assoc :arglists (list 'quote (:arglists m)))
-                                                tag (assoc :tag tag)
-                                                fast-path (assoc :sci.impl/fast-path (list 'quote sym))
-                                                (if elide-vars false file) (assoc :file file)
-                                                (if elide-vars false line) (assoc :line line)
-                                                (if elide-vars false column) (assoc :column column)))
-                                      :cljs nil)
-                              :cljs (let [r (cljs-resolve &env fqsym)
-                                          m (:meta r)
-                                          dyn (:dynamic m)
-                                          arglists (or (:arglists m) (:arglists r))]
-                                      (cond-> {:arglists (ensure-quote arglists)
-                                               :doc (or (:doc m) (:doc r))}
-                                        dyn (assoc :dynamic dyn)
-                                        arglists (assoc :arglists (ensure-quote arglists))
-                                        fast-path (assoc :sci.impl/fast-path (list 'quote sym)))))))]
-      #_(when (= 'inc sym)
-        (prn varm))
+          dyn (:dynamic m)
+          private (:private m)
+          arglists (:arglists m)
+          tag (:tag m)
+          file (:file m)
+          line (:line m)
+          column (:column m)
+          varm (cond-> {:name (or nm (list 'quote sym))}
+                 macro (assoc :macro true)
+                 inline (assoc :sci.impl/inlined (:inlined opts fqsym))
+                 (not elide-vars) (assoc :doc (:doc m))
+                 dyn (assoc :dynamic dyn)
+                 private (assoc :private private)
+                 (and (not macro) (:sci.impl/public opts)
+                      (or (:macro m) (:sci/macro m)))
+                 (assoc :macro true)
+                 (when-not elide-vars arglists)
+                 (assoc :arglists (ensure-quote arglists))
+                 tag (assoc :tag (list 'quote tag))
+                 fast-path (assoc :sci.impl/fast-path (list 'quote sym))
+                 (when-not elide-vars file) (assoc :file file)
+                 (when-not elide-vars line) (assoc :line line)
+                 (when-not elide-vars column) (assoc :column column))]
       varm))
 
   (defmacro macrofy [& args]
@@ -93,36 +92,35 @@
   ;; Note: self hosted CLJS can't deal with multi-arity macros so this macro is split in 2
   #?(:clj
      (if elide-vars
-         (binding [*out* *err*]
-           (println "SCI: eliding vars."))
+       (binding [*out* *err*]
+         (println "SCI: eliding vars."))
        nil))
   (defmacro copy-var
     [sym ns & [opts]]
-    (let [macro (:macro opts)
-          #?@(:clj [the-var (macros/? :clj (resolve sym)
-                                      :cljs (atom nil))])
+    (let [public (:sci.impl/public opts)
           dyn (:dynamic opts)
-          varm (cond-> (assoc (var-meta &env (or (:name opts)
-                                                 (:copy-meta-from opts)
-                                                 sym)
-                                        opts)
-                              :sci/built-in true
-                              :ns ns)
+          meta-sym (or (when-not public (:name opts))
+                       (:copy-meta-from opts)
+                       sym)
+          base-meta (var-meta &env meta-sym opts)
+          macro (:macro base-meta)
+          varm (cond-> (assoc base-meta :ns ns)
+                 (not public) (assoc :sci/built-in true)
                  dyn (assoc :dynamic dyn))
           nm (:name varm)
           ctx (:ctx opts)
-          init (:init opts sym)]
+          init (:init opts sym)
+          ;; Macros: can't take value of a macro symbol directly
+          ;; Private vars: can't reference across namespaces with bare symbol
+          init (if (and (or macro (:private base-meta))
+                        (not (contains? opts :init)))
+                 #?(:clj `(deref (var ~sym))
+                    :cljs init)
+                 init)]
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
-      (if macro
-        (macros/? :clj
-                  #?(:clj  `(sci.lang.Var. ~(deref the-var) ~nm ~varm false ~ctx nil ~ns)
-                     :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
-                  :cljs `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))
-        (if elide-vars
-            (if (or dyn ctx)
-              `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)
-              sym)
-           `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)))))
+      (if (and (not macro) elide-vars (not dyn) (not ctx))
+        sym
+        `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))))
   (defmacro copy-core-var
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))

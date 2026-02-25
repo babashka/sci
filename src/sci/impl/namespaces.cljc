@@ -1284,9 +1284,9 @@
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
      'get-method (copy-core-var get-method)
      'methods (copy-core-var methods)
-     'multi-fn-add-method-impl (copy-core-var sci.impl.multimethods/multi-fn-add-method-impl)
-     'multi-fn?-impl (copy-core-var sci.impl.multimethods/multi-fn?-impl)
-     'multi-fn-impl (copy-core-var sci.impl.multimethods/multi-fn-impl)
+     'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
+     'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
+     'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
      'prefer-method (copy-core-var prefer-method)
      'prefers (copy-core-var prefers)
      'remove-method (copy-core-var remove-method)
@@ -1336,7 +1336,7 @@
      #?@(:cljs ['LazySeq (copy-var LazySeq clojure-core-ns)])
      ;; end cljs data structures
      ;; private
-     'has-root-impl (copy-core-var has-root-impl)
+     'has-root-impl (copy-var has-root-impl clojure-core-ns)
      ;; used in with-local-vars
      '-new-dynamic-var (new-var '-new-dynamic-var #(sci.impl.utils/new-var (gensym) nil {:dynamic true}))
      ;; used in let-fn
