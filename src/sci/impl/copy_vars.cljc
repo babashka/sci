@@ -66,7 +66,7 @@
           file (:file m)
           line (:line m)
           column (:column m)
-          varm (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
+          varm (cond-> {:name (or nm (list 'quote sym))}
                  macro (assoc :macro true)
                  inline (assoc :sci.impl/inlined (:inlined opts fqsym))
                  (not elide-vars) (assoc :doc (:doc m))
