@@ -39,8 +39,8 @@
 
   (defn var-meta [&env sym opts]
     (let [sym (dequote sym)
-          macro (when opts (:macro opts))
-          nm (when opts (:name opts))
+          macro (:macro opts)
+          nm (:name opts)
           [fqsym sym #?(:clj resolved-var)]
           (if (:ns &env)
             ;; CLJS compilation: no CLJ resolve
@@ -62,44 +62,37 @@
                         (= 'and sym)
                         (= 'ns sym)
                         (= 'lazy-seq sym))
+          [m resolved-meta]
+          (macros/? :clj #?(:clj (let [m (meta resolved-var)]
+                                   [m m])
+                            :cljs nil)
+                    :cljs (let [r (cljs-resolve &env fqsym)
+                                m (:meta r)]
+                            ;; CLJS: some fields live on r rather than (:meta r)
+                            [m (merge r m)]))
+          dyn (:dynamic m)
+          private (:private m)
+          arglists (or (:arglists m) (:arglists resolved-meta))
+          tag (:tag m)
+          file (:file m)
+          line (:line m)
+          column (:column m)
           varm (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
                         macro (assoc :macro true)
                         inline (assoc :sci.impl/inlined (:inlined opts fqsym)))
-                      (macros/? :clj #?(:clj  (let [m (meta resolved-var)
-                                                    dyn (:dynamic m)
-                                                    private (:private m)
-                                                    arglists (:arglists m)
-                                                    tag (:tag m)
-                                                    file (:file m)
-                                                    line (:line m)
-                                                    column (:column m)]
-                                                (cond-> (if elide-vars {} {:doc (:doc m)})
-                                                    dyn (assoc :dynamic dyn)
-                                                    private (assoc :private private)
-                                                    (and (not macro) (:sci.impl/public opts)
-                                                         (or (:macro m) (:sci/macro m)))
-                                                    (assoc :macro true)
-                                                    (if elide-vars false arglists)
-                                                    (assoc :arglists (list 'quote arglists))
-                                                    tag (assoc :tag tag)
-                                                    fast-path (assoc :sci.impl/fast-path (list 'quote sym))
-                                                    (if elide-vars false file) (assoc :file file)
-                                                    (if elide-vars false line) (assoc :line line)
-                                                    (if elide-vars false column) (assoc :column column)))
-                                        :cljs nil)
-                                :cljs (let [r (cljs-resolve &env fqsym)
-                                            m (:meta r)
-                                            dyn (:dynamic m)
-                                            private (:private m)
-                                            macro? (and (not macro) (:sci.impl/public opts)
-                                                        (or (:macro r) (:macro m) (:sci/macro m)))
-                                            arglists (or (:arglists m) (:arglists r))]
-                                        (cond-> {:doc (or (:doc m) (:doc r))}
-                                          dyn (assoc :dynamic dyn)
-                                          private (assoc :private private)
-                                          macro? (assoc :macro true)
-                                          arglists (assoc :arglists (ensure-quote arglists))
-                                          fast-path (assoc :sci.impl/fast-path (list 'quote sym))))))]
+                      (cond-> (if elide-vars {} {:doc (or (:doc m) (:doc resolved-meta))})
+                        dyn (assoc :dynamic dyn)
+                        private (assoc :private private)
+                        (and (not macro) (:sci.impl/public opts)
+                             (or (:macro resolved-meta) (:macro m) (:sci/macro m)))
+                        (assoc :macro true)
+                        (if elide-vars false arglists)
+                        (assoc :arglists (ensure-quote arglists))
+                        tag (assoc :tag tag)
+                        fast-path (assoc :sci.impl/fast-path (list 'quote sym))
+                        (if elide-vars false file) (assoc :file file)
+                        (if elide-vars false line) (assoc :line line)
+                        (if elide-vars false column) (assoc :column column)))]
       varm))
 
   (defmacro macrofy [& args]
