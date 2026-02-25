@@ -45,14 +45,13 @@
           (if (:ns &env)
             ;; CLJS compilation: resolve via cljs analyzer
             (let [r (cljs-resolve &env sym)]
-              [(or (:name r) sym) (symbol (name sym)) (dissoc (merge r (:meta r)) :tag)])
+              [(or (:name r) sym) (symbol (name sym)) (merge r (:meta r))])
             ;; CLJ compilation: resolve upfront
-            #?(:clj (if (qualified-symbol? sym)
-                      (let [v (resolve sym)]
-                        [sym (symbol (name sym)) (meta v)])
-                      (if-let [v (resolve sym)]
-                        [(symbol v) sym (meta v)]
-                        [(symbol "clojure.core" (str sym)) sym nil]))
+            ;; v may be nil for syms passed via macrofy that don't resolve
+            #?(:clj (let [v (resolve sym)]
+                      [(if v (symbol v) sym)
+                       (symbol (name sym))
+                       (meta v)])
                ;; self-hosted CLJS: dead branch, &env always has :ns
                :cljs nil))
           inline (contains? inlined-vars sym)
@@ -78,7 +77,7 @@
                  (assoc :macro true)
                  (when-not elide-vars arglists)
                  (assoc :arglists (ensure-quote arglists))
-                 tag (assoc :tag tag)
+                 tag (assoc :tag (list 'quote tag))
                  fast-path (assoc :sci.impl/fast-path (list 'quote sym))
                  (when-not elide-vars file) (assoc :file file)
                  (when-not elide-vars line) (assoc :line line)
