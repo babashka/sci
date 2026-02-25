@@ -73,19 +73,19 @@
                                                     file (:file m)
                                                     line (:line m)
                                                     column (:column m)]
-                                                (let [macro? (and (not macro) (:sci.impl/public opts)
-                                                                  (or (:macro m) (:sci/macro m)))]
-                                                  (cond-> (if elide-vars {} {:doc (:doc m)})
+                                                (cond-> (if elide-vars {} {:doc (:doc m)})
                                                     dyn (assoc :dynamic dyn)
                                                     private (assoc :private private)
-                                                    macro? (assoc :macro true)
+                                                    (and (not macro) (:sci.impl/public opts)
+                                                         (or (:macro m) (:sci/macro m)))
+                                                    (assoc :macro true)
                                                     (if elide-vars false arglists)
-                                                    (assoc :arglists (list 'quote (:arglists m)))
+                                                    (assoc :arglists (list 'quote arglists))
                                                     tag (assoc :tag tag)
                                                     fast-path (assoc :sci.impl/fast-path (list 'quote sym))
                                                     (if elide-vars false file) (assoc :file file)
                                                     (if elide-vars false line) (assoc :line line)
-                                                    (if elide-vars false column) (assoc :column column))))
+                                                    (if elide-vars false column) (assoc :column column)))
                                         :cljs nil)
                                 :cljs (let [r (cljs-resolve &env fqsym)
                                             m (:meta r)
@@ -100,8 +100,6 @@
                                           macro? (assoc :macro true)
                                           arglists (assoc :arglists (ensure-quote arglists))
                                           fast-path (assoc :sci.impl/fast-path (list 'quote sym))))))]
-      #_(when (= 'inc sym)
-          (prn varm))
       varm))
 
   (defmacro macrofy [& args]
