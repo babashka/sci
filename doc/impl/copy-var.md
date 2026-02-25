@@ -21,22 +21,22 @@ Both produce `sci.lang.Var` instances with metadata copied from the host var.
 
 `var-meta` is a function inside `macros/deftime` that resolves a symbol and
 extracts its metadata (`:doc`, `:arglists`, `:dynamic`, `:private`, `:macro`,
-`:file`, `:line`, `:column`). It takes `&env` as an explicit parameter.
+`:tag`, `:file`, `:line`, `:column`). It takes `&env` as an explicit parameter.
 
-Symbol qualification (turning unqualified symbols into fully-qualified ones):
+A single `(if (:ns &env) ...)` dispatch handles both resolution and metadata
+extraction, producing `[fqsym sym m]`:
 
-- **CLJ compilation** (`(:ns &env)` is falsy): uses `resolve` to find the var.
-  This handles both core vars (`inc` -> `clojure.core/inc`) and non-core vars
-  (`my-fn` -> `some-ns/my-fn`).
-- **CLJS compilation** (`(:ns &env)` is truthy, public): qualifies using
-  `(:name (:ns &env))` (the current CLJS namespace).
-- **CLJS compilation** (non-public): defaults to `clojure.core`.
-
-The resolved var is cached in `resolved-var` and reused for metadata extraction,
-so each var is resolved exactly once.
+- **CLJ compilation** (`(:ns &env)` is falsy): uses `resolve` to find the var,
+  `(symbol v)` for the fully-qualified symbol, and `(meta v)` for metadata.
+- **CLJS compilation** (`(:ns &env)` is truthy): uses `cljs-resolve` to resolve
+  the symbol via the CLJS analyzer. Metadata is `(merge r (:meta r))` since
+  some fields (`:arglists`, `:doc`, `:macro`) live on `r` rather than `(:meta r)`.
 
 For the public API, `var-meta` auto-detects `:macro` from the resolved var's
 metadata, so users don't need to pass `{:macro true}`.
+
+`:tag` metadata is quoted in the output to prevent the CLJS compiler from trying
+to resolve type-hint symbols (like `number`, `string`) as vars.
 
 ### copy-var macro
 
@@ -49,13 +49,16 @@ Key decisions:
   of the bare symbol. Bare symbols fail for macros ("can't take value of a
   macro") and for private vars across namespaces ("is not public").
 - **`:sci/built-in true`**: Added for internal vars (not public API).
-- **`elide-vars`**: When `SCI_ELIDE_VARS=true`, non-dynamic non-ctx vars skip
-  the `Var` wrapper entirely and emit the bare symbol.
+- **`elide-vars`**: When `SCI_ELIDE_VARS=true`, non-macro non-dynamic non-ctx
+  vars skip the `Var` wrapper entirely and emit the bare symbol.
 
 ### copy-core-var
 
 Shorthand: `(copy-core-var inc)` expands to
 `(copy-var inc clojure-core-ns {:copy-meta-from clojure.core/inc})`.
+
+Only use for vars that actually exist in `clojure.core`. For SCI-internal vars,
+use `copy-var` directly.
 
 ### Options
 
