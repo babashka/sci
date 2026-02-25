@@ -41,20 +41,18 @@
     (let [sym (dequote sym)
           macro (:macro opts)
           nm (:name opts)
-          [fqsym sym #?(:clj resolved-var)]
+          [fqsym sym m]
           (if (:ns &env)
-            ;; CLJS compilation: no CLJ resolve
-            (if (qualified-symbol? sym)
-              [sym (symbol (name sym))]
-              (if (:sci.impl/public opts)
-                [(symbol (name (:name (:ns &env))) (str sym)) sym]
-                [(symbol "clojure.core" (str sym)) sym]))
+            ;; CLJS compilation: resolve via cljs analyzer
+            (let [r (cljs-resolve &env sym)]
+              [(or (:name r) sym) (symbol (name sym)) (dissoc (merge r (:meta r)) :tag)])
             ;; CLJ compilation: resolve upfront
             #?(:clj (if (qualified-symbol? sym)
-                      [sym (symbol (name sym)) (resolve sym)]
+                      (let [v (resolve sym)]
+                        [sym (symbol (name sym)) (meta v)])
                       (if-let [v (resolve sym)]
-                        [(symbol v) sym v]
-                        [(symbol "clojure.core" (str sym)) sym]))
+                        [(symbol v) sym (meta v)]
+                        [(symbol "clojure.core" (str sym)) sym nil]))
                ;; self-hosted CLJS: dead branch, &env always has :ns
                :cljs nil))
           inline (contains? inlined-vars sym)
@@ -62,37 +60,29 @@
                         (= 'and sym)
                         (= 'ns sym)
                         (= 'lazy-seq sym))
-          [m resolved-meta]
-          (macros/? :clj #?(:clj (let [m (meta resolved-var)]
-                                   [m m])
-                            :cljs nil)
-                    :cljs (let [r (cljs-resolve &env fqsym)
-                                m (:meta r)]
-                            ;; CLJS: some fields live on r rather than (:meta r)
-                            [m (merge r m)]))
           dyn (:dynamic m)
           private (:private m)
-          arglists (or (:arglists m) (:arglists resolved-meta))
+          arglists (:arglists m)
           tag (:tag m)
           file (:file m)
           line (:line m)
           column (:column m)
-          varm (merge (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
-                        macro (assoc :macro true)
-                        inline (assoc :sci.impl/inlined (:inlined opts fqsym)))
-                      (cond-> (if elide-vars {} {:doc (or (:doc m) (:doc resolved-meta))})
-                        dyn (assoc :dynamic dyn)
-                        private (assoc :private private)
-                        (and (not macro) (:sci.impl/public opts)
-                             (or (:macro resolved-meta) (:macro m) (:sci/macro m)))
-                        (assoc :macro true)
-                        (if elide-vars false arglists)
-                        (assoc :arglists (ensure-quote arglists))
-                        tag (assoc :tag tag)
-                        fast-path (assoc :sci.impl/fast-path (list 'quote sym))
-                        (if elide-vars false file) (assoc :file file)
-                        (if elide-vars false line) (assoc :line line)
-                        (if elide-vars false column) (assoc :column column)))]
+          varm (cond-> {:name (or nm (list 'quote (symbol (name sym))))}
+                 macro (assoc :macro true)
+                 inline (assoc :sci.impl/inlined (:inlined opts fqsym))
+                 (not elide-vars) (assoc :doc (:doc m))
+                 dyn (assoc :dynamic dyn)
+                 private (assoc :private private)
+                 (and (not macro) (:sci.impl/public opts)
+                      (or (:macro m) (:sci/macro m)))
+                 (assoc :macro true)
+                 (when-not elide-vars arglists)
+                 (assoc :arglists (ensure-quote arglists))
+                 tag (assoc :tag tag)
+                 fast-path (assoc :sci.impl/fast-path (list 'quote sym))
+                 (when-not elide-vars file) (assoc :file file)
+                 (when-not elide-vars line) (assoc :line line)
+                 (when-not elide-vars column) (assoc :column column))]
       varm))
 
   (defmacro macrofy [& args]
