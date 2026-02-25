@@ -55,7 +55,7 @@
                                                  [(symbol v) sym v]
                                                  [(symbol "clojure.core" (str sym)) sym nil]))
                                         ;; self-hosted CLJS: dead branch, &env always has :ns
-                                        :cljs [(symbol "clojure.core" (str sym)) sym nil]))
+                                        :cljs nil))
           inline (contains? inlined-vars sym)
           fast-path (or (= 'or sym)
                         (= 'and sym)
