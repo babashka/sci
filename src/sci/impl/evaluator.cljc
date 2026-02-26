@@ -216,9 +216,10 @@
                                        (let [rec-ns (symbol (utils/demunge (str package)))
                                              rec-var (get-in @env [:namespaces rec-ns class])]
                                          rec-var)]
-                                (let [cnn (utils/current-ns-name)]
-                                  (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
-                                  @rec-var)
+                                (let [cnn (utils/current-ns-name)
+                                      type-val @rec-var]
+                                  (swap! env assoc-in [:namespaces cnn :refers class] type-val)
+                                  type-val)
                                 (throw (new #?(:clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil

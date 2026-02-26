@@ -257,13 +257,14 @@
   (let [ctx (store/get-ctx)]
     (if (:sci.impl/macroexpanding ctx)
       (cons 'clojure.core/defrecord (rest form))
-      (let [factory-fn-str (str "->" record-name)
+      (let [ns-name (utils/current-ns-name)
+            factory-fn-str (str "->" record-name)
             factory-fn-sym (symbol factory-fn-str)
             constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
             map-factory-sym (symbol (str "map" factory-fn-str))
             keys (mapv keyword fields)
             key-set (set keys)
-            rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
+            rec-type (symbol (str (munge ns-name) "." record-name))
             protocol-impls (utils/split-when symbol? raw-protocol-impls)
             field-set (set fields)
             protocol-impls
@@ -356,6 +357,7 @@
                                              (var ~record-name)
                                              (merge '~nil-map m#)))
            ~@protocol-impls
+           (import (~(symbol (str ns-name)) ~record-name))
            ~record-name)))))
 
 (defn resolve-record-or-protocol-class

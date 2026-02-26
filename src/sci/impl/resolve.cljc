@@ -102,7 +102,11 @@
        (or
         ;; prioritize refers over vars in the current namespace, see 527
         (when-let [refers (:refers the-current-ns)]
-          (find refers sym-name))
+          (when-let [kv (find refers sym-name)]
+            ;; When only-var? is true (e.g. (var Foo)), skip non-var refers entries
+            ;; like Type values stored by import
+            (when-not (and only-var? (not (utils/var? (val kv))))
+              kv)))
         (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
         (let [kv (some-> env :namespaces (get 'clojure.core) (find sym-name))]
           ;; only valid when the symbol isn't excluded

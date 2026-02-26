@@ -390,30 +390,86 @@
             {})))))
 
 (deftest deftype-macroexpand-1-produces-deftype*-test
-  (testing "macroexpand-1 of deftype produces a deftype* form, enabling code walkers like riddley"
-    (is (= 'deftype*
-           (tu/eval*
-            "(defprotocol IFoo (foo [_]))
-             (first (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x))))"
-            {})))
-    (testing "deftype* form contains expected structure"
+  (let [tree-seq* (fn [form]
+                    (tree-seq seq? seq form))]
+    (testing "macroexpand-1 of deftype contains deftype* and constructor defn"
       (is (true?
            (tu/eval*
             "(defprotocol IFoo (foo [_]))
-             (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))]
-               (and (= 'deftype* (first expanded))
-                    ;; fields are present
-                    (= '[x] (nth expanded 3))
-                    ;; :implements keyword present
-                    (= :implements (nth expanded 4))
-                    ;; interfaces vector
-                    (vector? (nth expanded 5))))"
-            {}))))
-    (testing "macroexpand does not expand deftype* further (it is a special form)"
-      (is (= 'deftype*
+             (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))
+                   forms (tree-seq seq? seq expanded)]
+               (and (some #(and (seq? %) (= 'deftype* (first %))) forms)
+                    (some #(and (seq? %) (= 'defn (first %)) (= '->Bar (second %))) forms)))"
+            {})))
+      (testing "constructor defn has the right fields"
+        (is (= '[x]
+               (tu/eval*
+                "(let [expanded (macroexpand-1 '(deftype Bar [x]))]
+                   (->> (tree-seq seq? seq expanded)
+                        (some #(when (and (seq? %) (= 'defn (first %)) (= '->Bar (second %))) %))
+                        (drop 2)
+                        first
+                        vec))"
+                {}))))
+      (testing "deftype* form contains expected structure"
+        (is (true?
              (tu/eval*
               "(defprotocol IFoo (foo [_]))
-               (first (macroexpand '(deftype Bar [x] IFoo (foo [_] x))))"
+               (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))
+                     dt (first (filter #(and (seq? %) (= 'deftype* (first %)))
+                                       (tree-seq seq? seq expanded)))]
+                 (and dt
+                      (= '[x] (nth dt 3))
+                      (= :implements (nth dt 4))
+                      (vector? (nth dt 5))))"
+              {}))))
+      (testing "macroexpand does not expand deftype* further (it is a special form)"
+        (is (true?
+             (tu/eval*
+              "(defprotocol IFoo (foo [_]))
+               (let [expanded (macroexpand '(deftype Bar [x] IFoo (foo [_] x)))
+                     forms (tree-seq seq? seq expanded)]
+                 (some #(and (seq? %) (= 'deftype* (first %))) forms))"
+              {})))))))
+
+(deftest deftype-resolve-test
+  (testing "resolve returns Type, not Var, in defining namespace"
+    (is (true? (tu/eval* "(deftype Foo [x]) (instance? sci.lang.Type (resolve 'Foo))" {})))
+    (is (false? (tu/eval* "(deftype Foo [x]) (var? (resolve 'Foo))" {}))))
+  (testing "resolve returns Type after cross-namespace import"
+    (is (true?
+         (tu/eval*
+          "(ns a) (deftype Foo [x])
+           (ns b (:import [a Foo]))
+           (instance? sci.lang.Type (resolve 'Foo))"
+          {})))
+    (is (false?
+         (tu/eval*
+          "(ns a) (deftype Foo [x])
+           (ns b (:import [a Foo]))
+           (var? (resolve 'Foo))"
+          {}))))
+  (testing "resolve returns Type for defrecord too"
+    (is (true? (tu/eval* "(defrecord Bar [x]) (instance? sci.lang.Type (resolve 'Bar))" {})))
+    (is (false? (tu/eval* "(defrecord Bar [x]) (var? (resolve 'Bar))" {})))))
+
+(deftest deftype-macroexpand-constructor-visible-test
+  (testing "macroexpand of deftype contains a (defn ->Foo ...) form"
+    (is (true?
+         (tu/eval*
+          "(let [expanded (macroexpand '(deftype Foo [x]))]
+             (some #(and (seq? %) (= 'defn (first %)) (= '->Foo (second %)))
+                   (tree-seq seq? seq expanded)))"
+          {})))
+    (testing "constructor defn has correct fields"
+      (is (= '[x y]
+             (tu/eval*
+              "(let [expanded (macroexpand '(deftype Foo [x y]))]
+                 (->> (tree-seq seq? seq expanded)
+                      (some #(when (and (seq? %) (= 'defn (first %)) (= '->Foo (second %))) %))
+                      (drop 2)
+                      first
+                      vec))"
               {}))))))
 
 (deftest deftype*-uses-flat-methods-not-metadata-test
@@ -422,7 +478,10 @@
            (tu/eval*
             "(defprotocol IVal (get-val [_]))
              (let [expanded (macroexpand-1 '(deftype Foo [] IVal (get-val [_] 0)))
+                   ;; Find the deftype* form inside the expansion
+                   dt-form (first (filter #(and (seq? %) (= 'deftype* (first %)))
+                                          (tree-seq seq? seq expanded)))
                    ;; Replace the method body: change 0 to 42
-                   modified (concat (butlast expanded) [(list 'get-val ['_] 42)])]
+                   modified (concat (butlast dt-form) [(list 'get-val ['_] 42)])]
                (eval (list 'do modified '(get-val (->Foo)))))"
             {})))))

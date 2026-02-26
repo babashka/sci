@@ -182,19 +182,25 @@
                      protocol-impls))))
 
 (defn deftype-macro
-  "Macro expansion for deftype. Emits a deftype* form like JVM Clojure.
-   Protocol names are collected into the :implements vector, methods follow."
+  "Macro expansion for deftype. Emits a (do (defn ->TypeName ...) (deftype* ...))
+   form matching Clojure's expansion shape so that macroexpand reveals the
+   constructor defn for static-analysis tools (e.g. Clerk).
+   The placeholder defn is overwritten at analysis time by analyze-deftype*."
   [[_fname] _ record-name fields & raw-protocol-impls]
   (let [ns-name (utils/current-ns-name)
         tagged-name (symbol (str ns-name) (str record-name))
         class-name (symbol (str (munge ns-name) "." record-name))
+        factory-fn-sym (symbol (str "->" record-name))
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)
         method-counts (mapv #(count (rest %)) protocol-impls)
         methods (mapcat rest protocol-impls)]
-    (list* 'deftype* tagged-name class-name fields
-           :implements (with-meta interfaces {:method-counts method-counts})
-           methods)))
+    (list 'do
+          (list 'defn factory-fn-sym (vec fields))
+          (list* 'deftype* tagged-name class-name fields
+                 :implements (with-meta interfaces {:method-counts method-counts})
+                 methods)
+          (list 'import (list (symbol (str ns-name)) record-name)))))
 
 (defn analyze-deftype*
   "Analyzer handler for deftype* special form.

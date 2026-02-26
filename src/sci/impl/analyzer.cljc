@@ -685,11 +685,14 @@
                                {})
         refers (:refers the-current-ns)
         the-current-ns (if-let [x (and refers (.get ^java.util.Map refers name))]
-                         (throw-error-with-location
-                          (str name " already refers to "
-                               x " in namespace "
-                               cnn)
-                          expr)
+                         (if (instance? sci.lang.Type x)
+                           ;; Allow redefining a type name (e.g. re-evaluating deftype/defrecord)
+                           (update the-current-ns :refers dissoc name)
+                           (throw-error-with-location
+                            (str name " already refers to "
+                                 x " in namespace "
+                                 cnn)
+                            expr))
                          (if (.get #?(:clj ^java.util.Map the-current-ns :cljs the-current-ns) name)
                            the-current-ns
                            (assoc the-current-ns name
@@ -1144,6 +1147,9 @@
                                       (deref maybe-var)
                                       ;; symbol = already deref-ed record coming in via :import
                                       (symbol? class)
+                                      class
+                                      ;; Type value from :refers (import of SCI type)
+                                      (instance? sci.lang.Type class)
                                       class)
                        maybe-record-constructor
                        (when maybe-record
