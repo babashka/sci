@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- `def` now replaces var metadata instead of merging, matching Clojure semantics. Previously, `(declare foo) (def foo 42)` would leave `:declared true` on the var's metadata.
 - Fix `deftype` and `defrecord` inside non-top-level forms (e.g. `let`, `testing`) [#1936](https://github.com/babashka/babashka/issues/1936)
 - Add `ns` field to `sci.lang.Var` for compatibility with code that accesses `.ns` on vars
 - `ns-aliases` now returns identical namespace objects as `find-ns`

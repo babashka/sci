@@ -690,12 +690,8 @@
                                x " in namespace "
                                cnn)
                           expr)
-                         (if-let [the-var #?(:clj (.get ^java.util.Map the-current-ns name)
-                                             :cljs (get the-current-ns name))]
-                           (let [cur-file @utils/current-file]
-                             (when-not (= cur-file (:file (meta the-var)))
-                               (alter-meta! the-var assoc :file cur-file))
-                             the-current-ns)
+                         (if (.get #?(:clj ^java.util.Map the-current-ns :cljs the-current-ns) name)
+                           the-current-ns
                            (assoc the-current-ns name
                                   (doto (sci.lang.Var. nil (symbol (str cnn)
                                                                    (str name))
@@ -753,9 +749,10 @@
               m (if docstring (assoc m :doc docstring) m)
               m (if m-needs-eval?
                   (analyze ctx m)
-                  (->constant m))]
+                  (->constant m))
+              file @utils/current-file]
           (sci.impl.types/->Node
-           (eval/eval-def ctx bindings var-name init m)
+           (eval/eval-def ctx bindings var-name init m file)
            nil))))))
 
 #_(defn analyze-defn [ctx [op fn-name & body :as expr]]

@@ -23,9 +23,10 @@
      syntax-quote})
 
 (defn eval-def
-  [ctx bindings var-name init m]
+  [ctx bindings var-name init m file]
   (let [init (types/eval init ctx bindings)
         m (types/eval m ctx bindings)
+        m (assoc m :name var-name :file file)
         cnn (types/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -40,12 +41,10 @@
                                         nil
                                         (:ns m)))
                        prev)
-                v (if (identical? utils/var-unbound init)
-                    (doto prev
-                      (alter-meta! merge m))
-                    (do (vars/bindRoot prev init)
-                        (alter-meta! prev merge m)
-                        prev))
+                v (do (when-not (identical? utils/var-unbound init)
+                        (vars/bindRoot prev init))
+                      (reset-meta! prev m)
+                      prev)
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces cnn] the-current-ns)))
         env (swap! (:env ctx) assoc-in-env)]
