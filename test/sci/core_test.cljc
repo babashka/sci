@@ -998,7 +998,12 @@
   (testing "declare var with metadata"
     (is (= 2 (eval* "(declare ^:dynamic d) (binding [d 2] d)")))
     (is (= "x" (eval* "(declare ^{:doc \"x\"} e) (-> #' e meta :doc)")))
-    (is (= :hello (edn/read-string (sci/with-out-str (sci/eval-string "(declare ^{:foo (prn :hello)} foo)")))))))
+    (is (= :hello (edn/read-string (sci/with-out-str (sci/eval-string "(declare ^{:foo (prn :hello)} foo)"))))))
+  (testing "def replaces previous var metadata"
+    (is (nil? (eval* "(declare foo) (def foo 42) (:declared (meta #'foo))")))
+    (is (nil? (eval* "(declare ^:dynamic bar) (def bar 1) (:dynamic (meta #'bar))")))
+    (is (= "y" (eval* "(declare ^{:doc \"x\"} baz) (def ^{:doc \"y\"} baz 1) (:doc (meta #'baz))")))
+    (is (nil? (eval* "(declare ^:golden foo) (def foo) (:golden (meta #'foo))")))))
 
 (deftest reader-conditionals
   (is (= 6 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:bb}})))

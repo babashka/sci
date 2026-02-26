@@ -100,10 +100,8 @@
                                                                 (clojure.core/protocol-type-impl x#)))))))))]
                       `(do
                          ~@impls
-                         #?(:clj (alter-var-root (var ~protocol-name)
-                                                 update :methods conj ~method-name)
-                            :cljs (def ~protocol-name
-                                    (update ~protocol-name :methods conj ~method-name))))))
+                         (clojure.core/alter-var-root (var ~protocol-name)
+                                                    update :methods conj ~method-name))))
                   signatures
                   )
            ~(list 'quote protocol-name))]

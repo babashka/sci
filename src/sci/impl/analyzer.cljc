@@ -753,9 +753,10 @@
               m (if docstring (assoc m :doc docstring) m)
               m (if m-needs-eval?
                   (analyze ctx m)
-                  (->constant m))]
+                  (->constant m))
+              file @utils/current-file]
           (sci.impl.types/->Node
-           (eval/eval-def ctx bindings var-name init m)
+           (eval/eval-def ctx bindings var-name init m file)
            nil))))))
 
 #_(defn analyze-defn [ctx [op fn-name & body :as expr]]
