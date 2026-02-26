@@ -50,17 +50,15 @@
     :end-location false}))
 
 (defn var->sym [v]
-  (if (instance? sci.lang.Type v)
-    (symbol (str v))
-    (when-let [m (meta v)]
-      (if (:sci/record m)
-        (-> (deref v)
-            str
-            symbol)
-        (when-let [var-name (:name m)]
-          (when-let [ns (:ns m)]
-            (symbol (str (types/getName ns))
-                    (str var-name))))))))
+  (when-let [m (meta v)]
+    (if (or (:sci/record m) (:sci/type m))
+      (-> (deref v)
+          str
+          symbol)
+      (when-let [var-name (:name m)]
+        (when-let [ns (:ns m)]
+          (symbol (str (types/getName ns))
+                  (str var-name)))))))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)

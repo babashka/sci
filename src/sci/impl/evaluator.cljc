@@ -178,7 +178,11 @@
                 (resolve/lookup ctx sym false nil (qualified-symbol? sym)))]
        (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
                     :clj (instance? sci.impl.types.Eval res))
-         res)))))
+         (if (and (utils/var? res)
+                  (let [m (meta res)]
+                    (or (:sci/record m) (:sci/type m))))
+           @res
+           res))))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
 
@@ -216,10 +220,9 @@
                                        (let [rec-ns (symbol (utils/demunge (str package)))
                                              rec-var (get-in @env [:namespaces rec-ns class])]
                                          rec-var)]
-                                (let [cnn (utils/current-ns-name)
-                                      type-val @rec-var]
-                                  (swap! env assoc-in [:namespaces cnn :refers class] type-val)
-                                  type-val)
+                                (let [cnn (utils/current-ns-name)]
+                                  (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
+                                  @rec-var)
                                 (throw (new #?(:clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil

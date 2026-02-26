@@ -791,7 +791,9 @@
                                     (when (and ns nm)
                                       (symbol (str (types/getName ns))
                                               (str (clojure.core/name nm)))))
-       (symbol name)))
+       (if (instance? sci.lang.Type name)
+         (symbol (str name))
+         (symbol name))))
   ([ns name] (symbol ns name)))
 
 ;;;;
