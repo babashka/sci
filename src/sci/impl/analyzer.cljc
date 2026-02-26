@@ -690,8 +690,7 @@
                                x " in namespace "
                                cnn)
                           expr)
-                         (if-let [_the-var #?(:clj (.get ^java.util.Map the-current-ns name)
-                                              :cljs (get the-current-ns name))]
+                         (if (.get #?(:clj ^java.util.Map the-current-ns :cljs the-current-ns) name)
                            the-current-ns
                            (assoc the-current-ns name
                                   (doto (sci.lang.Var. nil (symbol (str cnn)
