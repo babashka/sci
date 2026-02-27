@@ -485,3 +485,19 @@
                    modified (concat (butlast dt-form) [(list 'get-val ['_] 42)])]
                (eval (list 'do modified '(get-val (->Foo)))))"
             {})))))
+
+(deftest symbol-on-resolved-type-test
+  (testing "symbol on resolved deftype works"
+    (is (= 'user.Foo
+           (tu/eval* "(deftype Foo [x]) (symbol (str (resolve 'Foo)))" {})))
+    (is (symbol? (tu/eval* "(deftype Foo [x]) (symbol (resolve 'Foo))" {}))))
+  (testing "symbol on resolved defrecord works"
+    (is (= 'user.Bar
+           (tu/eval* "(defrecord Bar [x]) (symbol (str (resolve 'Bar)))" {})))
+    (is (symbol? (tu/eval* "(defrecord Bar [x]) (symbol (resolve 'Bar))" {})))))
+
+(deftest re-eval-deftype-test
+  (testing "re-evaluating deftype in the same namespace works"
+    (is (= 2 (tu/eval* "(deftype Foo [x]) (deftype Foo [x y]) (.-y (->Foo 1 2))" {}))))
+  (testing "re-evaluating defrecord in the same namespace works"
+    (is (= 2 (tu/eval* "(defrecord Foo [x]) (defrecord Foo [x y]) (:y (->Foo 1 2))" {})))))
