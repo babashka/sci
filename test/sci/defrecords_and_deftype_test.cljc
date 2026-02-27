@@ -496,6 +496,24 @@
            (tu/eval* "(defrecord Bar [x]) (symbol (str (resolve 'Bar)))" {})))
     (is (symbol? (tu/eval* "(defrecord Bar [x]) (symbol (resolve 'Bar))" {})))))
 
+(deftest syntax-quote-type-produces-dotted-form-test
+  (testing "syntax-quote on a defrecord/deftype name produces munged dotted form (matching Clojure)"
+    (is (= 'user.Foo (tu/eval* "(defrecord Foo [x]) `Foo" {})))
+    (is (= 'user.Foo (tu/eval* "(deftype Foo [x]) `Foo" {}))))
+  (testing "cross-namespace syntax-quote after import"
+    (is (= 'my_ns.Foo
+           (tu/eval*
+            "(ns my-ns) (defrecord Foo [x])
+             (ns other (:import [my-ns Foo]))
+             `Foo"
+            {})))
+    (is (= 'my_ns.Foo
+           (tu/eval*
+            "(ns my-ns) (deftype Foo [x])
+             (ns other (:import [my-ns Foo]))
+             `Foo"
+            {})))))
+
 (deftest re-eval-deftype-test
   (testing "re-evaluating deftype in the same namespace works"
     (is (= 2 (tu/eval* "(deftype Foo [x]) (deftype Foo [x y]) (.-y (->Foo 1 2))" {}))))

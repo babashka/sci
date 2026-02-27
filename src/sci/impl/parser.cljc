@@ -50,11 +50,9 @@
     :end-location false}))
 
 (defn var->sym [v]
-  (when-let [m (meta v)]
-    (if (or (:sci/record m) (:sci/type m))
-      (-> (deref v)
-          str
-          symbol)
+  (if (instance? sci.lang.Type v)
+    (symbol (str v))
+    (when-let [m (meta v)]
       (when-let [var-name (:name m)]
         (when-let [ns (:ns m)]
           (symbol (str (types/getName ns))

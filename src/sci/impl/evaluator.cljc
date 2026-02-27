@@ -45,7 +45,11 @@
                         (vars/bindRoot prev init))
                       (reset-meta! prev m)
                       prev)
-                the-current-ns (assoc the-current-ns var-name v)]
+                the-current-ns (assoc the-current-ns var-name v)
+                the-current-ns (if (and (not (identical? utils/var-unbound init))
+                                        (instance? sci.lang.Type init))
+                                 (update the-current-ns :refers assoc var-name init)
+                                 the-current-ns)]
             (assoc-in env [:namespaces cnn] the-current-ns)))
         env (swap! (:env ctx) assoc-in-env)]
     ;; return var
@@ -178,11 +182,7 @@
                 (resolve/lookup ctx sym false nil (qualified-symbol? sym)))]
        (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
                     :clj (instance? sci.impl.types.Eval res))
-         (if (and (utils/var? res)
-                  (let [m (meta res)]
-                    (or (:sci/record m) (:sci/type m))))
-           @res
-           res))))))
+         res)))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
 
@@ -220,9 +220,10 @@
                                        (let [rec-ns (symbol (utils/demunge (str package)))
                                              rec-var (get-in @env [:namespaces rec-ns class])]
                                          rec-var)]
-                                (let [cnn (utils/current-ns-name)]
-                                  (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
-                                  @rec-var)
+                                (let [cnn (utils/current-ns-name)
+                                      type-val @rec-var]
+                                  (swap! env assoc-in [:namespaces cnn :refers class] type-val)
+                                  type-val)
                                 (throw (new #?(:clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil
