@@ -254,19 +254,17 @@
            (SciRecord. rec-name type basis-fields var m nil)))
 
 (defn defrecord [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
-  (let [ctx (store/get-ctx)]
-    (if (:sci.impl/macroexpanding ctx)
-      (cons 'clojure.core/defrecord (rest form))
-      (let [factory-fn-str (str "->" record-name)
-            factory-fn-sym (symbol factory-fn-str)
-            constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
-            map-factory-sym (symbol (str "map" factory-fn-str))
-            keys (mapv keyword fields)
-            key-set (set keys)
-            rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
-            protocol-impls (utils/split-when symbol? raw-protocol-impls)
-            field-set (set fields)
-            protocol-impls
+  (let [ctx (store/get-ctx)
+        factory-fn-str (str "->" record-name)
+        factory-fn-sym (symbol factory-fn-str)
+        constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
+        map-factory-sym (symbol (str "map" factory-fn-str))
+        keys (mapv keyword fields)
+        key-set (set keys)
+        rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
+        protocol-impls (utils/split-when symbol? raw-protocol-impls)
+        field-set (set fields)
+        protocol-impls
             (mapcat
              (fn [[protocol-name & impls] #?(:clj expr :cljs expr)]
                (let [impls (group-by first impls)
@@ -323,36 +321,37 @@
                       impls)))
              protocol-impls
              raw-protocol-impls)
-            nil-map (zipmap (map keyword field-set) (repeat nil))]
-        `(do
-           (declare ~record-name ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
-           (sci.impl.records/-create-record-type
-            ~{:sci.impl/type-name (list 'quote rec-type)
-              :sci.impl/record true})
-           (defn ~constructor-fn-sym
-             (~fields
-              (~constructor-fn-sym ~@fields nil nil))
-             ([~@fields meta# ext#]
-              (sci.impl.records/->record-impl '~rec-type
-                                              ~record-name
-                                              ~key-set
-                                              (var ~record-name)
-                                              (cond-> (zipmap ~keys ~fields)
-                                                ext# (merge ext#)
-                                                meta# (with-meta meta#)))))
+        nil-map (zipmap (map keyword field-set) (repeat nil))]
+    `(do
+       (declare ~record-name ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
+       (sci.impl.records/-create-record-type
+        ~{:sci.impl/type-name (list 'quote rec-type)
+          :sci.impl/record true
+          :sci.impl/constructor (list 'var constructor-fn-sym)
+          :sci.impl.record/map-constructor (list 'var map-factory-sym)})
+       (defn ~constructor-fn-sym
+         (~fields
+          (~constructor-fn-sym ~@fields nil nil))
+         ([~@fields meta# ext#]
+          (sci.impl.records/->record-impl '~rec-type
+                                          ~record-name
+                                          ~key-set
+                                          (var ~record-name)
+                                          (cond-> (zipmap ~keys ~fields)
+                                            ext# (merge ext#)
+                                            meta# (with-meta meta#)))))
 
-           (defn ~factory-fn-sym
-             (~fields
-              (~constructor-fn-sym ~@fields nil nil)))
-           (defn ~map-factory-sym [m#]
-             (sci.impl.records/->record-impl '~rec-type
-                                             ~record-name
-                                             ~key-set
-                                             (var ~record-name)
-                                             (merge '~nil-map m#)))
-           (sci.impl.records/-finalize-type ~record-name (var ~constructor-fn-sym) (var ~map-factory-sym))
-           ~@protocol-impls
-           ~record-name)))))
+       (defn ~factory-fn-sym
+         (~fields
+          (~constructor-fn-sym ~@fields nil nil)))
+       (defn ~map-factory-sym [m#]
+         (sci.impl.records/->record-impl '~rec-type
+                                         ~record-name
+                                         ~key-set
+                                         (var ~record-name)
+                                         (merge '~nil-map m#)))
+       ~@protocol-impls
+       ~record-name)))
 
 (defn resolve-record-or-protocol-class
   "A record class is represented by a symbol with metadata (currently). This is only an implementation detail.

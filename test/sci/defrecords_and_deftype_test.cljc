@@ -523,3 +523,25 @@
     (is (= 2 (tu/eval* "(deftype Foo [x]) (deftype Foo [x y]) (.-y (->Foo 1 2))" {}))))
   (testing "re-evaluating defrecord in the same namespace works"
     (is (= 2 (tu/eval* "(defrecord Foo [x]) (defrecord Foo [x y]) (:y (->Foo 1 2))" {})))))
+
+(deftest constructor-self-reference-test
+  (testing "deftype method body can call its own constructor"
+    (is (= 42 (tu/eval* "
+(defprotocol IWrap
+  (unwrap [this])
+  (rewrap [this v]))
+(deftype Wrap [x]
+  IWrap
+  (unwrap [_] x)
+  (rewrap [_ v] (Wrap. v)))
+(unwrap (rewrap (->Wrap 1) 42))" {}))))
+  (testing "defrecord method body can call its own constructor"
+    (is (= 42 (tu/eval* "
+(defprotocol IBox
+  (unbox [this])
+  (rebox [this v]))
+(defrecord Box [x]
+  IBox
+  (unbox [_] x)
+  (rebox [_ v] (->Box v)))
+(unbox (rebox (->Box 1) 42))" {})))))

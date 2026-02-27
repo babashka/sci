@@ -110,9 +110,9 @@
   `(do
      (declare ~record-name ~factory-fn-sym)
      (sci.impl.deftype/-create-type
-      ~{:sci.impl/type-name (list 'quote rec-type)})
+      ~{:sci.impl/type-name (list 'quote rec-type)
+        :sci.impl/constructor (list 'var factory-fn-sym)})
      ~factory-fn-body
-     (sci.impl.deftype/-finalize-type ~record-name (var ~factory-fn-sym))
      ~@protocol-impls
      ~record-name))
 

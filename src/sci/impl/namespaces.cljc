@@ -861,28 +861,11 @@
                        (assoc-in [:namespaces cnn var-name] v)))))
     t))
 
-(defn -finalize-type
-  "Update an already-registered Type with constructor and/or map-constructor vars.
-  Called after the factory functions have been defined."
-  [rec-type constructor-var & [map-constructor-var]]
-  (let [data (types/getVal rec-type)]
-    (types/setVal rec-type (cond-> (assoc data :sci.impl/constructor constructor-var)
-                             map-constructor-var (assoc :sci.impl.record/map-constructor map-constructor-var))))
-  rec-type)
-
-#_(defn -reg-key! [rec-type k v]
-    (when (instance? sci.lang.Type rec-type)
-      (types/setVal rec-type (assoc (types/getVal rec-type) k v))
-      rec-type))
-
 (def sci-impl-records
   {:obj (sci.lang/->Namespace 'sci.impl.records nil)
    :private true
    'toString sci.impl.records/to-string
    '-create-record-type -create-type
-   '-finalize-type -finalize-type
-   ;; what do we use this for again?
-   ;; '-reg-key! -reg-key!
    '->record-impl sci.impl.records/->record-impl})
 
 (def sci-impl-deftype
@@ -892,7 +875,6 @@
    #?@(:clj ['equals sci.impl.deftype/equals
              'hashCode sci.impl.deftype/hashCode])
    '-create-type -create-type
-   '-finalize-type -finalize-type
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal
    '-mutate sci.impl.types/-mutate
