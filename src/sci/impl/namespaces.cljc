@@ -837,7 +837,38 @@
 ;;;; Record impl
 
 (defn -create-type [data]
-  (new sci.lang.Type data nil nil))
+  (let [t (new sci.lang.Type data nil nil)
+        t-name (:sci.impl/type-name data)
+        ctx (store/get-ctx)
+        env (:env ctx)
+        cnn (sci.impl.utils/current-ns-name)
+        t-name-str (str t-name)
+        var-name (symbol (subs t-name-str (inc (.lastIndexOf t-name-str "."))))]
+    (swap! env (fn [env]
+                 (let [the-ns (get-in env [:namespaces cnn])
+                       ns-obj (:obj the-ns)
+                       prev (get the-ns var-name)
+                       v (if (sci.impl.utils/var? prev)
+                           (do (vars/bindRoot prev t)
+                               prev)
+                           (sci.lang.Var. t (symbol (str cnn) (str var-name))
+                                          {:name var-name :ns ns-obj}
+                                          false false nil
+                                          ns-obj))]
+                   (types/setVal t (assoc data :sci.impl/var v))
+                   (-> env
+                       (update-in [:namespaces cnn :refers] assoc var-name t)
+                       (assoc-in [:namespaces cnn var-name] v)))))
+    t))
+
+(defn -finalize-type
+  "Update an already-registered Type with constructor and/or map-constructor vars.
+  Called after the factory functions have been defined."
+  [rec-type constructor-var & [map-constructor-var]]
+  (let [data (types/getVal rec-type)]
+    (types/setVal rec-type (cond-> (assoc data :sci.impl/constructor constructor-var)
+                             map-constructor-var (assoc :sci.impl.record/map-constructor map-constructor-var))))
+  rec-type)
 
 #_(defn -reg-key! [rec-type k v]
     (when (instance? sci.lang.Type rec-type)
@@ -849,6 +880,7 @@
    :private true
    'toString sci.impl.records/to-string
    '-create-record-type -create-type
+   '-finalize-type -finalize-type
    ;; what do we use this for again?
    ;; '-reg-key! -reg-key!
    '->record-impl sci.impl.records/->record-impl})
@@ -860,6 +892,7 @@
    #?@(:clj ['equals sci.impl.deftype/equals
              'hashCode sci.impl.deftype/hashCode])
    '-create-type -create-type
+   '-finalize-type -finalize-type
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal
    '-mutate sci.impl.types/-mutate
@@ -1427,7 +1460,8 @@
      'case (macrofy 'case case**)
      'char (copy-core-var char)
      'char? (copy-core-var char?)
-     #?@(:clj ['class? (copy-core-var class?)])
+     #?@(:clj ['class? (copy-var (fn [x] (or (class? x) (instance? sci.lang.Type x)))
+                                clojure-core-ns {:name 'class?})])
      #?@(:cljs ['clj->js (copy-core-var clj->js)])
      'cond (macrofy 'cond cond*)
      'cond-> (macrofy 'cond-> cond->*)

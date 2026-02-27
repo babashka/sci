@@ -45,11 +45,7 @@
                         (vars/bindRoot prev init))
                       (reset-meta! prev m)
                       prev)
-                the-current-ns (assoc the-current-ns var-name v)
-                the-current-ns (if (and (not (identical? utils/var-unbound init))
-                                        (instance? sci.lang.Type init))
-                                 (update the-current-ns :refers assoc var-name init)
-                                 the-current-ns)]
+                the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces cnn] the-current-ns)))
         env (swap! (:env ctx) assoc-in-env)]
     ;; return var
@@ -143,7 +139,11 @@
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
       v
-      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+      (let [instance-class (or (when tag-class
+                                   (if (instance? tag-class instance-expr*)
+                                     tag-class
+                                     (#?(:clj class :cljs type) instance-expr*)))
+                                 (#?(:clj class :cljs type) instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
             allowed? (or

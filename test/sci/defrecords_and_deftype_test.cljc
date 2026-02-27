@@ -451,7 +451,11 @@
           {}))))
   (testing "resolve returns Type for defrecord too"
     (is (true? (tu/eval* "(defrecord Bar [x]) (instance? sci.lang.Type (resolve 'Bar))" {})))
-    (is (false? (tu/eval* "(defrecord Bar [x]) (var? (resolve 'Bar))" {})))))
+    (is (false? (tu/eval* "(defrecord Bar [x]) (var? (resolve 'Bar))" {}))))
+  #?(:clj
+     (testing "class? returns true for resolved types"
+       (is (true? (tu/eval* "(deftype Foo [x]) (class? (resolve 'Foo))" {})))
+       (is (true? (tu/eval* "(defrecord Bar [x]) (class? (resolve 'Bar))" {}))))))
 
 (deftest deftype-macroexpand-constructor-visible-test
   (testing "macroexpand of deftype contains a (defn ->Foo ...) form"

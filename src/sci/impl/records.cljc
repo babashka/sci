@@ -326,14 +326,9 @@
             nil-map (zipmap (map keyword field-set) (repeat nil))]
         `(do
            (declare ~record-name ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
-           (def ~(with-meta record-name
-                   {:sci/record true})
-             (sci.impl.records/-create-record-type
-              ~{:sci.impl/type-name (list 'quote rec-type)
-                :sci.impl/record true
-                :sci.impl/constructor (list 'var constructor-fn-sym)
-                :sci.impl/var (list 'var record-name)
-                :sci.impl.record/map-constructor (list 'var map-factory-sym)}))
+           (sci.impl.records/-create-record-type
+            ~{:sci.impl/type-name (list 'quote rec-type)
+              :sci.impl/record true})
            (defn ~constructor-fn-sym
              (~fields
               (~constructor-fn-sym ~@fields nil nil))
@@ -355,6 +350,7 @@
                                              ~key-set
                                              (var ~record-name)
                                              (merge '~nil-map m#)))
+           (sci.impl.records/-finalize-type ~record-name (var ~constructor-fn-sym) (var ~map-factory-sym))
            ~@protocol-impls
            ~record-name)))))
 
