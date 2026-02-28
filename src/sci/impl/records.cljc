@@ -371,8 +371,8 @@
   ([ctx package class]
    (let [namespace (-> package str (str/replace "_" "-") symbol)]
      (when-let [sci-var (let [ns (get-in @(:env ctx) [:namespaces namespace])]
-                          (or (get ns class)
-                              (get (:refers ns) class)))]
+                          (or (get (:types ns) class)
+                              (get ns class)))]
        (if (utils/var? sci-var)
          @sci-var
          sci-var)))))

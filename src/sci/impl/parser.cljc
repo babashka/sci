@@ -75,6 +75,9 @@
                     (var->sym v)))
                 (when-let [v (get the-current-ns sym)]
                   (var->sym v))
+                (when-let [types (:types the-current-ns)]
+                  (when-let [v (get types sym)]
+                    (var->sym v)))
                 (when (or (and (contains? (get namespaces 'clojure.core) sym)
                                ;; only valid when the symbol isn't excluded
                                (not (some-> the-current-ns

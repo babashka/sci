@@ -222,11 +222,11 @@
                               (if-let [type-val
                                        (let [rec-ns (symbol (utils/demunge (str package)))
                                              the-ns (get-in @env [:namespaces rec-ns])
-                                             v (or (get the-ns class)
-                                                   (get (:refers the-ns) class))]
+                                             v (or (get (:types the-ns) class)
+                                                   (get the-ns class))]
                                          (if (utils/var? v) @v v))]
                                 (let [cnn (utils/current-ns-name)]
-                                  (swap! env assoc-in [:namespaces cnn :refers class] type-val)
+                                  (swap! env assoc-in [:namespaces cnn :types class] type-val)
                                   type-val)
                                 (throw (new #?(:clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))

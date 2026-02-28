@@ -685,14 +685,11 @@
                                {})
         refers (:refers the-current-ns)
         the-current-ns (if-let [x (and refers (.get ^java.util.Map refers name))]
-                         (if (instance? sci.lang.Type x)
-                           ;; Allow redefining a type name (e.g. re-evaluating deftype/defrecord)
-                           (update the-current-ns :refers dissoc name)
-                           (throw-error-with-location
-                            (str name " already refers to "
-                                 x " in namespace "
-                                 cnn)
-                            expr))
+                         (throw-error-with-location
+                          (str name " already refers to "
+                               x " in namespace "
+                               cnn)
+                          expr)
                          (if (.get #?(:clj ^java.util.Map the-current-ns :cljs the-current-ns) name)
                            the-current-ns
                            (assoc the-current-ns name

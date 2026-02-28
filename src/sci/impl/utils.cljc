@@ -288,7 +288,7 @@
         t (new sci.lang.Type {:sci.impl/type-name rec-type} nil nil)]
     (swap! env
            (fn [env]
-             (update-in env [:namespaces cnn :refers] assoc name t))))
+             (update-in env [:namespaces cnn :types] assoc name t))))
   nil)
 
 (defn new-var

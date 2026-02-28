@@ -842,8 +842,7 @@
         type-name (symbol (name t))]
     (swap! env (fn [env]
                  (-> env
-                     ;; Store type in :refers like a class import, not as a var
-                     (update-in [:namespaces cnn :refers] assoc type-name t)
+                     (update-in [:namespaces cnn :types] assoc type-name t)
                      ;; Remove any var that might have been created by (declare)
                      (update-in [:namespaces cnn] dissoc type-name))))
     t))
@@ -966,11 +965,13 @@
 
   f must be free of side-effects"
      [iref f & args]
-     (let [m (meta iref)]
-       (if-not (:sci/built-in m)
-         (apply cljs.core/alter-meta! iref f args)
-         (throw (ex-info (str "Built-in var " iref " is read-only.")
-                         {:var iref}))))))
+     (if (instance? sci.lang.Type iref)
+       (types/setVal iref (apply f (types/getVal iref) args))
+       (let [m (meta iref)]
+         (if-not (:sci/built-in m)
+           (apply cljs.core/alter-meta! iref f args)
+           (throw (ex-info (str "Built-in var " iref " is read-only.")
+                           {:var iref})))))))
 
 (defn- let** [expr _ bindings & body]
   (when-not (vector? bindings)
