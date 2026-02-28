@@ -693,8 +693,7 @@
                          (if (.get #?(:clj ^java.util.Map the-current-ns :cljs the-current-ns) name)
                            the-current-ns
                            (assoc the-current-ns name
-                                  (doto (sci.lang.Var. nil (symbol (str cnn)
-                                                                   (str name))
+                                  (doto (sci.lang.Var. nil name
                                                        {:name name
                                                         :ns @utils/current-ns
                                                         :file @utils/current-file}
