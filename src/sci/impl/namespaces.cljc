@@ -473,7 +473,7 @@
     (sci-ns-aliases* ctx sci-ns)))
 
 (defn clean-ns [m]
-  (dissoc m :aliases :imports :obj :refer :refers))
+  (dissoc m :aliases :imports :obj :refer :refers :types))
 
 (defn sci-ns-interns* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)

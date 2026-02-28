@@ -85,6 +85,7 @@ deftype/defrecord no longer creates a `(def Foo ...)` var. Type names are stored
 - [x] Fixed CLJS test failures (`.getName` CLJ-only, error message regex)
 - [x] Fixed native test failures (use `sci/eval-string` instead of `tu/eval*`)
 - [ ] Consider caching the hierarchy tag symbol on Type to avoid string parsing in `->tag` (hot path for multimethod dispatch via `isa?`)
+- [x] Fix auto-completions in babashka for the new `:types` structure (custom types no longer complete)
 
 ## Review Status
 
@@ -100,6 +101,6 @@ deftype/defrecord no longer creates a `(def Foo ...)` var. Type names are stored
 - [x] 10. `sci/impl/multimethods.cljc` — clean
 - [x] 11. `sci/impl/protocols.cljc` — clean
 - [x] 12. `sci/impl/hierarchies.cljc` — ->tag uses string parsing
-- [ ] 13. Tests (defrecords_and_deftype_test)
-- [ ] 14. Tests (core_test)
+- [x] 13. Tests (defrecords_and_deftype_test) — removed unused tree-seq*, clean
+- [x] 14. Tests (core_test) — clean
 - [x] 15. `sci/pprint.cljc` — renamed .-var → .-type-meta
