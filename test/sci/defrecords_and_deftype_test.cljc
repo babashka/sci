@@ -524,6 +524,18 @@
              `Foo"
             {})))))
 
+(deftest use-does-not-bring-constructor-test
+  (testing "deftype constructor requires :import, not just :use"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Unable to resolve classname"
+                          (tu/eval* "(ns foo) (deftype Bar [x])
+                                     (ns baz (:use [foo]))
+                                     (Bar. 1)" {}))))
+  (testing "deftype constructor works with :import"
+    (is (= 1 (tu/eval* "(ns foo) (deftype Bar [x])
+                         (ns baz (:require [foo]) (:import [foo Bar]))
+                         (.-x (Bar. 1))" {})))))
+
 (deftest re-eval-deftype-test
   (testing "re-evaluating deftype in the same namespace works"
     (is (= 2 (tu/eval* "(deftype Foo [x]) (deftype Foo [x y]) (.-y (->Foo 1 2))" {}))))
