@@ -34,7 +34,7 @@
                 prev (get the-current-ns var-name)
                 prev (if-not (utils/var? prev)
                        (let [m (meta prev)]
-                         (sci.lang.Var. prev (symbol (str cnn) (str var-name))
+                         (sci.lang.Var. prev var-name
                                         m
                                         false
                                         false

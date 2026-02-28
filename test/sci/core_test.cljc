@@ -1489,6 +1489,12 @@
 (deftest symbol-on-var-test
   (is (= 'user/x (eval* "(def x 1) (symbol #'x)"))))
 
+#?(:clj
+   (deftest var-sym-test
+     (testing ".sym returns unqualified symbol, matching Clojure"
+       (is (= 'foo (.sym (sci/eval-string "(def foo 1) #'foo"))))
+       (is (= 'bar (.sym (sci/eval-string "(ns my-ns) (def bar 1) #'bar")))))))
+
 (deftest macro-val-error-test
   (is (thrown-with-msg?
        #?(:clj Exception :cljs :default) #"value of a macro"
