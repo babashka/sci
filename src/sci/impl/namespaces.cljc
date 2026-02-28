@@ -838,27 +838,27 @@
 
 (defn -create-type [data]
   (let [t (new sci.lang.Type data nil nil)
-        t-name (:sci.impl/type-name data)
         ctx (store/get-ctx)
         env (:env ctx)
         cnn (sci.impl.utils/current-ns-name)
-        t-name-str (str t-name)
-        var-name (symbol (subs t-name-str (inc (.lastIndexOf t-name-str "."))))]
-    (swap! env (fn [env]
-                 (let [the-ns (get-in env [:namespaces cnn])
-                       ns-obj (:obj the-ns)
-                       prev (get the-ns var-name)
-                       v (if (sci.impl.utils/var? prev)
-                           (do (vars/bindRoot prev t)
-                               prev)
-                           (sci.lang.Var. t (symbol (str cnn) (str var-name))
-                                          {:name var-name :ns ns-obj}
-                                          false false nil
-                                          ns-obj))]
-                   (types/setVal t (assoc data :sci.impl/var v))
-                   (-> env
-                       (update-in [:namespaces cnn :refers] assoc var-name t)
-                       (assoc-in [:namespaces cnn var-name] v)))))
+        var-name (symbol (name t))
+        new-env
+        (swap! env (fn [env]
+                     (let [the-ns (get-in env [:namespaces cnn])
+                           ns-obj (:obj the-ns)
+                           prev (get the-ns var-name)
+                           v (if (sci.impl.utils/var? prev)
+                               (do (vars/bindRoot prev t)
+                                   prev)
+                               (sci.lang.Var. t (symbol (str cnn) (str var-name))
+                                              {:name var-name :ns ns-obj}
+                                              false false nil
+                                              ns-obj))]
+                       (-> env
+                           (update-in [:namespaces cnn :refers] assoc var-name t)
+                           (assoc-in [:namespaces cnn var-name] v)))))
+        v (get-in new-env [:namespaces cnn var-name])]
+    (types/setVal t (assoc data :sci.impl/var v))
     t))
 
 (def sci-impl-records
