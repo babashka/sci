@@ -253,20 +253,6 @@
    :cljs (defn ->record-impl [rec-name type basis-fields var m]
            (SciRecord. rec-name type basis-fields var m nil)))
 
-(defn init-type!
-  "Register a type name in the namespace at analysis time.
-   Stores a placeholder Type in :refers so symbol resolution works
-   without creating a var (matching Clojure where defrecord creates
-   a class mapping, not a var)."
-  [ctx name rec-type]
-  (let [cnn (utils/current-ns-name)
-        env (:env ctx)
-        t (new sci.lang.Type {:sci.impl/type-name rec-type} nil nil)]
-    (swap! env
-           (fn [env]
-             (update-in env [:namespaces cnn :refers] assoc name t))))
-  nil)
-
 (defn defrecord [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
   (let [ctx (store/get-ctx)
         factory-fn-str (str "->" record-name)
@@ -276,7 +262,7 @@
         keys (mapv keyword fields)
         key-set (set keys)
         rec-type (symbol (str (munge (utils/current-ns-name)) "." record-name))
-        _ (init-type! ctx record-name rec-type)
+        _ (utils/init-type! ctx record-name rec-type)
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         field-set (set fields)
         protocol-impls
