@@ -50,13 +50,11 @@
     :end-location false}))
 
 (defn var->sym [v]
-  (if (instance? sci.lang.Type v)
-    (symbol (str v))
-    (when-let [m (meta v)]
-      (when-let [var-name (:name m)]
-        (when-let [ns (:ns m)]
-          (symbol (str (types/getName ns))
-                  (str var-name)))))))
+  (when-let [m (meta v)]
+    (when-let [var-name (:name m)]
+      (when-let [ns (:ns m)]
+        (symbol (str (types/getName ns))
+                (str var-name))))))
 
 (defn fully-qualify [ctx sym]
   (let [env @(:env ctx)
@@ -77,7 +75,7 @@
                   (var->sym v))
                 (when-let [types (:types the-current-ns)]
                   (when-let [v (get types sym)]
-                    (var->sym v)))
+                    (symbol (str v))))
                 (when (or (and (contains? (get namespaces 'clojure.core) sym)
                                ;; only valid when the symbol isn't excluded
                                (not (some-> the-current-ns
