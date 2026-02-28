@@ -463,7 +463,14 @@
   #?(:clj
      (testing "class? returns true for resolved types"
        (is (true? (tu/eval* "(deftype Foo [x]) (class? (resolve 'Foo))" {})))
-       (is (true? (tu/eval* "(defrecord Bar [x]) (class? (resolve 'Bar))" {}))))))
+       (is (true? (tu/eval* "(defrecord Bar [x]) (class? (resolve 'Bar))" {})))))
+  (testing ".getName returns fully qualified name, like Class"
+    (is (= "user.Foo" (tu/eval* "(deftype Foo [x]) (.getName (resolve 'Foo))" {:classes {:allow :all}})))
+    (is (= "user.Bar" (tu/eval* "(defrecord Bar [x]) (.getName (resolve 'Bar))" {:classes {:allow :all}}))))
+  #?(:clj
+     (testing ".getName works even with ^Class type hint"
+       (is (= "user.Foo" (tu/eval* "(deftype Foo [x]) (let [^java.lang.Class c (resolve 'Foo)] (.getName c))"
+                                   {:classes {:allow :all 'java.lang.Class {:class java.lang.Class}}}))))))
 
 (deftest deftype-macroexpand-constructor-visible-test
   (testing "macroexpand of deftype contains a (defn ->Foo ...) form"

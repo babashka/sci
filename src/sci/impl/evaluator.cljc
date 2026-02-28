@@ -128,10 +128,7 @@
       (if #?(:clj (instance? sci.impl.types.ICustomType instance)
              :cljs (implements? sci.impl.types.ICustomType instance))
         (get (types/getFields instance) (symbol method-str-unmunged) none-sentinel)
-        (if (and (instance? sci.lang.Type instance)
-                 (= "getName" method-str-unmunged))
-          (str instance)
-          none-sentinel)))
+        none-sentinel))
     none-sentinel))
 
 (defn eval-instance-method-invocation

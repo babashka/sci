@@ -285,7 +285,7 @@
   [ctx name rec-type]
   (let [cnn (current-ns-name)
         env (:env ctx)
-        t (new sci.lang.Type {:sci.impl/type-name rec-type} nil nil)]
+        t (new sci.lang.Type {:sci.impl/type-name rec-type})]
     (swap! env
            (fn [env]
              (update-in env [:namespaces cnn :types] assoc name t))))

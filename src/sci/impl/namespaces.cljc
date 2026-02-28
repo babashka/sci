@@ -835,11 +835,13 @@
 ;;;; Record impl
 
 (defn -create-type [data]
-  (let [t (new sci.lang.Type data nil nil)
+  (let [t (new sci.lang.Type data)
         ctx (store/get-ctx)
         env (:env ctx)
         cnn (sci.impl.utils/current-ns-name)
-        type-name (symbol (name t))]
+        type-name (symbol (let [s (clojure.core/str t)
+                                  i (str/last-index-of s ".")]
+                              (if i (subs s (inc i)) s)))]
     (swap! env (fn [env]
                  (-> env
                      (update-in [:namespaces cnn :types] assoc type-name t)

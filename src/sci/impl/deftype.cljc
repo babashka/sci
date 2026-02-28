@@ -26,7 +26,7 @@
 (defmulti to-string types/type-impl)
 (defmethod to-string :default [this]
   (let [t (types/type-impl this)]
-    (str (namespace t) "." (name t) "@"
+    (str t "@"
          (hex-hash this))))
 
 #?(:clj

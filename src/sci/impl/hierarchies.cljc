@@ -11,7 +11,11 @@
 
 (defn ->tag [x]
   (if (instance? sci.lang.Type x)
-    (symbol (namespace x) (name x))
+    (let [s (str x)
+          i (.lastIndexOf ^String s ".")]
+      (if (pos? i)
+        (symbol (subs s 0 i) (subs s (inc i)))
+        (symbol s)))
     x))
 
 (defn derive*
