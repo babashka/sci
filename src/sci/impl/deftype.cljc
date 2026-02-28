@@ -53,8 +53,8 @@
 (clojure.core/deftype SciType
     [rec-name
      type
-     var #?(:clj ^:volatile-mutable ext-map
-            :cljs ^:mutable ext-map)]
+     type-meta #?(:clj ^:volatile-mutable ext-map
+                  :cljs ^:mutable ext-map)]
   Object
   (toString [this]
     (to-string this))
@@ -72,7 +72,7 @@
 
   #?@(:clj [SciPrintMethod
             (-sci-print-method [this w]
-                               (if-let [rv var]
+                               (if-let [rv type-meta]
                                  (let [m (meta rv)]
                                    (if-let [pm (:sci.impl/print-method m)]
                                      (pm this w)
@@ -80,7 +80,7 @@
                                  (.write ^java.io.Writer w ^String (clojure-str this))))]
       :cljs [IPrintWithWriter
              (-pr-writer [this w opts]
-                         (if-let [rv var]
+                         (if-let [rv type-meta]
                            (let [m (meta rv)]
                              (if-let [pm (:sci.impl/print-method m)]
                                (pm this w opts)
@@ -97,8 +97,8 @@
   (getProtocols [_] nil)
   (getFields [_] ext-map))
 
-(defn ->type-impl [rec-name type var m]
-  (SciType. rec-name type var m))
+(defn ->type-impl [rec-name type type-meta m]
+  (SciType. rec-name type type-meta m))
 
 #?(:clj
    (defmethod print-method SciType [v w]

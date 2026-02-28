@@ -37,7 +37,7 @@
    (deftype SciRecord [rec-name
                        type
                        basis-fields
-                       var
+                       type-meta
                        ext-map
                        ^:unsynchronized-mutable my_hash
                        ^:unsynchronized-mutable my_hasheq]
@@ -66,7 +66,7 @@
      (meta [_]
        (meta ext-map))
      (withMeta [_ m]
-       (SciRecord. rec-name type basis-fields var (with-meta ext-map m) 0 0))
+       (SciRecord. rec-name type basis-fields type-meta (with-meta ext-map m) 0 0))
 
      clojure.lang.ILookup
      (valAt [_this k]
@@ -95,11 +95,11 @@
      (iterator [_this]
        (clojure.lang.RT/iter ext-map))
      (assoc [_this k v]
-       (SciRecord. rec-name type basis-fields var (assoc ext-map k v) 0 0))
+       (SciRecord. rec-name type basis-fields type-meta (assoc ext-map k v) 0 0))
      (without [_this k]
        (if (contains? basis-fields k)
          (dissoc ext-map k)
-         (SciRecord. rec-name type basis-fields var (dissoc ext-map k) 0 0)))
+         (SciRecord. rec-name type basis-fields type-meta (dissoc ext-map k) 0 0)))
 
      java.util.Map
      java.io.Serializable
@@ -132,7 +132,7 @@
 
      SciPrintMethod
      (-sci-print-method [this w]
-       (if-let [rv var]
+       (if-let [rv type-meta]
          (let [m (meta rv)]
            (if-let [pm (:sci.impl/print-method m)]
              (pm this w)
@@ -148,13 +148,13 @@
    (deftype SciRecord [rec-name
                        type
                        basis-fields
-                       var ext-map
+                       type-meta ext-map
                        ^:mutable my_hash]
      IRecord ;; marker interface
 
      ICloneable
      (-clone [_]
-       (new SciRecord rec-name type basis-fields var ext-map my_hash))
+       (new SciRecord rec-name type basis-fields type-meta ext-map my_hash))
 
      IHash
      (-hash [_]
@@ -205,13 +205,13 @@
      (-contains-key? [_ k]
        (-contains-key? ext-map k))
      (-assoc [_ k v]
-       (new SciRecord rec-name type basis-fields var (assoc ext-map k v) nil))
+       (new SciRecord rec-name type basis-fields type-meta (assoc ext-map k v) nil))
 
      IMap
      (-dissoc [_ k]
        (if (contains? basis-fields k)
          (dissoc ext-map k)
-         (new SciRecord rec-name type basis-fields var (dissoc ext-map k) nil)))
+         (new SciRecord rec-name type basis-fields type-meta (dissoc ext-map k) nil)))
 
      ISeqable
      (-seq [_]
@@ -224,7 +224,7 @@
      IPrintWithWriter
      ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
      (-pr-writer [this w opts]
-       (if-let [rv var]
+       (if-let [rv type-meta]
          (let [m (meta rv)]
            (if-let [pm (:sci.impl/print-method m)]
              (pm this w opts)
@@ -248,10 +248,10 @@
    (defmethod print-method SciRecord [v w]
      (-sci-print-method v w)))
 
-#?(:clj  (defn ->record-impl [rec-name type basis-fields var m]
-           (SciRecord. rec-name type basis-fields var m 0 0))
-   :cljs (defn ->record-impl [rec-name type basis-fields var m]
-           (SciRecord. rec-name type basis-fields var m nil)))
+#?(:clj  (defn ->record-impl [rec-name type basis-fields type-meta m]
+           (SciRecord. rec-name type basis-fields type-meta m 0 0))
+   :cljs (defn ->record-impl [rec-name type basis-fields type-meta m]
+           (SciRecord. rec-name type basis-fields type-meta m nil)))
 
 (defn defrecord [[_fname & _ :as form] _ record-name fields & raw-protocol-impls]
   (let [ctx (store/get-ctx)
