@@ -85,3 +85,20 @@ deftype/defrecord no longer creates a `(def Foo ...)` var. Type names are stored
 - [x] Fixed CLJS test failures (`.getName` CLJ-only, error message regex)
 - [x] Fixed native test failures (use `sci/eval-string` instead of `tu/eval*`)
 - [ ] Consider caching the hierarchy tag symbol on Type to avoid string parsing in `->tag` (hot path for multimethod dispatch via `isa?`)
+
+## Review Status
+
+- [x] 1. `sci/lang.cljc` — reviewed: removed Named, added HasName
+- [ ] 2. `sci/impl/utils.cljc`
+- [ ] 3. `sci/impl/deftype.cljc`
+- [ ] 4. `sci/impl/records.cljc`
+- [ ] 5. `sci/impl/namespaces.cljc`
+- [x] 6. `sci/impl/evaluator.cljc` — reviewed: removed getName special case, tag-class fallback
+- [ ] 7. `sci/impl/analyzer.cljc`
+- [ ] 8. `sci/impl/resolve.cljc`
+- [ ] 9. `sci/impl/parser.cljc`
+- [ ] 10. `sci/impl/multimethods.cljc`
+- [ ] 11. `sci/impl/protocols.cljc`
+- [x] 12. `sci/impl/hierarchies.cljc` — reviewed: ->tag uses string parsing
+- [ ] 13. Tests (defrecords_and_deftype_test)
+- [ ] 14. Tests (core_test)

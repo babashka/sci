@@ -279,7 +279,7 @@
 
 (defn init-type!
   "Register a type name in the namespace at analysis time.
-   Stores a placeholder Type in :refers so symbol resolution works
+   Stores a placeholder Type in :types so symbol resolution works
    without creating a var (matching Clojure where deftype/defrecord
    creates a class mapping, not a var)."
   [ctx name rec-type]
