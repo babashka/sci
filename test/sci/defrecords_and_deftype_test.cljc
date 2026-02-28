@@ -464,13 +464,13 @@
      (testing "class? returns true for resolved types"
        (is (true? (tu/eval* "(deftype Foo [x]) (class? (resolve 'Foo))" {})))
        (is (true? (tu/eval* "(defrecord Bar [x]) (class? (resolve 'Bar))" {})))))
-  (testing ".getName returns fully qualified name, like Class"
-    (is (= "user.Foo" (tu/eval* "(deftype Foo [x]) (.getName (resolve 'Foo))" {:classes {:allow :all}})))
-    (is (= "user.Bar" (tu/eval* "(defrecord Bar [x]) (.getName (resolve 'Bar))" {:classes {:allow :all}}))))
   #?(:clj
-     (testing ".getName works even with ^Class type hint"
-       (is (= "user.Foo" (tu/eval* "(deftype Foo [x]) (let [^java.lang.Class c (resolve 'Foo)] (.getName c))"
-                                   {:classes {:allow :all 'java.lang.Class {:class java.lang.Class}}}))))))
+     (let [opts {:classes {:allow :all 'java.lang.Class {:class java.lang.Class}}}]
+       (testing ".getName returns fully qualified name, like Class"
+         (is (= "user.Foo" (sci/eval-string "(deftype Foo [x]) (.getName (resolve 'Foo))" opts)))
+         (is (= "user.Bar" (sci/eval-string "(defrecord Bar [x]) (.getName (resolve 'Bar))" opts))))
+       (testing ".getName works even with ^Class type hint"
+         (is (= "user.Foo" (sci/eval-string "(deftype Foo [x]) (let [^java.lang.Class c (resolve 'Foo)] (.getName c))" opts)))))))
 
 (deftest deftype-macroexpand-constructor-visible-test
   (testing "macroexpand of deftype contains a (defn ->Foo ...) form"
@@ -534,7 +534,7 @@
 (deftest use-does-not-bring-constructor-test
   (testing "deftype constructor requires :import, not just :use"
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
-                          #"Unable to resolve classname"
+                          #"Unable to resolve"
                           (tu/eval* "(ns foo) (deftype Bar [x])
                                      (ns baz (:use [foo]))
                                      (Bar. 1)" {}))))
