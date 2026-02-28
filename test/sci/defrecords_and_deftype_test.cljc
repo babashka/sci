@@ -534,7 +534,15 @@
   (testing "deftype constructor works with :import"
     (is (= 1 (tu/eval* "(ns foo) (deftype Bar [x])
                          (ns baz (:require [foo]) (:import [foo Bar]))
-                         (.-x (Bar. 1))" {})))))
+                         (.-x (Bar. 1))" {}))))
+  (testing "import with munged (underscored) namespace name"
+    (is (= 1 (tu/eval* "(ns my-ns) (deftype Bar [x])
+                         (ns other (:require [my-ns]) (:import [my_ns Bar]))
+                         (.-x (Bar. 1))" {}))))
+  (testing "import defrecord with munged namespace name"
+    (is (= 1 (tu/eval* "(ns my-ns) (defrecord Bar [x])
+                         (ns other (:require [my-ns]) (:import [my_ns Bar]))
+                         (:x (Bar. 1))" {})))))
 
 (deftest re-eval-deftype-test
   (testing "re-evaluating deftype in the same namespace works"
