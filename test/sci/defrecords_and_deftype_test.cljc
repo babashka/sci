@@ -452,6 +452,14 @@
   (testing "resolve returns Type for defrecord too"
     (is (true? (tu/eval* "(defrecord Bar [x]) (instance? sci.lang.Type (resolve 'Bar))" {})))
     (is (false? (tu/eval* "(defrecord Bar [x]) (var? (resolve 'Bar))" {}))))
+  (testing "#'Foo throws for deftype (no var, matching Clojure)"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Unable to resolve var"
+                          (tu/eval* "(deftype Foo [x]) #'Foo" {}))))
+  (testing "#'Bar throws for defrecord (no var, matching Clojure)"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Unable to resolve var"
+                          (tu/eval* "(defrecord Bar [x]) #'Bar" {}))))
   #?(:clj
      (testing "class? returns true for resolved types"
        (is (true? (tu/eval* "(deftype Foo [x]) (class? (resolve 'Foo))" {})))
@@ -491,14 +499,12 @@
             {})))))
 
 (deftest symbol-on-resolved-type-test
-  (testing "symbol on resolved deftype works"
+  (testing "symbol on str of resolved deftype works"
     (is (= 'user.Foo
-           (tu/eval* "(deftype Foo [x]) (symbol (str (resolve 'Foo)))" {})))
-    (is (symbol? (tu/eval* "(deftype Foo [x]) (symbol (resolve 'Foo))" {}))))
-  (testing "symbol on resolved defrecord works"
+           (tu/eval* "(deftype Foo [x]) (symbol (str (resolve 'Foo)))" {}))))
+  (testing "symbol on str of resolved defrecord works"
     (is (= 'user.Bar
-           (tu/eval* "(defrecord Bar [x]) (symbol (str (resolve 'Bar)))" {})))
-    (is (symbol? (tu/eval* "(defrecord Bar [x]) (symbol (resolve 'Bar))" {})))))
+           (tu/eval* "(defrecord Bar [x]) (symbol (str (resolve 'Bar)))" {})))))
 
 (deftest syntax-quote-type-produces-dotted-form-test
   (testing "syntax-quote on a defrecord/deftype name produces munged dotted form (matching Clojure)"

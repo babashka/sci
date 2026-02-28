@@ -39,6 +39,16 @@
       [IMeta
        (-meta [_] data)])
 
+  ;; support alter-meta! for storing print-method etc.
+  #?@(:clj
+      [clojure.lang.IReference
+       (alterMeta [this f args]
+                  (locking this
+                    (set! data (apply f data args))))
+       (resetMeta [this m]
+                  (locking this
+                    (set! data m)))])
+
   ;; we need to support Named for `derive`
   #?@(:clj
       [clojure.lang.Named

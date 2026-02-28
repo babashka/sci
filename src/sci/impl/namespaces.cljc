@@ -791,9 +791,7 @@
                                     (when (and ns nm)
                                       (symbol (str (types/getName ns))
                                               (str (clojure.core/name nm)))))
-       (if (instance? sci.lang.Type name)
-         (symbol (str name))
-         (symbol name))))
+       (symbol name)))
   ([ns name] (symbol ns name)))
 
 ;;;;
@@ -841,24 +839,13 @@
         ctx (store/get-ctx)
         env (:env ctx)
         cnn (sci.impl.utils/current-ns-name)
-        var-name (symbol (name t))
-        new-env
-        (swap! env (fn [env]
-                     (let [the-ns (get-in env [:namespaces cnn])
-                           ns-obj (:obj the-ns)
-                           prev (get the-ns var-name)
-                           v (if (sci.impl.utils/var? prev)
-                               (do (vars/bindRoot prev t)
-                                   prev)
-                               (sci.lang.Var. t (symbol (str cnn) (str var-name))
-                                              {:name var-name :ns ns-obj}
-                                              false false nil
-                                              ns-obj))]
-                       (-> env
-                           (update-in [:namespaces cnn :refers] assoc var-name t)
-                           (assoc-in [:namespaces cnn var-name] v)))))
-        v (get-in new-env [:namespaces cnn var-name])]
-    (types/setVal t (assoc data :sci.impl/var v))
+        type-name (symbol (name t))]
+    (swap! env (fn [env]
+                 (-> env
+                     ;; Store type in :refers like a class import, not as a var
+                     (update-in [:namespaces cnn :refers] assoc type-name t)
+                     ;; Remove any var that might have been created by (declare)
+                     (update-in [:namespaces cnn] dissoc type-name))))
     t))
 
 (def sci-impl-records

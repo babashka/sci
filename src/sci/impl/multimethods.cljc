@@ -121,9 +121,9 @@
               (do
                 (cond
                   (= (resolve 'clojure.pprint/simple-dispatch) mf#)
-                  (alter-meta! (:sci.impl/var m#) assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
+                  (alter-meta! v# assoc :sci.impl/pprint-simple-dispatch (fn ~@fn-tail))
                   (= (resolve 'clojure.core/print-method) mf#)
-                  (alter-meta! (:sci.impl/var m#) assoc :sci.impl/print-method (fn ~@fn-tail))
+                  (alter-meta! v# assoc :sci.impl/print-method (fn ~@fn-tail))
                   :else (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
               (clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))
          `(clojure.core/multi-fn-add-method-impl ~multifn ~dispatch-val (fn ~@fn-tail))))

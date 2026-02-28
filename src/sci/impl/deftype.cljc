@@ -108,7 +108,7 @@
   "Generate the common deftype boilerplate: declare, def type, defn factory, protocol-impls."
   [rec-type record-name factory-fn-sym factory-fn-body & [protocol-impls]]
   `(do
-     (declare ~record-name ~factory-fn-sym)
+     (declare ~factory-fn-sym)
      (sci.impl.deftype/-create-type
       ~{:sci.impl/type-name (list 'quote rec-type)
         :sci.impl/constructor (list 'var factory-fn-sym)})
@@ -175,7 +175,7 @@
             protocol-impls)]
        (emit-deftype rec-type record-name factory-fn-sym
                      `(defn ~factory-fn-sym [& args#]
-                        (sci.impl.deftype/->type-impl '~rec-type ~record-name (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+                        (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) args#)))
                      protocol-impls))))
 
 (defn deftype-macro
@@ -199,6 +199,20 @@
                  methods)
           (list 'import (list (symbol (str ns-name)) record-name)))))
 
+(defn init-type!
+  "Register a type name in the namespace at analysis time.
+   Stores a placeholder Type in :refers so symbol resolution works
+   without creating a var (matching Clojure where deftype creates
+   a class mapping, not a var)."
+  [ctx name rec-type]
+  (let [cnn (utils/current-ns-name)
+        env (:env ctx)
+        t (new sci.lang.Type {:sci.impl/type-name rec-type} nil nil)]
+    (swap! env
+           (fn [env]
+             (update-in env [:namespaces cnn :refers] assoc name t))))
+  nil)
+
 (defn analyze-deftype*
   "Analyzer handler for deftype* special form.
    Generates the type definition and protocol implementations,
@@ -206,6 +220,7 @@
   [ctx [_ tagged-name class-name fields _kw interfaces & methods :as form] top-level?]
   (let [record-name (symbol (name tagged-name))
         rec-type class-name
+        _ (init-type! ctx record-name rec-type)
         factory-fn-str (str "->" record-name)
         factory-fn-sym (symbol factory-fn-str)
         method-counts (:method-counts (meta interfaces))
@@ -311,7 +326,7 @@
                       (map (fn [[method-name bodies]]
                              (if (and (keyword-identical? ::IPrintWithWriter protocol)
                                       (= '-pr-writer method-name))
-                               `(alter-meta! (var ~record-name)
+                               `(alter-meta! ~record-name
                                              assoc :sci.impl/print-method (fn ~(rest (first bodies))))
                                (let [bodies (map rest bodies)
                                      bodies (mapv (fn [impl]
@@ -349,7 +364,7 @@
                   protocol-impls)]
              (emit-deftype rec-type record-name factory-fn-sym
                           `(defn ~factory-fn-sym [& args#]
-                             (sci.impl.deftype/->type-impl '~rec-type ~record-name (var ~record-name) (zipmap ~(list 'quote fields) args#)))
+                             (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) args#)))
                           protocol-impls)))]
     (if top-level?
       (types/->EvalForm result)

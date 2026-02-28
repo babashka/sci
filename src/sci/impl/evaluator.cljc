@@ -219,12 +219,13 @@
                               (let [cnn (utils/current-ns-name)]
                                 (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name)
                                 clazz)
-                              (if-let [rec-var
+                              (if-let [type-val
                                        (let [rec-ns (symbol (utils/demunge (str package)))
-                                             rec-var (get-in @env [:namespaces rec-ns class])]
-                                         rec-var)]
-                                (let [cnn (utils/current-ns-name)
-                                      type-val @rec-var]
+                                             the-ns (get-in @env [:namespaces rec-ns])
+                                             v (or (get the-ns class)
+                                                   (get (:refers the-ns) class))]
+                                         (if (utils/var? v) @v v))]
+                                (let [cnn (utils/current-ns-name)]
                                   (swap! env assoc-in [:namespaces cnn :refers class] type-val)
                                   type-val)
                                 (throw (new #?(:clj Exception :cljs js/Error)
