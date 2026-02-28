@@ -88,17 +88,18 @@ deftype/defrecord no longer creates a `(def Foo ...)` var. Type names are stored
 
 ## Review Status
 
-- [x] 1. `sci/lang.cljc` — reviewed: removed Named, added HasName
-- [ ] 2. `sci/impl/utils.cljc`
-- [ ] 3. `sci/impl/deftype.cljc`
-- [ ] 4. `sci/impl/records.cljc`
-- [ ] 5. `sci/impl/namespaces.cljc`
-- [x] 6. `sci/impl/evaluator.cljc` — reviewed: removed getName special case, tag-class fallback
-- [ ] 7. `sci/impl/analyzer.cljc`
-- [ ] 8. `sci/impl/resolve.cljc`
-- [ ] 9. `sci/impl/parser.cljc`
-- [ ] 10. `sci/impl/multimethods.cljc`
-- [ ] 11. `sci/impl/protocols.cljc`
-- [x] 12. `sci/impl/hierarchies.cljc` — reviewed: ->tag uses string parsing
+- [x] 1. `sci/lang.cljc` — removed Named, added HasName
+- [x] 2. `sci/impl/utils.cljc` — fixed stale docstring (:refers → :types)
+- [x] 3. `sci/impl/deftype.cljc` — renamed var → type-meta
+- [x] 4. `sci/impl/records.cljc` — renamed var → type-meta
+- [x] 5. `sci/impl/namespaces.cljc` — clean
+- [x] 6. `sci/impl/evaluator.cljc` — removed getName special case, tag-class fallback
+- [x] 7. `sci/impl/analyzer.cljc` — clean
+- [x] 8. `sci/impl/resolve.cljc` — clean
+- [x] 9. `sci/impl/parser.cljc` — clean
+- [x] 10. `sci/impl/multimethods.cljc` — clean
+- [x] 11. `sci/impl/protocols.cljc` — clean
+- [x] 12. `sci/impl/hierarchies.cljc` — ->tag uses string parsing
 - [ ] 13. Tests (defrecords_and_deftype_test)
 - [ ] 14. Tests (core_test)
+- [x] 15. `sci/pprint.cljc` — renamed .-var → .-type-meta

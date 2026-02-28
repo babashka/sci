@@ -390,8 +390,7 @@
             {})))))
 
 (deftest deftype-macroexpand-1-produces-deftype*-test
-  (let [tree-seq* (fn [form]
-                    (tree-seq seq? seq form))]
+  (do
     (testing "macroexpand-1 of deftype contains deftype* and constructor defn"
       (is (true?
            (tu/eval*
