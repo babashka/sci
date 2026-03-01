@@ -181,7 +181,7 @@
      IWithMeta
      (-with-meta [_ m]
        (new SciRecord
-            rec-name type basis-fields var (with-meta ext-map m) my_hash))
+            rec-name type basis-fields type-meta (with-meta ext-map m) my_hash))
 
      ILookup
      (-lookup [_ k]
