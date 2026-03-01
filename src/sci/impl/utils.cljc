@@ -277,20 +277,6 @@
   (let [curr-ns @current-ns]
     (if (symbol? curr-ns) curr-ns (t/getName curr-ns))))
 
-(defn init-type!
-  "Register a type name in the namespace at analysis time.
-   Stores a placeholder Type in :types so symbol resolution works
-   without creating a var (matching Clojure where deftype/defrecord
-   creates a class mapping, not a var)."
-  [ctx name rec-type]
-  (let [cnn (current-ns-name)
-        env (:env ctx)
-        t (new sci.lang.Type {:sci.impl/type-name rec-type})]
-    (swap! env
-           (fn [env]
-             (update-in env [:namespaces cnn :types] assoc name t))))
-  nil)
-
 (defn new-var
   "Returns a new sci var."
   ([name] (doto (new-var name nil nil)
