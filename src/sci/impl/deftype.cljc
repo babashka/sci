@@ -175,8 +175,7 @@
             protocol-impls)]
        (emit-deftype rec-type record-name factory-fn-sym
                      `(defn ~(with-meta factory-fn-sym
-                               {:doc (str "Positional factory function for class " rec-type ".")
-                                :arglists (list fields)})
+                               {:doc (str "Positional factory function for class " rec-type ".")})
                         ~fields
                         (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) ~fields)))
                      protocol-impls))))

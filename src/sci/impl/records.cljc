@@ -343,8 +343,7 @@
                                             meta# (with-meta meta#)))))
 
        (defn ~(with-meta factory-fn-sym
-                {:doc (str "Positional factory function for class " rec-type ".")
-                 :arglists (list fields)})
+                {:doc (str "Positional factory function for class " rec-type ".")})
          (~fields
           (~constructor-fn-sym ~@fields nil nil)))
        (defn ~(with-meta map-factory-sym
