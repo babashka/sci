@@ -342,10 +342,14 @@
                                             ext# (merge ext#)
                                             meta# (with-meta meta#)))))
 
-       (defn ~factory-fn-sym
+       (defn ~(with-meta factory-fn-sym
+                {:doc (str "Positional factory function for class " rec-type ".")
+                 :arglists (list fields)})
          (~fields
           (~constructor-fn-sym ~@fields nil nil)))
-       (defn ~map-factory-sym [m#]
+       (defn ~(with-meta map-factory-sym
+                {:doc (str "Factory function for class " rec-type ", taking a map of keywords to field values.")})
+         [m#]
          (sci.impl.records/->record-impl '~rec-type
                                          ~record-name
                                          ~key-set

@@ -191,12 +191,12 @@
 #?(:cljs (def Exception js/Error))
 
 (deftest deftype-test
-  (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1)) " {})))
+  (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1 2)) " {})))
   (let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]
     (is (= [:a :b] (tu/eval* prog {}))))
   (is
    (= 10
-      (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo) (setField)))"
+      (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo nil) (setField)))"
                              "^:volatile-mutable" #?(:clj "^:volatile-mutable"
                                                      :cljs "^:mutable")) {})))
   (is (= [1 2 2]
@@ -234,7 +234,7 @@
   (is (= "dude" (tu/eval* "(deftype Dude [] Object (toString [_] \"dude\")) (str (->Dude))" {})))
   #?(:clj (is (= [true false] (tu/eval* "(deftype Dude [x] Object (toString [_] (str x)) (equals [this other] (= (str this) (str other)))) [(= (->Dude 1) (->Dude 1)) (= (->Dude 1) (->Dude 2))]" {}))))
   #?(:clj (is (true? (tu/eval* "(deftype Dude [x] Object (hashCode [_] 1))
-(deftype Dude2 [x]) (and (= 1 (hash (Dude. 1337))) (not= 1 (hash (Dude2.))))" {})))))
+(deftype Dude2 [x]) (and (= 1 (hash (Dude. 1337))) (not= 1 (hash (Dude2. nil))))" {})))))
 
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]

@@ -174,8 +174,11 @@
                      impls)))
             protocol-impls)]
        (emit-deftype rec-type record-name factory-fn-sym
-                     `(defn ~factory-fn-sym [& args#]
-                        (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) args#)))
+                     `(defn ~(with-meta factory-fn-sym
+                               {:doc (str "Positional factory function for class " rec-type ".")
+                                :arglists (list fields)})
+                        ~fields
+                        (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) ~fields)))
                      protocol-impls))))
 
 (defn deftype-macro
@@ -276,7 +279,10 @@
                                      `#{~@(map (fn [p] (list 'deref (:var p))) protocols)}
                                      `#{})]
                  (emit-deftype rec-type record-name factory-fn-sym
-                               `(defn ~factory-fn-sym [~@fields]
+                               `(defn ~(with-meta factory-fn-sym
+                                         {:doc (str "Positional factory function for class " rec-type ".")
+                                          :arglists (list fields)})
+                                  [~@fields]
                                   (~constructor-sym {:methods (hash-map ~@method-entries)
                                                      :fields (hash-map ~@field-entries)
                                                      :protocols ~protocols-form}))))
@@ -348,8 +354,11 @@
                            impls)))
                   protocol-impls)]
              (emit-deftype rec-type record-name factory-fn-sym
-                          `(defn ~factory-fn-sym [& args#]
-                             (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) args#)))
+                          `(defn ~(with-meta factory-fn-sym
+                                    {:doc (str "Positional factory function for class " rec-type ".")
+                                     :arglists (list fields)})
+                             ~fields
+                             (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) ~fields)))
                           protocol-impls)))]
     (if top-level?
       (types/->EvalForm result)
