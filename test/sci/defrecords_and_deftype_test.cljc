@@ -461,6 +461,16 @@
        (testing ".getName works even with ^Class type hint"
          (is (= "user.Foo" (sci/eval-string "(deftype Foo [x]) (let [^java.lang.Class c (resolve 'Foo)] (.getName c))" opts)))))))
 
+(deftest constructor-metadata-test
+  (testing "deftype constructor has :doc and :arglists"
+    (is (= '([x y]) (tu/eval* "(deftype Foo [x y]) (:arglists (meta #'->Foo))" {})))
+    (is (string? (tu/eval* "(deftype Foo [x y]) (:doc (meta #'->Foo))" {}))))
+  (testing "defrecord constructor has :doc and :arglists"
+    (is (= '([a b]) (tu/eval* "(defrecord Bar [a b]) (:arglists (meta #'->Bar))" {})))
+    (is (string? (tu/eval* "(defrecord Bar [a b]) (:doc (meta #'->Bar))" {}))))
+  (testing "defrecord map factory has :doc"
+    (is (string? (tu/eval* "(defrecord Bar [a b]) (:doc (meta #'map->Bar))" {})))))
+
 (deftest deftype-macroexpand-constructor-visible-test
   (testing "macroexpand of deftype contains a (declare ->Foo) form"
     (is (true?
