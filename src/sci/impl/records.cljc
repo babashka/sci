@@ -251,26 +251,54 @@
            (SciRecord. rec-name type basis-fields type-meta m nil)))
 
 (defn defrecord-macro
-  "Macro expansion for defrecord. Emits a (do (declare ...) (deftype* ...) (import ...))
-   so that analyze-deftype* handles the actual code generation."
+  "Macro expansion for defrecord. Emits factory fns directly (like Clojure),
+   and deftype* for type creation + protocol implementations."
   [[_fname] _ record-name fields & raw-protocol-impls]
   (let [ns-name (utils/current-ns-name)
         tagged-name (symbol (str ns-name) (str record-name))
         class-name (symbol (str (munge ns-name) "." record-name))
+        rec-type (list 'quote class-name)
         factory-fn-sym (symbol (str "->" record-name))
         constructor-fn-sym (symbol (str "__->" record-name "__ctor__"))
         map-factory-sym (symbol (str "map->" record-name))
+        keys (mapv keyword fields)
+        key-set (set keys)
+        field-set (set fields)
+        nil-map (zipmap (map keyword field-set) (repeat nil))
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)
         method-counts (mapv #(count (rest %)) protocol-impls)
         methods (mapcat rest protocol-impls)]
-    (list 'do
-          (list 'declare factory-fn-sym constructor-fn-sym map-factory-sym)
-          (list* 'deftype* tagged-name class-name fields
-                 :implements (with-meta interfaces {:record true
-                                                    :method-counts method-counts})
-                 methods)
-          (list 'import (list (symbol (str ns-name)) record-name)))))
+    `(do
+       (declare ~constructor-fn-sym ~factory-fn-sym ~map-factory-sym)
+       (deftype* ~tagged-name ~class-name ~fields
+         :implements ~(with-meta interfaces {:record true
+                                             :method-counts method-counts})
+         ~@methods)
+       (defn ~constructor-fn-sym
+         (~fields
+          (~constructor-fn-sym ~@fields nil nil))
+         ([~@fields meta# ext#]
+          (sci.impl.records/->record-impl ~rec-type
+                                          ~record-name
+                                          ~key-set
+                                          ~record-name
+                                          (cond-> (zipmap ~keys ~fields)
+                                            ext# (merge ext#)
+                                            meta# (with-meta meta#)))))
+       (defn ~(with-meta factory-fn-sym
+                {:doc (str "Positional factory function for class " class-name ".")})
+         (~fields
+          (~constructor-fn-sym ~@fields nil nil)))
+       (defn ~(with-meta map-factory-sym
+                {:doc (str "Factory function for class " class-name ", taking a map of keywords to field values.")})
+         [m#]
+         (sci.impl.records/->record-impl ~rec-type
+                                         ~record-name
+                                         ~key-set
+                                         ~record-name
+                                         (merge '~nil-map m#)))
+       ~(list 'import (list (symbol (str ns-name)) record-name)))))
 
 (defn resolve-record-or-protocol-class
   "A record class is represented by a symbol with metadata (currently). This is only an implementation detail.

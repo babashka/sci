@@ -116,40 +116,15 @@
      ~@protocol-impls
      ~record-name))
 
-(defn ^:private emit-defrecord
-  "Generate defrecord boilerplate: -create-record-type, constructor fns, protocol-impls."
-  [rec-type record-name factory-fn-sym constructor-fn-sym map-factory-sym
-   fields key-set keys nil-map protocol-impls]
+(defn ^:private emit-record-type
+  "Generate record type creation and protocol implementations (no factory fns)."
+  [rec-type record-name constructor-fn-sym map-factory-sym protocol-impls]
   `(do
-     (declare ~factory-fn-sym ~constructor-fn-sym ~map-factory-sym)
      (sci.impl.records/-create-record-type
       ~{:sci.impl/type-name (list 'quote rec-type)
         :sci.impl/record true
         :sci.impl/constructor (list 'var constructor-fn-sym)
         :sci.impl.record/map-constructor (list 'var map-factory-sym)})
-     (defn ~constructor-fn-sym
-       (~fields
-        (~constructor-fn-sym ~@fields nil nil))
-       ([~@fields meta# ext#]
-        (sci.impl.records/->record-impl '~rec-type
-                                        ~record-name
-                                        ~key-set
-                                        ~record-name
-                                        (cond-> (zipmap ~keys ~fields)
-                                          ext# (merge ext#)
-                                          meta# (with-meta meta#)))))
-     (defn ~(with-meta factory-fn-sym
-              {:doc (str "Positional factory function for class " rec-type ".")})
-       (~fields
-        (~constructor-fn-sym ~@fields nil nil)))
-     (defn ~(with-meta map-factory-sym
-              {:doc (str "Factory function for class " rec-type ", taking a map of keywords to field values.")})
-       [m#]
-       (sci.impl.records/->record-impl '~rec-type
-                                       ~record-name
-                                       ~key-set
-                                       ~record-name
-                                       (merge '~nil-map m#)))
      ~@protocol-impls
      ~record-name))
 
@@ -219,8 +194,8 @@
 
 (defn ^:private standard-record-path
   "Record-specific path — protocol implementations with keyword-based field access."
-  [ctx form rec-type record-name factory-fn-sym constructor-fn-sym map-factory-sym
-   fields field-set key-set keys nil-map protocol-impls]
+  [ctx form rec-type record-name constructor-fn-sym map-factory-sym
+   field-set protocol-impls]
   (let [protocol-impls
         (mapcat
          (fn [[protocol-name & impls]]
@@ -275,8 +250,8 @@
                       `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
                   impls)))
          protocol-impls)]
-    (emit-defrecord rec-type record-name factory-fn-sym constructor-fn-sym map-factory-sym
-                    fields key-set keys nil-map protocol-impls)))
+    (emit-record-type rec-type record-name constructor-fn-sym map-factory-sym
+                      protocol-impls)))
 
 (defn deftype-macro
   "Macro expansion for deftype. Emits a (do (declare ->TypeName) (deftype* ...) (import ...))
@@ -325,15 +300,13 @@
         field-set (set fields)
         result
         (if record?
-          ;; Record-specific code generation
+          ;; Record-specific: only type creation + protocol impls
+          ;; (factory fns are in the macro expansion)
           (let [constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
-                map-factory-sym (symbol (str "map->" record-name))
-                keys (mapv keyword fields)
-                key-set (set keys)
-                nil-map (zipmap (map keyword field-set) (repeat nil))]
-            (standard-record-path ctx form rec-type record-name factory-fn-sym
+                map-factory-sym (symbol (str "map->" record-name))]
+            (standard-record-path ctx form rec-type record-name
                                   constructor-fn-sym map-factory-sym
-                                  fields field-set key-set keys nil-map protocol-impls))
+                                  field-set protocol-impls))
           ;; Standard deftype code generation
           #?(:clj
              (let [deftype-fn (:deftype-fn ctx)
