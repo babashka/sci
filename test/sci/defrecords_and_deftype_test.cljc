@@ -391,25 +391,15 @@
 
 (deftest deftype-macroexpand-1-produces-deftype*-test
   (do
-    (testing "macroexpand-1 of deftype contains deftype* and constructor defn"
+    (testing "macroexpand-1 of deftype contains deftype* and constructor declare"
       (is (true?
            (tu/eval*
             "(defprotocol IFoo (foo [_]))
              (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))
                    forms (tree-seq seq? seq expanded)]
                (and (some #(and (seq? %) (= 'deftype* (first %))) forms)
-                    (some #(and (seq? %) (= 'defn (first %)) (= '->Bar (second %))) forms)))"
+                    (some #(and (seq? %) (= 'declare (first %)) (= '->Bar (second %))) forms)))"
             {})))
-      (testing "constructor defn has the right fields"
-        (is (= '[x]
-               (tu/eval*
-                "(let [expanded (macroexpand-1 '(deftype Bar [x]))]
-                   (->> (tree-seq seq? seq expanded)
-                        (some #(when (and (seq? %) (= 'defn (first %)) (= '->Bar (second %))) %))
-                        (drop 2)
-                        first
-                        vec))"
-                {}))))
       (testing "deftype* form contains expected structure"
         (is (true?
              (tu/eval*
@@ -472,23 +462,13 @@
          (is (= "user.Foo" (sci/eval-string "(deftype Foo [x]) (let [^java.lang.Class c (resolve 'Foo)] (.getName c))" opts)))))))
 
 (deftest deftype-macroexpand-constructor-visible-test
-  (testing "macroexpand of deftype contains a (defn ->Foo ...) form"
+  (testing "macroexpand of deftype contains a (declare ->Foo) form"
     (is (true?
          (tu/eval*
           "(let [expanded (macroexpand '(deftype Foo [x]))]
-             (some #(and (seq? %) (= 'defn (first %)) (= '->Foo (second %)))
+             (some #(and (seq? %) (= 'declare (first %)) (= '->Foo (second %)))
                    (tree-seq seq? seq expanded)))"
-          {})))
-    (testing "constructor defn has correct fields"
-      (is (= '[x y]
-             (tu/eval*
-              "(let [expanded (macroexpand '(deftype Foo [x y]))]
-                 (->> (tree-seq seq? seq expanded)
-                      (some #(when (and (seq? %) (= 'defn (first %)) (= '->Foo (second %))) %))
-                      (drop 2)
-                      first
-                      vec))"
-              {}))))))
+          {})))))
 
 (deftest deftype*-uses-flat-methods-not-metadata-test
   (testing "modifying flat methods in deftype* form takes effect (code walkers)"
