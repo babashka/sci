@@ -192,7 +192,7 @@
                         (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) ~fields)))
                      protocol-impls))))
 
-(defn ^:private standard-record-path
+(defn ^:private analyze-defrecord*
   "Record-specific path — protocol implementations with keyword-based field access."
   [ctx form rec-type record-name constructor-fn-sym map-factory-sym
    field-set protocol-impls]
@@ -253,26 +253,6 @@
     (emit-record-type rec-type record-name constructor-fn-sym map-factory-sym
                       protocol-impls)))
 
-(defn deftype-macro
-  "Macro expansion for deftype. Emits a (do (declare ->TypeName) (deftype* ...) (import ...))
-   so that macroexpand reveals the constructor for static-analysis tools (e.g. Clerk).
-   The declare is overwritten at analysis time by analyze-deftype*."
-  [[_fname] _ record-name fields & raw-protocol-impls]
-  (let [ns-name (utils/current-ns-name)
-        tagged-name (symbol (str ns-name) (str record-name))
-        class-name (symbol (str (munge ns-name) "." record-name))
-        factory-fn-sym (symbol (str "->" record-name))
-        protocol-impls (utils/split-when symbol? raw-protocol-impls)
-        interfaces (mapv first protocol-impls)
-        method-counts (mapv #(count (rest %)) protocol-impls)
-        methods (mapcat rest protocol-impls)]
-    (list 'do
-          (list 'declare factory-fn-sym)
-          (list* 'deftype* tagged-name class-name fields
-                 :implements (with-meta interfaces {:method-counts method-counts})
-                 methods)
-          (list 'import (list (symbol (str ns-name)) record-name)))))
-
 (defn analyze-deftype*
   "Analyzer handler for deftype* special form.
    Generates the type definition and protocol implementations,
@@ -304,9 +284,9 @@
           ;; (factory fns are in the macro expansion)
           (let [constructor-fn-sym (symbol (str "__" factory-fn-str "__ctor__"))
                 map-factory-sym (symbol (str "map->" record-name))]
-            (standard-record-path ctx form rec-type record-name
-                                  constructor-fn-sym map-factory-sym
-                                  field-set protocol-impls))
+            (analyze-defrecord* ctx form rec-type record-name
+                                constructor-fn-sym map-factory-sym
+                                field-set protocol-impls))
           ;; Standard deftype code generation
           #?(:clj
              (let [deftype-fn (:deftype-fn ctx)
@@ -447,3 +427,23 @@
                  [:namespaces (symbol (namespace tagged-name)) :types]
                  assoc record-name (sci.lang.Type. {:sci.impl/type-name rec-type}))
           (@utils/analyze ctx result)))))
+
+(defn deftype-macro
+  "Macro expansion for deftype. Emits a (do (declare ->TypeName) (deftype* ...) (import ...))
+   so that macroexpand reveals the constructor for static-analysis tools (e.g. Clerk).
+   The declare is overwritten at analysis time by analyze-deftype*."
+  [[_fname] _ record-name fields & raw-protocol-impls]
+  (let [ns-name (utils/current-ns-name)
+        tagged-name (symbol (str ns-name) (str record-name))
+        class-name (symbol (str (munge ns-name) "." record-name))
+        factory-fn-sym (symbol (str "->" record-name))
+        protocol-impls (utils/split-when symbol? raw-protocol-impls)
+        interfaces (mapv first protocol-impls)
+        method-counts (mapv #(count (rest %)) protocol-impls)
+        methods (mapcat rest protocol-impls)]
+    (list 'do
+          (list 'declare factory-fn-sym)
+          (list* 'deftype* tagged-name class-name fields
+                 :implements (with-meta interfaces {:method-counts method-counts})
+                 methods)
+          (list 'import (list (symbol (str ns-name)) record-name)))))
