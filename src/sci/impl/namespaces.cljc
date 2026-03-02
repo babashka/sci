@@ -1910,7 +1910,7 @@
 
  (defn doc
    [_ _ sym]
-   `(let [special-doc# (try (resolve '~'clojure.repl/special-doc) (catch ~'Exception ~'_ nil))
+   `(let [special-doc# (try (resolve '~'clojure.repl/special-doc) (catch #?(:clj ~'Exception :cljs :default) ~'_ nil))
           special# (when special-doc# (special-doc# '~sym))]
       (if special#
         (~'clojure.repl/print-doc special#)
