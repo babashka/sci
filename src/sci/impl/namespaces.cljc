@@ -1902,12 +1902,16 @@
 
  (defn doc
    [_ _ sym]
-   `(if-let [var# (resolve '~sym)]
-      (when (var? var#)
-        (~'clojure.repl/print-doc (meta var#)))
-      (if-let [ns# (find-ns '~sym)]
-        (~'clojure.repl/print-doc (assoc (meta ns#)
-                                         :name (ns-name ns#))))))
+   `(let [special-doc# (try (resolve '~'clojure.repl/special-doc) (catch ~'Exception ~'_ nil))
+          special# (when special-doc# (special-doc# '~sym))]
+      (if special#
+        (~'clojure.repl/print-doc special#)
+        (if-let [var# (resolve '~sym)]
+          (when (var? var#)
+            (~'clojure.repl/print-doc (meta var#)))
+          (if-let [ns# (find-ns '~sym)]
+            (~'clojure.repl/print-doc (assoc (meta ns#)
+                                             :name (ns-name ns#))))))))
 
  (defn find-doc
    "Prints documentation for any var whose documentation or name
