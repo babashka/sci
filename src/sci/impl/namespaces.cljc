@@ -1891,14 +1891,22 @@
    [m]
    (let [arglists (:arglists m)
          doc (:doc m)
-         macro? (:macro m)]
+         macro? (:macro m)
+         special-form? (:special-form m)
+         forms (:forms m)
+         url (:url m)]
      (sci.impl.io/println "-------------------------")
      (sci.impl.io/println (str (when-let [ns* (:ns m)]
                                  (str (types/getName ns*) "/"))
                                (:name m)))
+     (when forms
+       (doseq [f forms]
+         (sci.impl.io/println " " f)))
      (when arglists (sci.impl.io/println arglists))
      (when macro? (sci.impl.io/println "Macro"))
-     (when doc (sci.impl.io/println " " doc))))
+     (when special-form? (sci.impl.io/println "Special Form"))
+     (when doc (sci.impl.io/println " " doc))
+     (when url (sci.impl.io/println (str "\n  Please see http://clojure.org/" url)))))
 
  (defn doc
    [_ _ sym]
