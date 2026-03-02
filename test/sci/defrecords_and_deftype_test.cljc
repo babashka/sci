@@ -234,7 +234,11 @@
   (is (= "dude" (tu/eval* "(deftype Dude [] Object (toString [_] \"dude\")) (str (->Dude))" {})))
   #?(:clj (is (= [true false] (tu/eval* "(deftype Dude [x] Object (toString [_] (str x)) (equals [this other] (= (str this) (str other)))) [(= (->Dude 1) (->Dude 1)) (= (->Dude 1) (->Dude 2))]" {}))))
   #?(:clj (is (true? (tu/eval* "(deftype Dude [x] Object (hashCode [_] 1))
-(deftype Dude2 [x]) (and (= 1 (hash (Dude. 1337))) (not= 1 (hash (Dude2. nil))))" {})))))
+(deftype Dude2 [x]) (and (= 1 (hash (Dude. 1337))) (not= 1 (hash (Dude2. nil))))" {}))))
+  ;; (str Type) returns "user.Foo", not "class user.Foo" like java.lang.Class.
+  ;; Downstream libs (e.g. prismatic/schema) depend on this.
+  (is (= "user.Dude" (tu/eval* "(defrecord Dude []) (str Dude)" {})))
+  (is (= "user.Dude" (tu/eval* "(deftype Dude []) (str Dude)" {}))))
 
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]
