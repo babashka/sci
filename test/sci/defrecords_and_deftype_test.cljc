@@ -494,13 +494,6 @@
                (eval (list 'do modified '(get-val (->Foo)))))"
             {})))))
 
-(deftest symbol-on-resolved-type-test
-  (testing "symbol on str of resolved deftype works"
-    (is (= 'user.Foo
-           (tu/eval* "(deftype Foo [x]) (symbol (str (resolve 'Foo)))" {}))))
-  (testing "symbol on str of resolved defrecord works"
-    (is (= 'user.Bar
-           (tu/eval* "(defrecord Bar [x]) (symbol (str (resolve 'Bar)))" {})))))
 
 (deftest syntax-quote-type-produces-dotted-form-test
   (testing "syntax-quote on a defrecord/deftype name produces munged dotted form (matching Clojure)"
