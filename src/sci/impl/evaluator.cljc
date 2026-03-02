@@ -139,11 +139,12 @@
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
       v
-      (let [instance-class (or (when tag-class
-                                   (if (instance? tag-class instance-expr*)
-                                     tag-class
-                                     (#?(:clj class :cljs type) instance-expr*)))
-                                 (#?(:clj class :cljs type) instance-expr*))
+      (let [instance-class #?(:clj (or (when tag-class
+                                          (if (instance? tag-class instance-expr*)
+                                            tag-class
+                                            (class instance-expr*)))
+                                        (class instance-expr*))
+                              :cljs (type instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
             allowed? (or
