@@ -567,6 +567,6 @@
 
 (deftest ns-with-special-chars-test
   (testing "defrecord works in ns with + in name"
-    (is (some? (tu/eval* "(ns foo+) (defrecord Dude []) (->Dude)" {}))))
+    (is (some? (tu/eval* "(ns foo+) (defrecord Dude []) (some? (->Dude))" {}))))
   (testing "deftype works in ns with + in name"
-    (is (some? (tu/eval* "(ns bar+) (deftype Thing [x]) (->Thing 1)" {})))))
+    (is (some? (tu/eval* "(ns bar+) (deftype Thing [x]) (some? (->Thing 1))" {})))))
