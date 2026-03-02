@@ -28,6 +28,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix `ns-map` not reflecting vars that shadow referred vars (e.g. `(defn inc ...)`)
 - `deftype` and `defrecord` no longer create vars for the type name — types are stored in the namespace's `:types` map, matching Clojure where deftype/defrecord create class mappings, not vars. `(resolve 'Foo)` returns a `sci.lang.Type` (not a var), and `#'Foo` throws "Unable to resolve var" as in Clojure.
 - `defrecord` now expands to `deftype*` (like Clojure), with factory fns (`->Foo`, `map->Foo`) emitted directly in the macro expansion
+- Fix `.getName` on custom types (`sci.lang.Type`) to return the fully qualified name (e.g. `"user.Foo"`), matching `Class.getName()` behavior. Also adds `alter-meta!` support on types.
 - `deftype` now macroexpands to `deftype*`, matching JVM Clojure, enabling code walkers like riddley
 - `case` now macroexpands to JVM-compatible `case*` format, enabling tools like riddley and cloverage to work with SCI
 - [#1935](https://github.com/babashka/babashka/issues/1935): support `source` for built-in vars by preserving `:file`, `:line`, `:column` metadata in `copy-var`
