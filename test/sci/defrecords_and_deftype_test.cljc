@@ -564,3 +564,9 @@
   (unbox [_] x)
   (rebox [_ v] (->Box v)))
 (unbox (rebox (->Box 1) 42))" {})))))
+
+(deftest ns-with-special-chars-test
+  (testing "defrecord works in ns with + in name"
+    (is (some? (tu/eval* "(ns foo+) (defrecord Dude []) (->Dude)" {}))))
+  (testing "deftype works in ns with + in name"
+    (is (some? (tu/eval* "(ns bar+) (deftype Thing [x]) (->Thing 1)" {})))))
