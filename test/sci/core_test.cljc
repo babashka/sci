@@ -1130,7 +1130,7 @@
          (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
   (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))")))
   (is (= '(foobar) (eval* "(defmacro foo [] '(foobar)) (macroexpand '(foo))")))
-  (is (= '(clojure.core/defrecord Foo []) (eval* "(macroexpand '(defrecord Foo []))")))
+  (is (= 'do (first (eval* "(macroexpand '(defrecord Foo []))"))))
   (is (= '(. nil log) (eval* "(macroexpand-1 '(.log))")))
   (is (= '(. js/console log) (eval* "(macroexpand-1 '(.log js/console))")))
   (is (= '(. js/console log 1 2 3) (eval* "(macroexpand-1 '(.log js/console 1 2 3))")))

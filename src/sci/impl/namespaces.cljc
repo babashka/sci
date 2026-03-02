@@ -473,7 +473,7 @@
     (sci-ns-aliases* ctx sci-ns)))
 
 (defn clean-ns [m]
-  (dissoc m :aliases :imports :obj :refer :refers))
+  (dissoc m :aliases :imports :obj :refer :refers :types))
 
 (defn sci-ns-interns* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
@@ -835,20 +835,25 @@
 ;;;; Record impl
 
 (defn -create-type [data]
-  (new sci.lang.Type data nil nil))
-
-#_(defn -reg-key! [rec-type k v]
-    (when (instance? sci.lang.Type rec-type)
-      (types/setVal rec-type (assoc (types/getVal rec-type) k v))
-      rec-type))
+  (let [t (new sci.lang.Type data)
+        ctx (store/get-ctx)
+        env (:env ctx)
+        cnn (sci.impl.utils/current-ns-name)
+        type-name (symbol (let [s (clojure.core/str t)
+                                  i (str/last-index-of s ".")]
+                              (if i (subs s (inc i)) s)))]
+    (swap! env (fn [env]
+                 (-> env
+                     (update-in [:namespaces cnn :types] assoc type-name t)
+                     ;; Remove any var that might have been created by (declare)
+                     (update-in [:namespaces cnn] dissoc type-name))))
+    t))
 
 (def sci-impl-records
   {:obj (sci.lang/->Namespace 'sci.impl.records nil)
    :private true
    'toString sci.impl.records/to-string
    '-create-record-type -create-type
-   ;; what do we use this for again?
-   ;; '-reg-key! -reg-key!
    '->record-impl sci.impl.records/->record-impl})
 
 (def sci-impl-deftype
@@ -962,11 +967,13 @@
 
   f must be free of side-effects"
      [iref f & args]
-     (let [m (meta iref)]
-       (if-not (:sci/built-in m)
-         (apply cljs.core/alter-meta! iref f args)
-         (throw (ex-info (str "Built-in var " iref " is read-only.")
-                         {:var iref}))))))
+     (if (instance? sci.lang.Type iref)
+       (types/setVal iref (apply f (types/getVal iref) args))
+       (let [m (meta iref)]
+         (if-not (:sci/built-in m)
+           (apply cljs.core/alter-meta! iref f args)
+           (throw (ex-info (str "Built-in var " iref " is read-only.")
+                           {:var iref})))))))
 
 (defn- let** [expr _ bindings & body]
   (when-not (vector? bindings)
@@ -1425,7 +1432,8 @@
      'case (macrofy 'case case**)
      'char (copy-core-var char)
      'char? (copy-core-var char?)
-     #?@(:clj ['class? (copy-core-var class?)])
+     #?@(:clj ['class? (copy-var (fn [x] (or (class? x) (instance? sci.lang.Type x)))
+                                clojure-core-ns {:name 'class?})])
      #?@(:cljs ['clj->js (copy-core-var clj->js)])
      'cond (macrofy 'cond cond*)
      'cond-> (macrofy 'cond-> cond->*)
@@ -1462,7 +1470,7 @@
      'defn  (macrofy 'defn fns/defn*)
      'defn- (macrofy 'defn- defn-*)
      'defonce (macrofy 'defonce defonce*)
-     'defrecord (macrofy 'defrecord sci.impl.records/defrecord clojure-core-ns)
+     'defrecord (macrofy 'defrecord sci.impl.records/defrecord-macro clojure-core-ns)
      'deftype (macrofy 'deftype sci.impl.deftype/deftype-macro
                        clojure-core-ns)
      'delay (macrofy 'delay delay*)

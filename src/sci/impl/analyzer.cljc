@@ -1143,6 +1143,9 @@
                                       (deref maybe-var)
                                       ;; symbol = already deref-ed record coming in via :import
                                       (symbol? class)
+                                      class
+                                      ;; Type value from :refers
+                                      (instance? sci.lang.Type class)
                                       class)
                        maybe-record-constructor
                        (when maybe-record

@@ -84,6 +84,20 @@ Environment variables:
 - The `:namespaces` option pre-populates namespaces with vars
 - Context (`sci/init`) maintains state across evaluations; use `sci/fork` for isolated copies
 
+### Type system (`sci.lang.Type`)
+
+- `deftype`/`defrecord` do NOT create vars — they store types in the `:types` key of the namespace map, matching Clojure behavior
+- `sci.lang.Type` does NOT implement `Named`/`INamed` — this would conflict with `Class.getName()` behavior
+- `.getName` works via `HasName` protocol (returns fully qualified name like `"user.Foo"`)
+- Symbol resolution checks `:types` after `:refers` (in `sci.impl.resolve`)
+- `import` copies types between namespaces via the `:types` key
+
+### Testing guidelines
+
+- `tu/eval*` shells out to the native binary when `SCI_TEST_ENV=native` — use `sci/eval-string` directly for tests that need custom SCI opts (like `:classes`) or that test host-level interop (like `.sym`, `.getName`)
+- When iterating on fixes, run only the specific failing test (`lein test :only ns/test-name`) instead of the full suite. Only run `script/test/jvm` or `script/test/node` once at the end to confirm everything passes. Full test runs are slow — don't repeat them unnecessarily.
+- Always redirect test output to a file (e.g. `script/test/jvm 2>&1 | tee /tmp/sci-test-jvm.txt`) so the results can be re-read without re-running. When checking previous test results, read the cached file instead of running again.
+
 ## Cross-Platform Macro System (`sci.impl.macros`)
 
 The `macros/?` macro decides between CLJ and CLJS code paths by checking `(contains? &env '&env)`. This has a critical implication:

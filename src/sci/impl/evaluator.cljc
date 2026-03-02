@@ -139,7 +139,12 @@
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
       v
-      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+      (let [instance-class #?(:clj (or (when tag-class
+                                          (if (instance? tag-class instance-expr*)
+                                            tag-class
+                                            (class instance-expr*)))
+                                        (class instance-expr*))
+                              :cljs (type instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
             allowed? (or
@@ -212,13 +217,15 @@
                               (let [cnn (utils/current-ns-name)]
                                 (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name)
                                 clazz)
-                              (if-let [rec-var
+                              (if-let [type-val
                                        (let [rec-ns (symbol (utils/demunge (str package)))
-                                             rec-var (get-in @env [:namespaces rec-ns class])]
-                                         rec-var)]
+                                             the-ns (get-in @env [:namespaces rec-ns])
+                                             v (or (get (:types the-ns) class)
+                                                   (get the-ns class))]
+                                         (if (utils/var? v) @v v))]
                                 (let [cnn (utils/current-ns-name)]
-                                  (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
-                                  @rec-var)
+                                  (swap! env assoc-in [:namespaces cnn :types class] type-val)
+                                  type-val)
                                 (throw (new #?(:clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil

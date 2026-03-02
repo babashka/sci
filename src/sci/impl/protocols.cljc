@@ -232,7 +232,7 @@
                              :clj false)
                         #?(:cljs
                            `(clojure.core/alter-meta!
-                             (var ~type) assoc :sci.impl/print-method (fn ~@(rest (first meths))))
+                             ~type assoc :sci.impl/print-method (fn ~@(rest (first meths))))
                            :clj nil)
                         `(do
                            (clojure.core/alter-var-root
