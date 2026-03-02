@@ -15,6 +15,8 @@
   (getVal [_] data)
   (setVal [_ v] (set! data v))
   Object
+  ;; NOTE: returns "user.Foo" rather than "class user.Foo" (unlike java.lang.Class).
+  ;; Changing this would break downstream libs (e.g. prismatic/schema).
   (toString [_]
     (str (:sci.impl/type-name data)))
 
