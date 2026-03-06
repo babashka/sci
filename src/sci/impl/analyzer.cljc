@@ -1422,27 +1422,88 @@
                     (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
                                                       {:tag 'sci.impl.types.BindingNode}))
                               :cljs `(.-idx ~(symbol (str "arg" j)))))
-          gen-fused-node (fn [i]
+          eval-arg (fn [j]
+                    `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+          aget-expr (fn [j]
+                      `(aget ~(with-meta 'bindings {:tag 'objects})
+                             ~(symbol (str "bidx" j))))
+          catch-clause `(catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                          (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
+          spec-fns-1 (macros/? :clj
+                               {'clojure.core/inc 'clojure.lang.Numbers/inc
+                                'clojure.core/dec 'clojure.lang.Numbers/dec
+                                'clojure.core/zero? 'clojure.lang.Numbers/isZero
+                                'clojure.core/pos? 'clojure.lang.Numbers/isPos
+                                'clojure.core/neg? 'clojure.lang.Numbers/isNeg
+                                'clojure.core/nil? 'nil?
+                                'clojure.core/not 'not}
+                               :cljs
+                               {'cljs.core/inc 'cljs.core/inc
+                                'cljs.core/dec 'cljs.core/dec
+                                'cljs.core/zero? 'cljs.core/zero?
+                                'cljs.core/pos? 'cljs.core/pos?
+                                'cljs.core/neg? 'cljs.core/neg?
+                                'cljs.core/nil? 'nil?
+                                'cljs.core/not 'not})
+          spec-fns-2 (macros/? :clj
+                               {'clojure.core/+ 'clojure.lang.Numbers/add
+                                'clojure.core/- 'clojure.lang.Numbers/minus
+                                'clojure.core/* 'clojure.lang.Numbers/multiply
+                                'clojure.core/< 'clojure.lang.Numbers/lt
+                                'clojure.core/> 'clojure.lang.Numbers/gt
+                                'clojure.core/<= 'clojure.lang.Numbers/lte
+                                'clojure.core/>= 'clojure.lang.Numbers/gte
+                                'clojure.core/== 'clojure.lang.Numbers/equiv}
+                               :cljs
+                               {'cljs.core/+ 'cljs.core/+
+                                'cljs.core/- 'cljs.core/-
+                                'cljs.core/* 'cljs.core/*
+                                'cljs.core/< 'cljs.core/<
+                                'cljs.core/> 'cljs.core/>
+                                'cljs.core/<= 'cljs.core/<=
+                                'cljs.core/>= 'cljs.core/>=
+                                'cljs.core/== 'cljs.core/==})
+          gen-specs (fn [spec-fns arg-fn]
+                      (mapcat (fn [[f-sym static-sym]]
+                                [f-sym
+                                 `(sci.impl.types/->Node
+                                   (try (~static-sym ~@(map arg-fn (range (if (contains? spec-fns-1 f-sym) 1 2))))
+                                        ~catch-clause)
+                                   ~'stack)])
+                              spec-fns))
+          all-bindings? (fn [i]
+                          (cons `and (map (fn [j]
+                                            `(instance? sci.impl.types.BindingNode
+                                                        ~(symbol (str "arg" j))))
+                                          (range i))))
+          gen-fused-node (fn [i specs]
                            (let [bidx-binds (vec (mapcat (fn [j]
                                                            [(symbol (str "bidx" j))
                                                             (get-idx j)])
                                                          (range i)))]
                              `(let ~bidx-binds
-                                (sci.impl.types/->Node
-                                 (try
-                                   (~'f
-                                    ~@(map (fn [j]
-                                             `(aget ~(with-meta 'bindings {:tag 'objects})
-                                                    ~(symbol (str "bidx" j))))
-                                           (range i)))
-                                   (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                     (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                                 ~'stack))))
-          all-bindings? (fn [i]
-                          (cons `and (map (fn [j]
-                                            `(instance? sci.impl.types.BindingNode
-                                                        ~(symbol (str "arg" j))))
-                                          (range i))))]
+                                ~(if specs
+                                   `(condp identical? ~'f
+                                      ~@specs
+                                      (sci.impl.types/->Node
+                                       (try (~'f ~@(map aget-expr (range i))) ~catch-clause)
+                                       ~'stack))
+                                   `(sci.impl.types/->Node
+                                     (try (~'f ~@(map aget-expr (range i))) ~catch-clause)
+                                     ~'stack)))))
+          gen-specialized-or-general (fn [i]
+                                       (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
+                                             fused-specs (when spec-fns (gen-specs spec-fns aget-expr))
+                                             general-specs (when spec-fns (gen-specs spec-fns eval-arg))]
+                                         (if spec-fns
+                                           `(if ~(all-bindings? i)
+                                              ~(gen-fused-node i fused-specs)
+                                              (condp identical? ~'f
+                                                ~@general-specs
+                                                ~(gen-general-node i)))
+                                           `(if ~(all-bindings? i)
+                                              ~(gen-fused-node i nil)
+                                              ~(gen-general-node i)))))]
       `(defn ~'return-call
          ~'[_ctx expr f analyzed-children stack wrap]
          (let [node#
@@ -1461,9 +1522,7 @@
                                            (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
                                        ~'stack)
                                       ~(if (pos? i)
-                                         `(if ~(all-bindings? i)
-                                            ~(gen-fused-node i)
-                                            ~(gen-general-node i))
+                                         (gen-specialized-or-general i)
                                          (gen-general-node i))))])
                             let-bindings)
                     `[(if ~'wrap
