@@ -106,6 +106,16 @@
              ~stack))))
 
 #?(:clj
+   (deftype BindingNode [^int idx _meta]
+     Eval (eval [_ _ bindings]
+            (aget ^objects bindings idx))
+     Stack (stack [_] nil)
+     clojure.lang.IObj
+     (withMeta [_ m] (BindingNode. idx m))
+     clojure.lang.IMeta
+     (meta [_] _meta)))
+
+#?(:clj
    (deftype ConstantNode [x]
      Eval (eval [_expr _bindings _ctx]
             x)

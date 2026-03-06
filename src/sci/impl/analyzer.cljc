@@ -1335,28 +1335,56 @@
     "Creates returning-binding-call function, optimizes calling a local
   binding as function."
     []
-    (let [let-bindings (map (fn [i]
+    (let [clj? (macros/? :clj true :cljs false)
+          let-bindings (map (fn [i]
                               [i (vec (mapcat (fn [j]
                                                 [(symbol (str "arg" j))
                                                  `(nth ~'analyzed-children ~j)])
                                               (range i)))])
-                            (range 20))]
+                            (range 20))
+          gen-general-node (fn [i]
+                             `(sci.impl.types/->Node
+                               (try
+                                 ((aget ~(with-meta 'bindings {:tag 'objects}) ~'idx)
+                                  ~@(map (fn [j]
+                                           `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                         (range i)))
+                                 (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                               ~'stack))
+          gen-fused-node (fn [i]
+                           (let [bidx-binds (vec (mapcat (fn [j]
+                                                           [(symbol (str "bidx" j))
+                                                            `(.idx ~(with-meta (symbol (str "arg" j))
+                                                                      {:tag 'sci.impl.types.BindingNode}))])
+                                                         (range i)))]
+                             `(let ~bidx-binds
+                                (sci.impl.types/->Node
+                                 (try
+                                   ((aget ~(with-meta 'bindings {:tag 'objects}) ~'idx)
+                                    ~@(map (fn [j]
+                                             `(aget ~(with-meta 'bindings {:tag 'objects})
+                                                    ~(symbol (str "bidx" j))))
+                                           (range i)))
+                                   (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                     (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                                 ~'stack))))
+          all-bindings? (fn [i]
+                          (cons `and (map (fn [j]
+                                            `(instance? sci.impl.types.BindingNode
+                                                        ~(symbol (str "arg" j))))
+                                          (range i))))]
       `(defn ~'return-binding-call
          ~'[_ctx expr idx f analyzed-children stack]
          (case (count ~'analyzed-children)
            ~@(concat
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              (sci.impl.types/->Node
-                               (try
-                                 ((aget ~(with-meta 'bindings
-                                           {:tag 'objects}) ~'idx)
-                                  ~@(map (fn [j]
-                                           `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                         (range i)))
-                                 (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                               ~'stack))])
+                              ~(if (and clj? (pos? i))
+                                 `(if ~(all-bindings? i)
+                                    ~(gen-fused-node i)
+                                    ~(gen-general-node i))
+                                 (gen-general-node i)))])
                       let-bindings)
               `[(fn [~'ctx ~'bindings]
                   (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
@@ -1372,12 +1400,45 @@
 (macros/deftime
   (defmacro gen-return-call
     []
-    (let [let-bindings (map (fn [i]
+    (let [clj? (macros/? :clj true :cljs false)
+          let-bindings (map (fn [i]
                               [i (vec (mapcat (fn [j]
                                                 [(symbol (str "arg" j))
                                                  `(nth ~'analyzed-children ~j)])
                                               (range i)))])
-                            (range 20))]
+                            (range 20))
+          gen-general-node (fn [i]
+                             `(sci.impl.types/->Node
+                               (try
+                                 (~'f
+                                  ~@(map (fn [j]
+                                           `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+                                         (range i)))
+                                 (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                               ~'stack))
+          gen-fused-node (fn [i]
+                           (let [bidx-binds (vec (mapcat (fn [j]
+                                                           [(symbol (str "bidx" j))
+                                                            `(.idx ~(with-meta (symbol (str "arg" j))
+                                                                      {:tag 'sci.impl.types.BindingNode}))])
+                                                         (range i)))]
+                             `(let ~bidx-binds
+                                (sci.impl.types/->Node
+                                 (try
+                                   (~'f
+                                    ~@(map (fn [j]
+                                             `(aget ~(with-meta 'bindings {:tag 'objects})
+                                                    ~(symbol (str "bidx" j))))
+                                           (range i)))
+                                   (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                                     (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                                 ~'stack))))
+          all-bindings? (fn [i]
+                          (cons `and (map (fn [j]
+                                            `(instance? sci.impl.types.BindingNode
+                                                        ~(symbol (str "arg" j))))
+                                          (range i))))]
       `(defn ~'return-call
          ~'[_ctx expr f analyzed-children stack wrap]
          (let [node#
@@ -1395,15 +1456,11 @@
                                          (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                            (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
                                        ~'stack)
-                                      (sci.impl.types/->Node
-                                       (try
-                                         (~'f
-                                          ~@(map (fn [j]
-                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                 (range i)))
-                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                                       ~'stack)))])
+                                      ~(if (and clj? (pos? i))
+                                         `(if ~(all-bindings? i)
+                                            ~(gen-fused-node i)
+                                            ~(gen-general-node i))
+                                         (gen-general-node i))))])
                             let-bindings)
                     `[(if ~'wrap
                         (sci.impl.types/->Node

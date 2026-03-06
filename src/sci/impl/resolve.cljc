@@ -202,9 +202,10 @@
                                                     inner (sci.impl.types/getVal this)]
                                                 (get inner sym))
                                               nil))
-                                          (->Node
-                                            (aget ^objects bindings idx)
-                                            nil))
+                                          #?(:clj (sci.impl.types.BindingNode. idx nil)
+                                             :cljs (->Node
+                                                     (aget ^objects bindings idx)
+                                                     nil)))
                                   #?@(:clj [tag (with-meta
                                                   {:tag tag})])
                                   mutable? (vary-meta assoc :mutable true))]
