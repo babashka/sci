@@ -132,12 +132,22 @@ a future optimization.
 | bb native (GraalVM) | ~220ms | ~194ms | **12% faster** |
 | JVM (HotSpot, warmed) | ~97ms | ~60ms | **38% faster** |
 
+### Phase 3: Constant arg fusing (resolved path)
+
+`(loop [i 0 j 10000000] (if (> j 0) i (recur (+ i 10) (- j 1))))`
+
+| Runtime | Specialized only | + Constants | Improvement |
+|---------|-----------------|-------------|-------------|
+| bb native (GraalVM) | ~381ms | ~320ms | **16% faster** |
+
 ### Cumulative improvement
+
+`(loop [i 0 j 10000000] (if (zero? j) i (recur (inc i) (dec j))))`
 
 | Runtime | Original | Final | Total improvement |
 |---------|----------|-------|-------------------|
-| bb native (GraalVM) | ~338ms | ~194ms | **43% faster** |
-| JVM (HotSpot, warmed) | ~124ms | ~60ms | **52% faster** |
+| bb native (GraalVM) | ~338ms | ~192ms | **43% faster** |
+| JVM (HotSpot, warmed) | ~124ms | ~50ms | **60% faster** |
 
 The native-image improvement is larger because there is no JIT to compensate
 for protocol dispatch overhead — every eliminated dispatch is a real vtable
@@ -182,26 +192,87 @@ spec-fns-2  ;; 2-arg: {clojure.core/+ -> Numbers/add, clojure.core/- -> Numbers/
 ```
 
 A `gen-specs` helper takes a mapping and an arg-accessor function, and generates
-`condp identical?` entries. This is called twice per arity — once with `aget-expr`
-for the fused (all-bindings) path, once with `eval-arg` for the general path:
+`condp identical?` entries. The `condp identical?` runs at analysis time —
+comparing `f` (the actual function object from `:sci.impl/inlined`) against
+known functions. Zero runtime cost; it just selects which `->Node` reify to
+create.
+
+### Constant arg fusing (the "resolved" path)
+
+Consider `(+ x 1)` where `x` is a loop binding. After analysis:
+- `arg0` = a `BindingNode` (for `x`)
+- `arg1` = a `ConstantNode` (for `1`) — on CLJ; raw `1` on CLJS
+
+**Without constant fusing**, this doesn't pass `all-bindings?` (because `arg1`
+is not a BindingNode), so it falls to the general path:
 
 ```clojure
-;; Fused path (all args are BindingNode):
-(condp identical? f
-  clojure.core/inc (->Node (Numbers/inc (aget bindings bidx0)) stack)
-  ...
-  (->Node (f (aget bindings bidx0)) stack))  ;; fallback for unknown f
-
-;; General path (args may be expressions):
-(condp identical? f
-  clojure.core/inc (->Node (Numbers/inc (t/eval arg0 ctx bindings)) stack)
-  ...
-  (->Node (f (t/eval arg0 ctx bindings)) stack))  ;; fallback
+;; At eval time (every iteration):
+(Numbers/add (t/eval arg0 ctx bindings)    ;; protocol dispatch → aget
+             (t/eval arg1 ctx bindings))   ;; protocol dispatch → returns 1
 ```
 
-The `condp identical?` runs at analysis time — comparing `f` (the actual
-function object from `:sci.impl/inlined`) against known functions. Zero
-runtime cost; it just selects which `->Node` reify to create.
+Two `t/eval` dispatches per call, just to get `x` and `1`.
+
+**With constant fusing**, there is a middle tier called "resolved". An arg is
+"resolved" if it is either a `BindingNode` or a constant — meaning its value
+can be determined at analysis time without `t/eval` at runtime.
+
+At **analysis time** (runs once, when SCI analyzes user code), the resolved
+path extracts what it needs from each arg:
+
+```clojure
+(let [bnd0 (instance? BindingNode arg0)   ;; true  (x is a binding)
+      rv0  (if bnd0
+             (.idx arg0)                   ;; → 0 (the binding's array index)
+             (.x arg0))                    ;; not taken
+      bnd1 (instance? BindingNode arg1)   ;; false (1 is a constant)
+      rv1  (if bnd1
+             (.idx arg1)                   ;; not taken
+             (.x arg1))]                   ;; → 1 (the constant value)
+  ;; bnd0=true, rv0=0, bnd1=false, rv1=1 are captured in the node's closure.
+  (->Node
+    (Numbers/add
+      (if bnd0 (aget bindings rv0) rv0)   ;; bnd0=true → (aget bindings 0)
+      (if bnd1 (aget bindings rv1) rv1))  ;; bnd1=false → 1
+    stack))
+```
+
+At **eval time** (every iteration), the node runs:
+
+```clojure
+(Numbers/add
+  (if true (aget bindings 0) 0)    ;; → (aget bindings 0), gets x
+  (if false (aget bindings 1) 1))  ;; → 1
+```
+
+The `if` on a captured boolean is essentially free — the branch predictor
+always gets it right. No `t/eval` dispatches at all.
+
+### Three tiers of arg resolution
+
+The decision tree runs at **analysis time** (once per call site):
+
+```
+Analyzing (+ x 1):
+├── All args are BindingNode?  (e.g. (+ x y))
+│   └── Fused path: (Numbers/add (aget bindings idx0) (aget bindings idx1))
+│       Zero dispatches. Direct array access.
+│
+├── All args are "resolved"?  (each is BindingNode OR constant, e.g. (+ x 1))
+│   └── Resolved path: (Numbers/add (if bnd0 (aget ..) rv0) (if bnd1 (aget ..) rv1))
+│       Zero dispatches. One cheap boolean branch per arg.
+│
+└── Some arg is an expression?  (e.g. (+ x (inc y)))
+    └── General path: (Numbers/add (t/eval arg0 ..) (t/eval arg1 ..))
+        One protocol dispatch per arg.
+```
+
+| Tier | When | Runtime cost per arg | Example |
+|------|------|---------------------|---------|
+| Fused | All args are bindings | `aget` (direct) | `(+ x y)` |
+| Resolved | All args are bindings or constants | `if bool` + `aget` or constant | `(+ x 1)` |
+| General | Some arg is an expression | `t/eval` dispatch | `(+ x (inc y))` |
 
 ## Future Work
 
@@ -220,19 +291,6 @@ Potential further fusing optimizations to explore:
 - **Var deref nodes**: `(inc i)` where `inc` is a core var — the var is derefed
   at analysis time via the inlining mechanism, but non-inlined var calls still
   go through `(deref v)` at runtime. A `VarNode` deftype could help the JIT.
-
-- ~~**Fuse `(inlined-fn binding)` into a single specialized node**~~ **Done.**
-  For known inlined functions (`inc`, `dec`, `zero?`, `+`, `-`, `*`, `<`, `>`,
-  etc.), `gen-return-call` generates a `condp identical?` at analysis time that
-  selects a node with the direct static call (e.g. `Numbers/inc`) instead of
-  going through `IFn.invoke`. The function-to-static-call mapping (`spec-fns-1`,
-  `spec-fns-2`) is defined once; `gen-specs` generates `condp` entries with
-  either `aget` (fused binding path) or `t/eval` (general path) as the arg
-  accessor.
-
-- **Constant arg fusing**: `(+ x 1)` where one arg is a binding and the other
-  is a constant — detect `ConstantNode` args at analysis time and inline
-  their values, similar to BindingNode fusing.
 
 - **Primitive type specialization for loop bindings**: Track that loop bindings
   are numeric, use `long[]` arrays, operate on primitives directly. Would
