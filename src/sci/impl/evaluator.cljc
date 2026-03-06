@@ -92,7 +92,7 @@
                                e)]
                        (when #?(:cljs
                                 (or (utils/kw-identical? :default clazz)
-                                    (if (instance? sci.impl.types/NodeR clazz)
+                                    (if (types/eval-node? clazz)
                                       (instance? (types/eval clazz ctx bindings) e)
                                       (instance? clazz e)))
                                 :clj (instance? clazz e))
@@ -181,8 +181,7 @@
      (let [sym (types/eval sym ctx bindings)
            res (second
                 (resolve/lookup ctx sym false nil (qualified-symbol? sym)))]
-       (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
-                    :clj (instance? sci.impl.types.Eval res))
+       (when-not (sci.impl.types/eval-node? res)
          res)))))
 
 (vreset! utils/eval-resolve-state eval-resolve)

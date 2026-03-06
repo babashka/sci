@@ -129,6 +129,57 @@ call saved.
 
 ## Files Changed
 
-- `src/sci/impl/types.cljc` — Added `BindingNode` deftype (JVM only)
+- `src/sci/impl/types.cljc` — Added cross-platform `BindingNode` deftype and `eval-node?` helper
 - `src/sci/impl/resolve.cljc` — Use `BindingNode` for local binding lookups
 - `src/sci/impl/analyzer.cljc` — Fused path in `gen-return-call` and `gen-return-binding-call`
+- `src/sci/impl/evaluator.cljc` — Use `eval-node?` for node detection
+
+### `eval-node?` helper
+
+Introducing `BindingNode` as a new node type means any code that checks
+"does this value need evaluation?" must know about it. Previously on CLJS this
+was `(instance? NodeR x)`, and on CLJ `(instance? sci.impl.types.Eval x)`.
+Rather than adding `or` checks everywhere, a single `eval-node?` function in
+`types.cljc` centralizes this:
+
+```clojure
+(defn eval-node? [x]
+  #?(:clj (instance? sci.impl.types.Eval x)
+     :cljs (or (instance? NodeR x)
+               (instance? BindingNode x))))
+```
+
+Note: on CLJ, the dotted class form `sci.impl.types.Eval` must be used, not the
+protocol var `Eval` — the var holds the protocol map, not the Java interface.
+
+## Future Work
+
+Potential further fusing optimizations to explore:
+
+- **Interop call args**: `(.method obj binding1 binding2)` — interop calls
+  evaluate their args via `t/eval` just like regular calls. Fusing BindingNode
+  args to direct aget could help, especially for interop-heavy code (e.g.
+  instaparse). See `analyze-dot` and `invoke-instance-method` in `analyzer.cljc`.
+
+- **Recur args**: `(recur (inc i) (dec j))` — the recur node evaluates each arg
+  via `t/eval`. When a recur arg is a simple binding (e.g. `(recur j i)` for
+  swap), fusing the aget would save dispatches. Note: most recur args are
+  expressions like `(inc i)`, not bare bindings.
+
+- **Var deref nodes**: `(inc i)` where `inc` is a core var — the var is derefed
+  at analysis time via the inlining mechanism, but non-inlined var calls still
+  go through `(deref v)` at runtime. A `VarNode` deftype could help the JIT.
+
+- **Fuse `(inlined-fn binding)` into a single specialized node**: Instead of
+  a call node that does `(f (aget bindings idx))`, create e.g. an `IncNode`
+  that does `(clojure.lang.Numbers/inc (aget bindings idx))` directly. This
+  eliminates both the function call overhead and the protocol dispatch.
+
+- **Constant arg fusing**: `(+ x 1)` where one arg is a binding and the other
+  is a constant — detect `ConstantNode` args at analysis time and inline
+  their values, similar to BindingNode fusing.
+
+- **Primitive type specialization for loop bindings**: Track that loop bindings
+  are numeric, use `long[]` arrays, operate on primitives directly. Would
+  eliminate boxing overhead (the remaining ~95% of the gap to native Clojure).
+  High complexity.

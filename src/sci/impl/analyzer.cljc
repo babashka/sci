@@ -1167,7 +1167,7 @@
                             (interop/invoke-js-constructor* ctx bindings (deref maybe-var)
                                                             args)
                             nil))
-                         (instance? sci.impl.types/NodeR class)
+                         (t/eval-node? class)
                          (let [args (into-array args)]
                            (sci.impl.types/->Node
                             (interop/invoke-js-constructor* ctx bindings
@@ -1335,8 +1335,7 @@
     "Creates returning-binding-call function, optimizes calling a local
   binding as function."
     []
-    (let [clj? (macros/? :clj true :cljs false)
-          let-bindings (map (fn [i]
+    (let [let-bindings (map (fn [i]
                               [i (vec (mapcat (fn [j]
                                                 [(symbol (str "arg" j))
                                                  `(nth ~'analyzed-children ~j)])
@@ -1352,11 +1351,14 @@
                                  (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                    (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
                                ~'stack))
+          get-idx (fn [j]
+                    (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
+                                                      {:tag 'sci.impl.types.BindingNode}))
+                              :cljs `(.-idx ~(symbol (str "arg" j)))))
           gen-fused-node (fn [i]
                            (let [bidx-binds (vec (mapcat (fn [j]
                                                            [(symbol (str "bidx" j))
-                                                            `(.idx ~(with-meta (symbol (str "arg" j))
-                                                                      {:tag 'sci.impl.types.BindingNode}))])
+                                                            (get-idx j)])
                                                          (range i)))]
                              `(let ~bidx-binds
                                 (sci.impl.types/->Node
@@ -1380,7 +1382,7 @@
            ~@(concat
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              ~(if (and clj? (pos? i))
+                              ~(if (pos? i)
                                  `(if ~(all-bindings? i)
                                     ~(gen-fused-node i)
                                     ~(gen-general-node i))
@@ -1400,8 +1402,7 @@
 (macros/deftime
   (defmacro gen-return-call
     []
-    (let [clj? (macros/? :clj true :cljs false)
-          let-bindings (map (fn [i]
+    (let [let-bindings (map (fn [i]
                               [i (vec (mapcat (fn [j]
                                                 [(symbol (str "arg" j))
                                                  `(nth ~'analyzed-children ~j)])
@@ -1417,11 +1418,14 @@
                                  (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                    (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
                                ~'stack))
+          get-idx (fn [j]
+                    (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
+                                                      {:tag 'sci.impl.types.BindingNode}))
+                              :cljs `(.-idx ~(symbol (str "arg" j)))))
           gen-fused-node (fn [i]
                            (let [bidx-binds (vec (mapcat (fn [j]
                                                            [(symbol (str "bidx" j))
-                                                            `(.idx ~(with-meta (symbol (str "arg" j))
-                                                                      {:tag 'sci.impl.types.BindingNode}))])
+                                                            (get-idx j)])
                                                          (range i)))]
                              `(let ~bidx-binds
                                 (sci.impl.types/->Node
@@ -1456,7 +1460,7 @@
                                          (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                            (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
                                        ~'stack)
-                                      ~(if (and clj? (pos? i))
+                                      ~(if (pos? i)
                                          `(if ~(all-bindings? i)
                                             ~(gen-fused-node i)
                                             ~(gen-general-node i))
@@ -1628,7 +1632,7 @@
                                  (sci.impl.types/->Node
                                   (interop/invoke-js-constructor* ctx bindings ctor children)
                                   nil))
-                               (if (instance? t/NodeR class)
+                               (if (t/eval-node? class)
                                  (sci.impl.types/->Node
                                   (let [class (t/eval class ctx bindings)
                                         method (unchecked-get class method-name)]
@@ -1833,7 +1837,7 @@
 
 (defn constant-node? [x]
   #?(:clj (instance? sci.impl.types.ConstantNode x)
-     :cljs (not (instance? sci.impl.types.NodeR x))))
+     :cljs (not (t/eval-node? x))))
 
 #?(:clj (defn unwrap-children [children]
           (-> (reduce (fn [acc x]
