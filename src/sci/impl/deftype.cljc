@@ -13,7 +13,8 @@
 #?(:clj
    (defn assert-no-jvm-interface [protocol protocol-name expr error-hint]
      (when (and (class? protocol)
-                (not (= Object protocol)))
+                (not (= Object protocol))
+                (not (= clojure.lang.IFn protocol)))
        (utils/throw-error-with-location
         (or error-hint
             (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name))
@@ -41,6 +42,19 @@
      (defmulti hashCode types/type-impl)
      (defmethod hashCode :default [this]
        (System/identityHashCode this))))
+
+(defn- ifn-name? [protocol-name]
+  (or (= 'IFn protocol-name)
+      (= 'clojure.lang.IFn protocol-name)))
+
+(def ^:private ifn-invoke-sym #?(:clj 'invoke :cljs '-invoke))
+
+(defn sci-ifn
+  "Returns the IFn implementation stored in type metadata, or throws."
+  [type-meta rec-name]
+  (or (when type-meta (:sci.impl/ifn (meta type-meta)))
+      (throw (#?(:clj UnsupportedOperationException. :cljs js/Error.)
+              (str rec-name " does not implement IFn")))))
 
 (defn clojure-str [v]
   ;; #object[user.Foo 0x743e63ce "user.Foo@743e63ce"]
@@ -95,7 +109,35 @@
   (getMethods [_] nil)
   (getInterfaces [_] nil)
   (getProtocols [_] nil)
-  (getFields [_] ext-map))
+  (getFields [_] ext-map)
+
+  #?@(:clj [clojure.lang.IFn]
+      :cljs [IFn])
+  (#?(:clj invoke :cljs -invoke) [this] ((sci-ifn type-meta rec-name) this))
+  (#?(:clj invoke :cljs -invoke) [this a] ((sci-ifn type-meta rec-name) this a))
+  (#?(:clj invoke :cljs -invoke) [this a b] ((sci-ifn type-meta rec-name) this a b))
+  (#?(:clj invoke :cljs -invoke) [this a b c] ((sci-ifn type-meta rec-name) this a b c))
+  (#?(:clj invoke :cljs -invoke) [this a b c d] ((sci-ifn type-meta rec-name) this a b c d))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e] ((sci-ifn type-meta rec-name) this a b c d e))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f] ((sci-ifn type-meta rec-name) this a b c d e f))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g] ((sci-ifn type-meta rec-name) this a b c d e f g))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h] ((sci-ifn type-meta rec-name) this a b c d e f g h))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i] ((sci-ifn type-meta rec-name) this a b c d e f g h i))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j] ((sci-ifn type-meta rec-name) this a b c d e f g h i j))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s t))
+  (#?(:clj invoke :cljs -invoke) [this a b c d e f g h i j k l m n o p q r s t rest]
+    (apply (sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s t rest))
+  #?(:clj (applyTo [this args]
+            (.applyTo ^clojure.lang.IFn (sci-ifn type-meta rec-name) (cons this args)))))
 
 (defn ->type-impl [rec-name type type-meta m]
   (SciType. rec-name type type-meta m))
@@ -199,56 +241,84 @@
   (let [protocol-impls
         (mapcat
          (fn [[protocol-name & impls]]
-           (let [impls (group-by first impls)
-                 protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                 #?@(:cljs [protocol (or protocol
-                                         (when (= 'Object protocol-name)
-                                           ::object))])
-                 _ (when-not protocol
-                     (utils/throw-error-with-location
-                      (str "Protocol not found: " protocol-name)
-                      form))
-                 #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name form nil)])
-                 protocol (if (utils/var? protocol) @protocol protocol)
-                 protocol-var (:var protocol)
-                 _ (when protocol-var
-                     (vars/alter-var-root protocol-var update :satisfies
-                                          (fnil conj #{}) (str rec-type)))
-                 protocol-ns (:ns protocol)
-                 pns (cond protocol-ns (str (types/getName protocol-ns))
-                           (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
-                 fq-meth-name #(if (simple-symbol? %)
-                                  (symbol pns (str %))
-                                  %)]
-             (map (fn [[method-name bodies]]
-                    (let [bodies (map rest bodies)
-                          bodies (mapv (fn [impl]
-                                         (let [args (first impl)
-                                               body (rest impl)
-                                               destr (utils/maybe-destructured args body)
-                                               args (:params destr)
-                                               body (:body destr)
-                                               orig-this-sym (first args)
-                                               rest-args (rest args)
-                                               shadows-this? (some #(= orig-this-sym %) rest-args)
-                                               this-sym (if shadows-this?
-                                                          (gensym "this_")
-                                                          orig-this-sym)
-                                               args (if shadows-this?
-                                                      (vec (cons this-sym rest-args))
-                                                      args)
-                                               bindings (mapcat (fn [field]
-                                                                  [field (list (keyword field) this-sym)])
-                                                                (reduce disj field-set args))
-                                               bindings (if shadows-this?
-                                                          (concat bindings [orig-this-sym this-sym])
-                                                          bindings)
-                                               bindings (vec bindings)]
-                                           `(~args
-                                             (let ~bindings
-                                               ~@body)))) bodies)]
-                      `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
-                  impls)))
+           (if (ifn-name? protocol-name)
+             ;; IFn special case: store invoke fn in type metadata
+             (let [invoke-impls (get (group-by first impls) ifn-invoke-sym)
+                   fn-bodies (mapv (fn [impl]
+                                    (let [args (second impl)
+                                          body (nnext impl)
+                                          destr (utils/maybe-destructured args body)
+                                          args (:params destr)
+                                          body (:body destr)
+                                          orig-this-sym (first args)
+                                          rest-args (rest args)
+                                          shadows-this? (some #(= orig-this-sym %) rest-args)
+                                          this-sym (if shadows-this?
+                                                     (gensym "this_")
+                                                     orig-this-sym)
+                                          args (if shadows-this?
+                                                 (vec (cons this-sym rest-args))
+                                                 args)
+                                          bindings (mapcat (fn [field]
+                                                            [field (list (keyword field) this-sym)])
+                                                          (reduce disj field-set args))
+                                          bindings (if shadows-this?
+                                                     (concat bindings [orig-this-sym this-sym])
+                                                     bindings)
+                                          bindings (vec bindings)]
+                                      `(~args (let ~bindings ~@body))))
+                                  invoke-impls)]
+               [`(alter-meta! ~record-name assoc :sci.impl/ifn (fn ~@fn-bodies))])
+             (let [impls (group-by first impls)
+                   protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
+                   #?@(:cljs [protocol (or protocol
+                                           (when (= 'Object protocol-name)
+                                             ::object))])
+                   _ (when-not protocol
+                       (utils/throw-error-with-location
+                        (str "Protocol not found: " protocol-name)
+                        form))
+                   #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name form nil)])
+                   protocol (if (utils/var? protocol) @protocol protocol)
+                   protocol-var (:var protocol)
+                   _ (when protocol-var
+                       (vars/alter-var-root protocol-var update :satisfies
+                                            (fnil conj #{}) (str rec-type)))
+                   protocol-ns (:ns protocol)
+                   pns (cond protocol-ns (str (types/getName protocol-ns))
+                             (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
+                   fq-meth-name #(if (simple-symbol? %)
+                                    (symbol pns (str %))
+                                    %)]
+               (map (fn [[method-name bodies]]
+                      (let [bodies (map rest bodies)
+                            bodies (mapv (fn [impl]
+                                           (let [args (first impl)
+                                                 body (rest impl)
+                                                 destr (utils/maybe-destructured args body)
+                                                 args (:params destr)
+                                                 body (:body destr)
+                                                 orig-this-sym (first args)
+                                                 rest-args (rest args)
+                                                 shadows-this? (some #(= orig-this-sym %) rest-args)
+                                                 this-sym (if shadows-this?
+                                                            (gensym "this_")
+                                                            orig-this-sym)
+                                                 args (if shadows-this?
+                                                        (vec (cons this-sym rest-args))
+                                                        args)
+                                                 bindings (mapcat (fn [field]
+                                                                    [field (list (keyword field) this-sym)])
+                                                                  (reduce disj field-set args))
+                                                 bindings (if shadows-this?
+                                                            (concat bindings [orig-this-sym this-sym])
+                                                            bindings)
+                                                 bindings (vec bindings)]
+                                             `(~args
+                                               (let ~bindings
+                                                 ~@body)))) bodies)]
+                        `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
+                    impls))))
          protocol-impls)]
     (emit-record-type rec-type record-name constructor-fn-sym map-factory-sym
                       protocol-impls)))

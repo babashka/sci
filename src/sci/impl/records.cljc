@@ -30,6 +30,13 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
+(defn sci-ifn
+  "Returns the IFn implementation stored in type metadata, or throws."
+  [type-meta rec-name]
+  (or (when type-meta (:sci.impl/ifn (meta type-meta)))
+      (throw (#?(:clj UnsupportedOperationException. :cljs js/Error.)
+              (str rec-name " does not implement IFn")))))
+
 #?(:clj
    (deftype SciRecord [rec-name
                        type
@@ -138,7 +145,34 @@
 
      sci.impl.types/SciTypeInstance
      (-get-type [_]
-       type)))
+       type)
+
+     clojure.lang.IFn
+     (invoke [this] ((sci-ifn type-meta rec-name) this))
+     (invoke [this a] ((sci-ifn type-meta rec-name) this a))
+     (invoke [this a b] ((sci-ifn type-meta rec-name) this a b))
+     (invoke [this a b c] ((sci-ifn type-meta rec-name) this a b c))
+     (invoke [this a b c d] ((sci-ifn type-meta rec-name) this a b c d))
+     (invoke [this a b c d e] ((sci-ifn type-meta rec-name) this a b c d e))
+     (invoke [this a b c d e f] ((sci-ifn type-meta rec-name) this a b c d e f))
+     (invoke [this a b c d e f g] ((sci-ifn type-meta rec-name) this a b c d e f g))
+     (invoke [this a b c d e f g h] ((sci-ifn type-meta rec-name) this a b c d e f g h))
+     (invoke [this a b c d e f g h i] ((sci-ifn type-meta rec-name) this a b c d e f g h i))
+     (invoke [this a b c d e f g h i j] ((sci-ifn type-meta rec-name) this a b c d e f g h i j))
+     (invoke [this a b c d e f g h i j k] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k))
+     (invoke [this a b c d e f g h i j k l] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l))
+     (invoke [this a b c d e f g h i j k l m] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m))
+     (invoke [this a b c d e f g h i j k l m n] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n))
+     (invoke [this a b c d e f g h i j k l m n o] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o))
+     (invoke [this a b c d e f g h i j k l m n o p] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p))
+     (invoke [this a b c d e f g h i j k l m n o p q] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q))
+     (invoke [this a b c d e f g h i j k l m n o p q r] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r))
+     (invoke [this a b c d e f g h i j k l m n o p q r s] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s))
+     (invoke [this a b c d e f g h i j k l m n o p q r s t] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s t))
+     (invoke [this a b c d e f g h i j k l m n o p q r s t rest]
+       (apply (sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s t rest))
+     (applyTo [this args]
+       (.applyTo ^clojure.lang.IFn (sci-ifn type-meta rec-name) (cons this args)))))
 
 ;; See https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
 #?(:cljs
@@ -239,7 +273,32 @@
 
      Object
      (toString [this]
-       (to-string this))))
+       (to-string this))
+
+     IFn
+     (-invoke [this] ((sci-ifn type-meta rec-name) this))
+     (-invoke [this a] ((sci-ifn type-meta rec-name) this a))
+     (-invoke [this a b] ((sci-ifn type-meta rec-name) this a b))
+     (-invoke [this a b c] ((sci-ifn type-meta rec-name) this a b c))
+     (-invoke [this a b c d] ((sci-ifn type-meta rec-name) this a b c d))
+     (-invoke [this a b c d e] ((sci-ifn type-meta rec-name) this a b c d e))
+     (-invoke [this a b c d e f] ((sci-ifn type-meta rec-name) this a b c d e f))
+     (-invoke [this a b c d e f g] ((sci-ifn type-meta rec-name) this a b c d e f g))
+     (-invoke [this a b c d e f g h] ((sci-ifn type-meta rec-name) this a b c d e f g h))
+     (-invoke [this a b c d e f g h i] ((sci-ifn type-meta rec-name) this a b c d e f g h i))
+     (-invoke [this a b c d e f g h i j] ((sci-ifn type-meta rec-name) this a b c d e f g h i j))
+     (-invoke [this a b c d e f g h i j k] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k))
+     (-invoke [this a b c d e f g h i j k l] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l))
+     (-invoke [this a b c d e f g h i j k l m] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m))
+     (-invoke [this a b c d e f g h i j k l m n] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n))
+     (-invoke [this a b c d e f g h i j k l m n o] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o))
+     (-invoke [this a b c d e f g h i j k l m n o p] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p))
+     (-invoke [this a b c d e f g h i j k l m n o p q] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q))
+     (-invoke [this a b c d e f g h i j k l m n o p q r] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r))
+     (-invoke [this a b c d e f g h i j k l m n o p q r s] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s))
+     (-invoke [this a b c d e f g h i j k l m n o p q r s t] ((sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s t))
+     (-invoke [this a b c d e f g h i j k l m n o p q r s t rest]
+       (apply (sci-ifn type-meta rec-name) this a b c d e f g h i j k l m n o p q r s t rest))))
 
 #?(:clj
    (defmethod print-method SciRecord [v w]
