@@ -1461,28 +1461,32 @@
                                     ~(gen-node i aget-expr)))
                                `(let ~bidx-binds
                                   ~(gen-node i aget-expr)))))
+          ;; Fused optimization only for arities 1-4. Higher arities are
+          ;; unlikely to have all-binding args in hot loops.
           gen-specialized-or-general (fn [i]
-                                       (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
-                                             fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
-                                             ;; Only generate bc specs for arity 2+.
-                                             ;; For arity 1, constants get folded at analysis time
-                                             ;; (e.g. (inc 1) → 2), so the condp is dead code.
-                                             bc-specs (when (and spec-fns (> i 1))
-                                                        (gen-specs spec-fns i bc-arg-expr))]
-                                         (if spec-fns
-                                           `(if ~(all-bindings? i)
-                                              ~(gen-fused-node i fused-specs)
-                                              ~(if bc-specs
-                                                 `(if ~(all-binding-or-constant? i)
-                                                    (let ~(gen-bc-binds i)
-                                                      (condp identical? ~'f
-                                                        ~@bc-specs
-                                                        ~(gen-node i bc-arg-expr)))
-                                                    ~(gen-node i eval-arg))
-                                                 (gen-node i eval-arg)))
-                                           `(if ~(all-bindings? i)
-                                              ~(gen-fused-node i nil)
-                                              ~(gen-node i eval-arg)))))]
+                                       (if (> i 4)
+                                         (gen-node i eval-arg)
+                                         (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
+                                               fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
+                                               ;; Only generate bc specs for arity 2+.
+                                               ;; For arity 1, constants get folded at analysis time
+                                               ;; (e.g. (inc 1) → 2), so the condp is dead code.
+                                               bc-specs (when (and spec-fns (> i 1))
+                                                          (gen-specs spec-fns i bc-arg-expr))]
+                                           (if spec-fns
+                                             `(if ~(all-bindings? i)
+                                                ~(gen-fused-node i fused-specs)
+                                                ~(if bc-specs
+                                                   `(if ~(all-binding-or-constant? i)
+                                                      (let ~(gen-bc-binds i)
+                                                        (condp identical? ~'f
+                                                          ~@bc-specs
+                                                          ~(gen-node i bc-arg-expr)))
+                                                      ~(gen-node i eval-arg))
+                                                   (gen-node i eval-arg)))
+                                             `(if ~(all-bindings? i)
+                                                ~(gen-fused-node i nil)
+                                                ~(gen-node i eval-arg))))))]
       `(defn ~'return-call
          ~'[_ctx expr f analyzed-children stack wrap]
          (let [node#
