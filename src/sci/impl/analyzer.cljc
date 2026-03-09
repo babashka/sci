@@ -1557,7 +1557,6 @@
            (cond-> node#
              tag# (with-meta {:tag tag#})))))))
 
-(declare return-call) ;; for clj-kondo
 (gen-return-call)
 
 (defn analyze-quote [_ctx expr]
