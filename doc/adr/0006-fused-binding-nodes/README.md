@@ -285,8 +285,12 @@ Analyzing (+ x 1):
 | Tier | When | Runtime cost per arg | Example |
 |------|------|---------------------|---------|
 | Fused | All args are bindings | `aget` (direct) | `(+ x y)` |
-| Resolved | All args are bindings or constants | `if bool` + `aget` or constant | `(+ x 1)` |
+| Resolved | All args are bindings or constants (arity 2+ only) | `if bool` + `aget` or constant | `(+ x 1)` |
 | General | Some arg is an expression | `t/eval` dispatch | `(+ x (inc y))` |
+
+The resolved tier with function specialization (`condp`) is only generated for
+arity 2+. For arity 1, constant arguments get folded at analysis time (e.g.
+`(inc 1)` becomes `2`), so the resolved path would be dead code.
 
 In the fused and resolved tiers, when `f` is not a known specialized function
 (not in `spec-fns`), the node still benefits from direct `aget` / constant
