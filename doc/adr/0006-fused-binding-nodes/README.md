@@ -319,23 +319,14 @@ Potential further fusing optimizations to explore:
   eliminate boxing overhead (the remaining ~95% of the gap to native Clojure).
   High complexity.
 
-- **Bytecode VM for loop bodies**: The fundamental bottleneck on native-image is
-  that every `(t/eval node ctx bindings)` is a vtable lookup — there's no JIT to
-  devirtualize. A bytecode VM would replace the node tree for loop bodies with a
-  flat opcode array, and the eval loop would use a `case` dispatch (compiles to
-  tableswitch — one indexed jump) instead of N polymorphic protocol dispatches.
-
-  ```clojure
-  ;; (loop [i 0 j 10M] (if (zero? j) i (recur (inc i) (dec j))))
-  ;; flattened to opcodes:
-  [:load-binding 1, :call-zero?, :branch-true 8,
-   :load-binding 0, :call-inc, :store-binding 0,
-   :load-binding 1, :call-dec, :store-binding 1, :goto 0,
-   :load-binding 0, :return]
-  ```
-
-  Scoped to `loop/recur` only — the rest of SCI stays tree-walking since startup
-  code isn't hot. The analyzer already knows the loop body structure, so it can
-  flatten to opcodes at analysis time. Tricky parts: nested control flow (`if`,
-  `let`, `case`), calls to non-inlined functions (need a generic invoke opcode),
-  and graceful fallback to tree-walking for unsupported forms.
+- **Bytecode VM for loop bodies (rejected)**: A stack-based bytecode VM was
+  prototyped to replace the node tree for loop bodies with a flat opcode array,
+  using `case` dispatch (tableswitch) instead of protocol dispatches. However,
+  the stack machine overhead (aget/aset for every push/pop, plus separate case
+  dispatches for opcode type and function ID) exceeded the savings from replacing
+  vtable lookups with tableswitch. The fused node approach already eliminates the
+  most expensive dispatches (binding arg lookups), leaving only ~5 dispatches per
+  loop iteration — each doing minimal work. The bytecode VM replaced those 5
+  with 13+ case dispatches plus stack operations, resulting in ~28% slower
+  execution. A register-based VM or closure compilation might fare better but
+  would be significantly more complex.
