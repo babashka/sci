@@ -1535,16 +1535,22 @@
           gen-specialized-or-general (fn [i]
                                        (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
                                              fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
-                                             resolved-specs (when spec-fns (gen-specs spec-fns i resolved-arg-expr))]
+                                             ;; Only generate resolved specs for arity 2+.
+                                             ;; For arity 1, constants get folded at analysis time
+                                             ;; (e.g. (inc 1) → 2), so resolved condp is dead code.
+                                             resolved-specs (when (and spec-fns (> i 1))
+                                                              (gen-specs spec-fns i resolved-arg-expr))]
                                          (if spec-fns
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i fused-specs)
-                                              (if ~(all-resolved? i)
-                                                (let ~(gen-resolved-binds i)
-                                                  (condp identical? ~'f
-                                                    ~@resolved-specs
-                                                    ~(gen-resolved-fallback i)))
-                                                ~(gen-general-node i)))
+                                              ~(if resolved-specs
+                                                 `(if ~(all-resolved? i)
+                                                    (let ~(gen-resolved-binds i)
+                                                      (condp identical? ~'f
+                                                        ~@resolved-specs
+                                                        ~(gen-resolved-fallback i)))
+                                                    ~(gen-general-node i))
+                                                 (gen-general-node i)))
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i nil)
                                               ~(gen-general-node i)))))]
