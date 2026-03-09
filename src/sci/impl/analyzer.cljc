@@ -1473,11 +1473,11 @@
                                 'cljs.core/<= 'cljs.core/<=
                                 'cljs.core/>= 'cljs.core/>=
                                 'cljs.core/== 'cljs.core/==})
-          gen-specs (fn [spec-fns arg-fn]
+          gen-specs (fn [spec-fns i arg-fn]
                       (mapcat (fn [[f-sym static-sym]]
                                 [f-sym
                                  `(sci.impl.types/->Node
-                                   (try (~static-sym ~@(map arg-fn (range (if (contains? spec-fns-1 f-sym) 1 2))))
+                                   (try (~static-sym ~@(map arg-fn (range i)))
                                         ~catch-clause)
                                    ~'stack)])
                               spec-fns))
@@ -1512,14 +1512,6 @@
                               `(if ~(symbol (str "bnd" j))
                                  (aget ~(with-meta 'bindings {:tag 'objects}) ~(symbol (str "rv" j)))
                                  ~(symbol (str "rv" j))))
-          gen-resolved-specs (fn [spec-fns i]
-                               (mapcat (fn [[f-sym static-sym]]
-                                         [f-sym
-                                          `(sci.impl.types/->Node
-                                            (try (~static-sym ~@(map resolved-arg-expr (range i)))
-                                                 ~catch-clause)
-                                            ~'stack)])
-                                       spec-fns))
           gen-fused-node (fn [i specs]
                            (let [bidx-binds (vec (mapcat (fn [j]
                                                            [(symbol (str "bidx" j))
@@ -1542,8 +1534,8 @@
                                     ~'stack))
           gen-specialized-or-general (fn [i]
                                        (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
-                                             fused-specs (when spec-fns (gen-specs spec-fns aget-expr))
-                                             resolved-specs (when spec-fns (gen-resolved-specs spec-fns i))]
+                                             fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
+                                             resolved-specs (when spec-fns (gen-specs spec-fns i resolved-arg-expr))]
                                          (if spec-fns
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i fused-specs)
