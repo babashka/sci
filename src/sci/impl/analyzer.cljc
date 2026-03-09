@@ -1432,6 +1432,8 @@
           spec-fns-1 (macros/? :clj
                                {'clojure.core/inc 'clojure.lang.Numbers/inc
                                 'clojure.core/dec 'clojure.lang.Numbers/dec
+                                'clojure.core/unchecked-inc 'clojure.lang.Numbers/unchecked_inc
+                                'clojure.core/unchecked-dec 'clojure.lang.Numbers/unchecked_dec
                                 'clojure.core/zero? 'clojure.lang.Numbers/isZero
                                 'clojure.core/pos? 'clojure.lang.Numbers/isPos
                                 'clojure.core/neg? 'clojure.lang.Numbers/isNeg
@@ -1440,6 +1442,8 @@
                                :cljs
                                {'cljs.core/inc 'cljs.core/inc
                                 'cljs.core/dec 'cljs.core/dec
+                                'cljs.core/unchecked-inc 'cljs.core/unchecked-inc
+                                'cljs.core/unchecked-dec 'cljs.core/unchecked-dec
                                 'cljs.core/zero? 'cljs.core/zero?
                                 'cljs.core/pos? 'cljs.core/pos?
                                 'cljs.core/neg? 'cljs.core/neg?
@@ -1449,6 +1453,10 @@
                                {'clojure.core/+ 'clojure.lang.Numbers/add
                                 'clojure.core/- 'clojure.lang.Numbers/minus
                                 'clojure.core/* 'clojure.lang.Numbers/multiply
+                                'clojure.core/unchecked-add 'clojure.lang.Numbers/unchecked_add
+                                'clojure.core/unchecked-subtract 'clojure.lang.Numbers/unchecked_minus
+                                'clojure.core/unchecked-multiply 'clojure.lang.Numbers/unchecked_multiply
+                                'clojure.core/rem 'clojure.lang.Numbers/remainder
                                 'clojure.core/< 'clojure.lang.Numbers/lt
                                 'clojure.core/> 'clojure.lang.Numbers/gt
                                 'clojure.core/<= 'clojure.lang.Numbers/lte
@@ -1458,6 +1466,10 @@
                                {'cljs.core/+ 'cljs.core/+
                                 'cljs.core/- 'cljs.core/-
                                 'cljs.core/* 'cljs.core/*
+                                'cljs.core/unchecked-add 'cljs.core/unchecked-add
+                                'cljs.core/unchecked-subtract 'cljs.core/unchecked-subtract
+                                'cljs.core/unchecked-multiply 'cljs.core/unchecked-multiply
+                                'cljs.core/mod 'cljs.core/mod
                                 'cljs.core/< 'cljs.core/<
                                 'cljs.core/> 'cljs.core/>
                                 'cljs.core/<= 'cljs.core/<=
