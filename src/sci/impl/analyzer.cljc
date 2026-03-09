@@ -1356,11 +1356,10 @@
                      `(sci.impl.types/->Node
                        (try (~'f ~@(map arg-fn (range i))) ~catch-clause)
                        ~'stack))
-          get-idx (fn [j]
-                    (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
-                                                      {:tag 'sci.impl.types.BindingNode}))
-                              :cljs `(.-idx ~(with-meta (symbol (str "arg" j))
-                                                       {:tag 'sci.impl.types/BindingNode}))))
+          idx-expr (fn [sym]
+                     (macros/? :clj `(.idx ~(with-meta sym {:tag 'sci.impl.types.BindingNode}))
+                               :cljs `(.-idx ~(with-meta sym {:tag 'sci.impl.types/BindingNode}))))
+          get-idx (fn [j] (idx-expr (symbol (str "arg" j))))
           aget-expr (fn [j]
                       `(aget ~(with-meta 'bindings {:tag 'objects})
                              ~(symbol (str "bidx" j))))
@@ -1404,7 +1403,7 @@
                                 'cljs.core/unchecked-add 'cljs.core/unchecked-add
                                 'cljs.core/unchecked-subtract 'cljs.core/unchecked-subtract
                                 'cljs.core/unchecked-multiply 'cljs.core/unchecked-multiply
-                                'cljs.core/mod 'cljs.core/mod
+                                'cljs.core/rem 'cljs.core/rem
                                 'cljs.core/< 'cljs.core/<
                                 'cljs.core/> 'cljs.core/>
                                 'cljs.core/<= 'cljs.core/<=
@@ -1440,8 +1439,7 @@
                                            `(instance? sci.impl.types.BindingNode ~arg-sym)
                                            (symbol (str "rv" j))
                                            `(if ~(symbol (str "bnd" j))
-                                              ~(macros/? :clj `(.idx ~(with-meta arg-sym {:tag 'sci.impl.types.BindingNode}))
-                                                         :cljs `(.-idx ~(with-meta arg-sym {:tag 'sci.impl.types/BindingNode})))
+                                              ~(idx-expr arg-sym)
                                               ~(macros/? :clj `(.x ~(with-meta arg-sym {:tag 'sci.impl.types.ConstantNode}))
                                                          :cljs arg-sym))]))
                                       (range i))))
@@ -1454,13 +1452,12 @@
                                                            [(symbol (str "bidx" j))
                                                             (get-idx j)])
                                                          (range i)))]
-                             (if specs
-                               `(let ~bidx-binds
-                                  (condp identical? ~'f
-                                    ~@specs
-                                    ~(gen-node i aget-expr)))
-                               `(let ~bidx-binds
-                                  ~(gen-node i aget-expr)))))
+                             `(let ~bidx-binds
+                                ~(if specs
+                                   `(condp identical? ~'f
+                                      ~@specs
+                                      ~(gen-node i aget-expr))
+                                   (gen-node i aget-expr)))))
           ;; Fused/specialized optimization for arities 1-2 only. Clojure
           ;; only inlines core functions at these arities (e.g. <=, + inline
           ;; at arity 2 but not 3). At arity 3+, calls go through IFn.invoke
