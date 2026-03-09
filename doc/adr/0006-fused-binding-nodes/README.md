@@ -125,17 +125,17 @@ a future optimization.
 | JVM (HotSpot, warmed) | ~124ms | ~97ms | **22% faster** |
 | Python 3.13 (reference) | ~520ms | — | bb is 2.3x faster |
 
-### Phase 2: Specialized inlined calls + constant arg fusing + resolved fallback
+### Phase 2: Specialized inlined calls + constant arg fusing + binding-or-constant fallback
 
 Adds three optimizations on top of Phase 1:
 
 1. **Specialized calls**: For known functions (`inc`, `dec`, `+`, `-`, etc.),
    call the underlying static method directly (e.g. `Numbers/inc`) instead of
    going through `IFn.invoke`.
-2. **Constant arg fusing**: The "resolved" tier handles mixed binding+constant
-   args (e.g. `(+ x 1)`) without `t/eval` dispatch.
-3. **Resolved fallback**: Even for non-specialized functions, the resolved tier
-   avoids `t/eval` when all args are bindings or constants.
+2. **Constant arg fusing**: The "binding-or-constant" tier handles mixed
+   binding+constant args (e.g. `(+ x 1)`) without `t/eval` dispatch.
+3. **Binding-or-constant fallback**: Even for non-specialized functions, this
+   tier avoids `t/eval` when all args are bindings or constants.
 
 `(loop [i 0 j 10000000] (if (zero? j) i (recur (inc i) (dec j))))`
 
@@ -206,12 +206,13 @@ analysis time — comparing `f` (the actual function object from
 `:sci.impl/inlined`) against known functions. Zero runtime cost; it just
 selects which `->Node` reify to create.
 
-Specialization is applied in the **fused** and **resolved** tiers only (where
-args are already resolved to direct array access or constants). For the general
-tier (expression args), the overhead of `t/eval` dispatch dominates, so
-specializing `f` gives negligible benefit — the code uses plain `(f ...)` instead.
+Specialization is applied in the **fused** and **binding-or-constant** tiers
+only (where args are already available as direct array access or constants).
+For the general tier (expression args), the overhead of `t/eval` dispatch
+dominates, so specializing `f` gives negligible benefit — the code uses plain
+`(f ...)` instead.
 
-### Constant arg fusing (the "resolved" path)
+### Constant arg fusing (the "binding-or-constant" path)
 
 Consider `(+ x 1)` where `x` is a loop binding. After analysis:
 - `arg0` = a `BindingNode` (for `x`)
@@ -228,12 +229,12 @@ is not a BindingNode), so it falls to the general path:
 
 Two `t/eval` dispatches per call, just to get `x` and `1`.
 
-**With constant fusing**, there is a middle tier called "resolved". An arg is
-"resolved" if it is either a `BindingNode` or a constant — meaning its value
-can be determined at analysis time without `t/eval` at runtime.
+**With constant fusing**, there is a middle tier. An arg is "binding-or-constant"
+if it is either a `BindingNode` or a constant — meaning its value can be
+determined at analysis time without `t/eval` at runtime.
 
-At **analysis time** (runs once, when SCI analyzes user code), the resolved
-path extracts what it needs from each arg:
+At **analysis time** (runs once, when SCI analyzes user code), this path
+extracts what it needs from each arg:
 
 ```clojure
 (let [bnd0 (instance? BindingNode arg0)   ;; true  (x is a binding)
@@ -263,7 +264,7 @@ At **eval time** (every iteration), the node runs:
 The `if` on a captured boolean is essentially free — the branch predictor
 always gets it right. No `t/eval` dispatches at all.
 
-### Three tiers of arg resolution
+### Three tiers of arg handling
 
 The decision tree runs at **analysis time** (once per call site):
 
@@ -273,8 +274,8 @@ Analyzing (+ x 1):
 │   └── Fused path: (Numbers/add (aget bindings idx0) (aget bindings idx1))
 │       Zero dispatches. Direct array access.
 │
-├── All args are "resolved"?  (each is BindingNode OR constant, e.g. (+ x 1))
-│   └── Resolved path: (Numbers/add (if bnd0 (aget ..) rv0) (if bnd1 (aget ..) rv1))
+├── All args are binding-or-constant?  (each is BindingNode OR constant, e.g. (+ x 1))
+│   └── B/C path: (Numbers/add (if bnd0 (aget ..) rv0) (if bnd1 (aget ..) rv1))
 │       Zero dispatches. One cheap boolean branch per arg.
 │
 └── Some arg is an expression?  (e.g. (+ x (inc y)))
@@ -285,16 +286,16 @@ Analyzing (+ x 1):
 | Tier | When | Runtime cost per arg | Example |
 |------|------|---------------------|---------|
 | Fused | All args are bindings | `aget` (direct) | `(+ x y)` |
-| Resolved | All args are bindings or constants (arity 2+ only) | `if bool` + `aget` or constant | `(+ x 1)` |
+| Binding-or-constant | All args are bindings or constants (arity 2+ only) | `if bool` + `aget` or constant | `(+ x 1)` |
 | General | Some arg is an expression | `t/eval` dispatch | `(+ x (inc y))` |
 
-The resolved tier with function specialization (`condp`) is only generated for
-arity 2+. For arity 1, constant arguments get folded at analysis time (e.g.
-`(inc 1)` becomes `2`), so the resolved path would be dead code.
+The binding-or-constant tier with function specialization (`condp`) is only
+generated for arity 2+. For arity 1, constant arguments get folded at analysis
+time (e.g. `(inc 1)` becomes `2`), so this path would be dead code.
 
-In the fused and resolved tiers, when `f` is not a known specialized function
-(not in `spec-fns`), the node still benefits from direct `aget` / constant
-access — it just calls through `(f ...)` instead of the static method.
+In the fused and binding-or-constant tiers, when `f` is not a known specialized
+function (not in `spec-fns`), the node still benefits from direct `aget` /
+constant access — it just calls through `(f ...)` instead of the static method.
 
 ## Future Work
 

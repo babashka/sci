@@ -1427,32 +1427,32 @@
                                             `(instance? sci.impl.types.BindingNode
                                                         ~(symbol (str "arg" j))))
                                           (range i))))
-          ;; "resolved" = BindingNode or constant (no t/eval dispatch needed)
-          resolved? (fn [j]
-                      (let [arg-sym (symbol (str "arg" j))]
-                        `(or (instance? sci.impl.types.BindingNode ~arg-sym)
-                             ~(macros/? :clj `(instance? sci.impl.types.ConstantNode ~arg-sym)
-                                        :cljs `(not (t/eval-node? ~arg-sym))))))
-          all-resolved? (fn [i]
-                          (cons `and (map resolved? (range i))))
+          ;; binding-or-constant = BindingNode or constant (no t/eval dispatch needed)
+          binding-or-constant? (fn [j]
+                                 (let [arg-sym (symbol (str "arg" j))]
+                                   `(or (instance? sci.impl.types.BindingNode ~arg-sym)
+                                        ~(macros/? :clj `(instance? sci.impl.types.ConstantNode ~arg-sym)
+                                                   :cljs `(not (t/eval-node? ~arg-sym))))))
+          all-binding-or-constant? (fn [i]
+                                     (cons `and (map binding-or-constant? (range i))))
           ;; At analysis time, extract binding idx or constant value per arg.
           ;; At runtime, use captured boolean + value to pick aget vs constant.
-          gen-resolved-binds (fn [i]
-                               (vec (mapcat (fn [j]
-                                              (let [arg-sym (symbol (str "arg" j))]
-                                                [(symbol (str "bnd" j))
-                                                 `(instance? sci.impl.types.BindingNode ~arg-sym)
-                                                 (symbol (str "rv" j))
-                                                 `(if ~(symbol (str "bnd" j))
-                                                    ~(macros/? :clj `(.idx ~(with-meta arg-sym {:tag 'sci.impl.types.BindingNode}))
-                                                               :cljs `(.-idx ~(with-meta arg-sym {:tag 'sci.impl.types/BindingNode})))
-                                                    ~(macros/? :clj `(.x ~(with-meta arg-sym {:tag 'sci.impl.types.ConstantNode}))
-                                                               :cljs arg-sym))]))
-                                            (range i))))
-          resolved-arg-expr (fn [j]
-                              `(if ~(symbol (str "bnd" j))
-                                 (aget ~(with-meta 'bindings {:tag 'objects}) ~(symbol (str "rv" j)))
-                                 ~(symbol (str "rv" j))))
+          gen-bc-binds (fn [i]
+                         (vec (mapcat (fn [j]
+                                        (let [arg-sym (symbol (str "arg" j))]
+                                          [(symbol (str "bnd" j))
+                                           `(instance? sci.impl.types.BindingNode ~arg-sym)
+                                           (symbol (str "rv" j))
+                                           `(if ~(symbol (str "bnd" j))
+                                              ~(macros/? :clj `(.idx ~(with-meta arg-sym {:tag 'sci.impl.types.BindingNode}))
+                                                         :cljs `(.-idx ~(with-meta arg-sym {:tag 'sci.impl.types/BindingNode})))
+                                              ~(macros/? :clj `(.x ~(with-meta arg-sym {:tag 'sci.impl.types.ConstantNode}))
+                                                         :cljs arg-sym))]))
+                                      (range i))))
+          bc-arg-expr (fn [j]
+                        `(if ~(symbol (str "bnd" j))
+                           (aget ~(with-meta 'bindings {:tag 'objects}) ~(symbol (str "rv" j)))
+                           ~(symbol (str "rv" j))))
           gen-fused-node (fn [i specs]
                            (let [bidx-binds (vec (mapcat (fn [j]
                                                            [(symbol (str "bidx" j))
@@ -1468,28 +1468,28 @@
                                    `(sci.impl.types/->Node
                                      (try (~'f ~@(map aget-expr (range i))) ~catch-clause)
                                      ~'stack)))))
-          gen-resolved-fallback (fn [i]
-                                  `(sci.impl.types/->Node
-                                    (try (~'f ~@(map resolved-arg-expr (range i)))
-                                         ~catch-clause)
-                                    ~'stack))
+          gen-bc-fallback (fn [i]
+                           `(sci.impl.types/->Node
+                             (try (~'f ~@(map bc-arg-expr (range i)))
+                                  ~catch-clause)
+                             ~'stack))
           gen-specialized-or-general (fn [i]
                                        (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
                                              fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
-                                             ;; Only generate resolved specs for arity 2+.
+                                             ;; Only generate bc specs for arity 2+.
                                              ;; For arity 1, constants get folded at analysis time
-                                             ;; (e.g. (inc 1) → 2), so resolved condp is dead code.
-                                             resolved-specs (when (and spec-fns (> i 1))
-                                                              (gen-specs spec-fns i resolved-arg-expr))]
+                                             ;; (e.g. (inc 1) → 2), so the condp is dead code.
+                                             bc-specs (when (and spec-fns (> i 1))
+                                                        (gen-specs spec-fns i bc-arg-expr))]
                                          (if spec-fns
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i fused-specs)
-                                              ~(if resolved-specs
-                                                 `(if ~(all-resolved? i)
-                                                    (let ~(gen-resolved-binds i)
+                                              ~(if bc-specs
+                                                 `(if ~(all-binding-or-constant? i)
+                                                    (let ~(gen-bc-binds i)
                                                       (condp identical? ~'f
-                                                        ~@resolved-specs
-                                                        ~(gen-resolved-fallback i)))
+                                                        ~@bc-specs
+                                                        ~(gen-bc-fallback i)))
                                                     ~(gen-general-node i))
                                                  (gen-general-node i)))
                                            `(if ~(all-bindings? i)
