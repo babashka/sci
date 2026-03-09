@@ -16,6 +16,7 @@
    [sci.impl.fns :as fns]
    [sci.impl.interop :as interop]
    [sci.impl.load :as load]
+   [sci.impl.loop :as sci-loop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
@@ -798,11 +799,27 @@
   [ctx expr]
   (let [bv (second expr)
         syms (take-nth 2 bv)
-        body (nnext expr)
-        expansion `(let* ~bv
-                     ~(list* `(fn* ~(vec syms) ~@body)
-                             syms))]
-    (analyze ctx expansion)))
+        body (nnext expr)]
+    (if-let [bytecode (sci-loop/try-compile ctx syms body)]
+      ;; Bytecode path: compile loop body to opcodes
+      (let [init-exprs (take-nth 2 (rest bv))
+            analyzed-inits (mapv #(analyze ctx %) init-exprs)
+            n (count syms)
+            {:keys [opcodes constants]} bytecode
+            stack (assoc (meta expr)
+                         :ns @utils/current-ns
+                         :file @utils/current-file)]
+        (t/->Node
+         (let [loop-bindings (object-array n)]
+           (dotimes [i n]
+             (aset loop-bindings i (t/eval (nth analyzed-inits i) ctx bindings)))
+           (sci-loop/run-loop opcodes constants loop-bindings))
+         stack))
+      ;; Fallback: expand to let* + fn*
+      (let [expansion `(let* ~bv
+                         ~(list* `(fn* ~(vec syms) ~@body)
+                                 syms))]
+        (analyze ctx expansion)))))
 
 (defn analyze-lazy-seq
   [ctx expr]
