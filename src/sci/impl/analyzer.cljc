@@ -1392,7 +1392,8 @@
           get-idx (fn [j]
                     (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
                                                       {:tag 'sci.impl.types.BindingNode}))
-                              :cljs `(.-idx ~(symbol (str "arg" j)))))
+                              :cljs `(.-idx ~(with-meta (symbol (str "arg" j))
+                                                       {:tag 'sci.impl.types/BindingNode}))))
           aget-expr (fn [j]
                       `(aget ~(with-meta 'bindings {:tag 'objects})
                              ~(symbol (str "bidx" j))))
@@ -1475,7 +1476,7 @@
                                                  (symbol (str "rv" j))
                                                  `(if ~(symbol (str "bnd" j))
                                                     ~(macros/? :clj `(.idx ~(with-meta arg-sym {:tag 'sci.impl.types.BindingNode}))
-                                                               :cljs `(.-idx ~arg-sym))
+                                                               :cljs `(.-idx ~(with-meta arg-sym {:tag 'sci.impl.types/BindingNode})))
                                                     ~(macros/? :clj `(.x ~(with-meta arg-sym {:tag 'sci.impl.types.ConstantNode}))
                                                                :cljs arg-sym))]))
                                             (range i))))
