@@ -28,7 +28,6 @@
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-recur
-                                 gen-return-binding-call
                                  gen-return-call
                                  with-top-level-loc]])))
 
@@ -1330,41 +1329,11 @@
 
 ;;;; End vars
 
-(macros/deftime
-  (defmacro gen-return-binding-call
-    "Creates returning-binding-call function, optimizes calling a local
-  binding as function."
-    []
-    (let [let-bindings (map (fn [i]
-                              [i (vec (mapcat (fn [j]
-                                                [(symbol (str "arg" j))
-                                                 `(nth ~'analyzed-children ~j)])
-                                              (range i)))])
-                            (range 20))
-          gen-general-node (fn [i]
-                             `(sci.impl.types/->Node
-                               (try
-                                 ((aget ~(with-meta 'bindings {:tag 'objects}) ~'idx)
-                                  ~@(map (fn [j]
-                                           `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                         (range i)))
-                                 (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                               ~'stack))]
-      `(defn ~'return-binding-call
-         ~'[_ctx expr idx f analyzed-children stack]
-         (case (count ~'analyzed-children)
-           ~@(concat
-              (mapcat (fn [[i binds]]
-                        [i `(let ~binds
-                              ~(gen-general-node i))])
-                      let-bindings)
-              `[(fn [~'ctx ~'bindings]
-                  (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
-                                                          {:tag 'objects}) ~'idx) ~'analyzed-children))]))))))
-
-(declare return-binding-call) ;; for clj-kondo
-(gen-return-binding-call)
+(defn return-binding-call
+  [ctx expr idx f analyzed-children stack]
+  (return-call ctx expr f analyzed-children stack
+               (fn [_ctx bindings _f]
+                 (aget ^objects bindings idx))))
 
 ;; NOTE: there is a small perf win (about 3%) when checking if all
 ;; analyzed-children are EvalFn and then using those fns directly. See
