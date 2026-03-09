@@ -202,9 +202,7 @@
                                                     inner (sci.impl.types/getVal this)]
                                                 (get inner sym))
                                               nil))
-                                          (->Node
-                                            (aget ^objects bindings idx)
-                                            nil))
+                                          (sci.impl.types/->BindingNode idx nil))
                                   #?@(:clj [tag (with-meta
                                                   {:tag tag})])
                                   mutable? (vary-meta assoc :mutable true))]
@@ -268,7 +266,7 @@
                     [sym (with-meta
                            [v segments]
                            {:sci.impl.analyzer/static-access true})]
-                    (if (instance? sci.impl.types/NodeR v)
+                    (if (sci.impl.types/eval-node? v)
                       [sym
                        (sci.impl.types/->Node
                         (interop/get-static-fields
