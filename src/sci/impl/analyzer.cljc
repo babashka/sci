@@ -1461,10 +1461,13 @@
                                     ~(gen-node i aget-expr)))
                                `(let ~bidx-binds
                                   ~(gen-node i aget-expr)))))
-          ;; Fused optimization only for arities 1-4. Higher arities are
-          ;; unlikely to have all-binding args in hot loops.
+          ;; Fused/specialized optimization for arities 1-2 only. Clojure
+          ;; only inlines core functions at these arities (e.g. <=, + inline
+          ;; at arity 2 but not 3). At arity 3+, calls go through IFn.invoke
+          ;; regardless, so the fused path would only save t/eval dispatch —
+          ;; not worth the extra generated code.
           gen-specialized-or-general (fn [i]
-                                       (if (> i 4)
+                                       (if (> i 2)
                                          (gen-node i eval-arg)
                                          (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
                                                fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
