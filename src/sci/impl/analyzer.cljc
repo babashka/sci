@@ -1348,16 +1348,14 @@
                                                  `(nth ~'analyzed-children ~j)])
                                               (range i)))])
                             (range 20))
-          gen-general-node (fn [i]
-                             `(sci.impl.types/->Node
-                               (try
-                                 (~'f
-                                  ~@(map (fn [j]
-                                           `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                         (range i)))
-                                 (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                               ~'stack))
+          catch-clause `(catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                          (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
+          eval-arg (fn [j]
+                     `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+          gen-node (fn [i arg-fn]
+                     `(sci.impl.types/->Node
+                       (try (~'f ~@(map arg-fn (range i))) ~catch-clause)
+                       ~'stack))
           get-idx (fn [j]
                     (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
                                                       {:tag 'sci.impl.types.BindingNode}))
@@ -1366,8 +1364,6 @@
           aget-expr (fn [j]
                       `(aget ~(with-meta 'bindings {:tag 'objects})
                              ~(symbol (str "bidx" j))))
-          catch-clause `(catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                          (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
           spec-fns-1 (macros/? :clj
                                {'clojure.core/inc 'clojure.lang.Numbers/inc
                                 'clojure.core/dec 'clojure.lang.Numbers/dec
@@ -1458,21 +1454,13 @@
                                                            [(symbol (str "bidx" j))
                                                             (get-idx j)])
                                                          (range i)))]
-                             `(let ~bidx-binds
-                                ~(if specs
-                                   `(condp identical? ~'f
-                                      ~@specs
-                                      (sci.impl.types/->Node
-                                       (try (~'f ~@(map aget-expr (range i))) ~catch-clause)
-                                       ~'stack))
-                                   `(sci.impl.types/->Node
-                                     (try (~'f ~@(map aget-expr (range i))) ~catch-clause)
-                                     ~'stack)))))
-          gen-bc-fallback (fn [i]
-                           `(sci.impl.types/->Node
-                             (try (~'f ~@(map bc-arg-expr (range i)))
-                                  ~catch-clause)
-                             ~'stack))
+                             (if specs
+                               `(let ~bidx-binds
+                                  (condp identical? ~'f
+                                    ~@specs
+                                    ~(gen-node i aget-expr)))
+                               `(let ~bidx-binds
+                                  ~(gen-node i aget-expr)))))
           gen-specialized-or-general (fn [i]
                                        (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
                                              fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
@@ -1489,12 +1477,12 @@
                                                     (let ~(gen-bc-binds i)
                                                       (condp identical? ~'f
                                                         ~@bc-specs
-                                                        ~(gen-bc-fallback i)))
-                                                    ~(gen-general-node i))
-                                                 (gen-general-node i)))
+                                                        ~(gen-node i bc-arg-expr)))
+                                                    ~(gen-node i eval-arg))
+                                                 (gen-node i eval-arg)))
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i nil)
-                                              ~(gen-general-node i)))))]
+                                              ~(gen-node i eval-arg)))))]
       `(defn ~'return-call
          ~'[_ctx expr f analyzed-children stack wrap]
          (let [node#
@@ -1506,15 +1494,12 @@
                                       (sci.impl.types/->Node
                                        (try
                                          ((~'wrap ~'ctx ~'bindings ~'f)
-                                          ~@(map (fn [j]
-                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                 (range i)))
-                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                                          ~@(map eval-arg (range i)))
+                                         ~catch-clause)
                                        ~'stack)
                                       ~(if (pos? i)
                                          (gen-specialized-or-general i)
-                                         (gen-general-node i))))])
+                                         (gen-node i eval-arg))))])
                             let-bindings)
                     `[(if ~'wrap
                         (sci.impl.types/->Node
