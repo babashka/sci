@@ -52,8 +52,8 @@ Benefits:
 
 ### 2. Fused call nodes (analyzer.cljc)
 
-In `gen-return-call` and `gen-return-binding-call`, at analysis time, check if
-all arguments are `BindingNode` instances. If so, generate a fused node that
+In `gen-return-call`, at analysis time, check if all arguments are `BindingNode`
+instances. If so, generate a fused node that
 reads directly from the bindings array:
 
 ```clojure
@@ -166,7 +166,7 @@ call saved.
 
 - `src/sci/impl/types.cljc` — Added cross-platform `BindingNode` deftype and `eval-node?` helper
 - `src/sci/impl/resolve.cljc` — Use `BindingNode` for local binding lookups
-- `src/sci/impl/analyzer.cljc` — Fused path in `gen-return-call` and `gen-return-binding-call`; specialized `condp` for known functions
+- `src/sci/impl/analyzer.cljc` — Fused path in `gen-return-call`; specialized `condp` for known functions
 - `src/sci/impl/evaluator.cljc` — Use `eval-node?` for node detection
 
 ### `eval-node?` helper
