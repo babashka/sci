@@ -1535,6 +1535,11 @@
                                    `(sci.impl.types/->Node
                                      (try (~'f ~@(map aget-expr (range i))) ~catch-clause)
                                      ~'stack)))))
+          gen-resolved-fallback (fn [i]
+                                  `(sci.impl.types/->Node
+                                    (try (~'f ~@(map resolved-arg-expr (range i)))
+                                         ~catch-clause)
+                                    ~'stack))
           gen-specialized-or-general (fn [i]
                                        (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
                                              fused-specs (when spec-fns (gen-specs spec-fns aget-expr))
@@ -1546,7 +1551,7 @@
                                                 (let ~(gen-resolved-binds i)
                                                   (condp identical? ~'f
                                                     ~@resolved-specs
-                                                    ~(gen-general-node i)))
+                                                    ~(gen-resolved-fallback i)))
                                                 ~(gen-general-node i)))
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i nil)
