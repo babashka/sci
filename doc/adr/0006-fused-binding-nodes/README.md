@@ -301,10 +301,12 @@ constant access — it just calls through `(f ...)` instead of the static method
 
 Potential further fusing optimizations to explore:
 
-- **Interop call args**: `(.method obj binding1 binding2)` — interop calls
-  evaluate their args via `t/eval` just like regular calls. Fusing BindingNode
-  args to direct aget could help, especially for interop-heavy code (e.g.
-  instaparse). See `analyze-dot` and `invoke-instance-method` in `analyzer.cljc`.
+- **Interop call args**: `(.method obj binding1 binding2)` and
+  `(Math/sin x)` — interop calls evaluate their args via `t/eval` in a loop
+  (`areduce` in `invoke-static-method`, similar for instance methods). Fusing
+  BindingNode args to direct aget could help, but the win is likely small since
+  the method resolution and reflection overhead dominates the `t/eval` dispatch
+  cost. See `analyze-dot` and `invoke-static-method` in `interop.cljc`.
 
 - **Recur args**: `(recur (inc i) (dec j))` — the recur node evaluates each arg
   via `t/eval`. When a recur arg is a simple binding (e.g. `(recur j i)` for
