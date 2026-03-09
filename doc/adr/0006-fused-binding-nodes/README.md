@@ -125,20 +125,29 @@ a future optimization.
 | JVM (HotSpot, warmed) | ~124ms | ~97ms | **22% faster** |
 | Python 3.13 (reference) | ~520ms | — | bb is 2.3x faster |
 
-### Phase 2: Specialized inlined calls (Numbers/inc instead of IFn.invoke)
+### Phase 2: Specialized inlined calls + constant arg fusing + resolved fallback
 
-| Runtime | Fused only | + Specialized | Improvement |
-|---------|-----------|---------------|-------------|
-| bb native (GraalVM) | ~220ms | ~194ms | **12% faster** |
-| JVM (HotSpot, warmed) | ~97ms | ~60ms | **38% faster** |
+Adds three optimizations on top of Phase 1:
 
-### Phase 3: Constant arg fusing (resolved path)
+1. **Specialized calls**: For known functions (`inc`, `dec`, `+`, `-`, etc.),
+   call the underlying static method directly (e.g. `Numbers/inc`) instead of
+   going through `IFn.invoke`.
+2. **Constant arg fusing**: The "resolved" tier handles mixed binding+constant
+   args (e.g. `(+ x 1)`) without `t/eval` dispatch.
+3. **Resolved fallback**: Even for non-specialized functions, the resolved tier
+   avoids `t/eval` when all args are bindings or constants.
 
-`(loop [i 0 j 10000000] (if (> j 0) i (recur (+ i 10) (- j 1))))`
+`(loop [i 0 j 10000000] (if (zero? j) i (recur (inc i) (dec j))))`
 
-| Runtime | Specialized only | + Constants | Improvement |
-|---------|-----------------|-------------|-------------|
-| bb native (GraalVM) | ~381ms | ~320ms | **16% faster** |
+| Runtime | Fused only | + Phase 2 | Improvement |
+|---------|-----------|-----------|-------------|
+| bb native (GraalVM) | ~222ms | ~191ms | **14% faster** |
+
+`(loop [i 0 j 10000000] (if (pos? j) (recur (+ i 10) (- j 1)) i))`
+
+| Runtime | Fused only | + Phase 2 | Improvement |
+|---------|-----------|-----------|-------------|
+| bb native (GraalVM) | ~381ms | ~285ms | **25% faster** |
 
 ### Cumulative improvement
 
@@ -146,8 +155,8 @@ a future optimization.
 
 | Runtime | Original | Final | Total improvement |
 |---------|----------|-------|-------------------|
-| bb native (GraalVM) | ~338ms | ~192ms | **43% faster** |
-| JVM (HotSpot, warmed) | ~124ms | ~50ms | **60% faster** |
+| bb native (GraalVM) | ~338ms | ~191ms | **43% faster** |
+| Python 3.13 (reference) | ~520ms | — | bb is 2.7x faster |
 
 The native-image improvement is larger because there is no JIT to compensate
 for protocol dispatch overhead — every eliminated dispatch is a real vtable
@@ -191,11 +200,16 @@ spec-fns-1  ;; 1-arg: {clojure.core/inc -> Numbers/inc, clojure.core/dec -> Numb
 spec-fns-2  ;; 2-arg: {clojure.core/+ -> Numbers/add, clojure.core/- -> Numbers/minus, ...}
 ```
 
-A `gen-specs` helper takes a mapping and an arg-accessor function, and generates
-`condp identical?` entries. The `condp identical?` runs at analysis time —
-comparing `f` (the actual function object from `:sci.impl/inlined`) against
-known functions. Zero runtime cost; it just selects which `->Node` reify to
-create.
+A `gen-specs` helper takes a mapping, an arity, and an arg-accessor function,
+and generates `condp identical?` entries. The `condp identical?` runs at
+analysis time — comparing `f` (the actual function object from
+`:sci.impl/inlined`) against known functions. Zero runtime cost; it just
+selects which `->Node` reify to create.
+
+Specialization is applied in the **fused** and **resolved** tiers only (where
+args are already resolved to direct array access or constants). For the general
+tier (expression args), the overhead of `t/eval` dispatch dominates, so
+specializing `f` gives negligible benefit — the code uses plain `(f ...)` instead.
 
 ### Constant arg fusing (the "resolved" path)
 
@@ -264,8 +278,8 @@ Analyzing (+ x 1):
 │       Zero dispatches. One cheap boolean branch per arg.
 │
 └── Some arg is an expression?  (e.g. (+ x (inc y)))
-    └── General path: (Numbers/add (t/eval arg0 ..) (t/eval arg1 ..))
-        One protocol dispatch per arg.
+    └── General path: (f (t/eval arg0 ..) (t/eval arg1 ..))
+        One protocol dispatch per arg. No function specialization.
 ```
 
 | Tier | When | Runtime cost per arg | Example |
@@ -273,6 +287,10 @@ Analyzing (+ x 1):
 | Fused | All args are bindings | `aget` (direct) | `(+ x y)` |
 | Resolved | All args are bindings or constants | `if bool` + `aget` or constant | `(+ x 1)` |
 | General | Some arg is an expression | `t/eval` dispatch | `(+ x (inc y))` |
+
+In the fused and resolved tiers, when `f` is not a known specialized function
+(not in `spec-fns`), the node still benefits from direct `aget` / constant
+access — it just calls through `(f ...)` instead of the static method.
 
 ## Future Work
 
