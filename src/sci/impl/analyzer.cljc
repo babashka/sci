@@ -1350,43 +1350,14 @@
                                          (range i)))
                                  (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
                                    (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                               ~'stack))
-          get-idx (fn [j]
-                    (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
-                                                      {:tag 'sci.impl.types.BindingNode}))
-                              :cljs `(.-idx ~(symbol (str "arg" j)))))
-          gen-fused-node (fn [i]
-                           (let [bidx-binds (vec (mapcat (fn [j]
-                                                           [(symbol (str "bidx" j))
-                                                            (get-idx j)])
-                                                         (range i)))]
-                             `(let ~bidx-binds
-                                (sci.impl.types/->Node
-                                 (try
-                                   ((aget ~(with-meta 'bindings {:tag 'objects}) ~'idx)
-                                    ~@(map (fn [j]
-                                             `(aget ~(with-meta 'bindings {:tag 'objects})
-                                                    ~(symbol (str "bidx" j))))
-                                           (range i)))
-                                   (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                     (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                                 ~'stack))))
-          all-bindings? (fn [i]
-                          (cons `and (map (fn [j]
-                                            `(instance? sci.impl.types.BindingNode
-                                                        ~(symbol (str "arg" j))))
-                                          (range i))))]
+                               ~'stack))]
       `(defn ~'return-binding-call
          ~'[_ctx expr idx f analyzed-children stack]
          (case (count ~'analyzed-children)
            ~@(concat
               (mapcat (fn [[i binds]]
                         [i `(let ~binds
-                              ~(if (pos? i)
-                                 `(if ~(all-bindings? i)
-                                    ~(gen-fused-node i)
-                                    ~(gen-general-node i))
-                                 (gen-general-node i)))])
+                              ~(gen-general-node i))])
                       let-bindings)
               `[(fn [~'ctx ~'bindings]
                   (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
