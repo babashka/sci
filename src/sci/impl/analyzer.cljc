@@ -1422,8 +1422,6 @@
                     (macros/? :clj `(.idx ~(with-meta (symbol (str "arg" j))
                                                       {:tag 'sci.impl.types.BindingNode}))
                               :cljs `(.-idx ~(symbol (str "arg" j)))))
-          eval-arg (fn [j]
-                    `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
           aget-expr (fn [j]
                       `(aget ~(with-meta 'bindings {:tag 'objects})
                              ~(symbol (str "bidx" j))))
@@ -1540,8 +1538,7 @@
           gen-specialized-or-general (fn [i]
                                        (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
                                              fused-specs (when spec-fns (gen-specs spec-fns aget-expr))
-                                             resolved-specs (when spec-fns (gen-resolved-specs spec-fns i))
-                                             general-specs (when spec-fns (gen-specs spec-fns eval-arg))]
+                                             resolved-specs (when spec-fns (gen-resolved-specs spec-fns i))]
                                          (if spec-fns
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i fused-specs)
@@ -1549,11 +1546,8 @@
                                                 (let ~(gen-resolved-binds i)
                                                   (condp identical? ~'f
                                                     ~@resolved-specs
-                                                    ;; unknown f with resolved args — use t/eval fallback
                                                     ~(gen-general-node i)))
-                                                (condp identical? ~'f
-                                                  ~@general-specs
-                                                  ~(gen-general-node i))))
+                                                ~(gen-general-node i)))
                                            `(if ~(all-bindings? i)
                                               ~(gen-fused-node i nil)
                                               ~(gen-general-node i)))))]
