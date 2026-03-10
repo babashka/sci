@@ -473,7 +473,7 @@
     (sci-ns-aliases* ctx sci-ns)))
 
 (defn clean-ns [m]
-  (dissoc m :aliases :imports :obj :refer :refers))
+  (dissoc m :aliases :imports :obj :refer :refers :types))
 
 (defn sci-ns-interns* [ctx sci-ns]
   (let [name (sci-ns-name* ctx sci-ns)
@@ -835,20 +835,25 @@
 ;;;; Record impl
 
 (defn -create-type [data]
-  (new sci.lang.Type data nil nil))
-
-#_(defn -reg-key! [rec-type k v]
-    (when (instance? sci.lang.Type rec-type)
-      (types/setVal rec-type (assoc (types/getVal rec-type) k v))
-      rec-type))
+  (let [t (new sci.lang.Type data)
+        ctx (store/get-ctx)
+        env (:env ctx)
+        cnn (sci.impl.utils/current-ns-name)
+        type-name (symbol (let [s (clojure.core/str t)
+                                  i (str/last-index-of s ".")]
+                              (if i (subs s (inc i)) s)))]
+    (swap! env (fn [env]
+                 (-> env
+                     (update-in [:namespaces cnn :types] assoc type-name t)
+                     ;; Remove any var that might have been created by (declare)
+                     (update-in [:namespaces cnn] dissoc type-name))))
+    t))
 
 (def sci-impl-records
   {:obj (sci.lang/->Namespace 'sci.impl.records nil)
    :private true
    'toString sci.impl.records/to-string
    '-create-record-type -create-type
-   ;; what do we use this for again?
-   ;; '-reg-key! -reg-key!
    '->record-impl sci.impl.records/->record-impl})
 
 (def sci-impl-deftype
@@ -962,11 +967,13 @@
 
   f must be free of side-effects"
      [iref f & args]
-     (let [m (meta iref)]
-       (if-not (:sci/built-in m)
-         (apply cljs.core/alter-meta! iref f args)
-         (throw (ex-info (str "Built-in var " iref " is read-only.")
-                         {:var iref}))))))
+     (if (instance? sci.lang.Type iref)
+       (types/setVal iref (apply f (types/getVal iref) args))
+       (let [m (meta iref)]
+         (if-not (:sci/built-in m)
+           (apply cljs.core/alter-meta! iref f args)
+           (throw (ex-info (str "Built-in var " iref " is read-only.")
+                           {:var iref})))))))
 
 (defn- let** [expr _ bindings & body]
   (when-not (vector? bindings)
@@ -1219,6 +1226,7 @@
 (macros/usetime
 
  (def clojure-core
+   (merge
    (avoid-method-too-large
     {:obj clojure-core-ns
      '*ns* sci.impl.utils/current-ns
@@ -1283,9 +1291,9 @@
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
      'get-method (copy-core-var get-method)
      'methods (copy-core-var methods)
-     'multi-fn-add-method-impl (copy-core-var sci.impl.multimethods/multi-fn-add-method-impl)
-     'multi-fn?-impl (copy-core-var sci.impl.multimethods/multi-fn?-impl)
-     'multi-fn-impl (copy-core-var sci.impl.multimethods/multi-fn-impl)
+     'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
+     'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
+     'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
      'prefer-method (copy-core-var prefer-method)
      'prefers (copy-core-var prefers)
      'remove-method (copy-core-var remove-method)
@@ -1335,7 +1343,7 @@
      #?@(:cljs ['LazySeq (copy-var LazySeq clojure-core-ns)])
      ;; end cljs data structures
      ;; private
-     'has-root-impl (copy-core-var has-root-impl)
+     'has-root-impl (copy-var has-root-impl clojure-core-ns)
      ;; used in with-local-vars
      '-new-dynamic-var (new-var '-new-dynamic-var #(sci.impl.utils/new-var (gensym) nil {:dynamic true}))
      ;; used in let-fn
@@ -1424,7 +1432,8 @@
      'case (macrofy 'case case**)
      'char (copy-core-var char)
      'char? (copy-core-var char?)
-     #?@(:clj ['class? (copy-core-var class?)])
+     #?@(:clj ['class? (copy-var (fn [x] (or (class? x) (instance? sci.lang.Type x)))
+                                clojure-core-ns {:name 'class?})])
      #?@(:cljs ['clj->js (copy-core-var clj->js)])
      'cond (macrofy 'cond cond*)
      'cond-> (macrofy 'cond-> cond->*)
@@ -1461,7 +1470,7 @@
      'defn  (macrofy 'defn fns/defn*)
      'defn- (macrofy 'defn- defn-*)
      'defonce (macrofy 'defonce defonce*)
-     'defrecord (macrofy 'defrecord sci.impl.records/defrecord clojure-core-ns)
+     'defrecord (macrofy 'defrecord sci.impl.records/defrecord-macro clojure-core-ns)
      'deftype (macrofy 'deftype sci.impl.deftype/deftype-macro
                        clojure-core-ns)
      'delay (macrofy 'delay delay*)
@@ -1569,8 +1578,9 @@
      #?@(:cljs ['js-keys (copy-core-var js-keys)])
      #?@(:cljs ['js-delete (copy-core-var js-delete)])
      #?@(:cljs ['js-in (copy-var js-in clojure-core-ns {:copy-meta-from clojure.core/js-in})])
-     'juxt (copy-core-var juxt)
-     'keep (copy-core-var keep)
+     'juxt (copy-core-var juxt)})
+   (avoid-method-too-large
+    {'keep (copy-core-var keep)
      'keep-indexed (copy-core-var keep-indexed)
      'key (copy-core-var key)
      'keys (copy-core-var keys)
@@ -1862,7 +1872,7 @@
                'ratio? (copy-core-var ratio?)
                'rationalize (copy-core-var rationalize)
                'seque (copy-core-var seque)
-               'xml-seq (copy-core-var xml-seq)])}))
+               'xml-seq (copy-core-var xml-seq)])})))
 
  (defn dir-fn
    [ns]
@@ -1881,23 +1891,35 @@
    [m]
    (let [arglists (:arglists m)
          doc (:doc m)
-         macro? (:macro m)]
+         macro? (:macro m)
+         special-form? (:special-form m)
+         forms (:forms m)
+         url (:url m)]
      (sci.impl.io/println "-------------------------")
      (sci.impl.io/println (str (when-let [ns* (:ns m)]
                                  (str (types/getName ns*) "/"))
                                (:name m)))
+     (when forms
+       (doseq [f forms]
+         (sci.impl.io/println " " f)))
      (when arglists (sci.impl.io/println arglists))
      (when macro? (sci.impl.io/println "Macro"))
-     (when doc (sci.impl.io/println " " doc))))
+     (when special-form? (sci.impl.io/println "Special Form"))
+     (when doc (sci.impl.io/println " " doc))
+     (when url (sci.impl.io/println (str "\n  Please see http://clojure.org/" url)))))
 
  (defn doc
    [_ _ sym]
-   `(if-let [var# (resolve '~sym)]
-      (when (var? var#)
-        (~'clojure.repl/print-doc (meta var#)))
-      (if-let [ns# (find-ns '~sym)]
-        (~'clojure.repl/print-doc (assoc (meta ns#)
-                                         :name (ns-name ns#))))))
+   `(let [special-doc# (try (resolve '~'clojure.repl/special-doc) (catch #?(:clj ~'Exception :cljs :default) ~'_ nil))
+          special# (when special-doc# (special-doc# '~sym))]
+      (if special#
+        (~'clojure.repl/print-doc special#)
+        (if-let [var# (resolve '~sym)]
+          (when (var? var#)
+            (~'clojure.repl/print-doc (meta var#)))
+          (if-let [ns# (find-ns '~sym)]
+            (~'clojure.repl/print-doc (assoc (meta ns#)
+                                             :name (ns-name ns#))))))))
 
  (defn find-doc
    "Prints documentation for any var whose documentation or name

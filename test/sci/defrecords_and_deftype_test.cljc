@@ -191,12 +191,12 @@
 #?(:cljs (def Exception js/Error))
 
 (deftest deftype-test
-  (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1)) " {})))
+  (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1 2)) " {})))
   (let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]
     (is (= [:a :b] (tu/eval* prog {}))))
   (is
    (= 10
-      (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo) (setField)))"
+      (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo nil) (setField)))"
                              "^:volatile-mutable" #?(:clj "^:volatile-mutable"
                                                      :cljs "^:mutable")) {})))
   (is (= [1 2 2]
@@ -234,7 +234,11 @@
   (is (= "dude" (tu/eval* "(deftype Dude [] Object (toString [_] \"dude\")) (str (->Dude))" {})))
   #?(:clj (is (= [true false] (tu/eval* "(deftype Dude [x] Object (toString [_] (str x)) (equals [this other] (= (str this) (str other)))) [(= (->Dude 1) (->Dude 1)) (= (->Dude 1) (->Dude 2))]" {}))))
   #?(:clj (is (true? (tu/eval* "(deftype Dude [x] Object (hashCode [_] 1))
-(deftype Dude2 [x]) (and (= 1 (hash (Dude. 1337))) (not= 1 (hash (Dude2.))))" {})))))
+(deftype Dude2 [x]) (and (= 1 (hash (Dude. 1337))) (not= 1 (hash (Dude2. nil))))" {}))))
+  ;; (str Type) returns "user.Foo", not "class user.Foo" like java.lang.Class.
+  ;; Downstream libs (e.g. prismatic/schema) depend on this.
+  (is (= "user.Dude" (tu/eval* "(defrecord Dude []) (str Dude)" {})))
+  (is (= "user.Dude" (tu/eval* "(deftype Dude []) (str Dude)" {}))))
 
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]
@@ -390,31 +394,95 @@
             {})))))
 
 (deftest deftype-macroexpand-1-produces-deftype*-test
-  (testing "macroexpand-1 of deftype produces a deftype* form, enabling code walkers like riddley"
-    (is (= 'deftype*
-           (tu/eval*
-            "(defprotocol IFoo (foo [_]))
-             (first (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x))))"
-            {})))
-    (testing "deftype* form contains expected structure"
+  (do
+    (testing "macroexpand-1 of deftype contains deftype* and constructor declare"
       (is (true?
            (tu/eval*
             "(defprotocol IFoo (foo [_]))
-             (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))]
-               (and (= 'deftype* (first expanded))
-                    ;; fields are present
-                    (= '[x] (nth expanded 3))
-                    ;; :implements keyword present
-                    (= :implements (nth expanded 4))
-                    ;; interfaces vector
-                    (vector? (nth expanded 5))))"
-            {}))))
-    (testing "macroexpand does not expand deftype* further (it is a special form)"
-      (is (= 'deftype*
+             (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))
+                   forms (tree-seq seq? seq expanded)]
+               (and (some #(and (seq? %) (= 'deftype* (first %))) forms)
+                    (some #(and (seq? %) (= 'declare (first %)) (= '->Bar (second %))) forms)))"
+            {})))
+      (testing "deftype* form contains expected structure"
+        (is (true?
              (tu/eval*
               "(defprotocol IFoo (foo [_]))
-               (first (macroexpand '(deftype Bar [x] IFoo (foo [_] x))))"
-              {}))))))
+               (let [expanded (macroexpand-1 '(deftype Bar [x] IFoo (foo [_] x)))
+                     dt (first (filter #(and (seq? %) (= 'deftype* (first %)))
+                                       (tree-seq seq? seq expanded)))]
+                 (and dt
+                      (= '[x] (nth dt 3))
+                      (= :implements (nth dt 4))
+                      (vector? (nth dt 5))))"
+              {}))))
+      (testing "macroexpand does not expand deftype* further (it is a special form)"
+        (is (true?
+             (tu/eval*
+              "(defprotocol IFoo (foo [_]))
+               (let [expanded (macroexpand '(deftype Bar [x] IFoo (foo [_] x)))
+                     forms (tree-seq seq? seq expanded)]
+                 (some #(and (seq? %) (= 'deftype* (first %))) forms))"
+              {})))))))
+
+(deftest deftype-resolve-test
+  (testing "resolve returns Type, not Var, in defining namespace"
+    (is (true? (tu/eval* "(deftype Foo [x]) (instance? sci.lang.Type (resolve 'Foo))" {})))
+    (is (false? (tu/eval* "(deftype Foo [x]) (var? (resolve 'Foo))" {}))))
+  (testing "resolve returns Type after cross-namespace import"
+    (is (true?
+         (tu/eval*
+          "(ns a) (deftype Foo [x])
+           (ns b (:import [a Foo]))
+           (instance? sci.lang.Type (resolve 'Foo))"
+          {})))
+    (is (false?
+         (tu/eval*
+          "(ns a) (deftype Foo [x])
+           (ns b (:import [a Foo]))
+           (var? (resolve 'Foo))"
+          {}))))
+  (testing "resolve returns Type for defrecord too"
+    (is (true? (tu/eval* "(defrecord Bar [x]) (instance? sci.lang.Type (resolve 'Bar))" {})))
+    (is (false? (tu/eval* "(defrecord Bar [x]) (var? (resolve 'Bar))" {}))))
+  (testing "#'Foo throws for deftype (no var, matching Clojure)"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Unable to resolve var"
+                          (tu/eval* "(deftype Foo [x]) #'Foo" {}))))
+  (testing "#'Bar throws for defrecord (no var, matching Clojure)"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Unable to resolve var"
+                          (tu/eval* "(defrecord Bar [x]) #'Bar" {}))))
+  #?(:clj
+     (testing "class? returns true for resolved types"
+       (is (true? (tu/eval* "(deftype Foo [x]) (class? (resolve 'Foo))" {})))
+       (is (true? (tu/eval* "(defrecord Bar [x]) (class? (resolve 'Bar))" {})))))
+  #?(:clj
+     (let [opts {:classes {:allow :all 'java.lang.Class {:class java.lang.Class}}}]
+       (testing ".getName returns fully qualified name, like Class"
+         (is (= "user.Foo" (sci/eval-string "(deftype Foo [x]) (.getName (resolve 'Foo))" opts)))
+         (is (= "user.Bar" (sci/eval-string "(defrecord Bar [x]) (.getName (resolve 'Bar))" opts))))
+       (testing ".getName works even with ^Class type hint"
+         (is (= "user.Foo" (sci/eval-string "(deftype Foo [x]) (let [^java.lang.Class c (resolve 'Foo)] (.getName c))" opts)))))))
+
+(deftest constructor-metadata-test
+  (testing "deftype constructor has :doc and :arglists"
+    (is (= '([x y]) (tu/eval* "(deftype Foo [x y]) (:arglists (meta #'->Foo))" {})))
+    (is (string? (tu/eval* "(deftype Foo [x y]) (:doc (meta #'->Foo))" {}))))
+  (testing "defrecord constructor has :doc and :arglists"
+    (is (= '([a b]) (tu/eval* "(defrecord Bar [a b]) (:arglists (meta #'->Bar))" {})))
+    (is (string? (tu/eval* "(defrecord Bar [a b]) (:doc (meta #'->Bar))" {}))))
+  (testing "defrecord map factory has :doc"
+    (is (string? (tu/eval* "(defrecord Bar [a b]) (:doc (meta #'map->Bar))" {})))))
+
+(deftest deftype-macroexpand-constructor-visible-test
+  (testing "macroexpand of deftype contains a (declare ->Foo) form"
+    (is (true?
+         (tu/eval*
+          "(let [expanded (macroexpand '(deftype Foo [x]))]
+             (some #(and (seq? %) (= 'declare (first %)) (= '->Foo (second %)))
+                   (tree-seq seq? seq expanded)))"
+          {})))))
 
 (deftest deftype*-uses-flat-methods-not-metadata-test
   (testing "modifying flat methods in deftype* form takes effect (code walkers)"
@@ -422,7 +490,83 @@
            (tu/eval*
             "(defprotocol IVal (get-val [_]))
              (let [expanded (macroexpand-1 '(deftype Foo [] IVal (get-val [_] 0)))
+                   ;; Find the deftype* form inside the expansion
+                   dt-form (first (filter #(and (seq? %) (= 'deftype* (first %)))
+                                          (tree-seq seq? seq expanded)))
                    ;; Replace the method body: change 0 to 42
-                   modified (concat (butlast expanded) [(list 'get-val ['_] 42)])]
+                   modified (concat (butlast dt-form) [(list 'get-val ['_] 42)])]
                (eval (list 'do modified '(get-val (->Foo)))))"
             {})))))
+
+
+(deftest syntax-quote-type-produces-dotted-form-test
+  (testing "syntax-quote on a defrecord/deftype name produces munged dotted form (matching Clojure)"
+    (is (= 'user.Foo (tu/eval* "(defrecord Foo [x]) `Foo" {})))
+    (is (= 'user.Foo (tu/eval* "(deftype Foo [x]) `Foo" {}))))
+  (testing "cross-namespace syntax-quote after import"
+    (is (= 'my_ns.Foo
+           (tu/eval*
+            "(ns my-ns) (defrecord Foo [x])
+             (ns other (:import [my-ns Foo]))
+             `Foo"
+            {})))
+    (is (= 'my_ns.Foo
+           (tu/eval*
+            "(ns my-ns) (deftype Foo [x])
+             (ns other (:import [my-ns Foo]))
+             `Foo"
+            {})))))
+
+(deftest use-does-not-bring-constructor-test
+  (testing "deftype constructor requires :import, not just :use"
+    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+                          #"Unable to resolve"
+                          (tu/eval* "(ns foo) (deftype Bar [x])
+                                     (ns baz (:use [foo]))
+                                     (Bar. 1)" {}))))
+  (testing "deftype constructor works with :import"
+    (is (= 1 (tu/eval* "(ns foo) (deftype Bar [x])
+                         (ns baz (:require [foo]) (:import [foo Bar]))
+                         (.-x (Bar. 1))" {}))))
+  (testing "import with munged (underscored) namespace name"
+    (is (= 1 (tu/eval* "(ns my-ns) (deftype Bar [x])
+                         (ns other (:require [my-ns]) (:import [my_ns Bar]))
+                         (.-x (Bar. 1))" {}))))
+  (testing "import defrecord with munged namespace name"
+    (is (= 1 (tu/eval* "(ns my-ns) (defrecord Bar [x])
+                         (ns other (:require [my-ns]) (:import [my_ns Bar]))
+                         (:x (Bar. 1))" {})))))
+
+(deftest re-eval-deftype-test
+  (testing "re-evaluating deftype in the same namespace works"
+    (is (= 2 (tu/eval* "(deftype Foo [x]) (deftype Foo [x y]) (.-y (->Foo 1 2))" {}))))
+  (testing "re-evaluating defrecord in the same namespace works"
+    (is (= 2 (tu/eval* "(defrecord Foo [x]) (defrecord Foo [x y]) (:y (->Foo 1 2))" {})))))
+
+(deftest constructor-self-reference-test
+  (testing "deftype method body can call its own constructor"
+    (is (= 42 (tu/eval* "
+(defprotocol IWrap
+  (unwrap [this])
+  (rewrap [this v]))
+(deftype Wrap [x]
+  IWrap
+  (unwrap [_] x)
+  (rewrap [_ v] (Wrap. v)))
+(unwrap (rewrap (->Wrap 1) 42))" {}))))
+  (testing "defrecord method body can call its own constructor"
+    (is (= 42 (tu/eval* "
+(defprotocol IBox
+  (unbox [this])
+  (rebox [this v]))
+(defrecord Box [x]
+  IBox
+  (unbox [_] x)
+  (rebox [_ v] (->Box v)))
+(unbox (rebox (->Box 1) 42))" {})))))
+
+(deftest ns-with-special-chars-test
+  (testing "defrecord works in ns with + in name"
+    (is (some? (tu/eval* "(ns foo+) (defrecord Dude []) (some? (->Dude))" {}))))
+  (testing "deftype works in ns with + in name"
+    (is (some? (tu/eval* "(ns bar+) (deftype Thing [x]) (some? (->Thing 1))" {})))))

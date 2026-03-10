@@ -23,9 +23,10 @@
      syntax-quote})
 
 (defn eval-def
-  [ctx bindings var-name init m]
+  [ctx bindings var-name init m file]
   (let [init (types/eval init ctx bindings)
         m (types/eval m ctx bindings)
+        m (assoc m :name var-name :file file)
         cnn (types/getName (:ns m))
         assoc-in-env
         (fn [env]
@@ -33,19 +34,17 @@
                 prev (get the-current-ns var-name)
                 prev (if-not (utils/var? prev)
                        (let [m (meta prev)]
-                         (sci.lang.Var. prev (symbol (str cnn) (str var-name))
+                         (sci.lang.Var. prev var-name
                                         m
                                         false
                                         false
                                         nil
                                         (:ns m)))
                        prev)
-                v (if (identical? utils/var-unbound init)
-                    (doto prev
-                      (alter-meta! merge m))
-                    (do (vars/bindRoot prev init)
-                        (alter-meta! prev merge m)
-                        prev))
+                v (do (when-not (identical? utils/var-unbound init)
+                        (vars/bindRoot prev init))
+                      (reset-meta! prev m)
+                      prev)
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces cnn] the-current-ns)))
         env (swap! (:env ctx) assoc-in-env)]
@@ -93,7 +92,7 @@
                                e)]
                        (when #?(:cljs
                                 (or (utils/kw-identical? :default clazz)
-                                    (if (instance? sci.impl.types/NodeR clazz)
+                                    (if (types/eval-node? clazz)
                                       (instance? (types/eval clazz ctx bindings) e)
                                       (instance? clazz e)))
                                 :clj (instance? clazz e))
@@ -140,7 +139,12 @@
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
       v
-      (let [instance-class (or tag-class (#?(:clj class :cljs type) instance-expr*))
+      (let [instance-class #?(:clj (or (when tag-class
+                                          (if (instance? tag-class instance-expr*)
+                                            tag-class
+                                            (class instance-expr*)))
+                                        (class instance-expr*))
+                              :cljs (type instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
             allowed? (or
@@ -189,8 +193,7 @@
      (let [sym (types/eval sym ctx bindings)
            res (second
                 (resolve/lookup ctx sym false nil (qualified-symbol? sym)))]
-       (when-not #?(:cljs (instance? sci.impl.types/NodeR res)
-                    :clj (instance? sci.impl.types.Eval res))
+       (when-not (sci.impl.types/eval-node? res)
          res)))))
 
 (vreset! utils/eval-resolve-state eval-resolve)
@@ -225,13 +228,15 @@
                               (let [cnn (utils/current-ns-name)]
                                 (swap! env assoc-in [:namespaces cnn :imports class] fq-class-name)
                                 clazz)
-                              (if-let [rec-var
+                              (if-let [type-val
                                        (let [rec-ns (symbol (utils/demunge (str package)))
-                                             rec-var (get-in @env [:namespaces rec-ns class])]
-                                         rec-var)]
+                                             the-ns (get-in @env [:namespaces rec-ns])
+                                             v (or (get (:types the-ns) class)
+                                                   (get the-ns class))]
+                                         (if (utils/var? v) @v v))]
                                 (let [cnn (utils/current-ns-name)]
-                                  (swap! env assoc-in [:namespaces cnn :refers class] rec-var)
-                                  @rec-var)
+                                  (swap! env assoc-in [:namespaces cnn :types class] type-val)
+                                  type-val)
                                 (throw (new #?(:clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil

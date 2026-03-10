@@ -104,6 +104,10 @@
         (when-let [refers (:refers the-current-ns)]
           (find refers sym-name))
         (find the-current-ns sym) ;; env can contain foo/bar symbols from bindings
+        ;; type mappings (deftype/defrecord/import)
+        (when-not only-var?
+          (when-let [types (:types the-current-ns)]
+            (find types sym-name)))
         (let [kv (some-> env :namespaces (get 'clojure.core) (find sym-name))]
           ;; only valid when the symbol isn't excluded
           (when-not (some-> the-current-ns
@@ -198,9 +202,7 @@
                                                     inner (sci.impl.types/getVal this)]
                                                 (get inner sym))
                                               nil))
-                                          (->Node
-                                            (aget ^objects bindings idx)
-                                            nil))
+                                          (sci.impl.types/->BindingNode idx nil))
                                   #?@(:clj [tag (with-meta
                                                   {:tag tag})])
                                   mutable? (vary-meta assoc :mutable true))]
@@ -264,7 +266,7 @@
                     [sym (with-meta
                            [v segments]
                            {:sci.impl.analyzer/static-access true})]
-                    (if (instance? sci.impl.types/NodeR v)
+                    (if (sci.impl.types/eval-node? v)
                       [sym
                        (sci.impl.types/->Node
                         (interop/get-static-fields

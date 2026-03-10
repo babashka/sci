@@ -28,7 +28,6 @@
   #?(:cljs
      (:require-macros
       [sci.impl.analyzer :refer [gen-return-recur
-                                 gen-return-binding-call
                                  gen-return-call
                                  with-top-level-loc]])))
 
@@ -690,15 +689,10 @@
                                x " in namespace "
                                cnn)
                           expr)
-                         (if-let [the-var #?(:clj (.get ^java.util.Map the-current-ns name)
-                                             :cljs (get the-current-ns name))]
-                           (let [cur-file @utils/current-file]
-                             (when-not (= cur-file (:file (meta the-var)))
-                               (alter-meta! the-var assoc :file cur-file))
-                             the-current-ns)
+                         (if (.get #?(:clj ^java.util.Map the-current-ns :cljs the-current-ns) name)
+                           the-current-ns
                            (assoc the-current-ns name
-                                  (doto (sci.lang.Var. nil (symbol (str cnn)
-                                                                   (str name))
+                                  (doto (sci.lang.Var. nil name
                                                        {:name name
                                                         :ns @utils/current-ns
                                                         :file @utils/current-file}
@@ -753,9 +747,10 @@
               m (if docstring (assoc m :doc docstring) m)
               m (if m-needs-eval?
                   (analyze ctx m)
-                  (->constant m))]
+                  (->constant m))
+              file @utils/current-file]
           (sci.impl.types/->Node
-           (eval/eval-def ctx bindings var-name init m)
+           (eval/eval-def ctx bindings var-name init m file)
            nil))))))
 
 #_(defn analyze-defn [ctx [op fn-name & body :as expr]]
@@ -1147,6 +1142,9 @@
                                       (deref maybe-var)
                                       ;; symbol = already deref-ed record coming in via :import
                                       (symbol? class)
+                                      class
+                                      ;; Type value from :refers
+                                      (instance? sci.lang.Type class)
                                       class)
                        maybe-record-constructor
                        (when maybe-record
@@ -1168,7 +1166,7 @@
                             (interop/invoke-js-constructor* ctx bindings (deref maybe-var)
                                                             args)
                             nil))
-                         (instance? sci.impl.types/NodeR class)
+                         (t/eval-node? class)
                          (let [args (into-array args)]
                            (sci.impl.types/->Node
                             (interop/invoke-js-constructor* ctx bindings
@@ -1331,40 +1329,11 @@
 
 ;;;; End vars
 
-(macros/deftime
-  (defmacro gen-return-binding-call
-    "Creates returning-binding-call function, optimizes calling a local
-  binding as function."
-    []
-    (let [let-bindings (map (fn [i]
-                              [i (vec (mapcat (fn [j]
-                                                [(symbol (str "arg" j))
-                                                 `(nth ~'analyzed-children ~j)])
-                                              (range i)))])
-                            (range 20))]
-      `(defn ~'return-binding-call
-         ~'[_ctx expr idx f analyzed-children stack]
-         (case (count ~'analyzed-children)
-           ~@(concat
-              (mapcat (fn [[i binds]]
-                        [i `(let ~binds
-                              (sci.impl.types/->Node
-                               (try
-                                 ((aget ~(with-meta 'bindings
-                                           {:tag 'objects}) ~'idx)
-                                  ~@(map (fn [j]
-                                           `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                         (range i)))
-                                 (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                   (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                               ~'stack))])
-                      let-bindings)
-              `[(fn [~'ctx ~'bindings]
-                  (eval/fn-call ~'ctx ~'bindings (aget ~(with-meta 'bindings
-                                                          {:tag 'objects}) ~'idx) ~'analyzed-children))]))))))
-
-(declare return-binding-call) ;; for clj-kondo
-(gen-return-binding-call)
+(defn return-binding-call
+  [ctx expr idx f analyzed-children stack]
+  (return-call ctx expr f analyzed-children stack
+               (fn [_ctx bindings _f]
+                 (aget ^objects bindings idx))))
 
 ;; NOTE: there is a small perf win (about 3%) when checking if all
 ;; analyzed-children are EvalFn and then using those fns directly. See
@@ -1378,7 +1347,146 @@
                                                 [(symbol (str "arg" j))
                                                  `(nth ~'analyzed-children ~j)])
                                               (range i)))])
-                            (range 20))]
+                            (range 20))
+          catch-clause `(catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
+                          (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this))
+          eval-arg (fn [j]
+                     `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
+          gen-node (fn [i arg-fn]
+                     `(sci.impl.types/->Node
+                       (try (~'f ~@(map arg-fn (range i))) ~catch-clause)
+                       ~'stack))
+          idx-expr (fn [sym]
+                     (macros/? :clj `(.idx ~(with-meta sym {:tag 'sci.impl.types.BindingNode}))
+                               :cljs `(.-idx ~(with-meta sym {:tag 'sci.impl.types/BindingNode}))))
+          get-idx (fn [j] (idx-expr (symbol (str "arg" j))))
+          aget-expr (fn [j]
+                      `(aget ~(with-meta 'bindings {:tag 'objects})
+                             ~(symbol (str "bidx" j))))
+          spec-fns-1 (macros/? :clj
+                               {'clojure.core/inc 'clojure.lang.Numbers/inc
+                                'clojure.core/dec 'clojure.lang.Numbers/dec
+                                'clojure.core/unchecked-inc 'clojure.lang.Numbers/unchecked_inc
+                                'clojure.core/unchecked-dec 'clojure.lang.Numbers/unchecked_dec
+                                'clojure.core/zero? 'clojure.lang.Numbers/isZero
+                                'clojure.core/pos? 'clojure.lang.Numbers/isPos
+                                'clojure.core/neg? 'clojure.lang.Numbers/isNeg
+                                'clojure.core/nil? 'nil?
+                                'clojure.core/not 'not}
+                               :cljs
+                               {'cljs.core/inc 'cljs.core/inc
+                                'cljs.core/dec 'cljs.core/dec
+                                'cljs.core/unchecked-inc 'cljs.core/unchecked-inc
+                                'cljs.core/unchecked-dec 'cljs.core/unchecked-dec
+                                'cljs.core/zero? 'cljs.core/zero?
+                                'cljs.core/pos? 'cljs.core/pos?
+                                'cljs.core/neg? 'cljs.core/neg?
+                                'cljs.core/nil? 'nil?
+                                'cljs.core/not 'not})
+          spec-fns-2 (macros/? :clj
+                               {'clojure.core/+ 'clojure.lang.Numbers/add
+                                'clojure.core/- 'clojure.lang.Numbers/minus
+                                'clojure.core/* 'clojure.lang.Numbers/multiply
+                                'clojure.core/unchecked-add 'clojure.lang.Numbers/unchecked_add
+                                'clojure.core/unchecked-subtract 'clojure.lang.Numbers/unchecked_minus
+                                'clojure.core/unchecked-multiply 'clojure.lang.Numbers/unchecked_multiply
+                                'clojure.core/rem 'clojure.lang.Numbers/remainder
+                                'clojure.core/< 'clojure.lang.Numbers/lt
+                                'clojure.core/> 'clojure.lang.Numbers/gt
+                                'clojure.core/<= 'clojure.lang.Numbers/lte
+                                'clojure.core/>= 'clojure.lang.Numbers/gte
+                                'clojure.core/== 'clojure.lang.Numbers/equiv}
+                               :cljs
+                               {'cljs.core/+ 'cljs.core/+
+                                'cljs.core/- 'cljs.core/-
+                                'cljs.core/* 'cljs.core/*
+                                'cljs.core/unchecked-add 'cljs.core/unchecked-add
+                                'cljs.core/unchecked-subtract 'cljs.core/unchecked-subtract
+                                'cljs.core/unchecked-multiply 'cljs.core/unchecked-multiply
+                                'cljs.core/rem 'cljs.core/rem
+                                'cljs.core/< 'cljs.core/<
+                                'cljs.core/> 'cljs.core/>
+                                'cljs.core/<= 'cljs.core/<=
+                                'cljs.core/>= 'cljs.core/>=
+                                'cljs.core/== 'cljs.core/==})
+          gen-specs (fn [spec-fns i arg-fn]
+                      (mapcat (fn [[f-sym static-sym]]
+                                [f-sym
+                                 `(sci.impl.types/->Node
+                                   (try (~static-sym ~@(map arg-fn (range i)))
+                                        ~catch-clause)
+                                   ~'stack)])
+                              spec-fns))
+          all-bindings? (fn [i]
+                          (cons `and (map (fn [j]
+                                            `(instance? sci.impl.types.BindingNode
+                                                        ~(symbol (str "arg" j))))
+                                          (range i))))
+          ;; binding-or-constant = BindingNode or constant (no t/eval dispatch needed)
+          binding-or-constant? (fn [j]
+                                 (let [arg-sym (symbol (str "arg" j))]
+                                   `(or (instance? sci.impl.types.BindingNode ~arg-sym)
+                                        ~(macros/? :clj `(instance? sci.impl.types.ConstantNode ~arg-sym)
+                                                   :cljs `(not (t/eval-node? ~arg-sym))))))
+          all-binding-or-constant? (fn [i]
+                                     (cons `and (map binding-or-constant? (range i))))
+          ;; At analysis time, extract binding idx or constant value per arg.
+          ;; At runtime, use captured boolean + value to pick aget vs constant.
+          gen-bc-binds (fn [i]
+                         (vec (mapcat (fn [j]
+                                        (let [arg-sym (symbol (str "arg" j))]
+                                          [(symbol (str "bnd" j))
+                                           `(instance? sci.impl.types.BindingNode ~arg-sym)
+                                           (symbol (str "rv" j))
+                                           `(if ~(symbol (str "bnd" j))
+                                              ~(idx-expr arg-sym)
+                                              ~(macros/? :clj `(.x ~(with-meta arg-sym {:tag 'sci.impl.types.ConstantNode}))
+                                                         :cljs arg-sym))]))
+                                      (range i))))
+          bc-arg-expr (fn [j]
+                        `(if ~(symbol (str "bnd" j))
+                           (aget ~(with-meta 'bindings {:tag 'objects}) ~(symbol (str "rv" j)))
+                           ~(symbol (str "rv" j))))
+          gen-fused-node (fn [i specs]
+                           (let [bidx-binds (vec (mapcat (fn [j]
+                                                           [(symbol (str "bidx" j))
+                                                            (get-idx j)])
+                                                         (range i)))]
+                             `(let ~bidx-binds
+                                ~(if specs
+                                   `(condp identical? ~'f
+                                      ~@specs
+                                      ~(gen-node i aget-expr))
+                                   (gen-node i aget-expr)))))
+          ;; Fused/specialized optimization for arities 1-2 only. Clojure
+          ;; only inlines core functions at these arities (e.g. <=, + inline
+          ;; at arity 2 but not 3). At arity 3+, calls go through IFn.invoke
+          ;; regardless, so the fused path would only save t/eval dispatch —
+          ;; not worth the extra generated code.
+          gen-specialized-or-general (fn [i]
+                                       (if (> i 2)
+                                         (gen-node i eval-arg)
+                                         (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
+                                               fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
+                                               ;; Only generate bc specs for arity 2+.
+                                               ;; For arity 1, constants get folded at analysis time
+                                               ;; (e.g. (inc 1) → 2), so the condp is dead code.
+                                               bc-specs (when (and spec-fns (> i 1))
+                                                          (gen-specs spec-fns i bc-arg-expr))]
+                                           (if spec-fns
+                                             `(if ~(all-bindings? i)
+                                                ~(gen-fused-node i fused-specs)
+                                                ~(if bc-specs
+                                                   `(if ~(all-binding-or-constant? i)
+                                                      (let ~(gen-bc-binds i)
+                                                        (condp identical? ~'f
+                                                          ~@bc-specs
+                                                          ~(gen-node i bc-arg-expr)))
+                                                      ~(gen-node i eval-arg))
+                                                   (gen-node i eval-arg)))
+                                             `(if ~(all-bindings? i)
+                                                ~(gen-fused-node i nil)
+                                                ~(gen-node i eval-arg))))))]
       `(defn ~'return-call
          ~'[_ctx expr f analyzed-children stack wrap]
          (let [node#
@@ -1390,21 +1498,12 @@
                                       (sci.impl.types/->Node
                                        (try
                                          ((~'wrap ~'ctx ~'bindings ~'f)
-                                          ~@(map (fn [j]
-                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                 (range i)))
-                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+                                          ~@(map eval-arg (range i)))
+                                         ~catch-clause)
                                        ~'stack)
-                                      (sci.impl.types/->Node
-                                       (try
-                                         (~'f
-                                          ~@(map (fn [j]
-                                                   `(t/eval ~(symbol (str "arg" j)) ~'ctx ~'bindings))
-                                                 (range i)))
-                                         (catch ~(macros/? :clj 'Throwable :cljs 'js/Error) e#
-                                           (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
-                                       ~'stack)))])
+                                      ~(if (pos? i)
+                                         (gen-specialized-or-general i)
+                                         (gen-node i eval-arg))))])
                             let-bindings)
                     `[(if ~'wrap
                         (sci.impl.types/->Node
@@ -1417,7 +1516,6 @@
            (cond-> node#
              tag# (with-meta {:tag tag#})))))))
 
-(declare return-call) ;; for clj-kondo
 (gen-return-call)
 
 (defn analyze-quote [_ctx expr]
@@ -1572,7 +1670,7 @@
                                  (sci.impl.types/->Node
                                   (interop/invoke-js-constructor* ctx bindings ctor children)
                                   nil))
-                               (if (instance? t/NodeR class)
+                               (if (t/eval-node? class)
                                  (sci.impl.types/->Node
                                   (let [class (t/eval class ctx bindings)
                                         method (unchecked-get class method-name)]
@@ -1777,7 +1875,7 @@
 
 (defn constant-node? [x]
   #?(:clj (instance? sci.impl.types.ConstantNode x)
-     :cljs (not (instance? sci.impl.types.NodeR x))))
+     :cljs (not (t/eval-node? x))))
 
 #?(:clj (defn unwrap-children [children]
           (-> (reduce (fn [acc x]

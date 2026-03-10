@@ -65,35 +65,21 @@
                  assoc :sci/macro true)
       name meta false false nil (:ns meta)))))
 
-(defmacro copy-var
-  "Copies contents from var `sym` to a new sci var. The value `ns` is an
+(macros/deftime
+  (defmacro copy-var
+    "Copies contents from var `sym` to a new sci var. The value `ns` is an
   object created with `sci.core/create-ns`.
 
   Options:
 
-  - :name: The name of the copied var. Defaults to the original var name."
-  ([sym ns]
-   `(copy-var ~sym ~ns nil))
-  ([sym ns opts]
-   (let [nm (:name opts)]
-     `(let [ns# ~ns
-            var# (var ~sym)
-            val# (deref var#)
-            m# (-> var# meta)
-            name# (or ~nm (:name m#))
-            tag# (:tag m#)
-            private# (:private m#)
-            new-m# (cond-> {:doc (:doc m#)
-                            :name name#
-                            :arglists (:arglists m#)
-                            :ns ns#}
-                     tag# (assoc :tag tag#)
-                     private# (assoc :private private#))]
-        (cond (:dynamic m#)
-              (new-dynamic-var name# val# new-m#)
-              (or (:macro m#) (:sci/macro m#))
-              (new-macro-var name# val# new-m#)
-              :else (new-var name# val# new-m#))))))
+  - `:name`: The name of the copied var. Defaults to the original var name.
+  - `:copy-meta-from`: A symbol resolving to a var whose metadata (`:doc`,
+    `:arglists`, `:file`, `:line`, `:column`) is used instead of `sym`'s.
+    Useful for wrapper vars that delegate to another var."
+    ([sym ns]
+     `(copy-var ~sym ~ns nil))
+    ([sym ns opts]
+     `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true)))))
 
 (defn copy-var*
   "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`."
@@ -106,6 +92,9 @@
         macro (:macro m)
         private (:private m)
         tag (:tag m)
+        file (:file m)
+        line (:line m)
+        column (:column m)
     new-m (cond-> {:ns sci-ns
                        :name nm}
                 macro (assoc :macro true)
@@ -113,7 +102,10 @@
                 arglists (assoc :arglists arglists)
                 dynamic (assoc :dynamic dynamic)
                 private (assoc :private private)
-                tag (assoc :tag tag))]
+                tag (assoc :tag tag)
+                file (assoc :file file)
+                line (assoc :line line)
+                column (assoc :column column))]
     (new-var nm @clojure-var new-m)))
 
 (macros/deftime
@@ -418,7 +410,10 @@
                                    :macro
                                    :sci/macro
                                    :doc
-                                   :dynamic])
+                                   :dynamic
+                                   :file
+                                   :line
+                                   :column])
                    normalize-meta)))
 
 (macros/deftime

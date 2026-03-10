@@ -296,6 +296,10 @@
   (testing "metadata isn't evaluated on defn expression"
     (eval* "^{:inverse-of foo} (defn bar [])")))
 
+(deftest source-fn-test
+  (testing "source-fn on built-in var does not throw"
+    (is (nil? (eval* "(clojure.repl/source-fn 'inc)")))))
+
 (deftest defn-kwargs-test
   (is (= {:a 1} (sci/eval-string "(defn foo [& {:keys [a]}] {:a a}) (foo :a 1)")))
   (is (= {:a 1} (sci/eval-string "(defn foo [& {:keys [a]}] {:a a}) (foo {:a 1})"))))
@@ -994,7 +998,12 @@
   (testing "declare var with metadata"
     (is (= 2 (eval* "(declare ^:dynamic d) (binding [d 2] d)")))
     (is (= "x" (eval* "(declare ^{:doc \"x\"} e) (-> #' e meta :doc)")))
-    (is (= :hello (edn/read-string (sci/with-out-str (sci/eval-string "(declare ^{:foo (prn :hello)} foo)")))))))
+    (is (= :hello (edn/read-string (sci/with-out-str (sci/eval-string "(declare ^{:foo (prn :hello)} foo)"))))))
+  (testing "def replaces previous var metadata"
+    (is (nil? (eval* "(declare foo) (def foo 42) (:declared (meta #'foo))")))
+    (is (nil? (eval* "(declare ^:dynamic bar) (def bar 1) (:dynamic (meta #'bar))")))
+    (is (= "y" (eval* "(declare ^{:doc \"x\"} baz) (def ^{:doc \"y\"} baz 1) (:doc (meta #'baz))")))
+    (is (nil? (eval* "(declare ^:golden foo) (def foo) (:golden (meta #'foo))")))))
 
 (deftest reader-conditionals
   (is (= 6 (tu/eval* "(+ 1 2 #?(:bb 3 :clj 100))" {:features #{:bb}})))
@@ -1121,7 +1130,7 @@
          (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
   (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))")))
   (is (= '(foobar) (eval* "(defmacro foo [] '(foobar)) (macroexpand '(foo))")))
-  (is (= '(clojure.core/defrecord Foo []) (eval* "(macroexpand '(defrecord Foo []))")))
+  (is (= 'do (first (eval* "(macroexpand '(defrecord Foo []))"))))
   (is (= '(. nil log) (eval* "(macroexpand-1 '(.log))")))
   (is (= '(. js/console log) (eval* "(macroexpand-1 '(.log js/console))")))
   (is (= '(. js/console log 1 2 3) (eval* "(macroexpand-1 '(.log js/console 1 2 3))")))
@@ -1325,7 +1334,36 @@
 
 (deftest copy-var-private-test
   (is (true? (:private (meta (sci/copy-var private-fn (sci/create-ns 'foo)))))
-      "copy-var preserves :private metadata"))
+      "copy-var preserves :private metadata for same-namespace var")
+  #?(:clj
+     (let [v (sci/copy-var sci.copy-ns-test-ns/private-fn (sci/create-ns 'foo))]
+       (is (true? (:private (meta v)))
+           "copy-var preserves :private metadata for cross-namespace var")
+       (is (= :private-from-other-ns (@v))
+           "copy-var can access private var value from another namespace"))))
+
+(defn wrapper-fn
+  "wrapper doc"
+  [& args]
+  (apply always-foo args))
+
+(deftest copy-var-copy-meta-from-test
+  (let [foo-ns (sci/create-ns 'foo)
+        v (sci/copy-var wrapper-fn foo-ns {:copy-meta-from sci.core-test/always-foo})]
+    (is (= :foo (@v)))
+    #?(:clj (is (= (:file (meta v)) (:file (meta #'always-foo)))))
+    #?(:clj (is (= (:line (meta v)) (:line (meta #'always-foo)))))
+    (is (= (:arglists (meta v)) (:arglists (meta #'always-foo)))))
+  #?(:clj
+     (let [foo-ns (sci/create-ns 'foo)
+           v (sci/copy-var do-twice foo-ns {:copy-meta-from sci.core-test/do-twice :macro true})]
+       (is (:macro (meta v)))
+       (is (= (:file (meta v)) (:file (meta #'do-twice))))
+       (is (= "2\n2\n"
+              (sci/with-out-str
+                (sci/eval-string "(foo/do-twice (prn 2))"
+                                 {:namespaces {'foo {'do-twice v}}})))))))
+
 
 (defn update-vals*
   "Same as `update-vals` from clojure 1.11 but included here so tests
@@ -1450,6 +1488,12 @@
 
 (deftest symbol-on-var-test
   (is (= 'user/x (eval* "(def x 1) (symbol #'x)"))))
+
+#?(:clj
+   (deftest var-sym-test
+     (testing ".sym returns unqualified symbol, matching Clojure"
+       (is (= 'foo (.sym (sci/eval-string "(def foo 1) #'foo"))))
+       (is (= 'bar (.sym (sci/eval-string "(ns my-ns) (def bar 1) #'bar")))))))
 
 (deftest macro-val-error-test
   (is (thrown-with-msg?

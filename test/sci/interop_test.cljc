@@ -434,6 +434,10 @@
                         {:bindings {'resource (io/resource "clojure/core.clj")}
                          :classes {'java.net.URL java.net.URL
                                    'java.net.JarURLConnection java.net.JarURLConnection}}))
+     (testing "wrong type hint falls back to actual runtime class"
+       (is (= 21 (sci/eval-string
+                   "(let [^String x (StringBuilder. \"hello\")] (.capacity x))"
+                   {:classes {'String String 'StringBuilder StringBuilder :allow :all}}))))
 ))
 
 #?(:cljs

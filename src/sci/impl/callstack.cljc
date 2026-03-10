@@ -59,6 +59,17 @@
 
 (defn format-stacktrace [st]
   (let [st (force st)
+        ;; when a built-in entry is followed by the same var with file info,
+        ;; replace the built-in entry with the more informative one
+        st (reduce (fn [acc entry]
+                     (let [prev (peek acc)]
+                       (if (and prev
+                                (:sci/built-in prev)
+                                (= (:name prev) (:name entry))
+                                (= (:ns prev) (:ns entry)))
+                         (conj (pop acc) entry)
+                         (conj acc entry))))
+                   [] st)
         data (keep (fn [{:keys [:file :ns :line :column :sci/built-in
                                 :local]
                          nom :name}]

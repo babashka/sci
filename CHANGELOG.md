@@ -12,6 +12,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Add test for `defrecord`/`deftype` in namespaces with special characters like `+` [babashka#1868](https://github.com/babashka/babashka/issues/1868)
+- Fix `.sym` on user-defined vars returning qualified symbol instead of unqualified, matching Clojure
+- `def` now replaces var metadata instead of merging, matching Clojure semantics. Previously, `(declare foo) (def foo 42)` would leave `:declared true` on the var's metadata.
 - Fix `deftype` and `defrecord` inside non-top-level forms (e.g. `let`, `testing`) [#1936](https://github.com/babashka/babashka/issues/1936)
 - Add `ns` field to `sci.lang.Var` for compatibility with code that accesses `.ns` on vars
 - `ns-aliases` now returns identical namespace objects as `find-ns`
@@ -24,9 +27,15 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Fix `letfn` with duplicate function names crashing with ClassCastException
 - `macroexpand-1` now expands `(ClassName. args)` to `(new ClassName args)`, matching JVM Clojure
 - Fix `ns-map` not reflecting vars that shadow referred vars (e.g. `(defn inc ...)`)
+- `deftype` and `defrecord` no longer create vars for the type name — types are stored in the namespace's `:types` map, matching Clojure where deftype/defrecord create class mappings, not vars. `(resolve 'Foo)` returns a `sci.lang.Type` (not a var), and `#'Foo` throws "Unable to resolve var" as in Clojure.
+- `defrecord` now expands to `deftype*` (like Clojure), with factory fns (`->Foo`, `map->Foo`) emitted directly in the macro expansion
+- Fix `.getName` on custom types (`sci.lang.Type`) to return the fully qualified name (e.g. `"user.Foo"`), matching `Class.getName()` behavior. Also adds `alter-meta!` support on types.
+- Fix incorrect type hint causing method resolution failure: `(let [^String x (StringBuilder. "hello")] (.capacity x))` now falls back to the actual runtime class when the type hint doesn't match
 - `deftype` now macroexpands to `deftype*`, matching JVM Clojure, enabling code walkers like riddley
 - `case` now macroexpands to JVM-compatible `case*` format, enabling tools like riddley and cloverage to work with SCI
+- [#1935](https://github.com/babashka/babashka/issues/1935): support `source` for built-in vars by preserving `:file`, `:line`, `:column` metadata in `copy-var`
 - Preserve `:tag` metadata in `copy-var`
+- Support `:copy-meta-from` option in public `copy-var` API
 - Fix NPE in `resolve` when called at runtime (e.g. inside a macro body during code walking) by skipping analysis-only idx machinery
 - Fix `.method` on class objects (e.g. `(.getDeclaredField String "value")`) routing to static instead of instance method path
 - `macroexpand-1` of `(.method ClassName)` now wraps class targets in `identity`, matching Clojure behavior

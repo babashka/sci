@@ -1,6 +1,5 @@
 (ns sci.lang
-  (:require [clojure.string :as str]
-            [sci.impl.types :as types]
+  (:require [sci.impl.types :as types]
             [sci.impl.vars :as vars]
             #?(:cljs [sci.impl.unrestrict :refer [*unrestricted*]]))
   (:refer-clojure :exclude [Var ->Var var? Namespace ->Namespace]))
@@ -10,24 +9,14 @@
 ;; marker interface for vars, clj only for now
 #?(:clj (definterface ^{:doc "Marker interface for SCI vars."} IVar))
 
-(defn- class-name [s]
-  (if-let [i (str/last-index-of s ".")]
-    (subs s (inc i))
-    s))
-
-(defn- package-name [s]
-  (if-let [i (str/last-index-of s ".")]
-    (subs s 0 i)
-    s))
-
 (deftype ^{:doc "Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`. The fields of this type are implementation detail and should not be accessed directly."}
-    Type [^:volatile-mutable data
-          ^:volatile-mutable namespace
-          ^:volatile-mutable name]
+    Type [^:volatile-mutable data]
   sci.impl.types/IBox
   (getVal [_] data)
   (setVal [_ v] (set! data v))
   Object
+  ;; NOTE: returns "user.Foo" rather than "class user.Foo" (unlike java.lang.Class).
+  ;; Changing this would break downstream libs (e.g. prismatic/schema).
   (toString [_]
     (str (:sci.impl/type-name data)))
 
@@ -39,35 +28,18 @@
       [IMeta
        (-meta [_] data)])
 
-  ;; we need to support Named for `derive`
+  ;; support alter-meta! for storing print-method etc.
   #?@(:clj
-      [clojure.lang.Named
-       (getNamespace [this]
-                     (if (nil? namespace)
-                       (let [ns (package-name (str this))]
-                         (set! namespace ns)
-                         ns)
-                       namespace))
-       (getName [this]
-                (if (nil? name)
-                  (let [nom (class-name (str this))]
-                    (set! name nom)
-                    nom)
-                  name))]
-      :cljs
-      [INamed
-       (-namespace [this]
-                   (if (nil? namespace)
-                     (let [ns (package-name (str this))]
-                       (set! namespace ns)
-                       ns)
-                     namespace))
-       (-name [this]
-              (if (nil? name)
-                (let [nom (class-name (str this))]
-                  (set! name nom)
-                  nom)
-                name))]))
+      [clojure.lang.IReference
+       (alterMeta [this f args]
+                  (locking this
+                    (set! data (apply f data args))))
+       (resetMeta [this m]
+                  (locking this
+                    (set! data m)))])
+
+  types/HasName
+  (getName [this] (str this)))
 
 #?(:clj (defmethod print-method Type [this w]
           (.write ^java.io.Writer w (str this))))
