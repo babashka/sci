@@ -80,12 +80,7 @@
                                  (.write ^java.io.Writer w ^String (clojure-str this))))]
       :cljs [IPrintWithWriter
              (-pr-writer [this w opts]
-                         (if-let [rv type-meta]
-                           (let [m (meta rv)]
-                             (if-let [pm (:sci.impl/print-method m)]
-                               (pm this w opts)
-                               (write-all w (clojure-str this))))
-                           (write-all w (clojure-str this))))])
+                         (types/sci-pr-writer this w opts))])
 
   types/IBox
   (getVal [_] ext-map)
@@ -99,6 +94,14 @@
 
 (defn ->type-impl [rec-name type type-meta m]
   (SciType. rec-name type type-meta m))
+
+#?(:cljs
+   (defmethod types/sci-pr-writer :default [this w opts]
+     (if (cljs.core/implements? types/SciTypeInstance this)
+       (if (implements? IRecord this)
+         (write-all w (str "#" (types/type-impl this) (into {} this)))
+         (write-all w (clojure-str this)))
+       (cljs.core/-pr-writer this w opts))))
 
 #?(:clj
    (defmethod print-method SciType [v w]
@@ -355,12 +358,9 @@
                    (mapcat
                     (fn [[protocol-name & impls]]
                       (let [impls (group-by first impls)
-                            protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                            protocol (or protocol
-                                         (when (= 'Object protocol-name)
+                            protocol (or (when (= 'Object protocol-name)
                                            ::object)
-                                         (when (= 'IPrintWithWriter protocol-name)
-                                           ::IPrintWithWriter))
+                                         (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name))
                             _ (when-not protocol
                                 (utils/throw-error-with-location
                                  (str "Protocol not found: " protocol-name)
@@ -377,10 +377,6 @@
                                             (symbol pns (str %))
                                             %)]
                         (map (fn [[method-name bodies]]
-                               (if (and (keyword-identical? ::IPrintWithWriter protocol)
-                                        (= '-pr-writer method-name))
-                                 `(alter-meta! ~record-name
-                                               assoc :sci.impl/print-method (fn ~(rest (first bodies))))
                                  (let [bodies (map rest bodies)
                                        bodies (mapv (fn [impl]
                                                       (let [args (first impl)
@@ -412,7 +408,7 @@
                                                                                          (fn [this v]
                                                                                            (types/-mutate this field v)))
                                                                                        field-set)))
-                                    `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))))
+                                    `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                              impls)))
                     protocol-impls)]
                (emit-deftype rec-type record-name factory-fn-sym
