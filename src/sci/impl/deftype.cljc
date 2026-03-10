@@ -19,6 +19,14 @@
             (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name))
         expr))))
 
+#?(:cljs
+   (defn emit-pr-writer-impl
+     "Emit code that stores a custom -pr-writer as :sci.impl/print-method metadata.
+      `target-sym` is the type/record name symbol.
+      `method-forms` is a seq of method forms like [(-pr-writer [this w opts] body)]."
+     [target-sym method-forms]
+     `(alter-meta! ~target-sym assoc :sci.impl/print-method (fn ~@(rest (first method-forms))))))
+
 (defn hex-hash [this]
   #?(:clj (Integer/toHexString (hash this))
      :cljs (.toString (hash this) 16)))
@@ -200,10 +208,11 @@
         (mapcat
          (fn [[protocol-name & impls]]
            (let [impls (group-by first impls)
-                 protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                 #?@(:cljs [protocol (or protocol
-                                         (when (= 'Object protocol-name)
-                                           ::object))])
+                 protocol (or #?@(:cljs [(when (= 'Object protocol-name)
+                                           ::object)
+                                         (when (= 'IPrintWithWriter protocol-name)
+                                           ::IPrintWithWriter)])
+                              (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name))
                  _ (when-not protocol
                      (utils/throw-error-with-location
                       (str "Protocol not found: " protocol-name)
@@ -221,33 +230,45 @@
                                   (symbol pns (str %))
                                   %)]
              (map (fn [[method-name bodies]]
-                    (let [bodies (map rest bodies)
-                          bodies (mapv (fn [impl]
-                                         (let [args (first impl)
-                                               body (rest impl)
-                                               destr (utils/maybe-destructured args body)
-                                               args (:params destr)
-                                               body (:body destr)
-                                               orig-this-sym (first args)
-                                               rest-args (rest args)
-                                               shadows-this? (some #(= orig-this-sym %) rest-args)
-                                               this-sym (if shadows-this?
-                                                          (gensym "this_")
-                                                          orig-this-sym)
-                                               args (if shadows-this?
-                                                      (vec (cons this-sym rest-args))
-                                                      args)
-                                               bindings (mapcat (fn [field]
-                                                                  [field (list (keyword field) this-sym)])
-                                                                (reduce disj field-set args))
-                                               bindings (if shadows-this?
-                                                          (concat bindings [orig-this-sym this-sym])
-                                                          bindings)
-                                               bindings (vec bindings)]
-                                           `(~args
-                                             (let ~bindings
-                                               ~@body)))) bodies)]
-                      `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
+                    (if #?(:cljs (and (keyword-identical? ::IPrintWithWriter protocol)
+                                      (= '-pr-writer method-name))
+                           :clj false)
+                      #?(:cljs (let [body (first bodies)
+                                     args (second body)
+                                     this-sym (first args)
+                                     field-bindings (vec (mapcat (fn [field]
+                                                                   [field (list (keyword field) this-sym)])
+                                                                 (reduce disj field-set (set args))))
+                                     wrapped-body (list (first body) args `(let ~field-bindings ~@(drop 2 body)))]
+                                 (emit-pr-writer-impl record-name [wrapped-body]))
+                         :clj nil)
+                      (let [bodies (map rest bodies)
+                            bodies (mapv (fn [impl]
+                                           (let [args (first impl)
+                                                 body (rest impl)
+                                                 destr (utils/maybe-destructured args body)
+                                                 args (:params destr)
+                                                 body (:body destr)
+                                                 orig-this-sym (first args)
+                                                 rest-args (rest args)
+                                                 shadows-this? (some #(= orig-this-sym %) rest-args)
+                                                 this-sym (if shadows-this?
+                                                            (gensym "this_")
+                                                            orig-this-sym)
+                                                 args (if shadows-this?
+                                                        (vec (cons this-sym rest-args))
+                                                        args)
+                                                 bindings (mapcat (fn [field]
+                                                                    [field (list (keyword field) this-sym)])
+                                                                  (reduce disj field-set args))
+                                                 bindings (if shadows-this?
+                                                            (concat bindings [orig-this-sym this-sym])
+                                                            bindings)
+                                                 bindings (vec bindings)]
+                                             `(~args
+                                               (let ~bindings
+                                                 ~@body)))) bodies)]
+                        `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                   impls)))
          protocol-impls)]
     (emit-record-type rec-type record-name constructor-fn-sym map-factory-sym
@@ -355,12 +376,11 @@
                    (mapcat
                     (fn [[protocol-name & impls]]
                       (let [impls (group-by first impls)
-                            protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                            protocol (or protocol
-                                         (when (= 'Object protocol-name)
+                            protocol (or (when (= 'Object protocol-name)
                                            ::object)
                                          (when (= 'IPrintWithWriter protocol-name)
-                                           ::IPrintWithWriter))
+                                           ::IPrintWithWriter)
+                                         (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name))
                             _ (when-not protocol
                                 (utils/throw-error-with-location
                                  (str "Protocol not found: " protocol-name)
@@ -379,8 +399,22 @@
                         (map (fn [[method-name bodies]]
                                (if (and (keyword-identical? ::IPrintWithWriter protocol)
                                         (= '-pr-writer method-name))
-                                 `(alter-meta! ~record-name
-                                               assoc :sci.impl/print-method (fn ~(rest (first bodies))))
+                                 (let [body (first bodies)
+                                       args (second body)
+                                       orig-this-sym (first args)
+                                       this-sym '__sci_this
+                                       ext-map-binding (gensym)
+                                       field-bindings (vec
+                                                       (concat
+                                                        [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
+                                                        (mapcat (fn [field]
+                                                                  [field (list 'get ext-map-binding (list 'quote field))])
+                                                                (reduce disj field-set (set args)))
+                                                        [orig-this-sym this-sym]))
+                                       wrapped-body (list (first body)
+                                                          (vec (cons this-sym (rest args)))
+                                                          `(let ~field-bindings ~@(drop 2 body)))]
+                                   (emit-pr-writer-impl record-name [wrapped-body]))
                                  (let [bodies (map rest bodies)
                                        bodies (mapv (fn [impl]
                                                       (let [args (first impl)

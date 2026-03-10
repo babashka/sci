@@ -222,4 +222,21 @@
 
 ;;;; end IAtom
 
+;;;; IPrintWithWriter (CLJS only)
+
+#?(:cljs
+   (defn -pr-writer* [this writer opts]
+     (cljs.core/-pr-writer this writer opts)))
+
+#?(:cljs
+   (def print-writer-protocol
+     (utils/new-var
+      'cljs.core.IPrintWithWriter
+      {:protocol IPrintWithWriter
+       :methods #{-pr-writer*}
+       :ns cljs-core-ns}
+      {:ns cljs-core-ns})))
+
+;;;; end IPrintWithWriter
+
 (def defaults (set (conj iatom-defaults ideref-default)))

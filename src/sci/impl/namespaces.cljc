@@ -1336,7 +1336,9 @@
                'reset-vals! (copy-var core-protocols/reset-vals!* clojure-core-ns {:name 'reset-vals!})])
 
      #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
-                                        {:ns clojure-core-ns})])
+                                        {:ns clojure-core-ns})
+                'IPrintWithWriter core-protocols/print-writer-protocol
+                '-pr-writer (new-var '-pr-writer core-protocols/-pr-writer*)])
      ;; cljs data structures
      #?@(:cljs ['Delay (copy-var Delay clojure-core-ns)])
      #?@(:cljs ['PersistentQueue (copy-var PersistentQueue clojure-core-ns)])

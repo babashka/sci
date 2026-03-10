@@ -34,7 +34,12 @@
   (getInterfaces [_] interfaces)
   (getMethods [_] meths)
   (getProtocols [_] protocols)
-  (getFields [_] nil))
+  (getFields [_] nil)
+  #?@(:cljs [IPrintWithWriter
+             (-pr-writer [this w opts]
+                         (if-let [pm (get meths '-pr-writer)]
+                           (pm this w opts)
+                           (-write w "#object[sci.impl.types.Reified]")))]))
 
 (defprotocol SciTypeInstance
   (-get-type [_])

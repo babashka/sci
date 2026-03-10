@@ -212,9 +212,9 @@
         #?@(:cljs [print-writer? (= 'IPrintWithWriter protocol-name)])
         impls (utils/split-when #(not (seq? %)) impls)
         protocol-var
-        (or (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
-            #?(:cljs (when print-writer?
+        (or #?(:cljs (when print-writer?
                        ::IPrintWithWriter))
+            (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
             (utils/throw-error-with-location (str "Protocol not found: " protocol-name) form))
         protocol-data (when (utils/var? protocol-var)
                         (deref protocol-var))
@@ -231,8 +231,7 @@
                       (if #?(:cljs print-writer?
                              :clj false)
                         #?(:cljs
-                           `(clojure.core/alter-meta!
-                             ~type assoc :sci.impl/print-method (fn ~@(rest (first meths))))
+                           (sci.impl.deftype/emit-pr-writer-impl type meths)
                            :clj nil)
                         `(do
                            (clojure.core/alter-var-root
