@@ -163,7 +163,7 @@
             (if-let [class-config (get class->opts instance-class-symbol)]
               (if-let [f (some-> class-config :instance-methods
                                  (get (symbol method-str)))]
-                (apply f instance-expr* args)
+                (apply f instance-expr* (map (fn [arg] (sci.impl.types/eval arg ctx bindings)) args))
                 (normal-interop instance-class))
               (let [^Class target-class (when-let [f (:public-class env)]
                                           (f instance-expr*))]

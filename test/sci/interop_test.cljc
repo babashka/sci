@@ -47,12 +47,14 @@
        (when-not tu/native?
          (let [config {:classes {'java.lang.String
                                  {:class java.lang.String
-                                  :instance-methods {'toString
+                                  :instance-methods {'lastIndexOf (fn [s needle] (.lastIndexOf s needle)) ; String/.lastIndexOf syntax only added as of 1.12
+                                                     'toString
                                                    ;; REVIEW should toString also receive the class like the functions in :static-methods
                                                      (fn [_s]
                                                        :dude)}}}}]
            (is (= :dude (tu/eval* "(.toString \"your name\")" config)))
-           (is (= 9 (tu/eval* "(.length \"your name\")" config))))))))
+           (is (= 9 (tu/eval* "(.length \"your name\")" config)))
+           (is (= 5 (tu/eval* "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config))))))))  
 
 
 #?(:clj
