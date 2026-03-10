@@ -225,6 +225,12 @@
 ;;;; IPrintWithWriter (CLJS only)
 
 #?(:cljs
+   (defmethod types/sci-pr-writer :sci.impl.protocols/reified [this w opts]
+     (if-let [pm (get (types/getMethods this) '-pr-writer)]
+       (pm this w opts)
+       (-write w "#object[sci.impl.types.Reified]"))))
+
+#?(:cljs
    (defn -pr-writer* [this writer opts]
      (cljs.core/-pr-writer this writer opts)))
 
@@ -233,7 +239,7 @@
      (utils/new-var
       'cljs.core.IPrintWithWriter
       {:protocol IPrintWithWriter
-       :methods #{-pr-writer*}
+       :methods #{types/sci-pr-writer}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 

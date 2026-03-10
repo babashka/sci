@@ -189,7 +189,7 @@
      (is (= "dude" (sci/eval-string "(deftype Foo [] IPrintWithWriter (-pr-writer [_ w opts] (-write w \"dude\"))) (pr-str (->Foo))")))
      (is (= "dude" (sci/eval-string "(defrecord Foo [x] IPrintWithWriter (-pr-writer [_ w opts] (-write w \"dude\"))) (pr-str (->Foo 1))")))
      (is (= "#reified" (sci/eval-string "(pr-str (reify IPrintWithWriter (-pr-writer [_ w opts] (-write w \"#reified\"))))")))
-     (is (true? (sci/eval-string "(fn? -pr-writer)")))
+     (is (true? (sci/eval-string "(ifn? -pr-writer)")))
      ;; field access in -pr-writer body
      (is (= "#Rec<42>" (sci/eval-string "(defrecord Rec [x] IPrintWithWriter (-pr-writer [_ w opts] (-write w (str \"#Rec<\" x \">\"))))(pr-str (->Rec 42))")))
      (is (= "#Typ<42>" (sci/eval-string "(deftype Typ [x] IPrintWithWriter (-pr-writer [_ w opts] (-write w (str \"#Typ<\" x \">\"))))(pr-str (->Typ 42))")))))

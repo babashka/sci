@@ -1338,7 +1338,7 @@
      #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                         {:ns clojure-core-ns})
                 'IPrintWithWriter core-protocols/print-writer-protocol
-                '-pr-writer (new-var '-pr-writer core-protocols/-pr-writer*)])
+                '-pr-writer (new-var '-pr-writer types/sci-pr-writer)])
      ;; cljs data structures
      #?@(:cljs ['Delay (copy-var Delay clojure-core-ns)])
      #?@(:cljs ['PersistentQueue (copy-var PersistentQueue clojure-core-ns)])

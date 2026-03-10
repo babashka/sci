@@ -221,12 +221,7 @@
      IPrintWithWriter
      ;; see https://www.mail-archive.com/clojure@googlegroups.com/msg99560.html
      (-pr-writer [this w opts]
-       (if-let [rv type-meta]
-         (let [m (meta rv)]
-           (if-let [pm (:sci.impl/print-method m)]
-             (pm this w opts)
-             (write-all w (clojure-str this))))
-         (write-all w (clojure-str this))))
+       (types/sci-pr-writer this w opts))
 
      IKVReduce
      (-kv-reduce [this f init]

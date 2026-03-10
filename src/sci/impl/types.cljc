@@ -29,6 +29,8 @@
        (defn getFields [obj]
          (.getFields ^ICustomType obj))))
 
+#?(:cljs (declare sci-pr-writer))
+
 (deftype Reified [interfaces meths protocols]
   ICustomType
   (getInterfaces [_] interfaces)
@@ -37,9 +39,7 @@
   (getFields [_] nil)
   #?@(:cljs [IPrintWithWriter
              (-pr-writer [this w opts]
-                         (if-let [pm (get meths '-pr-writer)]
-                           (pm this w opts)
-                           (-write w "#object[sci.impl.types.Reified]")))]))
+                         (sci-pr-writer this w opts))]))
 
 (defprotocol SciTypeInstance
   (-get-type [_])
@@ -58,6 +58,8 @@
       (some-> x meta :type)
       #?(:clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
+
+#?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
 
 (defn type-impl2
   "Externally available type implementation."
