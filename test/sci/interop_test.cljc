@@ -44,17 +44,16 @@
                                            :public-class (fn [o]
                                                            (when (instance? java.util.Map o) java.util.Map))}})))))
      (testing "single method override"
-       (when-not tu/native?
-         (let [config {:classes {'java.lang.String
-                                 {:class java.lang.String
-                                  :instance-methods {'lastIndexOf (fn [s needle] (.lastIndexOf s needle)) ; String/.lastIndexOf syntax only added as of 1.12
-                                                     'toString
+       (let [config {:classes {'java.lang.String
+                               {:class java.lang.String
+                                :instance-methods {'lastIndexOf (fn [s needle] (.lastIndexOf s needle)) ; String/.lastIndexOf syntax only added as of 1.12
+                                                   'toString
                                                    ;; REVIEW should toString also receive the class like the functions in :static-methods
-                                                     (fn [_s]
-                                                       :dude)}}}}]
-           (is (= :dude (tu/eval* "(.toString \"your name\")" config)))
-           (is (= 9 (tu/eval* "(.length \"your name\")" config)))
-           (is (= 5 (tu/eval* "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config))))))))  
+                                                   (fn [_s]
+                                                     :dude)}}}}]
+         (is (= :dude (sci/eval-string "(.toString \"your name\")" config)))
+         (is (= 9 (sci/eval-string "(.length \"your name\")" config)))
+         (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config)))))))  
 
 
 #?(:clj
