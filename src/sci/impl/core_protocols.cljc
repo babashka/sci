@@ -245,4 +245,27 @@
 
 ;;;; end IPrintWithWriter
 
+;;;; IFn (CLJS only)
+
+#?(:cljs
+   (def ifn-protocol
+     (utils/new-var
+      'cljs.core.IFn
+      {:protocol IFn
+       :methods #{types/sci-invoke}
+       :ns cljs-core-ns}
+      {:ns cljs-core-ns})))
+
+#?(:cljs
+   (defn sci-ifn? [x]
+     (cond
+       (fn? x) true
+       (instance? types/Reified x)
+       (boolean (get (types/getMethods x) '-invoke))
+       (cljs.core/implements? types/SciTypeInstance x)
+       (boolean (get-method types/sci-invoke (types/type-impl x)))
+       :else (ifn? x))))
+
+;;;; end IFn
+
 (def defaults (set (conj iatom-defaults ideref-default)))

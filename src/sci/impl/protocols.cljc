@@ -6,6 +6,7 @@
   (:require
    [sci.ctx-store :as store]
    #?(:clj [sci.impl.interop :as interop])
+   [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype]
    [sci.impl.multimethods :as mms]
    [sci.impl.types :as types]
@@ -283,7 +284,9 @@
                        IDeref (cljs.core/satisfies? IDeref obj)
                        ISwap (cljs.core/satisfies? ISwap obj)
                        IReset (cljs.core/satisfies? IReset obj)
-                       IRecord (cljs.core/satisfies? IRecord obj)))
+                       IRecord (cljs.core/satisfies? IRecord obj)
+                       IFn (core-protocols/sci-ifn? obj)
+                       nil))
                 (find-matching-non-default-method protocol obj)))
        ;; NOTE: what if the protocol doesn't have any methods?
        ;; This probably needs fixing

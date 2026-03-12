@@ -1338,7 +1338,9 @@
      #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                         {:ns clojure-core-ns})
                 'IPrintWithWriter core-protocols/print-writer-protocol
-                '-pr-writer (new-var '-pr-writer types/sci-pr-writer)])
+                '-pr-writer (new-var '-pr-writer types/sci-pr-writer)
+                'IFn core-protocols/ifn-protocol
+                '-invoke (new-var '-invoke types/sci-invoke)])
      ;; cljs data structures
      #?@(:cljs ['Delay (copy-var Delay clojure-core-ns)])
      #?@(:cljs ['PersistentQueue (copy-var PersistentQueue clojure-core-ns)])
@@ -1556,7 +1558,8 @@
      'if-let (macrofy 'if-let if-let*)
      'if-some (macrofy 'if-some if-some*)
      'if-not (macrofy 'if-not if-not*)
-     'ifn? (copy-core-var ifn?)
+     'ifn? #?(:clj (copy-core-var ifn?)
+              :cljs (copy-var core-protocols/sci-ifn? clojure-core-ns {:name 'ifn?}))
      'inc (copy-core-var inc)
      'inst? (copy-core-var inst?)
      'inst-ms (copy-core-var inst-ms)
