@@ -49,3 +49,18 @@
                    {:parents (parents h T)
                     :ancestors (ancestors h T)
                     :descendants (descendants h :user/datatype)})"))))
+
+(deftest hierarchy-lookups-work-transitively-for-sci-types
+  (is (= {:parents #{:user/child}
+          :ancestors #{:user/parent :user/child}
+          :descendants-child #{'user/R}
+          :descendants-parent #{:user/child 'user/R}}
+         (eval* "(do
+                   (defrecord R [])
+                   (def h (-> (make-hierarchy)
+                              (derive :user/child :user/parent)
+                              (derive R :user/child)))
+                   {:parents (parents h R)
+                    :ancestors (ancestors h R)
+                    :descendants-child (descendants h :user/child)
+                    :descendants-parent (descendants h :user/parent)})"))))
