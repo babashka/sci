@@ -147,15 +147,17 @@
 #?(:clj (defrecord Ctx [bindings env
                         features readers
                         reload-all
-                        check-permissions]))
+                        check-permissions
+                        resource-check]))
 
-(defn ->ctx [bindings env features readers check-permissions?]
+(defn ->ctx [bindings env features readers check-permissions? & {:keys [resource-check]}]
   #?(:cljs {:bindings bindings
             :env env
             :features features
             :readers readers
-            :check-permissions check-permissions?}
-     :clj (->Ctx bindings env features readers false check-permissions?)))
+            :check-permissions check-permissions?
+            :resource-check resource-check}
+     :clj (->Ctx bindings env features readers false check-permissions? resource-check)))
 
 (def default-ns-aliases
   #?(:clj {}
@@ -176,6 +178,7 @@
            reify-fn
            proxy-fn
            deftype-fn
+           resource-check
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
            ns-aliases]}]
@@ -188,7 +191,8 @@
                      bindings (merge {'user (assoc bindings :obj utils/user-ns)}))
         _ (init-env! env aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
-        ctx (assoc (->ctx {} env features readers (or allow deny))
+        ctx (assoc (->ctx {} env features readers (or allow deny)
+                          :resource-check resource-check)
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)

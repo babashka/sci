@@ -25,7 +25,9 @@
   ([n _disable-arity-checks varargs]
    (if (zero? n)
      (let [varargs-param (when varargs (gensym))]
-       `(let [recur# recur]
+       `(let [recur# recur
+              ;; Cache resource-check lookup (nil if not configured)
+              rc# (:resource-check ~'ctx)]
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
@@ -38,7 +40,7 @@
                (loop []
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
-                     (recur)
+                     (do (when rc# (rc#)) (recur))
                      ret#))))))))
      (let [fn-params (vec (repeatedly n gensym))
            varargs-param (when varargs (gensym))
@@ -46,7 +48,8 @@
                                `(aset ~(with-meta 'invoc-array
                                          {:tag 'objects}) ~idx ~fn-param))
                              fn-params (range)))]
-       `(let [recur# recur]
+       `(let [recur# recur
+              rc# (:resource-check ~'ctx)]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
@@ -60,7 +63,7 @@
                (loop []
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
-                     (recur)
+                     (do (when rc# (rc#)) (recur))
                      ret#)))))))))))
 
 #_(require '[clojure.pprint :as pprint])

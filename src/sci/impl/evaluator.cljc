@@ -267,8 +267,8 @@
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(eval ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx bindings f args]
-         ;; TODO: can we prevent hitting this at all, by analyzing more efficiently?
-         ;; (prn :count ~'f ~'(count args) ~'args)
+         ;; Resource check on function calls (if configured)
+         (when-let [rc# (:resource-check ~'ctx)] (rc#))
          (case ~'(count args)
            ~@cases)))))
 
