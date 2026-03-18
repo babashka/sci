@@ -36,4 +36,15 @@
   (is (thrown-with-msg?
        #?(:clj Exception :cljs js/Error)
        #"Mismatched argument count to recur, expected: 2 args, got: 1"
-       (sci/eval-string "(fn [f & args] (recur f))"))))
+       (sci/eval-string "(fn [f & args] (recur f))")))
+  (is (= 82
+         (sci/eval-string
+          "(letfn [(triple [x] #(sub-two (* 3 x)))
+                   (sub-two [x] #(stop? (- x 2)))
+                   (stop? [x] (if (> x 50) x #(triple x)))]
+             ((fn [f & args]
+                (let [r (apply f args)]
+                  (if (fn? r)
+                    (recur r nil)
+                    r)))
+              triple 2))"))))
