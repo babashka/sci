@@ -27,3 +27,13 @@
   (is (not (second (constant-node? "(+ 1 2 3)"))))
   (is (not (second(constant-node? "^{:a (+ 1 2 3)} []"))))
   )
+
+(deftest recur-arity-analysis-test
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"Mismatched argument count to recur, expected: 2 args, got: 1"
+       (sci/eval-string "(fn [a b] (recur 1))")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"Mismatched argument count to recur, expected: 2 args, got: 1"
+       (sci/eval-string "(fn [f & args] (recur f))"))))

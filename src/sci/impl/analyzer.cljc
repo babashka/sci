@@ -219,7 +219,9 @@
                                                  `(nth ~'params ~j)])
                                               (range i)))])
                             (range 1 20))
-          recur-sym (gensym "recur")]
+          recur-sym (gensym "recur")
+          expected-count-sym (gensym "expected-count")
+          arg-count-sym (gensym "arg-count")]
       `(defn ~'return-recur
          ~'[ctx expr analyzed-children]
          (when-not (recur-target? ~'ctx)
@@ -227,8 +229,15 @@
             (case (:no-recur-reason ~'ctx)
               :try "Cannot recur across try"
               "Can only recur from tail position") ~'expr))
-         (let [~'params (:params ~'ctx)]
-           (case (count ~'analyzed-children)
+         (let [~'params (:params ~'ctx)
+               ~expected-count-sym (count ~'params)
+               ~arg-count-sym (count ~'analyzed-children)]
+           (when-not (= ~expected-count-sym ~arg-count-sym)
+             (throw-error-with-location
+              (str "Mismatched argument count to recur, expected: "
+                   ~expected-count-sym " args, got: " ~arg-count-sym)
+              ~'expr))
+           (case ~arg-count-sym
              ~@(concat
                 [0 `(let [recur# recur] (sci.impl.types/->Node recur# nil))]
                 (mapcat (fn [[i binds]]

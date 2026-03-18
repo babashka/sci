@@ -678,6 +678,17 @@
     (is (= '(10) (eval* "(defn foo [x & xs]
                            (if (pos? x) (recur (dec x) (rest xs)) xs))
                          (apply foo 10 (range 11))"))))
+  (testing "mismatched recur arity"
+    (is (thrown-with-msg?
+         Exception
+         #"Mismatched argument count to recur, expected: 2 args, got: 1"
+         (eval* "(fn [a b] (recur 1))")))
+    (is (thrown-with-msg?
+         Exception
+         #"Mismatched argument count to recur, expected: 2 args, got: 1"
+         (eval* "(fn [f & args]
+                   (let [r (apply f args)]
+                     (if (fn? r) (recur r) r)))"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
