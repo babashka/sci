@@ -677,7 +677,17 @@
     (recur (map #(map inc %) sqs)))) [1 2] [3 4])")))
     (is (= '(10) (eval* "(defn foo [x & xs]
                            (if (pos? x) (recur (dec x) (rest xs)) xs))
-                         (apply foo 10 (range 11))"))))
+                         (apply foo 10 (range 11))")))
+    (is (= 82 (eval* "
+(letfn [(triple [x] #(sub-two (* 3 x)))
+         (sub-two [x] #(stop? (- x 2)))
+         (stop? [x] (if (> x 50) x #(triple x)))]
+  ((fn [f & args]
+     (let [r (apply f args)]
+       (if (fn? r)
+         (recur r nil)
+         r)))
+   triple 2))"))))
   (testing "mismatched recur arity"
     (is (thrown-with-msg?
          Exception
