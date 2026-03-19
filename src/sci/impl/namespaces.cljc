@@ -528,11 +528,16 @@
   (let [ctx (store/get-ctx)]
     (sci-ns-refers* ctx sci-ns)))
 
+(defn sci-ns-types* [ctx sci-ns]
+  (let [name (sci-ns-name* ctx sci-ns)]
+    (get-in @(:env ctx) [:namespaces name :types])))
+
 (defn sci-ns-map [sci-ns]
   (let [ctx (store/get-ctx)]
     (merge (sci-ns-imports* ctx sci-ns)
            (sci-ns-refers* ctx sci-ns)
-           (sci-ns-interns* ctx sci-ns))))
+           (sci-ns-interns* ctx sci-ns)
+           (sci-ns-types* ctx sci-ns))))
 
 (defn sci-ns-unmap [sci-ns sym]
   (let [ctx (store/get-ctx)]

@@ -435,6 +435,18 @@
                  (some #(and (seq? %) (= 'deftype* (first %))) forms))"
               {})))))))
 
+(deftest ns-map-includes-types-test
+  (testing "defrecord type appears in ns-map"
+    (is (true? (tu/eval* "(defrecord Foo [x]) (contains? (ns-map *ns*) 'Foo)" {}))))
+  (testing "deftype type appears in ns-map"
+    (is (true? (tu/eval* "(deftype Bar [x]) (contains? (ns-map *ns*) 'Bar)" {}))))
+  (testing "defrecord type appears in ns-map after cross-namespace import"
+    (is (true? (tu/eval* "(ns a) (defrecord Foo [x])
+                           (ns b (:import [a Foo]))
+                           (contains? (ns-map *ns*) 'Foo)" {}))))
+  (testing "ns-map type entry is a class"
+    (is (true? (tu/eval* "(defrecord Foo [x]) (class? (get (ns-map *ns*) 'Foo))" {})))))
+
 (deftest deftype-resolve-test
   (testing "resolve returns Type, not Var, in defining namespace"
     (is (true? (tu/eval* "(deftype Foo [x]) (instance? sci.lang.Type (resolve 'Foo))" {})))
