@@ -788,7 +788,14 @@
 (def state (atom []))
 (doseq [i [1 2 3]] (swap! state conj i))
 @state"
-                           {}))))
+                           {})))
+  (is (thrown-with-msg?
+       Exception
+       #"Mismatched argument count to recur, expected: 3 args, got: 4"
+       (tu/eval* "(loop [x 1 y 2 z 3]
+                    (if (< x 5)
+                      (recur (unchecked-inc x) x y z)))"
+                 {}))))
 
 (deftest for-test
   (is (= '([1 4] [1 6])
