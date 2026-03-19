@@ -444,8 +444,9 @@
     (is (true? (tu/eval* "(ns a) (defrecord Foo [x])
                            (ns b (:import [a Foo]))
                            (contains? (ns-map *ns*) 'Foo)" {}))))
-  (testing "ns-map type entry is a class"
-    (is (true? (tu/eval* "(defrecord Foo [x]) (class? (get (ns-map *ns*) 'Foo))" {})))))
+  #?(:clj
+     (testing "ns-map type entry is a class"
+       (is (true? (tu/eval* "(defrecord Foo [x]) (class? (get (ns-map *ns*) 'Foo))" {}))))))
 
 (deftest deftype-resolve-test
   (testing "resolve returns Type, not Var, in defining namespace"
