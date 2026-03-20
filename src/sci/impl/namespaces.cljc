@@ -835,7 +835,9 @@
       'compareAndSet core-protocols/compareAndSet
       'IAtom2 core-protocols/iatom2-protocol
       'resetVals core-protocols/resetVals
-      'swapVals core-protocols/swapVals}))
+      'swapVals core-protocols/swapVals
+      'IFn core-protocols/ifn-protocol
+      'invoke (new-var 'invoke types/sci-invoke)}))
 
 ;;;; Record impl
 
@@ -859,8 +861,7 @@
    :private true
    'toString sci.impl.records/to-string
    '-create-record-type -create-type
-   '->record-impl sci.impl.records/->record-impl
-   #?@(:clj ['invoke (new-var 'invoke types/sci-invoke)])})
+   '->record-impl sci.impl.records/->record-impl})
 
 (def sci-impl-deftype
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)

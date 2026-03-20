@@ -268,8 +268,8 @@
       'IFn
       {:protocol clojure.lang.IFn
        :methods #{types/sci-invoke}
-       :ns clj-core-ns}
-      {:ns clj-core-ns})))
+       :ns clj-lang-ns}
+      {:ns clj-lang-ns})))
 
 (defn sci-ifn? [x]
   (cond
