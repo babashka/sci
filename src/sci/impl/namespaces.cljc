@@ -859,7 +859,8 @@
    :private true
    'toString sci.impl.records/to-string
    '-create-record-type -create-type
-   '->record-impl sci.impl.records/->record-impl})
+   '->record-impl sci.impl.records/->record-impl
+   #?@(:clj ['invoke (new-var 'invoke types/sci-invoke)])})
 
 (def sci-impl-deftype
   {:obj (sci.lang/->Namespace 'sci.impl.deftype nil)
@@ -1563,8 +1564,7 @@
      'if-let (macrofy 'if-let if-let*)
      'if-some (macrofy 'if-some if-some*)
      'if-not (macrofy 'if-not if-not*)
-     'ifn? #?(:clj (copy-core-var ifn?)
-              :cljs (copy-var core-protocols/sci-ifn? clojure-core-ns {:name 'ifn?}))
+     'ifn? (copy-var core-protocols/sci-ifn? clojure-core-ns {:name 'ifn?})
      'inc (copy-core-var inc)
      'inst? (copy-core-var inst?)
      'inst-ms (copy-core-var inst-ms)

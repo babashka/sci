@@ -593,3 +593,41 @@
     (is (some? (tu/eval* "(ns foo+) (defrecord Dude []) (some? (->Dude))" {}))))
   (testing "deftype works in ns with + in name"
     (is (some? (tu/eval* "(ns bar+) (deftype Thing [x]) (some? (->Thing 1))" {})))))
+
+(deftest ifn-on-defrecord-test
+  (let [opts {:features #?(:clj #{:clj} :cljs #{:cljs})}]
+    (testing "defrecord with IFn single arity"
+      (is (= "Hello, world!"
+             (sci/eval-string "
+(defrecord Greeter [greeting]
+  #?(:clj clojure.lang.IFn :cljs IFn)
+  (#?(:clj invoke :cljs -invoke) [this name]
+    (str greeting \", \" name \"!\")))
+((->Greeter \"Hello\") \"world\")" opts))))
+    (testing "defrecord with IFn multiple arities"
+      (is (= [42 3]
+             (sci/eval-string "
+(defrecord Adder [x]
+  #?(:clj clojure.lang.IFn :cljs IFn)
+  (#?(:clj invoke :cljs -invoke) [this]
+    x)
+  (#?(:clj invoke :cljs -invoke) [this y]
+    (+ x y)))
+[((->Adder 42)) ((->Adder 1) 2)]" opts))))
+    (testing "defrecord with IFn and other protocols"
+      (is (= ["called: hi" true]
+             (sci/eval-string "
+(defprotocol Greetable (greet [this]))
+(defrecord Greeter [greeting]
+  Greetable
+  (greet [this] (str \"greeting: \" greeting))
+  #?(:clj clojure.lang.IFn :cljs IFn)
+  (#?(:clj invoke :cljs -invoke) [this arg]
+    (str \"called: \" arg)))
+(let [g (->Greeter \"hi\")]
+  [(g \"hi\") (= \"greeting: hi\" (greet g))])" opts))))
+    (testing "ifn? is false for records without IFn"
+      (is (false?
+           (sci/eval-string "
+(defrecord Plain [x])
+(ifn? (->Plain 1))" opts))))))

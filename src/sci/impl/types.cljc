@@ -30,7 +30,7 @@
          (.getFields ^ICustomType obj))))
 
 #?(:cljs (declare sci-pr-writer))
-#?(:cljs (declare sci-invoke))
+(declare sci-invoke)
 
 (deftype Reified [interfaces meths protocols]
   ICustomType
@@ -104,7 +104,7 @@
          :cljs (type x))))
 
 #?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
-#?(:cljs (defmulti sci-invoke (fn [x & _] (type-impl x))))
+(defmulti sci-invoke (fn [x & _] (type-impl x)))
 
 (defn type-impl2
   "Externally available type implementation."

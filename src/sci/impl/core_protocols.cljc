@@ -2,9 +2,13 @@
   {:no-doc true}
   (:refer-clojure :exclude [deref -deref -swap! -reset!])
   (:require
+   [sci.impl.deftype]
+   [sci.impl.records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
-   [sci.lang :as lang]))
+   [sci.lang :as lang])
+  #?(:clj (:import [sci.impl.records SciRecord]
+                    [sci.impl.deftype SciType])))
 
 ;;;; IDeref
 
@@ -33,6 +37,8 @@
 
 #?(:clj
    (def clj-lang-ns (lang/->Namespace 'clojure.lang nil)))
+#?(:clj
+   (def clj-core-ns (lang/->Namespace 'clojure.core nil)))
 #?(:cljs
    (def cljs-core-ns (lang/->Namespace 'cljs.core nil)))
 
@@ -245,7 +251,7 @@
 
 ;;;; end IPrintWithWriter
 
-;;;; IFn (CLJS only)
+;;;; IFn
 
 #?(:cljs
    (def ifn-protocol
@@ -256,15 +262,27 @@
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
 
-#?(:cljs
-   (defn sci-ifn? [x]
-     (cond
-       (fn? x) true
-       (instance? types/Reified x)
-       (boolean (get (types/getMethods x) '-invoke))
-       (cljs.core/implements? types/SciTypeInstance x)
-       (boolean (get-method types/sci-invoke (types/type-impl x)))
-       :else (ifn? x))))
+#?(:clj
+   (def ifn-protocol
+     (utils/new-var
+      'IFn
+      {:protocol clojure.lang.IFn
+       :methods #{types/sci-invoke}
+       :ns clj-core-ns}
+      {:ns clj-core-ns})))
+
+(defn sci-ifn? [x]
+  (cond
+    (fn? x) true
+    (#?(:clj instance?
+        :cljs cljs.core/implements?) #?(:clj sci.impl.types.SciTypeInstance
+                                        :cljs types/SciTypeInstance) x)
+    (boolean (get-method types/sci-invoke (types/type-impl x)))
+    #?@(:clj [(instance? clojure.lang.IFn x) true]
+        :cljs [(instance? types/Reified x)
+               (boolean (get (types/getMethods x) '-invoke))])
+    :else #?(:clj false
+             :cljs (ifn? x))))
 
 ;;;; end IFn
 

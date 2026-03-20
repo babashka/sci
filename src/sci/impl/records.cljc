@@ -138,7 +138,31 @@
 
      sci.impl.types/SciTypeInstance
      (-get-type [_]
-       type)))
+       type)
+
+     clojure.lang.IFn
+     (invoke [this] (types/sci-invoke this))
+     (invoke [this a] (types/sci-invoke this a))
+     (invoke [this a b] (types/sci-invoke this a b))
+     (invoke [this a b c] (types/sci-invoke this a b c))
+     (invoke [this a b c d] (types/sci-invoke this a b c d))
+     (invoke [this a b c d e] (types/sci-invoke this a b c d e))
+     (invoke [this a b c d e f] (types/sci-invoke this a b c d e f))
+     (invoke [this a b c d e f g] (types/sci-invoke this a b c d e f g))
+     (invoke [this a b c d e f g h] (types/sci-invoke this a b c d e f g h))
+     (invoke [this a b c d e f g h i] (types/sci-invoke this a b c d e f g h i))
+     (invoke [this a b c d e f g h i j] (types/sci-invoke this a b c d e f g h i j))
+     (invoke [this a b c d e f g h i j k] (types/sci-invoke this a b c d e f g h i j k))
+     (invoke [this a b c d e f g h i j k l] (types/sci-invoke this a b c d e f g h i j k l))
+     (invoke [this a b c d e f g h i j k l m] (types/sci-invoke this a b c d e f g h i j k l m))
+     (invoke [this a b c d e f g h i j k l m n] (types/sci-invoke this a b c d e f g h i j k l m n))
+     (invoke [this a b c d e f g h i j k l m n o] (types/sci-invoke this a b c d e f g h i j k l m n o))
+     (invoke [this a b c d e f g h i j k l m n o p] (types/sci-invoke this a b c d e f g h i j k l m n o p))
+     (invoke [this a b c d e f g h i j k l m n o p q] (types/sci-invoke this a b c d e f g h i j k l m n o p q))
+     (invoke [this a b c d e f g h i j k l m n o p q r] (types/sci-invoke this a b c d e f g h i j k l m n o p q r))
+     (invoke [this a b c d e f g h i j k l m n o p q r s] (types/sci-invoke this a b c d e f g h i j k l m n o p q r s))
+     (invoke [this a b c d e f g h i j k l m n o p q r s t] (types/sci-invoke this a b c d e f g h i j k l m n o p q r s t))
+     (applyTo [this args] (apply types/sci-invoke this args))))
 
 ;; See https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
 #?(:cljs
