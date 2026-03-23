@@ -639,4 +639,13 @@
   clojure.lang.IFn
   (invoke [_] 3))
 ((->Dude))"
+                                 {:classes {'clojure.lang.IFn clojure.lang.IFn}})))))
+    #?(:clj
+       (testing "defrecord with IFn applyTo"
+         (is (= 3
+                (sci/eval-string "
+(defrecord Dude []
+  clojure.lang.IFn
+  (applyTo [_ xs] 3))
+(apply (->Dude) [])"
                                  {:classes {'clojure.lang.IFn clojure.lang.IFn}})))))))

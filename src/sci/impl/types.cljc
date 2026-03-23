@@ -105,6 +105,9 @@
 
 #?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
 (defmulti sci-invoke (fn [x & _] (type-impl x)))
+#?(:clj (defmulti sci-apply-to (fn [x & _] (type-impl x))))
+#?(:clj (defmethod sci-apply-to :default [x args]
+          (apply sci-invoke x args)))
 
 (defn type-impl2
   "Externally available type implementation."

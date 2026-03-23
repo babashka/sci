@@ -837,7 +837,8 @@
       'resetVals core-protocols/resetVals
       'swapVals core-protocols/swapVals
       'IFn core-protocols/ifn-protocol
-      'invoke (new-var 'invoke types/sci-invoke)}))
+      'invoke (new-var 'invoke types/sci-invoke)
+      'applyTo (new-var 'applyTo types/sci-apply-to)}))
 
 ;;;; Record impl
 

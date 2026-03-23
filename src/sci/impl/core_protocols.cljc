@@ -37,8 +37,6 @@
 
 #?(:clj
    (def clj-lang-ns (lang/->Namespace 'clojure.lang nil)))
-#?(:clj
-   (def clj-core-ns (lang/->Namespace 'clojure.core nil)))
 #?(:cljs
    (def cljs-core-ns (lang/->Namespace 'cljs.core nil)))
 
@@ -267,7 +265,7 @@
      (utils/new-var
       'IFn
       {:protocol clojure.lang.IFn
-       :methods #{types/sci-invoke}
+       :methods #{types/sci-invoke types/sci-apply-to}
        :ns clj-lang-ns}
       {:ns clj-lang-ns})))
 
