@@ -286,7 +286,8 @@
                                           (fnil conj #{}) (str rec-type)))
                  protocol-ns (:ns protocol)
                  pns (cond protocol-ns (str (types/getName protocol-ns))
-                           (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
+                           (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records"
+                           #?@(:clj [(= clojure.lang.IFn protocol) "clojure.lang"]))
                  fq-meth-name #(if (simple-symbol? %)
                                   (symbol pns (str %))
                                   %)]

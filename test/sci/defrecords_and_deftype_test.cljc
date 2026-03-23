@@ -630,4 +630,13 @@
       (is (false?
            (sci/eval-string "
 (defrecord Plain [x])
-(ifn? (->Plain 1))" opts))))))
+(ifn? (->Plain 1))" opts))))
+    #?(:clj
+       (testing "defrecord with IFn via class resolution (as in babashka)"
+         (is (= 3
+                (sci/eval-string "
+(defrecord Dude []
+  clojure.lang.IFn
+  (invoke [_] 3))
+((->Dude))"
+                                 {:classes {'clojure.lang.IFn clojure.lang.IFn}})))))))
