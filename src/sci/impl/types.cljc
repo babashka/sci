@@ -30,6 +30,7 @@
          (.getFields ^ICustomType obj))))
 
 #?(:cljs (declare sci-pr-writer))
+(declare sci-invoke)
 
 (deftype Reified [interfaces meths protocols]
   ICustomType
@@ -39,7 +40,50 @@
   (getFields [_] nil)
   #?@(:cljs [IPrintWithWriter
              (-pr-writer [this w opts]
-                         (sci-pr-writer this w opts))]))
+                         (sci-pr-writer this w opts))
+             IFn
+             (-invoke [this]
+                      ((get meths '-invoke) this))
+             (-invoke [this a]
+                      ((get meths '-invoke) this a))
+             (-invoke [this a b]
+                      ((get meths '-invoke) this a b))
+             (-invoke [this a b c]
+                      ((get meths '-invoke) this a b c))
+             (-invoke [this a b c d]
+                      ((get meths '-invoke) this a b c d))
+             (-invoke [this a b c d e]
+                      ((get meths '-invoke) this a b c d e))
+             (-invoke [this a b c d e f]
+                      ((get meths '-invoke) this a b c d e f))
+             (-invoke [this a b c d e f g]
+                      ((get meths '-invoke) this a b c d e f g))
+             (-invoke [this a b c d e f g h]
+                      ((get meths '-invoke) this a b c d e f g h))
+             (-invoke [this a b c d e f g h i]
+                      ((get meths '-invoke) this a b c d e f g h i))
+             (-invoke [this a b c d e f g h i j]
+                      ((get meths '-invoke) this a b c d e f g h i j))
+             (-invoke [this a b c d e f g h i j k]
+                      ((get meths '-invoke) this a b c d e f g h i j k))
+             (-invoke [this a b c d e f g h i j k l]
+                      ((get meths '-invoke) this a b c d e f g h i j k l))
+             (-invoke [this a b c d e f g h i j k l m]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m))
+             (-invoke [this a b c d e f g h i j k l m n]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m n))
+             (-invoke [this a b c d e f g h i j k l m n o]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m n o))
+             (-invoke [this a b c d e f g h i j k l m n o p]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m n o p))
+             (-invoke [this a b c d e f g h i j k l m n o p q]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m n o p q))
+             (-invoke [this a b c d e f g h i j k l m n o p q r]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m n o p q r))
+             (-invoke [this a b c d e f g h i j k l m n o p q r s]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m n o p q r s))
+             (-invoke [this a b c d e f g h i j k l m n o p q r s t]
+                      ((get meths '-invoke) this a b c d e f g h i j k l m n o p q r s t))]))
 
 (defprotocol SciTypeInstance
   (-get-type [_])
@@ -60,6 +104,10 @@
          :cljs (type x))))
 
 #?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
+(defmulti sci-invoke (fn [x & _] (type-impl x)))
+#?(:clj (defmulti sci-apply-to (fn [x & _] (type-impl x))))
+#?(:clj (defmethod sci-apply-to :default [x args]
+          (apply sci-invoke x args)))
 
 (defn type-impl2
   "Externally available type implementation."
