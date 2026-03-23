@@ -434,7 +434,9 @@
                              {:classes {'BigDecimal BigDecimal :allow :all}})))))
 
 (deftest ns-resolve-test
-  (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
+  (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)")))
+  (is (thrown? #?(:clj Exception :cljs js/Error)
+               (eval* "(ns-resolve (find-ns 'nonexistent.ns) 'foo)"))))
 
 (deftest top-level-test
   (testing "top level expressions are evaluated in order and have side effects,

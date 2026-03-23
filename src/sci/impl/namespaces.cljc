@@ -419,8 +419,8 @@
   (sci.impl.utils/namespace-object (:env (store/get-ctx)) ns-sym true nil))
 
 (defn sci-find-ns* [ctx ns-sym]
-  (assert (symbol? ns-sym))
-  (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil))
+  (when ns-sym
+    (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil)))
 
 (defn sci-find-ns [ns-sym]
   (sci-find-ns* (store/get-ctx) ns-sym))
