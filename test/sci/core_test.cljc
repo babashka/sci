@@ -797,7 +797,35 @@
        (tu/eval* "(loop [x 1 y 2 z 3]
                     (if (< x 5)
                       (recur (unchecked-inc x) x y z)))"
-                 {}))))
+                 {})))
+  (testing "20+ bindings in loop with recur (GH-1035)"
+    (is (= [20 1]
+           (tu/eval* "
+(loop [a1 1 a2 2 a3 3 a4 4 a5 5
+       a6 6 a7 7 a8 8 a9 9 a10 10
+       a11 11 a12 12 a13 13 a14 14 a15 15
+       a16 16 a17 17 a18 18 a19 19 a20 20]
+  (if (= a1 20)
+    [a1 a20]
+    (recur a20 a2 a3 a4 a5
+           a6 a7 a8 a9 a10
+           a11 a12 a13 a14 a15
+           a16 a17 a18 a19 a1)))"
+                     {})))
+    (is (= 211
+           (tu/eval* "
+(loop [a1 1 a2 2 a3 3 a4 4 a5 5
+       a6 6 a7 7 a8 8 a9 9 a10 10
+       a11 11 a12 12 a13 13 a14 14 a15 15
+       a16 16 a17 17 a18 18 a19 19 a20 20]
+  (if (zero? a1)
+    (+ a1 a2 a3 a4 a5 a6 a7 a8 a9 a10
+       a11 a12 a13 a14 a15 a16 a17 a18 a19 a20)
+    (recur (dec a1) (inc a2) (* a3 1) a4 a5
+           a6 a7 a8 a9 (+ a10 a1)
+           a11 a12 a13 a14 a15
+           a16 a17 a18 a19 a20)))"
+                     {})))))
 
 (deftest for-test
   (is (= '([1 4] [1 6])

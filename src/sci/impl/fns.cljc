@@ -140,7 +140,23 @@
                17 (gen-fn 17)
                18 (gen-fn 18)
                19 (gen-fn 19)
-               20 (gen-fn 20)))]
+               20 (gen-fn 20)
+               ;; default case for 20+ args (used by loop)
+               (let [recur# recur]
+                 (fn arity-many [& args]
+                   (let [invoc-array (when-not (zero? invoc-size)
+                                      (object-array invoc-size))]
+                     (when enclosed->invocation
+                       (enclosed->invocation enclosed-array invoc-array))
+                     (loop [args args i 0]
+                       (when (< i fixed-arity)
+                         (aset ^objects invoc-array i (first args))
+                         (recur (next args) (inc i))))
+                     (loop []
+                       (let [ret (types/eval body ctx invoc-array)]
+                         (if (identical? recur# ret)
+                           (recur)
+                           ret))))))))]
      f)))
 
 (defn lookup-by-arity [arities arity]
