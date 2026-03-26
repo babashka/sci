@@ -174,10 +174,17 @@
           g
           (last steps)))))
 
+(defn- assert-single-binding-vector [expr macro-name bindings]
+  (when-not (vector? bindings)
+    (utils/throw-error-with-location (str macro-name " requires a vector for its binding") expr))
+  (when-not (= 2 (count bindings))
+    (utils/throw-error-with-location (str macro-name " requires exactly 2 forms in binding vector") expr)))
+
 (defn if-let*
   ([&form &env bindings then]
    (if-let* &form &env bindings then nil))
   ([&form _&env bindings then else & _oldform]
+   (assert-single-binding-vector &form "if-let" bindings)
    (let [form (bindings 0) tst (bindings 1)
          tmp (gensym "temp")]
      `(let [~tmp ~tst]
@@ -191,6 +198,7 @@
   ([&form &env bindings then]
    (if-some* &form &env bindings then nil))
   ([&form _&env bindings then else & _oldform]
+   (assert-single-binding-vector &form "if-some" bindings)
    (let [form (bindings 0) tst (bindings 1)
          tmp (gensym "temp")]
      `(let [~tmp ~tst]
@@ -203,6 +211,7 @@
 
 (defn when-let*
   [&form _&env bindings & body]
+  (assert-single-binding-vector &form "when-let" bindings)
   (let [form (bindings 0) tst (bindings 1)
         tmp (gensym "temp")]
     `(let [~tmp ~tst]
@@ -219,6 +228,7 @@
          ~@body))))
 
 (defn when-some* [&form _ bindings & body]
+  (assert-single-binding-vector &form "when-some" bindings)
   (let [form (bindings 0) tst (bindings 1)
         tmp (gensym "temp")]
     `(let [~tmp ~tst]

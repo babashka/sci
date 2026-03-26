@@ -1288,13 +1288,29 @@
   (is (= 2 (eval* "(if-let [foo nil] 1 2)")))
   (is (= 2 (eval* "(if-let [foo false] 1 2)")))
   (is (= 2 (eval* "(if-some [foo nil] 1 2)")))
-  (is (= 1 (eval* "(if-some [foo false] 1 2)"))))
+  (is (= 1 (eval* "(if-some [foo false] 1 2)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"if-let requires exactly 2 forms in binding vector"
+       (eval* "(if-let [x (range 5) y (range 5)] x :else)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"if-some requires exactly 2 forms in binding vector"
+       (eval* "(if-some [x (range 5) y (range 5)] x :else)"))))
 
 (deftest whens-test
   (is (= nil (eval* "(when-let [foo nil] 1)")))
   (is (= nil (eval* "(when-let [foo false] 1)")))
   (is (= nil (eval* "(when-some [foo nil] 1)")))
-  (is (= 1 (eval* "(when-some [foo false] 1)"))))
+  (is (= 1 (eval* "(when-some [foo false] 1)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"when-let requires exactly 2 forms in binding vector"
+       (eval* "(when-let [x (range 5) y (range 5)] x)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"when-some requires exactly 2 forms in binding vector"
+       (eval* "(when-some [x (range 5) y (range 5)] x)"))))
 
 (deftest read-string-eval-test
   (is (= 3 (eval* "(load-string \"1 2 3\")")))
