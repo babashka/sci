@@ -12,6 +12,8 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Fix `recur` with 20+ args in `loop` [#1035](https://github.com/babashka/sci/issues/1035)
+- Support `IFn` on `defrecord`, `deftype` and `reify` [#808](https://github.com/babashka/sci/issues/808), [babashka#1386](https://github.com/babashka/babashka/issues/1386), [nbb#408](https://github.com/babashka/nbb/issues/408)
 - Add test for `defrecord`/`deftype` in namespaces with special characters like `+` [babashka#1868](https://github.com/babashka/babashka/issues/1868)
 - Fix `.sym` on user-defined vars returning qualified symbol instead of unqualified, matching Clojure
 - `def` now replaces var metadata instead of merging, matching Clojure semantics. Previously, `(declare foo) (def foo 42)` would leave `:declared true` on the var's metadata.

@@ -256,7 +256,15 @@
                                               (range i)))
                                    ~recur-sym)
                                  nil))])
-                        let-bindings))))))))
+                        let-bindings))
+             ;; default case for 20+ args
+             (let [recur# recur]
+               (sci.impl.types/->Node
+                (let [evaled# (mapv (fn [a#] (t/eval a# ~'ctx ~'bindings)) ~'analyzed-children)]
+                  (dotimes [i# ~arg-count-sym]
+                    (aset ~(with-meta 'bindings {:tag 'objects}) (int i#) (nth evaled# i#)))
+                  recur#)
+                nil))))))))
 
 ;; (require 'clojure.pprint)
 ;; (clojure.pprint/pprint
