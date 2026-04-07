@@ -101,11 +101,17 @@
           (let [e (if (and error-stk
                            (not (some-> e ex-data :sci.impl/callstack)))
                     (let [msg #?(:clj (.getMessage ^Throwable e)
-                                 :cljs (.-message e))]
+                                 :cljs (.-message e))
+                          ;; innermost frame = first one pushed = tail of the list
+                          ;; (conj onto list puts most-recent at head).
+                          {:keys [line column file]} (last @error-stk)]
                       (ex-info (or msg "")
-                               {:type :sci/error
-                                :message msg
-                                :sci.impl/callstack error-stk}
+                               (cond-> {:type :sci/error
+                                        :message msg
+                                        :sci.impl/callstack error-stk}
+                                 line (assoc :line line)
+                                 column (assoc :column column)
+                                 file (assoc :file file))
                                e))
                     e)]
             (if-let
