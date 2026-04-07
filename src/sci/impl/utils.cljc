@@ -51,6 +51,15 @@
 
 (def ^:dynamic *in-try* false)
 
+(def ^:dynamic *sci-error-stack*
+  "When bound to a volatile, intermediate `rethrow-with-location-of-node`
+  frames push their stack info onto it instead of wrapping the exception.
+  Used by `eval-try` with a `^{:sci/error true}`-annotated catch to collect
+  a sci callstack at the catch boundary without polluting nested try/catch
+  semantics. nil suppresses collection (used by nested non-sci-error trys
+  to avoid attributing inner-throw frames to an outer collector)."
+  nil)
+
 (defn macro? [f]
   (when-some [m (meta f)]
     (or (:sci/macro m)
@@ -99,15 +108,19 @@
 (defn rethrow-with-location-of-node
   ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
   ([ctx _bindings ^Throwable e raw-node]
-   (if (let [in-try #?(:clj (or *in-try*
-                                (not= (:main-thread-id ctx)
-                                      (.getId (Thread/currentThread))))
-                       :cljs *in-try*)]
-         (if (kw-identical? in-try :sci/error)
-           ;; preserve location information
-           false
-           in-try))
-     ;; we are inside a try/catch, do not preserve error location
+   ;; Side-channel: when an outer sci-error eval-try is collecting frames,
+   ;; push this node's stack info onto its volatile and rethrow raw.
+   (when-let [stk *sci-error-stack*]
+     (let [stack (t/stack raw-node)]
+       (when stack (vswap! stk conj stack))))
+   (if (or *sci-error-stack*
+           (let [in-try #?(:clj (or *in-try*
+                                    (not= (:main-thread-id ctx)
+                                          (.getId (Thread/currentThread))))
+                           :cljs *in-try*)]
+             in-try))
+     ;; we are inside a try/catch (or collecting via side-channel),
+     ;; do not preserve error location
      (throw e)
      (let [stack (t/stack raw-node)
            ;; _ (prn :stack stack)

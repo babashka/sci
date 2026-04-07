@@ -74,38 +74,64 @@
 
 (defn eval-try
   [ctx bindings body catches finally sci-error]
-  (try
-    (binding [utils/*in-try* (or (when sci-error
-                                   :sci/error)
-                                 ;; try/finally without catch
-                                 (seq catches)
-                                 utils/*in-try*)]
-      (types/eval body ctx bindings))
-    (catch #?(:clj Throwable :cljs :default) e
-      (if-let
-          [[_ r]
-           (reduce (fn [_ c]
-                     (let [clazz (:class c)
-                           e (if (and sci-error
-                                      (not (:sci-error c)))
-                               (ex-cause e)
-                               e)]
-                       (when #?(:cljs
-                                (or (utils/kw-identical? :default clazz)
-                                    (if (types/eval-node? clazz)
-                                      (instance? (types/eval clazz ctx bindings) e)
-                                      (instance? clazz e)))
-                                :clj (instance? clazz e))
-                         (reduced
-                          [::try-result
-                           (do (aset ^objects bindings (:ex-idx c) e)
-                               (types/eval (:body c) ctx bindings))]))))
-                   nil
-                   catches)]
-        r
-        (rethrow-with-location-of-node ctx bindings e body)))
-    (finally
-      (types/eval finally ctx bindings))))
+  ;; *sci-error-stack* is bound to a volatile only when needed:
+  ;;  - sci-error annotated catch: bind to a fresh volatile to collect frames
+  ;;  - nested non-sci-error try inside a sci-error scope: bind to nil to
+  ;;    suppress collection (so inner-throw frames aren't misattributed)
+  ;;  - common case: leave the binding alone, identical to the original fast path
+  (let [in-try* (or (seq catches) utils/*in-try*)
+        error-stk (when sci-error (volatile! '()))]
+    (try
+      (try
+        (cond
+          sci-error
+          (binding [utils/*in-try* in-try*
+                    utils/*sci-error-stack* error-stk]
+            (types/eval body ctx bindings))
+
+          utils/*sci-error-stack*
+          (binding [utils/*in-try* in-try*
+                    utils/*sci-error-stack* nil]
+            (types/eval body ctx bindings))
+
+          :else
+          (binding [utils/*in-try* in-try*]
+            (types/eval body ctx bindings)))
+        (catch #?(:clj Throwable :cljs :default) e
+          (let [e (if (and error-stk
+                           (not (some-> e ex-data :sci.impl/callstack)))
+                    (let [msg #?(:clj (.getMessage ^Throwable e)
+                                 :cljs (.-message e))]
+                      (ex-info (or msg "")
+                               {:type :sci/error
+                                :message msg
+                                :sci.impl/callstack error-stk}
+                               e))
+                    e)]
+            (if-let
+             [[_ r]
+              (reduce (fn [_ c]
+                        (let [clazz (:class c)
+                              e (if (and sci-error
+                                         (not (:sci-error c)))
+                                  (ex-cause e)
+                                  e)]
+                          (when #?(:cljs
+                                   (or (utils/kw-identical? :default clazz)
+                                       (if (types/eval-node? clazz)
+                                         (instance? (types/eval clazz ctx bindings) e)
+                                         (instance? clazz e)))
+                                   :clj (instance? clazz e))
+                            (reduced
+                             [::try-result
+                              (do (aset ^objects bindings (:ex-idx c) e)
+                                  (types/eval (:body c) ctx bindings))]))))
+                      nil
+                      catches)]
+              r
+              (rethrow-with-location-of-node ctx bindings e body)))))
+      (finally
+        (types/eval finally ctx bindings)))))
 
 ;;;; Interop
 
