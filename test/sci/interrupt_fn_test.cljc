@@ -9,39 +9,36 @@
       (when (> (swap! counter inc) n)
         (throw (ex-info "interrupted" {:type :interrupt}))))))
 
-(deftest recur-loop-test
-  (testing "interrupt-fn fires on recur and can abort infinite loop"
-    (let [ctx (sci/init {:interrupt-fn (limit-interrupt 1000)})]
-      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-            (sci/eval-string* ctx "(loop [] (recur))"))))))
-
-(deftest dotimes-test
-  (testing "interrupt-fn fires inside dotimes (expands to loop/recur)"
+(deftest loop-forms-test
+  (testing "interrupt-fn fires in loop/recur and derived forms (dotimes, while)"
     (let [ctx (sci/init {:interrupt-fn (limit-interrupt 500)})]
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-            (sci/eval-string* ctx "(dotimes [_ 1000000] nil)"))))))
+            (sci/eval-string* ctx "(loop [] (recur))")))
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
+            (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
+                              "(dotimes [_ 1000000] nil)"))))))
 
 (deftest mutual-recursion-test
-  (testing "interrupt-fn fires on fn-call, catching mutual recursion"
+  (testing "interrupt-fn fires on every fn entry, catching mutual recursion"
     (let [ctx (sci/init {:interrupt-fn (limit-interrupt 200)})]
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
             (sci/eval-string* ctx "(declare b) (defn a [] (b)) (defn b [] (a)) (a)"))))))
 
 (deftest direct-recursion-no-recur-test
-  (testing "interrupt-fn fires on fn-call for non-recur self-calls"
+  (testing "interrupt-fn fires on fn entry for non-recur self-calls"
     ;; low limit to fire well before JVM stack overflow
     (let [ctx (sci/init {:interrupt-fn (limit-interrupt 50)})]
       (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
             (sci/eval-string* ctx "(defn f [] (f)) (f)"))))))
 
 (deftest no-interrupt-fn-test
-  (testing "nil interrupt-fn has no effect — normal execution"
+  (testing "absent interrupt-fn does not affect execution"
     (let [ctx (sci/init {})]
       (is (= 10 (sci/eval-string* ctx "(loop [i 0] (if (= i 10) i (recur (inc i))))")))
       (is (= 99 (sci/eval-string* ctx "(dotimes [i 100] i) 99"))))))
 
-(deftest interrupt-fn-result-test
-  (testing "interrupt-fn allows limited execution to complete normally"
+(deftest normal-completion-under-budget-test
+  (testing "execution completes normally when budget is not exceeded"
     (let [ctx (sci/init {:interrupt-fn (limit-interrupt 10000)})]
       (is (= 100 (sci/eval-string* ctx "(loop [i 0] (if (= i 100) i (recur (inc i))))")))
       (is (= 45 (sci/eval-string* ctx "(reduce + (range 10))"))))))
