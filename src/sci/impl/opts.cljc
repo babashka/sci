@@ -148,16 +148,16 @@
                         features readers
                         reload-all
                         check-permissions
-                        resource-check]))
+                        interrupt-fn]))
 
-(defn ->ctx [bindings env features readers check-permissions? & {:keys [resource-check]}]
+(defn ->ctx [bindings env features readers check-permissions? & {:keys [interrupt-fn]}]
   #?(:cljs {:bindings bindings
             :env env
             :features features
             :readers readers
             :check-permissions check-permissions?
-            :resource-check resource-check}
-     :clj (->Ctx bindings env features readers false check-permissions? resource-check)))
+            :interrupt-fn interrupt-fn}
+     :clj (->Ctx bindings env features readers false check-permissions? interrupt-fn)))
 
 (def default-ns-aliases
   #?(:clj {}
@@ -178,7 +178,7 @@
            reify-fn
            proxy-fn
            deftype-fn
-           resource-check
+           interrupt-fn
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
            ns-aliases]}]
@@ -192,7 +192,7 @@
         _ (init-env! env aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         ctx (assoc (->ctx {} env features readers (or allow deny)
-                          :resource-check resource-check)
+                          :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions #{} allow))
                    :deny (when deny (process-permissions #{} deny))
                    :reify-fn (or reify-fn default-reify-fn)
@@ -226,7 +226,9 @@
         namespaces (cond-> namespaces
                      bindings (merge {'user (assoc bindings :obj utils/user-ns)}))
         _ (init-env! !env aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
-        ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny))
+        interrupt-fn (if (contains? opts :interrupt-fn) (:interrupt-fn opts) (:interrupt-fn ctx))
+        ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny)
+                          :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn

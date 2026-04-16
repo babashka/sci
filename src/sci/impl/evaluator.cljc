@@ -267,8 +267,6 @@
       #_`(defn ~'fn-call ~'[ctx f args]
            (apply ~'f (map #(eval ~'ctx %) ~'args)))
       `(defn ~'fn-call ~'[ctx bindings f args]
-         ;; Resource check on function calls (if configured)
-         (when-let [rc# (:resource-check ~'ctx)] (rc#))
          (case ~'(count args)
            ~@cases)))))
 
