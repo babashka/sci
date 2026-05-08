@@ -37,7 +37,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
-                 (when interrupt-fn# (interrupt-fn#))
+                 (when (some? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -61,7 +61,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
-                 (when interrupt-fn# (interrupt-fn#))
+                 (when (some? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -158,7 +158,7 @@
                          (aset ^objects invoc-array i (first args))
                          (recur (next args) (inc i))))
                      (loop []
-                       (when interrupt-fn# (interrupt-fn#))
+                       (when (some? interrupt-fn#) (interrupt-fn#))
                        (let [ret (types/eval body ctx invoc-array)]
                          (if (identical? recur# ret)
                            (recur)
