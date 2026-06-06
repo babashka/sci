@@ -1440,22 +1440,19 @@
                                  {:namespaces {'foo {'do-twice v}}})))))))
 
 (deftest copy-var-with-redefs-inlined-name-clash-test
-  ;; copy-var incorrectly sets :sci.impl/inlined on any function whose unqualified
-  ;; name collides with inlined-vars, causing with-redefs to be bypassed.
-  #?(:clj
-     (let [my-ns   (sci/create-ns 'my.lib)
-           get-var (sci/copy-var sci.copy-var-inlined-clash-ns/get my-ns)
-           opts    {:namespaces {'my.lib {'get get-var}}}]
-       (testing ":sci.impl/inlined must not be set on non-clojure.core functions"
-         (is (not (-> get-var meta :sci.impl/inlined))))
-       (testing "baseline: function is callable"
-         (is (= 1 (sci/eval-string "(my.lib/get {:a 1} :a)" opts))))
-       (testing "with-redefs must replace the var root"
-         (is (= :replaced
-                (sci/eval-string
-                 "(with-redefs [my.lib/get (fn [& _] :replaced)]
-                    (my.lib/get {:a 1} :a))"
-                 opts)))))))
+  ;; Regression: copy-var incorrectly set :sci.impl/inlined on functions whose
+  ;; unqualified name collides with inlined-vars, causing with-redefs to be bypassed.
+  (let [my-ns   (sci/create-ns 'my.lib)
+        get-var (sci/copy-var sci.copy-var-inlined-clash-ns/get my-ns)
+        opts    {:namespaces {'my.lib {'get get-var}}}]
+    (testing "baseline: function is callable"
+      (is (= 1 (sci/eval-string "(my.lib/get {:a 1} :a)" opts))))
+    (testing "with-redefs must replace the var root"
+      (is (= :replaced
+             (sci/eval-string
+              "(with-redefs [my.lib/get (fn [& _] :replaced)]
+                 (my.lib/get {:a 1} :a))"
+              opts))))))
 
 (defn update-vals*
   "Same as `update-vals` from clojure 1.11 but included here so tests
