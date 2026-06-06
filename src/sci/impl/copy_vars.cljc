@@ -54,7 +54,8 @@
                        (meta v)])
                ;; self-hosted CLJS: dead branch, &env always has :ns
                :cljs nil))
-          inline (contains? inlined-vars sym)
+          inline (and (contains? inlined-vars sym)
+                      (= "clojure.core" (namespace fqsym)))
           fast-path (or (= 'or sym)
                         (= 'and sym)
                         (= 'ns sym)
