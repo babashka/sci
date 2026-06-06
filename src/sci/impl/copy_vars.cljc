@@ -54,12 +54,12 @@
                        (meta v)])
                ;; self-hosted CLJS: dead branch, &env always has :ns
                :cljs nil))
-          inline (and (contains? inlined-vars sym)
-                     (-> fqsym namespace #{"clojure.core" "cljs.core"}))
-          fast-path (or (= 'or sym) ;; Do we need to check fqsym namespace as well for fast-path?
-                        (= 'and sym)
-                        (= 'ns sym)
-                        (= 'lazy-seq sym))
+          core-ns? (-> fqsym namespace #{"clojure.core" "cljs.core"} boolean)
+          inline (and core-ns? (contains? inlined-vars sym))
+          fast-path (and core-ns? (or (= 'or sym)
+                                      (= 'and sym)
+                                      (= 'ns sym)
+                                      (= 'lazy-seq sym)))
           dyn (:dynamic m)
           private (:private m)
           arglists (:arglists m)
