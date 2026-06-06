@@ -54,7 +54,14 @@
                        (meta v)])
                ;; self-hosted CLJS: dead branch, &env always has :ns
                :cljs nil))
-          core-ns? (-> fqsym namespace #{"clojure.core" "cljs.core"} boolean)
+          ;; Only exclude symbols that resolve to a non-core namespace (e.g. a
+          ;; third-party fn named like a core inlined var). Core macros set up
+          ;; via macrofy (ns, lazy-seq, ...) resolve to a bare unqualified symbol
+          ;; in CLJS, so a nil namespace counts as core.
+          fqsym-ns (namespace fqsym)
+          core-ns? (or (nil? fqsym-ns)
+                       (= "clojure.core" fqsym-ns)
+                       (= "cljs.core" fqsym-ns))
           inline (and core-ns? (contains? inlined-vars sym))
           fast-path (and core-ns? (or (= 'or sym)
                                       (= 'and sym)

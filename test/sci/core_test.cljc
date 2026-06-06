@@ -1442,16 +1442,27 @@
 (deftest copy-var-with-redefs-inlined-name-clash-test
   ;; Regression: copy-var incorrectly set :sci.impl/inlined on functions whose
   ;; unqualified name collides with inlined-vars, causing with-redefs to be bypassed.
-  (let [my-ns   (sci/create-ns 'my.lib)
-        get-var (sci/copy-var sci.copy-var-inlined-clash-ns/get my-ns)
-        opts    {:namespaces {'my.lib {'get get-var}}}]
+  (let [my-ns    (sci/create-ns 'my.lib)
+        user-get (sci/copy-var sci.copy-var-inlined-clash-ns/get my-ns)
+        core-get (sci/copy-var clojure.core/get my-ns)
+        opts     {:namespaces {'my.lib {'get user-get 'core-get core-get}}}]
     (testing "baseline: function is callable"
       (is (= 1 (sci/eval-string "(my.lib/get {:a 1} :a)" opts))))
-    (testing "with-redefs must replace the var root"
+    (testing "with-redefs replaces a copied non-core var (not inlined)"
       (is (= :replaced
              (sci/eval-string
               "(with-redefs [my.lib/get (fn [& _] :replaced)]
                  (my.lib/get {:a 1} :a))"
+              opts))))
+    ;; A copy of a genuine clojure.core inlined var keeps :sci.impl/inlined, so
+    ;; it ignores with-redefs like Clojure. Must hold in CLJS too (resolves via
+    ;; cljs.core), not just the JVM (resolves via clojure.core). Built-in core
+    ;; vars are read-only, so we copy into a writable ns to exercise with-redefs.
+    (testing "with-redefs is bypassed for a copied core inlined var"
+      (is (= 1
+             (sci/eval-string
+              "(with-redefs [my.lib/core-get (fn [& _] :replaced)]
+                 (my.lib/core-get {:a 1} :a))"
               opts))))))
 
 (defn update-vals*
