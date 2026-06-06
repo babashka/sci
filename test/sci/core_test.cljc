@@ -1446,12 +1446,12 @@
      (let [my-ns   (sci/create-ns 'my.lib)
            get-var (sci/copy-var sci.copy-var-inlined-clash-ns/get my-ns)
            opts    {:namespaces {'my.lib {'get get-var}}}]
-       (testing ":sci.impl/inlined is set on a non-clojure.core function"
-         (is (-> get-var meta :sci.impl/inlined)))
+       (testing ":sci.impl/inlined must not be set on non-clojure.core functions"
+         (is (not (-> get-var meta :sci.impl/inlined))))
        (testing "baseline: function is callable"
          (is (= 1 (sci/eval-string "(my.lib/get {:a 1} :a)" opts))))
-       (testing "with-redefs is bypassed: original function runs despite the redef"
-         (is (= 1
+       (testing "with-redefs must replace the var root"
+         (is (= :replaced
                 (sci/eval-string
                  "(with-redefs [my.lib/get (fn [& _] :replaced)]
                     (my.lib/get {:a 1} :a))"
