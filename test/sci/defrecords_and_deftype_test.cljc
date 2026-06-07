@@ -109,6 +109,24 @@
 (instance? Rectangle (foo/->Rectangle 10 10))"]
     (is (true? (tu/eval* prog {})))))
 
+#?(:cljs
+   ;; https://github.com/babashka/nbb/issues/410: in cljs a type symbol can be
+   ;; referenced via the ns alias (without :import). Must resolve cross-ns.
+   (deftest cross-ns-type-symbol-test
+     (let [prog "
+(ns foo)
+(defrecord Rectangle [width height])
+(deftype Point [x y])
+
+(ns bar (:require [foo :as f]))
+[(instance? f/Rectangle (f/->Rectangle 10 10))
+ (instance? f/Point (f/->Point 1 2))
+ (f/Rectangle. 3 4)]"
+           [r p ctor] (tu/eval* prog {})]
+       (is (true? r))
+       (is (true? p))
+       (is (= {:width 3 :height 4} (into {} ctor))))))
+
 (deftest field-access-test
   (let [prog "
 (ns foo)

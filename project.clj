@@ -17,7 +17,8 @@
   :profiles {:clojure-1.10.3 {:depdencies [[org.clojure/clojure "1.10.3"]]}
              :clojure-1.11.1 {:dependencies [[org.clojure/clojure "1.11.1"]]}
              :native-image {:dependencies [[org.clojure/clojure "1.10.3"]]}
-             :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
+             :dev {:source-paths ["dev"]
+                   :dependencies [[thheller/shadow-cljs "2.8.64"]]}
              :test {:resource-paths ["test-resources"]
                     :jvm-opts ["-Djdk.attach.allowAttachSelf"]
                     :dependencies [[clj-commons/conch "0.9.2"]
