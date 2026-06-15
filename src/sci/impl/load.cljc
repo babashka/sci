@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [loaded-libs load-reader load-string])
   (:require
    [clojure.string :as str]
-   [clojure.tools.reader.reader-types :as r]
+   #?(:cljd [edamame.impl.reader-types :as r]
+      :default [clojure.tools.reader.reader-types :as r])
    [sci.ctx-store :as store]
    [sci.impl.parser :as parser]
    [sci.impl.types :as types]
@@ -16,7 +17,8 @@
   (let [reader
         ;; TODO: move this check to edamame
         (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
-               :cljs (implements? r/IndexingReader reader))
+               :cljs (implements? r/IndexingReader reader)
+               :cljd (r/indexing-reader? reader))
           reader
           (r/indexing-push-back-reader reader))]
     (loop [ret nil]

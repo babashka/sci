@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [read-string eval])
   (:require
    [clojure.string :as str]
-   [clojure.tools.reader.reader-types :as rt]
+   #?(:cljd [edamame.impl.reader-types :as rt]
+      :default [clojure.tools.reader.reader-types :as rt])
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.types :as types]

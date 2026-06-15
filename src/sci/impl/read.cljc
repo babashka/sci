@@ -1,7 +1,8 @@
 (ns sci.impl.read
   {:no-doc true}
   (:refer-clojure :exclude [read read-string read+string])
-  (:require [clojure.tools.reader.reader-types :as r]
+  (:require #?(:cljd [edamame.impl.reader-types :as r]
+               :default [clojure.tools.reader.reader-types :as r])
             [sci.ctx-store :as store]
             [sci.impl.io :as io]
             [sci.impl.parser :as parser]

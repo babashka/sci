@@ -8,7 +8,8 @@
   (:require
    [clojure.core :as c]
    [clojure.string :as str]
-   [clojure.tools.reader.reader-types :as rt]
+   #?(:cljd [edamame.impl.reader-types :as rt]
+      :default [clojure.tools.reader.reader-types :as rt])
    [edamame.core :as edamame]
    [edamame.impl.parser]
    [sci.ctx-store :as store]

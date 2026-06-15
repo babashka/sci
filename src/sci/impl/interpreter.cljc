@@ -2,7 +2,8 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
-   [clojure.tools.reader.reader-types :as r]
+   #?(:cljd [edamame.impl.reader-types :as r]
+      :default [clojure.tools.reader.reader-types :as r])
    [sci.ctx-store :as store]
    [sci.impl.analyzer :as ana]
    [sci.impl.opts :as opts]
