@@ -95,9 +95,7 @@
 ;;; `.find` call, which never enters an interpreted fn, so the per-fn-entry
 ;;; `:interrupt-fn` check never runs. Wrapping the input in a `CharSequence`
 ;;; whose `charAt` fires `ifn` makes the match abortable: backtracking re-reads
-;;; characters, so `ifn` is called often. CLJS regex is the JS engine and is not
-;;; interruptible this way, so there we always fall back to native.
-
+;;; characters, so `ifn` is called often.
 ;;;
 ;;; CLJS regex is the JS engine: no char-access hook to fire `ifn` on, and JS is
 ;;; single-threaded so a running match blocks the event loop and can't be
