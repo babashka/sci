@@ -1,7 +1,7 @@
 # Bounding execution with `:interrupt-fn`
 
-SCI supports passing a zero arg `:interrupt-fn` which is called on every `fn`,
-or `loop/recur` body entry. Using this hook you can cancel evaluation after a
+SCI supports passing a zero arg `:interrupt-fn` to its options, which is called on every `fn`
+(and `loop/recur`) body entry. Using this hook you can cancel evaluation after a
 certain number of iterations, check `Thread/interrupted`, etc. A demo:
 
 ``` clojure
