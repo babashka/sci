@@ -70,6 +70,19 @@
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
           (sci/eval-string* (interrupt-init 500) "(into [] (range))")))))
 
+#?(:clj
+   (deftest regex-redos-test
+     (testing "interrupt-fn fires during regex backtracking (ReDoS), aborting the match"
+       ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail
+       (let [evil "(re-matches #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!)))"]
+         (is (thrown-with-msg? Exception #"interrupted"
+               (sci/eval-string* (interrupt-init 100000) evil)))))
+     (testing "re-matches/re-find/re-seq stay correct with interrupt-fn active"
+       (let [ctx (interrupt-init 1000000)]
+         (is (= ["12-34" "12" "34"] (sci/eval-string* ctx "(re-matches #\"(\\d+)-(\\d+)\" \"12-34\")")))
+         (is (= "123" (sci/eval-string* ctx "(re-find #\"\\d+\" \"ab123\")")))
+         (is (= ["1" "22" "333"] (sci/eval-string* ctx "(re-seq #\"\\d+\" \"a1b22c333\")")))))))
+
 (deftest clojure-core-without-interrupt-fn-test
   (testing "merging clojure-core overrides without :interrupt-fn falls back to native behavior"
     (let [ctx (sci/init {:namespaces {'clojure.core interrupt/clojure-core}})]

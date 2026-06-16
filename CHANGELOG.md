@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- `sci.interrupt` now provides `:interrupt-fn` aware `re-matches/re-find/re-seq` (JVM only)
+
 ## 0.13.52 (2025-06-16)
 
 - Add `:interrupt-fn` option: a zero-arg function called on every interpreted fn entry. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md) ([@whilo](https://github.com/whilo))

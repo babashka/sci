@@ -1,5 +1,8 @@
 # Bounding execution with `:interrupt-fn`
 
+> [!WARNING]
+> This is an experimental feature that may change based on user feedback. Keep an eye on the CHANGELOG for changes.
+
 SCI supports passing a zero arg `:interrupt-fn` to its options, which is called on every `fn`
 (and `loop/recur`) body entry. Using this hook you can cancel evaluation after a
 certain number of iterations, check `Thread/interrupted`, etc. A demo:

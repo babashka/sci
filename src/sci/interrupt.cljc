@@ -89,6 +89,57 @@
                   (cons v (gen (f v)))))]
         (gen x)))))
 
+;;; Regex - fire interrupt-fn during backtracking
+;;;
+;;; Catastrophic backtracking (ReDoS) happens inside a single host `.matches`/
+;;; `.find` call, which never enters an interpreted fn, so the per-fn-entry
+;;; `:interrupt-fn` check never runs. Wrapping the input in a `CharSequence`
+;;; whose `charAt` fires `ifn` makes the match abortable: backtracking re-reads
+;;; characters, so `ifn` is called often. CLJS regex is the JS engine and is not
+;;; interruptible this way, so there we always fall back to native.
+
+;;;
+;;; CLJS regex is the JS engine: no char-access hook to fire `ifn` on, and JS is
+;;; single-threaded so a running match blocks the event loop and can't be
+;;; interrupted in-thread. The technique is JVM-only, so these overrides are not
+;;; defined in CLJS and are absent from `clojure-core` there.
+
+#?(:clj
+   (deftype ^:private InterruptibleCS [^CharSequence s ifn]
+     CharSequence
+     (length [_] (.length s))
+     (charAt [_ i] (ifn) (.charAt s i))
+     (subSequence [_ a b] (.subSequence s a b))
+     (toString [_] (.toString s))))
+
+#?(:clj
+   (defn- sci-re-matches [re s]
+     (let [ifn (get-interrupt-fn (store/get-ctx))]
+       (if-not ifn
+         (re-matches re s)
+         (let [m (re-matcher re (InterruptibleCS. s ifn))]
+           (when (.matches m) (re-groups m)))))))
+
+#?(:clj
+   (defn- sci-re-find
+     ([m] (re-find m))
+     ([re s]
+      (let [ifn (get-interrupt-fn (store/get-ctx))]
+        (if-not ifn
+          (re-find re s)
+          (let [m (re-matcher re (InterruptibleCS. s ifn))]
+            (when (.find m) (re-groups m))))))))
+
+#?(:clj
+   (defn- sci-re-seq [re s]
+     (let [ifn (get-interrupt-fn (store/get-ctx))]
+       (if-not ifn
+         (re-seq re s)
+         (let [m (re-matcher re (InterruptibleCS. s ifn))]
+           ((fn step []
+              (when (.find m)
+                (lazy-seq (cons (re-groups m) (step)))))))))))
+
 ;;; Materializers - consuming functions that fire interrupt-fn per element
 
 (defn- sci-dorun
@@ -186,4 +237,7 @@
    'dorun   (copy-vars/new-var 'dorun   sci-dorun   true)
    'count   (copy-vars/new-var 'count   sci-count   true)
    'into    (copy-vars/new-var 'into    sci-into    true)
-   'reduce  (copy-vars/new-var 'reduce  sci-reduce  true)})
+   'reduce  (copy-vars/new-var 'reduce  sci-reduce  true)
+   #?@(:clj ['re-matches (copy-vars/new-var 're-matches sci-re-matches true)
+             're-find    (copy-vars/new-var 're-find    sci-re-find    true)
+             're-seq     (copy-vars/new-var 're-seq     sci-re-seq     true)])})
