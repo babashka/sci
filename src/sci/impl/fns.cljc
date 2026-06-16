@@ -25,7 +25,8 @@
   ([n _disable-arity-checks varargs]
    (if (zero? n)
      (let [varargs-param (when varargs (gensym))]
-       `(let [recur# recur]
+       `(let [recur# recur
+              interrupt-fn# (:interrupt-fn ~'ctx)]
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
@@ -36,6 +37,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
+                 (when (some? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -46,7 +48,8 @@
                                `(aset ~(with-meta 'invoc-array
                                          {:tag 'objects}) ~idx ~fn-param))
                              fn-params (range)))]
-       `(let [recur# recur]
+       `(let [recur# recur
+              interrupt-fn# (:interrupt-fn ~'ctx)]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
@@ -58,6 +61,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
+                 (when (some? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -142,7 +146,8 @@
                19 (gen-fn 19)
                20 (gen-fn 20)
                ;; default case for 20+ args (used by loop)
-               (let [recur# recur]
+               (let [recur# recur
+                     interrupt-fn# (:interrupt-fn ctx)]
                  (fn arity-many [& args]
                    (let [invoc-array (when-not (zero? invoc-size)
                                       (object-array invoc-size))]
@@ -153,6 +158,7 @@
                          (aset ^objects invoc-array i (first args))
                          (recur (next args) (inc i))))
                      (loop []
+                       (when (some? interrupt-fn#) (interrupt-fn#))
                        (let [ret (types/eval body ctx invoc-array)]
                          (if (identical? recur# ret)
                            (recur)
