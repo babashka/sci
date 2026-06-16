@@ -14,6 +14,36 @@ certain number of iterations, check `Thread/interrupted`, etc. A demo:
 ;;=> throws "interrupted"
 ```
 
+This above `limit` function limits the number of iterations. The logic is up to
+you. You can make one that limits wall clock time:
+
+``` clojure
+(defn time-limit [ms]
+  (let [deadline (+ (System/currentTimeMillis) ms)]
+    (fn []
+      (when (> (System/currentTimeMillis) deadline)
+        (throw (ex-info "interrupted" {:type :interrupt}))))))
+
+(sci/eval-string "(loop [] (recur))" {:interrupt-fn (time-limit 1000)})
+;;=> throws "interrupted" after ~1 second
+```
+
+or one that polls `Thread/.isInterrupted`:
+
+``` clojure
+(defn thread-limit []
+  (fn []
+    (when (.isInterrupted (Thread/currentThread))
+      (throw (ex-info "interrupted" {:type :interrupt})))))
+
+(let [fut (future (sci/eval-string "(loop [] (recur))" {:interrupt-fn (thread-limit)}))]
+  (Thread/sleep 1000)
+  (future-cancel fut))
+;;=> the running evaluation throws "interrupted"
+```
+
+The `interrupt-fn` is executed on every `fn` body entrance, so it's worthwile to optimize performance.
+
 Note that `:interrupt-fn` only fires on interpreted code. Core functions in SCI are mostly called via the host and are not interpreted. E.g. `(doall (range))` would not hit `:interrupt-fn`.
 The namespace `sci.interrupt` provides interruptible core function drop-in alternatives. These are currently not loaded by default. You can opt-in on those by using the `clojure-core` configuration and adding it to `:namespaces {'clojure.core ...}`:
 

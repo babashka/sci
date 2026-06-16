@@ -10,7 +10,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.13.52 (2025-06-16)
 
 - Add `:interrupt-fn` option: a zero-arg function called on every interpreted fn entry. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md)
 - Fix `copy-var` incorrectly setting `:sci.impl/inlined` on functions whose unqualified name collides with a `clojure.core`/`cljs.core` inlined var (e.g. a third-party `get`), causing `with-redefs` to be bypassed [babashka#1979](https://github.com/babashka/babashka/issues/1979)
