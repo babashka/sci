@@ -70,15 +70,14 @@
 
 (defn- sci-cycle [coll]
   (let [ifn (get-interrupt-fn (store/get-ctx))]
-    (if-not ifn
+    (if (or (not ifn) (not (seq coll)))
       (cycle coll)
-      (when (seq coll)
-        (letfn [(gen [s]
-                  (lazy-seq
-                    (ifn)
-                    (let [cur (or (seq s) (seq coll))]
-                      (cons (first cur) (gen (rest cur))))))]
-          (gen coll))))))
+      (letfn [(gen [s]
+                (lazy-seq
+                  (ifn)
+                  (let [cur (or (seq s) (seq coll))]
+                    (cons (first cur) (gen (rest cur))))))]
+        (gen coll)))))
 
 (defn- sci-iterate [f x]
   (let [ifn (get-interrupt-fn (store/get-ctx))]
@@ -136,6 +135,8 @@
           n)))))
 
 (defn- sci-into
+  ([] (into))
+  ([to] (into to))
   ([to from]
    (let [ifn (get-interrupt-fn (store/get-ctx))]
      (if-not ifn

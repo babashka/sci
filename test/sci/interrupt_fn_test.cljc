@@ -70,14 +70,30 @@
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
           (sci/eval-string* (interrupt-init 500) "(into [] (range))")))))
 
-(deftest overrides-without-interrupt-fn-test
-  (testing "merging overrides without :interrupt-fn falls back to native behavior"
+(deftest clojure-core-without-interrupt-fn-test
+  (testing "merging clojure-core overrides without :interrupt-fn falls back to native behavior"
     (let [ctx (sci/init {:namespaces {'clojure.core interrupt/clojure-core}})]
       (is (= [0 1 2] (sci/eval-string* ctx "(vec (range 3))")))
       (is (= 3       (sci/eval-string* ctx "(count [1 2 3])")))
       (is (= 6       (sci/eval-string* ctx "(reduce + [1 2 3])")))
       (is (= [1 1 1] (sci/eval-string* ctx "(vec (take 3 (repeat 1)))")))
       (is (= [0 1 2] (sci/eval-string* ctx "(vec (take 3 (iterate inc 0)))"))))))
+
+(deftest clojure-core-arity-parity-test
+  (testing "overrides preserve clojure.core arities and empty-coll behavior"
+    (let [ctx (sci/init {:namespaces {'clojure.core interrupt/clojure-core}})]
+      ;; into 0/1-arity must not break (regression: only 2/3-arity were defined)
+      (is (= []      (sci/eval-string* ctx "(into)")))
+      (is (= [1 2]   (sci/eval-string* ctx "(into [1 2])")))
+      (is (= [1 2 3] (sci/eval-string* ctx "(into [1] [2 3])")))
+      (is (= {:a 1}  (sci/eval-string* ctx "(into {} [[:a 1]])")))
+      ;; cycle on empty coll matches clojure.core (() not nil)
+      (is (= ()      (sci/eval-string* ctx "(doall (cycle []))"))))
+    ;; same with interrupt-fn active
+    (let [ctx (sci/init {:interrupt-fn (limit-interrupt 500)
+                         :namespaces {'clojure.core interrupt/clojure-core}})]
+      (is (= [1 2 3] (sci/eval-string* ctx "(into [1] [2 3])")))
+      (is (= ()      (sci/eval-string* ctx "(doall (cycle []))"))))))
 
 (deftest fork-preserves-interrupt-fn-test
   (testing "forked context inherits interrupt-fn"
