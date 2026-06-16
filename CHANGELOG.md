@@ -12,10 +12,13 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## 0.13.52 (2025-06-16)
 
-- Add `:interrupt-fn` option: a zero-arg function called on every interpreted fn entry. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md)
-- Fix `copy-var` incorrectly setting `:sci.impl/inlined` on functions whose unqualified name collides with a `clojure.core`/`cljs.core` inlined var (e.g. a third-party `get`), causing `with-redefs` to be bypassed [babashka#1979](https://github.com/babashka/babashka/issues/1979)
+- Add `:interrupt-fn` option: a zero-arg function called on every interpreted fn entry. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md) ([@whilo](https://github.com/whilo))
+- Fix `copy-var` incorrectly setting `:sci.impl/inlined` on functions whose unqualified name collides with a `clojure.core`/`cljs.core` inlined var (e.g. a third-party `get`), causing `with-redefs` to be bypassed [babashka#1979](https://github.com/babashka/babashka/issues/1979) ([@verberktstan](https://github.com/verberktstan))
 - Fix CLJS regression where a `defrecord`/`deftype` type symbol referenced via a namespace alias (e.g. `(instance? r/Foo x)`) failed to resolve [nbb#410](https://github.com/babashka/nbb/issues/410)
 - Fix `recur` with 20+ args in `loop` [#1035](https://github.com/babashka/sci/issues/1035)
+- `if-let`, `if-some`, `when-let` and `when-some` now validate that the binding vector contains exactly two forms [#1037](https://github.com/babashka/sci/issues/1037) ([@vieirandre](https://github.com/vieirandre))
+- `recur` now throws on mismatched argument count [#1034](https://github.com/babashka/sci/issues/1034) ([@vieirandre](https://github.com/vieirandre))
+- `ancestors`, `descendants` and `parents` now normalize SCI types in hierarchy lookups [#1033](https://github.com/babashka/sci/issues/1033) ([@vieirandre](https://github.com/vieirandre))
 - Support `IFn` on `defrecord`, `deftype` and `reify` [#808](https://github.com/babashka/sci/issues/808), [babashka#1386](https://github.com/babashka/babashka/issues/1386), [nbb#408](https://github.com/babashka/nbb/issues/408)
 - Add test for `defrecord`/`deftype` in namespaces with special characters like `+` [babashka#1868](https://github.com/babashka/babashka/issues/1868)
 - Fix `.sym` on user-defined vars returning qualified symbol instead of unqualified, matching Clojure
