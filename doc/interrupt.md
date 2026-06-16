@@ -15,14 +15,14 @@ certain number of iterations, check `Thread/interrupted`, etc. A demo:
 ```
 
 Note that `:interrupt-fn` only fires on interpreted code. Core functions in SCI are mostly called via the host and are not interpreted. E.g. `(doall (range))` would not hit `:interrupt-fn`.
-The namespace `sci.interrupt` provides interruptible core function drop-in alternatives. These are currently not loaded by default. You can opt-in on those by using the `overrides` configuration and adding it to `:namespaces {'clojure.core ...}`:
+The namespace `sci.interrupt` provides interruptible core function drop-in alternatives. These are currently not loaded by default. You can opt-in on those by using the `clojure-core` configuration and adding it to `:namespaces {'clojure.core ...}`:
 
 ``` clojure
 (require '[sci.interrupt :as interrupt])
 
 (sci/eval-string "(reduce + (range))"
                  {:interrupt-fn (limit 1000000)
-                  :namespaces {'clojure.core interrupt/overrides}})
+                  :namespaces {'clojure.core interrupt/clojure-core}})
 ;;=> throws "interrupted"
 ```
 
@@ -57,5 +57,5 @@ Since the long-running CPU-heavy call is made in the host, `:interrupt-fn` never
 (sci/eval-string "(.pow (biginteger 10) 100000000)"
                  {:interrupt-fn (limit 500)
                   :classes {:allow :all}
-                  :namespaces {'clojure.core interrupt/overrides}})
+                  :namespaces {'clojure.core interrupt/clojure-core}})
 ```

@@ -14,7 +14,7 @@
   "Context with the opt-in sci.interrupt core overrides merged in."
   [n]
   (sci/init {:interrupt-fn (limit-interrupt n)
-             :namespaces {'clojure.core interrupt/overrides}}))
+             :namespaces {'clojure.core interrupt/clojure-core}}))
 
 (deftest loop-forms-test
   (testing "interrupt-fn fires in loop/recur and derived forms (dotimes, while)"
@@ -72,7 +72,7 @@
 
 (deftest overrides-without-interrupt-fn-test
   (testing "merging overrides without :interrupt-fn falls back to native behavior"
-    (let [ctx (sci/init {:namespaces {'clojure.core interrupt/overrides}})]
+    (let [ctx (sci/init {:namespaces {'clojure.core interrupt/clojure-core}})]
       (is (= [0 1 2] (sci/eval-string* ctx "(vec (range 3))")))
       (is (= 3       (sci/eval-string* ctx "(count [1 2 3])")))
       (is (= 6       (sci/eval-string* ctx "(reduce + [1 2 3])")))

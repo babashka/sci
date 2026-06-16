@@ -4,18 +4,18 @@
   never hit the per-fn-entry `:interrupt-fn` check.
 
   This namespace is NOT loaded by default and adds nothing to a standard SCI
-  build unless you require it. Merge `overrides` into your context's
+  build unless you require it. Merge `clojure-core` into your context's
   `clojure.core` namespace to make these functions interruptible:
 
       (require '[sci.core :as sci]
                '[sci.interrupt :as interrupt])
 
       (sci/init {:interrupt-fn my-interrupt-fn
-                 :namespaces {'clojure.core interrupt/overrides}})
+                 :namespaces {'clojure.core interrupt/clojure-core}})
 
   Each override reads `:interrupt-fn` from the current context at call time and
   falls back to the native function when no `:interrupt-fn` is configured, so
-  merging `overrides` is always safe."
+  merging `clojure-core` is always safe."
   (:require
    [sci.ctx-store :as store]
    [sci.impl.copy-vars :as copy-vars]))
@@ -172,7 +172,7 @@
                  (if (reduced? ret) @ret (recur ret (next s)))))
            v))))))
 
-(def overrides
+(def clojure-core
   "Map of `clojure.core` symbol -> interrupt-fn aware replacement var. Each value
   is a real SCI var on the shared `clojure.core` namespace object (built via
   `copy-vars/new-var`, like the built-in core vars), so it carries proper
