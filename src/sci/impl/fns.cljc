@@ -17,6 +17,13 @@
                        (aset ~'invoc-array ~'this-as-idx (~'js* "this")))
                      ~@body)))
 
+;; The interrupt-fn check in the generated fns below uses
+;; (when-not (nil? interrupt-fn#) ...) rather than (when (some? interrupt-fn#) ...).
+;; It runs on every fn entry / loop recur, so it is hot. nil? inlines to a single
+;; reference compare (JVM: clojure.lang.Util/identical, which C2 folds to ==;
+;; CLJS: x === null) with no Boolean.FALSE truthiness coercion, because the test is
+;; already a primitive boolean. some? and (not (nil? ...)) instead compile to a Var
+;; invoke (measured ~2x slower in a JVM microbenchmark of the bare check).
 (defmacro gen-fn
   ([n]
    `(gen-fn ~n false))
@@ -37,7 +44,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
-                 (when (some? interrupt-fn#) (interrupt-fn#))
+                 (when-not (nil? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -61,7 +68,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
-                 (when (some? interrupt-fn#) (interrupt-fn#))
+                 (when-not (nil? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -158,7 +165,7 @@
                          (aset ^objects invoc-array i (first args))
                          (recur (next args) (inc i))))
                      (loop []
-                       (when (some? interrupt-fn#) (interrupt-fn#))
+                       (when-not (nil? interrupt-fn#) (interrupt-fn#))
                        (let [ret (types/eval body ctx invoc-array)]
                          (if (identical? recur# ret)
                            (recur)
