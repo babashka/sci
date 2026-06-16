@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Add `:interrupt-fn` option: a zero-arg function called on every interpreted fn entry. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md)
 - Fix `copy-var` incorrectly setting `:sci.impl/inlined` on functions whose unqualified name collides with a `clojure.core`/`cljs.core` inlined var (e.g. a third-party `get`), causing `with-redefs` to be bypassed [babashka#1979](https://github.com/babashka/babashka/issues/1979)
 - Fix CLJS regression where a `defrecord`/`deftype` type symbol referenced via a namespace alias (e.g. `(instance? r/Foo x)`) failed to resolve [nbb#410](https://github.com/babashka/nbb/issues/410)
 - Fix `recur` with 20+ args in `loop` [#1035](https://github.com/babashka/sci/issues/1035)

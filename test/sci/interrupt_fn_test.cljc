@@ -1,13 +1,20 @@
 (ns sci.interrupt-fn-test
   (:require
    [clojure.test :refer [deftest is testing]]
-   [sci.core :as sci]))
+   [sci.core :as sci]
+   [sci.interrupt :as interrupt]))
 
 (defn limit-interrupt [n]
   (let [counter (atom 0)]
     (fn []
       (when (> (swap! counter inc) n)
         (throw (ex-info "interrupted" {:type :interrupt}))))))
+
+(defn interrupt-init
+  "Context with the opt-in sci.interrupt core overrides merged in."
+  [n]
+  (sci/init {:interrupt-fn (limit-interrupt n)
+             :namespaces {'clojure.core interrupt/overrides}}))
 
 (deftest loop-forms-test
   (testing "interrupt-fn fires in loop/recur and derived forms (dotimes, while)"
@@ -44,40 +51,33 @@
       (is (= 45 (sci/eval-string* ctx "(reduce + (range 10))"))))))
 
 (deftest host-seq-producers-test
-  (testing "interruptible range/repeat/cycle/iterate fire interrupt-fn"
+  (testing "opt-in interruptible range/repeat/cycle/iterate fire interrupt-fn"
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-          (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
-                            "(doall (range))")))
+          (sci/eval-string* (interrupt-init 500) "(doall (range))")))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-          (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
-                            "(doall (repeat :x))")))
+          (sci/eval-string* (interrupt-init 500) "(doall (repeat :x))")))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-          (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
-                            "(doall (cycle [1 2 3]))")))
+          (sci/eval-string* (interrupt-init 500) "(doall (cycle [1 2 3]))")))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-          (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
-                            "(doall (iterate inc 0))")))))
+          (sci/eval-string* (interrupt-init 500) "(doall (iterate inc 0))")))))
 
 (deftest host-materializers-test
-  (testing "interruptible doall/dorun/count/into/reduce fire interrupt-fn on host sequences"
+  (testing "opt-in interruptible doall/dorun/count/into/reduce fire interrupt-fn on host sequences"
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-          (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
-                            "(reduce + (range))")))
+          (sci/eval-string* (interrupt-init 500) "(reduce + (range))")))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-          (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
-                            "(count (range))")))
+          (sci/eval-string* (interrupt-init 500) "(count (range))")))
     (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"interrupted"
-          (sci/eval-string* (sci/init {:interrupt-fn (limit-interrupt 500)})
-                            "(into [] (range))")))))
+          (sci/eval-string* (interrupt-init 500) "(into [] (range))")))))
 
-(deftest host-fns-no-overhead-test
-  (testing "absent interrupt-fn: host functions are unaffected"
-    (let [ctx (sci/init {})]
+(deftest overrides-without-interrupt-fn-test
+  (testing "merging overrides without :interrupt-fn falls back to native behavior"
+    (let [ctx (sci/init {:namespaces {'clojure.core interrupt/overrides}})]
       (is (= [0 1 2] (sci/eval-string* ctx "(vec (range 3))")))
       (is (= 3       (sci/eval-string* ctx "(count [1 2 3])")))
       (is (= 6       (sci/eval-string* ctx "(reduce + [1 2 3])")))
       (is (= [1 1 1] (sci/eval-string* ctx "(vec (take 3 (repeat 1)))")))
-      (is (= [0 1 2] (sci/eval-string* ctx "(vec (take 3 (iterate inc 0)))")))))  )
+      (is (= [0 1 2] (sci/eval-string* ctx "(vec (take 3 (iterate inc 0)))"))))))
 
 (deftest fork-preserves-interrupt-fn-test
   (testing "forked context inherits interrupt-fn"
