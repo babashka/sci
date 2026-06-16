@@ -46,6 +46,7 @@ The `interrupt-fn` is executed on every `fn` body entrance, so it's worthwile to
 
 Note that `:interrupt-fn` only fires on interpreted code. Core functions in SCI are mostly called via the host and are not interpreted. E.g. `(doall (range))` would not hit `:interrupt-fn`.
 The namespace `sci.interrupt` provides interruptible core function drop-in alternatives. These are currently not loaded by default. You can opt-in on those by using the `clojure-core` configuration and adding it to `:namespaces {'clojure.core ...}`:
+Note that the core overrides can introduce performance regressions in your code compared to the standard SCI clojure core functions.
 
 ``` clojure
 (require '[sci.interrupt :as interrupt])
