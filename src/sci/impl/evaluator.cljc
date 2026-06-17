@@ -72,7 +72,7 @@
        (types/eval case-default ctx bindings)
        (types/eval found ctx bindings)))))
 
-(defn eval-try
+(defn- eval-try-body
   [ctx bindings body catches finally sci-error]
   (try
     (binding [utils/*in-try* (or (when sci-error
@@ -107,9 +107,35 @@
                    nil
                    catches)]
           r
-          (rethrow-with-location-of-node ctx bindings e body))))
-    (finally
-      (types/eval finally ctx bindings))))
+          (rethrow-with-location-of-node ctx bindings e body))))))
+
+(defn eval-try
+  [ctx bindings body catches finally sci-error]
+  (if (nil? finally)
+    (eval-try-body ctx bindings body catches finally sci-error)
+    ;; A `finally` that throws would normally mask the in-flight exception
+    ;; (host try/finally semantics). An interrupt signal must never be masked
+    ;; this way: otherwise sandboxed code could throw from `finally` to discard
+    ;; the interrupt and let an outer `catch` swallow it. So we run `finally`
+    ;; ourselves and, when an interrupt is pending, let it win over a
+    ;; non-interrupt exception thrown by the finally body.
+    (let [pending (volatile! nil)
+          had-ex  (volatile! false)
+          v (try (eval-try-body ctx bindings body catches finally sci-error)
+                 (catch #?(:clj Throwable :cljs :default) e
+                   (vreset! pending e)
+                   (vreset! had-ex true)
+                   nil))]
+      (try
+        (types/eval finally ctx bindings)
+        (catch #?(:clj Throwable :cljs :default) fe
+          (if (and @had-ex
+                   (utils/interrupt-ex? @pending)
+                   (not (utils/interrupt-ex? fe)))
+            ;; swallow the finally's exception; the interrupt rethrown below wins
+            nil
+            (throw fe))))
+      (if @had-ex (throw @pending) v))))
 
 ;;;; Interop
 

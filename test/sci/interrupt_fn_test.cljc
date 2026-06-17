@@ -45,6 +45,21 @@
             (sci/eval-string* ctx "(try (loop [] (recur)) (finally (mark)))")))
       (is (= :ran @a)))))
 
+(deftest interrupt-not-maskable-by-finally-test
+  (testing "a finally that throws cannot mask the interrupt and let an outer catch swallow it"
+    (let [ctx (sci/init {:interrupt-fn (limit-interrupt! 100)})]
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Interrupted"
+            (sci/eval-string*
+             ctx
+             #?(:clj  "(try (try (loop [] (recur)) (finally (throw (ex-info \"mine\" {})))) (catch Exception _ :swallowed))"
+                :cljs "(try (try (loop [] (recur)) (finally (throw (ex-info \"mine\" {})))) (catch :default _ :swallowed))"))))))
+  (testing "a non-interrupt exception is still masked by a throwing finally (Clojure semantics)"
+    (let [ctx (sci/init {})]
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"b"
+            (sci/eval-string*
+             ctx
+             "(try (throw (ex-info \"a\" {})) (finally (throw (ex-info \"b\" {}))))"))))))
+
 (deftest interrupt-forge-resistant-test
   (testing "sandboxed code cannot forge an uncatchable interrupt by guessing the key"
     (let [ctx (sci/init {:interrupt-fn (limit-interrupt! 100000)})]
