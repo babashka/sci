@@ -17,6 +17,13 @@
                        (aset ~'invoc-array ~'this-as-idx (~'js* "this")))
                      ~@body)))
 
+;; The interrupt-fn check in the generated fns below uses
+;; (when-not (nil? interrupt-fn#) ...) rather than (when (some? interrupt-fn#) ...).
+;; It runs on every fn entry / loop recur, so it is hot. nil? inlines to a single
+;; reference compare (JVM: clojure.lang.Util/identical, which C2 folds to ==;
+;; CLJS: x === null) with no Boolean.FALSE truthiness coercion, because the test is
+;; already a primitive boolean. some? and (not (nil? ...)) instead compile to a Var
+;; invoke (measured ~2x slower in a JVM microbenchmark of the bare check).
 (defmacro gen-fn
   ([n]
    `(gen-fn ~n false))
@@ -25,7 +32,8 @@
   ([n _disable-arity-checks varargs]
    (if (zero? n)
      (let [varargs-param (when varargs (gensym))]
-       `(let [recur# recur]
+       `(let [recur# recur
+              interrupt-fn# (:interrupt-fn ~'ctx)]
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
@@ -36,6 +44,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
+                 (when-not (nil? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -46,7 +55,8 @@
                                `(aset ~(with-meta 'invoc-array
                                          {:tag 'objects}) ~idx ~fn-param))
                              fn-params (range)))]
-       `(let [recur# recur]
+       `(let [recur# recur
+              interrupt-fn# (:interrupt-fn ~'ctx)]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
@@ -58,6 +68,7 @@
                ~@(when varargs
                    [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
                (loop []
+                 (when-not (nil? interrupt-fn#) (interrupt-fn#))
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
@@ -140,7 +151,25 @@
                17 (gen-fn 17)
                18 (gen-fn 18)
                19 (gen-fn 19)
-               20 (gen-fn 20)))]
+               20 (gen-fn 20)
+               ;; default case for 20+ args (used by loop)
+               (let [recur# recur
+                     interrupt-fn# (:interrupt-fn ctx)]
+                 (fn arity-many [& args]
+                   (let [invoc-array (when-not (zero? invoc-size)
+                                      (object-array invoc-size))]
+                     (when enclosed->invocation
+                       (enclosed->invocation enclosed-array invoc-array))
+                     (loop [args args i 0]
+                       (when (< i fixed-arity)
+                         (aset ^objects invoc-array i (first args))
+                         (recur (next args) (inc i))))
+                     (loop []
+                       (when-not (nil? interrupt-fn#) (interrupt-fn#))
+                       (let [ret (types/eval body ctx invoc-array)]
+                         (if (identical? recur# ret)
+                           (recur)
+                           ret))))))))]
      f)))
 
 (defn lookup-by-arity [arities arity]

@@ -200,6 +200,21 @@
       (catch Exception e
         (is (= [line col] ((juxt :line :column) (ex-data e))) snippet)))))
 
+(deftest let-like-binding-arity-test
+  (doseq [[snippet expected-message]
+          [["(str (if-let [x 0 y 1] x))"     "if-let requires exactly 2 forms in binding vector"]
+           ["(str (when-let [x 0 y 1] x))"   "when-let requires exactly 2 forms in binding vector"]
+           ["(str (if-some [x 0 y 1] x))"    "if-some requires exactly 2 forms in binding vector"]
+           ["(str (when-some [x 0 y 1] x))"  "when-some requires exactly 2 forms in binding vector"]]]
+    (try
+      (sci.core/eval-string snippet)
+      (is false snippet)
+      (catch Exception e
+        (is (= expected-message #?(:clj (.getMessage e)
+                                   :cljs (.-message e)))
+            snippet)
+        (is (= [1 6] ((juxt :line :column) (ex-data e))) snippet)))))
+
 #?(:cljs
    (deftest js-interop-test
      (is (str/includes?

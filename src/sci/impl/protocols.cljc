@@ -6,6 +6,7 @@
   (:require
    [sci.ctx-store :as store]
    #?(:clj [sci.impl.interop :as interop])
+   [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype]
    [sci.impl.multimethods :as mms]
    [sci.impl.types :as types]
@@ -209,36 +210,25 @@
 
 (defn extend-protocol [form _ protocol-name & impls]
   (let [ctx (store/get-ctx)
-        #?@(:cljs [print-writer? (= 'IPrintWithWriter protocol-name)])
         impls (utils/split-when #(not (seq? %)) impls)
         protocol-var
         (or (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
-            #?(:cljs (when print-writer?
-                       ::IPrintWithWriter))
             (utils/throw-error-with-location (str "Protocol not found: " protocol-name) form))
         protocol-data (when (utils/var? protocol-var)
                         (deref protocol-var))
         extend-via-metadata (:extend-via-metadata protocol-data)
         protocol-ns (:ns protocol-data)
-        pns (if (keyword? protocol-var)
-              "sci.impl.protocols"
-              (str (types/getName protocol-ns)))
+        pns (str (types/getName protocol-ns))
         expansion
         `(do
            ~@(map (fn [[type & meths]]
                     (let [type #?(:clj type
                                   :cljs (get cljs-type-symbols type type))]
-                      (if #?(:cljs print-writer?
-                             :clj false)
-                        #?(:cljs
-                           `(clojure.core/alter-meta!
-                             ~type assoc :sci.impl/print-method (fn ~@(rest (first meths))))
-                           :clj nil)
-                        `(do
+                      `(do
                            (clojure.core/alter-var-root
                             (var ~protocol-name) update :satisfies (fnil conj #{})
                             (type->str ~type))
-                           ~@(process-methods ctx type meths pns extend-via-metadata)))))
+                           ~@(process-methods ctx type meths pns extend-via-metadata))))
                   impls))]
     expansion))
 
@@ -294,7 +284,9 @@
                        IDeref (cljs.core/satisfies? IDeref obj)
                        ISwap (cljs.core/satisfies? ISwap obj)
                        IReset (cljs.core/satisfies? IReset obj)
-                       IRecord (cljs.core/satisfies? IRecord obj)))
+                       IRecord (cljs.core/satisfies? IRecord obj)
+                       IFn (core-protocols/sci-ifn? obj)
+                       nil))
                 (find-matching-non-default-method protocol obj)))
        ;; NOTE: what if the protocol doesn't have any methods?
        ;; This probably needs fixing

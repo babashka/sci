@@ -2,9 +2,13 @@
   {:no-doc true}
   (:refer-clojure :exclude [deref -deref -swap! -reset!])
   (:require
+   [sci.impl.deftype]
+   [sci.impl.records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
-   [sci.lang :as lang]))
+   [sci.lang :as lang])
+  #?(:clj (:import [sci.impl.records SciRecord]
+                    [sci.impl.deftype SciType])))
 
 ;;;; IDeref
 
@@ -221,5 +225,63 @@
       {:ns clj-lang-ns})))
 
 ;;;; end IAtom
+
+;;;; IPrintWithWriter (CLJS only)
+
+#?(:cljs
+   (defmethod types/sci-pr-writer :sci.impl.protocols/reified [this w opts]
+     (if-let [pm (get (types/getMethods this) '-pr-writer)]
+       (pm this w opts)
+       (-write w "#object[sci.impl.types.Reified]"))))
+
+#?(:cljs
+   (defn -pr-writer* [this writer opts]
+     (cljs.core/-pr-writer this writer opts)))
+
+#?(:cljs
+   (def print-writer-protocol
+     (utils/new-var
+      'cljs.core.IPrintWithWriter
+      {:protocol IPrintWithWriter
+       :methods #{types/sci-pr-writer}
+       :ns cljs-core-ns}
+      {:ns cljs-core-ns})))
+
+;;;; end IPrintWithWriter
+
+;;;; IFn
+
+#?(:cljs
+   (def ifn-protocol
+     (utils/new-var
+      'cljs.core.IFn
+      {:protocol IFn
+       :methods #{types/sci-invoke}
+       :ns cljs-core-ns}
+      {:ns cljs-core-ns})))
+
+#?(:clj
+   (def ifn-protocol
+     (utils/new-var
+      'IFn
+      {:protocol clojure.lang.IFn
+       :methods #{types/sci-invoke types/sci-apply-to}
+       :ns clj-lang-ns}
+      {:ns clj-lang-ns})))
+
+(defn sci-ifn? [x]
+  (cond
+    (fn? x) true
+    (#?(:clj instance?
+        :cljs cljs.core/implements?) #?(:clj sci.impl.types.SciTypeInstance
+                                        :cljs types/SciTypeInstance) x)
+    (boolean (get-method types/sci-invoke (types/type-impl x)))
+    #?@(:clj [(instance? clojure.lang.IFn x) true]
+        :cljs [(instance? types/Reified x)
+               (boolean (get (types/getMethods x) '-invoke))])
+    :else #?(:clj false
+             :cljs (ifn? x))))
+
+;;;; end IFn
 
 (def defaults (set (conj iatom-defaults ideref-default)))

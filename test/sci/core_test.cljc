@@ -5,6 +5,7 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.copy-ns-test-ns]
+   [sci.copy-var-inlined-clash-ns]
    [sci.core :as sci]
    [sci.impl.unrestrict :as unrestrict]
    [sci.test-utils :as tu]))
@@ -434,7 +435,9 @@
                              {:classes {'BigDecimal BigDecimal :allow :all}})))))
 
 (deftest ns-resolve-test
-  (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)"))))
+  (is (= 'join (eval* "(ns foo (:require [clojure.string :refer [join]])) (ns bar) (-> (ns-resolve 'foo 'join) meta :name)")))
+  (is (thrown? #?(:clj Exception :cljs js/Error)
+               (eval* "(ns-resolve (find-ns 'nonexistent.ns) 'foo)"))))
 
 (deftest top-level-test
   (testing "top level expressions are evaluated in order and have side effects,
@@ -677,7 +680,28 @@
     (recur (map #(map inc %) sqs)))) [1 2] [3 4])")))
     (is (= '(10) (eval* "(defn foo [x & xs]
                            (if (pos? x) (recur (dec x) (rest xs)) xs))
-                         (apply foo 10 (range 11))"))))
+                         (apply foo 10 (range 11))")))
+    (is (= 82 (eval* "
+(letfn [(triple [x] #(sub-two (* 3 x)))
+         (sub-two [x] #(stop? (- x 2)))
+         (stop? [x] (if (> x 50) x #(triple x)))]
+  ((fn [f & args]
+     (let [r (apply f args)]
+       (if (fn? r)
+         (recur r nil)
+         r)))
+   triple 2))"))))
+  (testing "mismatched recur arity"
+    (is (thrown-with-msg?
+         Exception
+         #"Mismatched argument count to recur, expected: 2 args, got: 1"
+         (eval* "(fn [a b] (recur 1))")))
+    (is (thrown-with-msg?
+         Exception
+         #"Mismatched argument count to recur, expected: 2 args, got: 1"
+         (eval* "(fn [f & args]
+                   (let [r (apply f args)]
+                     (if (fn? r) (recur r) r)))"))))
   (testing "function with recur may be returned"
     (when-not tu/native?
       (let [f (eval* "(fn f [x] (if (< x 3) (recur (inc x)) x))")]
@@ -767,7 +791,42 @@
 (def state (atom []))
 (doseq [i [1 2 3]] (swap! state conj i))
 @state"
-                           {}))))
+                           {})))
+  (is (thrown-with-msg?
+       Exception
+       #"Mismatched argument count to recur, expected: 3 args, got: 4"
+       (tu/eval* "(loop [x 1 y 2 z 3]
+                    (if (< x 5)
+                      (recur (unchecked-inc x) x y z)))"
+                 {})))
+  (testing "20+ bindings in loop with recur (GH-1035)"
+    (is (= [20 1]
+           (tu/eval* "
+(loop [a1 1 a2 2 a3 3 a4 4 a5 5
+       a6 6 a7 7 a8 8 a9 9 a10 10
+       a11 11 a12 12 a13 13 a14 14 a15 15
+       a16 16 a17 17 a18 18 a19 19 a20 20]
+  (if (= a1 20)
+    [a1 a20]
+    (recur a20 a2 a3 a4 a5
+           a6 a7 a8 a9 a10
+           a11 a12 a13 a14 a15
+           a16 a17 a18 a19 a1)))"
+                     {})))
+    (is (= 211
+           (tu/eval* "
+(loop [a1 1 a2 2 a3 3 a4 4 a5 5
+       a6 6 a7 7 a8 8 a9 9 a10 10
+       a11 11 a12 12 a13 13 a14 14 a15 15
+       a16 16 a17 17 a18 18 a19 19 a20 20]
+  (if (zero? a1)
+    (+ a1 a2 a3 a4 a5 a6 a7 a8 a9 a10
+       a11 a12 a13 a14 a15 a16 a17 a18 a19 a20)
+    (recur (dec a1) (inc a2) (* a3 1) a4 a5
+           a6 a7 a8 a9 (+ a10 a1)
+           a11 a12 a13 a14 a15
+           a16 a17 a18 a19 a20)))"
+                     {})))))
 
 (deftest for-test
   (is (= '([1 4] [1 6])
@@ -1260,13 +1319,29 @@
   (is (= 2 (eval* "(if-let [foo nil] 1 2)")))
   (is (= 2 (eval* "(if-let [foo false] 1 2)")))
   (is (= 2 (eval* "(if-some [foo nil] 1 2)")))
-  (is (= 1 (eval* "(if-some [foo false] 1 2)"))))
+  (is (= 1 (eval* "(if-some [foo false] 1 2)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"if-let requires exactly 2 forms in binding vector"
+       (eval* "(if-let [x (range 5) y (range 5)] x :else)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"if-some requires exactly 2 forms in binding vector"
+       (eval* "(if-some [x (range 5) y (range 5)] x :else)"))))
 
 (deftest whens-test
   (is (= nil (eval* "(when-let [foo nil] 1)")))
   (is (= nil (eval* "(when-let [foo false] 1)")))
   (is (= nil (eval* "(when-some [foo nil] 1)")))
-  (is (= 1 (eval* "(when-some [foo false] 1)"))))
+  (is (= 1 (eval* "(when-some [foo false] 1)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"when-let requires exactly 2 forms in binding vector"
+       (eval* "(when-let [x (range 5) y (range 5)] x)")))
+  (is (thrown-with-msg?
+       #?(:clj Exception :cljs js/Error)
+       #"when-some requires exactly 2 forms in binding vector"
+       (eval* "(when-some [x (range 5) y (range 5)] x)"))))
 
 (deftest read-string-eval-test
   (is (= 3 (eval* "(load-string \"1 2 3\")")))
@@ -1364,6 +1439,31 @@
                 (sci/eval-string "(foo/do-twice (prn 2))"
                                  {:namespaces {'foo {'do-twice v}}})))))))
 
+(deftest copy-var-with-redefs-inlined-name-clash-test
+  ;; Regression: copy-var incorrectly set :sci.impl/inlined on functions whose
+  ;; unqualified name collides with inlined-vars, causing with-redefs to be bypassed.
+  (let [my-ns    (sci/create-ns 'my.lib)
+        user-get (sci/copy-var sci.copy-var-inlined-clash-ns/get my-ns)
+        core-get (sci/copy-var clojure.core/get my-ns)
+        opts     {:namespaces {'my.lib {'get user-get 'core-get core-get}}}]
+    (testing "baseline: function is callable"
+      (is (= 1 (sci/eval-string "(my.lib/get {:a 1} :a)" opts))))
+    (testing "with-redefs replaces a copied non-core var (not inlined)"
+      (is (= :replaced
+             (sci/eval-string
+              "(with-redefs [my.lib/get (fn [& _] :replaced)]
+                 (my.lib/get {:a 1} :a))"
+              opts))))
+    ;; A copy of a genuine clojure.core inlined var keeps :sci.impl/inlined, so
+    ;; it ignores with-redefs like Clojure. Must hold in CLJS too (resolves via
+    ;; cljs.core), not just the JVM (resolves via clojure.core). Built-in core
+    ;; vars are read-only, so we copy into a writable ns to exercise with-redefs.
+    (testing "with-redefs is bypassed for a copied core inlined var"
+      (is (= 1
+             (sci/eval-string
+              "(with-redefs [my.lib/core-get (fn [& _] :replaced)]
+                 (my.lib/core-get {:a 1} :a))"
+              opts))))))
 
 (defn update-vals*
   "Same as `update-vals` from clojure 1.11 but included here so tests

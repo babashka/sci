@@ -65,7 +65,13 @@
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
               (when-let [v (when call? (get ana-macros sym-name))]
                 [sym v])))
-        (some-> env :namespaces (get sym-ns) (find sym-name))
+        (let [the-sym-ns (some-> env :namespaces (get sym-ns))]
+          (or (find the-sym-ns sym-name)
+              ;; type mappings (deftype/defrecord) live under :types
+              #?(:cljs
+                 (when-not only-var?
+                   (when-let [types (:types the-sym-ns)]
+                     (find types sym-name))))))
         (when-not only-var?
           (when-let [clazz (interop/resolve-class ctx sym-ns)]
             [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))

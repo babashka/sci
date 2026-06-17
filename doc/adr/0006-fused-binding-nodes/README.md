@@ -317,19 +317,28 @@ Potential further fusing optimizations to explore:
   at analysis time via the inlining mechanism, but non-inlined var calls still
   go through `(deref v)` at runtime. A `VarNode` deftype could help the JIT.
 
-- **Primitive type specialization for loop bindings**: Track that loop bindings
-  are numeric, use `long[]` arrays, operate on primitives directly. Would
-  eliminate boxing overhead (the remaining ~95% of the gap to native Clojure).
-  High complexity.
+- **Primitive type specialization for loop bindings (prototyped, not merged)**:
+  A register-based VM using `long[]` instead of `Object[]` was prototyped on
+  the `optimize-binding-args-bytecode` branch. It eliminates all boxing in the
+  loop body — arithmetic stays on primitive longs, with boxing only at loop exit.
 
-- **Bytecode VM for loop bodies (rejected)**: A stack-based bytecode VM was
-  prototyped to replace the node tree for loop bodies with a flat opcode array,
-  using `case` dispatch (tableswitch) instead of protocol dispatches. However,
-  the stack machine overhead (aget/aset for every push/pop, plus separate case
-  dispatches for opcode type and function ID) exceeded the savings from replacing
-  vtable lookups with tableswitch. The fused node approach already eliminates the
-  most expensive dispatches (binding arg lookups), leaving only ~5 dispatches per
-  loop iteration — each doing minimal work. The bytecode VM replaced those 5
-  with 13+ case dispatches plus stack operations, resulting in ~28% slower
-  execution. A register-based VM or closure compilation might fare better but
-  would be significantly more complex.
+  Results for `(loop [i 0 j 10000000] (if (zero? j) i (recur (inc i) (dec j))))`:
+
+  | Runtime | Tree-walker | Object[] VM | long[] VM |
+  |---------|-------------|-------------|-----------|
+  | bb native | ~204ms | ~245ms | **~88ms** |
+  | JVM (warmed) | ~43ms | ~115ms | ~63ms |
+
+  The long[] VM is 2.3x faster than the tree-walker on native-image. On JVM,
+  HotSpot's escape analysis already eliminates most boxing, so the tree-walker
+  is faster (the `case` dispatch overhead exceeds the boxing savings).
+
+  Not merged because the optimization rarely triggers in real-world code: it
+  requires integer literal init values, pure numeric loop bodies (only known
+  arithmetic/predicate functions), no `let`/`do`/interop/function calls. Running
+  babashka's full library test suite (5555 tests) produced zero hits. The approach
+  is sound but the trigger conditions are too narrow to justify the complexity.
+
+  The earlier stack-based Object[] VM was also rejected — its push/pop overhead
+  and double dispatch (opcode + function ID) made it slower than the tree-walker
+  on both JVM and native-image.

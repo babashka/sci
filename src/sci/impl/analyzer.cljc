@@ -219,7 +219,9 @@
                                                  `(nth ~'params ~j)])
                                               (range i)))])
                             (range 1 20))
-          recur-sym (gensym "recur")]
+          recur-sym (gensym "recur")
+          expected-count-sym (gensym "expected-count")
+          arg-count-sym (gensym "arg-count")]
       `(defn ~'return-recur
          ~'[ctx expr analyzed-children]
          (when-not (recur-target? ~'ctx)
@@ -227,8 +229,15 @@
             (case (:no-recur-reason ~'ctx)
               :try "Cannot recur across try"
               "Can only recur from tail position") ~'expr))
-         (let [~'params (:params ~'ctx)]
-           (case (count ~'analyzed-children)
+         (let [~'params (:params ~'ctx)
+               ~expected-count-sym (count ~'params)
+               ~arg-count-sym (count ~'analyzed-children)]
+           (when-not (= ~expected-count-sym ~arg-count-sym)
+             (throw-error-with-location
+              (str "Mismatched argument count to recur, expected: "
+                   ~expected-count-sym " args, got: " ~arg-count-sym)
+              ~'expr))
+           (case ~arg-count-sym
              ~@(concat
                 [0 `(let [recur# recur] (sci.impl.types/->Node recur# nil))]
                 (mapcat (fn [[i binds]]
@@ -247,7 +256,15 @@
                                               (range i)))
                                    ~recur-sym)
                                  nil))])
-                        let-bindings))))))))
+                        let-bindings))
+             ;; default case for 20+ args
+             (let [recur# recur]
+               (sci.impl.types/->Node
+                (let [evaled# (mapv (fn [a#] (t/eval a# ~'ctx ~'bindings)) ~'analyzed-children)]
+                  (dotimes [i# ~arg-count-sym]
+                    (aset ~(with-meta 'bindings {:tag 'objects}) (int i#) (nth evaled# i#)))
+                  recur#)
+                nil))))))))
 
 ;; (require 'clojure.pprint)
 ;; (clojure.pprint/pprint

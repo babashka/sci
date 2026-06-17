@@ -50,20 +50,20 @@
 (defn ancestors*
   ([tag]
    (let [h @(global-hierarchy)]
-     (ancestors h tag)))
+     (ancestors h (->tag tag))))
   ([h tag]
-   (ancestors h tag)))
+   (ancestors h (->tag tag))))
 
 (defn descendants*
   ([tag]
    (let [h @(global-hierarchy)]
-     (descendants h tag)))
+     (descendants h (->tag tag))))
   ([h tag]
-   (descendants h tag)))
+   (descendants h (->tag tag))))
 
 (defn parents*
   ([tag]
    (let [h @(global-hierarchy)]
-     (parents h tag)))
+     (parents h (->tag tag))))
   ([h tag]
-   (parents h tag)))
+   (parents h (->tag tag))))

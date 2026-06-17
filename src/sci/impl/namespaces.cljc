@@ -174,10 +174,17 @@
           g
           (last steps)))))
 
+(defn- assert-single-binding-vector [expr macro-name bindings]
+  (when-not (vector? bindings)
+    (utils/throw-error-with-location (str macro-name " requires a vector for its binding") expr))
+  (when-not (= 2 (count bindings))
+    (utils/throw-error-with-location (str macro-name " requires exactly 2 forms in binding vector") expr)))
+
 (defn if-let*
   ([&form &env bindings then]
    (if-let* &form &env bindings then nil))
   ([&form _&env bindings then else & _oldform]
+   (assert-single-binding-vector &form "if-let" bindings)
    (let [form (bindings 0) tst (bindings 1)
          tmp (gensym "temp")]
      `(let [~tmp ~tst]
@@ -191,6 +198,7 @@
   ([&form &env bindings then]
    (if-some* &form &env bindings then nil))
   ([&form _&env bindings then else & _oldform]
+   (assert-single-binding-vector &form "if-some" bindings)
    (let [form (bindings 0) tst (bindings 1)
          tmp (gensym "temp")]
      `(let [~tmp ~tst]
@@ -203,6 +211,7 @@
 
 (defn when-let*
   [&form _&env bindings & body]
+  (assert-single-binding-vector &form "when-let" bindings)
   (let [form (bindings 0) tst (bindings 1)
         tmp (gensym "temp")]
     `(let [~tmp ~tst]
@@ -219,6 +228,7 @@
          ~@body))))
 
 (defn when-some* [&form _ bindings & body]
+  (assert-single-binding-vector &form "when-some" bindings)
   (let [form (bindings 0) tst (bindings 1)
         tmp (gensym "temp")]
     `(let [~tmp ~tst]
@@ -419,8 +429,8 @@
   (sci.impl.utils/namespace-object (:env (store/get-ctx)) ns-sym true nil))
 
 (defn sci-find-ns* [ctx ns-sym]
-  (assert (symbol? ns-sym))
-  (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil))
+  (when ns-sym
+    (sci.impl.utils/namespace-object (:env ctx) ns-sym false nil)))
 
 (defn sci-find-ns [ns-sym]
   (sci-find-ns* (store/get-ctx) ns-sym))
@@ -528,11 +538,16 @@
   (let [ctx (store/get-ctx)]
     (sci-ns-refers* ctx sci-ns)))
 
+(defn sci-ns-types* [ctx sci-ns]
+  (let [name (sci-ns-name* ctx sci-ns)]
+    (get-in @(:env ctx) [:namespaces name :types])))
+
 (defn sci-ns-map [sci-ns]
   (let [ctx (store/get-ctx)]
     (merge (sci-ns-imports* ctx sci-ns)
            (sci-ns-refers* ctx sci-ns)
-           (sci-ns-interns* ctx sci-ns))))
+           (sci-ns-interns* ctx sci-ns)
+           (sci-ns-types* ctx sci-ns))))
 
 (defn sci-ns-unmap [sci-ns sym]
   (let [ctx (store/get-ctx)]
@@ -830,7 +845,10 @@
       'compareAndSet core-protocols/compareAndSet
       'IAtom2 core-protocols/iatom2-protocol
       'resetVals core-protocols/resetVals
-      'swapVals core-protocols/swapVals}))
+      'swapVals core-protocols/swapVals
+      'IFn core-protocols/ifn-protocol
+      'invoke (new-var 'invoke types/sci-invoke)
+      'applyTo (new-var 'applyTo types/sci-apply-to)}))
 
 ;;;; Record impl
 
@@ -1336,7 +1354,11 @@
                'reset-vals! (copy-var core-protocols/reset-vals!* clojure-core-ns {:name 'reset-vals!})])
 
      #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
-                                        {:ns clojure-core-ns})])
+                                        {:ns clojure-core-ns})
+                'IPrintWithWriter core-protocols/print-writer-protocol
+                '-pr-writer (new-var '-pr-writer types/sci-pr-writer)
+                'IFn core-protocols/ifn-protocol
+                '-invoke (new-var '-invoke types/sci-invoke)])
      ;; cljs data structures
      #?@(:cljs ['Delay (copy-var Delay clojure-core-ns)])
      #?@(:cljs ['PersistentQueue (copy-var PersistentQueue clojure-core-ns)])
@@ -1554,7 +1576,7 @@
      'if-let (macrofy 'if-let if-let*)
      'if-some (macrofy 'if-some if-some*)
      'if-not (macrofy 'if-not if-not*)
-     'ifn? (copy-core-var ifn?)
+     'ifn? (copy-var core-protocols/sci-ifn? clojure-core-ns {:name 'ifn?})
      'inc (copy-core-var inc)
      'inst? (copy-core-var inst?)
      'inst-ms (copy-core-var inst-ms)

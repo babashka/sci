@@ -13,7 +13,8 @@
 #?(:clj
    (defn assert-no-jvm-interface [protocol protocol-name expr error-hint]
      (when (and (class? protocol)
-                (not (= Object protocol)))
+                (not (= Object protocol))
+                (not (= clojure.lang.IFn protocol)))
        (utils/throw-error-with-location
         (or error-hint
             (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name))
@@ -77,15 +78,76 @@
                                    (if-let [pm (:sci.impl/print-method m)]
                                      (pm this w)
                                      (.write ^java.io.Writer w ^String (clojure-str this))))
-                                 (.write ^java.io.Writer w ^String (clojure-str this))))]
+                                 (.write ^java.io.Writer w ^String (clojure-str this))))
+            clojure.lang.IFn
+            (invoke [this] (types/sci-invoke this))
+            (invoke [this a] (types/sci-invoke this a))
+            (invoke [this a b] (types/sci-invoke this a b))
+            (invoke [this a b c] (types/sci-invoke this a b c))
+            (invoke [this a b c d] (types/sci-invoke this a b c d))
+            (invoke [this a b c d e] (types/sci-invoke this a b c d e))
+            (invoke [this a b c d e f] (types/sci-invoke this a b c d e f))
+            (invoke [this a b c d e f g] (types/sci-invoke this a b c d e f g))
+            (invoke [this a b c d e f g h] (types/sci-invoke this a b c d e f g h))
+            (invoke [this a b c d e f g h i] (types/sci-invoke this a b c d e f g h i))
+            (invoke [this a b c d e f g h i j] (types/sci-invoke this a b c d e f g h i j))
+            (invoke [this a b c d e f g h i j k] (types/sci-invoke this a b c d e f g h i j k))
+            (invoke [this a b c d e f g h i j k l] (types/sci-invoke this a b c d e f g h i j k l))
+            (invoke [this a b c d e f g h i j k l m] (types/sci-invoke this a b c d e f g h i j k l m))
+            (invoke [this a b c d e f g h i j k l m n] (types/sci-invoke this a b c d e f g h i j k l m n))
+            (invoke [this a b c d e f g h i j k l m n o] (types/sci-invoke this a b c d e f g h i j k l m n o))
+            (invoke [this a b c d e f g h i j k l m n o p] (types/sci-invoke this a b c d e f g h i j k l m n o p))
+            (invoke [this a b c d e f g h i j k l m n o p q] (types/sci-invoke this a b c d e f g h i j k l m n o p q))
+            (invoke [this a b c d e f g h i j k l m n o p q r] (types/sci-invoke this a b c d e f g h i j k l m n o p q r))
+            (invoke [this a b c d e f g h i j k l m n o p q r s] (types/sci-invoke this a b c d e f g h i j k l m n o p q r s))
+            (invoke [this a b c d e f g h i j k l m n o p q r s t] (types/sci-invoke this a b c d e f g h i j k l m n o p q r s t))
+            (applyTo [this args] (types/sci-apply-to this args))]
       :cljs [IPrintWithWriter
              (-pr-writer [this w opts]
-                         (if-let [rv type-meta]
-                           (let [m (meta rv)]
-                             (if-let [pm (:sci.impl/print-method m)]
-                               (pm this w opts)
-                               (write-all w (clojure-str this))))
-                           (write-all w (clojure-str this))))])
+                         (types/sci-pr-writer this w opts))
+             IFn
+             (-invoke [this]
+                      (types/sci-invoke this))
+             (-invoke [this a]
+                      (types/sci-invoke this a))
+             (-invoke [this a b]
+                      (types/sci-invoke this a b))
+             (-invoke [this a b c]
+                      (types/sci-invoke this a b c))
+             (-invoke [this a b c d]
+                      (types/sci-invoke this a b c d))
+             (-invoke [this a b c d e]
+                      (types/sci-invoke this a b c d e))
+             (-invoke [this a b c d e f]
+                      (types/sci-invoke this a b c d e f))
+             (-invoke [this a b c d e f g]
+                      (types/sci-invoke this a b c d e f g))
+             (-invoke [this a b c d e f g h]
+                      (types/sci-invoke this a b c d e f g h))
+             (-invoke [this a b c d e f g h i]
+                      (types/sci-invoke this a b c d e f g h i))
+             (-invoke [this a b c d e f g h i j]
+                      (types/sci-invoke this a b c d e f g h i j))
+             (-invoke [this a b c d e f g h i j k]
+                      (types/sci-invoke this a b c d e f g h i j k))
+             (-invoke [this a b c d e f g h i j k l]
+                      (types/sci-invoke this a b c d e f g h i j k l))
+             (-invoke [this a b c d e f g h i j k l m]
+                      (types/sci-invoke this a b c d e f g h i j k l m))
+             (-invoke [this a b c d e f g h i j k l m n]
+                      (types/sci-invoke this a b c d e f g h i j k l m n))
+             (-invoke [this a b c d e f g h i j k l m n o]
+                      (types/sci-invoke this a b c d e f g h i j k l m n o))
+             (-invoke [this a b c d e f g h i j k l m n o p]
+                      (types/sci-invoke this a b c d e f g h i j k l m n o p))
+             (-invoke [this a b c d e f g h i j k l m n o p q]
+                      (types/sci-invoke this a b c d e f g h i j k l m n o p q))
+             (-invoke [this a b c d e f g h i j k l m n o p q r]
+                      (types/sci-invoke this a b c d e f g h i j k l m n o p q r))
+             (-invoke [this a b c d e f g h i j k l m n o p q r s]
+                      (types/sci-invoke this a b c d e f g h i j k l m n o p q r s))
+             (-invoke [this a b c d e f g h i j k l m n o p q r s t]
+                      (types/sci-invoke this a b c d e f g h i j k l m n o p q r s t))])
 
   types/IBox
   (getVal [_] ext-map)
@@ -99,6 +161,14 @@
 
 (defn ->type-impl [rec-name type type-meta m]
   (SciType. rec-name type type-meta m))
+
+#?(:cljs
+   (defmethod types/sci-pr-writer :default [this w opts]
+     (if (cljs.core/implements? types/SciTypeInstance this)
+       (if (implements? IRecord this)
+         (write-all w (str "#" (types/type-impl this) (into {} this)))
+         (write-all w (clojure-str this)))
+       (cljs.core/-pr-writer this w opts))))
 
 #?(:clj
    (defmethod print-method SciType [v w]
@@ -216,7 +286,8 @@
                                           (fnil conj #{}) (str rec-type)))
                  protocol-ns (:ns protocol)
                  pns (cond protocol-ns (str (types/getName protocol-ns))
-                           (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records")
+                           (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records"
+                           #?@(:clj [(= clojure.lang.IFn protocol) "clojure.lang"]))
                  fq-meth-name #(if (simple-symbol? %)
                                   (symbol pns (str %))
                                   %)]
@@ -355,12 +426,9 @@
                    (mapcat
                     (fn [[protocol-name & impls]]
                       (let [impls (group-by first impls)
-                            protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                            protocol (or protocol
-                                         (when (= 'Object protocol-name)
+                            protocol (or (when (= 'Object protocol-name)
                                            ::object)
-                                         (when (= 'IPrintWithWriter protocol-name)
-                                           ::IPrintWithWriter))
+                                         (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name))
                             _ (when-not protocol
                                 (utils/throw-error-with-location
                                  (str "Protocol not found: " protocol-name)
@@ -377,10 +445,6 @@
                                             (symbol pns (str %))
                                             %)]
                         (map (fn [[method-name bodies]]
-                               (if (and (keyword-identical? ::IPrintWithWriter protocol)
-                                        (= '-pr-writer method-name))
-                                 `(alter-meta! ~record-name
-                                               assoc :sci.impl/print-method (fn ~(rest (first bodies))))
                                  (let [bodies (map rest bodies)
                                        bodies (mapv (fn [impl]
                                                       (let [args (first impl)
@@ -412,7 +476,7 @@
                                                                                          (fn [this v]
                                                                                            (types/-mutate this field v)))
                                                                                        field-set)))
-                                    `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))))
+                                    `(defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                              impls)))
                     protocol-impls)]
                (emit-deftype rec-type record-name factory-fn-sym

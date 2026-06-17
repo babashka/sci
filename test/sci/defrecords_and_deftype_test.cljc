@@ -109,6 +109,24 @@
 (instance? Rectangle (foo/->Rectangle 10 10))"]
     (is (true? (tu/eval* prog {})))))
 
+#?(:cljs
+   ;; https://github.com/babashka/nbb/issues/410: in cljs a type symbol can be
+   ;; referenced via the ns alias (without :import). Must resolve cross-ns.
+   (deftest cross-ns-type-symbol-test
+     (let [prog "
+(ns foo)
+(defrecord Rectangle [width height])
+(deftype Point [x y])
+
+(ns bar (:require [foo :as f]))
+[(instance? f/Rectangle (f/->Rectangle 10 10))
+ (instance? f/Point (f/->Point 1 2))
+ (f/Rectangle. 3 4)]"
+           [r p ctor] (tu/eval* prog {})]
+       (is (true? r))
+       (is (true? p))
+       (is (= {:width 3 :height 4} (into {} ctor))))))
+
 (deftest field-access-test
   (let [prog "
 (ns foo)
@@ -186,7 +204,17 @@
 #?(:cljs
    (deftest IPrintWithWriter-test
      (is (= "dude" (sci/eval-string "(defrecord Foo [x]) (extend-protocol IPrintWithWriter Foo  (-pr-writer [o w opts] (-write w \"dude\"))) (pr-str (->Foo))")))
-     (is (= "dude" (sci/eval-string "(deftype Foo [] IPrintWithWriter (-pr-writer [_ w opts] (-write w \"dude\"))) (pr-str (->Foo))")))))
+     (is (= "dude" (sci/eval-string "(deftype Foo [] IPrintWithWriter (-pr-writer [_ w opts] (-write w \"dude\"))) (pr-str (->Foo))")))
+     (is (= "dude" (sci/eval-string "(defrecord Foo [x] IPrintWithWriter (-pr-writer [_ w opts] (-write w \"dude\"))) (pr-str (->Foo 1))")))
+     (is (= "#reified" (sci/eval-string "(pr-str (reify IPrintWithWriter (-pr-writer [_ w opts] (-write w \"#reified\"))))")))
+     (is (true? (sci/eval-string "(ifn? -pr-writer)")))
+     ;; field access in -pr-writer body
+     (is (= "#Rec<42>" (sci/eval-string "(defrecord Rec [x] IPrintWithWriter (-pr-writer [_ w opts] (-write w (str \"#Rec<\" x \">\"))))(pr-str (->Rec 42))")))
+     (is (= "#Typ<42>" (sci/eval-string "(deftype Typ [x] IPrintWithWriter (-pr-writer [_ w opts] (-write w (str \"#Typ<\" x \">\"))))(pr-str (->Typ 42))")))
+     ;; fallback printing without custom IPrintWithWriter
+     (is (= "#user.Bar{:x 99}" (sci/eval-string "(defrecord Bar [x]) (pr-str (->Bar 99))")))
+     (is (re-find #"#object\[user.Baz" (sci/eval-string "(deftype Baz [x]) (pr-str (->Baz 1))")))))
+
 
 #?(:cljs (def Exception js/Error))
 
@@ -425,6 +453,19 @@
                  (some #(and (seq? %) (= 'deftype* (first %))) forms))"
               {})))))))
 
+(deftest ns-map-includes-types-test
+  (testing "defrecord type appears in ns-map"
+    (is (true? (tu/eval* "(defrecord Foo [x]) (contains? (ns-map *ns*) 'Foo)" {}))))
+  (testing "deftype type appears in ns-map"
+    (is (true? (tu/eval* "(deftype Bar [x]) (contains? (ns-map *ns*) 'Bar)" {}))))
+  (testing "defrecord type appears in ns-map after cross-namespace import"
+    (is (true? (tu/eval* "(ns a) (defrecord Foo [x])
+                           (ns b (:import [a Foo]))
+                           (contains? (ns-map *ns*) 'Foo)" {}))))
+  #?(:clj
+     (testing "ns-map type entry is a class"
+       (is (true? (tu/eval* "(defrecord Foo [x]) (class? (get (ns-map *ns*) 'Foo))" {}))))))
+
 (deftest deftype-resolve-test
   (testing "resolve returns Type, not Var, in defining namespace"
     (is (true? (tu/eval* "(deftype Foo [x]) (instance? sci.lang.Type (resolve 'Foo))" {})))
@@ -570,3 +611,59 @@
     (is (some? (tu/eval* "(ns foo+) (defrecord Dude []) (some? (->Dude))" {}))))
   (testing "deftype works in ns with + in name"
     (is (some? (tu/eval* "(ns bar+) (deftype Thing [x]) (some? (->Thing 1))" {})))))
+
+(deftest ifn-on-defrecord-test
+  (let [opts {:features #?(:clj #{:clj} :cljs #{:cljs})}]
+    (testing "defrecord with IFn single arity"
+      (is (= "Hello, world!"
+             (sci/eval-string "
+(defrecord Greeter [greeting]
+  #?(:clj clojure.lang.IFn :cljs IFn)
+  (#?(:clj invoke :cljs -invoke) [this name]
+    (str greeting \", \" name \"!\")))
+((->Greeter \"Hello\") \"world\")" opts))))
+    (testing "defrecord with IFn multiple arities"
+      (is (= [42 3]
+             (sci/eval-string "
+(defrecord Adder [x]
+  #?(:clj clojure.lang.IFn :cljs IFn)
+  (#?(:clj invoke :cljs -invoke) [this]
+    x)
+  (#?(:clj invoke :cljs -invoke) [this y]
+    (+ x y)))
+[((->Adder 42)) ((->Adder 1) 2)]" opts))))
+    (testing "defrecord with IFn and other protocols"
+      (is (= ["called: hi" true]
+             (sci/eval-string "
+(defprotocol Greetable (greet [this]))
+(defrecord Greeter [greeting]
+  Greetable
+  (greet [this] (str \"greeting: \" greeting))
+  #?(:clj clojure.lang.IFn :cljs IFn)
+  (#?(:clj invoke :cljs -invoke) [this arg]
+    (str \"called: \" arg)))
+(let [g (->Greeter \"hi\")]
+  [(g \"hi\") (= \"greeting: hi\" (greet g))])" opts))))
+    (testing "ifn? is false for records without IFn"
+      (is (false?
+           (sci/eval-string "
+(defrecord Plain [x])
+(ifn? (->Plain 1))" opts))))
+    #?(:clj
+       (testing "defrecord with IFn via class resolution (as in babashka)"
+         (is (= 3
+                (sci/eval-string "
+(defrecord Dude []
+  clojure.lang.IFn
+  (invoke [_] 3))
+((->Dude))"
+                                 {:classes {'clojure.lang.IFn clojure.lang.IFn}})))))
+    #?(:clj
+       (testing "defrecord with IFn applyTo"
+         (is (= 3
+                (sci/eval-string "
+(defrecord Dude []
+  clojure.lang.IFn
+  (applyTo [_ xs] 3))
+(apply (->Dude) [])"
+                                 {:classes {'clojure.lang.IFn clojure.lang.IFn}})))))))

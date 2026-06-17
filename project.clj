@@ -10,14 +10,15 @@
             :url "http://opensource.org/licenses/eclipse-1.0.php"}
   :source-paths ["src"]
   :dependencies [[org.clojure/clojure "1.10.3"]
-                 [borkdude/edamame "1.5.37"]
+                 [borkdude/edamame "1.5.39"]
                  [org.babashka/sci.impl.types "0.0.3"]
                  [borkdude/graal.locking "0.0.2"]]
   :plugins [[lein-codox "0.10.7"]]
   :profiles {:clojure-1.10.3 {:depdencies [[org.clojure/clojure "1.10.3"]]}
              :clojure-1.11.1 {:dependencies [[org.clojure/clojure "1.11.1"]]}
              :native-image {:dependencies [[org.clojure/clojure "1.10.3"]]}
-             :dev {:dependencies [[thheller/shadow-cljs "2.8.64"]]}
+             :dev {:source-paths ["dev"]
+                   :dependencies [[thheller/shadow-cljs "2.8.64"]]}
              :test {:resource-paths ["test-resources"]
                     :jvm-opts ["-Djdk.attach.allowAttachSelf"]
                     :dependencies [[clj-commons/conch "0.9.2"]

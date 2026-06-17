@@ -112,3 +112,56 @@
 #?(:cljs
    (deftest satisfies-test
      (is (true? (eval* "(satisfies? IDeref (atom 0))")))))
+
+#?(:cljs
+   (deftest ifn-reify-test
+     (testing "reify IFn with single arity"
+       (is (= "called" (eval* "(def x (reify IFn (-invoke [_] \"called\"))) (x)"))))
+     (testing "reify IFn with multiple arities"
+       (is (= [0 1 2] (eval* "(def x (reify IFn
+                                        (-invoke [_] 0)
+                                        (-invoke [_ a] a)
+                                        (-invoke [_ a b] (+ a b))))
+                               [(x) (x 1) (x 1 1)]"))))
+     (testing "reify IFn and IDeref together"
+       (is (= [:deref :invoke]
+              (eval* "(def x (reify IDeref (-deref [_] :deref)
+                                    IFn (-invoke [_] :invoke)))
+                      [@x (x)]"))))))
+
+#?(:cljs
+   (deftest ifn-deftype-test
+     (testing "deftype with IFn"
+       (is (= 42 (eval* "(deftype Foo [f]
+                            IFn
+                            (-invoke [_] (f)))
+                          (def foo (->Foo (fn [] 42)))
+                          (foo)"))))
+     (testing "deftype with IFn multiple arities"
+       (is (= [0 1 3]
+              (eval* "(deftype Foo [f]
+                        IFn
+                        (-invoke [_] (f))
+                        (-invoke [_ a] (f a))
+                        (-invoke [_ a b] (f a b)))
+                      (def foo (->Foo +))
+                      [(foo) (foo 1) (foo 1 2)]"))))
+     (testing "deftype with IFn and IDeref"
+       (is (= [:val :invoked]
+              (eval* "(deftype LazyVar [f]
+                        IDeref (-deref [_] (f))
+                        IFn (-invoke [_] :invoked))
+                      (def lv (->LazyVar (fn [] :val)))
+                      [@lv (lv)]"))))
+     (testing "ifn? false for deftype without IFn"
+       (is (false? (eval* "(deftype Dude []) (ifn? (->Dude))"))))))
+
+#?(:cljs
+   (deftest ifn-no-false-positive-test
+     (testing "reify without IFn is not ifn?"
+       (is (false? (eval* "(ifn? (reify IDeref (-deref [_] :val)))"))))
+     (testing "reify with IFn is ifn?"
+       (is (true? (eval* "(ifn? (reify IFn (-invoke [_] 42)))"))))
+     (testing "satisfies? IFn correct for reify"
+       (is (false? (eval* "(satisfies? IFn (reify IDeref (-deref [_] :val)))")))
+       (is (true? (eval* "(satisfies? IFn (reify IFn (-invoke [_] 42)))"))))))
