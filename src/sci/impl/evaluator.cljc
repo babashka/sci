@@ -72,7 +72,42 @@
        (types/eval case-default ctx bindings)
        (types/eval found ctx bindings)))))
 
-(defn- eval-try-body
+(defn- eval-catches
+  "Handles a Throwable `e` thrown by a try body: matches it against the catch
+  clauses (returning the handler result) or rethrows. Called only on the
+  exception path, so it adds no cost to normal execution. An interrupt signal
+  (sci.core/interrupt!) is never catchable here."
+  [ctx bindings body catches sci-error e]
+  (if (utils/interrupt-ex? e)
+    (throw e)
+    (if-let
+        [[_ r]
+         (reduce (fn [_ c]
+                   (let [clazz (:class c)
+                         e (if (and sci-error
+                                    (not (:sci-error c)))
+                             (ex-cause e)
+                             e)]
+                     (when #?(:cljs
+                              (or (utils/kw-identical? :default clazz)
+                                  (if (types/eval-node? clazz)
+                                    (instance? (types/eval clazz ctx bindings) e)
+                                    (instance? clazz e)))
+                              :clj (instance? clazz e))
+                       (reduced
+                        [::try-result
+                         (do (aset ^objects bindings (:ex-idx c) e)
+                             (types/eval (:body c) ctx bindings))]))))
+                 nil
+                 catches)]
+      r
+      (rethrow-with-location-of-node ctx bindings e body))))
+
+(defn- eval-try-plain
+  "Plain host try/catch/finally. Used when no :interrupt-fn is configured: no
+  interrupt can be raised, so there is nothing a throwing finally could mask.
+  This is a single combined try, so users not using the (experimental)
+  interrupt-fn feature pay no overhead."
   [ctx bindings body catches finally sci-error]
   (try
     (binding [utils/*in-try* (or (when sci-error
@@ -82,60 +117,50 @@
                                  utils/*in-try*)]
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
-      (if (utils/interrupt-ex? e)
-        ;; an interrupt signal (sci.core/interrupt!) must never be catchable
-        ;; from within sandboxed code: skip all catch clauses and rethrow
-        (throw e)
-        (if-let
-          [[_ r]
-           (reduce (fn [_ c]
-                     (let [clazz (:class c)
-                           e (if (and sci-error
-                                      (not (:sci-error c)))
-                               (ex-cause e)
-                               e)]
-                       (when #?(:cljs
-                                (or (utils/kw-identical? :default clazz)
-                                    (if (types/eval-node? clazz)
-                                      (instance? (types/eval clazz ctx bindings) e)
-                                      (instance? clazz e)))
-                                :clj (instance? clazz e))
-                         (reduced
-                          [::try-result
-                           (do (aset ^objects bindings (:ex-idx c) e)
-                               (types/eval (:body c) ctx bindings))]))))
-                   nil
-                   catches)]
-          r
-          (rethrow-with-location-of-node ctx bindings e body))))))
+      (eval-catches ctx bindings body catches sci-error e))
+    (finally
+      (types/eval finally ctx bindings))))
+
+(defn- eval-try-body
+  [ctx bindings body catches sci-error]
+  (try
+    (binding [utils/*in-try* (or (when sci-error
+                                   :sci/error)
+                                 (seq catches)
+                                 utils/*in-try*)]
+      (types/eval body ctx bindings))
+    (catch #?(:clj Throwable :cljs :default) e
+      (eval-catches ctx bindings body catches sci-error e))))
 
 (defn eval-try
   [ctx bindings body catches finally sci-error]
-  (if (nil? finally)
-    (eval-try-body ctx bindings body catches finally sci-error)
-    ;; A `finally` that throws would normally mask the in-flight exception
-    ;; (host try/finally semantics). An interrupt signal must never be masked
-    ;; this way: otherwise sandboxed code could throw from `finally` to discard
-    ;; the interrupt and let an outer `catch` swallow it. So we run `finally`
-    ;; ourselves and, when an interrupt is pending, let it win over a
-    ;; non-interrupt exception thrown by the finally body.
-    (let [pending (volatile! nil)
-          had-ex  (volatile! false)
-          v (try (eval-try-body ctx bindings body catches finally sci-error)
-                 (catch #?(:clj Throwable :cljs :default) e
-                   (vreset! pending e)
-                   (vreset! had-ex true)
-                   nil))]
-      (try
-        (types/eval finally ctx bindings)
-        (catch #?(:clj Throwable :cljs :default) fe
-          (if (and @had-ex
-                   (utils/interrupt-ex? @pending)
-                   (not (utils/interrupt-ex? fe)))
-            ;; swallow the finally's exception; the interrupt rethrown below wins
-            nil
-            (throw fe))))
-      (if @had-ex (throw @pending) v))))
+  (if (nil? (:interrupt-fn ctx))
+    (eval-try-plain ctx bindings body catches finally sci-error)
+    ;; :interrupt-fn is configured. A `finally` that throws would normally mask
+    ;; the in-flight exception (host try/finally semantics). An interrupt signal
+    ;; must never be masked this way: otherwise sandboxed code could throw from
+    ;; `finally` to discard the interrupt and let an outer `catch` swallow it
+    ;; (see #1044). So we run `finally` ourselves and, when an interrupt is
+    ;; pending, let it win over a non-interrupt exception from the finally body.
+    (if (nil? finally)
+      (eval-try-body ctx bindings body catches sci-error)
+      (let [pending (volatile! nil)
+            had-ex  (volatile! false)
+            v (try (eval-try-body ctx bindings body catches sci-error)
+                   (catch #?(:clj Throwable :cljs :default) e
+                     (vreset! pending e)
+                     (vreset! had-ex true)
+                     nil))]
+        (try
+          (types/eval finally ctx bindings)
+          (catch #?(:clj Throwable :cljs :default) fe
+            (if (and @had-ex
+                     (utils/interrupt-ex? @pending)
+                     (not (utils/interrupt-ex? fe)))
+              ;; swallow the finally's exception; the interrupt rethrown below wins
+              nil
+              (throw fe))))
+        (if @had-ex (throw @pending) v)))))
 
 ;;;; Interop
 
