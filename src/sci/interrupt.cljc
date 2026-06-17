@@ -176,6 +176,29 @@
               (replace-by (InterruptibleCS. s ifn) match replacement))))
        (str/replace s match replacement))))
 
+#?(:clj
+   (defn- replace-first-by
+     [^CharSequence s ^java.util.regex.Pattern re f]
+     (let [m (re-matcher re s)]
+       (if (.find m)
+         (let [buffer (StringBuffer. (.length s))
+               rep (java.util.regex.Matcher/quoteReplacement (f (re-groups m)))]
+           (.appendReplacement m buffer rep)
+           (.appendTail m buffer)
+           (str buffer))
+         s))))
+
+#?(:clj
+   (defn- sci-string-replace-first [^CharSequence s match replacement] 
+     (if (instance? java.util.regex.Pattern match)
+       (let [ifn (get-interrupt-fn (store/get-ctx))]
+         (if-not ifn
+           (str/replace s match replacement)
+           (if (instance? CharSequence replacement)
+              (.replaceFirst (re-matcher ^java.util.regex.Pattern match (InterruptibleCS. s ifn))
+                             (.toString ^CharSequence replacement))
+              (replace-first-by (InterruptibleCS. s ifn) match replacement))))
+       (str/replace s match replacement))))
 
 #?(:clj
    (defn- sci-string-split
@@ -298,5 +321,6 @@
   is a real SCI var on the shared `clojure.string` namespace object (built via
   `copy-vars/new-var`, like the built-in core vars), so it carries proper
   `:ns`/`:name`/`:sci/built-in` metadata. Merge into `{:namespaces {'clojure.string ...}}`."
-  {#?@(:clj ['replace (copy-vars/new-var 'replace sci-string-replace true)
-             'split   (copy-vars/new-var 'split   sci-string-split   true)])})
+  {#?@(:clj ['replace       (copy-vars/new-var 'replace sci-string-replace       true)
+             'replace-first (copy-vars/new-var 'replace sci-string-replace-first true)
+             'split         (copy-vars/new-var 'split   sci-string-split         true)])})

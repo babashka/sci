@@ -104,6 +104,16 @@
            (is (thrown-with-msg? Exception #"interrupted"
                                  (sci/eval-string* (interrupt-init 100000) evil)))))
 
+     (testing "clojure.string/replace-first"         
+         ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail       
+         (let [evil "(clojure.string/replace-first (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" \"X\")"]
+           (is (thrown-with-msg? Exception #"interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil))))
+
+         (let [evil "(clojure.string/replace-first (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" (constantly \"X\"))"]
+           (is (thrown-with-msg? Exception #"interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil)))))
+
      (testing "re-matcher/re-matches/re-find/re-seq stay correct with interrupt-fn active"
        (let [ctx (interrupt-init 1000000)]
          (is (= "12345" (sci/eval-string* ctx "(re-find (re-matcher #\"\\d+\" \"abc12345def\"))")))
@@ -120,7 +130,11 @@
        (let [ctx (interrupt-init 1000000)]
          (is (= "The color is blue, the sky is blue" (sci/eval-string* ctx "(clojure.string/replace \"The color is red, the sky is red\" #\"red\" \"blue\")")))
          (is (= "Thee cooloor iis reed." (sci/eval-string* ctx "(clojure.string/replace \"The color is red.\" #\"[aeiou]\"  #(str %1 %1))")))))
+
+     (testing "clojure.string/replace-first stays correct with interrupt-fn active"
        (let [ctx (interrupt-init 1000000)]
+         (is (= "The color is blue" (sci/eval-string* ctx "(clojure.string/replace-first \"The color is red\" #\"red\" \"blue\")")))
+         (is (= "Thee color is red." (sci/eval-string* ctx "(clojure.string/replace-first \"The color is red.\" #\"[aeiou]\"  #(str %1 %1))")))))))
 
 
 
