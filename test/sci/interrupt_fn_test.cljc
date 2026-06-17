@@ -94,6 +94,16 @@
            (is (thrown-with-msg? Exception #"interrupted"
                                  (sci/eval-string* (interrupt-init 100000) evil)))))
 
+     (testing "clojure.string/replace"         
+         ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail       
+         (let [evil "(clojure.string/replace (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" \"X\")"]
+           (is (thrown-with-msg? Exception #"interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil))))
+
+         (let [evil "(clojure.string/replace (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" (constantly \"X\"))("]
+           (is (thrown-with-msg? Exception #"interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil)))))
+
      (testing "re-matcher/re-matches/re-find/re-seq stay correct with interrupt-fn active"
        (let [ctx (interrupt-init 1000000)]
          (is (= "12345" (sci/eval-string* ctx "(re-find (re-matcher #\"\\d+\" \"abc12345def\"))")))
@@ -101,10 +111,16 @@
          (is (= "123" (sci/eval-string* ctx "(re-find #\"\\d+\" \"ab123\")")))
          (is (= ["1" "22" "333"] (sci/eval-string* ctx "(re-seq #\"\\d+\" \"a1b22c333\")")))))
 
-     (testing "clojure.string/split stay correct with interrupt-fn active"
+     (testing "clojure.string/split stays correct with interrupt-fn active"
        (let [ctx (interrupt-init 1000000)]
          (is (= ["Sci" "is" "awesome!"] (sci/eval-string* ctx "(clojure.string/split \"Sci is awesome!\" #\" \")")))
-))))
+))
+
+     (testing "clojure.string/replace stays correct with interrupt-fn active"
+       (let [ctx (interrupt-init 1000000)]
+         (is (= "The color is blue, the sky is blue" (sci/eval-string* ctx "(clojure.string/replace \"The color is red, the sky is red\" #\"red\" \"blue\")")))
+         (is (= "Thee cooloor iis reed." (sci/eval-string* ctx "(clojure.string/replace \"The color is red.\" #\"[aeiou]\"  #(str %1 %1))")))))
+       (let [ctx (interrupt-init 1000000)]
 
 
 
