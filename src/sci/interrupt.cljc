@@ -147,7 +147,7 @@
                 (lazy-seq (cons (re-groups m) (step)))))))))))
 
 #?(:clj
-   (def replace-by #'str/replace-by))
+   (def ^:private replace-by #'str/replace-by))
 
 #?(:clj
    (defn- sci-string-replace [^CharSequence s match replacement] 
@@ -162,7 +162,7 @@
        (str/replace s match replacement))))
 
 #?(:clj
-   (def replace-first-by #'str/replace-first-by))
+   (def ^:private replace-first-by #'str/replace-first-by))
 
 #?(:clj
    (defn- sci-string-replace-first [^CharSequence s match replacement] 
