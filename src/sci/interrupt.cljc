@@ -17,8 +17,10 @@
   falls back to the native function when no `:interrupt-fn` is configured, so
   merging `clojure-core` is always safe."
   (:require
+   [clojure.string :as str]
    [sci.ctx-store :as store]
    [sci.impl.copy-vars :as copy-vars]))
+
 
 (defn get-interrupt-fn
   "Returns the `:interrupt-fn` configured on `ctx` (as produced by `sci/init`),
@@ -148,6 +150,19 @@
               (when (.find m)
                 (lazy-seq (cons (re-groups m) (step)))))))))))
 
+#?(:clj
+   (defn- sci-string-split
+     ([s re]      
+      (let [ifn (get-interrupt-fn (store/get-ctx))]
+        (if-not ifn
+          (str/split s re)
+          (str/split (InterruptibleCS. s ifn) re))))
+     ([s re limit]
+      (let [ifn (get-interrupt-fn (store/get-ctx))]
+        (if-not ifn
+          (str/split s re limit)
+          (str/split (InterruptibleCS. s ifn) re limit))))))
+
 ;;; Materializers - consuming functions that fire interrupt-fn per element
 
 (defn- sci-dorun
@@ -250,3 +265,10 @@
              're-matcher (copy-vars/new-var 're-matcher sci-re-matcher true)
              're-matches (copy-vars/new-var 're-matches sci-re-matches true)
              're-seq     (copy-vars/new-var 're-seq     sci-re-seq     true)])})
+
+(def clojure-string
+  "Map of `clojure.string` symbol -> interrupt-fn aware replacement var. Each value
+  is a real SCI var on the shared `clojure.string` namespace object (built via
+  `copy-vars/new-var`, like the built-in core vars), so it carries proper
+  `:ns`/`:name`/`:sci/built-in` metadata. Merge into `{:namespaces {'clojure.string ...}}`."
+  {#?@(:clj ['split (copy-vars/new-var 'split sci-string-split true)])})
