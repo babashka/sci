@@ -73,12 +73,23 @@
 #?(:clj
    (deftest regex-redos-test
      (testing "interrupt-fn fires during regex backtracking (ReDoS), aborting the match"
-       ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail
-       (let [evil "(re-matches #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!)))"]
-         (is (thrown-with-msg? Exception #"interrupted"
-               (sci/eval-string* (interrupt-init 100000) evil)))))
-     (testing "re-matches/re-find/re-seq stay correct with interrupt-fn active"
+       (testing "re-matches"         
+         ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail       
+         (let [evil "(re-matches #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!)))"]
+           (is (thrown-with-msg? Exception #"interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil)))))
+
+       (testing "re-matcher"
+         (let [evil "(re-matcher #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!)))"]
+           (is (thrown-with-msg? Exception #"interrupted"
+                                 (re-find (sci/eval-string* (interrupt-init 100000) evil)))))
+         (let [evil "(re-find (re-matcher #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!))))"]
+           (is (thrown-with-msg? Exception #"interrupted"
+                               (sci/eval-string* (interrupt-init 100000) evil))))))
+
+     (testing "re-matcher/re-matches/re-find/re-seq stay correct with interrupt-fn active"
        (let [ctx (interrupt-init 1000000)]
+         (is (= "12345" (sci/eval-string* ctx "(re-find (re-matcher #\"\\d+\" \"abc12345def\"))")))
          (is (= ["12-34" "12" "34"] (sci/eval-string* ctx "(re-matches #\"(\\d+)-(\\d+)\" \"12-34\")")))
          (is (= "123" (sci/eval-string* ctx "(re-find #\"\\d+\" \"ab123\")")))
          (is (= ["1" "22" "333"] (sci/eval-string* ctx "(re-seq #\"\\d+\" \"a1b22c333\")")))))))

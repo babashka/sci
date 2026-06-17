@@ -110,6 +110,16 @@
      (subSequence [_ a b] (.subSequence s a b))
      (toString [_] (.toString s))))
 
+
+#?(:clj
+   (defn- sci-re-matcher [re s]
+     (let [ifn (get-interrupt-fn (store/get-ctx))]
+       (if-not ifn
+         (re-matcher re s)
+         (re-matcher re (InterruptibleCS. s ifn))))))
+
+
+
 #?(:clj
    (defn- sci-re-matches [re s]
      (let [ifn (get-interrupt-fn (store/get-ctx))]
@@ -236,6 +246,7 @@
    'count   (copy-vars/new-var 'count   sci-count   true)
    'into    (copy-vars/new-var 'into    sci-into    true)
    'reduce  (copy-vars/new-var 'reduce  sci-reduce  true)
-   #?@(:clj ['re-matches (copy-vars/new-var 're-matches sci-re-matches true)
-             're-find    (copy-vars/new-var 're-find    sci-re-find    true)
+   #?@(:clj ['re-find    (copy-vars/new-var 're-find    sci-re-find    true)
+             're-matcher (copy-vars/new-var 're-matcher sci-re-matcher true)
+             're-matches (copy-vars/new-var 're-matches sci-re-matches true)
              're-seq     (copy-vars/new-var 're-seq     sci-re-seq     true)])})
