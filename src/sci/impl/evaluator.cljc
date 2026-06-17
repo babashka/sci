@@ -162,7 +162,7 @@
     none-sentinel))
 
 (defn eval-instance-method-invocation
-  [ctx bindings instance-expr method-str method-str-unmunged field-access args #?(:cljs allowed) arg-count arg-types]
+  [ctx bindings instance-expr method-str method-str-unmunged method-sym field-access args #?(:cljs allowed) arg-count arg-types]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (types/eval instance-expr ctx bindings)
@@ -189,7 +189,7 @@
                 instance-class-symbol (symbol instance-class-name)]
             (if-let [class-config (get class->opts instance-class-symbol)]
               (if-let [f (some-> class-config :instance-methods
-                                 (get (symbol method-str)))]
+                                 (get method-sym))]
                 (apply f instance-expr* (map (fn [arg] (sci.impl.types/eval arg ctx bindings)) args))
                 (if field-access
                   (interop/invoke-instance-field instance-expr* instance-class method-str)

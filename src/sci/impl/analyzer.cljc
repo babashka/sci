@@ -991,6 +991,7 @@
            meth-name (if field-access (subs method-name 1) method-name)
            meth-name* meth-name
            meth-name (#?(:clj munge :cljs utils/munge-str) meth-name)
+           meth-sym (symbol meth-name)
            stack (assoc (meta expr)
                         :ns @utils/current-ns
                         :file @utils/current-file)
@@ -1009,7 +1010,7 @@
                             (aset arg-types idx t)))))))
        (with-meta (sci.impl.types/->Node
                    (eval/eval-instance-method-invocation
-                    ctx bindings instance-expr meth-name meth-name* field-access args arg-count
+                    ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
                     (when @has-types? arg-types))
                    stack)
          {::instance-expr instance-expr
