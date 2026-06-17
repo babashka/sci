@@ -103,12 +103,9 @@
       r
       (rethrow-with-location-of-node ctx bindings e body))))
 
-(defn- eval-try-plain
-  "Plain host try/catch/finally. Used when no :interrupt-fn is configured: no
-  interrupt can be raised, so there is nothing a throwing finally could mask.
-  This is a single combined try, so users not using the (experimental)
-  interrupt-fn feature pay no overhead."
-  [ctx bindings body catches finally sci-error]
+(defn- eval-try-body
+  "Evaluates the try body and applies the catch clauses. No `finally`."
+  [ctx bindings body catches sci-error]
   (try
     (binding [utils/*in-try* (or (when sci-error
                                    :sci/error)
@@ -117,20 +114,26 @@
                                  utils/*in-try*)]
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
-      (eval-catches ctx bindings body catches sci-error e))
-    (finally
-      (types/eval finally ctx bindings))))
-
-(defn- eval-try-body
-  [ctx bindings body catches sci-error]
-  (try
-    (binding [utils/*in-try* (or (when sci-error
-                                   :sci/error)
-                                 (seq catches)
-                                 utils/*in-try*)]
-      (types/eval body ctx bindings))
-    (catch #?(:clj Throwable :cljs :default) e
       (eval-catches ctx bindings body catches sci-error e))))
+
+(defn- eval-try-plain
+  "Plain host try/catch/finally. Used when no :interrupt-fn is configured: no
+  interrupt can be raised, so there is nothing a throwing finally could mask.
+  When there is no `finally`, the finally region is skipped entirely. Users not
+  using the (experimental) interrupt-fn feature pay no overhead."
+  [ctx bindings body catches finally sci-error]
+  (if (nil? finally)
+    (eval-try-body ctx bindings body catches sci-error)
+    (try
+      (binding [utils/*in-try* (or (when sci-error
+                                     :sci/error)
+                                   (seq catches)
+                                   utils/*in-try*)]
+        (types/eval body ctx bindings))
+      (catch #?(:clj Throwable :cljs :default) e
+        (eval-catches ctx bindings body catches sci-error e))
+      (finally
+        (types/eval finally ctx bindings)))))
 
 (defn eval-try
   [ctx bindings body catches finally sci-error]
