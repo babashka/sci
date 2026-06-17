@@ -26,7 +26,8 @@
   "Context with the opt-in sci.interrupt core overrides merged in."
   [n]
   (sci/init {:interrupt-fn (limit-interrupt! n)
-             :namespaces {'clojure.core interrupt/clojure-core}}))
+             :namespaces {'clojure.core   interrupt/clojure-core
+                          'clojure.string interrupt/clojure-string}}))
 
 (def ^:private catch-all-loop
   #?(:clj  "(try (loop [] (recur)) (catch Exception _ :swallowed))"
@@ -135,15 +136,70 @@
 #?(:clj
    (deftest regex-redos-test
      (testing "interrupt-fn fires during regex backtracking (ReDoS), aborting the match"
-       ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail
-       (let [evil "(re-matches #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!)))"]
-         (is (thrown-with-msg? Exception #"Interrupted"
-               (sci/eval-string* (interrupt-init 100000) evil)))))
-     (testing "re-matches/re-find/re-seq stay correct with interrupt-fn active"
+
+       (testing "re-matches"         
+         ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail       
+         (let [evil "(re-matches #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!)))"]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil)))))
+
+       (testing "re-matcher"
+         (let [evil "(re-matcher #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!)))"]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                                 (re-find (sci/eval-string* (interrupt-init 100000) evil)))))
+         (let [evil "(re-find (re-matcher #\"^(.*a){20}$\" (apply str (conj (vec (repeat 28 \\a)) \\!))))"]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                               (sci/eval-string* (interrupt-init 100000) evil))))))
+     
+     (testing "clojure.string/split"         
+         ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail       
+         (let [evil "(clojure.string/split (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\")"]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil)))))
+
+     (testing "clojure.string/replace"         
+         ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail       
+         (let [evil "(clojure.string/replace (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" \"X\")"]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil))))
+
+         (let [evil "(clojure.string/replace (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" (constantly \"X\"))("]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil)))))
+
+     (testing "clojure.string/replace-first"         
+         ;; ^(.*a){20}$ backtracks catastrophically on all-'a' input with a non-matching tail       
+         (let [evil "(clojure.string/replace-first (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" \"X\")"]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil))))
+
+         (let [evil "(clojure.string/replace-first (apply str (conj (vec (repeat 28 \\a)) \\!)) #\"^(.*a){20}$\" (constantly \"X\"))"]
+           (is (thrown-with-msg? Exception #"Interrupted"
+                                 (sci/eval-string* (interrupt-init 100000) evil)))))
+
+     (testing "re-matcher/re-matches/re-find/re-seq stay correct with interrupt-fn active"
        (let [ctx (interrupt-init 1000000)]
+         (is (= "12345" (sci/eval-string* ctx "(re-find (re-matcher #\"\\d+\" \"abc12345def\"))")))
          (is (= ["12-34" "12" "34"] (sci/eval-string* ctx "(re-matches #\"(\\d+)-(\\d+)\" \"12-34\")")))
          (is (= "123" (sci/eval-string* ctx "(re-find #\"\\d+\" \"ab123\")")))
-         (is (= ["1" "22" "333"] (sci/eval-string* ctx "(re-seq #\"\\d+\" \"a1b22c333\")")))))))
+         (is (= ["1" "22" "333"] (sci/eval-string* ctx "(re-seq #\"\\d+\" \"a1b22c333\")")))))
+
+     (testing "clojure.string/split stays correct with interrupt-fn active"
+       (let [ctx (interrupt-init 1000000)]
+         (is (= ["Sci" "is" "awesome!"] (sci/eval-string* ctx "(clojure.string/split \"Sci is awesome!\" #\" \")")))
+))
+
+     (testing "clojure.string/replace stays correct with interrupt-fn active"
+       (let [ctx (interrupt-init 1000000)]
+         (is (= "The color is blue, the sky is blue" (sci/eval-string* ctx "(clojure.string/replace \"The color is red, the sky is red\" #\"red\" \"blue\")")))
+         (is (= "Thee cooloor iis reed." (sci/eval-string* ctx "(clojure.string/replace \"The color is red.\" #\"[aeiou]\"  #(str %1 %1))")))))
+
+     (testing "clojure.string/replace-first stays correct with interrupt-fn active"
+       (let [ctx (interrupt-init 1000000)]
+         (is (= "The color is blue" (sci/eval-string* ctx "(clojure.string/replace-first \"The color is red\" #\"red\" \"blue\")")))
+         (is (= "Thee color is red." (sci/eval-string* ctx "(clojure.string/replace-first \"The color is red.\" #\"[aeiou]\"  #(str %1 %1))")))))))
+
+
 
 (deftest clojure-core-without-interrupt-fn-test
   (testing "merging clojure-core overrides without :interrupt-fn falls back to native behavior"

@@ -17,6 +17,7 @@
   falls back to the native function when no `:interrupt-fn` is configured, so
   merging `clojure-core` is always safe."
   (:require
+   [clojure.string :as str]
    [sci.ctx-store :as store]
    [sci.impl.copy-vars :as copy-vars]
    [sci.impl.utils :as utils]))
@@ -124,6 +125,13 @@
      (toString [_] (.toString s))))
 
 #?(:clj
+   (defn- sci-re-matcher [re s]
+     (let [ifn (get-interrupt-fn (store/get-ctx))]
+       (if-not ifn
+         (re-matcher re s)
+         (re-matcher re (InterruptibleCS. s ifn))))))
+
+#?(:clj
    (defn- sci-re-matches [re s]
      (let [ifn (get-interrupt-fn (store/get-ctx))]
        (if-not ifn
@@ -150,6 +158,49 @@
            ((fn step []
               (when (.find m)
                 (lazy-seq (cons (re-groups m) (step)))))))))))
+
+#?(:clj
+   (def ^:private replace-by #'str/replace-by))
+
+#?(:clj
+   (defn- sci-string-replace [^CharSequence s match replacement] 
+     (if (instance? java.util.regex.Pattern match)
+       (let [ifn (get-interrupt-fn (store/get-ctx))]
+         (if-not ifn
+           (str/replace s match replacement)
+           (if (instance? CharSequence replacement)
+              (.replaceAll (re-matcher ^java.util.regex.Pattern match (InterruptibleCS. s ifn))
+                             (.toString ^CharSequence replacement))
+              (replace-by (InterruptibleCS. s ifn) match replacement))))
+       (str/replace s match replacement))))
+
+#?(:clj
+   (def ^:private replace-first-by #'str/replace-first-by))
+
+#?(:clj
+   (defn- sci-string-replace-first [^CharSequence s match replacement] 
+     (if (instance? java.util.regex.Pattern match)
+       (let [ifn (get-interrupt-fn (store/get-ctx))]
+         (if-not ifn
+           (str/replace s match replacement)
+           (if (instance? CharSequence replacement)
+              (.replaceFirst (re-matcher ^java.util.regex.Pattern match (InterruptibleCS. s ifn))
+                             (.toString ^CharSequence replacement))
+              (replace-first-by (InterruptibleCS. s ifn) match replacement))))
+       (str/replace s match replacement))))
+
+#?(:clj
+   (defn- sci-string-split
+     ([s re]      
+      (let [ifn (get-interrupt-fn (store/get-ctx))]
+        (if-not ifn
+          (str/split s re)
+          (str/split (InterruptibleCS. s ifn) re))))
+     ([s re limit]
+      (let [ifn (get-interrupt-fn (store/get-ctx))]
+        (if-not ifn
+          (str/split s re limit)
+          (str/split (InterruptibleCS. s ifn) re limit))))))
 
 ;;; Materializers - consuming functions that fire interrupt-fn per element
 
@@ -249,6 +300,16 @@
    'count   (copy-vars/new-var 'count   sci-count   true)
    'into    (copy-vars/new-var 'into    sci-into    true)
    'reduce  (copy-vars/new-var 'reduce  sci-reduce  true)
-   #?@(:clj ['re-matches (copy-vars/new-var 're-matches sci-re-matches true)
-             're-find    (copy-vars/new-var 're-find    sci-re-find    true)
+   #?@(:clj ['re-find    (copy-vars/new-var 're-find    sci-re-find    true)
+             're-matcher (copy-vars/new-var 're-matcher sci-re-matcher true)
+             're-matches (copy-vars/new-var 're-matches sci-re-matches true)
              're-seq     (copy-vars/new-var 're-seq     sci-re-seq     true)])})
+
+(def clojure-string
+  "Map of `clojure.string` symbol -> interrupt-fn aware replacement var. Each value
+  is a real SCI var on the shared `clojure.string` namespace object (built via
+  `copy-vars/new-var`, like the built-in core vars), so it carries proper
+  `:ns`/`:name`/`:sci/built-in` metadata. Merge into `{:namespaces {'clojure.string ...}}`."
+  {#?@(:clj ['replace       (copy-vars/new-var 'replace sci-string-replace       true)
+             'replace-first (copy-vars/new-var 'replace sci-string-replace-first true)
+             'split         (copy-vars/new-var 'split   sci-string-split         true)])})
