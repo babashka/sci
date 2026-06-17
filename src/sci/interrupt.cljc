@@ -112,15 +112,12 @@
      (subSequence [_ a b] (.subSequence s a b))
      (toString [_] (.toString s))))
 
-
 #?(:clj
    (defn- sci-re-matcher [re s]
      (let [ifn (get-interrupt-fn (store/get-ctx))]
        (if-not ifn
          (re-matcher re s)
          (re-matcher re (InterruptibleCS. s ifn))))))
-
-
 
 #?(:clj
    (defn- sci-re-matches [re s]
