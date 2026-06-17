@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - `sci.interrupt` now provides `:interrupt-fn` aware `re-matches/re-find/re-seq` (JVM only)
+- Fix [#1044](https://github.com/babashka/sci/issues/1044): add `sci.interrupt/interrupt!` to throw an interrupt that sandboxed `try`/`catch` cannot catch. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md).
 
 ## 0.13.52 (2025-06-16)
 
