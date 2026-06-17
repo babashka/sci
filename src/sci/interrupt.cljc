@@ -151,18 +151,7 @@
                 (lazy-seq (cons (re-groups m) (step)))))))))))
 
 #?(:clj
-   (defn- replace-by
-     [^CharSequence s re f]
-     (let [m (re-matcher re s)]
-       (if (.find m)
-         (let [buffer (StringBuffer. (.length s))]
-           (loop [found true]
-             (if found
-               (do (.appendReplacement m buffer (java.util.regex.Matcher/quoteReplacement (f (re-groups m))))
-                   (recur (.find m)))
-               (do (.appendTail m buffer)
-                   (.toString buffer)))))
-         s))))
+   (def replace-by #'str/replace-by))
 
 #?(:clj
    (defn- sci-string-replace [^CharSequence s match replacement] 
@@ -177,16 +166,7 @@
        (str/replace s match replacement))))
 
 #?(:clj
-   (defn- replace-first-by
-     [^CharSequence s ^java.util.regex.Pattern re f]
-     (let [m (re-matcher re s)]
-       (if (.find m)
-         (let [buffer (StringBuffer. (.length s))
-               rep (java.util.regex.Matcher/quoteReplacement (f (re-groups m)))]
-           (.appendReplacement m buffer rep)
-           (.appendTail m buffer)
-           (str buffer))
-         s))))
+   (def replace-first-by #'str/replace-first-by))
 
 #?(:clj
    (defn- sci-string-replace-first [^CharSequence s match replacement] 
