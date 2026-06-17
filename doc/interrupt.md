@@ -16,7 +16,7 @@ certain number of iterations, check `Thread/interrupted`, etc. A demo:
              (interrupt/interrupt!)))))
 
 (sci/eval-string "(loop [] (recur))" {:interrupt-fn (limit 1000000)})
-;;=> throws "interrupted"
+;;=> throws "Interrupted"
 ```
 
 This above `limit` function limits the number of iterations. The logic is up to
@@ -30,7 +30,7 @@ you. You can make one that limits wall clock time:
         (interrupt/interrupt!)))))
 
 (sci/eval-string "(loop [] (recur))" {:interrupt-fn (time-limit 1000)})
-;;=> throws "interrupted" after ~1 second
+;;=> throws "Interrupted" after ~1 second
 ```
 
 or one that polls `Thread/.isInterrupted`:
@@ -44,7 +44,7 @@ or one that polls `Thread/.isInterrupted`:
 (let [fut (future (sci/eval-string "(loop [] (recur))" {:interrupt-fn (thread-limit)}))]
   (Thread/sleep 1000)
   (future-cancel fut))
-;;=> the running evaluation throws "interrupted"
+;;=> the running evaluation throws "Interrupted"
 ```
 
 The `interrupt-fn` is executed on every `fn` body entrance, so it's worthwile to optimize performance.
@@ -57,7 +57,7 @@ Note that the core overrides can introduce performance regressions in your code 
 (sci/eval-string "(reduce + (range))"
                  {:interrupt-fn (limit 1000000)
                   :namespaces {'clojure.core interrupt/clojure-core}})
-;;=> throws "interrupted"
+;;=> throws "Interrupted"
 ```
 
 Host functions that you expose yourself are not automatically made aware of
@@ -78,7 +78,7 @@ from a `ctx` using the `sci.interrupt/get-interrupt-fn` accessor.
 (sci/eval-string "(my-host-loop 1000000)"
                  {:interrupt-fn (limit 500)
                   :namespaces {'user {'my-host-loop my-host-loop}}})
-;;=> throws "interrupted"
+;;=> throws "Interrupted"
 ```
 
 Note that even with these overrides, unbounded programs are still possible.
