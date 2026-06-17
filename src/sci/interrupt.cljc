@@ -21,7 +21,6 @@
    [sci.ctx-store :as store]
    [sci.impl.copy-vars :as copy-vars]))
 
-
 (defn get-interrupt-fn
   "Returns the `:interrupt-fn` configured on `ctx` (as produced by `sci/init`),
   or nil when none was set. Use this from host functions you expose to make them
