@@ -82,7 +82,11 @@
                                  utils/*in-try*)]
       (types/eval body ctx bindings))
     (catch #?(:clj Throwable :cljs :default) e
-      (if-let
+      (if (utils/interrupt-ex? e)
+        ;; an interrupt signal (sci.core/interrupt!) must never be catchable
+        ;; from within sandboxed code: skip all catch clauses and rethrow
+        (throw e)
+        (if-let
           [[_ r]
            (reduce (fn [_ c]
                      (let [clazz (:class c)
@@ -102,8 +106,8 @@
                                (types/eval (:body c) ctx bindings))]))))
                    nil
                    catches)]
-        r
-        (rethrow-with-location-of-node ctx bindings e body)))
+          r
+          (rethrow-with-location-of-node ctx bindings e body))))
     (finally
       (types/eval finally ctx bindings))))
 

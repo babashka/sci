@@ -8,10 +8,12 @@ SCI supports passing a zero arg `:interrupt-fn` to its options, which is called 
 certain number of iterations, check `Thread/interrupted`, etc. A demo:
 
 ``` clojure
+(require '[sci.interrupt :as interrupt])
+
 (defn limit [n]
   (let [counter (atom 0)]
     (fn [] (when (> (swap! counter inc) n)
-             (throw (ex-info "interrupted" {:type :interrupt}))))))
+             (interrupt/interrupt!)))))
 
 (sci/eval-string "(loop [] (recur))" {:interrupt-fn (limit 1000000)})
 ;;=> throws "interrupted"
@@ -25,7 +27,7 @@ you. You can make one that limits wall clock time:
   (let [deadline (+ (System/currentTimeMillis) ms)]
     (fn []
       (when (> (System/currentTimeMillis) deadline)
-        (throw (ex-info "interrupted" {:type :interrupt}))))))
+        (interrupt/interrupt!)))))
 
 (sci/eval-string "(loop [] (recur))" {:interrupt-fn (time-limit 1000)})
 ;;=> throws "interrupted" after ~1 second
@@ -37,7 +39,7 @@ or one that polls `Thread/.isInterrupted`:
 (defn thread-limit []
   (fn []
     (when (.isInterrupted (Thread/currentThread))
-      (throw (ex-info "interrupted" {:type :interrupt})))))
+      (interrupt/interrupt!))))
 
 (let [fut (future (sci/eval-string "(loop [] (recur))" {:interrupt-fn (thread-limit)}))]
   (Thread/sleep 1000)
@@ -52,8 +54,6 @@ The namespace `sci.interrupt` provides interruptible core function drop-in alter
 Note that the core overrides can introduce performance regressions in your code compared to the standard SCI clojure core functions.
 
 ``` clojure
-(require '[sci.interrupt :as interrupt])
-
 (sci/eval-string "(reduce + (range))"
                  {:interrupt-fn (limit 1000000)
                   :namespaces {'clojure.core interrupt/clojure-core}})
@@ -65,8 +65,7 @@ Host functions that you expose yourself are not automatically made aware of
 from a `ctx` using the `sci.interrupt/get-interrupt-fn` accessor.
 
 ``` clojure
-(require '[sci.ctx-store :as store]
-         '[sci.interrupt :as interrupt])
+(require '[sci.ctx-store :as store])
 
 ;; A host function that loops
 (defn my-host-loop [n]

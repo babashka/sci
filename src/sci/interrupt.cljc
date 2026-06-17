@@ -18,7 +18,8 @@
   merging `clojure-core` is always safe."
   (:require
    [sci.ctx-store :as store]
-   [sci.impl.copy-vars :as copy-vars]))
+   [sci.impl.copy-vars :as copy-vars]
+   [sci.impl.utils :as utils]))
 
 (defn get-interrupt-fn
   "Returns the `:interrupt-fn` configured on `ctx` (as produced by `sci/init`),
@@ -26,6 +27,18 @@
   interrupt-fn aware, e.g. `(get-interrupt-fn (sci.ctx-store/get-ctx))`."
   [ctx]
   (:interrupt-fn ctx))
+
+(defn interrupt!
+  "Throws an interrupt signal that sandboxed code cannot catch. Call this from
+  your `:interrupt-fn` instead of throwing a plain exception, so evaluated code
+  cannot swallow the interrupt with `try`/`catch` and keep running. The thrown
+  value is an `ex-info` carrying a private marker; `sci`'s `try` refuses to hand
+  it to user `catch` clauses, and sandboxed code cannot forge it. It propagates
+  to the host calling `eval-string`."
+  ([] (interrupt! "Interrupted"))
+  ([msg] (interrupt! msg {}))
+  ([msg data]
+   (throw (ex-info msg (assoc data :sci.impl/interrupt utils/interrupt-marker)))))
 
 ;;; Producers - lazy sequences that fire interrupt-fn on each step
 

@@ -16,6 +16,41 @@
   (sci/init {:interrupt-fn (limit-interrupt n)
              :namespaces {'clojure.core interrupt/clojure-core}}))
 
+(defn limit-interrupt!
+  "Like limit-interrupt, but signals via sci/interrupt! so the interrupt is
+  uncatchable from within sandboxed code."
+  [n]
+  (let [counter (atom 0)]
+    (fn []
+      (when (> (swap! counter inc) n)
+        (interrupt/interrupt!)))))
+
+(def ^:private catch-all-loop
+  #?(:clj  "(try (loop [] (recur)) (catch Exception _ :swallowed))"
+     :cljs "(try (loop [] (recur)) (catch :default _ :swallowed))"))
+
+(deftest interrupt-uncatchable-test
+  (testing "sci/interrupt! cannot be caught by sandboxed try/catch"
+    (let [ctx (sci/init {:interrupt-fn (limit-interrupt! 100)})]
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Interrupted"
+            (sci/eval-string* ctx catch-all-loop)))))
+  (testing "finally still runs while the interrupt propagates"
+    (let [a (atom nil)
+          ctx (sci/init {:interrupt-fn (limit-interrupt! 100)
+                         :namespaces {'user {'mark (fn [] (reset! a :ran))}}})]
+      (is (thrown-with-msg? #?(:clj Exception :cljs js/Error) #"Interrupted"
+            (sci/eval-string* ctx "(try (loop [] (recur)) (finally (mark)))")))
+      (is (= :ran @a)))))
+
+(deftest interrupt-forge-resistant-test
+  (testing "sandboxed code cannot forge an uncatchable interrupt by guessing the key"
+    (let [ctx (sci/init {:interrupt-fn (limit-interrupt! 100000)})]
+      (is (= :caught
+             (sci/eval-string*
+              ctx
+              #?(:clj  "(try (throw (ex-info \"x\" {:sci.impl/interrupt :sci.impl/interrupt})) (catch Exception _ :caught))"
+                 :cljs "(try (throw (ex-info \"x\" {:sci.impl/interrupt :sci.impl/interrupt})) (catch :default _ :caught))")))))))
+
 (deftest loop-forms-test
   (testing "interrupt-fn fires in loop/recur and derived forms (dotimes, while)"
     (let [ctx (sci/init {:interrupt-fn (limit-interrupt 500)})]
