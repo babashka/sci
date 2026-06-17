@@ -43,16 +43,23 @@
                                 {:classes {'java.util.Map 'java.util.Map
                                            :public-class (fn [o]
                                                            (when (instance? java.util.Map o) java.util.Map))}})))))
-     (testing "single method override"
+
+     (testing "normal interop calls"
+       (let [config {:classes {'java.lang.String java.lang.String}}]
+         (is (= \y (sci/eval-string "(.charAt \"your name\" 0)" config)))
+         (is (= 9 (sci/eval-string "(.length \"your name\")" config)))
+         (is (= "your name" (sci/eval-string "(.toString \"your name\")" config)))
+         (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config)))))
+                                                           
+     (testing "method override"
        (let [config {:classes {'java.lang.String
-                               {:class java.lang.String
-                                :instance-methods {'lastIndexOf (fn [s needle] (.lastIndexOf s needle)) ; String/.lastIndexOf syntax only added as of 1.12
+                               {:instance-methods {'lastIndexOf (fn [s needle] (.lastIndexOf s needle)) ; String/.lastIndexOf syntax only added as of 1.12
                                                    'toString
-                                                   ;; REVIEW should toString also receive the class like the functions in :static-methods
                                                    (fn [_s]
                                                      :dude)}}}}]
+         (is (thrown-with-msg? Exception #"Instance method java.lang.String/.charAt not allowed" (sci/eval-string "(.charAt \"your name\" 0)" config)))
+         (is (thrown-with-msg? Exception #"Instance method java.lang.String/.length not allowed" (sci/eval-string "(.length \"your name\")" config)))
          (is (= :dude (sci/eval-string "(.toString \"your name\")" config)))
-         (is (= 9 (sci/eval-string "(.length \"your name\")" config)))
          (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config)))))))  
 
 

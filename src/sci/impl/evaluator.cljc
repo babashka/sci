@@ -187,12 +187,13 @@
           (let [instance-class-name #?(:clj (.getName ^Class instance-class)
                                        :cljs (.-name instance-class))
                 instance-class-symbol (symbol instance-class-name)]
-            (if-let [class-config (get class->opts instance-class-symbol)]
-              (if-let [f (some-> class-config :instance-methods
-                                 (get method-sym))]
-                (apply f instance-expr* (map (fn [arg] (sci.impl.types/eval arg ctx bindings)) args))
-                (if field-access
-                  (interop/invoke-instance-field instance-expr* instance-class method-str)
+            (if-let [class-config (get class->opts instance-class-symbol)] 
+              (if field-access
+                (interop/invoke-instance-field instance-expr* instance-class method-str)
+                (if-let [instance-method-config (:instance-methods class-config)]
+                  (if-let [f (get instance-method-config method-sym)]
+                    (apply f instance-expr* (map (fn [arg] (sci.impl.types/eval arg ctx bindings)) args))
+                    (throw (ex-info (str "Instance method " instance-class-name "/." method-str " not allowed") {})))
                   (interop/invoke-instance-method ctx bindings instance-expr* instance-class method-str args arg-count arg-types)))
               (let [^Class target-class (when-let [f (:public-class env)]
                                           (f instance-expr*))]
