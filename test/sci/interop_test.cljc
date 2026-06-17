@@ -117,7 +117,14 @@
 
 #?(:cljs
    (deftest instance-methods
-     (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))))
+     (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {:allow :all}})))
+     (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))
+     (is (thrown-with-msg? js/Error #"Method nothingAllowed on function String.* not allowed!" 
+                           (tu/eval* "(.nothingAllowed \"foo\" 0)" {:classes {}})))
+     (let [whitelist-config {:classes {'String {:instance-methods {'customAllowed (fn [_s _i] :ok)}}}}]
+       (is (= :ok (tu/eval* "(.customAllowed \"foo\" 0)" whitelist-config)))
+       (is (thrown-with-msg?  js/Error #"Instance method String/.charCodeAt not allowed"
+                              (tu/eval* "(.charCodeAt \"foo\" 0)" whitelist-config))))))
 
 #?(:cljs
    (deftest instance-fields
