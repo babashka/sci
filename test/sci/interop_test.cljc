@@ -1,6 +1,7 @@
 (ns sci.interop-test
   (:require
    #?(:clj [clojure.java.io :as io])
+   #?(:clj [clojure.stacktrace])
    [clojure.string :as str]
    [clojure.test :as test :refer [are deftest is testing #?(:cljs async)]]
    [sci.core :as sci]
@@ -459,3 +460,52 @@
                        (def x #js {:foo foo})
                        (= x (.foo x))"
                       {:classes {:allow :all}}))))))
+
+#?(:clj
+   (deftest string-type-hint-sandbox-bypass-test
+     ;; Security regression: a string type-hint must not bypass the :classes
+     ;; allowlist. sci.impl.interop/resolve-type-hint used to call (Class/forName sym)
+     ;; directly for string tags, loading and static-initializing any class on the
+     ;; classpath, even when not in :classes. The analyzer resolves arg type-hints at
+     ;; analysis time, so analyzing the form was enough to trigger the load - the
+     ;; method call need not succeed.
+     ;; PoC class StaticInitOracle (test-resources) is NOT in the default allowlist;
+     ;; its static initializer sets a system property we can observe from the host.
+     (testing "string type-hint to off-allowlist class does not load/init the class"
+       (System/clearProperty "sci.static.init.oracle")
+       (try
+         (sci/eval-string "(let [a 1] (.length \"abc\" ^\"StaticInitOracle\" a))")
+         (catch Exception _ nil))
+       (is (nil? (System/getProperty "sci.static.init.oracle"))
+           "off-allowlist class must not be loaded via a string type-hint"))
+     (testing "string type-hint with non-existent class is not a ClassNotFoundException oracle"
+       ;; pre-fix this leaked (Class/forName "zzz.NoSuchClass") => ClassNotFoundException
+       ;; back to the caller; post-fix the hint resolves to nil and is ignored.
+       (let [ex (try
+                  (sci/eval-string "(let [a 1] (.length \"abc\" ^\"zzz.NoSuchClass\" a))")
+                  nil
+                  (catch Exception e e))]
+         (is (not (instance? ClassNotFoundException
+                             (clojure.stacktrace/root-cause (or ex (Exception.))))))))
+     (testing "string type-hint to an allowlisted class still resolves"
+       ;; java.lang.String is in the default allowlist; the hint must keep working.
+       (is (= 1 (sci/eval-string "(let [x \"b\"] (.indexOf \"abcabc\" ^\"java.lang.String\" x))"))))
+     (testing "array-descriptor string hint resolves through the element class"
+       ;; primitive element arrays are always allowed
+       (is (= "hi" (sci/eval-string "(String. ^\"[B\" (byte-array [104 105]))"))))
+     (testing "array-descriptor with an off-allowlist element class does not load it"
+       (System/clearProperty "sci.static.init.oracle")
+       (try
+         (sci/eval-string "(let [a 1] (.indexOf \"abcabc\" ^\"[LStaticInitOracle;\" a))")
+         (catch Exception _ nil))
+       (is (nil? (System/getProperty "sci.static.init.oracle"))
+           "off-allowlist element class must not be loaded via an array-descriptor hint"))
+     (testing "array element gated through :classes for a custom-registered class"
+       ;; PublicFields is not in the default allowlist; once registered, both the
+       ;; string descriptor hint and 1.12 array notation resolve through the element.
+       (is (= 1 (sci/eval-string
+                 "(alength ^\"[LPublicFields;\" (into-array PublicFields [(PublicFields.)]))"
+                 {:classes {'PublicFields PublicFields}})))
+       (is (true? (sci/eval-string
+                   "(= PublicFields/1 (class (make-array PublicFields 0)))"
+                   {:classes {'PublicFields PublicFields}}))))))

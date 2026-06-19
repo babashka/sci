@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Security fix: string type-hint bypassed `:classes` allowlist, `resolve-type-hint` called `Class/forName` directly which loaded and static-initialized arbitrary classpath class outside `:classes`. Now routed through `:classes`, same as symbol tags.
 - `sci.interrupt` now provides `:interrupt-fn` aware `re-matches/re-find/re-seq` (JVM only)
 - Fix [#1044](https://github.com/babashka/sci/issues/1044): add `sci.interrupt/interrupt!` to throw an interrupt that sandboxed `try`/`catch` cannot catch. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md).
 
