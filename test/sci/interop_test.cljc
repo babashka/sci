@@ -60,7 +60,14 @@
          (is (thrown-with-msg? Exception #"Instance method java.lang.String/.charAt not allowed" (sci/eval-string "(.charAt \"your name\" 0)" config)))
          (is (thrown-with-msg? Exception #"Instance method java.lang.String/.length not allowed" (sci/eval-string "(.length \"your name\")" config)))
          (is (= :dude (sci/eval-string "(.toString \"your name\")" config)))
-         (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config)))))))  
+         (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config)))))
+
+     (testing "method override together with inheritance"
+       (when-not tu/native?
+         (is (= #{:b} (tu/eval* "(.keySet {:a 1})"
+                                {:classes {'java.util.Map {:instance-methods {'keySet (fn [_m] #{:b})}}
+                                           :public-class (fn [o]
+                                                           (when (instance? java.util.Map o) java.util.Map))}})))))))  
 
 
 #?(:clj
