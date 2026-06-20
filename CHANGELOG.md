@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- Fix self-require (a namespace requiring itself, e.g. via `:require-macros` for its own macros) being reported as a cyclic load dependency
+
 ## 0.13.53 (2026-06-20)
 
 - **Security fix (sandbox escape):** a string type-hint (e.g. `^"some.Class" x`) bypassed the `:classes` allowlist. `resolve-type-hint` called `Class/forName` directly, loading and static-initializing any class on the classpath at analysis time, even when it was not in `:classes`. This affects you only if you use SCI to evaluate untrusted code and rely on `:classes` to sandbox it — upgrade to 0.13.53. Trusted-input usage (e.g. ordinary babashka scripts) is unaffected.
