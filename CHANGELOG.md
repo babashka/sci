@@ -10,9 +10,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.13.53 (2026-06-20)
 
-- Security fix: string type-hint bypassed `:classes` allowlist, `resolve-type-hint` called `Class/forName` directly which loaded and static-initialized arbitrary classpath class outside `:classes`. Now routed through `:classes`, same as symbol tags.
+- **Security fix (sandbox escape):** a string type-hint (e.g. `^"some.Class" x`) bypassed the `:classes` allowlist. `resolve-type-hint` called `Class/forName` directly, loading and static-initializing any class on the classpath at analysis time, even when it was not in `:classes`. This affects you only if you use SCI to evaluate untrusted code and rely on `:classes` to sandbox it — upgrade to 0.13.53. Trusted-input usage (e.g. ordinary babashka scripts) is unaffected.
 - `sci.interrupt` now provides `:interrupt-fn` aware `re-matches/re-find/re-seq` (JVM only)
 - Fix [#1044](https://github.com/babashka/sci/issues/1044): add `sci.interrupt/interrupt!` to throw an interrupt that sandboxed `try`/`catch` cannot catch. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md).
 
