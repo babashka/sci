@@ -43,7 +43,33 @@
          (is (= #{:a} (tu/eval* "(.keySet {:a 1})"
                                 {:classes {'java.util.Map 'java.util.Map
                                            :public-class (fn [o]
-                                                           (when (instance? java.util.Map o) java.util.Map))}})))))))
+                                                           (when (instance? java.util.Map o) java.util.Map))}})))))
+
+     (testing "normal interop calls"
+       (let [config {:classes {'java.lang.String java.lang.String}}]
+         (is (= \y (sci/eval-string "(.charAt \"your name\" 0)" config)))
+         (is (= 9 (sci/eval-string "(.length \"your name\")" config)))
+         (is (= "your name" (sci/eval-string "(.toString \"your name\")" config)))
+         (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config)))))
+                                                           
+     (testing "method override"
+       (let [config {:classes {'java.lang.String
+                               {:instance-methods {'lastIndexOf (fn [s needle] (.lastIndexOf s needle)) ; String/.lastIndexOf syntax only added as of 1.12
+                                                   'toString
+                                                   (fn [_s]
+                                                     :dude)}}}}]
+         (is (thrown-with-msg? Exception #"Instance method java.lang.String/.charAt not allowed" (sci/eval-string "(.charAt \"your name\" 0)" config)))
+         (is (thrown-with-msg? Exception #"Instance method java.lang.String/.length not allowed" (sci/eval-string "(.length \"your name\")" config)))
+         (is (= :dude (sci/eval-string "(.toString \"your name\")" config)))
+         (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" config)))))
+
+     (testing "method override together with inheritance"
+       (when-not tu/native?
+         (is (= #{:b} (tu/eval* "(.keySet {:a 1})"
+                                {:classes {'java.util.Map {:instance-methods {'keySet (fn [_m] #{:b})}}
+                                           :public-class (fn [o]
+                                                           (when (instance? java.util.Map o) java.util.Map))}})))))))  
+
 
 #?(:clj
    (deftest instance-fields
@@ -99,7 +125,14 @@
 
 #?(:cljs
    (deftest instance-methods
-     (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))))
+     (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {:allow :all}})))
+     (is (= 102 (tu/eval* "(.charCodeAt \"foo\" 0)" {:classes {'String js/String}})))
+     (is (thrown-with-msg? js/Error #"Method nothingAllowed on function String" 
+                           (tu/eval* "(.nothingAllowed \"foo\" 0)" {:classes {}})))
+     (let [whitelist-config {:classes {'String {:instance-methods {'customAllowed (fn [_s _i] :ok)}}}}]
+       (is (= :ok (tu/eval* "(.customAllowed \"foo\" 0)" whitelist-config)))
+       (is (thrown-with-msg?  js/Error #"Instance method String/.charCodeAt not allowed"
+                              (tu/eval* "(.charCodeAt \"foo\" 0)" whitelist-config))))))
 
 #?(:cljs
    (deftest instance-fields

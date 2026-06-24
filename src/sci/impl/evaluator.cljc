@@ -190,7 +190,7 @@
     none-sentinel))
 
 (defn eval-instance-method-invocation
-  [ctx bindings instance-expr method-str method-str-unmunged field-access args #?(:cljs allowed) arg-count arg-types]
+  [ctx bindings instance-expr method-str method-str-unmunged method-sym field-access args #?(:cljs allowed) arg-count arg-types]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
         instance-expr* (types/eval instance-expr ctx bindings)
@@ -198,31 +198,42 @@
     (if-not (identical? none-sentinel v)
       v
       (let [instance-class #?(:clj (or (when tag-class
-                                          (if (instance? tag-class instance-expr*)
-                                            tag-class
-                                            (class instance-expr*)))
-                                        (class instance-expr*))
+                                         (if (instance? tag-class instance-expr*)
+                                           tag-class
+                                           (class instance-expr*)))
+                                       (class instance-expr*))
                               :cljs (type instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
             allowed? (or
                       #?(:cljs allowed)
-                      (get class->opts :allow)
-                      (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                   :cljs (.-name instance-class))
-                            instance-class-symbol (symbol instance-class-name)]
-                        (get class->opts instance-class-symbol)))
-            ^Class target-class (if allowed? instance-class
-                                    (when-let [f (:public-class env)]
-                                      (f instance-expr*)))]
-        ;; we have to check options at run time, since we don't know what the class
-        ;; of instance-expr is at analysis time
-        (when-not #?(:clj target-class
-                     :cljs allowed?)
-          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        (if field-access
-          (interop/invoke-instance-field instance-expr* target-class method-str)
-          (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))
+                      (get class->opts :allow))]
+        (if allowed?
+          (if field-access
+            (interop/invoke-instance-field instance-expr* instance-class method-str)
+            (interop/invoke-instance-method ctx bindings instance-expr* instance-class method-str args arg-count arg-types))
+          
+          (let [get-action 
+                (fn [instance-class] 
+                  (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                               :cljs (.-name instance-class))
+                        instance-class-symbol (symbol instance-class-name)]
+                    
+                    (when-let [class-config (get class->opts instance-class-symbol)] 
+                      (if field-access
+                        (fn [] (interop/invoke-instance-field instance-expr* instance-class method-str))
+                        (if-let [instance-method-config (:instance-methods class-config)]
+                          (if-let [f (get instance-method-config method-sym)]
+                            (fn [] (apply f instance-expr* (map (fn [arg] (sci.impl.types/eval arg ctx bindings)) args)))
+                            (throw-error-with-location (str "Instance method " instance-class-name "/." method-str " not allowed") instance-expr*))
+                          (fn [] (interop/invoke-instance-method ctx bindings instance-expr* instance-class method-str args arg-count arg-types)))))))
+                ]
+            (if-some [action (or (get-action instance-class)
+                                 (when-let [f (:public-class env)]
+                                   (some-> (f instance-expr*) get-action)))]
+              (action)
+              (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr*)
+              )))))))
 
 ;;;; End interop
 
