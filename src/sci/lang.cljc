@@ -34,7 +34,8 @@
 
   ;; support alter-meta! for storing print-method etc.
   #?@(:cljd
-      []
+      [types/IResetMeta
+       (-reset-meta! [_ m] (set! data m))]
       :clj
       [clojure.lang.IReference
        (alterMeta [this f args]
@@ -177,7 +178,11 @@
                      (resetMeta [this m]
                                 (vars/with-writeable-var this meta
                                   (locking this (set! meta m))))])
-  #?@(:cljd [IWatchable
+  #?@(:cljd [types/IResetMeta
+             (-reset-meta! [this m]
+               (vars/with-writeable-var this meta
+                 (set! meta m)))
+             IWatchable
              (-add-watch [this key fn]
                          (vars/with-writeable-var this meta
                            (set! watches (assoc watches key fn)))
@@ -306,10 +311,14 @@
   (getName [_] name)
   #?(:cljd IMeta :clj clojure.lang.IMeta :cljs IMeta)
   #?(:cljd (-meta [_] meta) :clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
-  #?@(:cljd [] :clj [clojure.lang.IReference
-                     (alterMeta [this f args]
-                                (vars/with-writeable-namespace this meta
-                                  (locking this (set! meta (apply f meta args)))))
-                     (resetMeta [this m]
-                                (vars/with-writeable-namespace this meta
-                                  (locking this (set! meta m))))]))
+  #?@(:cljd [types/IResetMeta
+             (-reset-meta! [this m]
+               (vars/with-writeable-namespace this meta
+                 (set! meta m)))]
+      :clj [clojure.lang.IReference
+            (alterMeta [this f args]
+                       (vars/with-writeable-namespace this meta
+                         (locking this (set! meta (apply f meta args)))))
+            (resetMeta [this m]
+                       (vars/with-writeable-namespace this meta
+                         (locking this (set! meta m))))]))

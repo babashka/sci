@@ -231,3 +231,8 @@
 
 (defprotocol HasName ;; INamed was already taken by CLJS
   (getName [_]))
+
+;; cljd has no IReference, reset-meta! only works on atoms there
+#?(:cljd
+   (defprotocol IResetMeta
+     (-reset-meta! [x m])))

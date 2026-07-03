@@ -6,9 +6,9 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
-   [sci.lang]))
+   [sci.lang :as lang]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 #?(:clj
    (defn assert-no-jvm-interface [protocol protocol-name expr error-hint]
@@ -21,7 +21,8 @@
         expr))))
 
 (defn hex-hash [this]
-  #?(:clj (Integer/toHexString (hash this))
+  #?(:cljd (.toRadixString (hash this) 16)
+     :clj (Integer/toHexString (hash this))
      :cljs (.toString (hash this) 16)))
 
 (defmulti to-string types/type-impl)
@@ -54,15 +55,17 @@
 (clojure.core/deftype SciType
     [rec-name
      type
-     type-meta #?(:clj ^:volatile-mutable ext-map
+     type-meta #?(:cljd ^:mutable ext-map
+                  :clj ^:volatile-mutable ext-map
                   :cljs ^:mutable ext-map)]
   Object
   (toString [this]
     (to-string this))
-  #?(:clj (equals [this other]
-                  (sci.impl.deftype/equals this other)))
-  #?(:clj (hashCode [this]
-                    (sci.impl.deftype/hashCode this)))
+  #?@(:cljd []
+      :clj [(equals [this other]
+              (sci.impl.deftype/equals this other))
+            (hashCode [this]
+              (sci.impl.deftype/hashCode this))])
 
   sci.impl.types/SciTypeInstance
   (-get-type [_]
@@ -71,7 +74,22 @@
     (set! ext-map (assoc ext-map k v))
     v)
 
-  #?@(:clj [SciPrintMethod
+  #?@(:cljd [IFn
+             (-invoke [this] (types/sci-invoke this))
+             (-invoke [this a] (types/sci-invoke this a))
+             (-invoke [this a b] (types/sci-invoke this a b))
+             (-invoke [this a b c] (types/sci-invoke this a b c))
+             (-invoke [this a b c d] (types/sci-invoke this a b c d))
+             (-invoke [this a b c d e] (types/sci-invoke this a b c d e))
+             (-invoke [this a b c d e f] (types/sci-invoke this a b c d e f))
+             (-invoke [this a b c d e f g] (types/sci-invoke this a b c d e f g))
+             (-invoke [this a b c d e f g h] (types/sci-invoke this a b c d e f g h))
+             (-invoke [this a b c d e f g h i] (types/sci-invoke this a b c d e f g h i))
+             (-invoke-more [this a b c d e f g h i rest]
+               (apply types/sci-invoke this a b c d e f g h i rest))
+             (-apply [this args]
+               (apply types/sci-invoke this args))]
+      :clj [SciPrintMethod
             (-sci-print-method [this w]
                                (if-let [rv type-meta]
                                  (let [m (meta rv)]
@@ -152,7 +170,8 @@
   types/IBox
   (getVal [_] ext-map)
 
-  #?@(:clj [sci.impl.types.ICustomType]
+  #?@(:cljd [types/ICustomType]
+      :clj [sci.impl.types.ICustomType]
       :cljs [types/ICustomType])
   (getMethods [_] nil)
   (getInterfaces [_] nil)
@@ -489,7 +508,9 @@
       (types/->EvalForm result)
       (do (swap! (:env ctx) update-in
                  [:namespaces (symbol (namespace tagged-name)) :types]
-                 assoc record-name (sci.lang.Type. {:sci.impl/type-name rec-type}))
+                 assoc record-name #?(:cljd (lang/->Type {:sci.impl/type-name rec-type})
+                                      :clj (sci.lang.Type. {:sci.impl/type-name rec-type})
+                                      :cljs (sci.lang.Type. {:sci.impl/type-name rec-type})))
           (@utils/analyze ctx result)))))
 
 (defn deftype-macro
@@ -499,7 +520,8 @@
   [[_fname] _ record-name fields & raw-protocol-impls]
   (let [ns-name (utils/current-ns-name)
         tagged-name (symbol (str ns-name) (str record-name))
-        class-name (symbol (str (munge ns-name) "." record-name))
+        class-name (symbol (str #?(:cljd (.replaceAll (str ns-name) "-" "_")
+                                   :default (munge ns-name)) "." record-name))
         factory-fn-sym (symbol (str "->" record-name))
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)

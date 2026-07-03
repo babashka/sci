@@ -15,13 +15,15 @@
 (defn reset-ctx!
   "Store `ctx`"
   [ctx]
-  #?(:clj (clojure.core/alter-var-root (var *ctx*) (constantly ctx))
+  #?(:cljd (set! *ctx* ctx)
+     :clj (clojure.core/alter-var-root (var *ctx*) (constantly ctx))
      :cljs (set! *ctx* ctx)))
 
 (defn swap-ctx!
   "Update `ctx` using `f` and `args`"
   [f & args]
-  #?(:clj (apply clojure.core/alter-var-root (var *ctx*) f args)
+  #?(:cljd (set! *ctx* (apply f *ctx* args))
+     :clj (apply clojure.core/alter-var-root (var *ctx*) f args)
      :cljs (set! *ctx* (apply f *ctx* args))))
 
 (defn get-ctx
@@ -29,7 +31,8 @@
   []
   (or *ctx*
       (let [msg "No context found in: sci.ctx-store/*ctx*. Please set it using sci.ctx-store/reset-ctx!"]
-        (throw #?(:clj (java.lang.IllegalStateException. msg)
+        (throw #?(:cljd (StateError. msg)
+                  :clj (java.lang.IllegalStateException. msg)
                   :cljs (js/Error. msg))))))
 
 (defmacro with-ctx

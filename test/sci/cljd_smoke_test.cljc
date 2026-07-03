@@ -6,6 +6,7 @@
             [sci.impl.callstack]
             [sci.impl.faster]
             [sci.impl.fns]
+            [sci.impl.evaluator]
             [sci.impl.records]
             [sci.impl.resolve]
             [sci.impl.types :as types]))
