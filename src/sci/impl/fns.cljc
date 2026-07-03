@@ -155,7 +155,16 @@
                          (if (identical? recur# ret)
                            (recur)
                            ret))))))))]
-     f)))
+     ;; Dart closures throw a message-less error on arity mismatch
+     #?(:cljd (let [va? (some? vararg-idx)]
+                (fn [& args]
+                  (let [n (count args)]
+                    (if (if va? (>= n fixed-arity) (= n fixed-arity))
+                      (apply f args)
+                      (throw (ex-info (str "Wrong number of args (" n ") passed to: "
+                                           nsm "/" (or fn-name "fn"))
+                                      {}))))))
+        :default f))))
 
 (defn lookup-by-arity [arities arity]
   (or (get arities arity)
