@@ -1867,10 +1867,14 @@
                                     ;; host macro fns are fixed-arity Dart closures
                                     #?(:cljd (try (apply f expr (:bindings ctx) (rest expr))
                                                   (catch NoSuchMethodError _
-                                                    (throw (ex-info (str "Wrong number of args ("
-                                                                         (+ 2 (count (rest expr)))
-                                                                         ") passed to: " (first expr))
-                                                                    {}))))
+                                                    (let [op (first expr)
+                                                          op (if (and (symbol? op) (not (namespace op)))
+                                                               (symbol (str (utils/current-ns-name)) (str op))
+                                                               op)]
+                                                      (throw (ex-info (str "Wrong number of args ("
+                                                                           (+ 2 (count (rest expr)))
+                                                                           ") passed to: " op)
+                                                                      {})))))
                                        :default (apply f expr (:bindings ctx) (rest expr))))
                                 v (if (seq? v)
                                     (with-meta v (merge m (meta v)))

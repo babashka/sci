@@ -556,14 +556,19 @@
     (is (thrown-with-data?
          {:line 1 :column 15}
          (eval* "(+ 1 2 3 4 5) (do x)")))
-    (tu/assert-submap {:type :sci/error, :line 1, :column 15,
-                       :message #"Wrong number of args \(1\) passed to: user/foo"}
+    ;; cljd fn arity errors carry the Dart closure mismatch message
+    (tu/assert-submap #?(:cljd {:type :sci/error, :line 1, :column 15,
+                                :message #"NoSuchMethodError"}
+                         :default {:type :sci/error, :line 1, :column 15,
+                                   :message #"Wrong number of args \(1\) passed to: user/foo"})
                       (try (eval* "(defn foo []) (foo 1)")
                            (catch #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
                                d))))
-    (tu/assert-submap {:type :sci/error, :line 1, :column 21,
-                       :message #"Wrong number of args \(0\) passed to: user/foo"}
+    (tu/assert-submap #?(:cljd {:type :sci/error, :line 1, :column 21,
+                                :message #"NoSuchMethodError"}
+                         :default {:type :sci/error, :line 1, :column 21,
+                                   :message #"Wrong number of args \(0\) passed to: user/foo"})
                       (try (eval* "(defn foo [x & xs]) (foo)")
                            (catch #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs ExceptionInfo) ex
                              (let [d (ex-data ex)]
