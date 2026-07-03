@@ -7,14 +7,13 @@
  {:examples {:extra-paths ["examples"]}
   :cljd {:extra-paths ["test" "demo"]
          ;; TODO: back to tensegritics when cljd.core/list meta PR is merged
-         ;; TODO: back to a released edamame when > 1.6.40 is out (sha is on
-         ;; the edamame cljd-fixes branch)
+         ;; TODO: back to a released edamame when > 1.6.40 is out
          :extra-deps {tensegritics/clojuredart
                       {:git/url "https://github.com/borkdude/ClojureDart.git"
                        :git/sha "23738b4df961da7d5e28a3df0e04ea085722197c"}
                       borkdude/edamame
                       {:git/url "https://github.com/borkdude/edamame.git"
-                       :git/sha "f0ee934ff274303c061ae648345001e69ff3152b"}}
+                       :git/sha "beb7773df8f938336a460634ea7bd24700e3211d"}}
          :main-opts ["-m" "cljd.build"]}
   ;; local ClojureDart checkout, compose as -M:cljd:cljd-local
   :cljd-local {:override-deps {tensegritics/clojuredart {:local/root "/Users/borkdude/dev/ClojureDart"}}}
