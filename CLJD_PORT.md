@@ -12,6 +12,23 @@ ungated on all platforms). copy-ns and future are stubbed/absent on cljd.
 Next: run more of the SCI test suite on cljd, tasks: non-record deftype arm,
 real multimethods, interop for :classes.
 
+## Real test suite on cljd
+
+- test/sci/core_test.cljd is a cljd-only shadow of core_test.cljc (same ns,
+  cljd prefers .cljd). Run:
+  `clojure -M:cljd test sci.core-test` (or add to script selector when green).
+  Status: 105 assertions pass, 26 fail.
+- sci.test-utils ported: tu/eval* goes through sci/eval-string on cljd,
+  thrown-with-data? is a boolean macro there (cljd assert-expr not
+  extensible), submap? handles RegExp.
+- Shadow edit patterns: #?(:clj Exception :cljs js/Error) etc get a
+  :cljd cljd.core/ExceptionInfo arm (sci errors are ex-info, ExceptionInfo is
+  NOT an Exception subtype on Dart). :classes maps get :cljd {}. Host-interop
+  tests are #_-gated with a ;; TODO:cljd marker, but reader-level breakage
+  (vanishing conditionals in maps) must be fixed even inside #_.
+- Exception/constructor registry in opts default-classes: :constructor and
+  :instance? closures per class, used by analyze-new and eval-try on cljd.
+
 Depends on edamame 1.6.40+ (has cljd support).
 
 ## Bootstrap / how to build
