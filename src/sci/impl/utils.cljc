@@ -49,7 +49,8 @@
 ;; interrupt via a hand-built `ex-info`. `eval-try` checks for it and refuses to
 ;; let user `catch` clauses handle the exception, so interrupts always propagate
 ;; out of the sandbox.
-(def interrupt-marker #?(:clj (Object.)
+(def interrupt-marker #?(:cljd ^:unique (Object.)
+                         :clj (Object.)
                          :cljs (js/Object.)))
 
 (defn interrupt-ex?
