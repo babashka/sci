@@ -40,6 +40,9 @@ templates. Restore them with git after first init.
   gated with `#?(:cljd nil :default ...)`).
 - Reader routing renamed to edamame.impl.cljd-reader-types (name in released
   edamame 1.6.40).
+- Analyzer shallow deps ported: callstack, faster, fns, destructure.
+  sci.cljd-smoke-test requires them as a compilation canary.
+  destructure covered by test/sci/impl/destructure_test.cljc.
 - .cljd test shadow trick (for big test files like core_test): same ns in a
   .cljd file shadows the .cljc on cljd only. JVM/CLJS never read .cljd. For
   small files prefer gating in the .cljc directly. Gotcha either way: the
@@ -94,3 +97,15 @@ templates. Restore them with git after first init.
   `-meta`/`-with-meta`/`-invoke` names. defmulti/defmethod supported.
 - cljd follows the :cljs code path for sci: NodeR defrecord + eval fn instead
   of the Eval protocol, constants self-evaluate (`->constant` returns x).
+- Emission pass features are #{:cljd} only (host pass has :cljd AND :clj). A
+  `#?(:clj A :cljs B)` without :cljd or :default clause emits NOTHING: in
+  expression position that means nil, `(throw #?(...))` becomes a bare Dart
+  `rethrow`. Every conditional in ported code needs a :cljd or :default arm.
+- cljd host eval does not create host vars for plain defns, so `:refer` of a
+  function from a ported ns breaks the host pass. Use an alias instead.
+  `:refer` from clojure.test works.
+- No object-array on cljd: use `(List/filled n nil)`. aset/aget work on Dart
+  List.
+- Compiling a SUBSET of test namespaces can regenerate cljd.core without IFn
+  arity mixins other namespaces need, leaving stale .dart files that fail to
+  load. Run the full selector when output looks inconsistent.

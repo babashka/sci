@@ -1,6 +1,11 @@
 (ns sci.cljd-smoke-test
-  "First namespaces that work on ClojureDart. Runs on all platforms."
+  "First namespaces that work on ClojureDart. Runs on all platforms.
+  Also serves as a compilation canary: requires namespaces that have no
+  cljd tests yet."
   (:require [clojure.test :refer [deftest is testing]]
+            [sci.impl.callstack]
+            [sci.impl.faster]
+            [sci.impl.fns]
             [sci.impl.types :as types]))
 
 (deftest eval-form-test

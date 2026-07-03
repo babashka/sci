@@ -6,16 +6,20 @@
    [sci.impl.utils :as utils :refer [recur]])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn wrap-this-as]])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 #?(:cljs (def this-as-sentinel #js {}))
 
-(defmacro wrap-this-as [& body]
-  (macros/? :clj `(do ~@body)
-            :cljs `(do
-                     (when ~'this-as-idx
-                       (aset ~'invoc-array ~'this-as-idx (~'js* "this")))
-                     ~@body)))
+#?(:cljd
+   (defmacro wrap-this-as [& body]
+     `(do ~@body))
+   :default
+   (defmacro wrap-this-as [& body]
+     (macros/? :clj `(do ~@body)
+               :cljs `(do
+                        (when ~'this-as-idx
+                          (aset ~'invoc-array ~'this-as-idx (~'js* "this")))
+                        ~@body))))
 
 (defmacro gen-fn
   ([n]
@@ -29,7 +33,8 @@
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                  (object-array ~'invoc-size))]
+                                  #?(:cljd (List/filled ~'invoc-size nil)
+                                     :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
               (wrap-this-as
@@ -44,13 +49,14 @@
            varargs-param (when varargs (gensym))
            asets `(do ~@(map (fn [fn-param idx]
                                `(aset ~(with-meta 'invoc-array
-                                         {:tag 'objects}) ~idx ~fn-param))
+                                         #?(:cljd nil :default {:tag 'objects})) ~idx ~fn-param))
                              fn-params (range)))]
        `(let [recur# recur]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                  (object-array ~'invoc-size))]
+                                  #?(:cljd (List/filled ~'invoc-size nil)
+                                     :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
               ~asets
@@ -69,7 +75,7 @@
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (defn fun
-  ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+  ([#?(:cljd ctx :clj ^clojure.lang.Associative ctx :cljs ctx)
     enclosed-array
     fn-body
     fn-name
@@ -82,7 +88,7 @@
         (utils/current-ns-name)
         (:vararg-idx fn-body)
         #?(:cljs (:this-as-idx fn-body))))
-  ([#?(:clj ^clojure.lang.Associative ctx :cljs ctx)
+  ([#?(:cljd ctx :clj ^clojure.lang.Associative ctx :cljs ctx)
     enclosed-array
     _fn-body
     fn-name
@@ -95,7 +101,8 @@
     #?(:cljs this-as-idx)]
    (let [
          f (if vararg-idx
-             (case #?(:clj (int fixed-arity)
+             (case #?(:cljd fixed-arity
+                      :clj (int fixed-arity)
                       :cljs fixed-arity)
                0 (gen-fn 0 true true)
                1 (gen-fn 1 true true)
@@ -118,7 +125,8 @@
                18 (gen-fn 18 true true)
                19 (gen-fn 19 true true)
                20 (gen-fn 20 true true))
-             (case #?(:clj (int fixed-arity)
+             (case #?(:cljd fixed-arity
+                      :clj (int fixed-arity)
                       :cljs fixed-arity)
                0 (gen-fn 0)
                1 (gen-fn 1)
@@ -145,12 +153,15 @@
                (let [recur# recur]
                  (fn arity-many [& args]
                    (let [invoc-array (when-not (zero? invoc-size)
-                                      (object-array invoc-size))]
+                                       #?(:cljd (List/filled invoc-size nil)
+                                          :default (object-array invoc-size)))]
                      (when enclosed->invocation
                        (enclosed->invocation enclosed-array invoc-array))
                      (loop [args args i 0]
                        (when (< i fixed-arity)
-                         (aset ^objects invoc-array i (first args))
+                         (aset #?(:cljd invoc-array
+                                  :clj ^objects invoc-array
+                                  :cljs ^objects invoc-array) i (first args))
                          (recur (next args) (inc i))))
                      (loop []
                        (let [ret (types/eval body ctx invoc-array)]

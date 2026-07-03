@@ -4,9 +4,9 @@
             [sci.impl.types :as types]
             [sci.lang]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
-(defn sci-ns-name [^sci.lang.Namespace ns]
+(defn sci-ns-name [#?(:cljd ns :clj ^sci.lang.Namespace ns :cljs ^sci.lang.Namespace ns)]
   (types/getName ns))
 
 (defn select [m]

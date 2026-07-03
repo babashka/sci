@@ -10,7 +10,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (def ^:const eof :sci.impl.parser.edamame/eof)
 
@@ -110,7 +110,8 @@
                      sym
                      (if-let [ns (get aliases sym-ns)]
                        (symbol (str ns) sym-name)
-                       #?(:cljs
+                       #?(:cljd sym
+                          :cljs
                           ;; This enables using `(fs/readFileSync) mode in macros, e.g. in nbb
                           (if-let [import (-> nss (get current-ns) :imports (get sym-ns))]
                             (symbol (str import) (name sym))
