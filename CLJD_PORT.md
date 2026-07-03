@@ -10,7 +10,9 @@ eval-form, eval-string, def, defn all pass (test/sci/parse_test.cljc runs
 ungated on all platforms). copy-ns and future are stubbed/absent on cljd.
 
 Next: run more of the SCI test suite on cljd, tasks: non-record deftype arm,
-real multimethods, interop for :classes.
+interop for :classes. Multimethods (and protocols, which build on them) are
+punted for now: defmulti/defprotocol throw "not yet supported" on cljd, tests
+gated with TODO:cljd markers.
 
 ## Real test suite on cljd
 
