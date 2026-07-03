@@ -1,7 +1,6 @@
 (ns sci.impl.reify
   {:no-doc true}
-  ;; cljd emits reify for variadic fns, excluding it breaks compilation, the
-  ;; macro fn is named reify-macro there instead
+  ;; excluding reify breaks variadic fn compilation on cljd, macro fn named reify-macro there
   (:refer-clojure :exclude [#?@(:cljd [] :default [reify])])
   #?(:cljd (:require [sci.impl.types :as t])
      :clj (:require [sci.ctx-store :as store]))

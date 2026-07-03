@@ -38,14 +38,12 @@
   (defn ^:macro-support core-sym [sym]
     (symbol "clojure.core" (name sym)))
 
-  ;; :cljd/clj-host: only in the host feature set, not emitted to Dart
+  ;; :cljd/clj-host is host-only, var metadata lives in the cljd compiler registry
   #?(:cljd/clj-host
-     ;; JVM resolve returns bare vars on the cljd host, the real metadata
-     ;; (:macro, :arglists, :doc) lives in the cljd compiler registry
      (defn ^:macro-support cljd-var-meta [sym]
        (let [nses @@(resolve 'cljd.compiler/nses)
              cur @(resolve 'cljd.compiler/*current-ns*)
-                          look (fn [ns-sym nm]
+             look (fn [ns-sym nm]
                     (let [ns-sym (if (contains? nses ns-sym)
                                    ns-sym
                                    (symbol (clojure.string/replace (str ns-sym) #"^clojure\." "cljd.")))]
@@ -124,8 +122,7 @@
                  (when-not elide-vars column) (assoc :column column))]
       varm)))
 
-;; separate deftime form: the cljd host eval does not split top-level do, so
-;; the helper fns above must be evaluated before the macros below compile
+;; separate deftime form, cljd host eval does not split top-level do
 (macros/deftime
   (defmacro macrofy [& args]
     (let [[sym & args] args]
@@ -164,8 +161,7 @@
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if (and (not macro) elide-vars (not dyn) (not ctx))
         sym
-        #?(:cljd `(sci.lang/->Var ~init ~nm ~varm false ~ctx nil ~ns)
-           :default `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns)))))
+        `(sci.lang/->Var ~init ~nm ~varm false ~ctx nil ~ns))))
   (defmacro copy-core-var
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))

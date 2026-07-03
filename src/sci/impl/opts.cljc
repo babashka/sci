@@ -68,9 +68,7 @@
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
 
 (def default-classes
-  ;; TODO: flesh out cljd default classes
-  ;; no runtime reflection on Dart: each class carries :constructor and
-  ;; :instance? closures, compiled statically
+  ;; no runtime reflection on Dart, each class carries :constructor and :instance? closures
   #?(:cljd {'Exception {:class Exception
                         :constructor (fn [msg] (Exception. msg))
                         :instance? (fn [x] (instance? Exception x))}

@@ -88,9 +88,7 @@
                              (ex-cause e)
                              e)]
                      (when #?(:cljd
-                              ;; no runtime instance? on Dart: registered
-                              ;; classes carry an :instance? closure, sci
-                              ;; types compare via type-impl
+                              ;; no runtime instance? on Dart, see :instance? closures in opts
                               (or (utils/kw-identical? :default clazz)
                                   (let [c (if (types/eval-node? clazz)
                                             (types/eval clazz ctx bindings)
@@ -106,7 +104,7 @@
                               :clj (instance? clazz e))
                        (reduced
                         [::try-result
-                         (do (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) (:ex-idx c) e)
+                         (do (aset #?(:cljd ^List bindings :default ^objects bindings) (:ex-idx c) e)
                              (types/eval (:body c) ctx bindings))]))))
                  nil
                  catches)]

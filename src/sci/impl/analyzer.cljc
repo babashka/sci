@@ -349,9 +349,7 @@
                                   :sci.impl/inner-fn f))
                f)]
        (when self-ref?
-         (aset #?(:cljd ^List enclosed-array
-                  :clj ^objects enclosed-array
-                  :cljs ^objects enclosed-array)
+         (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                self-ref-in-enclosed-idx
                f))
        f)
@@ -463,7 +461,7 @@
                               binding-idx (aget idxs 0)
                               binding-val (aget bindings binding-idx)
                               enclosed-idx (aget idxs 1)]
-                          (aset #?(:cljd ^List ret :clj ret :cljs ret) enclosed-idx binding-val)
+                          (aset #?(:cljd ^List ret :default ret) enclosed-idx binding-val)
                           ret)))
              enclosed-array-cnt])
           [(constantly nil)])
@@ -481,26 +479,16 @@
                                                closed-over-idens))
                              invoc-size (count iden->invocation-idx)
                              copy-enclosed->invocation
-                             (when (pos? (alength #?(:cljd ^List enclosed->invocation
-                                                     :clj ^objects enclosed->invocation
-                                                     :cljs ^objects enclosed->invocation)))
+                             (when (pos? (alength #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation)))
                                (fn [#?(:cljd enclosed-array :clj ^objects enclosed-array :cljs ^objects enclosed-array)
                                     #?(:cljd invoc-array :clj ^objects invoc-array :cljs ^objects invoc-array)]
-                                 (areduce #?(:cljd ^List enclosed->invocation
-                                             :clj ^objects enclosed->invocation
-                                             :cljs ^objects enclosed->invocation) idx ret invoc-array
+                                 (areduce #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation) idx ret invoc-array
                                           (let [#?@(:cljd [idxs] :default [^objects idxs])
-                                                (aget #?(:cljd ^List enclosed->invocation
-                                                         :clj ^objects enclosed->invocation
-                                                         :cljs ^objects enclosed->invocation) idx)
+                                                (aget #?(:cljd ^List enclosed->invocation :default ^objects enclosed->invocation) idx)
                                                 enclosed-idx (aget idxs 0)
-                                                enclosed-val (aget #?(:cljd ^List enclosed-array
-                                                                      :clj ^objects enclosed-array
-                                                                      :cljs ^objects enclosed-array) enclosed-idx)
+                                                enclosed-val (aget #?(:cljd ^List enclosed-array :default ^objects enclosed-array) enclosed-idx)
                                                 invoc-idx (aget idxs 1)]
-                                            (aset #?(:cljd ^List ret
-                                                     :clj ^objects ret
-                                                     :cljs ^objects ret) invoc-idx enclosed-val)
+                                            (aset #?(:cljd ^List ret :default ^objects ret) invoc-idx enclosed-val)
                                             ret))))]
                          (assoc body
                                 :invoc-size invoc-size
@@ -551,9 +539,7 @@
                                                    :sci.impl/inner-fn f))
                                 f)]
                         (when self-ref?
-                          (aset #?(:cljd ^List enclosed-array
-                                   :clj ^objects enclosed-array
-                                   :cljs ^objects enclosed-array)
+                          (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                                 self-ref-in-enclosed-idx
                                 f))
                         f)
@@ -614,7 +600,7 @@
                         :clj (analyze ctx binding-value)
                         :cljs (if this-as-binding?
                                 (sci.impl.types/->Node
-                                 (aget #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx)
+                                 (aget #?(:cljd ^List bindings :default ^objects bindings) idx)
                                  nil)
                                 (analyze ctx binding-value)))
                    ;; Propagate inferred tag from analyzed value to binding name
@@ -645,7 +631,7 @@
                 idx0 (nth idxs 0)]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
-               (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx0 val0)
+               (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
                (t/eval body ctx bindings))
              stack))
         2 (let [node0 (nth let-nodes 0)
@@ -654,9 +640,9 @@
                 idx1 (nth idxs 1)]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
-               (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx0 val0)
+               (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
                (let [val1 (t/eval node1 ctx bindings)]
-                 (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx1 val1)
+                 (aset #?(:cljd ^List bindings :default ^objects bindings) idx1 val1)
                  (t/eval body ctx bindings)))
              stack))
         3 (let [node0 (nth let-nodes 0)
@@ -667,11 +653,11 @@
                 idx2 (nth idxs 2)]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
-               (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx0 val0)
+               (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
                (let [val1 (t/eval node1 ctx bindings)]
-                 (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx1 val1)
+                 (aset #?(:cljd ^List bindings :default ^objects bindings) idx1 val1)
                  (let [val2 (t/eval node2 ctx bindings)]
-                   (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx2 val2)
+                   (aset #?(:cljd ^List bindings :default ^objects bindings) idx2 val2)
                    (t/eval body ctx bindings))))
              stack))
         4 (let [node0 (nth let-nodes 0)
@@ -684,13 +670,13 @@
                 idx3 (nth idxs 3)]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
-               (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx0 val0)
+               (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
                (let [val1 (t/eval node1 ctx bindings)]
-                 (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx1 val1)
+                 (aset #?(:cljd ^List bindings :default ^objects bindings) idx1 val1)
                  (let [val2 (t/eval node2 ctx bindings)]
-                   (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx2 val2)
+                   (aset #?(:cljd ^List bindings :default ^objects bindings) idx2 val2)
                    (let [val3 (t/eval node3 ctx bindings)]
-                     (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx3 val3)
+                     (aset #?(:cljd ^List bindings :default ^objects bindings) idx3 val3)
                      (t/eval body ctx bindings)))))
              stack))
         5 (let [node0 (nth let-nodes 0)
@@ -705,15 +691,15 @@
                 idx4 (nth idxs 4)]
             (sci.impl.types/->Node
              (let [val0 (t/eval node0 ctx bindings)]
-               (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx0 val0)
+               (aset #?(:cljd ^List bindings :default ^objects bindings) idx0 val0)
                (let [val1 (t/eval node1 ctx bindings)]
-                 (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx1 val1)
+                 (aset #?(:cljd ^List bindings :default ^objects bindings) idx1 val1)
                  (let [val2 (t/eval node2 ctx bindings)]
-                   (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx2 val2)
+                   (aset #?(:cljd ^List bindings :default ^objects bindings) idx2 val2)
                    (let [val3 (t/eval node3 ctx bindings)]
-                     (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx3 val3)
+                     (aset #?(:cljd ^List bindings :default ^objects bindings) idx3 val3)
                      (let [val4 (t/eval node4 ctx bindings)]
-                       (aset #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx4 val4)
+                       (aset #?(:cljd ^List bindings :default ^objects bindings) idx4 val4)
                        (t/eval body ctx bindings))))))
              stack))))))
 
@@ -1418,7 +1404,7 @@
   [ctx expr idx f analyzed-children stack]
   (return-call ctx expr f analyzed-children stack
                (fn [_ctx bindings _f]
-                 (aget #?(:cljd ^List bindings :clj ^objects bindings :cljs ^objects bindings) idx))))
+                 (aget #?(:cljd ^List bindings :default ^objects bindings) idx))))
 
 ;; NOTE: there is a small perf win (about 3%) when checking if all
 ;; analyzed-children are EvalFn and then using those fns directly. See
@@ -1746,15 +1732,7 @@
                     fast-path (-> f-meta :sci.impl/fast-path)
                     f (or fast-path f)]
                 (cond (and f-meta (::static-access f-meta))
-                      #?(:cljd
-                         (let [[clazz meth class-expr] f]
-                           (analyze-dot ctx (with-meta (list* '. clazz meth (rest expr))
-                                              (assoc m :class-expr class-expr))))
-                         :clj
-                         (let [[clazz meth class-expr] f]
-                           (analyze-dot ctx (with-meta (list* '. clazz meth (rest expr))
-                                              (assoc m :class-expr class-expr))))
-                         :cljs
+                      #?(:cljs
                          (let [[class method-path] f
                                last-path (last method-path)
                                ctor? (= "" last-path)
@@ -1810,7 +1788,11 @@
                                       method-name (aget arr 1)
                                       method (unchecked-get class method-name)]
                                   (interop/invoke-static-method ctx bindings class method children))
-                                nil)))))
+                                nil))))
+                         :default
+                         (let [[clazz meth class-expr] f]
+                           (analyze-dot ctx (with-meta (list* '. clazz meth (rest expr))
+                                              (assoc m :class-expr class-expr)))))
                       #?@(:clj [(and f-meta (:sci.impl.analyzer/interop f-meta))
                                 (let [[obj & args] (analyze-children ctx (rest expr))
                                       meth (-> (second f)

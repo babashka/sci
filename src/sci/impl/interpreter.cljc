@@ -17,8 +17,7 @@
 
 (declare eval-form)
 
-;; cljd drops top-level side effects, so the state volatiles that break the
-;; circular namespace dependencies must be wired explicitly
+;; cljd drops top-level side effects, wire the circular-dep volatiles explicitly
 #?(:cljd
    (defn -install-wiring! []
      (when-not @utils/eval-form-state

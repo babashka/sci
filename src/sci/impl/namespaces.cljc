@@ -1979,8 +1979,7 @@
 
  (defn doc
    [_ _ sym]
-   ;; ~'resolve etc: emit unqualified so sci resolves them in its own core,
-   ;; the cljd host would qualify bare resolve/find-ns/ns-name/var? into this ns
+   ;; emit ~'resolve etc unqualified, the cljd host would qualify them into this ns
    `(let [special-doc# (try (~'resolve '~'clojure.repl/special-doc) (catch #?(:cljd ~(quote Exception) :clj ~(quote Exception) :cljs :default) ~'_ nil))
           special# (when special-doc# (special-doc# '~sym))]
       (if special#

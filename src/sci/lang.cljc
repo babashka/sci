@@ -119,9 +119,7 @@
        :default (set! (.-thread-bound this) v)))
   (unbind [this]
     (vars/with-writeable-var this meta
-      (set! (.-root this) #?(:cljd (vars/->SciUnbound this)
-                             :clj (sci.impl.vars.SciUnbound. this)
-                             :cljs (sci.impl.vars.SciUnbound. this)))))
+      (set! (.-root this) (vars/->SciUnbound this))))
   (hasRoot [_this]
     (not (instance? #?(:cljd vars/SciUnbound
                        :clj sci.impl.vars.SciUnbound

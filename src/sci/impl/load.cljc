@@ -16,9 +16,9 @@
   [ctx reader]
   (let [reader
         ;; TODO: move this check to edamame
-        (if #?(:clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
-               :cljs (implements? r/IndexingReader reader)
-               :cljd (r/indexing-reader? reader))
+        (if #?(:cljd (r/indexing-reader? reader)
+               :clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
+               :cljs (implements? r/IndexingReader reader))
           reader
           (r/indexing-push-back-reader reader))]
     (loop [ret nil]
@@ -131,13 +131,13 @@
                                                 (assoc ns (rename-sym sym)
                                                        (if-let [[_k v] (find the-loaded-ns sym)]
                                                          v
-                                                         (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
+                                                         (throw (new #?(:cljs js/Error :default Exception)
                                                                      (str sym " does not exist")))))
                                                 ns))
                                             referred
                                             refer)]
                        (assoc the-current-ns :refers referred))
-                     :else (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
+                     :else (throw (new #?(:cljs js/Error :default Exception)
                                        ":refer value must be a sequential collection of symbols")))
                use (handle-refer-all the-current-ns the-loaded-ns include-sym? rename-sym only)
                :else the-current-ns)
@@ -235,9 +235,9 @@
                     (or (when reload*
                           (when-let [the-loaded-ns (get namespaces lib)]
                             (reset! env* (handle-require-libspec-env ctx env cnn the-loaded-ns lib opts))))
-                        (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
+                        (throw (new #?(:cljs js/Error :default Exception)
                                     (str "Could not find namespace: " lib "."))))))
-                (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
+                (throw (new #?(:cljs js/Error :default Exception)
 
                             (str "Could not find namespace " lib ".")))))
             #?(:cljd (add-loaded-lib env lib)
@@ -405,7 +405,7 @@
   (let [cnn (utils/current-ns-name)
         namespaces (:namespaces env)
         ns (or (get namespaces ns-sym)
-               (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
+               (throw (new #?(:cljs js/Error :default Exception)
                            (str "No namespace: " ns-sym))))
         fs (apply hash-map filters)
         public-keys (filter symbol? (keys ns))
@@ -415,7 +415,7 @@
                 public-keys
                 (or (:refer fs) (:only fs) public-keys))
         _ (when (and to-do (not (sequential? to-do)))
-            (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
+            (throw (new #?(:cljs js/Error :default Exception)
                         ":only/:refer value must be a sequential collection of symbols")))
         the-current-ns (get namespaces cnn)
         referred (:refers the-current-ns)

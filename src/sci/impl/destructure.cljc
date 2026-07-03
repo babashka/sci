@@ -28,9 +28,8 @@
                                                     true)
                                (= firstb :as) (pb ret (second bs) gvec)
                                :else (if seen-rest?
-                                       (throw #?(:cljd (new Exception "Unsupported binding form, only :as can follow & parameter")
-                                                 :clj (new Exception "Unsupported binding form, only :as can follow & parameter")
-                                                 :cljs (new js/Error "Unsupported binding form, only :as can follow & parameter")))
+                                       (throw #?(:cljs (new js/Error "Unsupported binding form, only :as can follow & parameter")
+            :default (new Exception "Unsupported binding form, only :as can follow & parameter")))
                                        (recur (pb (if has-rest
                                                     (conj ret
                                                           gfirst `(~first ~gseq)
@@ -101,17 +100,15 @@
                  (vector? b) (pvec bvec b v)
                  (map? b) (pmap bvec b v)
                  :else (throw
-                        #?(:cljd (new Exception (str "Unsupported binding form: " b))
-                           :clj (new Exception (str "Unsupported binding form: " b))
-                           :cljs (new js/Error (str "Unsupported binding form: " b)))))))
+                        #?(:cljs (new js/Error (str "Unsupported binding form: " b))
+            :default (new Exception (str "Unsupported binding form: " b)))))))
         process-entry (fn [bvec b] (pb bvec (first b) (second b)))]
     (if (every? symbol? (map first bents))
       bindings
       (if-let [kwbs (seq (filter #(keyword? (first %)) bents))]
         (throw
-         #?(:cljd (new Exception (str "Unsupported binding key: " (ffirst kwbs)))
-            :clj (new Exception (str "Unsupported binding key: " (ffirst kwbs)))
-            :cljs (new js/Error (str "Unsupported binding key: " (ffirst kwbs)))))
+         #?(:cljs (new js/Error (str "Unsupported binding key: " (ffirst kwbs)))
+            :default (new Exception (str "Unsupported binding key: " (ffirst kwbs)))))
         (reduce process-entry [] bents)))))
 
 (defn destructure
