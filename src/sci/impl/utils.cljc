@@ -44,6 +44,21 @@
               :clj (Object.)
               :cljs (js/Object.)))
 
+;; Private sentinel marking an interrupt signal (see `sci.core/interrupt!`).
+;; A sandboxed program cannot reference this object, so it cannot forge an
+;; interrupt via a hand-built `ex-info`. `eval-try` checks for it and refuses to
+;; let user `catch` clauses handle the exception, so interrupts always propagate
+;; out of the sandbox.
+(def interrupt-marker #?(:clj (Object.)
+                         :cljs (js/Object.)))
+
+(defn interrupt-ex?
+  "True when `e` carries the private interrupt marker in its ex-data. The
+  `some->` short-circuits on exceptions without ex-data (the common caught
+  case), skipping the keyword lookup."
+  [e]
+  (some-> e ex-data :sci.impl/interrupt (identical? interrupt-marker)))
+
 (declare current-file current-ns)
 
 (def ^:dynamic *top-level-location* nil)

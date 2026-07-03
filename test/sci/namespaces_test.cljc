@@ -297,6 +297,14 @@ bar/bar"}
 (ns bar (:require foo))
 (def bar foo/foo)"}))}))))
 
+(deftest self-require-test
+  ;; a namespace requiring itself (e.g. via :require-macros for its own macros)
+  ;; is not a cyclic load dependency and must not throw
+  (is (= 1 (sci/eval-string "(require 'foo) foo/x"
+                            {:load-fn (fn [{:keys [:namespace]}]
+                                        (case namespace
+                                          foo {:source "(ns foo (:require foo)) (def x 1)"}))}))))
+
 (deftest as-alias-test
   (is (= :dude/bar (sci/eval-string "(ns my-ns (:require [dude :as-alias foo])) ::foo/bar")))
   (is (= :dude/bar (sci/eval-string "(require '[dude :as-alias foo]) ::foo/bar"))))

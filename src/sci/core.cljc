@@ -263,6 +263,8 @@
 
   - `:ns-aliases`: a map of aliases to namespaces that are globally valid, e.g. `{'clojure.test 'cljs.test}`
 
+  - `:interrupt-fn`: a zero-arg fn called on every interpreted `fn` entry / `loop` entry
+
   - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))
   ([s opts]

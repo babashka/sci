@@ -179,13 +179,6 @@
 
 #?(:cljd nil
    :clj
-   (defn resolve-type-hint [ctx sym]
-     (if (string? sym) (Class/forName sym)
-         (or (get prim->class sym)
-             (:class (resolve-class-opts ctx sym))))))
-
-#?(:cljd nil
-   :clj
    (def ->array-class
      (memoize (fn [clazz dim]
                 (class (apply make-array clazz (vec (repeat dim 0))))))))
@@ -197,3 +190,39 @@
                           (get prim->class sym-ns))]
        (let [dim (- (int (.charAt sym-name-str 0)) 48)]
          (->array-class clazz dim)))))
+
+#?(:clj
+   (def ^:private descriptor-prim->sym
+     {\B 'byte \S 'short \I 'int \J 'long \F 'float \D 'double \C 'char \Z 'boolean}))
+
+#?(:clj
+   (defn resolve-array-descriptor [ctx ^String s]
+     ;; Normalize a JVM array descriptor to Clojure 1.12 array notation (element + dim)
+     ;; and resolve the element through the :classes allowlist, then build the array
+     ;; class. "[B" -> byte/1, "[[Ljava.lang.String;" -> java.lang.String/2.
+     ;; No Class/forName: an off-allowlist element class is never loaded, and the
+     ;; element is gated exactly like the 1.12 Foo/N notation (resolve-array-class).
+     (let [len (.length s)
+           dim (inc (.lastIndexOf s (int \[)))   ; brackets are contiguous and leading
+           c (.charAt s dim)
+           elem-class (if (identical? \L c)
+                        (when (identical? \; (.charAt s (dec len)))
+                          (resolve-class ctx (symbol (subs s (inc dim) (dec len)))))
+                        (get prim->class (get descriptor-prim->sym c)))]
+       (when elem-class
+         (->array-class elem-class dim)))))
+
+#?(:clj
+   (defn resolve-type-hint [ctx sym]
+     ;; A string tag must go through the :classes allowlist, same as a symbol tag.
+     ;; Calling (Class/forName sym) directly let untrusted code load and
+     ;; static-initialize any class on the classpath (sandbox bypass). A nil result
+     ;; means "not allowed" / "no hint", which the analyzer already handles.
+     ;; Array descriptors ("[B", "[Ljava.lang.String;") are normalized and gated
+     ;; through the allowlist via the element class, see resolve-array-descriptor.
+     (if (string? sym)
+       (if (.startsWith ^String sym "[")
+         (resolve-array-descriptor ctx sym)
+         (:class (resolve-class-opts ctx (symbol sym))))
+       (or (get prim->class sym)
+           (:class (resolve-class-opts ctx sym))))))

@@ -632,6 +632,14 @@ Another option for loading code is to provide an implementation of
 ;;=> :foo
 ```
 
+### Bounding execution with `:interrupt-fn`
+
+SCI supports passing a zero arg `:interrupt-fn` which is called on every `fn`,
+or `loop/recur` body entry. Using this hook you can cancel evaluation after a
+certain number of iterations, check `Thread/interrupted`, etc.
+
+See [doc/interrupt.md](doc/interrupt.md) for full documentation.
+
 ## REPL
 
 Implementing a REPL can be done using the following functions:

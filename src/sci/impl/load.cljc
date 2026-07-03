@@ -180,6 +180,9 @@
             (if-let [the-loaded-ns (when-not reload* (get namespaces lib))]
               (let [loading (:loading ctx)]
                 (if (and loading
+                         ;; self-require (e.g. a ns requiring its own macros via
+                         ;; :require-macros) is not a real cycle: skip the check
+                         (not= lib cnn)
                          (not (contains? @(loaded-libs env) lib))
                          (nat-int? #?(:cljd (or (first (keep-indexed #(when (= %2 lib) %1) loading)) -1)
                                       :clj (.indexOf ^clojure.lang.PersistentVector loading lib)

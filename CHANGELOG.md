@@ -12,9 +12,23 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
-- Fix `copy-var` incorrectly setting `:sci.impl/inlined` on functions whose unqualified name collides with a `clojure.core`/`cljs.core` inlined var (e.g. a third-party `get`), causing `with-redefs` to be bypassed [babashka#1979](https://github.com/babashka/babashka/issues/1979)
+- Fix self-require (a namespace requiring itself, e.g. via `:require-macros` for its own macros) being reported as a cyclic load dependency
+
+## 0.13.53 (2026-06-20)
+
+- **Security fix (sandbox escape):** a string type-hint (e.g. `^"some.Class" x`) bypassed the `:classes` allowlist. `resolve-type-hint` called `Class/forName` directly, loading and static-initializing any class on the classpath at analysis time, even when it was not in `:classes`. This affects you only if you use SCI to evaluate untrusted code and rely on `:classes` to sandbox it — upgrade to 0.13.53. Trusted-input usage (e.g. ordinary babashka scripts) is unaffected.
+- `sci.interrupt` now provides `:interrupt-fn` aware `re-matches/re-find/re-seq` (JVM only)
+- Fix [#1044](https://github.com/babashka/sci/issues/1044): add `sci.interrupt/interrupt!` to throw an interrupt that sandboxed `try`/`catch` cannot catch. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md).
+
+## 0.13.52 (2025-06-16)
+
+- Add `:interrupt-fn` option: a zero-arg function called on every interpreted fn entry. See [docs](https://github.com/babashka/sci/blob/master/doc/interrupt.md) ([@whilo](https://github.com/whilo))
+- Fix `copy-var` incorrectly setting `:sci.impl/inlined` on functions whose unqualified name collides with a `clojure.core`/`cljs.core` inlined var (e.g. a third-party `get`), causing `with-redefs` to be bypassed [babashka#1979](https://github.com/babashka/babashka/issues/1979) ([@verberktstan](https://github.com/verberktstan))
 - Fix CLJS regression where a `defrecord`/`deftype` type symbol referenced via a namespace alias (e.g. `(instance? r/Foo x)`) failed to resolve [nbb#410](https://github.com/babashka/nbb/issues/410)
 - Fix `recur` with 20+ args in `loop` [#1035](https://github.com/babashka/sci/issues/1035)
+- `if-let`, `if-some`, `when-let` and `when-some` now validate that the binding vector contains exactly two forms [#1037](https://github.com/babashka/sci/issues/1037) ([@vieirandre](https://github.com/vieirandre))
+- `recur` now throws on mismatched argument count [#1034](https://github.com/babashka/sci/issues/1034) ([@vieirandre](https://github.com/vieirandre))
+- `ancestors`, `descendants` and `parents` now normalize SCI types in hierarchy lookups [#1033](https://github.com/babashka/sci/issues/1033) ([@vieirandre](https://github.com/vieirandre))
 - Support `IFn` on `defrecord`, `deftype` and `reify` [#808](https://github.com/babashka/sci/issues/808), [babashka#1386](https://github.com/babashka/babashka/issues/1386), [nbb#408](https://github.com/babashka/nbb/issues/408)
 - Add test for `defrecord`/`deftype` in namespaces with special characters like `+` [babashka#1868](https://github.com/babashka/babashka/issues/1868)
 - Fix `.sym` on user-defined vars returning qualified symbol instead of unqualified, matching Clojure
