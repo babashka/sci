@@ -24,7 +24,8 @@
 
 
 (defn with-resolver [opts]
-  #?(:clj (if-let [^clojure.lang.LispReader$Resolver resolver
+  #?(:cljd opts
+     :clj (if-let [^clojure.lang.LispReader$Resolver resolver
                    @parser/reader-resolver]
             (assoc opts :auto-resolve
                    (fn [alias]
@@ -58,7 +59,8 @@
    (let [opts (-> opts with-resolver with-suppressed)
          opts (if (:read-cond opts)
                 ;; always prioritize platform feature
-                (assoc opts :features (into #?(:clj #{:clj}
+                (assoc opts :features (into #?(:cljd #{:cljd}
+                                               :clj #{:clj}
                                                :cljs #{:cljs})
                                             (:features opts)))
                 opts)
@@ -76,7 +78,8 @@
 ;; used by source-fn
 (defn source-logging-reader
   [x]
-  #?(:clj (r/source-logging-push-back-reader (r/push-back-reader x))
+  #?(:cljd (r/source-logging-push-back-reader x)
+     :clj (r/source-logging-push-back-reader (r/push-back-reader x))
      :cljs (let [string-reader (r/string-reader x)
                  buf-len 1
                  pushback-reader (r/PushbackReader. string-reader

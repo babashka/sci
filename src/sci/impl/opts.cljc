@@ -30,11 +30,11 @@
                      namespaces (-> namespaces
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc
-                                            'global-hierarchy
-                                            (utils/new-var 'global-hierarchy
-                                                           #?(:cljd {:parents {} :descendants {} :ancestors {}}
-                                                              :default (make-hierarchy))
-                                                           {:ns utils/clojure-core-ns})
+                                            ;; no hierarchies on cljd, like the host
+                                            #?@(:cljd []
+                                                :default ['global-hierarchy
+                                                          (utils/new-var 'global-hierarchy (make-hierarchy)
+                                                                         {:ns utils/clojure-core-ns})])
                                             '*loaded-libs* (namespaces/loaded-libs**
                                                             (concat (keys env-nss)
                                                                     namespace-syms))))
