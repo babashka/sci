@@ -1,7 +1,10 @@
 (ns sci.impl.protocols
   {:no-doc true}
+  ;; cljd emits reify for variadic fns, excluding it breaks compilation
   (:refer-clojure :exclude [defprotocol extend-protocol
-                            extend extend-type reify satisfies?
+                            extend extend-type
+                            #?@(:cljd [] :default [reify])
+                            satisfies?
                             extends? implements? type->str])
   (:require
    [sci.ctx-store :as store]
@@ -267,11 +270,14 @@
            (contains? sats "nil"))
          (when-let [t (types/type-impl obj)]
            (contains? sats (type->str t)))))
-      (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
-                        (let [ms (methods %)
-                              default (get ms :default)]
-                          (not (identical? m default))))
-                     (:methods protocol)))))
+      ;; no get-method/methods on cljd
+      #?(:cljd false
+         :default
+         (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
+                           (let [ms (methods %)
+                                 default (get ms :default)]
+                             (not (identical? m default))))
+                        (:methods protocol))))))
 
 (defn satisfies? [protocol obj]
   (if-let [protocols (when #?(:cljd (instance? sci.impl.types/Reified obj)
@@ -318,7 +324,7 @@
     ;; fast path for Clojure when using normal clazz
     #?@(:clj [(class? clazz)
               (instance? clazz x)])
-    (instance? #?(:cljd lang/Type :clj sci.lang.Type :cljs sci.lang.Type) clazz)
+    (utils/sci-type? clazz)
     (if #?(:cljd (clojure.core/satisfies? sci.impl.types/SciTypeInstance x)
            :clj (instance? sci.impl.types.SciTypeInstance x)
            :cljs (cljs.core/implements? sci.impl.types.SciTypeInstance x))
@@ -342,4 +348,5 @@
 (defn extends?
   "Returns true if atype extends protocol"
   [protocol atype]
-  (boolean (some #(get-method % atype) (:methods protocol))))
+  #?(:cljd false
+     :default (boolean (some #(get-method % atype) (:methods protocol)))))

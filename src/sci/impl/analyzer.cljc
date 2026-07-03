@@ -737,30 +737,14 @@
                                 :cljs (.get the-current-ns name))
                            the-current-ns
                            (assoc the-current-ns name
-                                  (doto #?(:cljd (lang/->Var nil name
-                                                             {:name name
-                                                              :ns @utils/current-ns
-                                                              :file @utils/current-file}
-                                                             false
-                                                             false
-                                                             nil
-                                                             @utils/current-ns)
-                                           :clj (sci.lang.Var. nil name
-                                                               {:name name
-                                                                :ns @utils/current-ns
-                                                                :file @utils/current-file}
-                                                               false
-                                                               false
-                                                               nil
-                                                               @utils/current-ns)
-                                           :cljs (sci.lang.Var. nil name
-                                                                {:name name
-                                                                 :ns @utils/current-ns
-                                                                 :file @utils/current-file}
-                                                                false
-                                                                false
-                                                                nil
-                                                                @utils/current-ns))
+                                  (doto (lang/->Var nil name
+                                                    {:name name
+                                                     :ns @utils/current-ns
+                                                     :file @utils/current-file}
+                                                    false
+                                                    false
+                                                    nil
+                                                    @utils/current-ns)
                                     (vars/unbind)))))]
     (swap! env
            (fn [env]

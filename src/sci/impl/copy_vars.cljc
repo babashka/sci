@@ -13,32 +13,32 @@
 ;; The following is produced with:
 ;; (def inlined (filter (comp :inline meta) (vals (ns-publics 'clojure.core))))
 ;; (map (comp :name meta) inlined)
-(def inlined-vars
+(def ^:macro-support inlined-vars
   '#{+' unchecked-remainder-int unchecked-subtract-int dec' short-array bit-shift-right aget = boolean bit-shift-left aclone dec < char unchecked-long unchecked-negate unchecked-inc-int floats pos? boolean-array alength bit-xor unsigned-bit-shift-right neg? unchecked-float num reduced? booleans int-array inc' <= -' * min get long double bit-and-not unchecked-add-int short quot unchecked-double longs unchecked-multiply-int int > unchecked-int unchecked-multiply unchecked-dec double-array float - byte-array zero? unchecked-dec-int rem nth nil? bit-and *' unchecked-add identical? unchecked-divide-int unchecked-subtract / bit-or >= long-array object-array doubles unchecked-byte unchecked-short float-array inc + chars ints bit-not byte max == count char-array compare shorts unchecked-negate-int unchecked-inc unchecked-char bytes})
 
-(def cljs-resolve #?(:cljd nil :default (resolve 'cljs.analyzer.api/resolve)))
+(def ^:macro-support cljs-resolve #?(:cljd nil :default (resolve 'cljs.analyzer.api/resolve)))
 
-#?(:cljd (def elide-vars false)
+#?(:cljd (def ^:macro-support elide-vars false)
    :clj (def elide-vars (= "true" (System/getenv "SCI_ELIDE_VARS")))
    ;; for self-hosted
    :cljs (def elide-vars false))
 
 (macros/deftime
 
-  (defn ensure-quote [x]
+  (defn ^:macro-support ensure-quote [x]
     (if (and (seq? x) (= 'quote (first x)))
       x
       (list 'quote x)))
 
-  (defn dequote [x]
+  (defn ^:macro-support dequote [x]
     (if (and (seq? x) (= 'quote (first x)))
       (second x)
       x))
 
-  (defn core-sym [sym]
+  (defn ^:macro-support core-sym [sym]
     (symbol "clojure.core" (name sym)))
 
-  (defn var-meta [&env sym opts]
+  (defn ^:macro-support var-meta [&env sym opts]
     (let [sym (dequote sym)
           macro (:macro opts)
           nm (:name opts)
@@ -71,7 +71,8 @@
           dyn (:dynamic m)
           private (:private m)
           arglists (:arglists m)
-          tag (:tag m)
+          ;; host tags are JVM classes, they don't compile on cljd
+          tag #?(:cljd nil :default (:tag m))
           file (:file m)
           line (:line m)
           column (:column m)
@@ -91,8 +92,11 @@
                  (when-not elide-vars file) (assoc :file file)
                  (when-not elide-vars line) (assoc :line line)
                  (when-not elide-vars column) (assoc :column column))]
-      varm))
+      varm)))
 
+;; separate deftime form: the cljd host eval does not split top-level do, so
+;; the helper fns above must be evaluated before the macros below compile
+(macros/deftime
   (defmacro macrofy [& args]
     (let [[sym & args] args]
       `(macrofy* ~sym ~@args ~@(repeat (- 2 (count args)) nil) ~(var-meta &env sym nil))))

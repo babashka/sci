@@ -34,19 +34,7 @@
                 prev (get the-current-ns var-name)
                 prev (if-not (utils/var? prev)
                        (let [m (meta prev)]
-                         #?(:cljd (lang/->Var prev var-name m false false nil (:ns m))
-                            :clj (sci.lang.Var. prev var-name
-                                                m
-                                                false
-                                                false
-                                                nil
-                                                (:ns m))
-                            :cljs (sci.lang.Var. prev var-name
-                                                 m
-                                                 false
-                                                 false
-                                                 nil
-                                                 (:ns m))))
+                         (lang/->Var prev var-name m false false nil (:ns m)))
                        prev)
                 v (do (when-not (identical? utils/var-unbound init)
                         (vars/bindRoot prev init))

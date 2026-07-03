@@ -469,4 +469,4 @@
 (defn resolve-record-class
   [ctx class-sym]
   (when-let [x (resolve-record-or-protocol-class ctx class-sym)]
-    (when (instance? #?(:cljd lang/Type :clj sci.lang.Type :cljs sci.lang.Type) x) x)))
+    (when (utils/sci-type? x) x)))

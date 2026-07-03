@@ -18,9 +18,18 @@
   (let [methods (types/getMethods ref)]
     ((get methods #?(:cljd '-deref :clj 'deref :cljs '-deref)) ref)))
 
+;; on cljd defmethod must stay top level, ideref-default is only used to
+;; build the internal defaults set
+#?(:cljd
+   (defmethod -deref :default [ref]
+     (clojure.core/deref ref)))
+
 (def ideref-default
-  (defmethod #?(:cljd -deref :clj deref :cljs -deref) :default [ref]
-    (clojure.core/deref ref)))
+  #?(:cljd nil
+     :clj (defmethod deref :default [ref]
+            (clojure.core/deref ref))
+     :cljs (defmethod -deref :default [ref]
+             (clojure.core/deref ref))))
 
 (defn deref*
   ([x]
@@ -92,19 +101,27 @@
 
 ;;;; Protocol methods
 
-(defmethod #?(:cljd -swap! :clj swap :cljs -swap!) :sci.impl.protocols/reified
-  ([ref f]
-   (let [methods (types/getMethods ref)]
-     ((get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f)))
-  ([ref f a1]
-   (let [methods (types/getMethods ref)]
-     ((get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f a1)))
-  ([ref f a1 a2]
-   (let [methods (types/getMethods ref)]
-     ((get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f a1 a2)))
-  ([ref f a1 a2 & args]
-   (let [methods (types/getMethods ref)]
-     (apply (get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f a1 a2 args))))
+;; single arity: cljd defmethod does not support multi-arity
+#?(:cljd
+   (defmethod -swap! :sci.impl.protocols/reified [ref f & args]
+     (let [methods (types/getMethods ref)]
+       (apply (get methods '-swap!) ref f args))))
+
+#?(:cljd nil
+   :default
+   (defmethod #?(:clj swap :cljs -swap!) :sci.impl.protocols/reified
+     ([ref f]
+      (let [methods (types/getMethods ref)]
+        ((get methods #?(:clj 'swap :cljs '-swap!)) ref f)))
+     ([ref f a1]
+      (let [methods (types/getMethods ref)]
+        ((get methods #?(:clj 'swap :cljs '-swap!)) ref f a1)))
+     ([ref f a1 a2]
+      (let [methods (types/getMethods ref)]
+        ((get methods #?(:clj 'swap :cljs '-swap!)) ref f a1 a2)))
+     ([ref f a1 a2 & args]
+      (let [methods (types/getMethods ref)]
+        (apply (get methods #?(:clj 'swap :cljs '-swap!)) ref f a1 a2 args)))))
 
 (defmethod #?(:cljd -reset! :clj reset :cljs -reset!) :sci.impl.protocols/reified [ref v]
   (let [methods (types/getMethods ref)]
@@ -137,32 +154,42 @@
 
 ;;;; Defaults
 
+#?(:cljd
+   (defmethod -swap! :default [ref f & args]
+     (apply clojure.core/swap! ref f args)))
+
+#?(:cljd
+   (defmethod -reset! :default [ref v]
+     (reset! ref v)))
+
 (def iatom-defaults
-  [(defmethod #?(:cljd -swap! :clj swap :cljs -swap!) :default [ref f & args]
-     ;; TODO: optimize arities
-     (apply clojure.core/swap! ref f args))
+  #?(:cljd []
+     :default
+     [(defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
+        ;; TODO: optimize arities
+        (apply clojure.core/swap! ref f args))
 
-   (defmethod #?(:cljd -reset! :clj reset :cljs -reset!) :default [ref v]
-     (reset! ref v))
+      (defmethod #?(:clj reset :cljs -reset!) :default [ref v]
+        (reset! ref v))
 
-   #?(:clj
-      (defmethod compareAndSet :default [ref old new]
-        (compare-and-set! ref old new)))
+      #?(:clj
+         (defmethod compareAndSet :default [ref old new]
+           (compare-and-set! ref old new)))
 
-   #?(:clj
-      (defmethod swapVals :default [ref & args]
-        (apply swap-vals! ref args)))
+      #?(:clj
+         (defmethod swapVals :default [ref & args]
+           (apply swap-vals! ref args)))
 
-   #?(:clj
-      (defmethod resetVals :default [ref v]
-        (reset-vals! ref v)))])
+      #?(:clj
+         (defmethod resetVals :default [ref v]
+           (reset-vals! ref v)))]))
 
 ;;;; Re-routing
 
 (defn swap!* [ref f & args]
   (if
       ;; fast-path for host IAtom
-      #?(:cljd (or (instance? Atom ref)
+      #?(:cljd (or (instance? cljd.core/Atom ref)
                    (satisfies? ISwap ref))
          :cljs (or (instance? Atom ref)
                    (implements? ISwap ref))
@@ -177,7 +204,7 @@
 (defn reset!* [ref v]
   (if
       ;; fast-path for host IAtoms
-      #?(:cljd (or (instance? Atom ref)
+      #?(:cljd (or (instance? cljd.core/Atom ref)
                    (satisfies? IReset ref))
          :cljs (or (instance? Atom ref)
                    (implements? IReset ref))
@@ -316,7 +343,9 @@
     #?(:cljd (satisfies? types/SciTypeInstance x)
        :clj (instance? sci.impl.types.SciTypeInstance x)
        :cljs (cljs.core/implements? types/SciTypeInstance x))
-    (boolean (get-method types/sci-invoke (types/type-impl x)))
+    ;; no get-method on cljd, sci-invoke methods are never registered there yet
+    #?(:cljd false
+       :default (boolean (get-method types/sci-invoke (types/type-impl x))))
     #?@(:cljd [(instance? types/Reified x)
                (boolean (get (types/getMethods x) '-invoke))]
         :clj [(instance? clojure.lang.IFn x) true]

@@ -1,11 +1,13 @@
 (ns sci.impl.reify
   {:no-doc true}
-  (:refer-clojure :exclude [reify])
+  ;; cljd emits reify for variadic fns, excluding it breaks compilation, the
+  ;; macro fn is named reify-macro there instead
+  (:refer-clojure :exclude [#?@(:cljd [] :default [reify])])
   #?(:cljd (:require [sci.impl.types :as t])
      :clj (:require [sci.ctx-store :as store]))
   #?(:cljs (:require [sci.impl.types :as t])))
 
-(defn reify [form _ & args]
+(defn #?(:cljd reify-macro :clj reify :cljs reify) [form _ & args]
   (let [{classes true methods false} (group-by symbol? args)
         methods (->> (group-by first methods)
                      (map (fn [[meth bodies]]

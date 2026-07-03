@@ -122,7 +122,7 @@
                  (next kvs)))
         ret))))
 
-(defn get-thread-binding ^TBox [sci-var]
+(defn get-thread-binding #?(:cljd [sci-var] :clj ^TBox [sci-var] :cljs ^TBox [sci-var])
   (when-let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
              ^Frame f #?(:cljd @dvals
                          :clj (.get dvals)

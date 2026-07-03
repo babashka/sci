@@ -508,9 +508,7 @@
       (types/->EvalForm result)
       (do (swap! (:env ctx) update-in
                  [:namespaces (symbol (namespace tagged-name)) :types]
-                 assoc record-name #?(:cljd (lang/->Type {:sci.impl/type-name rec-type})
-                                      :clj (sci.lang.Type. {:sci.impl/type-name rec-type})
-                                      :cljs (sci.lang.Type. {:sci.impl/type-name rec-type})))
+                 assoc record-name (lang/->Type {:sci.impl/type-name rec-type}))
           (@utils/analyze ctx result)))))
 
 (defn deftype-macro

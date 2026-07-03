@@ -5,7 +5,9 @@ evaluated on the Dart CLI and eventually a Flutter mobile app. SCI is the eval
 engine; cljd just compiles SCI's .cljc source to Dart. cljd's lack of runtime
 `eval` is NOT a blocker - SCI provides its own eval.
 
-## Status: first namespace (sci.impl.types) compiles and tests pass on cljd.
+## Status: EVAL WORKS. sci.impl.interpreter/eval-string evaluates Clojure on
+Dart: arithmetic, fns, mapv, let, str (test/sci/cljd_smoke_test.cljc).
+sci.core (public API) is the remaining unported file.
 
 Depends on edamame 1.6.40+ (has cljd support).
 
@@ -126,3 +128,26 @@ templates. Restore them with git after first init.
 - Compiling a SUBSET of test namespaces can regenerate cljd.core without IFn
   arity mixins other namespaces need, leaving stale .dart files that fail to
   load. Run the full selector when output looks inconsistent.
+
+## cljd gotchas (learned during namespaces layer port)
+
+- Helper fns used by macros need ^:macro-support meta or the macro fails to
+  host-compile with "Unable to resolve symbol". cljd host eval does not
+  JVM-define plain defns.
+- cljd host eval does not split top-level do: helpers and the macros using
+  them must live in separate top-level (deftime) forms.
+- :refer-clojure :exclude of `reify` breaks compilation of any variadic fn
+  in that namespace (cljd emits reify for the IFn mixin). sci.impl.reify
+  names its macro fn reify-macro on cljd.
+- defmethod: top level only (not inside def) and single arity only.
+  defmulti with :hierarchy option not supported.
+- No get-method/methods/prefer-method/remove-method runtime API.
+- No resolve at runtime. No format. Quoted JVM class syms in var meta (:tag)
+  fail to compile, copy-var drops tags on cljd.
+- `(def x (copy-core-var x))` with x excluded from clojure.core
+  self-references on cljd and stack-overflows at load, pass {:init nil}.
+- Return type hints on fns that can return nil (e.g. ^TBox) become Dart
+  casts and throw on nil, drop them on cljd.
+- ->Var/->Type/->Namespace factories work on ALL platforms, prefer them over
+  platform-conditional constructor calls. utils/sci-type? for Type instance
+  checks.
