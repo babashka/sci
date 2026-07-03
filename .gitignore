@@ -56,3 +56,4 @@ scratch.clj
 /.gitattributes
 /test/cljd-out
 /test/sci_test.dart
+sci-repl

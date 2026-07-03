@@ -53,8 +53,11 @@
           (.write ^java.io.Writer w (str this))))
 
 (defn- throw-root-binding [this]
-  (throw (#?(:cljd StateError. :clj IllegalStateException. :cljs js/Error.)
-                  (str "Can't change/establish root binding of " this " with set"))))
+  (throw #?(:cljd (ex-info (str "Can't change/establish root binding of " this " with set") {})
+            :clj (IllegalStateException.
+                  (str "Can't change/establish root binding of " this " with set"))
+            :cljs (js/Error.
+                   (str "Can't change/establish root binding of " this " with set")))))
 
 (defn notify-watches [ref watches old-val new-val]
   (when watches

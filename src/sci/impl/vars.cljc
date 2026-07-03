@@ -88,10 +88,11 @@
         bmap (.-bindings frame)
         bmap (reduce (fn [acc [var* val*]]
                        (when (not (dynamic? var*))
-                         (throw (new #?(:cljd StateError
-                                        :clj IllegalStateException
-                                        :cljs js/Error)
-                                     (str "Can't dynamically bind non-dynamic var " var*))))
+                         (throw #?(:cljd (ex-info (str "Can't dynamically bind non-dynamic var " var*) {})
+                                   :clj (new IllegalStateException
+                                             (str "Can't dynamically bind non-dynamic var " var*))
+                                   :cljs (new js/Error
+                                              (str "Can't dynamically bind non-dynamic var " var*)))))
                        (setThreadBound var* true)
                        (assoc acc var* (TBox. #?(:cljd nil
                                                  :clj (Thread/currentThread)
@@ -152,9 +153,9 @@
        (apply f x y z args)))))
 
 (defn throw-unbound-call-exception [the-var]
-  (throw (new #?(:cljd StateError
-                 :clj IllegalStateException
-                 :cljs js/Error) (str "Attempting to call unbound fn: " the-var))))
+  (throw #?(:cljd (ex-info (str "Attempting to call unbound fn: " the-var) {})
+            :clj (new IllegalStateException (str "Attempting to call unbound fn: " the-var))
+            :cljs (new js/Error (str "Attempting to call unbound fn: " the-var)))))
 
 #?(:cljd
    (deftype SciUnbound [the-var]
