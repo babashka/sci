@@ -9,6 +9,10 @@
          :extra-deps {tensegritics/clojuredart
                       {:git/url "https://github.com/tensegritics/ClojureDart.git"
                        :git/sha "4cdb4be7240bcb3e62c65d7fa160175c70336c3b"}}
+         ;; TODO: drop override when edamame > 1.6.40 is released
+         :override-deps {borkdude/edamame
+                         {:git/url "https://github.com/borkdude/edamame.git"
+                          :git/sha "07acae08b2fe0f4eae1df7900a503b8ce7470c1a"}}
          :main-opts ["-m" "cljd.build"]}
   ;; local ClojureDart checkout, compose as -M:cljd:cljd-local
   :cljd-local {:override-deps {tensegritics/clojuredart {:local/root "/Users/borkdude/dev/ClojureDart"}}}

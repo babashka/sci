@@ -77,19 +77,6 @@
 (defn fun
   ([#?(:cljd ctx :clj ^clojure.lang.Associative ctx :cljs ctx)
     enclosed-array
-    fn-body
-    fn-name
-    macro?]
-   (fun ctx enclosed-array fn-body fn-name macro?
-        (:fixed-arity fn-body)
-        (:copy-enclosed->invocation fn-body)
-        (:body fn-body)
-        (:invoc-size fn-body)
-        (utils/current-ns-name)
-        (:vararg-idx fn-body)
-        #?(:cljs (:this-as-idx fn-body))))
-  ([#?(:cljd ctx :clj ^clojure.lang.Associative ctx :cljs ctx)
-    enclosed-array
     _fn-body
     fn-name
     macro?
@@ -177,7 +164,14 @@
 (defn fn-arity-map [ctx enclosed-array fn-name macro? fn-bodies]
   (reduce
    (fn [arity-map fn-body]
-     (let [f (fun ctx enclosed-array fn-body fn-name macro?)
+     (let [f (fun ctx enclosed-array fn-body fn-name macro?
+                  (:fixed-arity fn-body)
+                  (:copy-enclosed->invocation fn-body)
+                  (:body fn-body)
+                  (:invoc-size fn-body)
+                  (utils/current-ns-name)
+                  (:vararg-idx fn-body)
+                  #?(:cljs (:this-as-idx fn-body)))
            var-arg? (:var-arg-name fn-body)
            fixed-arity (:fixed-arity fn-body)]
        (if var-arg?
