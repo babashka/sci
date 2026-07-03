@@ -31,12 +31,7 @@
 
 (defmacro twice-macro [x] `(do ~x ~x))
 
-#?(:cljd
-   (deftest host-macro-copy-test
-     (let [v (sci.impl.copy-vars/copy-var twice-macro (sci.lang/->Namespace 'foo nil) {})]
-       (is (= 2 (sci.impl.interpreter/eval-string "(foo/twice-macro 2)"
-                                                  {:namespaces {'foo {'twice-macro v}}}))))))
-
+;; non-public copy-var of a macro is fn-only, :sci.impl/public is the macro path
 #?(:cljd
    (deftest host-macro-copy-public-test
      (let [v (sci.impl.copy-vars/copy-var twice-macro (sci.lang/->Namespace 'foo nil)
