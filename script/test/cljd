@@ -5,6 +5,8 @@ set -eo pipefail
 if [ ! -f pubspec.yaml ]; then
   echo 'Initializing ClojureDart project'
   clojure -M:cljd init
+  # drop the generated sample test, only sci tests should run
+  rm -f test/sci_test.dart
 fi
 
 # Test namespaces that compile and pass on ClojureDart. Extend this list as
