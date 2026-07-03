@@ -6,9 +6,10 @@
  :aliases
  {:examples {:extra-paths ["examples"]}
   :cljd {:extra-paths ["test" "demo"]
+         ;; TODO: back to tensegritics when cljd.core/list meta PR is merged
          :extra-deps {tensegritics/clojuredart
-                      {:git/url "https://github.com/tensegritics/ClojureDart.git"
-                       :git/sha "4cdb4be7240bcb3e62c65d7fa160175c70336c3b"}}
+                      {:git/url "https://github.com/borkdude/ClojureDart.git"
+                       :git/sha "0a33cbb11f3d2b974eafca0036794b125029a58a"}}
          ;; TODO: drop override when edamame > 1.6.40 is released
          ;; sha is on the edamame cljd-fixes branch
          :override-deps {borkdude/edamame
