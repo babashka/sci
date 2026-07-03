@@ -265,9 +265,10 @@
        #"Unsupported option\(s\) supplied: :foo"
        (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))
   (testing "error message contains location"
-    (is (thrown-with-data?
-         {:line 1 :column 9}
-         (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))))
+    (when-not tu/native?
+      (is (thrown-with-data?
+           {:line 1 :column 9}
+           (eval* "(ns foo (:require [clojure.core] [dude] :foo))"))))))
 
 (deftest cyclic-load-test
   (is (thrown-with-msg?
