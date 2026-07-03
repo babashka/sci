@@ -599,7 +599,7 @@
                                                `(vector (do ~@body) (do ~@body)))
                                     {:sci/macro true})}}))))
   (testing "defn doesn't add binding to &env"
-    (is (= '[x y] (eval* "
+    (is (= #?(:cljd '#{x y} :default '[x y]) (#?(:cljd set :default identity) (eval* "
 (defmacro lets []
   (let [res (mapv (fn [sym]
                            (list 'quote sym)) (keys &env))]
@@ -608,9 +608,9 @@
 (defn foo [x] (let [y 1]
   (lets)))
 
-(foo 10)"))))
+(foo 10)")))))
   (testing "def with anon named fn adds binding to &env"
-    (is (= '[foo x y] (eval* "
+    (is (= #?(:cljd '#{foo x y} :default '[foo x y]) (#?(:cljd set :default identity) (eval* "
 (defmacro lets []
   (let [res (mapv (fn [sym]
                            (list 'quote sym)) (keys &env))]
@@ -619,15 +619,18 @@
 (def foo (fn foo [x] (let [y 1]
   (lets))))
 
-(foo 10)"))))
+(foo 10)")))))
   (is (= '(foo 1 2 3) (eval* "(defmacro foo [x y z] (list 'quote &form)) (foo 1 2 3)")))
   (testing "top level macro that emits do form should be analyzed an eval'ed interleaved"
     (is (= 'foo (eval* "(defmacro dude []
                      `(do (ns ~'foo) (def ~'x (ns-name *ns*)) (ns ~'user)))
                    (dude)
                    foo/x"))))
-  (testing "nested macro call that results in top level do"
-    (is (true? (eval* "
+  ;; TODO:cljd protocols
+  #?(:cljd nil
+     :default
+     (testing "nested macro call that results in top level do"
+       (is (true? (eval* "
 (defprotocol Proto
   (proto [_]))
 
@@ -638,7 +641,7 @@
 
 (deftrecord Rec)
 
-(map? (proto (->Rec)))")))))
+(map? (proto (->Rec)))"))))))
 
 (deftest comment-test
   (is (nil? (eval* '(comment "anything"))))
@@ -701,11 +704,11 @@
    triple 2))"))))
   (testing "mismatched recur arity"
     (is (thrown-with-msg?
-         Exception
+         #?(:cljd cljd.core/ExceptionInfo :default Exception)
          #"Mismatched argument count to recur, expected: 2 args, got: 1"
          (eval* "(fn [a b] (recur 1))")))
     (is (thrown-with-msg?
-         Exception
+         #?(:cljd cljd.core/ExceptionInfo :default Exception)
          #"Mismatched argument count to recur, expected: 2 args, got: 1"
          (eval* "(fn [f & args]
                    (let [r (apply f args)]
@@ -733,8 +736,8 @@
     (throws-tail-ex '(letfn [(f ([x] (f x 1)) ([x y] (+ x y)))] (f 1) (recur)))
     (throws-tail-ex '(letfn [(f [x] (recur 1) (f x 1))]))
     (it-works '(letfn [(f [x] (recur 1))]))
-    (throws-tail-ex '(fn [] (new #?(:clj String :cljs js/Error) (recur))))
-    (it-works '(fn [] (new #?(:clj String :cljs js/Error) (fn [] (recur)))))
+    (throws-tail-ex '(fn [] (new #?(:cljd Exception :clj String :cljs js/Error) (recur))))
+    (it-works '(fn [] (new #?(:cljd Exception :clj String :cljs js/Error) (fn [] (recur)))))
     (throws-tail-ex '(fn [] (throw (recur))))
     #?(:cljs (it-works '(fn [] (throw (fn [] (recur))))))
     (throws-tail-ex '(fn [] (.length (recur))))
@@ -764,7 +767,7 @@
     (it-works '(fn [] (and (recur))))
     (it-works '(fn [] (and 1 2 3 (recur))))
     (is (thrown-with-msg?
-         Exception #"Cannot recur across try"
+         #?(:cljd cljd.core/ExceptionInfo :default Exception) #"Cannot recur across try"
          (sci/eval-string "(defn foo [] (try (recur)))")))
     #?(:clj (do (throws-tail-ex '(String/new (recur)))
                 (throws-tail-ex '(String/.length (recur)))))))
@@ -801,7 +804,7 @@
 @state"
                            {})))
   (is (thrown-with-msg?
-       Exception
+       #?(:cljd cljd.core/ExceptionInfo :default Exception)
        #"Mismatched argument count to recur, expected: 3 args, got: 4"
        (tu/eval* "(loop [x 1 y 2 z 3]
                     (if (< x 5)
@@ -897,12 +900,15 @@
   (is (= 6 (eval* "(case (inc 2), 1 true, (2 3) (+ 1 2 3), 7)")))
   (is (thrown-with-msg?
        #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
-       #"(?i)duplicate case test constant"
+       ;; Dart RegExp has no inline (?i) flag
+       #?(:cljd #"[Dd]uplicate case test constant"
+          :default #"(?i)duplicate case test constant")
        (eval* "(case (inc 2), 1 true, 1 false)")))
   (is (thrown-with-msg?
        #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
        #"matching clause"
-       #?(:clj (eval* "
+       #?(:cljd (eval* "(case (inc 2), 1 true, 2 (+ 1 2 3))")
+          :clj (eval* "
 (try (case (inc 2), 1 true, 2 (+ 1 2 3))
   (catch java.lang.IllegalArgumentException e
     (throw (Exception. (ex-message e)))))")
@@ -944,7 +950,8 @@
 
 (deftest throw-test
   (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"foo"
-                        #?(:clj (eval* "(throw (Exception. \"foo\"))")
+                        #?(:cljd (eval* "(throw (Exception. \"foo\"))")
+                           :clj (eval* "(throw (Exception. \"foo\"))")
                            :cljs (eval* "(throw (js/Error. \"foo\"))")))))
 
 (deftest try-catch-finally-throw-test
@@ -1443,7 +1450,9 @@
     (is (= :foo (@v)))
     #?(:clj (is (= (:file (meta v)) (:file (meta #'always-foo)))))
     #?(:clj (is (= (:line (meta v)) (:line (meta #'always-foo)))))
-    (is (= (:arglists (meta v)) (:arglists (meta #'always-foo)))))
+    ;; host vars carry no meta at runtime on cljd
+    #?(:cljd (is (= '([& _args]) (:arglists (meta v))))
+       :default (is (= (:arglists (meta v)) (:arglists (meta #'always-foo))))))
   #?(:clj
      (let [foo-ns (sci/create-ns 'foo)
            v (sci/copy-var do-twice foo-ns {:copy-meta-from sci.core-test/do-twice :macro true})]
@@ -1628,11 +1637,13 @@
 (deftest var-isnt-fn
   (is (false? (eval* "(fn? #'inc)"))))
 
+;; TODO:cljd no array maps
+#?(:cljd nil :default
 (deftest array-based-map-test
   (is (true? (eval* "(= (range 8) (keys {0 0 1 1 2 2 3 3 4 4 5 5 6 6 7 7}))")))
   (is (true? (eval* "(= '(:a :b) (keys (let [x 1] {:a x :b 2})))")))
   (testing "This is an implementation detail of Clojure, but we use it to check if we really create hash-maps here"
-    (is (false? (eval* "(= (range 100) (keys (zipmap (range 100) (range 100))))")))))
+    (is (false? (eval* "(= (range 100) (keys (zipmap (range 100) (range 100))))"))))))
 
 #?(:cljd nil
    :clj
@@ -1767,12 +1778,14 @@
   (is (= 2 (sci/eval-string
             "(def v (volatile! 1)) (vswap! v inc) @v"))))
 
+;; TODO:cljd no 2d arrays
+#?(:cljd nil :default
 (deftest to-array-2d-test
   (let [[alen type-eq] (eval* "(def arr (to-array-2d [[1 2][3 4]]))
                                [(alength arr)
                                 (= (type (object-array 1)) (type (aget arr 0)))]")]
     (is (= 2 alen))
-    (is type-eq)))
+    (is type-eq))))
 
 (deftest aclone-test
   (let [[eq a al b bl] (eval* "(let [a (into-array [1 2 3])
@@ -1848,8 +1861,10 @@
           Exception #"allowed"
           (sci/eval-string "(defmethod print-method Integer [x w])")))))
 
+;; TODO:cljd interop
+#?(:cljd nil :default
 (deftest memfn-test
-  (is (true? (sci/eval-string "((memfn startsWith prefix) \"abc\" \"a\")" {:classes {:allow :all}}))))
+  (is (true? (sci/eval-string "((memfn startsWith prefix) \"abc\" \"a\")" {:classes {:allow :all}})))))
 
 ;; TODO:cljd host exception classes
 #?(:cljd nil :default
@@ -1935,7 +1950,10 @@
 
 (deftest conditional-var-test
   ;; NOTE: :file is not conform Clojure JVM, maybe fix this another day
-  (is (= [:name :ns :file] (sci/eval-string "(when false (def ^:foobar x)) (keys (meta #'x))"))))
+  ;; map key order not stable on cljd
+  (is (= #?(:cljd #{:name :ns :file} :default [:name :ns :file])
+         (#?(:cljd set :default identity)
+          (sci/eval-string "(when false (def ^:foobar x)) (keys (meta #'x))")))))
 
 (deftest override-ns-test
   (is (= 3 (sci/eval-string "(ns 2)" {:namespaces {'clojure.core {'ns inc}}}))))
