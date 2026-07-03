@@ -1,8 +1,8 @@
 (ns sci.test-utils.macros
   (:require
-   [sci.test-utils.utils]
+   #?@(:cljd [] :default [[cljs.test :as cljs-test]])
    #?(:clj [clojure.test :as test])
-   #?@(:cljd [] :default [[cljs.test :as cljs-test]])))
+   [sci.test-utils.utils]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
