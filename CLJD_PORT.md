@@ -9,8 +9,11 @@ engine; cljd just compiles SCI's .cljc source to Dart. cljd's lack of runtime
 eval-form, eval-string, def, defn all pass (test/sci/parse_test.cljc runs
 ungated on all platforms). copy-ns and future are stubbed/absent on cljd.
 
-Next: run more of the SCI test suite on cljd, tasks: non-record deftype arm,
-interop for :classes. Multimethods (and protocols, which build on them) are
+Next: non-record deftype arm, interop for :classes. Test sweep done: selector
+runs core, error, vars, namespaces, io, repl and impl tests on cljd (209
+assertions). read-test is JVM-only (host readers), skipped. Remaining
+namespaces need punted features (multimethods, protocols, hierarchies,
+interop, deftype, threads). Multimethods (and protocols, which build on them) are
 punted for now: defmulti/defprotocol throw "not yet supported" on cljd, tests
 gated with TODO:cljd markers.
 
