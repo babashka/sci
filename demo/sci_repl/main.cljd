@@ -1,0 +1,17 @@
+(ns sci-repl.main
+  "Demo REPL: SCI on ClojureDart, AOT-compiled."
+  (:require ["dart:io" :as io]
+            [sci.core :as sci]))
+
+(defn main []
+  (println "SCI on ClojureDart! Type :quit to exit.")
+  (let [ctx (sci/init {})]
+    (loop []
+      (.write io/stdout (str @sci/ns "=> "))
+      (let [line (.readLineSync io/stdin)]
+        (when (and line (not= ":quit" line))
+          (try
+            (prn (sci/eval-string* ctx line))
+            (catch Object e
+              (println "Error:" (or (ex-message e) (str e)))))
+          (recur))))))

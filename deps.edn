@@ -2,10 +2,10 @@
  :deps {borkdude/edamame {:mvn/version "1.6.40"}
         org.babashka/sci.impl.types {:mvn/version "0.0.3"}
         borkdude/graal.locking {:mvn/version "0.0.2"}}
- :cljd/opts {:kind :dart :main sci.core}
+ :cljd/opts {:kind :dart :main sci-repl.main}
  :aliases
  {:examples {:extra-paths ["examples"]}
-  :cljd {:extra-paths ["test"]
+  :cljd {:extra-paths ["test" "demo"]
          :extra-deps {tensegritics/clojuredart
                       {:git/url "https://github.com/tensegritics/ClojureDart.git"
                        :git/sha "4cdb4be7240bcb3e62c65d7fa160175c70336c3b"}}
