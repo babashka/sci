@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [read-string eval])
   (:require
    [clojure.string :as str]
-   #?(:cljd [edamame.impl.reader-types :as rt]
+   #?(:cljd [edamame.impl.cljd-reader-types :as rt]
       :default [clojure.tools.reader.reader-types :as rt])
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
@@ -100,7 +100,8 @@
               (res-without-sym sym)
               (let [sym-name (name sym)]
                 (or
-                 #?(:clj (when (and (= 1 (.length sym-name))
+                 #?(:cljd nil
+                    :clj (when (and (= 1 (.length sym-name))
                                     (Character/isDigit (.charAt sym-name 0)))
                            (when-let [clazz ^Class (interop/resolve-array-class ctx sym-ns sym-name)]
                              (symbol (pr-str clazz)))))
@@ -171,12 +172,15 @@
                         (vary-meta v assoc
                                    :line (get-line-number r)
                                    :column (- (get-column-number r)
-                                              #?(:clj (.length (str v))
+                                              #?(:cljd (.-length (str v))
+                                                 :clj (.length (str v))
                                                  :cljs (.-length (str v)))))
                         v)))
-                  (catch #?(:clj clojure.lang.ExceptionInfo
+                  (catch #?(:cljd cljd.core/ExceptionInfo
+                            :clj clojure.lang.ExceptionInfo
                             :cljs cljs.core/ExceptionInfo) e
-                    (throw (ex-info #?(:clj (.getMessage e)
+                    (throw (ex-info #?(:cljd (ex-message e)
+                                       :clj (.getMessage e)
                                        :cljs (.-message e))
                                     (assoc (ex-data e)
                                            :type :sci.error/parse

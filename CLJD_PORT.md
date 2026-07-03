@@ -34,6 +34,14 @@ templates. Restore them with git after first init.
 - sci.impl.types ported, compiles and passes tests on cljd
   (test/sci/cljd_smoke_test.cljc).
 - cljd test runner + selector + CI job.
+- Parser chain ported: sci.impl.parser, interop (class resolution only,
+  invocation fns stubbed with ex-info throws), utils, vars, sci.lang.
+  parse-string works on cljd (test/sci/parse_test.cljd).
+- Reader routing renamed to edamame.impl.cljd-reader-types (name in released
+  edamame 1.6.40).
+- .cljd test shadow trick: same ns in a .cljd file shadows the .cljc on cljd
+  only. JVM/CLJS never read .cljd. Tests commented with #_ get uncommented as
+  porting progresses. Delete shadow file when done.
 
 ## Remaining (the bulk - revisit here)
 

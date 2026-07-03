@@ -1,18 +1,20 @@
 (ns sci.impl.interop
   {:no-doc true}
-  #?(:clj (:import
-           [java.lang.reflect Field Modifier]))
+  #?@(:cljd [] :clj [(:import
+                      [java.lang.reflect Field Modifier])])
   (:require [sci.impl.types]
             [sci.impl.utils :as utils]
-            #?(:clj [sci.impl.reflector :as reflector])))
+            #?@(:cljd [] :clj [[sci.impl.reflector :as reflector]])))
 
 ;; see https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/Reflector.java
 ;; see invokeStaticMethod, getStaticField, etc.
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (defn invoke-instance-field
-  #?@(:cljs [[obj _target-class field-name]
+  #?@(:cljd [[obj _target-class field-name]
+             (throw (ex-info (str "Instance fields not yet supported in cljd: " field-name) {}))]
+      :cljs [[obj _target-class field-name]
              ;; gobject/get didn't work here
              (aget obj field-name)]
       :clj
@@ -24,7 +26,8 @@
            (.get field obj)
            (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (defn meth-cache [ctx ^Class class meth-name len fetch-fn k]
      (let [cname (.getName class)
            env (:env ctx)
@@ -35,7 +38,9 @@
              meths)))))
 
 (defn invoke-instance-method
-  #?@(:cljs [[ctx bindings obj _target-class method-name args _arg-count _arg-types]
+  #?@(:cljd [[_ctx _bindings _obj _target-class method-name _args _arg-count _arg-types]
+             (throw (ex-info (str "Instance methods not yet supported in cljd: " method-name) {}))]
+      :cljs [[ctx bindings obj _target-class method-name args _arg-count _arg-types]
              ;; gobject/get didn't work here
              (if-some [method (aget obj method-name)]
                ;; use Reflect rather than (.apply method ...), see https://github.com/babashka/nbb/issues/118
@@ -56,8 +61,9 @@
                  ;; See getMatchingMethod in Reflector
                  (reflector/invoke-matching-method method methods target-class obj args-array arg-types)))))]))
 
-(defn get-static-field [^Class class field-name-sym]
-  #?(:clj (reflector/get-static-field class (str field-name-sym))
+(defn get-static-field [#?(:cljd class :clj ^Class class :cljs class) field-name-sym]
+  #?(:cljd (throw (ex-info (str "Static fields not yet supported in cljd: " field-name-sym) {}))
+     :clj (reflector/get-static-field class (str field-name-sym))
      :cljs (unchecked-get class field-name-sym)))
 
 #?(:cljs
@@ -85,14 +91,18 @@
    (defn invoke-js-constructor* [ctx bindings constructor args]
      (js/Reflect.construct constructor (.map args #(sci.impl.types/eval % ctx bindings)))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (defn invoke-constructor #?(:clj [^Class class args]
                                :cljs [constructor args])
      (reflector/invoke-constructor class (object-array args))))
 
-(defn invoke-static-method #?(:clj [ctx bindings ^Class class ^String method-name ^objects args len]
+(defn invoke-static-method #?(:cljd [_ctx _bindings _class method _args]
+                              :clj [ctx bindings ^Class class ^String method-name ^objects args len]
                               :cljs [ctx bindings class method args])
-  #?(:clj
+  #?(:cljd
+     (throw (ex-info (str "Static methods not yet supported in cljd: " method) {}))
+     :clj
      (let [args-array (object-array len)]
        ;; [a idx ret init expr]
        (areduce args idx _ret nil
@@ -108,7 +118,8 @@
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
         class->opts (:class->opts env)]
-    (or #?(:clj (when (contains? class->opts sym) sym)
+    (or #?(:cljd (when (contains? class->opts sym) sym)
+           :clj (when (contains? class->opts sym) sym)
            :cljs (if-let [ns* (namespace sym)]
                    (when (identical? "js" ns*)
                      (when (contains? class->opts (symbol (name sym)))
@@ -127,7 +138,8 @@
   ;; almost the same, since `js/Foo` stays fully qualified
   (let [env @(:env ctx)
         class->opts (:class->opts env)
-        class-opts (or #?(:clj (get class->opts sym)
+        class-opts (or #?(:cljd (get class->opts sym)
+                          :clj (get class->opts sym)
                           :cljs (if-let [ns* (namespace sym)]
                                   (when (identical? "js" ns*)
                                     (get class->opts (symbol (name sym))))
@@ -144,7 +156,8 @@
 (defn resolve-class [ctx sym]
   (:class (resolve-class-opts ctx sym)))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (def prim->class
      {'int Integer/TYPE
       'ints (Class/forName "[I")
@@ -164,18 +177,21 @@
       'char Character/TYPE
       'chars (Class/forName "[C")}))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (defn resolve-type-hint [ctx sym]
      (if (string? sym) (Class/forName sym)
          (or (get prim->class sym)
              (:class (resolve-class-opts ctx sym))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (def ->array-class
      (memoize (fn [clazz dim]
                 (class (apply make-array clazz (vec (repeat dim 0))))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (defn resolve-array-class [ctx sym-ns ^String sym-name-str]
      (when-let [clazz (or (resolve-class ctx sym-ns)
                           (get prim->class sym-ns))]
