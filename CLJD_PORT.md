@@ -36,12 +36,15 @@ templates. Restore them with git after first init.
 - cljd test runner + selector + CI job.
 - Parser chain ported: sci.impl.parser, interop (class resolution only,
   invocation fns stubbed with ex-info throws), utils, vars, sci.lang.
-  parse-string works on cljd (test/sci/parse_test.cljd).
+  parse-string works on cljd (test/sci/parse_test.cljc, sci.core tests
+  gated with `#?(:cljd nil :default ...)`).
 - Reader routing renamed to edamame.impl.cljd-reader-types (name in released
   edamame 1.6.40).
-- .cljd test shadow trick: same ns in a .cljd file shadows the .cljc on cljd
-  only. JVM/CLJS never read .cljd. Tests commented with #_ get uncommented as
-  porting progresses. Delete shadow file when done.
+- .cljd test shadow trick (for big test files like core_test): same ns in a
+  .cljd file shadows the .cljc on cljd only. JVM/CLJS never read .cljd. For
+  small files prefer gating in the .cljc directly. Gotcha either way: the
+  reader resolves ::alias/kw at read time even in skipped branches and in #_
+  forms, so use fully qualified keywords when the alias is cljd-gated.
 
 ## Remaining (the bulk - revisit here)
 
