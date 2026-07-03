@@ -24,7 +24,9 @@ real multimethods, interop for :classes.
   36 :tag PersistentList} is baked into the empty list, so EVERY runtime-built
   list carries that meta and sci reads it as error location. Local fix in
   ~/dev/ClojureDart: bind the loop seed to -EMPTY-LIST instead of the literal.
-  Needs an upstream PR; add sci.core-test to the CI selector once merged.
+  PR sent to tensegritics; until merged the :cljd alias pins the
+  borkdude/ClojureDart fork (branch fix-list-empty-literal-meta) and
+  sci.core-test is in the CI selector. Swap the dep back when the PR lands.
   cljd-incompatible tests are gated with `#?(:cljd nil :default (deftest
   ...))` + a ;; TODO:cljd marker.
 - sci fns get a cljd-only variadic wrapper (fns.cljc fun) that checks arity
