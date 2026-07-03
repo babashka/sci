@@ -1308,7 +1308,7 @@
 
 (deftest readers-test
   (when-not tu/native?
-    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
+    (is (thrown-with-msg? #?(:cljd Exception :clj Exception :cljs js/Error) #"No reader function" (tu/eval* "#x/str 5" {})))
     (is (string? (tu/eval* "#x/str 5" {:readers {'x/str str}})))
     (let [res (tu/eval* "#example.Record{:foo 1}" {:readers {'example.Record map->ReaderTestRecord}})]
       (is (record? res)))))
@@ -1324,9 +1324,11 @@
        #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"read-only"
        (tu/eval* "(alter-meta! #'-> dissoc :macro)" {}))))
 
+;; TODO:cljd cljd.edn read-string has no opts arity
+#?(:cljd nil :default
 (deftest tagged-literal-test
   (testing "EDN with custom reader tags can be read without exception"
-    (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1")))))
+    (is (= 1 (eval* "(require '[clojure.edn]) (clojure.edn/read-string {:default tagged-literal} \"#foo{:a 1}\") 1"))))))
 
 (deftest ifs-test
   (is (= 2 (eval* "(if-let [foo nil] 1 2)")))
