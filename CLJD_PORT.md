@@ -14,10 +14,10 @@ real multimethods, interop for :classes.
 
 ## Real test suite on cljd
 
-- test/sci/core_test.cljd is a cljd-only shadow of core_test.cljc (same ns,
-  cljd prefers .cljd). Run:
-  `clojure -M:cljd test sci.core-test` (or add to script selector when green).
-  Status: 105 assertions pass, 26 fail.
+- core_test.cljc runs on cljd directly (shadow was merged back, single file).
+  Run: `clojure -M:cljd test sci.core-test` (add to script selector when
+  green). Status: 105 assertions pass, 26 fail. cljd-incompatible tests are
+  gated with `#?(:cljd nil :default (deftest ...))` + a ;; TODO:cljd marker.
 - sci.test-utils ported: tu/eval* goes through sci/eval-string on cljd,
   thrown-with-data? is a boolean macro there (cljd assert-expr not
   extensible), submap? handles RegExp.
