@@ -42,18 +42,17 @@
               (let [data# (ex-data ex#)
                     ex-msg# (.getMessage ex#)]
                 (test/do-report
-                 (if msg-re#
-                   (if (re-find msg-re# ex-msg#)
-                     {:type (if (sci.test-utils.utils/submap? expected# data#)
-                              :pass
-                              :fail)
-                      :message msg#
-                      :expected expected#
-                      :actual data#}
-                     {:type :fail
-                      :message msg#
-                      :expected msg-re#
-                      :actual ex-msg#}))))))))))
+                 (if (and msg-re# (not (re-find msg-re# ex-msg#)))
+                   {:type :fail
+                    :message msg#
+                    :expected msg-re#
+                    :actual ex-msg#}
+                   {:type (if (sci.test-utils.utils/submap? expected# data#)
+                            :pass
+                            :fail)
+                    :message msg#
+                    :expected expected#
+                    :actual data#})))))))))
 
 #?(:cljd nil
    :default
@@ -85,15 +84,14 @@
                  (catch cljs.core/ExceptionInfo ex#
                    (let [data# (ex-data ex#)
                          ex-msg# (.-message ex#)]
-                     (if msg-re#
-                       (if (re-find msg-re# ex-msg#)
-                         {:type (if (sci.test-utils.utils/submap? expected# data#)
-                                  :pass
-                                  :fail)
-                          :message msg#
-                          :expected expected#
-                          :actual data#}
-                         {:type :fail
-                          :message msg#
-                          :expected msg-re#
-                          :actual ex-msg#}))))))))))))
+                     (if (and msg-re# (not (re-find msg-re# ex-msg#)))
+                       {:type :fail
+                        :message msg#
+                        :expected msg-re#
+                        :actual ex-msg#}
+                       {:type (if (sci.test-utils.utils/submap? expected# data#)
+                                :pass
+                                :fail)
+                        :message msg#
+                        :expected expected#
+                        :actual data#})))))))))))

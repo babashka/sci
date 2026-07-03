@@ -554,7 +554,7 @@
          {:line 1 :column 11}
          (with-out-str (eval* nil "(+ 1 2 3) (conj 1 0)"))))
     (is (thrown-with-data?
-         {:line 1 :column 19}
+         {:line 1 :column 15}
          (eval* "(+ 1 2 3 4 5) (do x)")))
     (tu/assert-submap {:type :sci/error, :line 1, :column 15,
                        :message #"Wrong number of args \(1\) passed to: user/foo"}
