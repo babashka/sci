@@ -4,9 +4,10 @@
   (:require
    #?(:clj [clojure.string :as str])
    [sci.ctx-store :as store]
-   [sci.impl.hierarchies :refer [global-hierarchy]]))
+   ;; no hierarchies on cljd, like the host
+   #?@(:cljd [] :default [[sci.impl.hierarchies :refer [global-hierarchy]]])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (defn ^:private check-valid-options
   "Throws an exception if the given option map contains keys not listed
@@ -17,7 +18,8 @@
                          (first valid-keys)
                          (map #(str ", " %) (rest valid-keys)))]
       (throw
-       #?(:clj (IllegalArgumentException. ^String message)
+       #?(:cljd (ArgumentError. message)
+          :clj (IllegalArgumentException. ^String message)
           :cljs (js/Error. ^string message))))))
 
 (defn defmulti
@@ -67,14 +69,15 @@
                       m)
         mm-name (with-meta mm-name m)]
     (when (= (count options) 1)
-      (throw (new #?(:clj Exception :cljs js/Error)
+      (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
                   "The syntax for defmulti has changed. Example: (defmulti name dispatch-fn :default dispatch-value)")))
 
     (let [options   (apply hash-map options)
           default   (get options :default :default)
-          hierarchy (get options :hierarchy (global-hierarchy))]
+          hierarchy (get options :hierarchy #?(:cljd nil :default (global-hierarchy)))]
       (check-valid-options options :default :hierarchy)
-      #?(:clj `(let [v# (def ~mm-name)]
+      #?(:cljd (throw (ex-info "defmulti is not yet supported in SCI on ClojureDart" {}))
+         :clj `(let [v# (def ~mm-name)]
                  (when-not (and (clojure.core/has-root-impl v#) (clojure.core/multi-fn?-impl (deref v#)))
                    (def ~mm-name
                      (clojure.core/multi-fn-impl ~(name mm-name) ~dispatch-fn ~default ~hierarchy))))
@@ -87,25 +90,31 @@
                                                 method-table# prefer-table# method-cache# cached-hierarchy#)))))))
 
 (defn multi-fn?-impl [x]
-  (instance? #?(:clj clojure.lang.MultiFn
-                :cljs cljs.core/MultiFn) x))
+  #?(:cljd false
+     :clj (instance? clojure.lang.MultiFn x)
+     :cljs (instance? cljs.core/MultiFn x)))
 
-(defn multi-fn-impl #?(:clj [name dispatch-fn default hierarchy]
+(defn multi-fn-impl #?(:cljd [name dispatch-fn default hierarchy]
+                       :clj [name dispatch-fn default hierarchy]
                        :cljs [name dispatch-fn default hierarchy
                               method-table prefer-table method-cache cached-hierarchy])
-  (new #?(:clj clojure.lang.MultiFn
-          :cljs cljs.core/MultiFn) name dispatch-fn default hierarchy
-       #?@(:cljs [method-table prefer-table method-cache cached-hierarchy])))
+  #?(:cljd (throw (ex-info "defmulti is not yet supported in SCI on ClojureDart" {}))
+     :clj (new clojure.lang.MultiFn name dispatch-fn default hierarchy)
+     :cljs (new cljs.core/MultiFn name dispatch-fn default hierarchy
+                method-table prefer-table method-cache cached-hierarchy)))
 
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]
-  #?(:clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
+  #?(:cljd (throw (ex-info "defmethod is not yet supported in SCI on ClojureDart" {}))
+     :clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
      :cljs (-add-method multifn dispatch-val f)))
 
 (defn defmethod
   "Creates and installs a new method of multimethod associated with dispatch-value. "
   [_x _y multifn dispatch-val & fn-tail]
-  #?(:clj
+  #?(:cljd
+     (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn fn-tail))
+     :clj
      (let [multifn-str (str multifn)]
        (if (or (str/ends-with? multifn-str "print-method")
                (str/ends-with? multifn-str "simple-dispatch"))

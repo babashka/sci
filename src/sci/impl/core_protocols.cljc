@@ -7,41 +7,53 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.lang :as lang])
-  #?(:clj (:import [sci.impl.records SciRecord]
-                    [sci.impl.deftype SciType])))
+  #?@(:cljd [] :clj [(:import [sci.impl.records SciRecord]
+                              [sci.impl.deftype SciType])]))
 
 ;;;; IDeref
 
-(defmulti #?(:clj deref :cljs -deref) types/type-impl)
+(defmulti #?(:cljd -deref :clj deref :cljs -deref) types/type-impl)
 
-(defmethod #?(:clj deref :cljs -deref) :sci.impl.protocols/reified [ref]
+(defmethod #?(:cljd -deref :clj deref :cljs -deref) :sci.impl.protocols/reified [ref]
   (let [methods (types/getMethods ref)]
-    ((get methods #?(:clj 'deref :cljs '-deref)) ref)))
+    ((get methods #?(:cljd '-deref :clj 'deref :cljs '-deref)) ref)))
 
 (def ideref-default
-  (defmethod #?(:clj deref :cljs -deref) :default [ref]
+  (defmethod #?(:cljd -deref :clj deref :cljs -deref) :default [ref]
     (clojure.core/deref ref)))
 
 (defn deref*
   ([x]
-   #?(:clj (if (instance? clojure.lang.IDeref x)
+   #?(:cljd (if (satisfies? IDeref x)
+              (clojure.core/deref x)
+              (-deref x))
+      :clj (if (instance? clojure.lang.IDeref x)
              (clojure.core/deref x)
              (deref x))
       :cljs (if (or (instance? Atom x)
                     (implements? IDeref x))
               (clojure.core/deref x)
               (-deref x))))
-  #?(:clj
-     ([x & args]
-      (apply clojure.core/deref x args))))
+  #?@(:cljd [] :clj
+      [([x & args]
+        (apply clojure.core/deref x args))]))
 
+#?(:cljd
+   (def cljd-core-ns (lang/->Namespace 'cljd.core nil)))
 #?(:clj
    (def clj-lang-ns (lang/->Namespace 'clojure.lang nil)))
 #?(:cljs
    (def cljs-core-ns (lang/->Namespace 'cljs.core nil)))
 
 (def deref-protocol
-  #?(:clj
+  #?(:cljd
+     (utils/new-var
+      'cljd.core.IDeref
+      {:protocol IDeref
+       :methods #{-deref}
+       :ns cljd-core-ns}
+      {:ns cljd-core-ns})
+     :clj
      (utils/new-var
       'clojure.lang.IDeref
       {:class clojure.lang.IDeref
@@ -72,31 +84,31 @@
 ;;   ([_ _ _ _] "THREE ARGUMENTs")
 ;;   ([_ _ _ _ & more] (cl-format nil "~d ARGUMENTS" (+ 3 (count more)))))
 
-(defmulti #?(:clj swap :cljs -swap!) types/type-impl)
-(defmulti #?(:clj reset :cljs -reset!) types/type-impl)
+(defmulti #?(:cljd -swap! :clj swap :cljs -swap!) types/type-impl)
+(defmulti #?(:cljd -reset! :clj reset :cljs -reset!) types/type-impl)
 #?(:clj (defmulti compareAndSet types/type-impl))
 #?(:clj (defmulti swapVals types/type-impl))
 #?(:clj (defmulti resetVals types/type-impl))
 
 ;;;; Protocol methods
 
-(defmethod #?(:clj swap :cljs -swap!) :sci.impl.protocols/reified
+(defmethod #?(:cljd -swap! :clj swap :cljs -swap!) :sci.impl.protocols/reified
   ([ref f]
    (let [methods (types/getMethods ref)]
-     ((get methods #?(:clj 'swap :cljs '-swap!)) ref f)))
+     ((get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f)))
   ([ref f a1]
    (let [methods (types/getMethods ref)]
-     ((get methods #?(:clj 'swap :cljs '-swap!)) ref f a1)))
+     ((get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f a1)))
   ([ref f a1 a2]
    (let [methods (types/getMethods ref)]
-     ((get methods #?(:clj 'swap :cljs '-swap!)) ref f a1 a2)))
+     ((get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f a1 a2)))
   ([ref f a1 a2 & args]
    (let [methods (types/getMethods ref)]
-     (apply (get methods #?(:clj 'swap :cljs '-swap!)) ref f a1 a2 args))))
+     (apply (get methods #?(:cljd '-swap! :clj 'swap :cljs '-swap!)) ref f a1 a2 args))))
 
-(defmethod #?(:clj reset :cljs -reset!) :sci.impl.protocols/reified [ref v]
+(defmethod #?(:cljd -reset! :clj reset :cljs -reset!) :sci.impl.protocols/reified [ref v]
   (let [methods (types/getMethods ref)]
-    ((get methods #?(:clj 'reset :cljs '-reset!)) ref v)))
+    ((get methods #?(:cljd '-reset! :clj 'reset :cljs '-reset!)) ref v)))
 
 #?(:clj
    (defmethod compareAndSet :sci.impl.protocols/reified [ref old new]
@@ -126,11 +138,11 @@
 ;;;; Defaults
 
 (def iatom-defaults
-  [(defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
+  [(defmethod #?(:cljd -swap! :clj swap :cljs -swap!) :default [ref f & args]
      ;; TODO: optimize arities
      (apply clojure.core/swap! ref f args))
 
-   (defmethod #?(:clj reset :cljs -reset!) :default [ref v]
+   (defmethod #?(:cljd -reset! :clj reset :cljs -reset!) :default [ref v]
      (reset! ref v))
 
    #?(:clj
@@ -150,24 +162,28 @@
 (defn swap!* [ref f & args]
   (if
       ;; fast-path for host IAtom
-      #?(:cljs (or (instance? Atom ref)
+      #?(:cljd (or (instance? Atom ref)
+                   (satisfies? ISwap ref))
+         :cljs (or (instance? Atom ref)
                    (implements? ISwap ref))
          :clj (instance? clojure.lang.IAtom ref))
     (if args
       (apply clojure.core/swap! ref f args)
       (clojure.core/swap! ref f))
     (if args
-      (apply #?(:clj swap :cljs -swap!) ref f args)
-      (#?(:clj swap :cljs -swap!) ref f))))
+      (apply #?(:cljd -swap! :clj swap :cljs -swap!) ref f args)
+      (#?(:cljd -swap! :clj swap :cljs -swap!) ref f))))
 
 (defn reset!* [ref v]
   (if
       ;; fast-path for host IAtoms
-      #?(:cljs (or (instance? Atom ref)
+      #?(:cljd (or (instance? Atom ref)
+                   (satisfies? IReset ref))
+         :cljs (or (instance? Atom ref)
                    (implements? IReset ref))
          :clj (instance? clojure.lang.IAtom ref))
     (clojure.core/reset! ref v)
-    (#?(:clj reset :cljs -reset!) ref v)))
+    (#?(:cljd -reset! :clj reset :cljs -reset!) ref v)))
 
 #?(:clj
    (defn compare-and-set!* [ref old new]
@@ -191,7 +207,14 @@
 ;;;; Protocol vars
 
 (def swap-protocol
-  #?(:clj
+  #?(:cljd
+     (utils/new-var
+      'cljd.core.ISwap
+      {:protocol ISwap
+       :methods #{-swap!}
+       :ns cljd-core-ns}
+      {:ns cljd-core-ns})
+     :clj
      (utils/new-var
       'clojure.lang.IAtom
       {:class clojure.lang.IAtom
@@ -205,6 +228,15 @@
        :methods #{-swap!}
        :ns cljs-core-ns}
       {:ns cljs-core-ns})))
+
+#?(:cljd
+   (def reset-protocol
+     (utils/new-var
+      'cljd.core.IReset
+      {:protocol IReset
+       :methods #{-reset!}
+       :ns cljd-core-ns}
+      {:ns cljd-core-ns})))
 
 #?(:cljs
    (def reset-protocol
@@ -251,6 +283,15 @@
 
 ;;;; IFn
 
+#?(:cljd
+   (def ifn-protocol
+     (utils/new-var
+      'cljd.core.IFn
+      {:protocol IFn
+       :methods #{types/sci-invoke}
+       :ns cljd-core-ns}
+      {:ns cljd-core-ns})))
+
 #?(:cljs
    (def ifn-protocol
      (utils/new-var
@@ -272,14 +313,17 @@
 (defn sci-ifn? [x]
   (cond
     (fn? x) true
-    (#?(:clj instance?
-        :cljs cljs.core/implements?) #?(:clj sci.impl.types.SciTypeInstance
-                                        :cljs types/SciTypeInstance) x)
+    #?(:cljd (satisfies? types/SciTypeInstance x)
+       :clj (instance? sci.impl.types.SciTypeInstance x)
+       :cljs (cljs.core/implements? types/SciTypeInstance x))
     (boolean (get-method types/sci-invoke (types/type-impl x)))
-    #?@(:clj [(instance? clojure.lang.IFn x) true]
+    #?@(:cljd [(instance? types/Reified x)
+               (boolean (get (types/getMethods x) '-invoke))]
+        :clj [(instance? clojure.lang.IFn x) true]
         :cljs [(instance? types/Reified x)
                (boolean (get (types/getMethods x) '-invoke))])
-    :else #?(:clj false
+    :else #?(:cljd (ifn? x)
+             :clj false
              :cljs (ifn? x))))
 
 ;;;; end IFn
