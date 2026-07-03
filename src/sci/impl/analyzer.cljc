@@ -933,7 +933,8 @@
                         (let [[_ ex binding & body] c]
                           (if-let [clazz #?(:cljd (case ex
                                                     :default :default
-                                                    (analyze ctx ex))
+                                                    (or (interop/resolve-class-opts ctx ex)
+                                                        (analyze ctx ex)))
                                             :clj (interop/resolve-class ctx ex)
                                             :cljs (case ex
                                                     js/Error js/Error
@@ -1171,17 +1172,27 @@
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
   (let [ctx (without-recur-target ctx)]
-    #?(:cljd (if-let [record (records/resolve-record-class ctx class-sym)]
+    #?(:cljd (if-let [ctor (:constructor (interop/resolve-class-opts ctx class-sym))]
                (let [args (analyze-children ctx args)]
                  (return-call ctx
                               expr
-                              (:sci.impl/constructor (meta record))
+                              ctor
                               args
                               (assoc (meta expr)
                                      :ns @utils/current-ns
                                      :file @utils/current-file)
                               nil))
-               (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym))
+               (if-let [record (records/resolve-record-class ctx class-sym)]
+                 (let [args (analyze-children ctx args)]
+                   (return-call ctx
+                                expr
+                                (:sci.impl/constructor (meta record))
+                                args
+                                (assoc (meta expr)
+                                       :ns @utils/current-ns
+                                       :file @utils/current-file)
+                                nil))
+                 (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
        :clj (if-let [class (:class (interop/resolve-class-opts ctx class-sym))]
               (invoke-constructor-node ctx class args)
               (if-let [record (records/resolve-record-class ctx class-sym)]

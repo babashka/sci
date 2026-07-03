@@ -113,7 +113,7 @@
        (~sci.impl.utils/allowed-loop [~i 0]
         (when (< ~i n#)
           ~@body
-          (~sci.impl.utils/allowed-recur (unchecked-inc ~i)))))))
+          (~sci.impl.utils/allowed-recur (#?(:cljd ~'unchecked-inc :default unchecked-inc) ~i)))))))
 
 (defn if-not*
   "if-not from clojure.core"
@@ -307,7 +307,7 @@
   `(let [a# ~a l# (alength a#)]
      (loop  [~idx 0 ~ret ~init]
        (if (< ~idx l#)
-         (recur (unchecked-inc-int ~idx) ~expr)
+         (recur (#?(:cljd ~'unchecked-inc :default unchecked-inc-int) ~idx) ~expr)
          ~ret))))
 
 (defn amap* [_ _ a idx ret expr]
@@ -317,7 +317,7 @@
        (if (< ~idx  l#)
          (do
            (aset ~ret ~idx ~expr)
-           (recur (unchecked-inc ~idx)))
+           (recur (#?(:cljd ~'unchecked-inc :default unchecked-inc) ~idx)))
          ~ret))))
 
 (defn with-open*
@@ -382,7 +382,7 @@
 
 (defn delay*
   [_ _ & body]
-  #?(:cljd `(new cljd.core/Delay (fn [] ~@body))
+  #?(:cljd `(clojure.core/-delay* (fn [] ~@body))
      :clj `(new clojure.lang.Delay (fn [] ~@body))
      :cljs `(new cljs.core/Delay (fn [] ~@body))))
 
@@ -399,7 +399,7 @@
                      (split-at (if (= :>> (second args)) 3 2) args)
                      n (count clause)]
                  (cond
-                   (= 0 n) `(throw (new #?(:cljd ArgumentError
+                   (= 0 n) `(throw (new #?(:cljd ~'ArgumentError
                                            :clj IllegalArgumentException
                                            :cljs js/Error)
                                         (str "No matching clause: " ~expr)))
@@ -1898,7 +1898,16 @@
 
      #?@(:cljs ['-write (copy-var -write clojure-core-ns)])
      'locking (macrofy 'locking locking*)
-     #?@(:cljd ['-lazy-seq* (new-var '-lazy-seq* (fn [f] (lazy-seq (f))) clojure-core-ns)])
+     #?@(:cljd ['-lazy-seq* (new-var '-lazy-seq* (fn [f] (lazy-seq (f))) clojure-core-ns)
+                '-delay* (new-var '-delay* (fn [f] (delay (f))) clojure-core-ns)
+                ;; no unchecked math on cljd, alias to the checked variants
+                'unchecked-inc (new-var 'unchecked-inc inc clojure-core-ns)
+                'unchecked-dec (new-var 'unchecked-dec dec clojure-core-ns)
+                'unchecked-add (new-var 'unchecked-add + clojure-core-ns)
+                'unchecked-subtract (new-var 'unchecked-subtract - clojure-core-ns)
+                'unchecked-multiply (new-var 'unchecked-multiply * clojure-core-ns)
+                'unchecked-negate (new-var 'unchecked-negate - clojure-core-ns)
+                'num (new-var 'num identity clojure-core-ns)])
      #?@(:clj ['-locking-impl (copy-var -locking-impl clojure-core-ns)])
      #?@(:clj ['+' (copy-core-var +')
                #?@(:cljd [] :default ['-' (copy-core-var -')])

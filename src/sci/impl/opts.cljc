@@ -69,9 +69,27 @@
 
 (def default-classes
   ;; TODO: flesh out cljd default classes
-  #?(:cljd {'Exception {:class Exception}
-            'Error {:class Error}
-            'cljd.core.ExceptionInfo {:class cljd.core/ExceptionInfo}
+  ;; no runtime reflection on Dart: each class carries :constructor and
+  ;; :instance? closures, compiled statically
+  #?(:cljd {'Exception {:class Exception
+                        :constructor (fn [msg] (Exception. msg))
+                        :instance? (fn [x] (instance? Exception x))}
+            'Error {:class Error
+                    :instance? (fn [x] (instance? Error x))}
+            'ArgumentError {:class ArgumentError
+                            :constructor (fn [msg] (ArgumentError. msg))
+                            :instance? (fn [x] (instance? ArgumentError x))}
+            'StateError {:class StateError
+                         :constructor (fn [msg] (StateError. msg))
+                         :instance? (fn [x] (instance? StateError x))}
+            'Object {:class Object
+                     :instance? (fn [_] true)}
+            'StringBuffer {:class StringBuffer
+                           :constructor (fn ([] (StringBuffer.))
+                                          ([s] (StringBuffer. s)))
+                           :instance? (fn [x] (instance? StringBuffer x))}
+            'cljd.core.ExceptionInfo {:class cljd.core/ExceptionInfo
+                                      :instance? (fn [x] (instance? cljd.core/ExceptionInfo x))}
             'sci.lang.Type lang/Type}
      :clj {'java.lang.AssertionError AssertionError
            'java.lang.Exception {:class Exception}
@@ -103,6 +121,11 @@
 
 (def default-imports
   #?(:cljd '{Exception Exception
+             Error Error
+             ArgumentError ArgumentError
+             StateError StateError
+             Object Object
+             StringBuffer StringBuffer
              ExceptionInfo cljd.core.ExceptionInfo}
      :clj '{AssertionError java.lang.AssertionError
             Exception java.lang.Exception

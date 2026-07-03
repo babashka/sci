@@ -334,7 +334,7 @@
 
 (defn with-out-str
   [_ _ & body]
-  `(let [s# (new #?(:cljd StringBuffer
+  `(let [s# (new #?(:cljd ~'StringBuffer
                     :clj java.io.StringWriter
                     :cljs goog.string.StringBuffer))]
      #?(:cljd

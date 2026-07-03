@@ -44,7 +44,7 @@
                            needrec (steppair 0)
                            subform (steppair 1)
                            recform-chunk
-                           `(~allowed-recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
+                           `(~allowed-recur ~seq- ~chunk- ~count- (#?(:cljd ~'unchecked-inc :default unchecked-inc) ~i-))
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true

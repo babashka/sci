@@ -90,12 +90,16 @@
                                (ex-cause e)
                                e)]
                        (when #?(:cljd
-                                ;; no runtime instance? on Dart, exact type match only
+                                ;; no runtime instance? on Dart: registered
+                                ;; classes carry an :instance? closure, sci
+                                ;; types compare via type-impl
                                 (or (utils/kw-identical? :default clazz)
-                                    (= (if (types/eval-node? clazz)
-                                         (types/eval clazz ctx bindings)
-                                         clazz)
-                                       (.-runtimeType e)))
+                                    (let [c (if (types/eval-node? clazz)
+                                              (types/eval clazz ctx bindings)
+                                              clazz)]
+                                      (cond (map? c) (when-let [p (:instance? c)] (p e))
+                                            (utils/sci-type? c) (= c (types/type-impl e))
+                                            :else (= c (.-runtimeType e)))))
                                 :cljs
                                 (or (utils/kw-identical? :default clazz)
                                     (if (types/eval-node? clazz)
