@@ -4,8 +4,8 @@
   cljd tests yet."
   (:require [clojure.test :refer [deftest is testing]]
             [sci.impl.analyzer]
-            [sci.impl.copy-vars]
             [sci.impl.callstack]
+            [sci.impl.copy-vars]
             [sci.impl.evaluator]
             [sci.impl.faster]
             [sci.impl.fns]
