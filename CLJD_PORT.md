@@ -157,6 +157,13 @@ templates. Restore them with git after first init.
   (volatile! (identity nil)).
 - Syntax-quoted `fn etc resolve to cljd.core/... on the cljd host:
   strip-core-ns and resolve treat cljd.core like cljs.core.
+- Syntax-quoted core syms MISSING from cljd.core (resolve, find-ns, ns-name,
+  var?) silently qualify into the CURRENT ns, breaking emitted sci code at
+  runtime. Emit ~'sym instead (doc macro). Suspect any macro fn in
+  namespaces.cljc that emits less-common core fns.
+- cljd drops top-level side-effect forms entirely: the (vreset! utils/...)
+  wiring of the circular-dep volatiles never ran. interpreter/-install-wiring!
+  is called from eval-form, eval-string* and sci.core/init on cljd.
 - ->Var/->Type/->Namespace factories work on ALL platforms, prefer them over
   platform-conditional constructor calls. utils/sci-type? for Type instance
   checks.
