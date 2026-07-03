@@ -1887,7 +1887,6 @@
 
 (defn return-map [ctx the-map analyzed-children]
   (let [mf (map-fn (count analyzed-children))]
-    (return-call ctx the-map mf analyzed-children nil nil)
     (return-call ctx the-map mf analyzed-children nil nil)))
 
 (defn constant-node? [x]
