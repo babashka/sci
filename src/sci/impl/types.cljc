@@ -1,25 +1,24 @@
 (ns sci.impl.types
   {:no-doc true}
   (:refer-clojure :exclude [eval])
-  #?(:clj (:require [sci.impl.macros :as macros]))
+  #?@(:cljd [] :clj [(:require [sci.impl.macros :as macros])])
   #?(:cljs (:require-macros [sci.impl.macros :as macros]
                             [sci.impl.types :refer [->Node]]))
-  #?(:clj (:import [sci.impl.types ICustomType])))
+  #?@(:cljd [] :clj [(:import [sci.impl.types ICustomType])]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (defprotocol IBox
   (setVal [_this _v])
   (getVal [_this]))
 
-#?(:cljs
+#?(:cljd
    (defprotocol ICustomType
      (getInterfaces [_])
      (getMethods [_])
      (getProtocols [_])
-     (getFields [_])))
-
-#?(:clj
+     (getFields [_]))
+   :clj
    (do (defn getMethods [obj]
          (.getMethods ^ICustomType obj))
        (defn getInterfaces [obj]
@@ -27,7 +26,13 @@
        (defn getProtocols [obj]
          (.getProtocols ^ICustomType obj))
        (defn getFields [obj]
-         (.getFields ^ICustomType obj))))
+         (.getFields ^ICustomType obj)))
+   :cljs
+   (defprotocol ICustomType
+     (getInterfaces [_])
+     (getMethods [_])
+     (getProtocols [_])
+     (getFields [_])))
 
 #?(:cljs (declare sci-pr-writer))
 (declare sci-invoke)
@@ -93,30 +98,35 @@
   "Must be varargs because used in multimethods
   Only for internal use!"
   [x & _]
-  (or (when (#?(:clj instance?
-                :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
+  (or (when #?(:cljd (satisfies? SciTypeInstance x)
+               :clj (instance? sci.impl.types.SciTypeInstance x)
+               :cljs (cljs.core/implements? sci.impl.types.SciTypeInstance x))
         (-get-type x))
-      (when #?(:clj (instance? sci.impl.types.ICustomType x)
+      (when #?(:cljd (satisfies? ICustomType x)
+               :clj (instance? sci.impl.types.ICustomType x)
                :cljs (cljs.core/implements? sci.impl.types.ICustomType x))
         :sci.impl.protocols/reified)
       (some-> x meta :type)
-      #?(:clj (class x) ;; no need to check for metadata anymore
+      #?(:cljd (.-runtimeType x)
+         :clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
 
 #?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
 (defmulti sci-invoke (fn [x & _] (type-impl x)))
-#?(:clj (defmulti sci-apply-to (fn [x & _] (type-impl x))))
-#?(:clj (defmethod sci-apply-to :default [x args]
-          (apply sci-invoke x args)))
+#?(:cljd nil :clj (defmulti sci-apply-to (fn [x & _] (type-impl x))))
+#?(:cljd nil :clj (defmethod sci-apply-to :default [x args]
+                    (apply sci-invoke x args)))
 
 (defn type-impl2
   "Externally available type implementation."
   [x]
   (or (some-> x meta :type)
-      (when (#?(:clj instance?
-                :cljs cljs.core/implements?) sci.impl.types.SciTypeInstance x)
+      (when #?(:cljd (satisfies? SciTypeInstance x)
+               :clj (instance? sci.impl.types.SciTypeInstance x)
+               :cljs (cljs.core/implements? sci.impl.types.SciTypeInstance x))
         (-get-type x))
-      #?(:clj (class x) ;; no need to check for metadata anymore
+      #?(:cljd (.-runtimeType x)
+         :clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
 
 ;; returned from analyzer when macroexpansion needs interleaved eval
@@ -128,18 +138,26 @@
   (stack [this]))
 
 (extend-protocol Stack
-  #?(:clj Object :cljs default) (stack [_this] nil))
+  #?(:cljd fallback :clj Object :cljs default) (stack [_this] nil))
 
-#?(:clj (defprotocol Eval
+#?(:cljd nil
+   :clj (defprotocol Eval
           (eval [expr ctx ^objects bindings])))
 
-#?(:cljs
+#?(:cljd
+   (defrecord NodeR [f stack]
+     Stack (stack [_] stack))
+   :cljs
    (defrecord NodeR [f stack]
      Stack (stack [_] stack)))
 
-(deftype BindingNode [#?(:clj ^int idx :cljs idx)
+(deftype BindingNode [#?(:cljd idx :clj ^int idx :cljs idx)
                       _meta]
-  #?@(:clj [Eval (eval [_ _ bindings]
+  #?@(:cljd [IMeta
+             (-meta [_] _meta)
+             IWithMeta
+             (-with-meta [_ m] (BindingNode. idx m))]
+      :clj [Eval (eval [_ _ bindings]
                    (aget ^objects bindings idx))
             Stack (stack [_] nil)
             clojure.lang.IObj
@@ -152,7 +170,9 @@
              (-with-meta [_ m] (BindingNode. idx m))]))
 
 (defn eval-node? [x]
-  #?(:clj (instance? sci.impl.types.Eval x)
+  #?(:cljd (or (instance? NodeR x)
+               (instance? BindingNode x))
+     :clj (instance? sci.impl.types.Eval x)
      :cljs (or (instance? NodeR x)
                (instance? BindingNode x))))
 
@@ -166,29 +186,47 @@
          (aget ^objects bindings (.-idx expr))
          expr))))
 
-(macros/deftime
-  (defmacro ->Node
-    [body stack]
-    (macros/?
-     :clj `(reify
-             sci.impl.types/Eval
-             (~'eval [~'this ~'ctx ~'bindings]
-              ~body)
-             sci.impl.types/Stack
-             (~'stack [_#] ~stack))
-     :cljs `(->NodeR
-             (fn [~'this ~'ctx ~'bindings]
-               ~body)
-             ~stack))))
+#?(:cljd
+   (defn eval [expr ctx bindings]
+     (if (instance? NodeR expr)
+       ((.-f expr) expr ctx bindings)
+       (if (instance? BindingNode expr)
+         (aget bindings (.-idx expr))
+         expr))))
 
-#?(:clj
+#?(:cljd
+   (defmacro ->Node
+     [body stack]
+     `(->NodeR
+       (fn [~'this ~'ctx ~'bindings]
+         ~body)
+       ~stack))
+   :default
+   (macros/deftime
+     (defmacro ->Node
+       [body stack]
+       (macros/?
+        :clj `(reify
+                sci.impl.types/Eval
+                (~'eval [~'this ~'ctx ~'bindings]
+                 ~body)
+                sci.impl.types/Stack
+                (~'stack [_#] ~stack))
+        :cljs `(->NodeR
+                (fn [~'this ~'ctx ~'bindings]
+                  ~body)
+                ~stack)))))
+
+#?(:cljd nil
+   :clj
    (deftype ConstantNode [x]
      Eval (eval [_expr _bindings _ctx]
             x)
      Stack (stack [_] nil)))
 
 (defn ->constant [x]
-  #?(:clj (->ConstantNode x)
+  #?(:cljd x
+     :clj (->ConstantNode x)
      :cljs x))
 
 (defprotocol HasName ;; INamed was already taken by CLJS

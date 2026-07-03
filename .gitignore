@@ -44,3 +44,15 @@ src/scratch.clj
 src/scratch.cljs
 .lein-failures
 scratch.clj
+
+# ClojureDart generated artifacts
+/lib
+/bin
+/pubspec.yaml
+/pubspec.lock
+/.dart_tool
+/.clojuredart
+/analysis_options.yaml
+/.gitattributes
+/test/cljd-out
+/test/sci_test.dart

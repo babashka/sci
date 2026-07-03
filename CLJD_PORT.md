@@ -5,34 +5,42 @@ evaluated on the Dart CLI and eventually a Flutter mobile app. SCI is the eval
 engine; cljd just compiles SCI's .cljc source to Dart. cljd's lack of runtime
 `eval` is NOT a blocker - SCI provides its own eval.
 
-## Status: STARTED (early). Does not compile yet.
+## Status: first namespace (sci.impl.types) compiles and tests pass on cljd.
 
-Depends on the edamame `cljd` branch (reader port). See edamame/CLJD_PORT.md.
+Depends on edamame 1.6.40+ (has cljd support).
 
 ## Bootstrap / how to build
 
-Scratch project: `~/dev/babashka/sci-cljd/`
-- deps.edn points at local edamame (cljd branch) + local ClojureDart + this
-  repo's src on the `:cljd` alias `:extra-paths`.
-- `src/sci_cljd/main.cljd` = test entry: `(sci/eval-string "(+ 1 2 3)")`.
-- Build/run: `cd ~/dev/babashka/sci-cljd && clj -M:cljd compile && dart run`.
+Test runner: `script/test/cljd` (or `bb test:cljd`). Uses `clojure -M:cljd
+test <namespaces>`. The namespace list in the script is the selector: extend
+`default_namespaces` as more of SCI is ported. Args override the list:
+`script/test/cljd some.ns other.ns`.
+
+`:cljd` alias in deps.edn. `:cljd-local` composes a local ClojureDart
+checkout: `clojure -M:cljd:cljd-local test ...`.
+
+CI: `test-cljd` job in .github/workflows/ci.yml.
+
+Warning: `clojure -M:cljd init` (run by the script when pubspec.yaml is
+missing) overwrites README.md, CHANGELOG.md and .gitignore with Dart
+templates. Restore them with git after first init.
 
 ## Done
 
 - Routed all 5 clojure.tools.reader.reader-types requires to
   edamame.impl.reader-types on cljd (core.cljc, impl/parser, impl/read,
   impl/interpreter, impl/load) + the IndexingReader instance? check in load.
-
-## Current wall
-
-cljd compiler crash compiling sci.impl.callstack:
-"Cannot invoke IFn.invoke because this.source is null", traced to the
-`^sci.lang.Namespace` type hint / sci.lang deftype interop layer. This is the
-entry to SCI's core type system.
+- edamame 1.6.40 (cljd support).
+- sci.impl.types ported, compiles and passes tests on cljd
+  (test/sci/cljd_smoke_test.cljc).
+- cljd test runner + selector + CI job.
 
 ## Remaining (the bulk - revisit here)
 
-1. sci.lang - Var / Namespace / Type deftypes (heavy platform code). START HERE.
+1. sci.lang - Var / Namespace / Type deftypes (heavy platform code). START
+   HERE. Earlier attempt crashed the cljd compiler on sci.impl.callstack
+   ("Cannot invoke IFn.invoke because this.source is null"), traced to the
+   `^sci.lang.Namespace` type hint / sci.lang deftype interop layer.
 2. sci.impl.vars - dynamic binding uses Java ThreadLocal; Dart is single
    isolate -> replace with a global frame (no Thread/currentThread checks).
 3. sci.impl.namespaces (~2245 lines) - map clojure.core host fns to Dart.
@@ -55,3 +63,23 @@ entry to SCI's core type system.
 - no array-map (use hash-map). StringBuffer.write returns void (use
   `(doto sb (.write ch))` where the builder value is needed). type hints to
   java/clojure.lang types break - drop or :cljd-branch them.
+
+## cljd gotchas (learned during sci.impl.types port)
+
+- Put the :cljd clause FIRST in EVERY reader conditional, expression-level
+  included. The host pass reads with both :cljd and :clj active and the first
+  matching clause wins, so `#?(:clj A :cljd B)` host-compiles A. A :clj-first
+  clause can even leak into Dart emission: `#?(:clj (defprotocol Eval ...))`
+  emitted a partial protocol (Eval$iprot without Eval$iface) and broke at
+  Dart load.
+- deftype/defrecord impl specs are resolved by the cljd resolver even during
+  host eval: Java interfaces (clojure.lang.IObj etc) in a spec fail with
+  "Can't resolve X" although the pass runs on the JVM. Protocols defined in
+  the same file work because the host eval defines them.
+- Platform survey for the types port: no `type` fn (use `.-runtimeType`), no
+  `class`. `satisfies?` instead of `instance?`/`implements?` on protocols.
+  `aget` exists (Dart List). `fallback` is the extend-protocol catch-all
+  (Object on clj, default on cljs). IMeta/IWithMeta/IFn use cljs-style
+  `-meta`/`-with-meta`/`-invoke` names. defmulti/defmethod supported.
+- cljd follows the :cljs code path for sci: NodeR defrecord + eval fn instead
+  of the Eval protocol, constants self-evaluate (`->constant` returns x).

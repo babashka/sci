@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+if [ ! -f pubspec.yaml ]; then
+  echo 'Initializing ClojureDart project'
+  clojure -M:cljd init
+fi
+
+# Test namespaces that compile and pass on ClojureDart. Extend this list as
+# more of SCI is ported.
+default_namespaces=(sci.cljd-smoke-test)
+
+if [ $# -gt 0 ]; then
+  namespaces=("$@")
+else
+  namespaces=("${default_namespaces[@]}")
+fi
+
+echo 'Running ClojureDart tests'
+clojure -M:cljd test "${namespaces[@]}"
