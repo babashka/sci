@@ -11,7 +11,8 @@
         a (ana/analyze ctx v)
         e (types/eval a ctx nil)]
     [e
-     #?(:clj (instance? sci.impl.types.ConstantNode a)
+     #?(:cljd (not (types/eval-node? a))
+        :clj (instance? sci.impl.types.ConstantNode a)
         :cljs (not (instance? sci.impl.types.NodeR a)))]))
 
 (deftest analyze-constant-test

@@ -9,7 +9,7 @@ fi
 
 # Test namespaces that compile and pass on ClojureDart. Extend this list as
 # more of SCI is ported.
-default_namespaces=(sci.core-test sci.error-test sci.vars-test sci.namespaces-test sci.io-test sci.cljd-smoke-test sci.parse-test sci.impl.vars-test sci.impl.destructure-test)
+default_namespaces=(sci.core-test sci.error-test sci.vars-test sci.namespaces-test sci.io-test sci.repl-test sci.impl.analyzer-test sci.impl.binding-array-refactor-test sci.cljd-smoke-test sci.parse-test sci.impl.vars-test sci.impl.destructure-test)
 
 if [ $# -gt 0 ]; then
   namespaces=("$@")
