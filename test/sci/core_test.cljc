@@ -45,7 +45,7 @@
   ([binding form]
    (tu/eval* form {:bindings {'*in* binding}
                    :classes #?(:cljd {}
-                               :clj {(quote java.lang.IllegalArgumentException) java.lang.IllegalArgumentException}
+                               :clj {'java.lang.IllegalArgumentException java.lang.IllegalArgumentException}
                                :cljs {})})))
 
 (deftest core-test
@@ -678,7 +678,7 @@
 
 (defn it-works [expr]
   (is (any? (sci/eval-string (pr-str expr)
-                             #?(:cljd {} :clj {:classes {(quote String) String}}
+                             #?(:cljd {} :clj {:classes {'String String}}
                                 :cljs {:classes {:allow :all
                                                  'js js/global}})))
       (str "FAIL: " expr)))

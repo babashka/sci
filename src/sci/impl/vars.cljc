@@ -189,109 +189,59 @@
        (throw-unbound-call-exception the-var))))
 
 #?(:cljd nil
-   :clj
+   :default
    (deftype SciUnbound [the-var]
      Object
      (toString [_]
        (str "Unbound: " the-var))
-     clojure.lang.IFn
-     (invoke [_]
+     #?@(:clj [clojure.lang.IFn] :cljs [IFn])
+     (#?(:clj invoke :cljs -invoke) [_]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a]
+     (#?(:clj invoke :cljs -invoke) [_ a]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b]
+     (#?(:clj invoke :cljs -invoke) [_ a b]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c]
+     (#?(:clj invoke :cljs -invoke) [_ a b c]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n o]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n o p]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n o p q]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n o p q r]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n o p q r s]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n o p q r s t]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t]
        (throw-unbound-call-exception the-var))
-     (invoke [_ a b c d e f g h i j k l m n o p q r s t rest]
+     (#?(:clj invoke :cljs -invoke) [_ a b c d e f g h i j k l m n o p q r s t rest]
        (throw-unbound-call-exception the-var))
-     (applyTo [_ args]
-       (throw-unbound-call-exception the-var))))
-
-#?(:cljs
-   (deftype SciUnbound [the-var]
-     Object
-     (toString [_]
-       (str "Unbound: " the-var))
-     IFn
-     (-invoke [_]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n o]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n o p]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n o p q]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n o p q r]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n o p q r s]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n o p q r s t]
-       (throw-unbound-call-exception the-var))
-     (-invoke [_ a b c d e f g h i j k l m n o p q r s t rest]
-       (throw-unbound-call-exception the-var))))
+     #?(:clj
+        (applyTo [_ args]
+                 (throw-unbound-call-exception the-var)))))
 
 ;; adapted from https://github.com/clojure/clojurescript/blob/df1837048d01b157a04bb3dc7fedc58ee349a24a/src/main/cljs/cljs/core.cljs#L1118
 

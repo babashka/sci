@@ -297,11 +297,11 @@
   ([_&form _ x]
    (when @assert-var
      `(when-not ~x
-        (throw (#?(:cljd ~(quote Exception.) :clj AssertionError. :cljs js/Error.) (str "Assert failed: " (pr-str '~x)))))))
+        (throw (#?(:cljd ~'Exception. :clj AssertionError. :cljs js/Error.) (str "Assert failed: " (pr-str '~x)))))))
   ([_&form _ x message]
    (when @assert-var
      `(when-not ~x
-        (throw (#?(:cljd ~(quote Exception.) :clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x))))))))
+        (throw (#?(:cljd ~'Exception. :clj AssertionError. :cljs js/Error.) (str "Assert failed: " ~message "\n" (pr-str '~x))))))))
 
 (defn areduce* [_ _ a idx ret init expr]
   `(let [a# ~a l# (alength a#)]
@@ -1070,7 +1070,7 @@
 (defn case**
   [_ _ e & clauses]
   (let [ge (gensym)
-        ex-class #?(:cljd (quote ArgumentError) :clj (quote java.lang.IllegalArgumentException) :cljs (quote js/Error))
+        ex-class #?(:cljd 'ArgumentError :clj 'java.lang.IllegalArgumentException :cljs 'js/Error)
         default (if (odd? (count clauses))
                   (last clauses)
                   `(throw (new ~ex-class (str "No matching clause: " ~ge))))
@@ -1158,7 +1158,7 @@
 (defn lazy-seq*
   [_ _ & body]
   #?(:cljd `(clojure.core/-lazy-seq* (fn [] ~@body))
-     :clj  (list (quote new) (quote clojure.lang.LazySeq) (list* (quote ^{:once true} fn*) [] body))
+     :clj  (list 'new 'clojure.lang.LazySeq (list* '^{:once true} fn* [] body))
      :cljs `(new cljs.core/LazySeq nil (fn [] ~@body) nil nil)))
 
 (defn time
@@ -1374,7 +1374,7 @@
      ;; IAtom / ISwap as protocol
      'swap! (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!})
      'compare-and-set! #?(:cljd (copy-core-var compare-and-set!)
-                          :clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name (quote compare-and-set!)})
+                          :clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
                           :cljs (copy-core-var compare-and-set!))
      #?@(:cljs ['IReset core-protocols/reset-protocol
                 'ISwap core-protocols/swap-protocol
@@ -1980,7 +1980,7 @@
  (defn doc
    [_ _ sym]
    ;; emit ~'resolve etc unqualified, the cljd host would qualify them into this ns
-   `(let [special-doc# (try (~'resolve '~'clojure.repl/special-doc) (catch #?(:cljd ~(quote Exception) :clj ~(quote Exception) :cljs :default) ~'_ nil))
+   `(let [special-doc# (try (~'resolve '~'clojure.repl/special-doc) (catch #?(:cljs :default :default ~'Exception) ~'_ nil))
           special# (when special-doc# (special-doc# '~sym))]
       (if special#
         (~'clojure.repl/print-doc special#)

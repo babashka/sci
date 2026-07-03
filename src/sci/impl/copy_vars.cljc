@@ -52,7 +52,7 @@
              sym-ns (some-> (namespace sym) symbol)
              nm (symbol (name sym))]
          (if sym-ns
-           (or (look (if (= (quote clojure.core) sym-ns) (quote cljd.core) sym-ns) nm) [sym-ns nil])
+           (or (look (if (= 'clojure.core sym-ns) 'cljd.core sym-ns) nm) [sym-ns nil])
            (or (look cur nm)
                (look 'cljd.core nm)
                ;; unresolved bare symbol counts as core, like on CLJS

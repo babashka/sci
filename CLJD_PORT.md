@@ -100,10 +100,8 @@ templates. Restore them with git after first init.
   records. sci.cljd-smoke-test requires them as a compilation canary.
   cljd SciRecord arm: no -contains-key? (cljd IAssociative only has -assoc),
   no munge/hash-unordered-coll/ICloneable/IIterable on cljd.
-- TEMPORARY test scaffolding, remove once eval-string tests run on cljd:
-  test/sci/impl/destructure_test.cljc (destructure is otherwise covered
-  indirectly via core_test/error_test), test/sci/cljd_smoke_test.cljc
-  (canary requires + smoke tests).
+- Test scaffolding (cljd_smoke_test, impl/destructure_test) removed after the
+  real test suite sweep, coverage lives in the regular test namespaces.
 - .cljd test shadow trick (for big test files like core_test): same ns in a
   .cljd file shadows the .cljc on cljd only. JVM/CLJS never read .cljd. For
   small files prefer gating in the .cljc directly. Gotcha either way: the
