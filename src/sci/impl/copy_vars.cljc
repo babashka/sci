@@ -38,6 +38,27 @@
   (defn ^:macro-support core-sym [sym]
     (symbol "clojure.core" (name sym)))
 
+  ;; :cljd/clj-host: only in the host feature set, not emitted to Dart
+  #?(:cljd/clj-host
+     ;; JVM resolve returns bare vars on the cljd host, the real metadata
+     ;; (:macro, :arglists, :doc) lives in the cljd compiler registry
+     (defn ^:macro-support cljd-var-meta [sym]
+       (let [nses @@(resolve 'cljd.compiler/nses)
+             cur @(resolve 'cljd.compiler/*current-ns*)
+                          look (fn [ns-sym nm]
+                    (let [ns-sym (if (contains? nses ns-sym)
+                                   ns-sym
+                                   (symbol (clojure.string/replace (str ns-sym) #"^clojure\." "cljd.")))]
+                      (when-some [e (get-in nses [ns-sym nm])]
+                        [ns-sym (:meta e)])))
+             sym-ns (some-> (namespace sym) symbol)
+             nm (symbol (name sym))]
+         (if sym-ns
+           (or (look (if (= (quote clojure.core) sym-ns) (quote cljd.core) sym-ns) nm) [sym-ns nil])
+           (or (look cur nm)
+               (look 'cljd.core nm)
+               [cur nil])))))
+
   (defn ^:macro-support var-meta [&env sym opts]
     (let [sym (dequote sym)
           macro (:macro opts)
@@ -49,7 +70,12 @@
               [(or (:name r) sym) (symbol (name sym)) (merge r (:meta r))])
             ;; CLJ compilation: resolve upfront
             ;; v may be nil for syms passed via macrofy that don't resolve
-            #?(:clj (let [v (resolve sym)]
+            #?(:cljd/clj-host (let [[the-ns m] (cljd-var-meta sym)]
+                                [(symbol (str the-ns) (name sym))
+                                 (symbol (name sym))
+                                 m])
+               :cljd nil ;; var-meta itself is only called at macro time
+               :clj (let [v (resolve sym)]
                       [(if v (symbol v) sym)
                        (symbol (name sym))
                        (meta v)])
@@ -62,6 +88,7 @@
           fqsym-ns (namespace fqsym)
           core-ns? (or (nil? fqsym-ns)
                        (= "clojure.core" fqsym-ns)
+                       (= "cljd.core" fqsym-ns)
                        (= "cljs.core" fqsym-ns))
           inline (and core-ns? (contains? inlined-vars sym))
           fast-path (and core-ns? (or (= 'or sym)

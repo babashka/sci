@@ -4,6 +4,7 @@
   cljd tests yet."
   (:require [clojure.test :refer [deftest is testing]]
             [sci.impl.analyzer]
+            [sci.impl.copy-vars]
             [sci.impl.callstack]
             [sci.impl.evaluator]
             [sci.impl.faster]
@@ -11,7 +12,8 @@
             [sci.impl.interpreter]
             [sci.impl.records]
             [sci.impl.resolve]
-            [sci.impl.types :as types]))
+            [sci.impl.types :as types]
+            [sci.lang]))
 
 (deftest eval-form-test
   (is (= '(+ 1 2) (types/getVal (types/->EvalForm '(+ 1 2))))))
@@ -26,6 +28,23 @@
   (is (= 2 (sci.impl.interpreter/eval-string "(defn f [] 2) (f)"))))
 
 (defn- evals [s] (sci.impl.interpreter/eval-string s))
+
+(defmacro twice-macro [x] `(do ~x ~x))
+
+#?(:cljd
+   (deftest host-macro-copy-test
+     (let [v (sci.impl.copy-vars/copy-var twice-macro (sci.lang/->Namespace 'foo nil) {})]
+       (is (= 2 (sci.impl.interpreter/eval-string "(foo/twice-macro 2)"
+                                                  {:namespaces {'foo {'twice-macro v}}}))))))
+
+#?(:cljd
+   (deftest host-macro-copy-public-test
+     (let [v (sci.impl.copy-vars/copy-var twice-macro (sci.lang/->Namespace 'foo nil)
+                                          {:sci.impl/public true})]
+       (is (= 2 (sci.impl.interpreter/eval-string "(foo/twice-macro 2)"
+                                                  {:namespaces {'foo {'twice-macro v}}})))
+       (is (= 2 (sci.impl.interpreter/eval-string "(foo/twice-macro (prn 1)) 2"
+                                                  {:namespaces {'foo {'twice-macro v}}}))))))
 
 (deftest eval-macros-test
   (testing "threading"
