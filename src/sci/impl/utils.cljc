@@ -157,7 +157,10 @@
          (if wrapping-sci-error?
            (throw e)
            ;; Dart errors have no message accessor, fall back to str
-           (let [ex-msg #?(:cljd (or (ex-message e) (str e))
+           (let [ex-msg #?(:cljd (let [s (or (ex-message e) (str e))]
+                                   (if (.startsWith ^String s "Exception: ")
+                                     (subs s 11)
+                                     s))
                            :clj (.getMessage e)
                            :cljs (.-message e))
                  {:keys [:line :column :file]}
