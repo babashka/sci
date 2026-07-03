@@ -274,6 +274,7 @@
   options. The internal organization of the context is implementation
   detail and may change in the future."
   [opts]
+  #?(:cljd (i/-install-wiring!))
   (opts/init opts))
 
 (defn merge-opts

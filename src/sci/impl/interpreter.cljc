@@ -6,6 +6,7 @@
       :default [clojure.tools.reader.reader-types :as r])
    [sci.ctx-store :as store]
    [sci.impl.analyzer :as ana]
+   #?(:cljd [sci.impl.evaluator :as evaluator])
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
    [sci.impl.types :as types]
@@ -13,6 +14,18 @@
    [sci.impl.vars :as vars]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
+
+(declare eval-form)
+
+;; cljd drops top-level side effects, so the state volatiles that break the
+;; circular namespace dependencies must be wired explicitly
+#?(:cljd
+   (defn -install-wiring! []
+     (when-not @utils/eval-form-state
+       (vreset! utils/eval-form-state eval-form)
+       (vreset! utils/eval-resolve-state evaluator/eval-resolve)
+       (vreset! utils/analyze ana/analyze))
+     nil))
 
 (defn eval-form* [ctx form]
   (let [eval-file (:clojure.core/eval-file (meta form))]
@@ -66,6 +79,7 @@
           (vars/pop-thread-bindings))))))
 
 (defn eval-form [ctx form]
+  #?(:cljd (-install-wiring!))
   (store/with-ctx ctx
     (eval-form* ctx form)))
 
@@ -77,6 +91,7 @@
   ([ctx s]
    (eval-string* ctx s nil))
   ([ctx s opts]
+   #?(:cljd (-install-wiring!))
    (vars/with-bindings
      {utils/current-ns (or (when opts (:ns opts)) @utils/current-ns)
       parser/data-readers @parser/data-readers

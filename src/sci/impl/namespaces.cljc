@@ -1966,16 +1966,18 @@
 
  (defn doc
    [_ _ sym]
-   `(let [special-doc# (try (resolve '~'clojure.repl/special-doc) (catch #?(:cljd ~(quote Exception) :clj ~(quote Exception) :cljs :default) ~'_ nil))
+   ;; ~'resolve etc: emit unqualified so sci resolves them in its own core,
+   ;; the cljd host would qualify bare resolve/find-ns/ns-name/var? into this ns
+   `(let [special-doc# (try (~'resolve '~'clojure.repl/special-doc) (catch #?(:cljd ~(quote Exception) :clj ~(quote Exception) :cljs :default) ~'_ nil))
           special# (when special-doc# (special-doc# '~sym))]
       (if special#
         (~'clojure.repl/print-doc special#)
-        (if-let [var# (resolve '~sym)]
-          (when (var? var#)
+        (if-let [var# (~'resolve '~sym)]
+          (when (~'var? var#)
             (~'clojure.repl/print-doc (meta var#)))
-          (if-let [ns# (find-ns '~sym)]
+          (if-let [ns# (~'find-ns '~sym)]
             (~'clojure.repl/print-doc (assoc (meta ns#)
-                                             :name (ns-name ns#))))))))
+                                             :name (~'ns-name ns#))))))))
 
  (defn find-doc
    "Prints documentation for any var whose documentation or name
