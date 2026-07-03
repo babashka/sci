@@ -16,8 +16,33 @@ real multimethods, interop for :classes.
 
 - core_test.cljc runs on cljd directly (shadow was merged back, single file).
   Run: `clojure -M:cljd test sci.core-test` (add to script selector when
-  green). Status: 105 assertions pass, 26 fail. cljd-incompatible tests are
-  gated with `#?(:cljd nil :default (deftest ...))` + a ;; TODO:cljd marker.
+  green). Status: ALL PASS with a patched local ClojureDart
+  (`clojure -M:cljd:cljd-local test ...`). With the unpatched git dep 3 tests
+  fail (assert-test, def-location-test, defn-test), all caused by an upstream
+  ClojureDart bug: cljd.core/list is compiled from a `^PersistentList ()`
+  literal (clj/src/cljd/core.cljd:3436) whose reader meta {:line 3436 :column
+  36 :tag PersistentList} is baked into the empty list, so EVERY runtime-built
+  list carries that meta and sci reads it as error location. Local fix in
+  ~/dev/ClojureDart: bind the loop seed to -EMPTY-LIST instead of the literal.
+  Needs an upstream PR; add sci.core-test to the CI selector once merged.
+  cljd-incompatible tests are gated with `#?(:cljd nil :default (deftest
+  ...))` + a ;; TODO:cljd marker.
+- sci fns get a cljd-only variadic wrapper (fns.cljc fun) that checks arity
+  and throws "Wrong number of args (n) passed to: ns/name" (Dart closures
+  throw a message-less error otherwise). Host macro fns get the same
+  treatment via a catch in analyze-call. Perf: every sci fn call goes through
+  apply on cljd, optimize later if needed.
+- rethrow-with-location-of-node falls back to (str e) when (ex-message e) is
+  nil (all plain Dart errors).
+- alter-meta!/reset-meta! route through IResetMeta-aware helpers in utils on
+  cljd (cljd.core versions cast to Atom). Writability check precedes applying
+  f, see built-in-vars-are-read-only-test.
+- instance-impl on cljd: registry maps use their :instance? closure, non-Type
+  values throw "is not a class".
+- Map/set literals get explicit duplicate-key checks on cljd (map-fn and the
+  set constructor in analyzer), hash-map based, insertion order NOT preserved
+  (no array-map on Dart). array-map in sci cljd core is hash-map.
+- cljd test regex literals cannot use inline (?i) flags (Dart RegExp).
 - sci.test-utils ported: tu/eval* goes through sci/eval-string on cljd,
   thrown-with-data? is a boolean macro there (cljd assert-expr not
   extensible), submap? handles RegExp.
