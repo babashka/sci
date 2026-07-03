@@ -39,7 +39,7 @@
                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
               (wrap-this-as
                ~@(when varargs
-                   [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+                   [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
                (loop []
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)
@@ -49,7 +49,7 @@
            varargs-param (when varargs (gensym))
            asets `(do ~@(map (fn [fn-param idx]
                                `(aset ~(with-meta 'invoc-array
-                                         #?(:cljd nil :default {:tag 'objects})) ~idx ~fn-param))
+                                         #?(:cljd {:tag 'List} :default {:tag 'objects})) ~idx ~fn-param))
                              fn-params (range)))]
        `(let [recur# recur]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
@@ -62,7 +62,7 @@
               ~asets
               (wrap-this-as
                ~@(when varargs
-                   [`(aset ~'invoc-array ~'vararg-idx ~varargs-param)])
+                   [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
                (loop []
                  (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
                    (if (identical? recur# ret#)

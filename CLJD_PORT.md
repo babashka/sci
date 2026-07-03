@@ -54,6 +54,18 @@ templates. Restore them with git after first init.
   reader resolves ::alias/kw at read time even in skipped branches and in #_
   forms, so use fully qualified keywords when the alias is cljd-gated.
 
+- Analyzer, evaluator, load, deftype, ctx-store compile on cljd, zero dynamic
+  warnings. Analyzer notes: host pass features are exactly
+  #{:cljd :cljd/clj-host :clj} (compiler.cljc host-load-input), emission is
+  #{:cljd}. macros/? does not resolve on the cljd host, use
+  `#?(:cljd ... :default (macros/? ...))` inside macro bodies instead (host
+  read has :cljd so plain reader conditionals work there, unlike cljs).
+  `^objects` breaks cljd, use `^List` (also avoids aset/aget dynamic
+  warnings). No object-array/array-map, use List/filled and hash-map.
+  cljd catch-all is `(catch Object e)`. Non-record sci deftype on cljd
+  returns nil from analyze-deftype* (needs a cljd arm, see tasks).
+  utils/reset-meta!* + types/IResetMeta replace reset-meta! for sci types.
+
 ## Remaining (the bulk - revisit here)
 
 1. sci.lang - Var / Namespace / Type deftypes (heavy platform code). START

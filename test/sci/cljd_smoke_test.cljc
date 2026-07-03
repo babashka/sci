@@ -3,6 +3,7 @@
   Also serves as a compilation canary: requires namespaces that have no
   cljd tests yet."
   (:require [clojure.test :refer [deftest is testing]]
+            [sci.impl.analyzer]
             [sci.impl.callstack]
             [sci.impl.faster]
             [sci.impl.fns]
