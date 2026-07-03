@@ -13,7 +13,7 @@
          ;; sha is on the edamame cljd-fixes branch
          :override-deps {borkdude/edamame
                          {:git/url "https://github.com/borkdude/edamame.git"
-                          :git/sha "a30f0ed008fc197fd4b46adfb946a8838b5cea55"}}
+                          :git/sha "f0ee934ff274303c061ae648345001e69ff3152b"}}
          :main-opts ["-m" "cljd.build"]}
   ;; local ClojureDart checkout, compose as -M:cljd:cljd-local
   :cljd-local {:override-deps {tensegritics/clojuredart {:local/root "/Users/borkdude/dev/ClojureDart"}}}
