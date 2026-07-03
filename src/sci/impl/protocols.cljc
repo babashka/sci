@@ -332,7 +332,10 @@
       (= clazz (-> x meta :type)))
     ;; only in Clojure, we could be referring to clojure.lang.IDeref as a sci protocol
     (map? clazz)
-    #?(:cljd (satisfies? clazz x)
+    ;; cljd class registry entries are maps with an :instance? closure
+    #?(:cljd (if-let [ip (:instance? clazz)]
+               (ip x)
+               (satisfies? clazz x))
        :clj (if-let [c (:class clazz)]
               ;; this is a protocol which is an interface on the JVM
               (or (satisfies? clazz x)
@@ -341,7 +344,9 @@
               (satisfies? clazz x))
        :cljs (satisfies? clazz x))
     ;; could we have a fast path for CLJS too? please let me know!
-    :else #?(:cljd (= clazz (.-runtimeType x))
+    :else #?(:cljd (if (dart/is? clazz Type)
+                     (= clazz (.-runtimeType x))
+                     (throw (ex-info (str clazz " is not a class") {})))
              :clj (instance? clazz x)
              :cljs (instance? clazz x))))
 

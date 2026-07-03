@@ -1864,7 +1864,14 @@
                                                f)
                                            f (or (.-afn ^js f) f)])
                                 v (store/with-ctx ctx
-                                    (apply f expr (:bindings ctx) (rest expr)))
+                                    ;; host macro fns are fixed-arity Dart closures
+                                    #?(:cljd (try (apply f expr (:bindings ctx) (rest expr))
+                                                  (catch NoSuchMethodError _
+                                                    (throw (ex-info (str "Wrong number of args ("
+                                                                         (+ 2 (count (rest expr)))
+                                                                         ") passed to: " (first expr))
+                                                                    {}))))
+                                       :default (apply f expr (:bindings ctx) (rest expr))))
                                 v (if (seq? v)
                                     (with-meta v (merge m (meta v)))
                                     v)
@@ -1974,21 +1981,27 @@
         (utils/rethrow-with-location-of-node ctx e (sci.impl.types/->Node nil (utils/make-stack m)))))))
 
 (defn map-fn [children-count]
-  (if (<= children-count 16)
-    #?(:cljd hash-map
-       :clj #(let [^objects arr (into-array Object %&)]
-               (clojure.lang.PersistentArrayMap/createWithCheck arr))
-       :cljs #(.createWithCheck PersistentArrayMap (into-array %&))
-       :default array-map)
-    #?(:cljd hash-map
-       :clj #(let [^clojure.lang.ISeq s %&]
-               (clojure.lang.PersistentHashMap/createWithCheck s))
-       :cljs #(.createWithCheck PersistentHashMap (into-array %&))
-       :default hash-map)))
+  #?(:cljd (fn [& kvs]
+             (loop [m {} kvs (seq kvs)]
+               (if kvs
+                 (let [k (first kvs)]
+                   (if (contains? m k)
+                     (throw (ex-info (str "Duplicate key: " k) {}))
+                     (recur (assoc m k (fnext kvs)) (nnext kvs))))
+                 m)))
+     :default
+     (if (<= children-count 16)
+       #?(:clj #(let [^objects arr (into-array Object %&)]
+                  (clojure.lang.PersistentArrayMap/createWithCheck arr))
+          :cljs #(.createWithCheck PersistentArrayMap (into-array %&))
+          :default array-map)
+       #?(:clj #(let [^clojure.lang.ISeq s %&]
+                  (clojure.lang.PersistentHashMap/createWithCheck s))
+          :cljs #(.createWithCheck PersistentHashMap (into-array %&))
+          :default hash-map))))
 
 (defn return-map [ctx the-map analyzed-children]
   (let [mf (map-fn (count analyzed-children))]
-    (return-call ctx the-map mf analyzed-children nil nil)
     (return-call ctx the-map mf analyzed-children nil nil)))
 
 (defn constant-node? [x]
@@ -2098,8 +2111,11 @@
                               (if (:const mv)
                                 @v
                                 (if (vars/isMacro v)
-                                  (throw (new #?(:cljd StateError :clj IllegalStateException :cljs js/Error)
-                                              (str "Can't take value of a macro: " v "")))
+                                  (throw #?(:cljd (ex-info (str "Can't take value of a macro: " v "") {})
+                                            :clj (new IllegalStateException
+                                                      (str "Can't take value of a macro: " v ""))
+                                            :cljs (new js/Error
+                                                       (str "Can't take value of a macro: " v ""))))
                                   (sci.impl.types/->Node
                                    (faster/deref-1 v)
                                    nil)))
@@ -2118,7 +2134,15 @@
                                           identity
                                           vector expr m)
        (set? expr) (analyze-vec-or-set ctx set
-                                       #?(:clj #(clojure.lang.PersistentHashSet/createWithCheck ^clojure.lang.ISeq %&)
+                                       #?(:cljd (fn [& xs]
+                                                  (loop [s #{} xs (seq xs)]
+                                                    (if xs
+                                                      (let [x (first xs)]
+                                                        (if (contains? s x)
+                                                          (throw (ex-info (str "Duplicate key: " x) {}))
+                                                          (recur (conj s x) (next xs))))
+                                                      s)))
+                                          :clj #(clojure.lang.PersistentHashSet/createWithCheck ^clojure.lang.ISeq %&)
                                           :cljs #(.createWithCheck PersistentHashSet (into-array %&))
                                           :default vector)
                                        expr m)

@@ -140,7 +140,8 @@
                                       (:sci.impl/callstack d))]
          (if wrapping-sci-error?
            (throw e)
-           (let [ex-msg #?(:cljd (ex-message e)
+           ;; Dart errors have no message accessor, fall back to str
+           (let [ex-msg #?(:cljd (or (ex-message e) (str e))
                            :clj (.getMessage e)
                            :cljs (.-message e))
                  {:keys [:line :column :file]}
@@ -207,6 +208,23 @@
   #?(:cljd (t/-reset-meta! x m)
      :clj (reset-meta! x m)
      :cljs (reset-meta! x m)))
+
+#?(:cljd
+   (defn alter-meta!* [x f & args]
+     (if (satisfies? t/IResetMeta x)
+       (do
+         ;; writability check must precede applying f
+         (t/-reset-meta! x (meta x))
+         (let [m (apply f (meta x) args)]
+           (t/-reset-meta! x m)
+           m))
+       (apply alter-meta! x f args))))
+
+#?(:cljd
+   (defn reset-meta!** [x m]
+     (if (satisfies? t/IResetMeta x)
+       (do (t/-reset-meta! x m) m)
+       (reset-meta! x m))))
 
 (defn set-namespace!
   [ctx ns-sym attr-map set-meta?]

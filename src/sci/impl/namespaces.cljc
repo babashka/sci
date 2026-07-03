@@ -1424,7 +1424,8 @@
      'aget (copy-core-var aget)
      'alias (copy-var sci-alias clojure-core-ns {:name 'alias})
      'all-ns (copy-var sci-all-ns clojure-core-ns {:name 'all-ns})
-     'alter-meta! (copy-core-var alter-meta!)
+     'alter-meta! #?(:cljd (new-var 'alter-meta! sci.impl.utils/alter-meta!* clojure-core-ns)
+                     :default (copy-core-var alter-meta!))
      'alter-var-root (copy-core-var sci.impl.vars/alter-var-root)
      'amap (macrofy 'amap amap*)
      #?@(:cljd [] :default ['ancestors (copy-var hierarchies/ancestors* clojure-core-ns {:name 'ancestors})])
@@ -1450,7 +1451,9 @@
      #?@(:cljs ['array? (copy-core-var array?)])
      #?@(:cljs ['array (copy-core-var array)])
      #?@(:cljs ['array-seq (copy-core-var array-seq)])
-     #?@(:cljd [] :default ['array-map (copy-core-var array-map)])
+     ;; cljd has no array-map, syntax-quoted map literals expand to it
+     #?@(:cljd ['array-map (new-var 'array-map hash-map clojure-core-ns)]
+         :default ['array-map (copy-core-var array-map)])
      '*assert* assert-var
      'assert (macrofy 'assert assert*)
      'assoc (copy-core-var assoc)
@@ -1746,7 +1749,8 @@
      'remove (copy-core-var remove)
      'remove-ns (copy-var sci-remove-ns clojure-core-ns {:name 'remove-ns})
      'require (copy-var require clojure-core-ns {:copy-meta-from 'clojure.core/require})
-     'reset-meta! (copy-core-var reset-meta!)
+     'reset-meta! #?(:cljd (new-var 'reset-meta! sci.impl.utils/reset-meta!** clojure-core-ns)
+                     :default (copy-core-var reset-meta!))
      'rest (copy-core-var rest)
      'repeatedly (copy-core-var repeatedly)
      'reverse (copy-core-var reverse)
