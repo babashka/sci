@@ -31,11 +31,13 @@ gated with TODO:cljd markers.
   sci.core-test is in the CI selector. Swap the dep back when the PR lands.
   cljd-incompatible tests are gated with `#?(:cljd nil :default (deftest
   ...))` + a ;; TODO:cljd marker.
-- sci fns get a cljd-only variadic wrapper (fns.cljc fun) that checks arity
-  and throws "Wrong number of args (n) passed to: ns/name" (Dart closures
-  throw a message-less error otherwise). Host macro fns get the same
-  treatment via a catch in analyze-call. Perf: every sci fn call goes through
-  apply on cljd, optimize later if needed.
+- sci fns use the direct fixed-arity representation like the other platforms
+  (no wrapper). Runtime arity mismatch surfaces as a wrapped Dart
+  NoSuchMethodError with correct location (str fallback in
+  rethrow-with-location-of-node). Macro application arity errors keep the
+  Clojure-style "Wrong number of args (n) passed to: ns/name" message via a
+  NoSuchMethodError catch in analyze-call. 1M sci fn calls: 116ms Dart AOT vs
+  33ms bb (was 352ms with the apply wrapper).
 - rethrow-with-location-of-node falls back to (str e) when (ex-message e) is
   nil (all plain Dart errors).
 - alter-meta!/reset-meta! route through IResetMeta-aware helpers in utils on
