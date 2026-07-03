@@ -4,7 +4,8 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.test-utils :as tu]))
+   [sci.test-utils :as tu]
+   #?(:cljd [sci.test-utils.macros :refer [thrown-with-data?]])))
 
 (defn eval*
   ([form] (eval* nil form))
@@ -18,15 +19,15 @@
   (is (= "1-2-3" (eval* "(require '[clojure.string :as string]) (string/join \"-\" [1 2 3])")))
   (is (= "1-2-3" (eval* "(require '[clojure.string :refer [join]]) (join \"-\" [1 2 3])")))
   (is (= "1-2-3" (eval* "(require '[clojure.string :refer :all]) (join \"-\" [1 2 3])")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                         #"must be a sequential"
                         (eval* "(require '[clojure.string :refer 1]) (join \"-\" [1 2 3])")))
   (is (= #{1 4 6 3 2 5} (eval* "(set/union #{1 2 3} #{4 5 6})")))
   (is (= #{1 4 6 3 2 5} (eval* "(require '[clojure.set :as s]) (s/union #{1 2 3} #{4 5 6})")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                         #"clojure.foo"
                         (eval* "(require '[clojure.foo :as s])")))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                         #"quux does not exist"
                         (eval* "(require '[clojure.set :refer [quux]])")))
   (is (= [1 2 3] (eval* "(ns foo) (def x 1) (ns bar) (def x 2) (in-ns 'baz) (def x 3) (require 'foo 'bar) [foo/x bar/x x]")))
@@ -49,7 +50,7 @@
     (is (= #{1 2} (eval* "(require '[clojure.set :refer [union] :rename {union union2}]) (union2 #{1} #{2})")))
     (is (= 16 (eval* "(ns foo (:refer-clojure :rename {bit-shift-left <<})) (<< 8 1)")))
     (is (thrown-with-msg?
-         #?(:clj Exception :cljs js/Error)
+         #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
          #"Unable to resolve.*bit-shift-left"
          (eval* "(ns foo (:refer-clojure :rename {bit-shift-left <<})) (bit-shift-left 8 1)"))))
   (when-not tu/native?
@@ -61,7 +62,7 @@
                                      {:source "(ns foo.bar) (def x :success)"
                                       :file "foo/bar.clj"}))})))))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
        #"already refers to"
        (eval* "
 (ns foo (:require [clojure.string :refer [split]]))
@@ -72,15 +73,15 @@
   (is (= #{1 2} (eval* "(use 'clojure.set) (union #{1} #{2})")))
   (is (= #{1 2} (eval* "(use '[clojure.set :only [union]]) (union #{1} #{2})")))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
        #"Unable to resolve.*union"
        (eval* "(use '[clojure.set :exclude [union]]) (union #{1} #{2})")))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
        #"Unable to resolve.*union"
        (eval* "(use '[clojure.set :only [difference]]) (union #{1} #{2})")))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
        #"already refers to"
        (eval* "
 (ns foo (:use clojure.string))
@@ -156,14 +157,14 @@
 (import clojure.lang.ExceptionInfo) (some? (get (ns-imports *ns*) 'ExceptionInfo))"))]))
 
 (deftest refer-clojure-exclude
-  (is (thrown? #?(:clj Exception :cljs js/Error)
+  (is (thrown? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                (eval* "(ns foo (:refer-clojure :exclude [get])) (some? get)")))
   (is (true? (eval* "(ns foo (:refer-clojure :exclude [get])) (defn get []) (some? get)"))))
 
 (deftest refer-test
-  (is (thrown? #?(:clj Exception :cljs js/Error)
+  (is (thrown? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                (eval* "(refer 'clojure.string :only [join]) includes?")))
-  (is (thrown? #?(:clj Exception :cljs js/Error)
+  (is (thrown? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                (eval* "(refer 'clojure.string :exclude [join]) join")))
   (is (eval* "(refer 'clojure.string :only '[join]) (some? join)"))
   (is (eval* "(refer 'clojure.string) (some? join)"))
@@ -220,10 +221,10 @@
 (deftest find-var-test
   (is (eval* "(= #'clojure.core/map (find-var 'clojure.core/map))"))
   (is (eval* "(nil? (find-var 'clojure.core/no-such-symbol))"))
-  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs js/Error)
                         #"No such namespace: no.such.namespace"
                         (eval* "(find-var 'no.such.namespace/var)")))
-  (is (thrown-with-msg? #?(:clj clojure.lang.ExceptionInfo :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs js/Error)
                         #"Not a qualified symbol: no-namespace"
                         (eval* "(find-var 'no-namespace)"))))
 
@@ -237,7 +238,7 @@
 
 (deftest ns-unalias-test
   (testing "Removing an alias in an unknown namespace throws"
-    (is (thrown? #?(:clj Exception :cljs js/Error) (eval* "(ns-unalias (find-ns 'unknown) 'core)"))))
+    (is (thrown? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) (eval* "(ns-unalias (find-ns 'unknown) 'core)"))))
 
   (testing "Removing an undefined alias is a no-op"
     (is (nil? (eval* "(ns-unalias *ns* 'core)"))))
@@ -250,18 +251,18 @@
 
 (deftest ns-syntax-test
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs :default)
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs :default)
        #"symbol"
        (eval* "(ns 1)"))))
 
 (deftest nested-libspecs-test
   (is (= #{1 2 3 4} (eval* "(require '[clojure [set :refer [union]]]) (union #{1 2 3} #{2 3 4})")))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
        #"lib names inside prefix lists must not contain periods"
        (eval* "(ns clojure.core.protocols) (ns foo) (require '[clojure [core.protocols]])")))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error)
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
        #"Unsupported option\(s\) supplied: :foo"
        (eval* "(ns foo (:require [clojure.core] [dude] :foo))")))
   (testing "error message contains location"
@@ -272,14 +273,14 @@
 
 (deftest cyclic-load-test
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error) #"Cyclic load dependency: \[ foo \]->bar->\[ foo \]"
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"Cyclic load dependency: \[ foo \]->bar->\[ foo \]"
        (sci/eval-string "(require 'foo)"
                         {:load-fn (fn [{:keys [:namespace]}]
                                     (case namespace
                                       foo {:source "(ns foo (:require bar)) bar/x"}
                                       bar {:source "(ns bar (:require foo)) (def x)"}))})))
   (is (thrown-with-msg?
-       #?(:clj Exception :cljs js/Error) #"Cyclic load dependency: \[ bar \]->foo->\[ bar \]"
+       #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) #"Cyclic load dependency: \[ bar \]->foo->\[ bar \]"
        (sci/eval-string "(require 'bar)"
                         {:load-fn (fn [{:keys [:namespace]}]
                                     (case namespace
@@ -327,6 +328,8 @@ bar/bar"}
      (-> (resolve (symbol "clojure.core" (str name)))
          meta)))
 
+;; TODO:cljd prune isa?/satisfies?/resolve entries
+#?(:cljd nil :default
 (deftest docstrings-test
   (testing "macro"
     (is (true? (eval* "(string? (:doc (meta #'when)))"))))
@@ -378,9 +381,10 @@ bar/bar"}
                        :when (not (:doc sci-meta))
                        :let [m (clojure-meta name)]
                        :when (:doc m)]
-                   name)))))
+                   name))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest no-cljs-var-resolve-in-clj-test
      (is (nil? (sci/eval-string "(resolve 'cljs.core/inc)")))))
 

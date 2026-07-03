@@ -57,7 +57,8 @@
            (or (look (if (= (quote clojure.core) sym-ns) (quote cljd.core) sym-ns) nm) [sym-ns nil])
            (or (look cur nm)
                (look 'cljd.core nm)
-               [cur nil])))))
+               ;; unresolved bare symbol counts as core, like on CLJS
+               [nil nil])))))
 
   (defn ^:macro-support var-meta [&env sym opts]
     (let [sym (dequote sym)
@@ -71,7 +72,9 @@
             ;; CLJ compilation: resolve upfront
             ;; v may be nil for syms passed via macrofy that don't resolve
             #?(:cljd/clj-host (let [[the-ns m] (cljd-var-meta sym)]
-                                [(symbol (str the-ns) (name sym))
+                                [(if the-ns
+                                   (symbol (str the-ns) (name sym))
+                                   (symbol (name sym)))
                                  (symbol (name sym))
                                  m])
                :cljd nil ;; var-meta itself is only called at macro time

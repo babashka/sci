@@ -1144,7 +1144,7 @@
         exp `(do
                (clojure.core/in-ns '~name)
                ~@(when name-metadata
-                   `(clojure.core/alter-meta! (find-ns '~name) (constantly  ~name-metadata)))
+                   `(clojure.core/alter-meta! (~'find-ns '~name) (constantly  ~name-metadata)))
                #_~@(when gen-class-call (list gen-class-call))
                #_~@(when (and (not= name 'clojure.core) (not-any? #(= :refer-clojure (first %)) references))
                      `((clojure.core/refer '~'clojure.core)))
