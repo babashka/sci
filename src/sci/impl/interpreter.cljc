@@ -12,7 +12,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (defn eval-form* [ctx form]
   (let [eval-file (:clojure.core/eval-file (meta form))]
@@ -38,12 +38,15 @@
                 _ (set! store/*ctx* ctx)
                 analyzed (ana/analyze ctx form true)
                 binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-                bindings (object-array binding-array-size)]
-            (if (instance? #?(:clj sci.impl.types.EvalForm
+                bindings #?(:cljd (List/filled binding-array-size nil)
+                            :clj (object-array binding-array-size)
+                            :cljs (object-array binding-array-size))]
+            (if (instance? #?(:cljd sci.impl.types/EvalForm
+                              :clj sci.impl.types.EvalForm
                               :cljs sci.impl.types/EvalForm) analyzed)
               (eval-form* ctx (types/getVal analyzed))
               (try (types/eval analyzed ctx bindings)
-                   (catch #?(:clj Throwable :cljs js/Error) e
+                   (catch #?(:cljd Object :clj Throwable :cljs js/Error) e
                      (utils/rethrow-with-location-of-node ctx bindings e analyzed))))))
         (let [upper-sym (gensym)
               cb (volatile! {upper-sym {0 {:syms {}}}})
@@ -52,9 +55,11 @@
                          :closure-bindings cb)
               analyzed (ana/analyze ctx form)
               binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-              bindings (object-array binding-array-size)]
+              bindings #?(:cljd (List/filled binding-array-size nil)
+                          :clj (object-array binding-array-size)
+                          :cljs (object-array binding-array-size))]
           (try (types/eval analyzed ctx bindings)
-               (catch #?(:clj Throwable :cljs js/Error) e
+               (catch #?(:cljd Object :clj Throwable :cljs js/Error) e
                  (utils/rethrow-with-location-of-node ctx bindings e analyzed)))))
       (finally
         (when eval-file

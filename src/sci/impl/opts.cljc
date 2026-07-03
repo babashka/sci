@@ -5,9 +5,9 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
-   [sci.lang])
-  #?(:clj (:import
-           [sci.impl.types ICustomType])))
+   #?(:cljd [sci.lang :as lang] :default [sci.lang]))
+  #?@(:cljd [] :clj [(:import
+                      [sci.impl.types ICustomType])]))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -31,7 +31,9 @@
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc
                                             'global-hierarchy
-                                            (utils/new-var 'global-hierarchy (make-hierarchy)
+                                            (utils/new-var 'global-hierarchy
+                                                           #?(:cljd {:parents {} :descendants {} :ancestors {}}
+                                                              :default (make-hierarchy))
                                                            {:ns utils/clojure-core-ns})
                                             '*loaded-libs* (namespaces/loaded-libs**
                                                             (concat (keys env-nss)
@@ -43,7 +45,10 @@
                      #?@(:cljs [js-libs (merge (:js-libs env) js-libs)])]
                  ;; TODO: is the first case ever hit?
                  (if-not env
-                   #?(:clj (->Env namespaces imports load-fn)
+                   #?(:cljd {:namespaces namespaces
+                             :imports imports
+                             :load-fn load-fn}
+                      :clj (->Env namespaces imports load-fn)
                       :cljs {:namespaces namespaces
                              :imports imports
                              :load-fn load-fn
@@ -63,7 +68,12 @@
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
 
 (def default-classes
-  #?(:clj {'java.lang.AssertionError AssertionError
+  ;; TODO: flesh out cljd default classes
+  #?(:cljd {'Exception {:class Exception}
+            'Error {:class Error}
+            'cljd.core.ExceptionInfo {:class cljd.core/ExceptionInfo}
+            'sci.lang.Type lang/Type}
+     :clj {'java.lang.AssertionError AssertionError
            'java.lang.Exception {:class Exception}
            'java.lang.IllegalArgumentException java.lang.IllegalArgumentException
            'clojure.lang.Delay clojure.lang.Delay
@@ -92,7 +102,9 @@
             'sci.lang.Type sci.lang.Type}))
 
 (def default-imports
-  #?(:clj '{AssertionError java.lang.AssertionError
+  #?(:cljd '{Exception Exception
+             ExceptionInfo cljd.core.ExceptionInfo}
+     :clj '{AssertionError java.lang.AssertionError
             Exception java.lang.Exception
             String java.lang.String
             ArithmeticException java.lang.ArithmeticException
@@ -128,7 +140,8 @@
        :class->opts (persistent! class->opts)})))
 
 (def default-reify-fn
-  #?(:clj (fn [{:keys [interfaces methods protocols]}]
+  #?(:cljd (fn [_])
+     :clj (fn [{:keys [interfaces methods protocols]}]
             (reify
               Object
               (toString [this]
@@ -150,7 +163,12 @@
                         check-permissions]))
 
 (defn ->ctx [bindings env features readers check-permissions?]
-  #?(:cljs {:bindings bindings
+  #?(:cljd {:bindings bindings
+            :env env
+            :features features
+            :readers readers
+            :check-permissions check-permissions?}
+     :cljs {:bindings bindings
             :env env
             :features features
             :readers readers
