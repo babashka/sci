@@ -30,7 +30,7 @@
                               copy-ns]]
             [sci.impl.cljs])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (defn new-var
   "Returns a new sci var."
@@ -39,7 +39,7 @@
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :name (utils/unqualify-symbol name))]
-     (sci.lang.Var. init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
@@ -48,7 +48,7 @@
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (utils/unqualify-symbol name))]
-     (sci.lang.Var. init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -61,7 +61,7 @@
   ([name init-val] (new-macro-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :macro true :name (utils/unqualify-symbol name))]
-     (sci.lang.Var.
+     (sci.lang/->Var
       (vary-meta init-val
                  assoc :sci/macro true)
       name meta false false nil (:ns meta)))))
@@ -171,26 +171,35 @@
   StringWriter.  Returns the string created by any nested printing
   calls."
     [& body]
-    (macros/? :clj
-              `(let [out# (java.io.StringWriter.)]
-                 (with-bindings {out out#}
-                   (do ~@body)
-                   (str out#)))
-              :cljs
-              `(let [sb# (goog.string/StringBuffer.)]
-                 (cljs.core/binding []
-                   (with-bindings {sci.core/print-newline true
-                                   sci.core/print-fn (fn [x#] (.append sb# x#))}
-                     (do ~@body)
-                     (str sb#)))))))
+    #?(:cljd
+       `(let [out# (StringBuffer.)]
+          (with-bindings {out out#}
+            (do ~@body)
+            (str out#)))
+       :default
+       (macros/? :clj
+                 `(let [out# (java.io.StringWriter.)]
+                    (with-bindings {out out#}
+                      (do ~@body)
+                      (str out#)))
+                 :cljs
+                 `(let [sb# (goog.string/StringBuffer.)]
+                    (cljs.core/binding []
+                      (with-bindings {sci.core/print-newline true
+                                      sci.core/print-fn (fn [x#] (.append sb# x#))}
+                        (do ~@body)
+                        (str sb#))))))))
 
-(macros/deftime
-  (defmacro future
-    "Like clojure.core/future but also conveys sci bindings to the thread."
-    [& body]
-    `(let [f# (-> (fn [] ~@body)
-                  (vars/binding-conveyor-fn))]
-       (future-call f#))))
+;; no threads on cljd
+#?(:cljd nil
+   :default
+   (macros/deftime
+     (defmacro future
+       "Like clojure.core/future but also conveys sci bindings to the thread."
+       [& body]
+       `(let [f# (-> (fn [] ~@body)
+                     (vars/binding-conveyor-fn))]
+          (future-call f#)))))
 
 #?(:clj (defn pmap
           "Like clojure.core/pmap but also conveys sci bindings to the threads."
@@ -442,7 +451,10 @@
   manually."
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
-     (macros/? :clj
+     #?(:cljd
+        (throw (ex-info "copy-ns is not yet supported in SCI on ClojureDart" {}))
+        :default
+        (macros/? :clj
                ;; this branch is hit by macroexpanding in JVM Clojure, not in the CLJS compiler
                (let [publics-map (ns-publics ns-sym)
                      publics-map (process-publics publics-map opts)
@@ -514,7 +526,7 @@
                                                         m))})
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
-                          `(-copy-ns ~publics-map ~sci-ns)))))))
+                          `(-copy-ns ~publics-map ~sci-ns))))))))
 
 (defn add-import!
   "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
@@ -565,7 +577,8 @@
 
   In the future, more unrestricted access may be added, so only use this when you're not using SCI as a sandbox."
   []
-  #?(:cljs (set! unrestrict/*unrestricted* true)
+  #?(:cljd (set! unrestrict/*unrestricted* true)
+     :cljs (set! unrestrict/*unrestricted* true)
      :clj (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
 
 (defn var->symbol

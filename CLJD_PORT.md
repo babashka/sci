@@ -5,9 +5,12 @@ evaluated on the Dart CLI and eventually a Flutter mobile app. SCI is the eval
 engine; cljd just compiles SCI's .cljc source to Dart. cljd's lack of runtime
 `eval` is NOT a blocker - SCI provides its own eval.
 
-## Status: EVAL WORKS. sci.impl.interpreter/eval-string evaluates Clojure on
-Dart: arithmetic, fns, mapv, let, str (test/sci/cljd_smoke_test.cljc).
-sci.core (public API) is the remaining unported file.
+## Status: PUBLIC API WORKS. sci.core compiles on cljd. sci/init, parse-next,
+eval-form, eval-string, def, defn all pass (test/sci/parse_test.cljc runs
+ungated on all platforms). copy-ns and future are stubbed/absent on cljd.
+
+Next: run more of the SCI test suite on cljd, tasks: non-record deftype arm,
+real multimethods, interop for :classes.
 
 Depends on edamame 1.6.40+ (has cljd support).
 
@@ -148,6 +151,12 @@ templates. Restore them with git after first init.
   self-references on cljd and stack-overflows at load, pass {:init nil}.
 - Return type hints on fns that can return nil (e.g. ^TBox) become Dart
   casts and throw on nil, drop them on cljd.
+- (List/filled n nil) infers Dart List<Null> and (volatile! nil) infers a
+  Null-typed slot: aset/vreset! of a real value then throws "x is not a
+  subtype of type 'Null'". Use (#/(List/filled dynamic) n nil) and
+  (volatile! (identity nil)).
+- Syntax-quoted `fn etc resolve to cljd.core/... on the cljd host:
+  strip-core-ns and resolve treat cljd.core like cljs.core.
 - ->Var/->Type/->Namespace factories work on ALL platforms, prefer them over
   platform-conditional constructor calls. utils/sci-type? for Type instance
   checks.

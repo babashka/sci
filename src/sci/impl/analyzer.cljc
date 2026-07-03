@@ -451,13 +451,13 @@
                                     (when-let [binding-idx (get iden->invoke-idx iden)]
                                       (let [enclosed-idx (get iden->enclosed-idx iden)]
                                         ;; (prn :copying binding-idx '-> enclosed-idx)
-                                        (doto #?(:cljd (List/filled 2 nil)
+                                        (doto #?(:cljd (#/(List/filled dynamic) 2 nil)
                                                  :default (object-array 2))
                                           (aset 0 binding-idx)
                                           (aset 1 enclosed-idx)))))
                                   closed-over-idens))]
             [(fn [#?(:cljd bindings :clj ^objects bindings :cljs ^objects bindings)]
-               (areduce binding->enclosed idx ret #?(:cljd (List/filled enclosed-array-cnt nil)
+               (areduce binding->enclosed idx ret #?(:cljd (#/(List/filled dynamic) enclosed-array-cnt nil)
                                                      :default (object-array enclosed-array-cnt))
                         (let [#?@(:cljd [idxs] :default [^objects idxs]) (aget binding->enclosed idx)
                               binding-idx (aget idxs 0)
@@ -474,7 +474,7 @@
                              enclosed->invocation
                              (into-array (keep (fn [iden]
                                                  (when-let [invocation-idx (iden->invocation-idx iden)]
-                                                   (doto #?(:cljd (List/filled 2 nil)
+                                                   (doto #?(:cljd (#/(List/filled dynamic) 2 nil)
                                                             :default (object-array 2))
                                                      (aset 0 (iden->enclosed-idx iden))
                                                      (aset 1 invocation-idx))))

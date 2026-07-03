@@ -33,7 +33,7 @@
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                  #?(:cljd (List/filled ~'invoc-size nil)
+                                  #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
                                      :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
@@ -55,7 +55,7 @@
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
             (let [~'invoc-array (when-not (zero? ~'invoc-size)
-                                  #?(:cljd (List/filled ~'invoc-size nil)
+                                  #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
                                      :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
                 (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
@@ -140,7 +140,7 @@
                (let [recur# recur]
                  (fn arity-many [& args]
                    (let [invoc-array (when-not (zero? invoc-size)
-                                       #?(:cljd (List/filled invoc-size nil)
+                                       #?(:cljd (#/(List/filled dynamic) invoc-size nil)
                                           :default (object-array invoc-size)))]
                      (when enclosed->invocation
                        (enclosed->invocation enclosed-array invoc-array))

@@ -38,7 +38,7 @@
                 _ (set! store/*ctx* ctx)
                 analyzed (ana/analyze ctx form true)
                 binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-                bindings #?(:cljd (List/filled binding-array-size nil)
+                bindings #?(:cljd (#/(List/filled dynamic) binding-array-size nil)
                             :clj (object-array binding-array-size)
                             :cljs (object-array binding-array-size))]
             (if (instance? #?(:cljd sci.impl.types/EvalForm
@@ -55,7 +55,7 @@
                          :closure-bindings cb)
               analyzed (ana/analyze ctx form)
               binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-              bindings #?(:cljd (List/filled binding-array-size nil)
+              bindings #?(:cljd (#/(List/filled dynamic) binding-array-size nil)
                           :clj (object-array binding-array-size)
                           :cljs (object-array binding-array-size))]
           (try (types/eval analyzed ctx bindings)

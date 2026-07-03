@@ -59,7 +59,8 @@
                (when-let [clazz (interop/resolve-array-class ctx sym-ns sym-name-str)]
                  [sym clazz]))))
         (when
-            #?(:cljd (= 'clojure.core sym-ns)
+            #?(:cljd (or (= 'clojure.core sym-ns)
+                         (= 'cljd.core sym-ns))
                :clj (= 'clojure.core sym-ns)
                :cljs (or (= 'clojure.core sym-ns)
                          (= 'cljs.core sym-ns)))

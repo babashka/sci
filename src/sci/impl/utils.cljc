@@ -181,7 +181,7 @@
 
 (defn strip-core-ns [sym]
   (case (namespace sym)
-    ("clojure.core" "cljs.core") (symbol (name sym))
+    ("clojure.core" "cljs.core" "cljd.core") (symbol (name sym))
     sym))
 
 (def allowed-loop (symbol "clojure.core/loop"))
@@ -216,9 +216,10 @@
     (when set-meta? (reset-meta!* ns-obj attr-map))
     (t/setVal current-ns ns-obj)))
 
-(def eval-form-state (volatile! nil))
-(def eval-resolve-state (volatile! nil))
-(def analyze (volatile! nil))
+;; identity keeps the cljd Volatile type parameter dynamic instead of Null
+(def eval-form-state (volatile! #?(:cljd (identity nil) :default nil)))
+(def eval-resolve-state (volatile! #?(:cljd (identity nil) :default nil)))
+(def analyze (volatile! #?(:cljd (identity nil) :default nil)))
 
 (defn eval [sci-ctx form]
   (@eval-form-state sci-ctx form))

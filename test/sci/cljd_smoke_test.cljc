@@ -21,7 +21,9 @@
   (is (= 3 (sci.impl.interpreter/eval-string "((fn [x] (+ x 1)) 2)")))
   (is (= [2 3 4] (sci.impl.interpreter/eval-string "(mapv inc [1 2 3])")))
   (is (= 10 (sci.impl.interpreter/eval-string "(let [x 4 y 6] (+ x y))")))
-  (is (= "hello" (sci.impl.interpreter/eval-string "(str \"he\" \"llo\")"))))
+  (is (= "hello" (sci.impl.interpreter/eval-string "(str \"he\" \"llo\")")))
+  (is (= 1 (sci.impl.interpreter/eval-string "(def x 1) x")))
+  (is (= 2 (sci.impl.interpreter/eval-string "(defn f [] 2) (f)"))))
 
 (deftest constant-test
   (testing "constants evaluate to themselves"
