@@ -42,7 +42,10 @@ templates. Restore them with git after first init.
   edamame 1.6.40).
 - Analyzer shallow deps ported: callstack, faster, fns, destructure.
   sci.cljd-smoke-test requires them as a compilation canary.
-  destructure covered by test/sci/impl/destructure_test.cljc.
+- TEMPORARY test scaffolding, remove once eval-string tests run on cljd:
+  test/sci/impl/destructure_test.cljc (destructure is otherwise covered
+  indirectly via core_test/error_test), test/sci/cljd_smoke_test.cljc
+  (canary requires + smoke tests).
 - .cljd test shadow trick (for big test files like core_test): same ns in a
   .cljd file shadows the .cljc on cljd only. JVM/CLJS never read .cljd. For
   small files prefer gating in the .cljc directly. Gotcha either way: the
