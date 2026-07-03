@@ -5,7 +5,7 @@
  :cljd/opts {:kind :dart :main sci-repl.main}
  :aliases
  {:examples {:extra-paths ["examples"]}
-  :cljd {:extra-paths ["test" "demo"]
+  :cljd {:extra-paths ["test" "examples"]
          ;; TODO: back to tensegritics when cljd.core/list meta PR is merged
          ;; TODO: back to a released edamame when > 1.6.40 is out
          :extra-deps {tensegritics/clojuredart
