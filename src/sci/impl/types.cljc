@@ -189,9 +189,9 @@
 #?(:cljd
    (defn eval [expr ctx bindings]
      (if (instance? NodeR expr)
-       ((.-f expr) expr ctx bindings)
+       ((.-f ^NodeR expr) expr ctx bindings)
        (if (instance? BindingNode expr)
-         (aget bindings (.-idx expr))
+         (aget bindings (.-idx ^BindingNode expr))
          expr))))
 
 #?(:cljd
