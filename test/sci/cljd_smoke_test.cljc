@@ -6,6 +6,8 @@
             [sci.impl.callstack]
             [sci.impl.faster]
             [sci.impl.fns]
+            [sci.impl.records]
+            [sci.impl.resolve]
             [sci.impl.types :as types]))
 
 (deftest eval-form-test

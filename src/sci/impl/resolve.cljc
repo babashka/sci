@@ -59,7 +59,8 @@
                (when-let [clazz (interop/resolve-array-class ctx sym-ns sym-name-str)]
                  [sym clazz]))))
         (when
-            #?(:clj (= 'clojure.core sym-ns)
+            #?(:cljd (= 'clojure.core sym-ns)
+               :clj (= 'clojure.core sym-ns)
                :cljs (or (= 'clojure.core sym-ns)
                          (= 'cljs.core sym-ns)))
           (or (some-> env :namespaces (get 'clojure.core) (find sym-name))
@@ -68,24 +69,39 @@
         (let [the-sym-ns (some-> env :namespaces (get sym-ns))]
           (or (find the-sym-ns sym-name)
               ;; type mappings (deftype/defrecord) live under :types
-              #?(:cljs
+              #?(:cljd
+                 (when-not only-var?
+                   (when-let [types (:types the-sym-ns)]
+                     (find types sym-name)))
+                 :cljs
                  (when-not only-var?
                    (when-let [types (:types the-sym-ns)]
                      (find types sym-name))))))
         (when-not only-var?
           (when-let [clazz (interop/resolve-class ctx sym-ns)]
-            [sym (if (and call? #?(:clj (not (str/starts-with? sym-name-str "."))))
+            [sym (if (and call? #?(:cljd (not (str/starts-with? sym-name-str "."))
+                                   :clj (not (str/starts-with? sym-name-str "."))
+                                   :cljs true))
                    (with-meta
-                     [clazz #?(:clj sym-name
+                     [clazz #?(:cljd sym-name
+                               :clj sym-name
                                :cljs (.split (utils/munge-str (str sym-name)) "."))
                       sym-ns]
-                     #?(:clj
+                     #?(:cljd
+                        (if (= "new" sym-name-str)
+                          {:sci.impl.analyzer/invoke-constructor true}
+                          {:sci.impl.analyzer/static-access true})
+                        :clj
                         (if (= "new" sym-name-str)
                           {:sci.impl.analyzer/invoke-constructor true}
                           {:sci.impl.analyzer/static-access true})
                         :cljs
                         {:sci.impl.analyzer/static-access true}))
-                   #?(:clj
+                   #?(:cljd
+                      (with-meta
+                        [clazz sym-name]
+                        {:sci.impl.analyzer/interop true})
+                      :clj
                       (with-meta
                         [clazz sym-name]
                         {:sci.impl.analyzer/interop true})
@@ -130,7 +146,10 @@
              [sym c])
            ;; resolves record or protocol referenced as class
            ;; e.g. clojure.lang.IDeref which is really a var in clojure.lang/IDeref
-           #?(:clj
+           #?(:cljd
+              (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
+                [sym x])
+              :clj
               (when-let [x (records/resolve-record-or-protocol-class ctx sym)]
                 [sym x])
               :cljs
@@ -173,7 +192,7 @@
 (defn lookup
   ([ctx sym call?] (lookup ctx sym call? nil))
   ([ctx sym call? m] (lookup ctx sym call? m nil))
-  ([ctx sym call? #?(:clj m :cljs _) only-var?]
+  ([ctx sym call? #?(:cljd _ :clj m :cljs _) only-var?]
    (let [bindings (faster/get-2 ctx :bindings)
          track-mutable? (faster/get-2 ctx :deftype-fields)]
      (or
@@ -195,7 +214,9 @@
                                        (some-> k meta :tag))])
                     mutable? (when track-mutable?
                                (when-let [m (some-> k meta)]
-                                 #?(:clj (or (:volatile-mutable m)
+                                 #?(:cljd (or (:mutable m)
+                                              (:volatile-mutable m))
+                                    :clj (or (:volatile-mutable m)
                                              (:unsynchronized-mutable m))
                                     :cljs (or (:mutable m)
                                               (:volatile-mutable m)))))

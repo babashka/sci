@@ -40,8 +40,10 @@ templates. Restore them with git after first init.
   gated with `#?(:cljd nil :default ...)`).
 - Reader routing renamed to edamame.impl.cljd-reader-types (name in released
   edamame 1.6.40).
-- Analyzer shallow deps ported: callstack, faster, fns, destructure.
-  sci.cljd-smoke-test requires them as a compilation canary.
+- Analyzer shallow deps ported: callstack, faster, fns, destructure, resolve,
+  records. sci.cljd-smoke-test requires them as a compilation canary.
+  cljd SciRecord arm: no -contains-key? (cljd IAssociative only has -assoc),
+  no munge/hash-unordered-coll/ICloneable/IIterable on cljd.
 - TEMPORARY test scaffolding, remove once eval-string tests run on cljd:
   test/sci/impl/destructure_test.cljc (destructure is otherwise covered
   indirectly via core_test/error_test), test/sci/cljd_smoke_test.cljc

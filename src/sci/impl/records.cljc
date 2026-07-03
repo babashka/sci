@@ -4,9 +4,9 @@
   (:require [clojure.string :as str]
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
-            [sci.lang]))
+            [sci.lang :as lang]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 #?(:clj
    (defn assert-no-jvm-interface [protocol protocol-name expr]
@@ -20,7 +20,8 @@
 (defmethod to-string :default [this]
   (let [t (types/type-impl this)]
     (str t "@"
-         #?(:clj (Integer/toHexString (hash this))
+         #?(:cljd (.toRadixString (hash this) 16)
+            :clj (Integer/toHexString (hash this))
             :cljs (.toString (hash this) 16)))))
 
 (defn clojure-str [v]
@@ -30,7 +31,104 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
-#?(:clj
+#?(:cljd
+   (deftype SciRecord [rec-name
+                       type
+                       basis-fields
+                       type-meta
+                       ext-map
+                       ^:mutable my_hash]
+     IRecord ;; marker interface
+
+     IHash
+     (-hash [_]
+       (let [hq my_hash]
+         (if (nil? hq)
+           (let [type-hash (hash rec-name)
+                 h (bit-xor type-hash (hash ext-map))]
+             (set! my_hash h)
+             h)
+           hq)))
+
+     IEquiv
+     (-equiv [this other]
+       (boolean
+        (or (identical? this other)
+            (when (instance? SciRecord other)
+              (and (= rec-name (.-rec-name ^SciRecord other))
+                   (= ext-map (.-ext-map ^SciRecord other)))))))
+
+     IMeta
+     (-meta [_]
+       (meta ext-map))
+
+     IWithMeta
+     (-with-meta [_ m]
+       (SciRecord. rec-name type basis-fields type-meta (with-meta ext-map m) my_hash))
+
+     ILookup
+     (-lookup [_ k]
+       (get ext-map k))
+     (-lookup [_ k else]
+       (get ext-map k else))
+
+     ICounted
+     (-count [_]
+       (count ext-map))
+
+     ICollection
+     (-conj [this entry]
+       (if (vector? entry)
+         (assoc this (nth entry 0) (nth entry 1))
+         (reduce conj
+                 this
+                 entry)))
+
+     IAssociative
+     (-assoc [_ k v]
+       (SciRecord. rec-name type basis-fields type-meta (assoc ext-map k v) nil))
+
+     IMap
+     (-dissoc [_ k]
+       (if (contains? basis-fields k)
+         (dissoc ext-map k)
+         (SciRecord. rec-name type basis-fields type-meta (dissoc ext-map k) nil)))
+
+     ISeqable
+     (-seq [_]
+       (seq ext-map))
+
+     IKVReduce
+     (-kv-reduce [this f init]
+       (reduce (fn [ret [k v]]
+                 (f ret k v)) init this))
+
+     sci.impl.types/SciTypeInstance
+     (-get-type [_]
+       type)
+
+     IFn
+     (-invoke [this] (types/sci-invoke this))
+     (-invoke [this a] (types/sci-invoke this a))
+     (-invoke [this a b] (types/sci-invoke this a b))
+     (-invoke [this a b c] (types/sci-invoke this a b c))
+     (-invoke [this a b c d] (types/sci-invoke this a b c d))
+     (-invoke [this a b c d e] (types/sci-invoke this a b c d e))
+     (-invoke [this a b c d e f] (types/sci-invoke this a b c d e f))
+     (-invoke [this a b c d e f g] (types/sci-invoke this a b c d e f g))
+     (-invoke [this a b c d e f g h] (types/sci-invoke this a b c d e f g h))
+     (-invoke [this a b c d e f g h i] (types/sci-invoke this a b c d e f g h i))
+     (-invoke-more [this a b c d e f g h i rest]
+       (apply types/sci-invoke this a b c d e f g h i rest))
+     (-apply [this args]
+       (apply types/sci-invoke this args))
+
+     Object
+     (toString [this]
+       (to-string this))))
+
+#?(:cljd nil
+   :clj
    (deftype SciRecord [rec-name
                        type
                        basis-fields
@@ -287,7 +385,9 @@
    (defmethod print-method SciRecord [v w]
      (-sci-print-method v w)))
 
-#?(:clj  (defn ->record-impl [rec-name type basis-fields type-meta m]
+#?(:cljd (defn ->record-impl [rec-name type basis-fields type-meta m]
+           (SciRecord. rec-name type basis-fields type-meta m nil))
+   :clj  (defn ->record-impl [rec-name type basis-fields type-meta m]
            (SciRecord. rec-name type basis-fields type-meta m 0 0))
    :cljs (defn ->record-impl [rec-name type basis-fields type-meta m]
            (SciRecord. rec-name type basis-fields type-meta m nil)))
@@ -298,7 +398,8 @@
   [[_fname] _ record-name fields & raw-protocol-impls]
   (let [ns-name (utils/current-ns-name)
         tagged-name (symbol (str ns-name) (str record-name))
-        class-name (symbol (str (munge ns-name) "." record-name))
+        class-name (symbol (str #?(:cljd (str/replace (str ns-name) "-" "_")
+                                   :default (munge ns-name)) "." record-name))
         rec-type (list 'quote class-name)
         factory-fn-sym (symbol (str "->" record-name))
         constructor-fn-sym (symbol (str "__->" record-name "__ctor__"))
@@ -368,4 +469,4 @@
 (defn resolve-record-class
   [ctx class-sym]
   (when-let [x (resolve-record-or-protocol-class ctx class-sym)]
-    (when (instance? sci.lang.Type x) x)))
+    (when (instance? #?(:cljd lang/Type :clj sci.lang.Type :cljs sci.lang.Type) x) x)))
