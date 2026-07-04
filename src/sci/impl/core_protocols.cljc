@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [deref -deref -swap! -reset!])
   (:require
    [sci.impl.deftype]
+   #?(:cljd [sci.impl.multimethods :as mm])
    [sci.impl.records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
@@ -12,14 +13,25 @@
 
 ;;;; IDeref
 
-(defmulti #?(:cljd -deref :clj deref :cljs -deref) types/type-impl)
+;; on cljd built-in multifns are SciMultiFns so records and reify can add
+;; methods at runtime, host defmultis have no runtime add on Dart
+#?(:cljd
+   (def -deref
+     (mm/->SciMultiFn '-deref types/type-impl :default
+                      (atom {:sci.impl.protocols/reified
+                             (fn [ref]
+                               ((get (types/getMethods ref) '-deref) ref))
+                             :default
+                             (fn [ref] (clojure.core/deref ref))})))
+   :default
+   (do (defmulti #?(:clj deref :cljs -deref) types/type-impl)
 
-(defmethod #?(:cljd -deref :clj deref :cljs -deref) :sci.impl.protocols/reified [ref]
-  (let [methods (types/getMethods ref)]
-    ((get methods #?(:cljd '-deref :clj 'deref :cljs '-deref)) ref)))
+       (defmethod #?(:clj deref :cljs -deref) :sci.impl.protocols/reified [ref]
+         (let [methods (types/getMethods ref)]
+           ((get methods #?(:clj 'deref :cljs '-deref)) ref)))
 
-(defmethod #?(:cljd -deref :clj deref :cljs -deref) :default [ref]
-  (clojure.core/deref ref))
+       (defmethod #?(:clj deref :cljs -deref) :default [ref]
+         (clojure.core/deref ref))))
 
 (defn deref*
   ([x]
@@ -83,19 +95,30 @@
 ;;   ([_ _ _ _] "THREE ARGUMENTs")
 ;;   ([_ _ _ _ & more] (cl-format nil "~d ARGUMENTS" (+ 3 (count more)))))
 
-(defmulti #?(:cljd -swap! :clj swap :cljs -swap!) types/type-impl)
-(defmulti #?(:cljd -reset! :clj reset :cljs -reset!) types/type-impl)
+#?(:cljd
+   (def -swap!
+     (mm/->SciMultiFn '-swap! types/type-impl :default
+                      (atom {:sci.impl.protocols/reified
+                             (fn [ref f & args]
+                               (apply (get (types/getMethods ref) '-swap!) ref f args))
+                             :default
+                             (fn [ref f & args]
+                               (apply clojure.core/swap! ref f args))})))
+   :default (defmulti #?(:clj swap :cljs -swap!) types/type-impl))
+#?(:cljd
+   (def -reset!
+     (mm/->SciMultiFn '-reset! types/type-impl :default
+                      (atom {:sci.impl.protocols/reified
+                             (fn [ref v]
+                               ((get (types/getMethods ref) '-reset!) ref v))
+                             :default
+                             (fn [ref v] (reset! ref v))})))
+   :default (defmulti #?(:clj reset :cljs -reset!) types/type-impl))
 #?(:clj (defmulti compareAndSet types/type-impl))
 #?(:clj (defmulti swapVals types/type-impl))
 #?(:clj (defmulti resetVals types/type-impl))
 
 ;;;; Protocol methods
-
-;; single arity: cljd defmethod does not support multi-arity
-#?(:cljd
-   (defmethod -swap! :sci.impl.protocols/reified [ref f & args]
-     (let [methods (types/getMethods ref)]
-       (apply (get methods '-swap!) ref f args))))
 
 #?(:cljd nil
    :default
@@ -113,9 +136,11 @@
       (let [methods (types/getMethods ref)]
         (apply (get methods #?(:clj 'swap :cljs '-swap!)) ref f a1 a2 args)))))
 
-(defmethod #?(:cljd -reset! :clj reset :cljs -reset!) :sci.impl.protocols/reified [ref v]
-  (let [methods (types/getMethods ref)]
-    ((get methods #?(:cljd '-reset! :clj 'reset :cljs '-reset!)) ref v)))
+#?(:cljd nil
+   :default
+   (defmethod #?(:clj reset :cljs -reset!) :sci.impl.protocols/reified [ref v]
+     (let [methods (types/getMethods ref)]
+       ((get methods #?(:clj 'reset :cljs '-reset!)) ref v))))
 
 #?(:clj
    (defmethod compareAndSet :sci.impl.protocols/reified [ref old new]
@@ -144,12 +169,16 @@
 
 ;;;; Defaults
 
-(defmethod #?(:cljd -swap! :clj swap :cljs -swap!) :default [ref f & args]
-  ;; TODO: optimize arities
-  (apply clojure.core/swap! ref f args))
+#?(:cljd nil
+   :default
+   (defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
+     ;; TODO: optimize arities
+     (apply clojure.core/swap! ref f args)))
 
-(defmethod #?(:cljd -reset! :clj reset :cljs -reset!) :default [ref v]
-  (reset! ref v))
+#?(:cljd nil
+   :default
+   (defmethod #?(:clj reset :cljs -reset!) :default [ref v]
+     (reset! ref v)))
 
 #?(:clj
    (defmethod compareAndSet :default [ref old new]

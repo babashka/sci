@@ -631,11 +631,8 @@
                      `(do (ns ~'foo) (def ~'x (ns-name *ns*)) (ns ~'user)))
                    (dude)
                    foo/x"))))
-  ;; TODO:cljd protocols
-  #?(:cljd nil
-     :default
-     (testing "nested macro call that results in top level do"
-       (is (true? (eval* "
+  (testing "nested macro call that results in top level do"
+    (is (true? (eval* "
 (defprotocol Proto
   (proto [_]))
 
@@ -646,7 +643,7 @@
 
 (deftrecord Rec)
 
-(map? (proto (->Rec)))"))))))
+(map? (proto (->Rec)))")))))
 
 (deftest comment-test
   (is (nil? (eval* '(comment "anything"))))
@@ -1845,7 +1842,8 @@
       {:actual-ns ns-nm :actual-ns-symbol sym :var-meta-ns var-meta-ns-name :var-meta-name var-meta-name})
     ; remove the protocol/interface-ish vars whose metas don't really match
     (remove (fn [{:keys [var-meta-name]}]
-              (str/starts-with? (name var-meta-name) \"cljs.core.\")))
+              (or (str/starts-with? (name var-meta-name) \"cljs.core.\")
+                  (str/starts-with? (name var-meta-name) \"cljd.core.\"))))
     (filter (complement #(and (= (:actual-ns %) (:var-meta-ns %)) (= (:actual-ns-symbol %) (:var-meta-name %)))))
     (doall)))"))))))
 

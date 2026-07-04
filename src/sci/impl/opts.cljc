@@ -79,6 +79,17 @@
                          :instance? (fn [x] (instance? StateError x))}
             'Object {:class Object
                      :instance? (fn [_] true)}
+            ;; bare int/double/bool compile to cast fns on cljd,
+            ;; runtimeType yields the canonical Type objects
+            'dart.core.String {:class String
+                               :instance? (fn [x] (string? x))}
+            'dart.core.num {:instance? (fn [x] (number? x))}
+            'dart.core.int {:class (.-runtimeType 1)
+                            :instance? (fn [x] (int? x))}
+            'dart.core.double {:class (.-runtimeType 1.0)
+                               :instance? (fn [x] (double? x))}
+            'dart.core.bool {:class (.-runtimeType true)
+                             :instance? (fn [x] (boolean? x))}
             'StringBuffer {:class StringBuffer
                            :constructor (fn ([] (StringBuffer.))
                                           ([s] (StringBuffer. s)))
@@ -121,7 +132,12 @@
              StateError StateError
              Object Object
              StringBuffer StringBuffer
-             ExceptionInfo cljd.core.ExceptionInfo}
+             ExceptionInfo cljd.core.ExceptionInfo
+             String dart.core.String
+             num dart.core.num
+             int dart.core.int
+             double dart.core.double
+             bool dart.core.bool}
      :clj '{AssertionError java.lang.AssertionError
             Exception java.lang.Exception
             String java.lang.String
@@ -191,7 +207,9 @@
                :interrupt-fn interrupt-fn}))
 
 (def default-ns-aliases
-  #?(:clj {}
+  #?(:cljd {;; in SCI the core namespace is always called clojure.core
+            'cljd.core 'clojure.core}
+     :clj {}
      :cljs {;; in SCI the core namespace is always called clojure.core
             'cljs.core 'clojure.core}))
 

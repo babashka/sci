@@ -1,7 +1,8 @@
 (ns sci.impl.types
   {:no-doc true}
   (:refer-clojure :exclude [eval])
-  #?@(:cljd [] :clj [(:require [sci.impl.macros :as macros])])
+  #?@(:cljd [(:require [sci.impl.multimethods :as mm])]
+      :clj [(:require [sci.impl.macros :as macros])])
   #?(:cljs (:require-macros [sci.impl.macros :as macros]
                             [sci.impl.types :refer [->Node]]))
   #?@(:cljd [] :clj [(:import [sci.impl.types ICustomType])]))
@@ -43,6 +44,31 @@
   (getMethods [_] meths)
   (getProtocols [_] protocols)
   (getFields [_] nil)
+  #?@(:cljd [IFn
+             (-invoke [this]
+                      ((get meths '-invoke) this))
+             (-invoke [this a]
+                      ((get meths '-invoke) this a))
+             (-invoke [this a b]
+                      ((get meths '-invoke) this a b))
+             (-invoke [this a b c]
+                      ((get meths '-invoke) this a b c))
+             (-invoke [this a b c d]
+                      ((get meths '-invoke) this a b c d))
+             (-invoke [this a b c d e]
+                      ((get meths '-invoke) this a b c d e))
+             (-invoke [this a b c d e f]
+                      ((get meths '-invoke) this a b c d e f))
+             (-invoke [this a b c d e f g]
+                      ((get meths '-invoke) this a b c d e f g))
+             (-invoke [this a b c d e f g h]
+                      ((get meths '-invoke) this a b c d e f g h))
+             (-invoke [this a b c d e f g h i]
+                      ((get meths '-invoke) this a b c d e f g h i))
+             (-invoke-more [this a b c d e f g h i rest*]
+                           (apply (get meths '-invoke) this a b c d e f g h i rest*))
+             (-apply [this args]
+                     (apply (get meths '-invoke) this args))])
   #?@(:cljs [IPrintWithWriter
              (-pr-writer [this w opts]
                          (sci-pr-writer this w opts))
@@ -107,12 +133,13 @@
                :cljs (cljs.core/implements? sci.impl.types.ICustomType x))
         :sci.impl.protocols/reified)
       (some-> x meta :type)
-      #?(:cljd (.-runtimeType x)
+      #?(:cljd (when (some? x) (.-runtimeType x))
          :clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
 
 #?(:cljs (defmulti sci-pr-writer (fn [x & _] (type-impl x))))
-(defmulti sci-invoke (fn [x & _] (type-impl x)))
+#?(:cljd (def sci-invoke (mm/->SciMultiFn 'sci-invoke (fn [x & _] (type-impl x)) :default (atom {})))
+   :default (defmulti sci-invoke (fn [x & _] (type-impl x))))
 #?(:cljd nil :clj (defmulti sci-apply-to (fn [x & _] (type-impl x))))
 #?(:cljd nil :clj (defmethod sci-apply-to :default [x args]
                     (apply sci-invoke x args)))

@@ -66,23 +66,23 @@
                           method-meta (assoc method-meta :protocol (list 'var fq-protocol-name))
                           ; re-quote arglists
                           method-meta (update method-meta :arglists (fn [a] (list 'quote a)))
-                          impls [`(defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)
-                                 `(defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
+                          impls [`(~'defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)
+                                 `(~'defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
                                     (let [methods# (clojure.core/-reified-methods x#)]
                                       (if-let [m# (get methods# '~method-name)]
                                         (apply m# x# args#)
-                                        (if-let [default# (get-method ~method-name :default)]
+                                        (if-let [default# (~'get-method ~method-name :default)]
                                           (apply default# x# args#)
-                                          (throw (ex-info "No method " '~method-name " found for: " (type x#)))))))]
+                                          (throw (ex-info "No method " '~method-name " found for: " (~'type x#)))))))]
                           impls (if extend-meta
                                   (conj impls
-                                        `(defmethod ~method-name :default [x# & args#]
+                                        `(~'defmethod ~method-name :default [x# & args#]
                                            (let [meta# (meta x#)
                                                  method# (get meta# '~fq-name)]
                                              (if method#
                                                (apply method# x# args#)
-                                               (let [method# (get-method ~method-name (#?(:cljd type :clj class :cljs type) x#))
-                                                     default# (get-method ~method-name :default)]
+                                               (let [method# (~'get-method ~method-name (#?(:cljd ~'type :clj class :cljs type) x#))
+                                                     default# (~'get-method ~method-name :default)]
                                                  (if (not= method# default#)
                                                    (apply method# x# args#)
                                                    (throw (new #?(:cljd ~'Exception
@@ -94,9 +94,9 @@
                                                                     (clojure.core/protocol-type-impl x#))))))))))
                                   (conj impls
                                         ;; fallback method for extension on IRecord
-                                        `(defmethod ~method-name :default [x# & args#]
-                                           (let [method# (get-method ~method-name (#?(:cljd type :clj class :cljs type) x#))
-                                                 default# (get-method ~method-name :default)]
+                                        `(~'defmethod ~method-name :default [x# & args#]
+                                           (let [method# (~'get-method ~method-name (#?(:cljd ~'type :clj class :cljs type) x#))
+                                                 default# (~'get-method ~method-name :default)]
                                              (if (not= method# default#)
                                                (apply method# x# args#)
                                                (throw (new #?(:cljd ~'Exception
@@ -149,13 +149,13 @@
                     (if-let [meth# (get m# '~fq)]
                       (apply meth# ~args)
                       ;; look for type specific method
-                      (let [meth# (get-method ~fq (#?(:cljd type :clj class :cljs type) farg#))
-                            default# (get-method ~fq :default)]
+                      (let [meth# (~'get-method ~fq (#?(:cljd ~'type :clj class :cljs type) farg#))
+                            default# (~'get-method ~fq :default)]
                         (if (not= default# meth#)
                           (apply meth# ~args)
                           (do ~@body))))
-                    (let [meth# (get-method ~fq (#?(:cljd type :clj class :cljs type) farg#))
-                          default# (get-method ~fq :default)]
+                    (let [meth# (~'get-method ~fq (#?(:cljd ~'type :clj class :cljs type) farg#))
+                          default# (~'get-method ~fq :default)]
                       (if (not= default# meth#)
                         (apply meth# ~args)
                         (do ~@body)))))
@@ -169,8 +169,8 @@
 (defn process-single
   [fq [args & body]]
   (list args `(let [farg# ~(first args)]
-                (let [meth# (get-method ~fq (#?(:cljd type :clj class :cljs type) farg#))
-                      default# (get-method ~fq :default)]
+                (let [meth# (~'get-method ~fq (#?(:cljd ~'type :clj class :cljs type) farg#))
+                      default# (~'get-method ~fq :default)]
                   (if (not= default# meth#)
                     (apply meth# ~args)
                     (do ~@body))))))
@@ -190,10 +190,10 @@
                              (map #(process-single fq %) fn-body))
                            :else fn-body)]
          (if default-method?
-           `(defmethod ~fq
+           `(~'defmethod ~fq
               :default
               ~@fn-body)
-           `(defmethod ~fq
+           `(~'defmethod ~fq
               ~type
               ~@fn-body))))
      meths)))
@@ -211,9 +211,9 @@
 
 (defn type->str
   [t]
-  (if (some? t)
-    (str t)
-    "nil"))
+  (cond (nil? t) "nil"
+        (and (map? t) (:class t)) (str (:class t))
+        :else (str t)))
 
 (defn extend-protocol [form _ protocol-name & impls]
   (let [ctx (store/get-ctx)
@@ -270,8 +270,15 @@
            (contains? sats "nil"))
          (when-let [t (types/type-impl obj)]
            (contains? sats (type->str t)))))
-      ;; no get-method/methods on cljd
-      #?(:cljd false
+      ;; built-in protocol :methods are host multifns on cljd, only
+      ;; sci-created SciMultiFns are inspectable
+      #?(:cljd
+         (boolean (some #(when (instance? mms/SciMultiFn %)
+                           (when-let [m (mms/get-method-impl % (types/type-impl obj))]
+                             (let [ms (mms/methods-impl %)
+                                   default (get ms :default)]
+                               (not (identical? m default)))))
+                        (:methods protocol)))
          :default
          (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
                            (let [ms (methods %)
@@ -353,5 +360,7 @@
 (defn extends?
   "Returns true if atype extends protocol"
   [protocol atype]
-  #?(:cljd false
+  #?(:cljd (boolean (some #(when (instance? mms/SciMultiFn %)
+                             (mms/get-method-impl % atype))
+                          (:methods protocol)))
      :default (boolean (some #(get-method % atype) (:methods protocol)))))

@@ -1333,14 +1333,17 @@
      ;; multimethods
      'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
-     #?@(:cljd [] :default ['get-method (copy-core-var get-method)])
-     #?@(:cljd [] :default ['methods (copy-core-var methods)])
+     #?@(:cljd ['get-method (new-var 'get-method sci.impl.multimethods/get-method-impl clojure-core-ns)]
+         :default ['get-method (copy-core-var get-method)])
+     #?@(:cljd ['methods (new-var 'methods sci.impl.multimethods/methods-impl clojure-core-ns)]
+         :default ['methods (copy-core-var methods)])
      'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
      'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
      'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
      #?@(:cljd [] :default ['prefer-method (copy-core-var prefer-method)])
      #?@(:cljd [] :default ['prefers (copy-core-var prefers)])
-     #?@(:cljd [] :default ['remove-method (copy-core-var remove-method)])
+     #?@(:cljd ['remove-method (new-var 'remove-method sci.impl.multimethods/remove-method-impl clojure-core-ns)]
+         :default ['remove-method (copy-core-var remove-method)])
      #?@(:cljd [] :default ['remove-all-methods (copy-core-var remove-all-methods)])
      ;; end multimethods
      ;; protocols
@@ -1364,7 +1367,9 @@
      ;; end protocols
      ;; IDeref as protocol
      'deref (copy-var core-protocols/deref* clojure-core-ns {:name 'deref})
-     #?@(:cljs ['-deref (new-var '-deref core-protocols/-deref)
+     #?@(:cljd ['-deref (new-var '-deref core-protocols/-deref)
+                'IDeref core-protocols/deref-protocol]
+         :cljs ['-deref (new-var '-deref core-protocols/-deref)
                 'IDeref core-protocols/deref-protocol])
      ;; end IDeref as protocol
      ;; IAtom / ISwap as protocol
@@ -1372,7 +1377,11 @@
      'compare-and-set! #?(:cljd (copy-core-var compare-and-set!)
                           :clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
                           :cljs (copy-core-var compare-and-set!))
-     #?@(:cljs ['IReset core-protocols/reset-protocol
+     #?@(:cljd ['IReset core-protocols/reset-protocol
+                'ISwap core-protocols/swap-protocol
+                '-swap! (new-var '-swap! core-protocols/-swap!)
+                '-reset! (new-var '-reset! core-protocols/-reset!)]
+         :cljs ['IReset core-protocols/reset-protocol
                 'ISwap core-protocols/swap-protocol
                 '-swap! (new-var '-swap! core-protocols/-swap!)
                 '-reset! (new-var '-reset! core-protocols/-reset!)])
@@ -1380,7 +1389,11 @@
      #?@(:clj ['swap-vals! (copy-var core-protocols/swap-vals!* clojure-core-ns {:name 'swap-vals!})
                'reset-vals! (copy-var core-protocols/reset-vals!* clojure-core-ns {:name 'reset-vals!})])
 
-     #?@(:cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
+     #?@(:cljd ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
+                                        {:ns clojure-core-ns})
+                'IFn core-protocols/ifn-protocol
+                '-invoke (new-var '-invoke types/sci-invoke)]
+         :cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                         {:ns clojure-core-ns})
                 'IPrintWithWriter core-protocols/print-writer-protocol
                 '-pr-writer (new-var '-pr-writer types/sci-pr-writer)

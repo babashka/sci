@@ -9,6 +9,66 @@
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
+#?(:cljd
+   (defn- no-method [mm-name dv]
+     (throw (ex-info (str "No method in multimethod '" mm-name "' for dispatch value: " dv) {}))))
+
+;; no hierarchies on cljd, dispatch is exact match with a default fallback
+#?(:cljd
+   (deftype SciMultiFn [mm-name dispatch-fn default method-table]
+     IFn
+     (-invoke [_]
+       (let [dv (dispatch-fn) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f) (no-method mm-name dv))))
+     (-invoke [_ a]
+       (let [dv (dispatch-fn a) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a) (no-method mm-name dv))))
+     (-invoke [_ a b]
+       (let [dv (dispatch-fn a b) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b) (no-method mm-name dv))))
+     (-invoke [_ a b c]
+       (let [dv (dispatch-fn a b c) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c) (no-method mm-name dv))))
+     (-invoke [_ a b c d]
+       (let [dv (dispatch-fn a b c d) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d) (no-method mm-name dv))))
+     (-invoke [_ a b c d e]
+       (let [dv (dispatch-fn a b c d e) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f*]
+       (let [dv (dispatch-fn a b c d e f*) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f*) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f* g]
+       (let [dv (dispatch-fn a b c d e f* g) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f* g) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f* g h]
+       (let [dv (dispatch-fn a b c d e f* g h) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f* g h) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f* g h i]
+       (let [dv (dispatch-fn a b c d e f* g h i) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f* g h i) (no-method mm-name dv))))
+     (-invoke-more [_ a b c d e f* g h i rest*]
+       (let [dv (apply dispatch-fn a b c d e f* g h i rest*)
+             mt @method-table
+             f (or (get mt dv) (get mt default))]
+         (if f (apply f a b c d e f* g h i rest*) (no-method mm-name dv))))
+     (-apply [this args]
+       (let [dv (apply dispatch-fn args)
+             mt @method-table
+             f (or (get mt dv) (get mt default))]
+         (if f (apply f args) (no-method mm-name dv))))))
+
+#?(:cljd
+   (do
+     (defn get-method-impl [^SciMultiFn multifn dispatch-val]
+       (let [mt @(.-method-table multifn)]
+         (or (get mt dispatch-val) (get mt (.-default multifn)))))
+     (defn methods-impl [^SciMultiFn multifn]
+       @(.-method-table multifn))
+     (defn remove-method-impl [^SciMultiFn multifn dispatch-val]
+       (swap! (.-method-table multifn) dissoc dispatch-val)
+       multifn)))
+
 (defn ^:private check-valid-options
   "Throws an exception if the given option map contains keys not listed
   as valid, else returns nil."
@@ -76,7 +136,8 @@
           default   (get options :default :default)
           hierarchy (get options :hierarchy #?(:cljd nil :default (global-hierarchy)))]
       (check-valid-options options :default :hierarchy)
-      #?(:cljd (throw (ex-info "defmulti is not yet supported in SCI on ClojureDart" {}))
+      #?(:cljd `(~'defonce ~(with-meta mm-name m)
+                 (clojure.core/multi-fn-impl ~(name mm-name) ~dispatch-fn ~default nil))
          :clj `(let [v# (def ~mm-name)]
                  (when-not (and (clojure.core/has-root-impl v#) (clojure.core/multi-fn?-impl (deref v#)))
                    (def ~mm-name
@@ -90,7 +151,7 @@
                                                 method-table# prefer-table# method-cache# cached-hierarchy#)))))))
 
 (defn multi-fn?-impl [x]
-  #?(:cljd false
+  #?(:cljd (instance? SciMultiFn x)
      :clj (instance? clojure.lang.MultiFn x)
      :cljs (instance? cljs.core/MultiFn x)))
 
@@ -98,14 +159,23 @@
                        :clj [name dispatch-fn default hierarchy]
                        :cljs [name dispatch-fn default hierarchy
                               method-table prefer-table method-cache cached-hierarchy])
-  #?(:cljd (throw (ex-info "defmulti is not yet supported in SCI on ClojureDart" {}))
+  #?(:cljd (SciMultiFn. name dispatch-fn default (atom {}))
      :clj (new clojure.lang.MultiFn name dispatch-fn default hierarchy)
      :cljs (new cljs.core/MultiFn name dispatch-fn default hierarchy
                 method-table prefer-table method-cache cached-hierarchy)))
 
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]
-  #?(:cljd (throw (ex-info "defmethod is not yet supported in SCI on ClojureDart" {}))
+  ;; cljd class values are registry maps, dispatch on the Dart type,
+  ;; Object extension acts as the default like on cljs
+  #?(:cljd (let [dispatch-val (if (and (map? dispatch-val) (:instance? dispatch-val))
+                                (:class dispatch-val)
+                                dispatch-val)
+                 dispatch-val (if (identical? Object dispatch-val)
+                                :default
+                                dispatch-val)]
+             (swap! (.-method-table ^SciMultiFn multifn) assoc dispatch-val f)
+             multifn)
      :clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
      :cljs (-add-method multifn dispatch-val f)))
 
