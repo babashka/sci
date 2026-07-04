@@ -118,14 +118,13 @@
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
         class->opts (:class->opts env)]
-    (or #?(:cljd (when (contains? class->opts sym) sym)
-           :clj (when (contains? class->opts sym) sym)
-           :cljs (if-let [ns* (namespace sym)]
+    (or #?(:cljs (if-let [ns* (namespace sym)]
                    (when (identical? "js" ns*)
                      (when (contains? class->opts (symbol (name sym)))
                        sym))
                    (when (contains? class->opts sym)
-                     sym)))
+                     sym))
+           :default (when (contains? class->opts sym) sym))
         (let [cnn (utils/current-ns-name)
               imports (get-in env [:namespaces cnn :imports])]
           (if-let [[_ v] (find imports sym)]
@@ -138,12 +137,11 @@
   ;; almost the same, since `js/Foo` stays fully qualified
   (let [env @(:env ctx)
         class->opts (:class->opts env)
-        class-opts (or #?(:cljd (get class->opts sym)
-                          :clj (get class->opts sym)
-                          :cljs (if-let [ns* (namespace sym)]
+        class-opts (or #?(:cljs (if-let [ns* (namespace sym)]
                                   (when (identical? "js" ns*)
                                     (get class->opts (symbol (name sym))))
-                                  (get class->opts sym)))
+                                  (get class->opts sym))
+                          :default (get class->opts sym))
                        (let [cnn (utils/current-ns-name)
                              imports (get-in env [:namespaces cnn :imports])]
                          (if-let [[_ v] (find imports sym)]
