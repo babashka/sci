@@ -45,14 +45,11 @@
                      #?@(:cljs [js-libs (merge (:js-libs env) js-libs)])]
                  ;; TODO: is the first case ever hit?
                  (if-not env
-                   #?(:cljd {:namespaces namespaces
-                             :imports imports
-                             :load-fn load-fn}
-                      :clj (->Env namespaces imports load-fn)
-                      :cljs {:namespaces namespaces
-                             :imports imports
-                             :load-fn load-fn
-                             :async-load-fn async-load-fn})
+                   #?(:clj (->Env namespaces imports load-fn)
+                      :default {:namespaces namespaces
+                                :imports imports
+                                :load-fn load-fn
+                                #?@(:cljs [:async-load-fn async-load-fn])})
                    (assoc env
                           :namespaces namespaces
                           :imports imports
@@ -185,19 +182,13 @@
                         interrupt-fn]))
 
 (defn ->ctx [bindings env features readers check-permissions? & {:keys [interrupt-fn]}]
-  #?(:cljd {:bindings bindings
-            :env env
-            :features features
-            :readers readers
-            :check-permissions check-permissions?
-            :interrupt-fn interrupt-fn}
-     :cljs {:bindings bindings
-            :env env
-            :features features
-            :readers readers
-            :check-permissions check-permissions?
-            :interrupt-fn interrupt-fn}
-     :clj (->Ctx bindings env features readers false check-permissions? interrupt-fn)))
+  #?(:clj (->Ctx bindings env features readers false check-permissions? interrupt-fn)
+     :default {:bindings bindings
+               :env env
+               :features features
+               :readers readers
+               :check-permissions check-permissions?
+               :interrupt-fn interrupt-fn}))
 
 (def default-ns-aliases
   #?(:clj {}
