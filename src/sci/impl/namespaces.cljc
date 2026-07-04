@@ -911,19 +911,15 @@
 
 ;;;; REPL vars
 
-;; on cljd the bare sym init would reference the var being defined itself
+;; nil init: the bare sym would reference the var being defined itself
 
-(def *1 #?(:cljd (copy-var *1 clojure-core-ns {:copy-meta-from clojure.core/*1 :init nil})
-           :default (copy-core-var *1)))
+(def *1 (copy-var *1 clojure-core-ns {:copy-meta-from clojure.core/*1 :init nil}))
 
-(def *2 #?(:cljd (copy-var *2 clojure-core-ns {:copy-meta-from clojure.core/*2 :init nil})
-           :default (copy-core-var *2)))
+(def *2 (copy-var *2 clojure-core-ns {:copy-meta-from clojure.core/*2 :init nil}))
 
-(def *3 #?(:cljd (copy-var *3 clojure-core-ns {:copy-meta-from clojure.core/*3 :init nil})
-           :default (copy-core-var *3)))
+(def *3 (copy-var *3 clojure-core-ns {:copy-meta-from clojure.core/*3 :init nil}))
 
-(def *e #?(:cljd (copy-var *e clojure-core-ns {:copy-meta-from clojure.core/*e :init nil})
-           :default (copy-core-var *e)))
+(def *e (copy-var *e clojure-core-ns {:copy-meta-from clojure.core/*e :init nil}))
 
 ;;;; Patch for CLJS type
 
