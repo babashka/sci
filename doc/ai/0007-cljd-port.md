@@ -10,10 +10,21 @@ eval-form, eval-string, def, defn all pass (test/sci/parse_test.cljc runs
 ungated on all platforms). copy-ns and future are stubbed/absent on cljd.
 
 Next: non-record deftype arm, interop for :classes. Test sweep done: selector
-runs core, error, vars, namespaces, io, repl and impl tests on cljd (209
-assertions). read-test is JVM-only (host readers), skipped. Remaining
-namespaces need punted features (multimethods, protocols, hierarchies,
-interop, deftype, threads). Multimethods (and protocols, which build on them) are
+runs core, error, vars, namespaces, io, repl, impl, multimethods, protocols
+and core-protocols tests on cljd (227 assertions). read-test is JVM-only
+(host readers), skipped.
+
+Multimethods and protocols work on cljd via a sci-owned SciMultiFn
+(multimethods.cljc): method table in an atom, exact-match dispatch plus
+:default, no hierarchies (like the host), so prefer-method stays
+unsupported. Built-in protocol multifns (-deref, -swap!, -reset!,
+sci-invoke) are SciMultiFns seeded at construction, Dart cannot add methods
+to host defmultis at runtime. Class dispatch values normalize through
+:class in multi-fn-add-method-impl, Object extension maps to :default.
+Dart core types are registered as dart.core.String etc with import
+aliases, bare int/double/bool compile to cast fns on cljd so the registry
+captures runtimeType Type objects instead. Reified has a cljd IFn mixin
+calling its method map directly, like cljs. Multimethods (and protocols, which build on them) are
 punted for now: defmulti/defprotocol throw "not yet supported" on cljd, tests
 gated with TODO:cljd markers.
 
