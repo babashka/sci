@@ -271,7 +271,7 @@
                                                                                (fn [this v]
                                                                                  (types/-mutate this field v)))
                                                                              field-set)))
-                          `(~'defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
+                          `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                      impls)))
             protocol-impls)]
        (emit-deftype rec-type record-name factory-fn-sym
@@ -337,7 +337,7 @@
                                            `(~args
                                              (let ~bindings
                                                ~@body)))) bodies)]
-                      `(~'defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
+                      `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
                   impls)))
          protocol-impls)]
     (emit-record-type rec-type record-name constructor-fn-sym map-factory-sym
@@ -495,7 +495,7 @@
                                                                                          (fn [this v]
                                                                                            (types/-mutate this field v)))
                                                                                        field-set)))
-                                    `(~'defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
+                                    `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                              impls)))
                     protocol-impls)]
                (emit-deftype rec-type record-name factory-fn-sym

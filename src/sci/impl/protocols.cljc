@@ -66,23 +66,23 @@
                           method-meta (assoc method-meta :protocol (list 'var fq-protocol-name))
                           ; re-quote arglists
                           method-meta (update method-meta :arglists (fn [a] (list 'quote a)))
-                          impls [`(~'defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)
-                                 `(~'defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
+                          impls [`(~'clojure.core/defmulti ~method-name ~method-meta clojure.core/protocol-type-impl)
+                                 `(~'clojure.core/defmethod ~method-name :sci.impl.protocols/reified [x# & args#]
                                     (let [methods# (clojure.core/-reified-methods x#)]
                                       (if-let [m# (get methods# '~method-name)]
                                         (apply m# x# args#)
-                                        (if-let [default# (~'get-method ~method-name :default)]
+                                        (if-let [default# (~'clojure.core/get-method ~method-name :default)]
                                           (apply default# x# args#)
-                                          (throw (ex-info "No method " '~method-name " found for: " (~'type x#)))))))]
+                                          (throw (ex-info "No method " '~method-name " found for: " (~'clojure.core/type x#)))))))]
                           impls (if extend-meta
                                   (conj impls
-                                        `(~'defmethod ~method-name :default [x# & args#]
+                                        `(~'clojure.core/defmethod ~method-name :default [x# & args#]
                                            (let [meta# (meta x#)
                                                  method# (get meta# '~fq-name)]
                                              (if method#
                                                (apply method# x# args#)
-                                               (let [method# (~'get-method ~method-name (#?(:cljd ~'type :clj class :cljs type) x#))
-                                                     default# (~'get-method ~method-name :default)]
+                                               (let [method# (~'clojure.core/get-method ~method-name (#?(:cljd ~'clojure.core/type :clj class :cljs type) x#))
+                                                     default# (~'clojure.core/get-method ~method-name :default)]
                                                  (if (not= method# default#)
                                                    (apply method# x# args#)
                                                    (throw (new #?(:cljd ~'Exception
@@ -94,9 +94,9 @@
                                                                     (clojure.core/protocol-type-impl x#))))))))))
                                   (conj impls
                                         ;; fallback method for extension on IRecord
-                                        `(~'defmethod ~method-name :default [x# & args#]
-                                           (let [method# (~'get-method ~method-name (#?(:cljd ~'type :clj class :cljs type) x#))
-                                                 default# (~'get-method ~method-name :default)]
+                                        `(~'clojure.core/defmethod ~method-name :default [x# & args#]
+                                           (let [method# (~'clojure.core/get-method ~method-name (#?(:cljd ~'clojure.core/type :clj class :cljs type) x#))
+                                                 default# (~'clojure.core/get-method ~method-name :default)]
                                              (if (not= method# default#)
                                                (apply method# x# args#)
                                                (throw (new #?(:cljd ~'Exception
@@ -149,13 +149,13 @@
                     (if-let [meth# (get m# '~fq)]
                       (apply meth# ~args)
                       ;; look for type specific method
-                      (let [meth# (~'get-method ~fq (#?(:cljd ~'type :clj class :cljs type) farg#))
-                            default# (~'get-method ~fq :default)]
+                      (let [meth# (~'clojure.core/get-method ~fq (#?(:cljd ~'clojure.core/type :clj class :cljs type) farg#))
+                            default# (~'clojure.core/get-method ~fq :default)]
                         (if (not= default# meth#)
                           (apply meth# ~args)
                           (do ~@body))))
-                    (let [meth# (~'get-method ~fq (#?(:cljd ~'type :clj class :cljs type) farg#))
-                          default# (~'get-method ~fq :default)]
+                    (let [meth# (~'clojure.core/get-method ~fq (#?(:cljd ~'clojure.core/type :clj class :cljs type) farg#))
+                          default# (~'clojure.core/get-method ~fq :default)]
                       (if (not= default# meth#)
                         (apply meth# ~args)
                         (do ~@body)))))
@@ -169,8 +169,8 @@
 (defn process-single
   [fq [args & body]]
   (list args `(let [farg# ~(first args)]
-                (let [meth# (~'get-method ~fq (#?(:cljd ~'type :clj class :cljs type) farg#))
-                      default# (~'get-method ~fq :default)]
+                (let [meth# (~'clojure.core/get-method ~fq (#?(:cljd ~'clojure.core/type :clj class :cljs type) farg#))
+                      default# (~'clojure.core/get-method ~fq :default)]
                   (if (not= default# meth#)
                     (apply meth# ~args)
                     (do ~@body))))))
@@ -190,10 +190,10 @@
                              (map #(process-single fq %) fn-body))
                            :else fn-body)]
          (if default-method?
-           `(~'defmethod ~fq
+           `(~'clojure.core/defmethod ~fq
               :default
               ~@fn-body)
-           `(~'defmethod ~fq
+           `(~'clojure.core/defmethod ~fq
               ~type
               ~@fn-body))))
      meths)))

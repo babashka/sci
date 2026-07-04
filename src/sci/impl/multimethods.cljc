@@ -60,13 +60,23 @@
 
 #?(:cljd
    (do
+     ;; class values are registry maps, dispatch on the Dart type, Object acts as default
+     (defn normalize-dispatch-val [dispatch-val]
+       (let [dispatch-val (if (and (map? dispatch-val) (fn? (:instance? dispatch-val)))
+                            (or (:class dispatch-val)
+                                (throw (ex-info "Class cannot be used as a dispatch value" {})))
+                            dispatch-val)]
+         (if (identical? Object dispatch-val)
+           :default
+           dispatch-val)))
      (defn get-method-impl [^SciMultiFn multifn dispatch-val]
-       (let [mt @(.-method-table multifn)]
+       (let [mt @(.-method-table multifn)
+             dispatch-val (normalize-dispatch-val dispatch-val)]
          (or (get mt dispatch-val) (get mt (.-default multifn)))))
      (defn methods-impl [^SciMultiFn multifn]
        @(.-method-table multifn))
      (defn remove-method-impl [^SciMultiFn multifn dispatch-val]
-       (swap! (.-method-table multifn) dissoc dispatch-val)
+       (swap! (.-method-table multifn) dissoc (normalize-dispatch-val dispatch-val))
        multifn)))
 
 (defn ^:private check-valid-options
@@ -166,17 +176,9 @@
 
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]
-  ;; cljd class values are registry maps, dispatch on the Dart type,
-  ;; Object extension acts as the default like on cljs
-  #?(:cljd (let [dispatch-val (if (and (map? dispatch-val) (fn? (:instance? dispatch-val)))
-                                (or (:class dispatch-val)
-                                    (throw (ex-info "Class cannot be used as a dispatch value" {})))
-                                dispatch-val)
-                 dispatch-val (if (identical? Object dispatch-val)
-                                :default
-                                dispatch-val)]
-             (swap! (.-method-table ^SciMultiFn multifn) assoc dispatch-val f)
-             multifn)
+  #?(:cljd (do (swap! (.-method-table ^SciMultiFn multifn) assoc
+                      (normalize-dispatch-val dispatch-val) f)
+               multifn)
      :clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
      :cljs (-add-method multifn dispatch-val f)))
 
