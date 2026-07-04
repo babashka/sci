@@ -21,12 +21,7 @@
       (string? x)
       (keyword? x)
       (boolean? x)
-      #?(:cljd
-         (instance? RegExp x)
-         :clj
-         (instance? java.util.regex.Pattern x)
-         :cljs
-         (instance? js/RegExp x))))
+      (instance? #?(:cljd RegExp :clj java.util.regex.Pattern :cljs js/RegExp) x)))
 
 #?(:cljd
    ;; keywords are not reference-equal on cljd
