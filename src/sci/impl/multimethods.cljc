@@ -168,8 +168,9 @@
   [multifn dispatch-val f]
   ;; cljd class values are registry maps, dispatch on the Dart type,
   ;; Object extension acts as the default like on cljs
-  #?(:cljd (let [dispatch-val (if (and (map? dispatch-val) (:instance? dispatch-val))
-                                (:class dispatch-val)
+  #?(:cljd (let [dispatch-val (if (and (map? dispatch-val) (fn? (:instance? dispatch-val)))
+                                (or (:class dispatch-val)
+                                    (throw (ex-info "Class cannot be used as a dispatch value" {})))
                                 dispatch-val)
                  dispatch-val (if (identical? Object dispatch-val)
                                 :default
