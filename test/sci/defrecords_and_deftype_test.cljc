@@ -180,13 +180,15 @@
 (ns foo) (defrecord Foo []) (instance? sci.lang.Type (type (->Foo)))"]
     (is (true? (tu/eval* prog {})))))
 
+;; TODO:cljd no hierarchies
+#?(:cljd nil :default
 (deftest derive-test
   (let [prog "
 (ns foo) (defrecord Foo []) (derive Foo ::bar) (isa? (type (Foo.)) ::bar)"]
     (is (true? (tu/eval* prog {}))))
   (let [prog "
 (ns foo) (defrecord Foo []) (derive Foo ::bar) (isa? (type {}) ::bar)"]
-    (is (false? (tu/eval* prog {})))))
+    (is (false? (tu/eval* prog {}))))))
 
 (deftest to-string-test
   (let [prog "(defrecord A [x] Object (toString [x] (str \"ARecord@\" (into {} x)))) (str (->A 1))"]
@@ -196,7 +198,8 @@
   (let [prog "(ns foo) (defrecord A [x y z]) (str [#foo.A{:x 1 :y 2 :z 3} (read-string \"#foo.A{:x 1 :y 2 :z 3}\")])"]
     (is (= "[#foo.A{:x 1, :y 2, :z 3} #foo.A{:x 1, :y 2, :z 3}]" (tu/eval* prog {})))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest print-method-test
      (let [prog "(ns foo) (defrecord A [x y z]) (defmethod print-method A [x writer] (.write writer \"<A>\")) (pr-str [(->A 1 2 3)])"]
        (is (= "[<A>]" (tu/eval* prog {}))))))
@@ -225,11 +228,13 @@
   (is
    (= 10
       (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo nil) (setField)))"
-                             "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                             "^:volatile-mutable" #?(:cljd "^:volatile-mutable"
+                                                     :clj "^:volatile-mutable"
                                                      :cljs "^:mutable")) {})))
   (is (= [1 2 2]
          (tu/eval* (str/replace "(defprotocol ICounter (inc! [_])) (deftype Cnt [^:volatile-mutable n] ICounter (inc! [_] (let [old-n n new-n-set (set! n (inc n)) new-n n] [old-n new-n-set new-n]))) (inc! (->Cnt 1))"
-                                "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                "^:volatile-mutable" #?(:cljd "^:volatile-mutable"
+                                                     :clj "^:volatile-mutable"
                                                         :cljs "^:mutable"))
                    {})))
   (testing "deftype inside non-top-level form (issue #1936)"
@@ -239,18 +244,21 @@
   (testing "getting value of shadowed field"
     (is (= 10
            (tu/eval* (str/replace "(defprotocol ICounter (inc! [_])) (deftype Cnt [^:volatile-mutable n] ICounter (inc! [_] (let [n 10] n))) (inc! (->Cnt 1))"
-                                  "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                  "^:volatile-mutable" #?(:cljd "^:volatile-mutable"
+                                                     :clj "^:volatile-mutable"
                                                           :cljs "^:mutable"))
                      {}))))
   (testing "can't assign shadowed field"
-    (is (thrown? Exception
+    (is (thrown? #?(:cljd cljd.core/ExceptionInfo :default Exception)
                  (tu/eval* (str/replace "(defprotocol ICounter (inc! [_])) (deftype Cnt [^:volatile-mutable n] ICounter (inc! [_] (let [n n] (set! n 10)))) (inc! (->Cnt 1))"
-                                        "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                        "^:volatile-mutable" #?(:cljd "^:volatile-mutable"
+                                                     :clj "^:volatile-mutable"
                                                                 :cljs "^:mutable"))
                            {}))))
   (testing "TODO fix"
     #_(is (= 2 (sci/eval-string (str/replace "(defprotocol GetX (getX [_])) (deftype Foo [^:volatile-mutable x y] GetX (getX [_] (set! x inc) (x 1))) (getX (->Foo identity 0))"
-                                             "^:volatile-mutable" #?(:clj "^:volatile-mutable"
+                                             "^:volatile-mutable" #?(:cljd "^:volatile-mutable"
+                                                     :clj "^:volatile-mutable"
                                                                      :cljs "^:mutable"))))))
 
   #?(:clj
@@ -313,7 +321,8 @@
   (testing "babashka #1899"
     (is (= {} (sci/eval-string "(defrecord MyRecord [a]) (dissoc (with-meta (->MyRecord 1) {:foo :bar}) :a)")))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest deftype-fn-test
      (when-not tu/native?
        (testing "deftype-fn hook is called when interfaces are present"
@@ -487,11 +496,11 @@
     (is (true? (tu/eval* "(defrecord Bar [x]) (instance? sci.lang.Type (resolve 'Bar))" {})))
     (is (false? (tu/eval* "(defrecord Bar [x]) (var? (resolve 'Bar))" {}))))
   (testing "#'Foo throws for deftype (no var, matching Clojure)"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                           #"Unable to resolve var"
                           (tu/eval* "(deftype Foo [x]) #'Foo" {}))))
   (testing "#'Bar throws for defrecord (no var, matching Clojure)"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                           #"Unable to resolve var"
                           (tu/eval* "(defrecord Bar [x]) #'Bar" {}))))
   #?(:clj
@@ -560,7 +569,7 @@
 
 (deftest use-does-not-bring-constructor-test
   (testing "deftype constructor requires :import, not just :use"
-    (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+    (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                           #"Unable to resolve"
                           (tu/eval* "(ns foo) (deftype Bar [x])
                                      (ns baz (:use [foo]))
@@ -613,23 +622,23 @@
     (is (some? (tu/eval* "(ns bar+) (deftype Thing [x]) (some? (->Thing 1))" {})))))
 
 (deftest ifn-on-defrecord-test
-  (let [opts {:features #?(:clj #{:clj} :cljs #{:cljs})}]
+  (let [opts {:features #?(:cljd #{:cljd} :clj #{:clj} :cljs #{:cljs})}]
     (testing "defrecord with IFn single arity"
       (is (= "Hello, world!"
              (sci/eval-string "
 (defrecord Greeter [greeting]
-  #?(:clj clojure.lang.IFn :cljs IFn)
-  (#?(:clj invoke :cljs -invoke) [this name]
+  #?(:cljd IFn :clj clojure.lang.IFn :cljs IFn)
+  (#?(:cljd -invoke :clj invoke :cljs -invoke) [this name]
     (str greeting \", \" name \"!\")))
 ((->Greeter \"Hello\") \"world\")" opts))))
     (testing "defrecord with IFn multiple arities"
       (is (= [42 3]
              (sci/eval-string "
 (defrecord Adder [x]
-  #?(:clj clojure.lang.IFn :cljs IFn)
-  (#?(:clj invoke :cljs -invoke) [this]
+  #?(:cljd IFn :clj clojure.lang.IFn :cljs IFn)
+  (#?(:cljd -invoke :clj invoke :cljs -invoke) [this]
     x)
-  (#?(:clj invoke :cljs -invoke) [this y]
+  (#?(:cljd -invoke :clj invoke :cljs -invoke) [this y]
     (+ x y)))
 [((->Adder 42)) ((->Adder 1) 2)]" opts))))
     (testing "defrecord with IFn and other protocols"
@@ -639,8 +648,8 @@
 (defrecord Greeter [greeting]
   Greetable
   (greet [this] (str \"greeting: \" greeting))
-  #?(:clj clojure.lang.IFn :cljs IFn)
-  (#?(:clj invoke :cljs -invoke) [this arg]
+  #?(:cljd IFn :clj clojure.lang.IFn :cljs IFn)
+  (#?(:cljd -invoke :clj invoke :cljs -invoke) [this arg]
     (str \"called: \" arg)))
 (let [g (->Greeter \"hi\")]
   [(g \"hi\") (= \"greeting: hi\" (greet g))])" opts))))

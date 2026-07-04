@@ -3,6 +3,7 @@
   (:refer-clojure :exclude [deftype])
   (:require
    [sci.ctx-store :as store]
+   #?(:cljd [sci.impl.multimethods :as mm])
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
@@ -25,11 +26,18 @@
      :clj (Integer/toHexString (hash this))
      :cljs (.toString (hash this) 16)))
 
-(defmulti to-string types/type-impl)
-(defmethod to-string :default [this]
-  (let [t (types/type-impl this)]
-    (str t "@"
-         (hex-hash this))))
+#?(:cljd
+   (def to-string
+     (mm/->SciMultiFn 'to-string types/type-impl :default
+                      (atom {:default
+                             (fn [this]
+                               (str (types/type-impl this) "@" (hex-hash this)))})))
+   :default
+   (do (defmulti to-string types/type-impl)
+       (defmethod to-string :default [this]
+         (let [t (types/type-impl this)]
+           (str t "@"
+                (hex-hash this))))))
 
 #?(:clj
    (do
@@ -440,7 +448,7 @@
                                                        :protocols ~protocols-form}))))
                  (standard-scitype-path ctx form rec-type record-name factory-fn-sym
                                         fields field-set protocol-impls error-hint)))
-             :cljs
+             :default
              (let [protocol-impls
                    (mapcat
                     (fn [[protocol-name & impls]]

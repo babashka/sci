@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
   (:require [clojure.string :as str]
+            #?(:cljd [sci.impl.multimethods :as mm])
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
             [sci.lang :as lang]))
@@ -16,13 +17,20 @@
         (str "defrecord/deftype currently only support protocol implementations, found: " protocol-name)
         expr))))
 
-(defmulti to-string types/type-impl)
-(defmethod to-string :default [this]
-  (let [t (types/type-impl this)]
-    (str t "@"
-         #?(:cljd (.toRadixString (hash this) 16)
-            :clj (Integer/toHexString (hash this))
-            :cljs (.toString (hash this) 16)))))
+#?(:cljd
+   (def to-string
+     (mm/->SciMultiFn 'to-string types/type-impl :default
+                      (atom {:default
+                             (fn [this]
+                               (str (types/type-impl this) "@"
+                                    (.toRadixString (hash this) 16)))})))
+   :default
+   (do (defmulti to-string types/type-impl)
+       (defmethod to-string :default [this]
+         (let [t (types/type-impl this)]
+           (str t "@"
+                #?(:clj (Integer/toHexString (hash this))
+                   :cljs (.toString (hash this) 16)))))))
 
 (defn clojure-str [v]
   (let [t (types/type-impl v)]
@@ -71,6 +79,8 @@
        (get ext-map k))
      (-lookup [_ k else]
        (get ext-map k else))
+     (-contains-key? [_ k]
+       (contains? ext-map k))
 
      ICounted
      (-count [_]
@@ -97,6 +107,10 @@
      ISeqable
      (-seq [_]
        (seq ext-map))
+
+     IPrint
+     (-print [this sink]
+       (.write ^StringSink sink (str "#" (types/type-impl this) (into {} ext-map))))
 
      IKVReduce
      (-kv-reduce [this f init]

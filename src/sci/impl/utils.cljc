@@ -81,7 +81,7 @@
      (symbol "append")))
 
 (defn demunge [s]
-  #?(:cljd s
+  #?(:cljd (.replaceAll ^String s "_" "-")
      :clj (clojure.lang.Compiler/demunge s)
      :cljs (cljs.core/demunge s)))
 

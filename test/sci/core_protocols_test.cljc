@@ -144,7 +144,8 @@
                                     IFn (-invoke [_] :invoke)))
                       [@x (x)]"))))))
 
-#?(:cljs
+#?(:clj nil
+   :default
    (deftest ifn-deftype-test
      (testing "deftype with IFn"
        (is (= 42 (eval* "(deftype Foo [f]

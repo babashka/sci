@@ -14,7 +14,13 @@ registry (cljd.compiler/nses), skips $-named protocol infrastructure and
 and emits the cljs-shaped -copy-ns call with :val symbols that compile to
 Dart references. Runtime use throws.
 
-Next: non-record deftype arm, interop for :classes. Test sweep done: selector
+Next: interop for :classes. Non-record deftype works on cljd: the cljs arm
+of analyze-deftype* became :default (SciType path, platform-neutral).
+SciRecord gained -contains-key? (under ILookup on cljd, not IAssociative)
+and IPrint for record-style printing. to-string in deftype.cljc and
+records.cljc are SciMultiFns on cljd (Object method impls register at
+runtime). demunge on cljd maps underscores to dashes for cross-ns type
+imports. Test sweep done: selector
 runs core, error, vars, namespaces, io, repl, impl, multimethods, protocols
 and core-protocols tests on cljd (227 assertions). read-test is JVM-only
 (host readers), skipped.
