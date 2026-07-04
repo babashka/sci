@@ -396,11 +396,11 @@
           {}
           ns-publics-map))
 
-(defn- process-publics [publics {:keys [exclude]}]
+(defn- ^:macro-support process-publics [publics {:keys [exclude]}]
   (let [publics (if exclude (apply dissoc publics exclude) publics)]
     publics))
 
-(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys]
+(defn- ^:macro-support exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys]
   (reduce (fn [ns-map [var-name var]]
             (if-let [m (meta-fn var)]
               (if (some m skip-keys)
@@ -410,12 +410,12 @@
           {}
           publics-map))
 
-(defn normalize-meta [m]
+(defn ^:macro-support normalize-meta [m]
   (if-let [sci-macro (:sci/macro m)]
     (assoc m :macro sci-macro)
     m))
 
-(defn- meta-fn [opts]
+(defn- ^:macro-support meta-fn [opts]
   (cond (= :all opts) normalize-meta
         opts #(-> (select-keys % opts) normalize-meta)
         :else #(-> (select-keys % [:arglists
@@ -454,8 +454,47 @@
   manually."
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
-     #?(:cljd
-        (throw (ex-info "copy-ns is not yet supported in SCI on ClojureDart" {}))
+     #?(:cljd/clj-host
+        ;; publics come from the cljd compiler registry, :val symbols compile
+        ;; to Dart references so DCE keeps exactly what is copied
+        (let [nses @@(resolve 'cljd.compiler/nses)
+              the-ns (or (get nses ns-sym)
+                         (throw (ex-info (str "Copying non-existent namespace: " ns-sym)
+                                         {:ns ns-sym})))
+              publics-map (into {}
+                                (keep (fn [[k v]]
+                                        ;; $-names are compiler-generated protocol infrastructure
+                                        (when (and (symbol? k) (map? v)
+                                                   (not (.contains ^String (str k) "$")))
+                                          (let [m (:meta v)]
+                                            (when-not (:private m)
+                                              [k {:name k :meta m}])))))
+                                the-ns)
+              publics-map (process-publics publics-map opts)
+              mf (meta-fn (:copy-meta opts))
+              publics-map (exclude-when-meta
+                           publics-map
+                           :meta
+                           (fn [k] (list 'quote k))
+                           (fn [var m]
+                             (let [;; drop cljd compiler internals, some hold fn objects
+                                   m (dissoc m :macro-host-fn :inline :inline-arities :dart)
+                                   m (mf m)
+                                   ;; registry arglists are stored as (quote ...) forms
+                                   m (if-let [a (:arglists m)]
+                                       (assoc m :arglists
+                                              (if (and (seq? a) (= 'quote (first a)))
+                                                (second a)
+                                                a))
+                                       m)]
+                               {:name (list 'quote (:name var))
+                                :val (symbol (str ns-sym) (str (:name var)))
+                                :meta (list 'quote m)}))
+                           (or (:exclude-when-meta opts)
+                               [:no-doc :skip-wiki]))]
+          `(-copy-ns ~publics-map ~sci-ns))
+        :cljd
+        (throw (ex-info "copy-ns can only be used at compile time on ClojureDart" {}))
         :default
         (macros/? :clj
                ;; this branch is hit by macroexpanding in JVM Clojure, not in the CLJS compiler

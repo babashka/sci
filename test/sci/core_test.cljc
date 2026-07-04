@@ -1738,8 +1738,6 @@
      (testing "js objects are not instantiated at read time, but at runtime, rendering new objects each time"
        (sci/eval-string "(apply identical? (for [x [1 2]] #js {:a 1}))" {:classes {'js goog/global :allow :all}}))))
 
-;; TODO:cljd copy-ns
-#?(:cljd nil :default
 (deftest copy-ns-test
   (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                             (sci/create-ns 'sci.copy-ns-test-ns)
@@ -1765,16 +1763,14 @@
     (is (:awesome-meta (meta (get sci-ns 'baz))))
     (is (= [1 1] (sci/eval-string "(vec-macro 1)" {:namespaces {'user sci-ns}}))))
   ;; throws at compile time, so it's difficult to test this:
-  #_(is (thrown? #?(:cljd cljd.core/ExceptionInfo :default Exception) (sci/copy-ns #_:clj-kondo/ignore non-existent.namespace nil)))))
+  #_(is (thrown? #?(:cljd cljd.core/ExceptionInfo :default Exception) (sci/copy-ns #_:clj-kondo/ignore non-existent.namespace nil))))
 
-;; TODO:cljd copy-ns
-#?(:cljd nil :default
 (deftest copy-ns-default-meta-test
   (testing "copy-ns default meta includes name"
     (let [sci-ns (sci/copy-ns sci.copy-ns-test-ns
                               (sci/create-ns 'sci.copy-ns-test-ns))]
       (is (every? (fn [[var-name meta]] (and (symbol? var-name) (= var-name (:name meta))))
-                  (map (fn [[name var]] (vector name (meta var))) sci-ns)))))))
+                  (map (fn [[name var]] (vector name (meta var))) sci-ns))))))
 
 (deftest vswap-test
   (is (= 2 (sci/eval-string

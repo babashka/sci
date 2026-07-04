@@ -7,7 +7,12 @@ engine; cljd just compiles SCI's .cljc source to Dart. cljd's lack of runtime
 
 ## Status: PUBLIC API WORKS. sci.core compiles on cljd. sci/init, parse-next,
 eval-form, eval-string, def, defn all pass (test/sci/parse_test.cljc runs
-ungated on all platforms). copy-ns and future are stubbed/absent on cljd.
+ungated on all platforms). future is absent on cljd. copy-ns works at
+compile time: the :cljd/clj-host arm reads publics from the cljd compiler
+registry (cljd.compiler/nses), skips $-named protocol infrastructure and
+:private vars, scrubs compiler-internal meta keys (:macro-host-fn, :inline)
+and emits the cljs-shaped -copy-ns call with :val symbols that compile to
+Dart references. Runtime use throws.
 
 Next: non-record deftype arm, interop for :classes. Test sweep done: selector
 runs core, error, vars, namespaces, io, repl, impl, multimethods, protocols
