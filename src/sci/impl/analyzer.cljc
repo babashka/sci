@@ -9,6 +9,7 @@
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
+   [sci.ctx-store :as store]
    #?(:cljs [sci.impl.async-macro :as async-macro])
    [sci.impl.deftype]
    [sci.impl.evaluator :as eval]
@@ -23,7 +24,6 @@
     [ana-macros constant? macro? rethrow-with-location-of-node
      set-namespace! recur special-syms]]
    [sci.impl.vars :as vars]
-   [sci.ctx-store :as store]
    [sci.lang])
   #?(:cljs
      (:require-macros
@@ -280,7 +280,7 @@
 
 (declare update-parents)
 
-(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id async?]
+(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id _async?]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -304,7 +304,7 @@
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         ;; Transform async bodies before analysis
         body-exprs #?(:clj body-exprs
-                      :cljs (if async?
+                      :cljs (if _async?
                              (let [locals (set (keys (:bindings ctx)))]
                                (async-macro/transform-async-fn-body ctx locals body-exprs))
                              body-exprs))
