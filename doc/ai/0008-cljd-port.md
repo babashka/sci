@@ -21,8 +21,15 @@ via :public-class if unlisted), looks up the override fn in :instance-methods
 / :instance-fields and applies it. Every member is effectively closed:
 unlisted members throw, the `true` sentinel and :allow :all are meaningless
 (nothing to reflect). See cljd_interop_test.cljd. Static overrides resolve at
-analysis through the same member-disposition path. Next: static/field interop
-coverage, then wider host types.
+analysis through the same member-disposition path.
+
+This survives tree-shaking: an override body that calls a real Dart method
+(`(fn [s] (.toUpperCase s))`) compiles to a direct call site, so AOT keeps the
+method. Proven with examples/sci_interop/main.cljd compiled to a native exe
+(`clojure -M:cljd compile sci-interop.main` then `dart compile exe`): the
+binary prints "HELLO FROM SCI" and denies an unlisted member. This is why
+overrides are the right interop model for Dart, which has no runtime
+reflection. Next: static/field interop coverage, then wider host types.
 
 Non-record deftype works on cljd: the cljs arm
 of analyze-deftype* became :default (SciType path, platform-neutral).

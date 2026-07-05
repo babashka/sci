@@ -9,6 +9,9 @@
   (testing "override receives args"
     (is (= "abc!" (tu/eval* "(.foo \"abc\" \"!\")"
                             {:classes {'String {:instance-methods {'foo str}}}}))))
+  (testing "override body calls a real host method (compiled, tree-shakeable)"
+    (is (= "ABC" (tu/eval* "(.upper \"abc\")"
+                           {:classes {'String {:instance-methods {'upper (fn [s] (.toUpperCase s))}}}}))))
   (testing "unlisted method throws"
     (is (thrown? cljd.core/ExceptionInfo
                  (tu/eval* "(.bar \"abc\")"
