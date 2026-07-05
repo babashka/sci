@@ -199,9 +199,13 @@
     none-sentinel))
 
 (defn eval-instance-method-invocation
-  [ctx bindings instance-expr method-str method-str-unmunged field-access args #?(:cljs allowed) arg-count arg-types]
-  (let [instance-meta (meta instance-expr)
-        tag-class (:tag-class instance-meta)
+  ;; one interop node for all sites. cache is a per-site volatile: a monomorphic
+  ;; site skips config resolution and meth-cache, reflecting directly on the
+  ;; cached method list. override/deny/:closed is resolved only on a cache miss,
+  ;; so a site using no member config pays nothing for the feature on the hot path.
+  [ctx bindings instance-expr method-str method-str-unmunged method-sym field-access args #?(:cljs allowed) arg-count arg-types cache]
+  (let [#?@(:clj [instance-meta (meta instance-expr)
+                  tag-class (:tag-class instance-meta)])
         instance-expr* (types/eval instance-expr ctx bindings)
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:cljd arg-count :clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
@@ -215,29 +219,84 @@
                               :cljs (type instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
-            allowed? (or
-                      #?(:cljs allowed)
-                      (get class->opts :allow)
-                      (let [instance-class-name #?(:cljd (str instance-class)
-                                                   :clj (.getName ^Class instance-class)
-                                                   :cljs (.-name instance-class))
-                            instance-class-symbol (symbol instance-class-name)]
-                        (get class->opts instance-class-symbol)))
-            #?@(:cljd [target-class (if allowed? instance-class
-                                        (when-let [f (:public-class env)]
-                                          (f instance-expr*)))]
-                :default [^Class target-class (if allowed? instance-class
-                                                  (when-let [f (:public-class env)]
-                                                    (f instance-expr*)))])]
-        ;; we have to check options at run time, since we don't know what the class
-        ;; of instance-expr is at analysis time
-        (when-not #?(:cljd target-class
-                     :clj target-class
-                     :cljs allowed?)
-          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        (if field-access
-          (interop/invoke-instance-field instance-expr* target-class method-str)
-          (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))
+            #?@(:cljd [] :default [cached @cache])]
+        #?(:cljd
+           ;; cljd stubs host interop invocation, no per-site cache
+           (let [allowed? (or (get class->opts :allow)
+                              (get class->opts (symbol (str instance-class))))
+                 target-class (if allowed? instance-class
+                                  (when-let [f (:public-class env)]
+                                    (f instance-expr*)))]
+             (when-not target-class
+               (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+             (if field-access
+               (interop/invoke-instance-field instance-expr* target-class method-str)
+               (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types)))
+           :default
+           ;; cache keyed on class->opts identity too: merge-opts swaps in a fresh
+           ;; map, so a config change invalidates the cache for free
+           (if (and cached
+                      (identical? class->opts (aget #?(:clj ^objects cached :cljs cached) 0))
+                      (identical? instance-class (aget #?(:clj ^objects cached :cljs cached) 1)))
+               ;; fast path: this class resolved to plain interop before; reflect on
+               ;; the cached target class (may differ from instance-class via :public-class)
+               (if field-access
+                 (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
+                 #?(:clj (interop/invoke-instance-method-with-methods ctx bindings instance-expr* (aget ^objects cached 2) method-str (aget ^objects cached 3) args arg-count arg-types)
+                    :cljs (interop/invoke-instance-method ctx bindings instance-expr* (aget cached 2) method-str args arg-count arg-types)))
+               (let [allowed? (or
+                               #?(:cljs allowed)
+                               (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                                            :cljs (.-name instance-class))]
+                                 (or (get class->opts (symbol instance-class-name))
+                                     (get class->opts :allow))))
+                     ^Class target-class (if allowed? instance-class
+                                             (when-let [f (:public-class env)]
+                                               (f instance-expr*)))]
+                 (when-not #?(:clj target-class
+                              :cljs allowed?)
+                   (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+                 ;; resolve config independently of :allow so it wins over :allow :all
+                 (let [class-opts (or (when (map? allowed?) allowed?)
+                                      (get class->opts
+                                           (symbol #?(:clj (.getName ^Class instance-class)
+                                                      :cljs (.-name instance-class))))
+                                      (when target-class
+                                        (get class->opts
+                                             (symbol #?(:clj (.getName ^Class target-class)
+                                                        :cljs (.-name target-class))))))
+                       ;; safe to cache a :public-class result keyed on instance-class
+                       ;; unless the instance is a custom type: those share one class
+                       ;; but map to different targets per instance
+                       cache? (or (identical? target-class instance-class)
+                                  (not #?(:clj (instance? sci.impl.types.ICustomType instance-expr*)
+                                          :cljs (implements? sci.impl.types.ICustomType instance-expr*))))]
+                   (if field-access
+                     (let [f (get (:instance-fields class-opts) method-sym)]
+                       (case (interop/member-disposition f class-opts :instance-fields)
+                         :override
+                         (f instance-expr*)
+                         :deny
+                         (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
+                         :reflect
+                         (do (when cache?
+                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil]
+                                                               :cljs [class->opts instance-class target-class]))))
+                             (interop/invoke-instance-field instance-expr* target-class method-str))))
+                     (let [f (get (:instance-methods class-opts) method-sym)]
+                       (case (interop/member-disposition f class-opts :instance-methods)
+                         :override
+                         (apply f instance-expr* (map #(types/eval % ctx bindings) args))
+                         :deny
+                         (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
+                         :reflect
+                         #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
+                                   (when cache?
+                                     (vreset! cache (object-array [class->opts instance-class target-class methods])))
+                                   (interop/invoke-instance-method-with-methods ctx bindings instance-expr* target-class method-str methods args arg-count arg-types))
+                            :cljs (do (when cache?
+                                        (vreset! cache (object-array [class->opts instance-class target-class])))
+                                      (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))))))))))
 
 ;;;; End interop
 

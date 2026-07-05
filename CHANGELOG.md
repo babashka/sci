@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Instance/static method+field overrides and `:closed` allowlist for `:classes`. See [docs](https://github.com/babashka/sci/blob/master/doc/interop-control.md).
 - Fix self-require (a namespace requiring itself, e.g. via `:require-macros` for its own macros) being reported as a cyclic load dependency
 
 ## 0.13.53 (2026-06-20)

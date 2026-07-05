@@ -501,6 +501,11 @@ The `:allow :all` option takes care that everything reachable via `:classes` is
 allowed to be used, it does not mean that you have access to all classes in the
 host environment.
 
+#### Member-level control
+
+SCI allows overrides or replacements for instance and static members.
+See [Instance and static member control](doc/interop-control.md).
+
 ### JavaScript libraries
 
 Adding support for JavaScript libraries is done via the `:js-libs` option:
