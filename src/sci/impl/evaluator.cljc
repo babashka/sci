@@ -221,17 +221,19 @@
             class->opts (:class->opts env)
             #?@(:cljd [] :default [cached @cache])]
         #?(:cljd
-           ;; cljd stubs host interop invocation, no per-site cache
-           (let [allowed? (or (get class->opts :allow)
-                              (get class->opts (symbol (str instance-class))))
-                 target-class (if allowed? instance-class
-                                  (when-let [f (:public-class env)]
-                                    (f instance-expr*)))]
-             (when-not target-class
-               (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-             (if field-access
-               (interop/invoke-instance-field instance-expr* target-class method-str)
-               (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types)))
+           ;; cljd has no reflection: interop dispatches through override fns
+           ;; registered in :classes config, every member is effectively closed
+           (let [class-opts (or (get class->opts (symbol (str instance-class)))
+                                (when-let [f (:public-class env)]
+                                  (get class->opts (symbol (str (f instance-expr*))))))
+                 section (if field-access :instance-fields :instance-methods)
+                 f (get (get class-opts section) method-sym)]
+             (case (interop/member-disposition f class-opts section)
+               :override (if field-access
+                           (f instance-expr*)
+                           (apply f instance-expr* (map #(types/eval % ctx bindings) args)))
+               (throw-error-with-location
+                (str (if field-access "Field " "Method ") method-str " on " instance-class " not allowed") instance-expr)))
            :default
            ;; cache keyed on class->opts identity too: merge-opts swaps in a fresh
            ;; map, so a config change invalidates the cache for free
