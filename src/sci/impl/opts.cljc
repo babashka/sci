@@ -55,6 +55,8 @@
                           #?@(:cljs [:async-load-fn async-load-fn
                                      :js-libs js-libs])
                           :public-class (:public-class classes)
+                          :instance-member-names (:instance-member-names classes)
+                          :instance-closed? (:instance-closed? classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes
                           :ns-aliases ns-aliases))))))
@@ -113,18 +115,38 @@
 
 (defn normalize-classes [classes]
   (loop [class->opts (transient (select-keys classes [:allow]))
+         ;; The instance member names (methods and fields) for which SOME class
+         ;; supplies an override, and whether ANY class is closed for instance
+         ;; members. The analyzer knows the member name (not the runtime class),
+         ;; so a `.foo`/`.-foo` site only needs the slower per-call config path
+         ;; when foo is overridden or a closed class could deny it. Non-overridden
+         ;; interop stays lean. :static-methods/:static-fields do not contribute
+         ;; (resolved at analysis time, where the class is known).
+         instance-member-names (transient #{})
+         instance-closed? false
          kvs classes]
     (if-let [[sym class-opts] (first kvs)]
-      (recur ;; storing the physical class as key didn't work well with
-       ;; GraalVM
-       (if (map? class-opts)
-         (if-let [sm (:static-methods class-opts)]
-           (-> (assoc! class->opts sym class-opts)
-               (assoc! :static-methods (assoc (:static-methods class->opts) sym sm)))
-           (assoc! class->opts sym class-opts))
-         (assoc! class->opts sym {:class class-opts}))
-       (rest kvs))
+      (let [m? (map? class-opts)
+            im (when m? (:instance-methods class-opts))
+            if* (when m? (:instance-fields class-opts))]
+        (recur ;; storing the physical class as key didn't work well with GraalVM
+         (if m?
+           (if-let [sm (:static-methods class-opts)]
+             (-> (assoc! class->opts sym class-opts)
+                 (assoc! :static-methods (assoc (:static-methods class->opts) sym sm)))
+             (assoc! class->opts sym class-opts))
+           (assoc! class->opts sym {:class class-opts}))
+         (as-> instance-member-names $
+           (reduce (fn [s k] (if (symbol? k) (conj! s k) s)) $ (keys im))
+           (reduce (fn [s k] (if (symbol? k) (conj! s k) s)) $ (keys if*)))
+         (or instance-closed?
+             (boolean (and m? (or (true? (:closed class-opts))
+                                  (true? (:closed im))
+                                  (true? (:closed if*))))))
+         (rest kvs)))
       {:public-class (:public-class classes)
+       :instance-member-names (persistent! instance-member-names)
+       :instance-closed? instance-closed?
        :class->opts (persistent! class->opts)})))
 
 (def default-reify-fn

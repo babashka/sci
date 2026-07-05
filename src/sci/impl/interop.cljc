@@ -122,6 +122,15 @@
             v
             (get-in env [:imports sym]))))))
 
+(defn closed?
+  "True when class-opts closes the given section (:instance-methods,
+  :static-methods, :instance-fields or :static-fields). Class-level
+  `:closed true` closes all sections, a section-level `:closed true`
+  closes just that section."
+  [class-opts section]
+  (or (true? (:closed class-opts))
+      (true? (:closed (get class-opts section)))))
+
 (defn resolve-class-opts [ctx sym]
   ;; note, we can't re-use fully-qualify class in this function, although it's
   ;; almost the same, since `js/Foo` stays fully qualified

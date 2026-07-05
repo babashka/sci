@@ -990,7 +990,11 @@
            field-access (str/starts-with? method-name "-")
            meth-name (if field-access (subs method-name 1) method-name)
            meth-name* meth-name
+           meth-sym (symbol meth-name*)
            meth-name (#?(:clj munge :cljs utils/munge-str) meth-name)
+           env (-> ctx :env deref)
+           instance-configs? (or (:instance-closed? env)
+                                 (contains? (:instance-member-names env) meth-sym))
            stack (assoc (meta expr)
                         :ns @utils/current-ns
                         :file @utils/current-file)
@@ -1007,11 +1011,17 @@
                       (when-let [t (interop/resolve-type-hint ctx t)]
                         (do (vreset! has-types? true)
                             (aset arg-types idx t)))))))
-       (with-meta (sci.impl.types/->Node
-                   (eval/eval-instance-method-invocation
-                    ctx bindings instance-expr meth-name meth-name* field-access args arg-count
-                    (when @has-types? arg-types))
-                   stack)
+       (with-meta (if instance-configs?
+                    (sci.impl.types/->Node
+                     (eval/eval-instance-method-invocation+configs
+                      ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
+                      (when @has-types? arg-types))
+                     stack)
+                    (sci.impl.types/->Node
+                     (eval/eval-instance-method-invocation
+                      ctx bindings instance-expr meth-name meth-name* field-access args arg-count
+                      (when @has-types? arg-types))
+                     stack))
          {::instance-expr instance-expr
           ::method-name method-name
           :tag (:tag (meta expr))}))))
@@ -1031,6 +1041,7 @@
                           (subs method-name 1)
                           method-name)
               #?@(:cljs [meth-name* meth-name])
+              #?@(:cljs [meth-sym (symbol meth-name*)])
               #?@(:cljs [meth-name (utils/munge-str meth-name)])
               stack (assoc (meta expr)
                            :ns @utils/current-ns
@@ -1041,40 +1052,71 @@
                                  args (object-array args)
                                  class-expr (:class-expr (meta expr))]
                              ;; prefab static-methods
-                             (if-let [f (some-> ctx :env deref
-                                                :class->opts :static-methods
-                                                (get (interop/fully-qualify-class ctx class-expr))
-                                                (get method-expr))]
-                               (return-call ctx expr f (cons instance-expr args) stack nil)
-                               (sci.impl.types/->Node
-                                (interop/invoke-static-method ctx bindings instance-expr meth-name
-                                                              args arg-count)
-                                stack)))]
-                      (if (nil? args)
-                        (if field-access
-                          (sci.impl.types/->Node
-                           (interop/get-static-field instance-expr meth-name)
-                           stack)
-                          ;; https://clojure.org/reference/java_interop
-                          ;; If the second operand is a symbol and no args are
-                          ;; supplied it is taken to be a field access - the
-                          ;; name of the field is the name of the symbol, and
-                          ;; the value of the expression is the value of the
-                          ;; field, unless there is a no argument public method
-                          ;; of the same name, in which case it resolves to a
-                          ;; call to the method.
-                          (if-let [_
-                                   (try (reflector/get-static-field ^Class instance-expr ^String method-name)
-                                        (catch IllegalArgumentException _ nil))]
-                            (sci.impl.types/->Node
-                             (interop/get-static-field instance-expr method-name)
-                             stack)
-                            (static-method)))
-                        (static-method)))
+                             (let [class->opts (some-> ctx :env deref :class->opts)
+                                   fq-class (interop/fully-qualify-class ctx class-expr)]
+                               (if-let [f (some-> class->opts :static-methods
+                                                  (get fq-class)
+                                                  (get method-expr))]
+                                 (if (true? f)
+                                   ;; targeted reflective allow
+                                   (sci.impl.types/->Node
+                                    (interop/invoke-static-method ctx bindings instance-expr meth-name
+                                                                  args arg-count)
+                                    stack)
+                                   (return-call ctx expr f (cons instance-expr args) stack nil))
+                                 (let [class-opts (get class->opts fq-class)]
+                                   (when (and (map? class-opts)
+                                              (interop/closed? class-opts :static-methods))
+                                     (utils/throw-error-with-location
+                                      (str "Method " meth-name " on " fq-class " not allowed!")
+                                      expr))
+                                   (sci.impl.types/->Node
+                                    (interop/invoke-static-method ctx bindings instance-expr meth-name
+                                                                  args arg-count)
+                                    stack)))))]
+                      ;; class is known here, so :static-fields overrides and
+                      ;; :closed are resolved at analysis
+                      (let [sf-opts (get (some-> ctx :env deref :class->opts)
+                                         (symbol (.getName ^Class instance-expr)))
+                            static-field
+                            (fn [field-name-str]
+                              (let [override (get (:static-fields sf-opts) (symbol field-name-str))]
+                                (cond
+                                  (and override (not (true? override)))
+                                  (sci.impl.types/->Node (override instance-expr) stack)
+                                  (and (not override) (interop/closed? sf-opts :static-fields))
+                                  (utils/throw-error-with-location
+                                   (str "Field " field-name-str " on " instance-expr " not allowed!") expr)
+                                  :else
+                                  (sci.impl.types/->Node
+                                   (interop/get-static-field instance-expr field-name-str)
+                                   stack))))]
+                        (if (nil? args)
+                          (if field-access
+                            (static-field meth-name)
+                            ;; https://clojure.org/reference/java_interop
+                            ;; If the second operand is a symbol and no args are
+                            ;; supplied it is taken to be a field access - the
+                            ;; name of the field is the name of the symbol, and
+                            ;; the value of the expression is the value of the
+                            ;; field, unless there is a no argument public method
+                            ;; of the same name, in which case it resolves to a
+                            ;; call to the method.
+                            (if-let [_
+                                     (try (reflector/get-static-field ^Class instance-expr ^String method-name)
+                                          (catch IllegalArgumentException _ nil))]
+                              (static-field method-name)
+                              (static-method)))
+                          (static-method))))
                     (analyze-instance-method ctx instance-expr method-expr args expr))
-             :cljs (let [allowed? (or unrestrict/*unrestricted*
+             :cljs (let [env @(:env ctx)
+                         instance-configs? (or (:instance-closed? env)
+                                               (contains? (:instance-member-names env) meth-sym))
+                         allowed? (or unrestrict/*unrestricted*
                                       (identical? method-expr utils/allowed-append)
-                                      (-> ctx :env deref :class->opts :allow))
+                                      ;; per-class method configs take precedence
+                                      (when-not instance-configs?
+                                        (-> env :class->opts :allow)))
                          args (into-array args)]
                      (with-meta
                        (case [(boolean allowed?) field-access]
@@ -1087,10 +1129,15 @@
                           (eval/allowed-instance-method-invocation ctx bindings instance-expr meth-name args nil)
                           stack)
                          ;; default case
-                         (sci.impl.types/->Node
-                          (eval/eval-instance-method-invocation
-                           ctx bindings instance-expr meth-name meth-name* field-access args allowed? nil nil)
-                          stack))
+                         (if instance-configs?
+                           (sci.impl.types/->Node
+                            (eval/eval-instance-method-invocation+configs
+                             ctx bindings instance-expr meth-name meth-name* meth-sym field-access args allowed? nil nil)
+                            stack)
+                           (sci.impl.types/->Node
+                            (eval/eval-instance-method-invocation
+                             ctx bindings instance-expr meth-name meth-name* field-access args allowed? nil nil)
+                            stack)))
                        {::instance-expr instance-expr
                         ::method-name method-name}))))]
     res))
@@ -1605,6 +1652,12 @@
                         :file @utils/current-file)]
        (cond (str/starts-with? meth ".")
              (let [meth (subs meth 1)
+                   ;; the class is explicit and IS the dispatch class here, so
+                   ;; :instance-methods overrides and :closed can be resolved at
+                   ;; analysis, safely (unlike an unverified receiver type hint)
+                   class-opts (get (-> ctx :env deref :class->opts)
+                                   (symbol (.getName clazz)))
+                   override (get (:instance-methods class-opts) (symbol meth))
                    arg-types (when-let [param-tags (some-> (meta expr) :param-tags)]
                                (let [param-count (count param-tags)
                                      ^"[Ljava.lang.Class;" arg-types (when (pos? param-count)
@@ -1615,20 +1668,35 @@
                                               (when-let [t (interop/resolve-type-hint ctx t)]
                                                 (aset arg-types idx t)))))
                                  arg-types))
-                   f (fn [obj & args]
-                       (let [args (object-array args)
-                             arg-count (alength args)
-                             ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
-                         (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
-               (sci.impl.types/->Node
-                f
-                stack))
+                   reflect-f (fn [obj & args]
+                               (let [args (object-array args)
+                                     arg-count (alength args)
+                                     ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
+                                 (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
+               (cond
+                 (and override (not (true? override)))
+                 (sci.impl.types/->Node override stack)
+                 (and (not override) (interop/closed? class-opts :instance-methods))
+                 (utils/throw-error-with-location
+                  (str "Method " meth " on class " (.getName clazz) " not allowed!") expr)
+                 :else
+                 (sci.impl.types/->Node reflect-f stack)))
              (try (reflector/get-static-field ^Class clazz ^String meth)
                   (catch IllegalArgumentException _
                     nil))
-             (sci.impl.types/->Node
-              (interop/get-static-field clazz meth)
-              stack)
+             (let [sf-opts (get (some-> ctx :env deref :class->opts)
+                                (symbol (.getName ^Class clazz)))
+                   override (get (:static-fields sf-opts) (symbol meth))]
+               (cond
+                 (and override (not (true? override)))
+                 (sci.impl.types/->Node (override clazz) stack)
+                 (and (not override) (interop/closed? sf-opts :static-fields))
+                 (utils/throw-error-with-location
+                  (str "Field " meth " on class " (.getName ^Class clazz) " not allowed!") expr)
+                 :else
+                 (sci.impl.types/->Node
+                  (interop/get-static-field clazz meth)
+                  stack)))
              :else (sci.impl.types/->Node
                     (fn [& args]
                       (reflector/invoke-static-method
@@ -1722,6 +1790,12 @@
                                                str
                                                (subs 1))
                                       clazz (first f)
+                                      ;; class is explicit here, so :instance-methods and
+                                      ;; :closed are resolved at analysis (safe: this is the
+                                      ;; dispatch class, not an unverified receiver hint)
+                                      class-opts (get (-> ctx :env deref :class->opts)
+                                                      (symbol (.getName ^Class clazz)))
+                                      override (get (:instance-methods class-opts) (symbol meth))
                                       args (object-array args)
                                       arg-count (count args)
                                       stack (assoc m
@@ -1746,12 +1820,22 @@
                                                      (when-let [t (interop/resolve-type-hint ctx t)]
                                                        (do (vreset! has-types? true)
                                                            (aset arg-types idx t))))))))
-                                  (sci.impl.types/->Node
-                                   (let [obj (sci.impl.types/eval obj ctx bindings)]
-                                     (interop/invoke-instance-method ctx bindings obj clazz
-                                                                     meth
-                                                                     args arg-count arg-types))
-                                   stack))])
+                                  (cond
+                                    (and override (not (true? override)))
+                                    (sci.impl.types/->Node
+                                     (apply override (sci.impl.types/eval obj ctx bindings)
+                                            (map #(sci.impl.types/eval % ctx bindings) args))
+                                     stack)
+                                    (and (not override) (interop/closed? class-opts :instance-methods))
+                                    (throw-error-with-location
+                                     (str "Method " meth " on class " (.getName ^Class clazz) " not allowed!") expr)
+                                    :else
+                                    (sci.impl.types/->Node
+                                     (let [obj (sci.impl.types/eval obj ctx bindings)]
+                                       (interop/invoke-instance-method ctx bindings obj clazz
+                                                                       meth
+                                                                       args arg-count arg-types))
+                                     stack)))])
                       #?@(:clj [(and f-meta (:sci.impl.analyzer/invoke-constructor f-meta))
                                 (invoke-constructor-node ctx (first f) (rest expr))])
                       (and (not eval?) ;; the symbol is not a binding

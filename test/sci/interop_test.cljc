@@ -47,7 +47,43 @@
 
 #?(:clj
    (deftest instance-fields
-     (is (= 3 (sci/eval-string "(.-x (PublicFields.))" {:classes {'PublicFields PublicFields}})))))
+     (is (= 3 (sci/eval-string "(.-x (PublicFields.))" {:classes {'PublicFields PublicFields}})))
+     (testing "instance field override / true / :closed"
+       (is (= 999 (sci/eval-string "(.-x (PublicFields.))"
+                                   {:classes {'PublicFields {:class PublicFields
+                                                             :instance-fields {'x (fn [_] 999)}}}})))
+       (is (= 3 (sci/eval-string "(.-x (PublicFields.))"
+                                 {:classes {'PublicFields {:class PublicFields
+                                                           :instance-fields {:closed true 'x true}}}})))
+       (is (thrown-with-msg? Exception #"Field x on .*PublicFields not allowed"
+                             (sci/eval-string "(.-x (PublicFields.))"
+                                              {:classes {'PublicFields {:class PublicFields :closed true}}})))
+       (is (thrown-with-msg? Exception #"Field x on .*PublicFields not allowed"
+                             (sci/eval-string "(.-x (PublicFields.))"
+                                              {:classes {'PublicFields {:class PublicFields
+                                                                        :instance-fields {:closed true}}}})))
+       (testing ":instance-fields :closed does not close methods"
+         (is (= "instance method"
+                (sci/eval-string "(.instanceFoo (PublicFields.))"
+                                 {:classes {'PublicFields {:class PublicFields
+                                                           :instance-fields {:closed true}}}})))))))
+
+#?(:clj
+   (deftest static-fields-control-test
+     (testing "static field override / true / :closed"
+       (is (= :dude (sci/eval-string "PublicFields/staticFoo"
+                                     {:classes {'PublicFields {:class PublicFields
+                                                               :static-fields {'staticFoo (fn [_] :dude)}}}})))
+       (is (= 32 (sci/eval-string "Integer/SIZE"
+                                  {:classes {'java.lang.Integer {:class Integer
+                                                                 :static-fields {:closed true 'SIZE true}}}})))
+       (is (thrown-with-msg? Exception #"Field SIZE on .*Integer not allowed"
+                             (sci/eval-string "Integer/SIZE"
+                                              {:classes {'java.lang.Integer {:class Integer :closed true}}})))
+       (is (thrown-with-msg? Exception #"Field SIZE on .*Integer not allowed"
+                             (sci/eval-string "Integer/SIZE"
+                                              {:classes {'java.lang.Integer {:class Integer
+                                                                             :static-fields {:closed true}}}}))))))
 
 #?(:clj
    (deftest clojure-parity-tests
@@ -110,6 +146,111 @@
             (tu/eval* "(def x #js {:foo #js {}}) (set! (.. x -foo -bar) :baz) (js->clj x :keywordize-keys true)" {:classes {:allow :all}})))))
 
 #?(:clj
+   (deftest instance-method-overrides-test
+     (testing "override with reflective fallback for unlisted methods"
+       (let [opts {:classes {'java.lang.String
+                             {:class String
+                              :instance-methods {'toString (fn [_s] :dude)
+                                                 'lastIndexOf (fn [s needle] (.lastIndexOf ^String s ^String needle))}}}}]
+         (is (= :dude (sci/eval-string "(.toString \"foo\")" opts)))
+         (is (= 5 (sci/eval-string "(let [needle \"name\"] (.lastIndexOf \"your name\" needle))" opts)))
+         (is (= 3 (sci/eval-string "(.length \"foo\")" opts)))))
+     (testing "closed class denies unlisted instance methods, true allows via reflection"
+       (let [opts {:classes {'java.lang.String
+                             {:class String
+                              :closed true
+                              :instance-methods {'toString (fn [s] (.toString ^String s))
+                                                 'toUpperCase true}}}}]
+         (is (= "foo" (sci/eval-string "(.toString \"foo\")" opts)))
+         (is (= "FOO" (sci/eval-string "(.toUpperCase \"foo\")" opts)))
+         (is (thrown-with-msg? Exception #"Method length on class java.lang.String not allowed"
+                               (sci/eval-string "(.length \"foo\")" opts)))))
+     (testing "class :closed true with no method sections closes everything"
+       (let [opts {:classes {'java.lang.String {:class String :closed true}}}]
+         (is (thrown-with-msg? Exception #"Method length on class java.lang.String not allowed"
+                               (sci/eval-string "(.length \"foo\")" opts)))
+         (is (thrown-with-msg? Exception #"Field value on class java.lang.String not allowed"
+                               (sci/eval-string "(.-value \"foo\")" opts)))))
+     (testing "closed denies unlisted even under :allow :all"
+       (let [opts {:classes {:allow :all
+                             'java.lang.String {:class String
+                                                :instance-methods {:closed true
+                                                                   'toString (fn [_] :dude)}}}}]
+         (is (= :dude (sci/eval-string "(.toString \"foo\")" opts)))
+         (is (thrown-with-msg? Exception #"Method length on class java.lang.String not allowed"
+                               (sci/eval-string "(.length \"foo\")" opts)))))
+     (testing "overrides on the :public-class target"
+       (when-not tu/native?
+         (is (= #{:b} (tu/eval* "(.keySet {:a 1})"
+                                {:classes {'java.util.Map {:class java.util.Map
+                                                           :instance-methods {'keySet (fn [_m] #{:b})}}
+                                           :public-class (fn [o]
+                                                           (when (instance? java.util.Map o) java.util.Map))}})))))
+     (testing "closed class denies unlisted static methods, true allows via reflection"
+       (let [opts {:classes {'java.lang.Integer
+                             {:class Integer
+                              :closed true
+                              :static-methods {'parseInt true
+                                               'valueOf (fn [_Class s] :forty-two)}}}}]
+         (is (= 42 (sci/eval-string "(Integer/parseInt \"42\")" opts)))
+         (is (= :forty-two (sci/eval-string "(Integer/valueOf \"42\")" opts)))
+         (is (thrown-with-msg? Exception #"Method toHexString on java.lang.Integer not allowed"
+                               (sci/eval-string "(Integer/toHexString 255)" opts)))))
+     (testing "static override present, unlisted static still reflects without :closed"
+       (let [opts {:classes {'java.lang.Integer
+                             {:class Integer
+                              :static-methods {'valueOf (fn [_Class s] :forty-two)}}}}]
+         (is (= :forty-two (sci/eval-string "(Integer/valueOf \"42\")" opts)))
+         (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))))
+     (testing "section-level :closed closes just that section"
+       (let [opts {:classes {'java.lang.Integer
+                             {:class Integer
+                              :static-methods {:closed true 'parseInt true}
+                              :instance-methods {'toString (fn [_i] :dude)}}}}]
+         (is (= 42 (sci/eval-string "(Integer/parseInt \"42\")" opts)))
+         (is (thrown-with-msg? Exception #"Method toHexString on java.lang.Integer not allowed"
+                               (sci/eval-string "(Integer/toHexString 255)" opts)))
+         (is (= :dude (sci/eval-string "(.toString (Integer/parseInt \"42\"))" opts)))
+         (is (= 42 (sci/eval-string "(.intValue (Integer/parseInt \"42\"))" opts))))
+       (let [opts {:classes {'java.lang.Integer
+                             {:class Integer
+                              :instance-methods {:closed true 'toString (fn [_i] :dude)}}}}]
+         (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))
+         (is (= :dude (sci/eval-string "(.toString (Integer/valueOf 42))" opts)))
+         (is (thrown-with-msg? Exception #"Method intValue on class java.lang.Integer not allowed"
+                               (sci/eval-string "(.intValue (Integer/valueOf 42))" opts)))))
+     (testing "overrides win over :allow :all"
+       (let [opts {:classes {:allow :all
+                             'java.lang.String {:class String
+                                                :instance-methods {'toString (fn [_] :dude)}}}}]
+         (is (= :dude (sci/eval-string "(.toString \"foo\")" opts)))
+         (is (= 3 (sci/eval-string "(.length \"foo\")" opts)))
+         (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))))))
+
+#?(:cljs
+   (deftest instance-method-overrides-test
+     (testing "override with reflective fallback for unlisted methods"
+       (let [opts {:classes {'String {:class js/String
+                                      :instance-methods {'toUpperCase (fn [_s] :dude)}}}}]
+         (is (= :dude (sci/eval-string "(.toUpperCase \"foo\")" opts)))
+         (is (= 102 (sci/eval-string "(.charCodeAt \"foo\" 0)" opts)))))
+     (testing "section-level :closed with true reflective allow"
+       (let [opts {:classes {'String {:class js/String
+                                      :instance-methods {:closed true
+                                                         'toUpperCase (fn [_s] :dude)
+                                                         'charCodeAt true}}}}]
+         (is (= :dude (sci/eval-string "(.toUpperCase \"foo\")" opts)))
+         (is (= 102 (sci/eval-string "(.charCodeAt \"foo\" 0)" opts)))
+         (is (thrown-with-msg? js/Error #"not allowed"
+                               (sci/eval-string "(.toLowerCase \"FOO\")" opts)))))
+     (testing "overrides win over :allow :all"
+       (let [opts {:classes {:allow :all
+                             'String {:class js/String
+                                      :instance-methods {'toUpperCase (fn [_] :dude)}}}}]
+         (is (= :dude (sci/eval-string "(.toUpperCase \"foo\")" opts)))
+         (is (= 102 (sci/eval-string "(.charCodeAt \"foo\" 0)" opts)))))))
+
+#?(:clj
    (deftest static-methods
      (is (= 123 (eval* "(Integer/parseInt \"123\")")))
      (is (= 123 (eval* "(. Integer (parseInt \"123\"))")))
@@ -136,7 +277,18 @@
      (is (= [1 2 3] (eval* "(map String/.length [\"1\" \"22\" \"333\"])")))
      (is (= ["1" "22" "333"] (eval* "(map String/new [\"1\" \"22\" \"333\"])")))
      (is (= 3 (eval* "(String/.length \"123\")")))
-     (is (= "123" (eval* "(String/new \"123\")")))))
+     (is (= "123" (eval* "(String/new \"123\")")))
+     (testing "instance method control applies to qualified Class/.method syntax"
+       (let [ov {:classes {'java.lang.String {:class String :instance-methods {'length (fn [_] 999)}}}}
+             cl {:classes {'java.lang.String {:class String :closed true}}}]
+         (testing "call position"
+           (is (= 999 (sci/eval-string "(String/.length \"abc\")" ov)))
+           (is (thrown-with-msg? Exception #"Method length on class java.lang.String not allowed"
+                                 (sci/eval-string "(String/.length \"abc\")" cl))))
+         (testing "value position"
+           (is (= [999] (sci/eval-string "(map String/.length [\"abc\"])" ov)))
+           (is (thrown-with-msg? Exception #"Method length on class java.lang.String not allowed"
+                                 (sci/eval-string "(map String/.length [\"abc\"])" cl))))))))
 
 #?(:clj
    (when-not tu/native?
