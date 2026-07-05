@@ -1,0 +1,32 @@
+(ns tetris-poc.main
+  "POC: a SCI script constructs a nested tree of host (Dart) classes and returns
+  it, standing in for a Flutter widget tree. Proves the construct-nest-return
+  round-trip that a real Flutter app needs (swap these classes for flutter
+  Widgets + runApp)."
+  (:require [sci.core :as sci]))
+
+;; stand-in widgets: cljd deftype compiles to real Dart classes, so from SCI's
+;; view these are host classes constructed via interop, not sci-native types
+(deftype Cell [filled])
+(deftype BoardRow [cells])
+(deftype Board [rows])
+
+(defn render
+  "Walks the SCI-constructed host object graph and renders it to ASCII."
+  [board]
+  (doseq [row (.-rows board)]
+    (println (apply str (for [cell (.-cells row)]
+                          (if (.-filled cell) "#" "."))))))
+
+(defn main []
+  (let [opts {:classes {'Cell     {:class Cell     :constructor (fn [filled] (Cell. filled))}
+                        'BoardRow {:class BoardRow :constructor (fn [cells] (BoardRow. cells))}
+                        'Board    {:class Board    :constructor (fn [rows] (Board. rows))}}}
+        ;; the SCI SCRIPT: builds an L-piece board by constructing host widgets
+        script "(Board.
+                  [(BoardRow. [(Cell. false) (Cell. true) (Cell. false)])
+                   (BoardRow. [(Cell. false) (Cell. true) (Cell. false)])
+                   (BoardRow. [(Cell. false) (Cell. true) (Cell. true)])])"
+        board (sci/eval-string script opts)]
+    (println "widget tree built by a SCI script, rendered by host code:")
+    (render board)))
