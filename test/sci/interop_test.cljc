@@ -215,7 +215,7 @@
                              {:class Integer
                               :closed true
                               :static-methods {'parseInt true
-                                               'valueOf (fn [_Class s] :forty-two)}}}}]
+                                               'valueOf (fn [_Class _s] :forty-two)}}}}]
          (is (= 42 (sci/eval-string "(Integer/parseInt \"42\")" opts)))
          (is (= :forty-two (sci/eval-string "(Integer/valueOf \"42\")" opts)))
          (is (thrown-with-msg? Exception #"Method toHexString on java.lang.Integer not allowed"
@@ -223,7 +223,7 @@
      (testing "static override present, unlisted static still reflects without :closed"
        (let [opts {:classes {'java.lang.Integer
                              {:class Integer
-                              :static-methods {'valueOf (fn [_Class s] :forty-two)}}}}]
+                              :static-methods {'valueOf (fn [_Class _s] :forty-two)}}}}]
          (is (= :forty-two (sci/eval-string "(Integer/valueOf \"42\")" opts)))
          (is (= "ff" (sci/eval-string "(Integer/toHexString 255)" opts)))))
      (testing "section-level :closed closes just that section"
@@ -345,7 +345,7 @@
               (try
                 (tu/eval* (str form) {:classes {:allow :all
                                                 #?@(:clj ['Long Long])}})
-                (is (= nil "shouldn't reach here") (str form))
+                (is (nil? "shouldn't reach here") (str form))
                 (catch #?(:clj Exception :cljs :default) e
                   (ex-data e))))]
         (testing "instance members"
