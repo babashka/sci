@@ -4,8 +4,6 @@ SCI allows you to control instance and static methods and field overrides.
 You can use this for sandboxing reasons or to fix e.g. performance problems since the default interop code in SCI uses reflection.
 The `:classes` config allows you to set a list of definitions to `:closed` such that you can't access anything else on a specific class. Without `:closed`, the configs act as overrides.
 
-## A complete example
-
 The following config shows all the available options to control interop.
 One class has the `:closed` option which means that the config options replace all the available interop on the class.
 
