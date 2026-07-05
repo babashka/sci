@@ -33,10 +33,13 @@ runtime class, so it cannot in general be made at analysis.
 
 ### 1. Two nodes, chosen at analysis
 
-`eval-instance-method-invocation` is the lean path, byte-identical to the
-pre-feature code. `eval-instance-method-invocation+configs` is the feature path.
-The analyzer picks one node per call site, once. A program hitting the lean node
-runs exactly the old code.
+`eval-instance-method-invocation` is the lean path. `eval-instance-method-invocation+configs`
+is the feature path. The analyzer picks one node per call site, once. The two
+share the same fast path (see decision 5) and differ only on a cache miss: the
+feature node runs the config `cond` (override/deny/`:closed`), the lean node
+runs only the allowlist check. A program that uses no member config hits the
+lean node, which is now faster than the pre-feature code, not byte-identical to
+it: it carries the per-site cache.
 
 ### 2. Name-based gate for overrides
 
@@ -70,34 +73,46 @@ shortcut. It is set only by `:closed` on an instance section (class-level, or
 `:instance-methods`/`:instance-fields` section-level); closing only static
 sections leaves plain interop lean.
 
-### 5. Per-call-site class cache
+### 5. Per-call-site inline cache
 
-The feature node carries a per-site volatile. On each call it computes the
-runtime class (which the lean node computes too), and if it matches the last
-class that resolved to plain reflection, it reflects directly, skipping the
-allowlist lookup, `:public-class` resolution, and the config `cond`. Almost all
-call sites are monomorphic, so the common case is a class-identity check plus the
-same reflective invoke.
+Both nodes carry a per-site `volatile!` created at analysis, holding an
+`object-array` of `[class->opts instance-class methods]`. On each call the node
+computes the runtime class and, if the cached `class->opts` and class both match
+by identity, reflects directly on the cached method list. A hit skips the
+allowlist lookup, `:public-class` resolution, the config `cond`, and `meth-cache`
+(a `getName` plus env deref plus four-level nested map lookup). Almost all call
+sites are monomorphic, so the common case is two identity checks and the invoke.
 
-This does more than recover the feature overhead: it beats the pre-feature code,
-because the lean path (like the old code) re-does the class allowlist lookup on
-every call - a `getName` plus symbol intern plus map lookup - while a cache hit
-skips it. Measured, plain interop on an unrelated class under a closed-class
-config drops from ~101ns (pre-feature) to ~60ns.
+Caching the method list is the large win. Pre-feature interop, and this branch
+before the inline cache, called `meth-cache` on every invocation to fetch the
+overload list. The line-55 note in `interop.cljc` records that caching the
+single resolved method in the global map was slower than re-dispatching, but that
+was a map lookup; a per-site array `aget` is far cheaper, so the inline cache
+wins where the global attempt lost. `invoke-matching-method` also shortcuts
+overload resolution when the list has one element, so a monomorphic hit is close
+to a bare reflective `.invoke`. Measured, plain `.length` drops from ~105ns
+(pre-feature) to ~45ns, and the same for the closed-class-elsewhere path.
 
-The cache is populated only when the resolved target is the instance's own class
-(`identical? target-class instance-class`), i.e. the direct-config reflect path.
-The `:public-class` mapping is left uncached, since a `:public-class` fn receives
-the instance and could in principle map differently per instance. Override and
-deny outcomes are not cached; they re-resolve each call, which is fine since they
-are not the hot fallthrough.
+The cache is keyed on `class->opts` identity as well as class, so a `merge-opts`
+config change (which swaps in a fresh `class->opts` map) invalidates every live
+site for free. It is populated only when the resolved target is the instance's
+own class (`identical? target-class instance-class`), i.e. the direct-reflect
+path. The `:public-class` mapping is left uncached, since a `:public-class` fn
+receives the instance and could map differently per instance. Override and deny
+outcomes are not cached; they re-resolve each call, which is fine since they are
+not the hot fallthrough.
+
+The cost is a per-site volatile and, at a megamorphic site (one `.foo` seeing
+many receiver classes), a fresh array allocation on each miss. Such sites are
+rare; the design accepts the churn there in exchange for the monomorphic win
+everywhere else.
 
 ## Consequences
 
-- No override, no closed: interop runs the old code. Zero cost.
+- No override, no closed: interop takes the lean node, now faster than the pre-feature code thanks to the inline cache.
 - Overrides: only the overridden member names take the feature node. Name-granular.
 - Static and qualified `Class/.method` access: resolved at analysis. Zero runtime cost, and enforced (including `:closed`), closing a sandbox hole where `String/.length` previously bypassed `:classes` control entirely.
-- Any instance `:closed`: all plain instance interop takes the feature node, but the per-site cache makes the monomorphic case faster than the pre-feature code.
+- Any instance `:closed`: all plain instance interop takes the feature node, at the same monomorphic cost as the lean node.
 - Type hints on receivers are not trusted to skip config. SCI is lenient with hints (a wrong `^String` hint falls back to the real class at runtime), so trusting a hint at analysis would let sandboxed code dodge a control by lying about a receiver's type. Only `Class/.method`, where the class is explicit and is the dispatch class, resolves config from a name at analysis.
 - Member gating is resolved at analysis, so tightening config on a live context via `merge-opts` does not govern code already analyzed. A `(.foo x)` compiled while no member config applied is a lean node that stays lean, even if a later `merge-opts` closes `x`'s class. This is the same analysis-time behavior master already has for `:static-methods`. The normal sandbox flow is immune: set `:closed`/overrides at `init`, then eval untrusted code, so that code is analyzed with the config present and takes the feature node. The staleness needs the backwards order - eval, then tighten. Making post-analysis tightening take effect would require a runtime gate on every instance interop call, which breaks the zero-cost-when-unused constraint, so it is documented rather than paid for. The per-site cache is separately kept correct across `merge-opts` by keying on `class->opts` identity: `merge-opts` swaps in a fresh map, so a live `+configs` node misses its cache and re-resolves.
 
@@ -107,11 +122,11 @@ Min-of-15, 1M-call loops, interleaved with master:
 
 | path | pre-feature | this branch |
 |---|---|---|
-| plain `.length`, no config | ~104 | ~104 (lean, byte-identical) |
+| plain `.length`, no config | ~105 | ~45 (lean, inline cache) |
 | static `Integer/parseInt` | ~30 | ~30 |
 | qualified `String/.length` | ~46 | ~46 |
-| `.length` on X, unrelated class closed | ~101 | ~60 (cache) |
+| `.length` on X, unrelated class closed | ~101 | ~45 (inline cache) |
 
-Residual sub-noise differences on the lean path come from the JIT compiling the
-byte-identical fn differently with the feature fn present in the same namespace,
-not from added work.
+The lean and closed-elsewhere paths both land at ~45ns: a monomorphic hit is two
+identity checks plus the reflective invoke, skipping the allowlist lookup and
+`meth-cache` that the pre-feature code ran every call.
