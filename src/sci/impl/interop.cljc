@@ -34,6 +34,24 @@
              (swap! env assoc-in [k cname meth-name len] meths)
              meths)))))
 
+#?(:clj
+   (defn instance-method-list [ctx ^Class target-class method arg-count]
+     (meth-cache ctx target-class method arg-count
+                 #(reflector/get-methods target-class arg-count method false)
+                 :instance-methods)))
+
+#?(:clj
+   (defn invoke-instance-method-with-methods
+     "Like invoke-instance-method but takes a pre-resolved method list, skipping
+     the meth-cache lookup. Used by the per-call-site inline cache."
+     [ctx bindings obj ^Class target-class method ^java.util.List methods ^objects args arg-count arg-types]
+     (if (and (zero? arg-count) (.isEmpty methods))
+       (invoke-instance-field obj target-class method)
+       (let [args-array (object-array arg-count)]
+         (areduce args idx _ret nil
+                  (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+         (reflector/invoke-matching-method method methods target-class obj args-array arg-types)))))
+
 (defn invoke-instance-method
   #?@(:cljs [[ctx bindings obj _target-class method-name args _arg-count _arg-types]
              ;; gobject/get didn't work here
@@ -44,17 +62,10 @@
                (throw (js/Error. (str "Could not find instance method: " method-name))))]
       :clj
       [[ctx bindings obj ^Class target-class method ^objects args arg-count arg-types]
-       (let [^java.util.List methods
-             (meth-cache ctx target-class method arg-count #(reflector/get-methods target-class arg-count method false) :instance-methods)
-             zero-args? (zero? arg-count)]
-         (if (and zero-args? (.isEmpty ^java.util.List methods))
-           (invoke-instance-field obj target-class method)
-           (do (let [args-array (object-array arg-count)]
-                 (areduce args idx _ret nil
-                          (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
-                 ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
-                 ;; See getMatchingMethod in Reflector
-                 (reflector/invoke-matching-method method methods target-class obj args-array arg-types)))))]))
+       (let [methods (meth-cache ctx target-class method arg-count #(reflector/get-methods target-class arg-count method false) :instance-methods)]
+         ;; Note: I also tried caching the method that invokeMatchingMethod looks up, but retrieving it from the cache was actually more expensive than just doing the invocation!
+         ;; See getMatchingMethod in Reflector
+         (invoke-instance-method-with-methods ctx bindings obj target-class method methods args arg-count arg-types))]))
 
 (defn get-static-field [^Class class field-name-sym]
   #?(:clj (reflector/get-static-field class (str field-name-sym))
@@ -121,6 +132,26 @@
             ;; finding a nil v means the object was unmapped
             v
             (get-in env [:imports sym]))))))
+
+(defn closed?
+  "True when class-opts closes the given section (:instance-methods,
+  :static-methods, :instance-fields or :static-fields). Class-level
+  `:closed true` closes all sections, a section-level `:closed true`
+  closes just that section."
+  [class-opts section]
+  (or (true? (:closed class-opts))
+      (true? (:closed (get class-opts section)))))
+
+(defn member-disposition
+  "How a configured member value resolves. `override` is the value looked up in
+  a member section (nil, `true`, or a fn). Returns `:override` when it is a fn to
+  apply, `:deny` when the member is unlisted and the section is closed, and
+  `:reflect` otherwise (unlisted and open, or the `true` sentinel)."
+  [override class-opts section]
+  (cond
+    (and override (not (true? override))) :override
+    (and (not override) (closed? class-opts section)) :deny
+    :else :reflect))
 
 (defn resolve-class-opts [ctx sym]
   ;; note, we can't re-use fully-qualify class in this function, although it's
