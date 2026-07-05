@@ -280,7 +280,7 @@
 
 (declare update-parents)
 
-(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id _async?]
+(defn expand-fn-args+body [{:keys [fn-expr] :as ctx} [binding-vector & body-exprs] _macro? fn-name fn-id #?(:clj _async? :cljs async?)]
   (when-not binding-vector
     (throw-error-with-location "Parameter declaration missing." fn-expr))
   (when-not (vector? binding-vector)
@@ -304,7 +304,7 @@
         self-ref-idx (when fn-name (update-parents ctx (:closure-bindings ctx) fn-id))
         ;; Transform async bodies before analysis
         body-exprs #?(:clj body-exprs
-                      :cljs (if _async?
+                      :cljs (if async?
                              (let [locals (set (keys (:bindings ctx)))]
                                (async-macro/transform-async-fn-body ctx locals body-exprs))
                              body-exprs))
