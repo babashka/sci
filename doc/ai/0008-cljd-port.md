@@ -19,9 +19,18 @@ master, #1048). Dart has no reflection, so the cljd arm of
 eval-instance-method-invocation gets the receiver's `.-runtimeType` and looks
 up its config, then applies the override fn from :instance-methods /
 :instance-fields. Every member is effectively closed: unlisted members throw,
-the `true` sentinel and :allow :all are meaningless (nothing to reflect). See
-cljd_interop_test.cljd. Static overrides resolve at analysis through the same
-member-disposition path.
+the `true` sentinel and :allow :all are meaningless (nothing to reflect).
+Instance methods and instance fields are wired and tested (cljd_interop_test.cljd).
+Constructors work via `:constructor` closures (analyze-new). Static interop
+(`Class/method`, `Class/FIELD`) is NOT wired yet: the analyzer's static
+resolution lives in the `:clj`/`:cljs` arms and the cljd analyze-dot arm only
+handles instance interop; the static test is gated `TODO:cljd`.
+
+examples/cljd-flutter-tetris exposes Flutter to a SCI script end to end: app.cljd
+registers a `flutter` namespace of widget-builder fns and the script's `(render)`
+constructs the whole widget tree (score, board grid, buttons with SCI-fn
+callbacks). Verified running on Flutter web. Shows the reflection-free interop
+model driving real Flutter from interpreted Clojure.
 
 Config is keyed on the `:class` Type object, not its name. Dart
 `Type.toString()` is not stable under AOT obfuscation (Flutter release), so
