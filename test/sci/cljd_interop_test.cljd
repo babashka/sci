@@ -5,14 +5,14 @@
 (deftest instance-method-override-test
   (testing "instance method dispatches to override fn"
     (is (= 3 (tu/eval* "(.foo \"abc\")"
-                       {:classes {'String {:instance-methods {'foo count}}}}))))
+                       {:classes {'String {:class String :instance-methods {'foo count}}}}))))
   (testing "override receives args"
     (is (= "abc!" (tu/eval* "(.foo \"abc\" \"!\")"
-                            {:classes {'String {:instance-methods {'foo str}}}}))))
+                            {:classes {'String {:class String :instance-methods {'foo str}}}}))))
   (testing "override body calls a real host method (compiled, tree-shakeable)"
     (is (= "ABC" (tu/eval* "(.upper \"abc\")"
-                           {:classes {'String {:instance-methods {'upper (fn [s] (.toUpperCase s))}}}}))))
+                           {:classes {'String {:class String :instance-methods {'upper (fn [s] (.toUpperCase s))}}}}))))
   (testing "unlisted method throws"
     (is (thrown? cljd.core/ExceptionInfo
                  (tu/eval* "(.bar \"abc\")"
-                           {:classes {'String {:instance-methods {'foo (fn [_s] :x)}}}})))))
+                           {:classes {'String {:class String :instance-methods {'foo (fn [_s] :x)}}}})))))

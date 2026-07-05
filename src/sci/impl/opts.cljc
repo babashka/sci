@@ -58,6 +58,7 @@
                                      :js-libs js-libs])
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
+                          #?@(:cljd [:type->opts (:type->opts classes)])
                           :raw-classes raw-classes
                           :ns-aliases ns-aliases))))))
 
@@ -169,8 +170,17 @@
            (assoc! class->opts sym class-opts))
          (assoc! class->opts sym {:class class-opts}))
        (rest kvs))
-      {:public-class (:public-class classes)
-       :class->opts (persistent! class->opts)})))
+      (let [co (persistent! class->opts)]
+        {:public-class (:public-class classes)
+         :class->opts co
+         ;; cljd has no reflection and Type names are not stable under AOT
+         ;; obfuscation, so interop dispatches on the :class Type object itself
+         #?@(:cljd [:type->opts (reduce-kv
+                                 (fn [m _ opts]
+                                   (if-let [c (when (map? opts) (:class opts))]
+                                     (assoc m c opts)
+                                     m))
+                                 {} co)])}))))
 
 (def default-reify-fn
   #?(:cljd (fn [_])

@@ -5,7 +5,7 @@
   (:require [sci.core :as sci]))
 
 (defn main []
-  (let [opts {:classes {'String {:instance-methods {'upper (fn [s] (.toUpperCase s))}}}}]
+  (let [opts {:classes {'String {:class String :instance-methods {'upper (fn [s] (.toUpperCase s))}}}}]
     (println "override calling .toUpperCase:"
              (sci/eval-string "(.upper \"hello from sci\")" opts))
     (println "unlisted method:"

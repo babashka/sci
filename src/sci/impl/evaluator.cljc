@@ -222,10 +222,12 @@
             #?@(:cljd [] :default [cached @cache])]
         #?(:cljd
            ;; cljd has no reflection: interop dispatches through override fns
-           ;; registered in :classes config, every member is effectively closed
-           (let [class-opts (or (get class->opts (symbol (str instance-class)))
+           ;; keyed on the :class Type object (runtimeType), every member is
+           ;; effectively closed
+           (let [type->opts (:type->opts env)
+                 class-opts (or (get type->opts instance-class)
                                 (when-let [f (:public-class env)]
-                                  (get class->opts (symbol (str (f instance-expr*))))))
+                                  (get type->opts (f instance-expr*))))
                  section (if field-access :instance-fields :instance-methods)
                  f (get (get class-opts section) method-sym)]
              (case (interop/member-disposition f class-opts section)

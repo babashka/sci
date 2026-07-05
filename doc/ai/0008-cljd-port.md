@@ -16,12 +16,21 @@ Dart references. Runtime use throws.
 
 Host interop on cljd goes through member-control override fns (merged from
 master, #1048). Dart has no reflection, so the cljd arm of
-eval-instance-method-invocation resolves the instance class (.-runtimeType,
-via :public-class if unlisted), looks up the override fn in :instance-methods
-/ :instance-fields and applies it. Every member is effectively closed:
-unlisted members throw, the `true` sentinel and :allow :all are meaningless
-(nothing to reflect). See cljd_interop_test.cljd. Static overrides resolve at
-analysis through the same member-disposition path.
+eval-instance-method-invocation gets the receiver's `.-runtimeType` and looks
+up its config, then applies the override fn from :instance-methods /
+:instance-fields. Every member is effectively closed: unlisted members throw,
+the `true` sentinel and :allow :all are meaningless (nothing to reflect). See
+cljd_interop_test.cljd. Static overrides resolve at analysis through the same
+member-disposition path.
+
+Config is keyed on the `:class` Type object, not its name. Dart
+`Type.toString()` is not stable under AOT obfuscation (Flutter release), so
+matching on a stringified type name would silently break. Instead
+normalize-classes builds a `:type->opts` index on cljd (from each entry's
+`:class` value) and the eval branch dispatches on `(.-runtimeType obj)` by Type
+identity. The config shape is unchanged from other platforms (`:class` already
+exists there for reflection); only the internal index differs, so a `:classes`
+map written for the JVM works on cljd if it carries `:class`.
 
 This survives tree-shaking: an override body that calls a real Dart method
 (`(fn [s] (.toUpperCase s))`) compiles to a direct call site, so AOT keeps the
