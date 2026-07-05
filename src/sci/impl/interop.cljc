@@ -142,6 +142,17 @@
   (or (true? (:closed class-opts))
       (true? (:closed (get class-opts section)))))
 
+(defn member-disposition
+  "How a configured member value resolves. `override` is the value looked up in
+  a member section (nil, `true`, or a fn). Returns `:override` when it is a fn to
+  apply, `:deny` when the member is unlisted and the section is closed, and
+  `:reflect` otherwise (unlisted and open, or the `true` sentinel)."
+  [override class-opts section]
+  (cond
+    (and override (not (true? override))) :override
+    (and (not override) (closed? class-opts section)) :deny
+    :else :reflect))
+
 (defn resolve-class-opts [ctx sym]
   ;; note, we can't re-use fully-qualify class in this function, although it's
   ;; almost the same, since `js/Foo` stays fully qualified

@@ -250,23 +250,23 @@
                                      :cljs (implements? sci.impl.types.ICustomType instance-expr*))))]
               (if field-access
                 (let [f (get (:instance-fields class-opts) method-sym)]
-                  (cond
-                    (and f (not (true? f)))
+                  (case (interop/member-disposition f class-opts :instance-fields)
+                    :override
                     (f instance-expr*)
-                    (and (not f) (interop/closed? class-opts :instance-fields))
+                    :deny
                     (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
-                    :else
+                    :reflect
                     (do (when cache?
                           (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil]
                                                           :cljs [class->opts instance-class target-class]))))
                         (interop/invoke-instance-field instance-expr* target-class method-str))))
                 (let [f (get (:instance-methods class-opts) method-sym)]
-                  (cond
-                    (and f (not (true? f)))
+                  (case (interop/member-disposition f class-opts :instance-methods)
+                    :override
                     (apply f instance-expr* (map #(types/eval % ctx bindings) args))
-                    (and (not f) (interop/closed? class-opts :instance-methods))
+                    :deny
                     (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
-                    :else
+                    :reflect
                     #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
                               (when cache?
                                 (vreset! cache (object-array [class->opts instance-class target-class methods])))

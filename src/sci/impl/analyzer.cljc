@@ -1045,42 +1045,31 @@
                                  class-expr (:class-expr (meta expr))]
                              ;; prefab static-methods
                              (let [class->opts (some-> ctx :env deref :class->opts)
-                                   fq-class (interop/fully-qualify-class ctx class-expr)]
-                               (if-let [f (some-> class->opts :static-methods
-                                                  (get fq-class)
-                                                  (get method-expr))]
-                                 (if (true? f)
-                                   (sci.impl.types/->Node
-                                    (interop/invoke-static-method ctx bindings instance-expr meth-name
-                                                                  args arg-count)
-                                    stack)
-                                   (return-call ctx expr f (cons instance-expr args) stack nil))
-                                 (let [class-opts (get class->opts fq-class)]
-                                   (when (and (map? class-opts)
-                                              (interop/closed? class-opts :static-methods))
-                                     (utils/throw-error-with-location
-                                      (str "Method " meth-name " on " fq-class " not allowed!")
-                                      expr))
-                                   (sci.impl.types/->Node
-                                    (interop/invoke-static-method ctx bindings instance-expr meth-name
-                                                                  args arg-count)
-                                    stack)))))]
+                                   fq-class (interop/fully-qualify-class ctx class-expr)
+                                   override (some-> class->opts :static-methods
+                                                    (get fq-class)
+                                                    (get method-expr))]
+                               (case (interop/member-disposition override (get class->opts fq-class) :static-methods)
+                                 :override (return-call ctx expr override (cons instance-expr args) stack nil)
+                                 :deny (utils/throw-error-with-location
+                                        (str "Method " meth-name " on " fq-class " not allowed!") expr)
+                                 :reflect (sci.impl.types/->Node
+                                           (interop/invoke-static-method ctx bindings instance-expr meth-name
+                                                                         args arg-count)
+                                           stack))))]
                       ;; class known at analysis, resolve :static-fields config here
                       (let [sf-opts (get (some-> ctx :env deref :class->opts)
                                          (symbol (.getName ^Class instance-expr)))
                             static-field
                             (fn [field-name-str]
                               (let [override (get (:static-fields sf-opts) (symbol field-name-str))]
-                                (cond
-                                  (and override (not (true? override)))
-                                  (sci.impl.types/->Node (override instance-expr) stack)
-                                  (and (not override) (interop/closed? sf-opts :static-fields))
-                                  (utils/throw-error-with-location
-                                   (str "Field " field-name-str " on " instance-expr " not allowed!") expr)
-                                  :else
-                                  (sci.impl.types/->Node
-                                   (interop/get-static-field instance-expr field-name-str)
-                                   stack))))]
+                                (case (interop/member-disposition override sf-opts :static-fields)
+                                  :override (sci.impl.types/->Node (override instance-expr) stack)
+                                  :deny (utils/throw-error-with-location
+                                         (str "Field " field-name-str " on " instance-expr " not allowed!") expr)
+                                  :reflect (sci.impl.types/->Node
+                                            (interop/get-static-field instance-expr field-name-str)
+                                            stack))))]
                         (if (nil? args)
                           (if field-access
                             (static-field meth-name)
@@ -1653,30 +1642,24 @@
                                      arg-count (alength args)
                                      ^java.util.List methods (interop/meth-cache ctx clazz meth arg-count #(reflector/get-methods clazz arg-count meth false) :instance-methods)]
                                  (reflector/invoke-matching-method meth methods clazz obj args arg-types)))]
-               (cond
-                 (and override (not (true? override)))
-                 (sci.impl.types/->Node override stack)
-                 (and (not override) (interop/closed? class-opts :instance-methods))
-                 (utils/throw-error-with-location
-                  (str "Method " meth " on class " (.getName clazz) " not allowed!") expr)
-                 :else
-                 (sci.impl.types/->Node reflect-f stack)))
+               (case (interop/member-disposition override class-opts :instance-methods)
+                 :override (sci.impl.types/->Node override stack)
+                 :deny (utils/throw-error-with-location
+                        (str "Method " meth " on class " (.getName clazz) " not allowed!") expr)
+                 :reflect (sci.impl.types/->Node reflect-f stack)))
              (try (reflector/get-static-field ^Class clazz ^String meth)
                   (catch IllegalArgumentException _
                     nil))
              (let [sf-opts (get (some-> ctx :env deref :class->opts)
                                 (symbol (.getName ^Class clazz)))
                    override (get (:static-fields sf-opts) (symbol meth))]
-               (cond
-                 (and override (not (true? override)))
-                 (sci.impl.types/->Node (override clazz) stack)
-                 (and (not override) (interop/closed? sf-opts :static-fields))
-                 (utils/throw-error-with-location
-                  (str "Field " meth " on class " (.getName ^Class clazz) " not allowed!") expr)
-                 :else
-                 (sci.impl.types/->Node
-                  (interop/get-static-field clazz meth)
-                  stack)))
+               (case (interop/member-disposition override sf-opts :static-fields)
+                 :override (sci.impl.types/->Node (override clazz) stack)
+                 :deny (utils/throw-error-with-location
+                        (str "Field " meth " on class " (.getName ^Class clazz) " not allowed!") expr)
+                 :reflect (sci.impl.types/->Node
+                           (interop/get-static-field clazz meth)
+                           stack)))
              :else (sci.impl.types/->Node
                     (fn [& args]
                       (reflector/invoke-static-method
@@ -1798,16 +1781,16 @@
                                                      (when-let [t (interop/resolve-type-hint ctx t)]
                                                        (do (vreset! has-types? true)
                                                            (aset arg-types idx t))))))))
-                                  (cond
-                                    (and override (not (true? override)))
+                                  (case (interop/member-disposition override class-opts :instance-methods)
+                                    :override
                                     (sci.impl.types/->Node
                                      (apply override (sci.impl.types/eval obj ctx bindings)
                                             (map #(sci.impl.types/eval % ctx bindings) args))
                                      stack)
-                                    (and (not override) (interop/closed? class-opts :instance-methods))
+                                    :deny
                                     (throw-error-with-location
                                      (str "Method " meth " on class " (.getName ^Class clazz) " not allowed!") expr)
-                                    :else
+                                    :reflect
                                     (sci.impl.types/->Node
                                      (let [obj (sci.impl.types/eval obj ctx bindings)]
                                        (interop/invoke-instance-method ctx bindings obj clazz
