@@ -115,13 +115,7 @@
 
 (defn normalize-classes [classes]
   (loop [class->opts (transient (select-keys classes [:allow]))
-         ;; The instance member names (methods and fields) for which SOME class
-         ;; supplies an override, and whether ANY class is closed for instance
-         ;; members. The analyzer knows the member name (not the runtime class),
-         ;; so a `.foo`/`.-foo` site only needs the slower per-call config path
-         ;; when foo is overridden or a closed class could deny it. Non-overridden
-         ;; interop stays lean. :static-methods/:static-fields do not contribute
-         ;; (resolved at analysis time, where the class is known).
+         ;; overridden instance member names, to route only those sites to the feature path
          instance-member-names (transient #{})
          instance-closed? false
          kvs classes]

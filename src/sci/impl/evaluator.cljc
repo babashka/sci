@@ -190,9 +190,7 @@
     none-sentinel))
 
 (defn eval-instance-method-invocation
-  ;; Lean path used when no :classes entry declares :instance-methods or a
-  ;; class-level :closed. The analyzer picks this vs the +configs variant once,
-  ;; so programs not using instance method control run the pre-feature code.
+  ;; lean path, chosen at analysis when no instance member config applies
   [ctx bindings instance-expr method-str method-str-unmunged field-access args #?(:cljs allowed) arg-count arg-types]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
@@ -228,10 +226,7 @@
           (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))
 
 (defn eval-instance-method-invocation+configs
-  ;; Used only when some class declares :instance-methods or a class-level
-  ;; :closed. Honors per-method overrides, the `true` reflective-allow sentinel,
-  ;; and :closed (class- or section-level). Per-class method configs take
-  ;; precedence over :allow :all so a sandbox override is not silently defeated.
+  ;; feature path, chosen at analysis when an instance member config applies
   [ctx bindings instance-expr method-str method-str-unmunged method-sym field-access args #?(:cljs allowed) arg-count arg-types]
   (let [instance-meta (meta instance-expr)
         tag-class (:tag-class instance-meta)
@@ -259,9 +254,7 @@
         (when-not #?(:clj target-class
                      :cljs allowed?)
           (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        ;; the config governing this call: the instance class' own opts, or,
-        ;; failing that, the :public-class target's. Resolved independently of
-        ;; :allow so overrides are not defeated by :allow :all.
+        ;; resolve config independently of :allow so it wins over :allow :all
         (let [class-opts (or (when (map? allowed?) allowed?)
                              (get class->opts
                                   (symbol #?(:clj (.getName ^Class instance-class)
@@ -273,19 +266,16 @@
           (if field-access
             (let [f (get (:instance-fields class-opts) method-sym)]
               (cond
-                ;; true: targeted reflective allow
                 (true? f)
                 (interop/invoke-instance-field instance-expr* target-class method-str)
                 f
                 (f instance-expr*)
-                ;; class-level :closed closes fields too (:instance-fields section closes only fields)
                 (interop/closed? class-opts :instance-fields)
                 (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
                 :else
                 (interop/invoke-instance-field instance-expr* target-class method-str)))
             (let [f (get (:instance-methods class-opts) method-sym)]
               (cond
-                ;; true: targeted reflective allow
                 (true? f)
                 (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types)
                 f

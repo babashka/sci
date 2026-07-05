@@ -1058,7 +1058,6 @@
                                                   (get fq-class)
                                                   (get method-expr))]
                                  (if (true? f)
-                                   ;; targeted reflective allow
                                    (sci.impl.types/->Node
                                     (interop/invoke-static-method ctx bindings instance-expr meth-name
                                                                   args arg-count)
@@ -1074,8 +1073,7 @@
                                     (interop/invoke-static-method ctx bindings instance-expr meth-name
                                                                   args arg-count)
                                     stack)))))]
-                      ;; class is known here, so :static-fields overrides and
-                      ;; :closed are resolved at analysis
+                      ;; class known at analysis, resolve :static-fields config here
                       (let [sf-opts (get (some-> ctx :env deref :class->opts)
                                          (symbol (.getName ^Class instance-expr)))
                             static-field
@@ -1652,9 +1650,7 @@
                         :file @utils/current-file)]
        (cond (str/starts-with? meth ".")
              (let [meth (subs meth 1)
-                   ;; the class is explicit and IS the dispatch class here, so
-                   ;; :instance-methods overrides and :closed can be resolved at
-                   ;; analysis, safely (unlike an unverified receiver type hint)
+                   ;; class is explicit and is the dispatch class, resolve config here
                    class-opts (get (-> ctx :env deref :class->opts)
                                    (symbol (.getName clazz)))
                    override (get (:instance-methods class-opts) (symbol meth))
@@ -1790,9 +1786,7 @@
                                                str
                                                (subs 1))
                                       clazz (first f)
-                                      ;; class is explicit here, so :instance-methods and
-                                      ;; :closed are resolved at analysis (safe: this is the
-                                      ;; dispatch class, not an unverified receiver hint)
+                                      ;; class is explicit and is the dispatch class, resolve config here
                                       class-opts (get (-> ctx :env deref :class->opts)
                                                       (symbol (.getName ^Class clazz)))
                                       override (get (:instance-methods class-opts) (symbol meth))
