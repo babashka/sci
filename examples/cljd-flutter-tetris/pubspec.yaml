@@ -1,0 +1,24 @@
+name: cljd_flutter_tetris
+description: Scripted Tetris on Flutter via SCI.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path: ^1.9.0
+  sci:
+    path: .clojuredart/deps/c6e9baa68d021c173d00e8b86666a23e86d1f7449c4172b6c44fa1c82dda6434
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/game.cljc

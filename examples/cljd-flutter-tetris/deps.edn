@@ -1,0 +1,14 @@
+{:paths ["src"]
+ :deps {org.babashka/sci {:local/root "../.."}}
+ :cljd/opts {:kind :flutter :main tetris.app}
+ :aliases
+ {:cljd {:extra-deps
+         {tensegritics/clojuredart
+          {:git/url "https://github.com/borkdude/ClojureDart.git"
+           :git/sha "23738b4df961da7d5e28a3df0e04ea085722197c"}
+          borkdude/edamame
+          {:git/url "https://github.com/borkdude/edamame.git"
+           :git/sha "beb7773df8f938336a460634ea7bd24700e3211d"}}
+         :main-opts ["-m" "cljd.build"]}
+  ;; local ClojureDart checkout: compose as -M:cljd:cljd-local
+  :cljd-local {:override-deps {tensegritics/clojuredart {:local/root "/Users/borkdude/dev/ClojureDart"}}}}}
