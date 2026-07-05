@@ -192,8 +192,8 @@
 (defn eval-instance-method-invocation
   ;; lean path, chosen at analysis when no instance member config applies
   [ctx bindings instance-expr method-str method-str-unmunged field-access args #?(:cljs allowed) arg-count arg-types]
-  (let [instance-meta (meta instance-expr)
-        tag-class (:tag-class instance-meta)
+  (let [#?@(:clj [instance-meta (meta instance-expr)
+                  tag-class (:tag-class instance-meta)])
         instance-expr* (types/eval instance-expr ctx bindings)
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
@@ -230,8 +230,8 @@
   ;; cache is a per-site volatile: monomorphic sites skip config resolution and
   ;; reflect directly once a class has resolved to plain interop
   [ctx bindings instance-expr method-str method-str-unmunged method-sym field-access args #?(:cljs allowed) arg-count arg-types cache]
-  (let [instance-meta (meta instance-expr)
-        tag-class (:tag-class instance-meta)
+  (let [#?@(:clj [instance-meta (meta instance-expr)
+                  tag-class (:tag-class instance-meta)])
         instance-expr* (types/eval instance-expr ctx bindings)
         v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
