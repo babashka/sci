@@ -992,9 +992,6 @@
            meth-name* meth-name
            meth-sym (symbol meth-name*)
            meth-name (#?(:clj munge :cljs utils/munge-str) meth-name)
-           env (-> ctx :env deref)
-           instance-configs? (or (:instance-closed? env)
-                                 (contains? (:instance-member-names env) meth-sym))
            stack (assoc (meta expr)
                         :ns @utils/current-ns
                         :file @utils/current-file)
@@ -1011,19 +1008,12 @@
                       (when-let [t (interop/resolve-type-hint ctx t)]
                         (do (vreset! has-types? true)
                             (aset arg-types idx t)))))))
-       (with-meta (if instance-configs?
-                    (let [cache (volatile! nil)]
-                      (sci.impl.types/->Node
-                       (eval/eval-instance-method-invocation+configs
-                        ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
-                        (when @has-types? arg-types) cache)
-                       stack))
-                    (let [cache (volatile! nil)]
-                      (sci.impl.types/->Node
-                       (eval/eval-instance-method-invocation
-                        ctx bindings instance-expr meth-name meth-name* field-access args arg-count
-                        (when @has-types? arg-types) cache)
-                       stack)))
+       (with-meta (let [cache (volatile! nil)]
+                    (sci.impl.types/->Node
+                     (eval/eval-instance-method-invocation
+                      ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
+                      (when @has-types? arg-types) cache)
+                     stack))
          {::instance-expr instance-expr
           ::method-name method-name
           :tag (:tag (meta expr))}))))
@@ -1109,14 +1099,10 @@
                               (static-method)))
                           (static-method))))
                     (analyze-instance-method ctx instance-expr method-expr args expr))
-             :cljs (let [env @(:env ctx)
-                         instance-configs? (or (:instance-closed? env)
-                                               (contains? (:instance-member-names env) meth-sym))
+             :cljs (let [;; only unconditional allows skip config resolution;
+                         ;; :allow :all routes to the config-aware node so :closed wins
                          allowed? (or unrestrict/*unrestricted*
-                                      (identical? method-expr utils/allowed-append)
-                                      ;; per-class method configs take precedence
-                                      (when-not instance-configs?
-                                        (-> env :class->opts :allow)))
+                                      (identical? method-expr utils/allowed-append))
                          args (into-array args)]
                      (with-meta
                        (case [(boolean allowed?) field-access]
@@ -1129,15 +1115,10 @@
                           (eval/allowed-instance-method-invocation ctx bindings instance-expr meth-name args nil)
                           stack)
                          ;; default case
-                         (if instance-configs?
-                           (let [cache (volatile! nil)]
-                             (sci.impl.types/->Node
-                              (eval/eval-instance-method-invocation+configs
-                               ctx bindings instance-expr meth-name meth-name* meth-sym field-access args allowed? nil nil cache)
-                              stack))
+                         (let [cache (volatile! nil)]
                            (sci.impl.types/->Node
                             (eval/eval-instance-method-invocation
-                             ctx bindings instance-expr meth-name meth-name* field-access args allowed? nil nil)
+                             ctx bindings instance-expr meth-name meth-name* meth-sym field-access args allowed? nil nil cache)
                             stack)))
                        {::instance-expr instance-expr
                         ::method-name method-name}))))]

@@ -55,8 +55,6 @@
                           #?@(:cljs [:async-load-fn async-load-fn
                                      :js-libs js-libs])
                           :public-class (:public-class classes)
-                          :instance-member-names (:instance-member-names classes)
-                          :instance-closed? (:instance-closed? classes)
                           :class->opts (:class->opts classes)
                           :raw-classes raw-classes
                           :ns-aliases ns-aliases))))))
@@ -115,32 +113,17 @@
 
 (defn normalize-classes [classes]
   (loop [class->opts (transient (select-keys classes [:allow]))
-         ;; overridden instance member names, to route only those sites to the feature path
-         instance-member-names (transient #{})
-         instance-closed? false
          kvs classes]
     (if-let [[sym class-opts] (first kvs)]
-      (let [m? (map? class-opts)
-            im (when m? (:instance-methods class-opts))
-            if* (when m? (:instance-fields class-opts))]
-        (recur ;; storing the physical class as key didn't work well with GraalVM
-         (if m?
-           (if-let [sm (:static-methods class-opts)]
-             (-> (assoc! class->opts sym class-opts)
-                 (assoc! :static-methods (assoc (:static-methods class->opts) sym sm)))
-             (assoc! class->opts sym class-opts))
-           (assoc! class->opts sym {:class class-opts}))
-         (as-> instance-member-names $
-           (reduce (fn [s k] (if (symbol? k) (conj! s k) s)) $ (keys im))
-           (reduce (fn [s k] (if (symbol? k) (conj! s k) s)) $ (keys if*)))
-         (or instance-closed?
-             (boolean (and m? (or (true? (:closed class-opts))
-                                  (true? (:closed im))
-                                  (true? (:closed if*))))))
-         (rest kvs)))
+      (recur ;; storing the physical class as key didn't work well with GraalVM
+       (if (map? class-opts)
+         (if-let [sm (:static-methods class-opts)]
+           (-> (assoc! class->opts sym class-opts)
+               (assoc! :static-methods (assoc (:static-methods class->opts) sym sm)))
+           (assoc! class->opts sym class-opts))
+         (assoc! class->opts sym {:class class-opts}))
+       (rest kvs))
       {:public-class (:public-class classes)
-       :instance-member-names (persistent! instance-member-names)
-       :instance-closed? instance-closed?
        :class->opts (persistent! class->opts)})))
 
 (def default-reify-fn

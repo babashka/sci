@@ -26,12 +26,10 @@
                  "(loop [i 0 n 0] (if (< i 5) (recur (inc i) (if (= :ov (.toString \"x\")) (inc n) n)) n))"
                  {:classes {'java.lang.String {:class String
                                                :instance-methods {'toString (fn [_] :ov)}}}}))))
-     (testing "merge-opts invalidates a warmed cache (node stays +configs: a class is closed throughout)"
-       (let [ctx (sci/init {:classes {:allow :all
-                                      'java.io.File {:class java.io.File :closed true
-                                                     :instance-methods {'getName true}}}})]
+     (testing "merge-opts tightening takes effect on already-analyzed code"
+       (let [ctx (sci/init {:classes {:allow :all 'java.lang.String {:class String}}})]
          (sci/eval-string* ctx "(defn f [] (.length \"abc\"))")
-         (is (= 3 (sci/eval-string* ctx "(f)")))     ;; warms cache: String -> reflect
+         (is (= 3 (sci/eval-string* ctx "(f)")))
          (sci/merge-opts ctx {:classes {'java.lang.String {:class String :closed true}}})
          (is (thrown-with-msg? Exception #"Method length on class java.lang.String not allowed"
                                (sci/eval-string* ctx "(f)")))))))
