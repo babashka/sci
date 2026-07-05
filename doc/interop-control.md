@@ -59,3 +59,16 @@ A per-class member config takes precedence ove `:allow :all` when it is `:closed
              :instance-methods {'getName true}}}})
 ;;=> throws: Method getPath on class java.io.File not allowed!
 ```
+
+## Config changes on a live context
+
+For performance, member analysis is done at analysis time as much as possible. If you tighten class configurations later with `sci/merge-opts`, functions already produced will keep the gating they were analyzed with and bypass the new restrictions. Only code analyzed after the `merge-opts` sees the tighter config. This matches how `:static-methods` already behaves. Set the full config at `sci/init` before evaluating untrusted code and the normal sandbox flow is unaffected.
+
+```clojure
+(def ctx (sci/init {:classes {:allow :all 'java.lang.String {:class String}}}))
+(sci/eval-string* ctx "(defn f [] (.length \"abc\"))")   ;; analyzed while String open
+(sci/eval-string* ctx "(f)")                              ;; => 3
+(sci/merge-opts ctx {:classes {'java.lang.String {:class String :closed true}}})
+(sci/eval-string* ctx "(f)")                              ;; still 3: f's node was analyzed before :closed
+(sci/eval-string* ctx "(.length \"abc\")")               ;; throws: newly analyzed, sees :closed
+```
