@@ -253,7 +253,8 @@
           ;; fast path: this class resolved to plain interop before
           (if field-access
             (interop/invoke-instance-field instance-expr* instance-class method-str)
-            (interop/invoke-instance-method ctx bindings instance-expr* instance-class method-str args arg-count arg-types))
+            #?(:clj (interop/invoke-instance-method-with-methods ctx bindings instance-expr* instance-class method-str (aget ^objects cached 2) args arg-count arg-types)
+               :cljs (interop/invoke-instance-method ctx bindings instance-expr* instance-class method-str args arg-count arg-types)))
           (let [allowed? (or
                           #?(:cljs allowed)
                           (let [instance-class-name #?(:clj (.getName ^Class instance-class)
@@ -278,32 +279,29 @@
               (if field-access
                 (let [f (get (:instance-fields class-opts) method-sym)]
                   (cond
-                    (true? f)
-                    (do (when (identical? target-class instance-class)
-                          (vreset! cache (object-array [class->opts instance-class])))
-                        (interop/invoke-instance-field instance-expr* target-class method-str))
-                    f
+                    (and f (not (true? f)))
                     (f instance-expr*)
-                    (interop/closed? class-opts :instance-fields)
+                    (and (not f) (interop/closed? class-opts :instance-fields))
                     (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
                     :else
                     (do (when (identical? target-class instance-class)
-                          (vreset! cache (object-array [class->opts instance-class])))
+                          (vreset! cache (object-array #?(:clj [class->opts instance-class nil]
+                                                          :cljs [class->opts instance-class]))))
                         (interop/invoke-instance-field instance-expr* target-class method-str))))
                 (let [f (get (:instance-methods class-opts) method-sym)]
                   (cond
-                    (true? f)
-                    (do (when (identical? target-class instance-class)
-                          (vreset! cache (object-array [class->opts instance-class])))
-                        (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))
-                    f
+                    (and f (not (true? f)))
                     (apply f instance-expr* (map #(types/eval % ctx bindings) args))
-                    (interop/closed? class-opts :instance-methods)
+                    (and (not f) (interop/closed? class-opts :instance-methods))
                     (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
                     :else
-                    (do (when (identical? target-class instance-class)
-                          (vreset! cache (object-array [class->opts instance-class])))
-                        (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))))))))
+                    #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
+                              (when (identical? target-class instance-class)
+                                (vreset! cache (object-array [class->opts instance-class methods])))
+                              (interop/invoke-instance-method-with-methods ctx bindings instance-expr* target-class method-str methods args arg-count arg-types))
+                       :cljs (do (when (identical? target-class instance-class)
+                                   (vreset! cache (object-array [class->opts instance-class])))
+                                 (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types)))))))))))))
 
 ;;;; End interop
 
