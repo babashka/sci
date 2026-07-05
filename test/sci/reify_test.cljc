@@ -1,6 +1,6 @@
 (ns sci.reify-test
-  (:require [clojure.test :refer #?(:clj [deftest is testing]
-                                    :cljs [deftest is testing])]
+  (:require [clojure.test :refer #?(:cljd [deftest is testing]
+                                    :default [deftest is testing])]
             #?(:clj [sci.impl.types :as t])
             [sci.test-utils :as tu])
   #?(:clj (:import [sci.impl.types ICustomType])))
