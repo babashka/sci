@@ -190,8 +190,10 @@
     none-sentinel))
 
 (defn eval-instance-method-invocation
-  ;; lean path, chosen at analysis when no instance member config applies
-  [ctx bindings instance-expr method-str method-str-unmunged field-access args #?(:cljs allowed) arg-count arg-types]
+  ;; lean path, chosen at analysis when no instance member config applies.
+  ;; cache is a per-site volatile: monomorphic sites skip the allowlist lookup
+  ;; and meth-cache, reflecting directly on the cached method list
+  [ctx bindings instance-expr method-str method-str-unmunged field-access args #?(:cljs allowed) arg-count arg-types #?(:clj cache)]
   (let [#?@(:clj [instance-meta (meta instance-expr)
                   tag-class (:tag-class instance-meta)])
         instance-expr* (types/eval instance-expr ctx bindings)
@@ -206,24 +208,40 @@
                               :cljs (type instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
-            allowed? (or
-                      #?(:cljs allowed)
-                      (get class->opts :allow)
-                      (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                   :cljs (.-name instance-class))
-                            instance-class-symbol (symbol instance-class-name)]
-                        (get class->opts instance-class-symbol)))
-            ^Class target-class (if allowed? instance-class
-                                    (when-let [f (:public-class env)]
-                                      (f instance-expr*)))]
-        ;; we have to check options at run time, since we don't know what the class
-        ;; of instance-expr is at analysis time
-        (when-not #?(:clj target-class
-                     :cljs allowed?)
-          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-        (if field-access
-          (interop/invoke-instance-field instance-expr* target-class method-str)
-          (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))
+            #?@(:clj [cached @cache])]
+        (if #?(:clj (and cached
+                         (identical? class->opts (aget ^objects cached 0))
+                         (identical? instance-class (aget ^objects cached 1)))
+               :cljs false)
+          ;; fast path: this class resolved to plain interop before
+          (if field-access
+            (interop/invoke-instance-field instance-expr* instance-class method-str)
+            #?(:clj (interop/invoke-instance-method-with-methods ctx bindings instance-expr* instance-class method-str (aget ^objects cached 2) args arg-count arg-types)
+               :cljs (interop/invoke-instance-method ctx bindings instance-expr* instance-class method-str args arg-count arg-types)))
+          (let [allowed? (or
+                          #?(:cljs allowed)
+                          (get class->opts :allow)
+                          (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                                       :cljs (.-name instance-class))
+                                instance-class-symbol (symbol instance-class-name)]
+                            (get class->opts instance-class-symbol)))
+                ^Class target-class (if allowed? instance-class
+                                        (when-let [f (:public-class env)]
+                                          (f instance-expr*)))]
+            ;; we have to check options at run time, since we don't know what the class
+            ;; of instance-expr is at analysis time
+            (when-not #?(:clj target-class
+                         :cljs allowed?)
+              (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+            (if field-access
+              (do #?(:clj (when (identical? target-class instance-class)
+                            (vreset! cache (object-array [class->opts instance-class nil]))))
+                  (interop/invoke-instance-field instance-expr* target-class method-str))
+              #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
+                        (when (identical? target-class instance-class)
+                          (vreset! cache (object-array [class->opts instance-class methods])))
+                        (interop/invoke-instance-method-with-methods ctx bindings instance-expr* target-class method-str methods args arg-count arg-types))
+                 :cljs (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types)))))))))
 
 (defn eval-instance-method-invocation+configs
   ;; feature path, chosen at analysis when an instance member config applies.

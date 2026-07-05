@@ -1018,11 +1018,12 @@
                         ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
                         (when @has-types? arg-types) cache)
                        stack))
-                    (sci.impl.types/->Node
-                     (eval/eval-instance-method-invocation
-                      ctx bindings instance-expr meth-name meth-name* field-access args arg-count
-                      (when @has-types? arg-types))
-                     stack))
+                    (let [cache (volatile! nil)]
+                      (sci.impl.types/->Node
+                       (eval/eval-instance-method-invocation
+                        ctx bindings instance-expr meth-name meth-name* field-access args arg-count
+                        (when @has-types? arg-types) cache)
+                       stack)))
          {::instance-expr instance-expr
           ::method-name method-name
           :tag (:tag (meta expr))}))))
