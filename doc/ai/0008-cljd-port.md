@@ -14,7 +14,17 @@ registry (cljd.compiler/nses), skips $-named protocol infrastructure and
 and emits the cljs-shaped -copy-ns call with :val symbols that compile to
 Dart references. Runtime use throws.
 
-Next: interop for :classes. Non-record deftype works on cljd: the cljs arm
+Host interop on cljd goes through member-control override fns (merged from
+master, #1048). Dart has no reflection, so the cljd arm of
+eval-instance-method-invocation resolves the instance class (.-runtimeType,
+via :public-class if unlisted), looks up the override fn in :instance-methods
+/ :instance-fields and applies it. Every member is effectively closed:
+unlisted members throw, the `true` sentinel and :allow :all are meaningless
+(nothing to reflect). See cljd_interop_test.cljd. Static overrides resolve at
+analysis through the same member-disposition path. Next: static/field interop
+coverage, then wider host types.
+
+Non-record deftype works on cljd: the cljs arm
 of analyze-deftype* became :default (SciType path, platform-neutral).
 SciRecord gained -contains-key? (under ILookup on cljd, not IAssociative)
 and IPrint for record-style printing. to-string in deftype.cljc and
