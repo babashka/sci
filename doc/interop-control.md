@@ -32,6 +32,19 @@ One class has the `:closed` option which means that the config options replace a
 
 In the above config you can see that overrides can be either functions or a `true` value. The latter means that the class is allowed but treated via the built-in interop code that SCI itself has.
 
+Note that `:closed` may appear on the class config globally or on an individual member section.
+
+```clojure
+{:classes
+ {'java.lang.Integer
+  {:class java.lang.Integer
+   ;; :closed on a member section: only specific static methods are allowed
+   :static-methods   {:closed true
+                      'parseInt true}
+   ;; other sections without :closed remain overrides
+   :instance-methods {'toString (fn [i] :custom)}}}}
+```
+
 ## Interaction with `:allow :all`
 
 A per-class member config takes precedence ove `:allow :all` when it is `:closed`.
