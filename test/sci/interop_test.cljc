@@ -32,7 +32,16 @@
          (is (= 3 (sci/eval-string* ctx "(f)")))
          (sci/merge-opts ctx {:classes {'java.lang.String {:class String :closed true}}})
          (is (thrown-with-msg? Exception #"Method length on class java.lang.String not allowed"
-                               (sci/eval-string* ctx "(f)")))))))
+                               (sci/eval-string* ctx "(f)")))))
+     (testing "public-class result is cached per runtime class, polymorphic site stays correct"
+       (let [opts {:classes {'java.lang.CharSequence {:class CharSequence}
+                             'java.lang.Number {:class Number}
+                             :public-class (fn [v] (cond (instance? CharSequence v) CharSequence
+                                                         (instance? Number v) Number))}}
+             sb (StringBuilder. "abcd")]
+         (is (= ["abcd" "5" "abcd" "5"]
+                (sci/eval-string "(mapv #(.toString %) [sb 5 sb 5])"
+                                 (assoc opts :namespaces {'user {'sb sb}}))))))))
 
 #?(:clj
    (deftest instance-methods
