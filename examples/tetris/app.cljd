@@ -1,0 +1,88 @@
+(ns tetris.app
+  "Flutter Tetris whose game logic is a SCI script (game.cljc, bundled as an
+  asset). Flutter provides the loop, input and rendering; SCI runs the game.
+
+  UNTESTED against a real Flutter SDK (none in the build env). The game logic
+  and the SCI-on-Dart runtime are proven (see verify.cljd); this file is the
+  UI shell and may need small Flutter-API tweaks on first run."
+  (:require ["package:flutter/material.dart" :as m]
+            ["package:flutter/services.dart" :as services]
+            ["dart:async" :as async]
+            [cljd.flutter :as f]
+            [sci.core :as sci]))
+
+(def piece-colors
+  {:cyan   m/Colors.cyan
+   :yellow m/Colors.yellow
+   :purple m/Colors.purpleAccent
+   :green  m/Colors.green
+   :red    m/Colors.red
+   :blue   m/Colors.blueAccent
+   :orange m/Colors.orange})
+
+(defn cell [color]
+  (m/Container
+   .width 22 .height 22 .margin (m/EdgeInsets.all 1.0)
+   .decoration
+   (m/BoxDecoration
+    .color (or (piece-colors color) (.shade800 m/Colors.blueGrey))
+    .borderRadius (m/BorderRadius.circular 3.0))))
+
+(defn board-view [rows]
+  (m/Column
+   .mainAxisSize m/MainAxisSize.min
+   .children
+   (vec (for [row rows]
+          (m/Row .mainAxisSize m/MainAxisSize.min
+                 .children (vec (map cell row)))))))
+
+(defn button [label f]
+  (m/Padding
+   .padding (m/EdgeInsets.all 4.0)
+   .child (m/ElevatedButton .onPressed f .child (m/Text label))))
+
+;; one shared SCI context; the game state lives inside it (the game.cljc atom)
+(defn new-ctx [game-src]
+  (let [ctx (sci/init {})]
+    (sci/eval-string* ctx game-src)
+    (sci/eval-string* ctx "(init!)")
+    ctx))
+
+(defn call [ctx form] (sci/eval-string* ctx form))
+
+(defn main []
+  (f/run
+   ;; load the game script from the bundled asset, then build the app
+   .await [game-src (m/rootBundle.loadString "assets/game.cljc")]
+   :bind {ctx (new-ctx game-src)
+          tick (atom 0)}          ;; bump to force a rebuild after each move
+   :managed [timer (async/Timer.periodic
+                    (async/Duration .milliseconds 600)
+                    (fn [_]
+                      (call ctx "(tick!)")
+                      (swap! tick inc)))]
+   :watch [_ tick]
+   (m/MaterialApp
+    .home
+    (m/Scaffold
+     .backgroundColor m/Colors.black
+     .body
+     (m/Center
+      .child
+      (m/Column
+       .mainAxisAlignment m/MainAxisAlignment.center
+       .children
+       [(m/Text (str "score " (call ctx "(score)"))
+                .style (m/TextStyle .color m/Colors.white .fontSize 20.0))
+        (m/SizedBox .height 8.0)
+        (board-view (call ctx "(board-data)"))
+        (m/SizedBox .height 8.0)
+        (if (call ctx "(over?)")
+          (m/Text "GAME OVER" .style (m/TextStyle .color m/Colors.red .fontSize 24.0))
+          (m/Row
+           .mainAxisAlignment m/MainAxisAlignment.center
+           .children
+           [(button "<"  (fn [] (call ctx "(move! -1)") (swap! tick inc)))
+            (button "rot" (fn [] (call ctx "(rotate!)")  (swap! tick inc)))
+            (button ">"  (fn [] (call ctx "(move! 1)")  (swap! tick inc)))
+            (button "v"  (fn [] (call ctx "(drop!)")    (swap! tick inc)))]))])))))))
