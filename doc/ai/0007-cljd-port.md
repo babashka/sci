@@ -20,10 +20,13 @@ SciRecord gained -contains-key? (under ILookup on cljd, not IAssociative)
 and IPrint for record-style printing. to-string in deftype.cljc and
 records.cljc are SciMultiFns on cljd (Object method impls register at
 runtime). demunge on cljd maps underscores to dashes for cross-ns type
-imports. Test sweep done: selector
-runs core, error, vars, namespaces, io, repl, impl, multimethods, protocols
-and core-protocols tests on cljd (227 assertions). read-test is JVM-only
-(host readers), skipped.
+imports. Test sweep: selector runs core, error, vars, namespaces, io, repl,
+impl, multimethods, protocols, core-protocols, defrecords-and-deftype and
+reify tests on cljd (271 assertions). reify runs the pure-protocol tests;
+host-interop reify tests stay `#?(:clj ...)` and elide. read-test is JVM-only
+(host readers), skipped. Remaining unported test namespaces are host- or
+thread-specific: interop-test (host interop), interrupt-fn-test (threads, Dart
+is single-isolate), hierarchies-test (no hierarchies on cljd).
 
 Multimethods and protocols work on cljd via a sci-owned SciMultiFn
 (multimethods.cljc): method table in an atom, exact-match dispatch plus
@@ -35,9 +38,9 @@ to host defmultis at runtime. Class dispatch values normalize through
 Dart core types are registered as dart.core.String etc with import
 aliases, bare int/double/bool compile to cast fns on cljd so the registry
 captures runtimeType Type objects instead. Reified has a cljd IFn mixin
-calling its method map directly, like cljs. Multimethods (and protocols, which build on them) are
-punted for now: defmulti/defprotocol throw "not yet supported" on cljd, tests
-gated with TODO:cljd markers.
+calling its method map directly, like cljs. Multimethods and protocols work
+(defmulti/defmethod/defprotocol/reify), see multimethods.cljc. No hierarchies,
+so prefer-method and derive-based dispatch stay unsupported.
 
 ## Real test suite on cljd
 
