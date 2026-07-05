@@ -12,7 +12,7 @@
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
-(def ^:const eof :sci.impl.parser.edamame/eof)
+(def ^{#?@(:cljd [] :default [:const true])} eof :sci.impl.parser.edamame/eof)
 
 (def read-eval
   (utils/new-var '*read-eval* false {:ns utils/clojure-core-ns
