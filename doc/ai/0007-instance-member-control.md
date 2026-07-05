@@ -71,12 +71,21 @@ plain `.length` drops from ~105ns (pre-feature) to ~45ns.
 
 Keying on `class->opts` identity as well as class is what makes `merge-opts`
 correct: it swaps in a fresh `class->opts` map, so every live site misses and
-re-resolves under the new config for free. The cache is populated only when the
-resolved target is the instance's own class (`identical? target-class
-instance-class`), i.e. the direct-reflect path. The `:public-class` mapping is
-left uncached, since a `:public-class` fn receives the instance and could map
-differently per instance. Override and deny outcomes are not cached; they
-re-resolve each call, which is fine since they are not the hot fallthrough.
+re-resolves under the new config for free. Override and deny outcomes are not
+cached; they re-resolve each call, which is fine since they are not the hot
+fallthrough.
+
+The cache also stores the resolved target class, so a `:public-class` mapping is
+cached: a monomorphic site skips the `:public-class` call itself on a hit,
+serving the cached target directly. This holds only if `:public-class` is a pure
+function of the instance's class. Custom types (`sci.impl.types.ICustomType`)
+break that: a reified object carries its interfaces as per-instance data while
+sharing one JVM class, so `:public-class` maps two same-class instances to
+different targets. Caching a custom type would serve one instance's target for
+another. So a `:public-class` result is cached only when the instance is not an
+`ICustomType`; custom types re-resolve every call, as before. The contract for a
+user `:public-class` fn is therefore: depend only on the instance's class, not
+its value, for non-custom types.
 
 The read is safe under concurrent execution of the node: `cached` is derefed
 once into a local and all three fields are read from that one immutable snapshot,
@@ -129,5 +138,7 @@ Min-of-15, 1M-call loops, interleaved with master:
 Plain interop lands at ~45ns whether or not any class is configured: a
 monomorphic hit is two identity checks plus the reflective invoke, skipping the
 allowlist lookup and `meth-cache` that the pre-feature code ran every call.
-Confirmed in a native babashka binary: direct interop ~1.6x faster than master,
-`:public-class` interop unchanged (that path is never cached).
+Confirmed in a native babashka binary: direct interop ~1.6x faster than master.
+`:public-class` interop, which babashka uses heavily (Process, Path, streams),
+also caches now: a JVM microbench of a `:public-class`-mapped call dropped ~3x
+once the target class is cached and the `:public-class` fn is skipped on hits.
