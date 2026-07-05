@@ -62,7 +62,7 @@ A per-class member config takes precedence ove `:allow :all` when it is `:closed
 
 ## Config changes on a live context
 
-For performance, member analysis is done at analysis time as much as possible. If you tighten class configurations later with `sci/merge-opts`, functions already produced will keep the gating they were analyzed with and bypass the new restrictions. Only code analyzed after the `merge-opts` sees the tighter config. This matches how `:static-methods` already behaves. Set the full config at `sci/init` before evaluating untrusted code and the normal sandbox flow is unaffected.
+For performance, member analysis is done at analysis time as much as possible. If you tighten class configurations later with `sci/merge-opts`, functions already produced will bypass the new restrictions. Only code analyzed after the `merge-opts` sees the tighter config. Set the full config at `sci/init` before evaluating untrusted code and the normal sandbox flow is unaffected.
 
 ```clojure
 (def ctx (sci/init {:classes {:allow :all 'java.lang.String {:class String}}}))
