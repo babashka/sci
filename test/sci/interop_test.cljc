@@ -13,6 +13,21 @@
   (tu/eval* expr {}))
 
 #?(:clj
+   (deftest instance-method-config-cache-test
+     (testing "polymorphic call site stays correct with a closed class elsewhere"
+       (is (= ["a" "1" "2.0"]
+              (sci/eval-string
+               "(mapv #(.toString %) [\"a\" 1 2.0])"
+               {:classes {:allow :all
+                          'java.io.File {:class java.io.File :closed true
+                                         :instance-methods {'getName true}}}}))))
+     (testing "override applies on every iteration"
+       (is (= 5 (sci/eval-string
+                 "(loop [i 0 n 0] (if (< i 5) (recur (inc i) (if (= :ov (.toString \"x\")) (inc n) n)) n))"
+                 {:classes {'java.lang.String {:class String
+                                               :instance-methods {'toString (fn [_] :ov)}}}}))))))
+
+#?(:clj
    (deftest instance-methods
      (is (= 3 (eval* "(.length \"foo\")")))
      (testing "calling instance methods on unconfigured classes is not allowed"

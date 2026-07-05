@@ -1012,11 +1012,12 @@
                         (do (vreset! has-types? true)
                             (aset arg-types idx t)))))))
        (with-meta (if instance-configs?
-                    (sci.impl.types/->Node
-                     (eval/eval-instance-method-invocation+configs
-                      ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
-                      (when @has-types? arg-types))
-                     stack)
+                    (let [cache (volatile! nil)]
+                      (sci.impl.types/->Node
+                       (eval/eval-instance-method-invocation+configs
+                        ctx bindings instance-expr meth-name meth-name* meth-sym field-access args arg-count
+                        (when @has-types? arg-types) cache)
+                       stack))
                     (sci.impl.types/->Node
                      (eval/eval-instance-method-invocation
                       ctx bindings instance-expr meth-name meth-name* field-access args arg-count
@@ -1128,10 +1129,11 @@
                           stack)
                          ;; default case
                          (if instance-configs?
-                           (sci.impl.types/->Node
-                            (eval/eval-instance-method-invocation+configs
-                             ctx bindings instance-expr meth-name meth-name* meth-sym field-access args allowed? nil nil)
-                            stack)
+                           (let [cache (volatile! nil)]
+                             (sci.impl.types/->Node
+                              (eval/eval-instance-method-invocation+configs
+                               ctx bindings instance-expr meth-name meth-name* meth-sym field-access args allowed? nil nil cache)
+                              stack))
                            (sci.impl.types/->Node
                             (eval/eval-instance-method-invocation
                              ctx bindings instance-expr meth-name meth-name* field-access args allowed? nil nil)
