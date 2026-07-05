@@ -47,7 +47,14 @@ output (`lib/cljd-out/`); all of it is gitignored.
 
 ## How it fits together
 
-Flutter holds one `sci/init` context, evals `game.cljc` into it once, then calls
-`(tick!)` / `(move! ..)` / `(rotate!)` / `(drop!)` and re-reads `(board-data)` to
-rebuild the grid. The game state lives inside the SCI context (the `game.cljc`
-atom), so it persists across calls.
+`app.cljd` exposes Flutter to SCI as a `flutter` namespace of builder fns
+(`text`, `cell`, `row`, `column`, `gap`, `button`) that take Clojure data and
+return real Flutter widgets. It inits one `sci` context with that namespace,
+evals `game.cljc`, then on every tick evals `(render)` and displays the widget
+it returns.
+
+So `game.cljc` builds the **entire** UI itself - `(render)` constructs the score
+text, the board grid (colored `flutter/cell`s in `flutter/row`s/`column`s) and
+the control buttons, whose `on-press` callbacks are SCI fns that call
+`(move! ..)` / `(rotate!)` / `(drop!)`. The game state lives in the `game.cljc`
+atom inside the SCI context. Flutter is driven from the script.

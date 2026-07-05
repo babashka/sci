@@ -123,3 +123,23 @@
     (vec (for [r (range height)]
            (vec (for [c (range width)]
                   (or (overlay [r c]) (get-in (:board st) [r c]))))))))
+
+;; UI: the script builds the whole widget tree via the host-provided flutter/*
+;; fns (registered by app.cljd). This is SCI driving Flutter.
+
+(defn render []
+  (let [st @state]
+    (flutter/column
+     [(flutter/text (str "score " (:score st)))
+      (flutter/gap 8)
+      (flutter/column
+       (for [row (board-data)]
+         (flutter/row (for [c row] (flutter/cell c)))))
+      (flutter/gap 12)
+      (if (:over st)
+        (flutter/text "GAME OVER")
+        (flutter/row
+         [(flutter/button "<"   (fn [] (move! -1)))
+          (flutter/button "rot" (fn [] (rotate!)))
+          (flutter/button ">"   (fn [] (move! 1)))
+          (flutter/button "v"   (fn [] (drop!)))]))])))

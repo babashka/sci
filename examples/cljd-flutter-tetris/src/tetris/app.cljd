@@ -1,6 +1,8 @@
 (ns tetris.app
-  "Flutter Tetris whose game logic is a SCI script (game.cljc, bundled as an
-  asset). Flutter provides the loop, input and rendering; SCI runs the game."
+  "Flutter Tetris where the SCI script (game.cljc) builds the widget tree itself.
+  Flutter widgets are exposed to SCI as a `flutter` namespace of builder fns, so
+  the script's (render) constructs the whole UI. app.cljd only wires the fns,
+  ticks a timer, and displays whatever (render) returns."
   (:require ["package:flutter/material.dart" :as m]
             ["package:flutter/services.dart" :as services]
             ["dart:async" :as async]
@@ -18,61 +20,53 @@
 
 (def empty-color (m/Color 0xff212121))
 
-(defn cell [color]
-  (m/Container
-   .width 22.0 .height 22.0 .margin (m/EdgeInsets.all 1.0)
-   .decoration
-   (m/BoxDecoration
-    .color (or (piece-colors color) empty-color)
-    .borderRadius (m/BorderRadius.circular 3.0))))
-
-(defn board-view [rows]
-  (m/Column
-   .mainAxisSize m/MainAxisSize.min
-   .children
-   (vec (for [row rows]
-          (m/Row .mainAxisSize m/MainAxisSize.min
-                 .children (vec (map cell row)))))))
-
-(defn button [label f]
-  (m/Padding
-   .padding (m/EdgeInsets.all 4.0)
-   .child (m/ElevatedButton .onPressed f .child (m/Text label))))
+(defn flutter-ns
+  "The `flutter` namespace exposed to the SCI script: builder fns that take
+  Clojure data and return real Flutter widgets. A button press runs the script
+  callback and bumps `tick` to trigger a rebuild."
+  [tick]
+  {'text   (fn [s] (m/Text (str s)
+                           .style (m/TextStyle .color m/Colors.white .fontSize 20.0)))
+   'cell   (fn [color]
+             (m/Container
+              .width 22.0 .height 22.0 .margin (m/EdgeInsets.all 1.0)
+              .decoration (m/BoxDecoration
+                           .color (or (piece-colors color) empty-color)
+                           .borderRadius (m/BorderRadius.circular 3.0))))
+   'row    (fn [children]
+             (m/Row .mainAxisSize m/MainAxisSize.min
+                    .mainAxisAlignment m/MainAxisAlignment.center
+                    .children (vec children)))
+   'column (fn [children]
+             (m/Column .mainAxisSize m/MainAxisSize.min
+                       .mainAxisAlignment m/MainAxisAlignment.center
+                       .children (vec children)))
+   'gap    (fn [h] (m/SizedBox .height (double h)))
+   'button (fn [label on-press]
+             (m/Padding
+              .padding (m/EdgeInsets.all 4.0)
+              .child (m/ElevatedButton
+                      .onPressed (fn [] (on-press) (swap! tick inc))
+                      .child (m/Text (str label)))))})
 
 (defn run-app [game-src]
-  (let [ctx (doto (sci/init {})
-              (sci/eval-string* game-src)
-              (sci/eval-string* "(init!)"))
-        tick (atom 0)
-        step! (fn [form] (sci/eval-string* ctx form) (swap! tick inc))]
+  (let [tick (atom 0)
+        ctx  (doto (sci/init {:namespaces {'flutter (flutter-ns tick)}})
+               (sci/eval-string* game-src)
+               (sci/eval-string* "(init!)"))]
     (async/Timer.periodic (Duration .milliseconds 600)
-                          (fn [_] (step! "(tick!)")))
+                          (fn [_] (sci/eval-string* ctx "(tick!)") (swap! tick inc)))
     (f/run
       (m/MaterialApp .title "SCI Tetris"
                      .theme (m/ThemeData .brightness m/Brightness.dark))
       .home
-      (m/Scaffold
-       .backgroundColor m/Colors.black)
+      (m/Scaffold .backgroundColor m/Colors.black)
       .body
       m/Center
       (f/widget
         :watch [_ tick]
-        (m/Column .mainAxisAlignment m/MainAxisAlignment.center)
-        .children
-        [(m/Text (str "score " (sci/eval-string* ctx "(score)"))
-                 .style (m/TextStyle .color m/Colors.white .fontSize 20.0))
-         (m/SizedBox .height 8.0)
-         (board-view (sci/eval-string* ctx "(board-data)"))
-         (m/SizedBox .height 12.0)
-         (if (sci/eval-string* ctx "(over?)")
-           (m/Text "GAME OVER"
-                   .style (m/TextStyle .color m/Colors.red .fontSize 24.0))
-           (m/Row .mainAxisAlignment m/MainAxisAlignment.center
-                  .children
-                  [(button "<"   (fn [] (step! "(move! -1)")))
-                   (button "rot" (fn [] (step! "(rotate!)")))
-                   (button ">"   (fn [] (step! "(move! 1)")))
-                   (button "v"   (fn [] (step! "(drop!)")))]))]))))
+        ;; the SCI script builds the entire widget tree via the flutter/* fns
+        (sci/eval-string* ctx "(render)")))))
 
 (defn main []
   (m/WidgetsFlutterBinding.ensureInitialized)
