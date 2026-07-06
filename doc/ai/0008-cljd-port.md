@@ -20,11 +20,14 @@ eval-instance-method-invocation gets the receiver's `.-runtimeType` and looks
 up its config, then applies the override fn from :instance-methods /
 :instance-fields. Every member is effectively closed: unlisted members throw,
 the `true` sentinel and :allow :all are meaningless (nothing to reflect).
-Instance methods and instance fields are wired and tested (cljd_interop_test.cljd).
-Constructors work via `:constructor` closures (analyze-new). Static interop
-(`Class/method`, `Class/FIELD`) is NOT wired yet: the analyzer's static
-resolution lives in the `:clj`/`:cljs` arms and the cljd analyze-dot arm only
-handles instance interop; the static test is gated `TODO:cljd`.
+All interop kinds are wired and tested on cljd (cljd_interop_test.cljd):
+instance methods and fields (eval-instance-method-invocation cljd arm),
+constructors (`:constructor` closures via analyze-new), static methods (the
+cljd analyze-dot arm detects the `:class-expr` meta from the `Class/method`
+rewrite and dispatches `:static-methods` overrides) and static fields
+(resolve.cljc dispatches `Class/FIELD` reads through `:static-fields`
+overrides). No reflection, so unlisted/reflect members throw; only override fns
+and the config carry interop.
 
 examples/cljd-flutter-tetris exposes Flutter to a SCI script end to end: app.cljd
 registers a `flutter` namespace of widget-builder fns and the script's `(render)`
