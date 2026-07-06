@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# AOT test for ClojureDart: dart compile exe a non-interactive sci-interop
+# program and run the native binary. Verifies the reflection-free interop model
+# survives Dart AOT tree-shaking, which the JIT `dart test` suite cannot catch.
+# Analogous to script/test/native (GraalVM). Run after script/test/cljd, which
+# scaffolds the cljd project (pubspec.yaml, deps).
+
+if [ ! -f pubspec.yaml ]; then
+  echo 'No pubspec.yaml. Run script/test/cljd first to scaffold the cljd project.' >&2
+  exit 1
+fi
+
+mkdir -p bin
+
+echo 'Compiling sci.aot-main to Dart'
+clojure -M:cljd compile sci.aot-main
+
+echo 'AOT-compiling to a native executable'
+echo 'export "../lib/cljd-out/sci/aot-main.dart" show main;' > bin/aot_test.dart
+bin_out="${TMPDIR:-/tmp}/sci-aot-test"
+dart compile exe bin/aot_test.dart -o "$bin_out"
+
+echo 'Running the native binary'
+out="$("$bin_out")"
+echo "$out"
+if echo "$out" | grep -q 'AOT-OK'; then
+  echo 'AOT test passed'
+else
+  echo 'AOT test FAILED' >&2
+  exit 1
+fi

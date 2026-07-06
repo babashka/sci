@@ -64,11 +64,12 @@ map written for the JVM works on cljd if it carries `:class`.
 
 This survives tree-shaking: an override body that calls a real Dart method
 (`(fn [s] (.toUpperCase s))`) compiles to a direct call site, so AOT keeps the
-method. Proven with examples/sci_interop/main.cljd compiled to a native exe
-(`clojure -M:cljd compile sci-interop.main` then `dart compile exe`): the
-binary prints "HELLO FROM SCI" and denies an unlisted member. This is why
-overrides are the right interop model for Dart, which has no runtime
-reflection. Next: static/field interop coverage, then wider host types.
+method. Guarded by script/test/cljd-native (CI test-cljd job): it
+`dart compile exe`s test/sci/aot_main.cljd and runs the native binary, which
+asserts the override returns "HELLO FROM SCI" and an unlisted member is denied.
+This is the AOT analogue of script/test/native (GraalVM); the JIT `dart test`
+suite cannot catch a tree-shaken reflective path. This is why overrides are the
+right interop model for Dart, which has no runtime reflection.
 
 Non-record deftype works on cljd: the cljs arm
 of analyze-deftype* became :default (SciType path, platform-neutral).

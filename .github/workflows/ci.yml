@@ -140,6 +140,9 @@ jobs:
       - name: Run ClojureDart tests
         run: ./script/test/cljd
 
+      - name: Run ClojureDart AOT test
+        run: ./script/test/cljd-native
+
   test-libsci:
     # Compile and test libsci across all OSs.
     strategy:

@@ -1,0 +1,20 @@
+(ns sci.aot-main
+  "Non-interactive main for the Dart AOT test (script/test/cljd-native).
+  Exercises the reflection-free interop model under `dart compile exe`: an
+  override that calls a real Dart method must survive tree-shaking, and an
+  unlisted member must be denied. Prints AOT-OK on success, AOT-FAIL otherwise,
+  and exits non-zero on failure so the script can assert."
+  (:require ["dart:io" :as io]
+            [sci.core :as sci]))
+
+(defn main []
+  (let [ctx (sci/init {:classes {'String {:class String
+                                          :instance-methods {'upper (fn [s] (.toUpperCase s))}}}})
+        upper (sci/eval-string* ctx "(.upper \"hello from sci\")")
+        denied (try (sci/eval-string* ctx "(.lower \"x\")")
+                    ::not-denied
+                    (catch Object _ ::denied))]
+    (if (and (= "HELLO FROM SCI" upper) (= ::denied denied))
+      (println "AOT-OK" upper)
+      (do (println "AOT-FAIL upper=" (pr-str upper) "denied=" (pr-str denied))
+          (io/exit 1)))))
