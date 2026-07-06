@@ -364,4 +364,3 @@
              :cljs (ifn? x))))
 
 ;;;; end IFn
-
