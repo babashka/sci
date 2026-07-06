@@ -1096,7 +1096,8 @@
 (defn loaded-libs** [syms]
   (utils/dynamic-var
    '*loaded-libs* (#?(:cljd atom :clj ref :cljs atom)
-                   (into (sorted-set)
+                   (into #?(:cljd (sorted-set-by (fn [a b] (compare (str a) (str b))))
+                            :default (sorted-set))
                          syms))
    {:doc "A ref to a sorted set of symbols representing loaded libs"
     :ns clojure-core-ns
