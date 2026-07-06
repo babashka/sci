@@ -37,3 +37,24 @@
     (is (= :field (tu/eval* "DateTime/monthsPerYear"
                             {:classes {'DateTime {:class DateTime
                                                   :static-fields {'monthsPerYear (fn [_] :field)}}}})))))
+
+(deftest named-arg-sugar-test
+  (testing "trailing .name val pairs desugar to keyword args"
+    (is (= [1 {:b 2 :c 3}]
+           (tu/eval* "(defn f [a & {:as opts}] [a opts]) (f 1 .b 2 .c 3)" {}))))
+  (testing "& {:keys} destructures desugared named args"
+    (is (= "red-10"
+           (tu/eval* "(defn style [& {:keys [color size]}] (str color \"-\" size)) (style .color \"red\" .size 10)" {}))))
+  (testing "positional args before the first .name are untouched"
+    (is (= [:a :b {:k 1}]
+           (tu/eval* "(defn f [x y & {:as o}] [x y o]) (f :a :b .k 1)" {}))))
+  (testing "no named args leaves the call unchanged"
+    (is (= 6 (tu/eval* "(defn f [a b c] (+ a b c)) (f 1 2 3)" {})))))
+
+(deftest string-namespace-require-test
+  (testing "a namespace registered under a string name is requirable and aliasable"
+    (is (= "hi!" (tu/eval* "(require '[\"my.pkg\" :as p]) (p/shout \"hi\")"
+                           {:namespaces {"my.pkg" {'shout (fn [s] (str s "!"))}}}))))
+  (testing "string require works in an ns form"
+    (is (= 42 (tu/eval* "(ns app (:require [\"my.pkg\" :as p])) (p/answer)"
+                        {:namespaces {"my.pkg" {'answer (fn [] 42)}}})))))

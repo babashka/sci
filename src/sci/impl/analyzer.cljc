@@ -1766,6 +1766,25 @@
                        ^objects (into-array Object args)))
                     stack)))))
 
+#?(:cljd
+   (defn- named-arg-sym? [x]
+     (and (symbol? x)
+          (let [n (name x)]
+            (and (pos? (count n)) (identical? \. (nth n 0)))))))
+
+#?(:cljd
+   (defn- desugar-named-args
+     "ClojureDart call-site sugar: trailing `.name val` pairs become `:name val`
+      keyword args, so a fn with `& {:keys [...]}` receives them."
+     [args]
+     (if (some named-arg-sym? args)
+       (let [[pos named] (split-with (complement named-arg-sym?) args)
+             named (if (identical? '.& (first named)) (next named) named)]
+         (into (vec pos)
+               (mapcat (fn [[k v]] [(keyword (subs (name k) 1)) v]))
+               (partition 2 named)))
+       args)))
+
 (defn analyze-call [ctx expr m top-level?]
   (with-top-level-loc top-level? m
     (try
@@ -1935,10 +1954,12 @@
                                                (t/->EvalForm v)
                                                :else (analyze ctx v top-level?))]
                             expanded)
-                          (if-let [f (:sci.impl/inlined f-meta)]
+                          (let [rest-forms #?(:cljd (desugar-named-args (rest expr))
+                                              :default (rest expr))]
+                           (if-let [f (:sci.impl/inlined f-meta)]
                             (return-call ctx
                                          expr
-                                         f (analyze-children ctx (rest expr))
+                                         f (analyze-children ctx rest-forms)
                                          (assoc m
                                                 :ns @utils/current-ns
                                                 :file @utils/current-file
@@ -1950,12 +1971,12 @@
                                 (return-binding-call ctx
                                                      expr
                                                      (:sci.impl/idx (meta f))
-                                                     f (analyze-children ctx (rest expr))
+                                                     f (analyze-children ctx rest-forms)
                                                      (assoc m
                                                             :ns @utils/current-ns
                                                             :file @utils/current-file
                                                             :sci.impl/f-meta f-meta))
-                                (let [children (analyze-children ctx (rest expr))]
+                                (let [children (analyze-children ctx rest-forms)]
                                   (return-call ctx
                                                expr
                                                f children (assoc m
@@ -1965,7 +1986,7 @@
                                                nil)))
                               (let [self-ref? (:self-ref? ctx)]
                                 (if (and self-ref? (self-ref? f))
-                                  (let [children (analyze-children ctx (rest expr))]
+                                  (let [children (analyze-children ctx rest-forms)]
                                     (return-call ctx
                                                  expr
                                                  f children (assoc m
@@ -1975,7 +1996,7 @@
                                                  (fn [_ bindings _]
                                                    (deref
                                                     (eval/resolve-symbol bindings fsym)))))
-                                  (let [children (analyze-children ctx (rest expr))]
+                                  (let [children (analyze-children ctx rest-forms)]
                                     (return-call ctx
                                                  expr
                                                  f children (assoc m
@@ -1984,7 +2005,7 @@
                                                                    :sci.impl/f-meta f-meta)
                                                  #?(:cljd nil
                                                     :cljs (when (utils/var? f) (fn [_ _ v]
-                                                                                 (deref v))) :clj nil))))))))
+                                                                                 (deref v))) :clj nil)))))))))
                         (catch #?(:cljd Object :clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls
                           ;; stack on it, the only interesting bit it the map
