@@ -1,12 +1,17 @@
 (ns repl.app
   "Reference example: a Flutter REPL over a SCI context that has Flutter access
-  and host interop pre-wired. Type Clojure at the bottom, it evals against the
-  context; a widget result renders, any other value is printed.
+  and host interop pre-wired. Left pane is a code editor with example presets,
+  right pane shows the eval result: a widget renders, any other value is printed.
 
-  `make-ctx` below is the part to copy: it shows how to expose Flutter widgets to
+  `make-ctx` is the part to copy: it shows how to expose Flutter widgets to
   scripts (a `flutter` namespace of builder fns) and host classes (`:classes`
   with override fns). Dart has no reflection, so interop goes through override
-  fns, not reflective method lookup."
+  fns, not reflective method lookup.
+
+  The app itself is vanilla - it holds no widgets of its own. Interactive UI is
+  built by the script: `flutter/watch` exposes cljd.flutter's atom reactivity (a
+  macro, given to scripts as a fn), so a script watching a `defonce` atom rebuilds
+  when the atom changes."
   (:require ["package:flutter/material.dart" :as m]
             [cljd.flutter :as f]
             [sci.core :as sci]))
@@ -19,57 +24,83 @@
     :namespaces
     {'flutter
      {'text      (fn [s] (m/Text (str s)
-                                 .style (m/TextStyle .fontSize 18.0 .color m/Colors.white)))
+                                 .style (m/TextStyle .fontSize 20.0 .color m/Colors.white)))
       'column    (fn [xs] (m/Column .mainAxisSize m/MainAxisSize.min .children (vec xs)))
       'row       (fn [xs] (m/Row .mainAxisSize m/MainAxisSize.min .children (vec xs)))
-      'container (fn [color child] (m/Container .padding (m/EdgeInsets.all 8.0)
+      'container (fn [color child] (m/Container .padding (m/EdgeInsets.all 12.0)
                                                 .color color .child child))
-      'button    (fn [label on-press] (m/ElevatedButton .onPressed on-press
-                                                         .child (m/Text (str label))))
+      'button    (fn [label on-press]
+                   (m/Padding .padding (m/EdgeInsets.all 4.0)
+                              .child (m/ElevatedButton .onPressed on-press
+                                                       .child (m/Text (str label)))))
+      ;; reactivity for scripts: wraps cljd.flutter's `f/widget` :watch (a macro,
+      ;; so scripts get it as this fn) - the widget rebuilds when the atom changes
+      'watch     (fn [a render] (f/widget :watch [v a] (render v)))
       'red       m/Colors.red
       'blue      m/Colors.blue
       'green     m/Colors.green}}
     ;; expose host classes through override fns: no reflection on Dart, so each
-    ;; member you want is a compiled fn that calls the real Dart method/field
+    ;; member you want is a compiled fn that calls the real Dart method or field
     :classes
     {'String {:class String
               :instance-methods {'upper (fn [s] (.toUpperCase s))
                                  'lower (fn [s] (.toLowerCase s))}
               :instance-fields  {'length (fn [s] (.-length s))}}}}))
 
-;; --- the REPL UI ---
+(def examples
+  [["text"        "(flutter/text \"hello from SCI\")"]
+   ["interop"     "(flutter/text (.upper \"dude\"))"]
+   ["composition" "(flutter/column\n [(flutter/text \"top\")\n  (flutter/container flutter/red (flutter/text \"boxed\"))])"]
+   ["counter"     "(defonce n (atom 0))\n(flutter/watch n\n (fn [c]\n  (flutter/column\n   [(flutter/text (str \"clicked \" c))\n    (flutter/button \"click me\" (fn [] (swap! n inc)))])))"]])
 
-(defn eval! [ctx input]
-  (try {:value (sci/eval-string* ctx input)}
+;; --- the REPL UI (vanilla, no domain widgets) ---
+
+(defn eval! [ctx code]
+  (try {:value (sci/eval-string* ctx code)}
        (catch Object e {:error (or (ex-message e) (str e))})))
 
 (defn result-widget [{:keys [value error]}]
   (cond
     error (m/Text (str "error: " error) .style (m/TextStyle .color m/Colors.redAccent))
     (instance? m/Widget value) value
-    :else (m/Text (pr-str value) .style (m/TextStyle .color m/Colors.greenAccent .fontSize 16.0))))
+    :else (m/Text (pr-str value) .style (m/TextStyle .color m/Colors.greenAccent .fontSize 18.0))))
 
 (defn main []
-  (let [ctx        (make-ctx)
-        result     (atom {:value nil})
-        controller (m/TextEditingController .text "(flutter/text \"hello from SCI\")")]
+  (let [result     (atom {:value nil})
+        controller (m/TextEditingController .text (second (first examples)))
+        ctx        (make-ctx)
+        run!       (fn [] (reset! result (eval! ctx (.-text controller))))]
+    (run!)
     (f/run
       (m/MaterialApp .theme (m/ThemeData .brightness m/Brightness.dark))
       .home
       (m/Scaffold .appBar (m/AppBar .title (m/Text "SCI Flutter REPL")))
       .body
-      (m/Padding .padding (m/EdgeInsets.all 16.0))
-      (m/Column .crossAxisAlignment m/CrossAxisAlignment.start)
+      (m/Row .crossAxisAlignment m/CrossAxisAlignment.stretch)
       .children
       [(m/Expanded
+        .child (m/Padding
+                .padding (m/EdgeInsets.all 12.0)
+                .child (m/Column
+                        .crossAxisAlignment m/CrossAxisAlignment.stretch
+                        .children
+                        [(m/Wrap .spacing 8.0
+                                 .children
+                                 (vec (for [[label code] examples]
+                                        (m/OutlinedButton
+                                         .onPressed (fn [] (set! (.-text controller) code) (run!))
+                                         .child (m/Text label)))))
+                         (m/SizedBox .height 12.0)
+                         (m/Expanded
+                          .child (m/TextField
+                                  .controller controller
+                                  .maxLines nil
+                                  .expands true
+                                  .style (m/TextStyle .color m/Colors.white .fontFamily "monospace")
+                                  .decoration (m/InputDecoration .border (m/OutlineInputBorder))))
+                         (m/SizedBox .height 8.0)
+                         (m/ElevatedButton .onPressed run! .child (m/Text "run"))])))
+       (m/VerticalDivider .width 1.0)
+       (m/Expanded
         .child (m/Center
-                .child (f/widget
-                         :watch [r result]
-                         (result-widget r))))
-       (m/TextField .controller controller
-                    .style (m/TextStyle .color m/Colors.white)
-                    .decoration (m/InputDecoration .hintText "Clojure, e.g. (flutter/column [(flutter/text \"a\") (flutter/text \"b\")])"))
-       (m/SizedBox .height 8.0)
-       (m/ElevatedButton
-        .onPressed (fn [] (reset! result (eval! ctx (.-text controller))))
-        .child (m/Text "eval"))])))
+                .child (f/widget :watch [r result] (result-widget r))))])))
