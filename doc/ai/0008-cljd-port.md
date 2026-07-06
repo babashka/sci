@@ -222,6 +222,9 @@ Deliberate, not TODOs. Dart constraints or host-parity choices.
 - Threads/future/agents/locking: Dart is single-isolate, these are no-ops or
   absent.
 - Host readers, format, runtime resolve: absent.
+- Namespace-map printing: cljd.core/pr never collapses to `#:ns{...}` (always
+  prints `{:ns/k v}`), and there is no host `*print-namespace-maps*`. The SCI var
+  is a compat no-op on cljd.
 
 ## Remaining (the bulk - revisit here)
 

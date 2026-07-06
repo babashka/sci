@@ -129,7 +129,8 @@
             multi-method-var (get-in env [:namespaces pns meth-sym])
             multi-method @multi-method-var]
         (mms/multi-fn-add-method-impl
-         multi-method atype
+         multi-method #?(:cljd (if (identical? Object atype) :default atype)
+                         :default atype)
          (if extend-via-metadata
            (let [fq (symbol pns-str meth-str)]
              (fn [this & args]
@@ -352,7 +353,12 @@
        :cljs (satisfies? clazz x))
     ;; could we have a fast path for CLJS too? please let me know!
     :else #?(:cljd (if (dart/is? clazz Type)
-                     (= clazz (.-runtimeType x))
+                     ;; Object is the universal supertype: everything non-nil is an
+                     ;; instance. Other Types match by exact runtimeType (no runtime
+                     ;; subtype check on Dart).
+                     (if (identical? clazz Object)
+                       (some? x)
+                       (= clazz (.-runtimeType x)))
                      (throw (ex-info (str clazz " is not a class") {})))
              :clj (instance? clazz x)
              :cljs (instance? clazz x))))

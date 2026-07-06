@@ -30,8 +30,12 @@
                                   {:classes {'String {:class String :instance-fields {'len (fn [_] 1)}}}})))))
 
 (deftest static-method-override-test
-  (testing "static method dispatches to override fn"
+  (testing "static method dispatches to override fn via Class/method"
     (is (= :parsed (sci/eval-string "(DateTime/parse \"2020\")"
+                                    {:classes {'DateTime {:class DateTime
+                                                          :static-methods {'parse (fn [_ _s] :parsed)}}}}))))
+  (testing "and via the (. Class method) form"
+    (is (= :parsed (sci/eval-string "(. DateTime parse \"2020\")"
                                     {:classes {'DateTime {:class DateTime
                                                           :static-methods {'parse (fn [_ _s] :parsed)}}}})))))
 
@@ -93,3 +97,27 @@
   (testing "requiring the same string ns twice is idempotent"
     (is (= 1 (sci/eval-string "(require '[\"pkg.one\" :as a]) (require '[\"pkg.one\" :as a]) (a/x)"
                               {:namespaces {"pkg.one" {'x (fn [] 1)}}})))))
+
+(deftest multimethod-object-not-default-test
+  (testing "(defmethod m Object ...) dispatches on Object, not :default"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defmulti m identity) (defmethod m Object [_] :object) (m :x)" {}))))
+  (testing ":default still dispatches as the fallback"
+    (is (= :d (tu/eval* "(defmulti m identity) (defmethod m :default [_] :d) (m :x)" {}))))
+  (testing "extend-protocol to Object is still the protocol default"
+    (is (= :dflt (tu/eval* "(defprotocol P (pf [_])) (extend-protocol P Object (pf [_] :dflt)) (pf 42)" {})))))
+
+(deftest type-nil-test
+  (testing "(type nil) is nil, not the Null type"
+    (is (nil? (tu/eval* "(type nil)" {})))))
+
+(deftest instance-object-nil-test
+  (testing "(instance? Object nil) is false"
+    (is (false? (tu/eval* "(instance? Object nil)" {}))))
+  (testing "(instance? Object x) is true for a non-nil value"
+    (is (true? (tu/eval* "(instance? Object \"x\")" {})))))
+
+(deftest bare-dot-not-named-arg-test
+  (testing "a bare . arg is not a named arg (no empty keyword), it is malformed"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defn f [& {:as o}] o) (f . 1)" {})))))

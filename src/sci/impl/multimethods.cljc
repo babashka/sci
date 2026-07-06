@@ -60,15 +60,15 @@
 
 #?(:cljd
    (do
-     ;; class values are registry maps, dispatch on the Dart type, Object acts as default
+     ;; class values are registry maps, dispatch on the Dart type. Object is NOT
+     ;; special here: a plain (defmethod m Object ...) dispatches on Object, not
+     ;; :default. Protocol extension to Object maps to :default in the protocol
+     ;; layer (process-methods emits :default, the extend fn converts it).
      (defn normalize-dispatch-val [dispatch-val]
-       (let [dispatch-val (if (and (map? dispatch-val) (fn? (:instance? dispatch-val)))
-                            (or (:class dispatch-val)
-                                (throw (ex-info "Class cannot be used as a dispatch value" {})))
-                            dispatch-val)]
-         (if (identical? Object dispatch-val)
-           :default
-           dispatch-val)))
+       (if (and (map? dispatch-val) (fn? (:instance? dispatch-val)))
+         (or (:class dispatch-val)
+             (throw (ex-info "Class cannot be used as a dispatch value" {})))
+         dispatch-val))
      (defn get-method-impl [^SciMultiFn multifn dispatch-val]
        (let [mt @(.-method-table multifn)
              dispatch-val (normalize-dispatch-val dispatch-val)]

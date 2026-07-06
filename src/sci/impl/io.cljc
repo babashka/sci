@@ -60,6 +60,9 @@
 (def print-meta (copy-var *print-meta* utils/clojure-core-ns {:dynamic true}))
 (def print-length (copy-var *print-length* utils/clojure-core-ns {:dynamic true}))
 (def print-level (copy-var *print-level* utils/clojure-core-ns {:dynamic true}))
+;; cljd has no *print-namespace-maps* and cljd.core/pr never collapses to the
+;; #:ns{...} reader form (it always prints {:ns/k v}), so this var is a compat
+;; no-op on cljd: nothing to bind it to.
 (def print-namespace-maps #?(:cljd (core-dynamic-var '*print-namespace-maps* true)
                              :default (copy-var *print-namespace-maps* utils/clojure-core-ns {:dynamic true :init true})))
 (def flush-on-newline #?(:cljd (core-dynamic-var '*flush-on-newline* true)

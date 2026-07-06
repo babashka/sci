@@ -1045,6 +1045,15 @@
   (let [ctx (without-recur-target ctx)
         [method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
+        ;; (. DateTime parse ...) with DateTime a configured class is static,
+        ;; like DateTime/parse. On the JVM `class?` detects this; on cljd the raw
+        ;; symbol is looked up in class->opts.
+        #?@(:cljd [static-class-sym
+                   (when (and (symbol? instance-expr)
+                              (not (:class-expr (meta expr)))
+                              (contains? (some-> ctx :env deref :class->opts)
+                                         instance-expr))
+                     instance-expr)])
         instance-expr (analyze ctx instance-expr)
         #?@(:clj [instance-expr (resolve-tag-class ctx instance-expr)])
         #?@(:clj [instance-expr (maybe-wrap-fi-adapter instance-expr)])
@@ -1062,7 +1071,7 @@
                            :ns @utils/current-ns
                            :file @utils/current-file)]
           #?(:cljd
-             (if-let [class-expr (:class-expr (meta expr))]
+             (if-let [class-expr (or (:class-expr (meta expr)) static-class-sym)]
                ;; static Class/method (or Class/-FIELD): Dart has no reflection,
                ;; so only override fns dispatch; unlisted/reflect throw
                (let [class->opts (some-> ctx :env deref :class->opts)
@@ -1770,7 +1779,8 @@
    (defn- named-arg-sym? [x]
      (and (symbol? x)
           (let [n (name x)]
-            (and (pos? (count n)) (identical? \. (nth n 0)))))))
+            ;; a real name after the dot: bare `.` is not a named arg
+            (and (> (count n) 1) (identical? \. (nth n 0)))))))
 
 #?(:cljd
    (defn- desugar-named-args

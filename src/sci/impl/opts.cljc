@@ -79,7 +79,7 @@
                          :constructor (fn [msg] (StateError. msg))
                          :instance? (fn [x] (instance? StateError x))}
             'Object {:class Object
-                     :instance? (fn [_] true)}
+                     :instance? (fn [x] (some? x))}
             ;; bare int/double/bool compile to cast fns on cljd,
             ;; runtimeType yields the canonical Type objects
             'dart.core.String {:class String

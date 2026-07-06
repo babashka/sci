@@ -152,7 +152,7 @@
                :clj (instance? sci.impl.types.SciTypeInstance x)
                :cljs (cljs.core/implements? sci.impl.types.SciTypeInstance x))
         (-get-type x))
-      #?(:cljd (.-runtimeType x)
+      #?(:cljd (when (some? x) (.-runtimeType x))
          :clj (class x) ;; no need to check for metadata anymore
          :cljs (type x))))
 
