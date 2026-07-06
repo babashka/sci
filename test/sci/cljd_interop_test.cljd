@@ -49,7 +49,16 @@
     (is (= [:a :b {:k 1}]
            (tu/eval* "(defn f [x y & {:as o}] [x y o]) (f :a :b .k 1)" {}))))
   (testing "no named args leaves the call unchanged"
-    (is (= 6 (tu/eval* "(defn f [a b c] (+ a b c)) (f 1 2 3)" {})))))
+    (is (= 6 (tu/eval* "(defn f [a b c] (+ a b c)) (f 1 2 3)" {}))))
+  (testing "nested named-arg calls each desugar"
+    (is (= {:a {:b 2}}
+           (tu/eval* "(defn g [& {:as o}] o) (defn f [& {:as o}] o) (f .a (g .b 2))" {}))))
+  (testing "a local fn in operator position desugars"
+    (is (= {:a 1} (tu/eval* "(let [f (fn [& {:as o}] o)] (f .a 1))" {}))))
+  (testing "a dot-symbol in a vector literal is not a named arg (not a call)"
+    (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(defn f [x] x) (f [.a 1])" {}))))
+  (testing "a dot-symbol in a let binding value is not desugared (special form)"
+    (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(let [x .a] x)" {})))))
 
 (deftest string-namespace-require-test
   (testing "a namespace registered under a string name is requirable and aliasable"
@@ -57,4 +66,12 @@
                            {:namespaces {"my.pkg" {'shout (fn [s] (str s "!"))}}}))))
   (testing "string require works in an ns form"
     (is (= 42 (tu/eval* "(ns app (:require [\"my.pkg\" :as p])) (p/answer)"
-                        {:namespaces {"my.pkg" {'answer (fn [] 42)}}})))))
+                        {:namespaces {"my.pkg" {'answer (fn [] 42)}}}))))
+  (testing "a string-named and a symbol-named ns coexist in loaded-libs"
+    (is (= [1 2]
+           (tu/eval* "(require '[\"pkg.one\" :as a] '[reg.two :as b]) [(a/x) (b/y)]"
+                     {:namespaces {"pkg.one" {'x (fn [] 1)}
+                                   'reg.two {'y (fn [] 2)}}}))))
+  (testing "requiring the same string ns twice is idempotent"
+    (is (= 1 (tu/eval* "(require '[\"pkg.one\" :as a]) (require '[\"pkg.one\" :as a]) (a/x)"
+                       {:namespaces {"pkg.one" {'x (fn [] 1)}}})))))
