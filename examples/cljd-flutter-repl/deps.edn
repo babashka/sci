@@ -1,0 +1,11 @@
+{:paths ["src"]
+ :deps {org.babashka/sci {:local/root "../.."}}
+ :cljd/opts {:kind :flutter :main repl.app}
+ :aliases
+ {:cljd {:extra-deps
+         {tensegritics/clojuredart
+          {:git/url "https://github.com/tensegritics/ClojureDart.git"
+           :git/sha "79759559c2cf4280832e596949a81226db336014"}}
+         :main-opts ["-m" "cljd.build"]}
+  ;; local ClojureDart checkout: compose as -M:cljd:cljd-local
+  :cljd-local {:override-deps {tensegritics/clojuredart {:local/root "/Users/borkdude/dev/ClojureDart"}}}}}

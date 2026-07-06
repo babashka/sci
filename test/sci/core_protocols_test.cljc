@@ -8,21 +8,27 @@
 (deftest deref-test
   (testing "fully qualified"
     (is (= :value
-           (eval* #?(:clj  "@(reify clojure.lang.IDeref (deref [_] :value))"
+           (eval* #?(:cljd "@(reify cljd.core/IDeref (-deref [_] :value))"
+                     :clj  "@(reify clojure.lang.IDeref (deref [_] :value))"
                      :cljs "@(reify cljs.core/IDeref (-deref [_] :value))")))))
   (testing "with import / unqualified"
     (is (= :value
-           (eval* #?(:clj  "(import 'clojure.lang.IDeref)
+           (eval* #?(:cljd "@(reify IDeref (-deref [_] :value))"
+                     :clj  "(import 'clojure.lang.IDeref)
                             @(reify IDeref (deref [_] :value))"
                      :cljs "@(reify IDeref (-deref [_] :value))")))))
   (testing "record implementation"
     (is (= :value
-           (eval* #?(:clj  "(defrecord Foo [x] clojure.lang.IDeref (deref [this] x))
+           (eval* #?(:cljd "(defrecord Foo [x] cljd.core/IDeref (-deref [this] x))
+                            @(->Foo :value)"
+                     :clj  "(defrecord Foo [x] clojure.lang.IDeref (deref [this] x))
                             @(->Foo :value)"
                      :cljs "(defrecord Foo [x] cljs.core/IDeref (-deref [this] x))
                             @(->Foo :value)"))))
     (is (= :value
-           (eval* #?(:clj  "(import 'clojure.lang.IDeref)
+           (eval* #?(:cljd "(defrecord Foo [x] IDeref (-deref [this] x))
+                            @(->Foo :value)"
+                     :clj  "(import 'clojure.lang.IDeref)
                             (defrecord Foo [x] IDeref (deref [this] x))
                             @(->Foo :value)"
                      :cljs "(defrecord Foo [x] IDeref (-deref [this] x))
@@ -30,10 +36,13 @@
 
 (deftest swap-test
   (testing "fully qualified"
-    (is (= 2 (eval* #?(:clj "(def x (reify clojure.lang.IAtom (swap [_ f] (f 1)))) (swap! x inc)"
+    (is (= 2 (eval* #?(:cljd "(def x (reify cljd.core/ISwap (-swap! [_ f] (f 1)))) (swap! x inc)"
+                       :clj "(def x (reify clojure.lang.IAtom (swap [_ f] (f 1)))) (swap! x inc)"
                        :cljs "(def x (reify cljs.core/ISwap (-swap! [_ f] (f 1)))) (swap! x inc)")))))
   (testing "record implementation of swap"
-    (is (= 2 (eval* #?(:clj "(defrecord Foo [x] clojure.lang.IAtom (swap [this f] (f x)))
+    (is (= 2 (eval* #?(:cljd "(defrecord Foo [x] cljd.core/ISwap (-swap! [this f] (f x)))
+                              (swap! (->Foo 1) inc)"
+                       :clj "(defrecord Foo [x] clojure.lang.IAtom (swap [this f] (f x)))
                              (swap! (->Foo 1) inc)"
                        :cljs "(defrecord Foo [x] cljs.core/ISwap (-swap! [this f] (f x)))
                               (swap! (->Foo 1) inc)"))))
@@ -44,7 +53,8 @@
                               (reset! (->Foo 1) 2)"))))
        :cljs ::TODO)))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest multi-arity-swap-test
      (let [prog "
 (defrecord Example []
@@ -67,7 +77,8 @@
        (is (= [:deref :reset :swap1 :swap2 :swap3 :swap4 :compare-and-set]
               (eval* prog))))))
 
-#?(:cljs
+#?(:clj nil
+   :default
    (deftest multi-arity-swap-test
      (let [prog "
 (defrecord Example []
@@ -89,7 +100,8 @@
        (is (= [:deref :reset :swap1 :swap2 :swap3 :swap4]
               (eval* prog))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest iatom2-test
      (let [prog "
 (defrecord Example [x]
@@ -101,7 +113,8 @@
        (is (= [[:reset-vals 1 2] [:swap-vals 2]]
               (eval* prog))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest instance-test
      (is (true? (eval* "(instance? clojure.lang.IDeref (atom 0))")))
      (is (true? (eval* "(defrecord Foo [x] clojure.lang.IDeref (deref [this] x))
@@ -109,11 +122,13 @@
      (is (true? (eval* "(instance? clojure.lang.IAtom (atom nil))")))
      (is (false? (eval* "(instance? clojure.lang.IAtom 1)")))))
 
-#?(:cljs
+#?(:clj nil
+   :default
    (deftest satisfies-test
      (is (true? (eval* "(satisfies? IDeref (atom 0))")))))
 
-#?(:cljs
+#?(:clj nil
+   :default
    (deftest ifn-reify-test
      (testing "reify IFn with single arity"
        (is (= "called" (eval* "(def x (reify IFn (-invoke [_] \"called\"))) (x)"))))
@@ -129,7 +144,8 @@
                                     IFn (-invoke [_] :invoke)))
                       [@x (x)]"))))))
 
-#?(:cljs
+#?(:clj nil
+   :default
    (deftest ifn-deftype-test
      (testing "deftype with IFn"
        (is (= 42 (eval* "(deftype Foo [f]
@@ -156,7 +172,8 @@
      (testing "ifn? false for deftype without IFn"
        (is (false? (eval* "(deftype Dude []) (ifn? (->Dude))"))))))
 
-#?(:cljs
+#?(:clj nil
+   :default
    (deftest ifn-no-false-positive-test
      (testing "reify without IFn is not ifn?"
        (is (false? (eval* "(ifn? (reify IDeref (-deref [_] :val)))"))))

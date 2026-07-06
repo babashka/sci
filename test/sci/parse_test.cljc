@@ -1,6 +1,10 @@
 (ns sci.parse-test
   (:require  [clojure.test :as t :refer [deftest is]]
-             [sci.core :as sci]))
+             [sci.core :as sci]
+             [sci.impl.parser :as parser]))
+
+(deftest parse-string-test
+  (is (= '(+ 1 2 3) (parser/parse-string {:env (atom {})} "(+ 1 2 3)"))))
 
 (deftest parse-test
   (let [prog "(defn foo [] 1) (foo)"
@@ -12,7 +16,7 @@
     (is (= '(foo) form-2))
     (sci/eval-form ctx form-1)
     (is (= 1 (sci/eval-form ctx form-2)))
-    (is (= ::sci/eof (sci/parse-next ctx reader)))
+    (is (= :sci.core/eof (sci/parse-next ctx reader)))
     (is (= 1 (sci/get-line-number reader)))
     (is (= 22 (sci/get-column-number reader)))))
 

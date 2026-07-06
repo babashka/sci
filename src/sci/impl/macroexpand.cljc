@@ -25,7 +25,7 @@
                       ;; ClassName. constructor sugar -> (new ClassName args...)
                       (list* 'new (symbol (subs sname 0 (dec (count sname)))) (rest expr))
                       (let [f (try (resolve/resolve-symbol ctx op true)
-                                   (catch #?(:clj Exception :cljs :default)
+                                   (catch #?(:cljd Object :clj Exception :cljs :default)
                                        _ ::unresolved))]
                         (if (kw-identical? ::unresolved f)
                           expr

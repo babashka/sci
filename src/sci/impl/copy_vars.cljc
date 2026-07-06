@@ -5,39 +5,60 @@
    [sci.impl.cljs]
    [sci.impl.macros :as macros]
    [sci.impl.utils :as utils :refer [clojure-core-ns]]
-   [sci.lang])
+   #?(:cljd [sci.lang :as lang] :default [sci.lang]))
   #?(:cljs (:require-macros [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy]])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 ;; The following is produced with:
 ;; (def inlined (filter (comp :inline meta) (vals (ns-publics 'clojure.core))))
 ;; (map (comp :name meta) inlined)
-(def inlined-vars
+(def ^:macro-support inlined-vars
   '#{+' unchecked-remainder-int unchecked-subtract-int dec' short-array bit-shift-right aget = boolean bit-shift-left aclone dec < char unchecked-long unchecked-negate unchecked-inc-int floats pos? boolean-array alength bit-xor unsigned-bit-shift-right neg? unchecked-float num reduced? booleans int-array inc' <= -' * min get long double bit-and-not unchecked-add-int short quot unchecked-double longs unchecked-multiply-int int > unchecked-int unchecked-multiply unchecked-dec double-array float - byte-array zero? unchecked-dec-int rem nth nil? bit-and *' unchecked-add identical? unchecked-divide-int unchecked-subtract / bit-or >= long-array object-array doubles unchecked-byte unchecked-short float-array inc + chars ints bit-not byte max == count char-array compare shorts unchecked-negate-int unchecked-inc unchecked-char bytes})
 
-(def cljs-resolve (resolve 'cljs.analyzer.api/resolve))
+(def ^:macro-support cljs-resolve #?(:cljd nil :default (resolve 'cljs.analyzer.api/resolve)))
 
-#?(:clj (def elide-vars (= "true" (System/getenv "SCI_ELIDE_VARS")))
+#?(:cljd (def ^:macro-support elide-vars false)
+   :clj (def elide-vars (= "true" (System/getenv "SCI_ELIDE_VARS")))
    ;; for self-hosted
    :cljs (def elide-vars false))
 
 (macros/deftime
 
-  (defn ensure-quote [x]
+  (defn ^:macro-support ensure-quote [x]
     (if (and (seq? x) (= 'quote (first x)))
       x
       (list 'quote x)))
 
-  (defn dequote [x]
+  (defn ^:macro-support dequote [x]
     (if (and (seq? x) (= 'quote (first x)))
       (second x)
       x))
 
-  (defn core-sym [sym]
+  (defn ^:macro-support core-sym [sym]
     (symbol "clojure.core" (name sym)))
 
-  (defn var-meta [&env sym opts]
+  ;; :cljd/clj-host is host-only, var metadata lives in the cljd compiler registry
+  #?(:cljd/clj-host
+     (defn ^:macro-support cljd-var-meta [sym]
+       (let [nses @@(resolve 'cljd.compiler/nses)
+             cur @(resolve 'cljd.compiler/*current-ns*)
+             look (fn [ns-sym nm]
+                    (let [ns-sym (if (contains? nses ns-sym)
+                                   ns-sym
+                                   (symbol (clojure.string/replace (str ns-sym) #"^clojure\." "cljd.")))]
+                      (when-some [e (get-in nses [ns-sym nm])]
+                        [ns-sym (:meta e)])))
+             sym-ns (some-> (namespace sym) symbol)
+             nm (symbol (name sym))]
+         (if sym-ns
+           (or (look (if (= 'clojure.core sym-ns) 'cljd.core sym-ns) nm) [sym-ns nil])
+           (or (look cur nm)
+               (look 'cljd.core nm)
+               ;; unresolved bare symbol counts as core, like on CLJS
+               [nil nil])))))
+
+  (defn ^:macro-support var-meta [&env sym opts]
     (let [sym (dequote sym)
           macro (:macro opts)
           nm (:name opts)
@@ -48,7 +69,14 @@
               [(or (:name r) sym) (symbol (name sym)) (merge r (:meta r))])
             ;; CLJ compilation: resolve upfront
             ;; v may be nil for syms passed via macrofy that don't resolve
-            #?(:clj (let [v (resolve sym)]
+            #?(:cljd/clj-host (let [[the-ns m] (cljd-var-meta sym)]
+                                [(if the-ns
+                                   (symbol (str the-ns) (name sym))
+                                   (symbol (name sym)))
+                                 (symbol (name sym))
+                                 m])
+               :cljd nil ;; var-meta itself is only called at macro time
+               :clj (let [v (resolve sym)]
                       [(if v (symbol v) sym)
                        (symbol (name sym))
                        (meta v)])
@@ -61,6 +89,7 @@
           fqsym-ns (namespace fqsym)
           core-ns? (or (nil? fqsym-ns)
                        (= "clojure.core" fqsym-ns)
+                       (= "cljd.core" fqsym-ns)
                        (= "cljs.core" fqsym-ns))
           inline (and core-ns? (contains? inlined-vars sym))
           fast-path (and core-ns? (or (= 'or sym)
@@ -70,7 +99,8 @@
           dyn (:dynamic m)
           private (:private m)
           arglists (:arglists m)
-          tag (:tag m)
+          ;; host tags are JVM classes, they don't compile on cljd
+          tag #?(:cljd nil :default (:tag m))
           file (:file m)
           line (:line m)
           column (:column m)
@@ -90,8 +120,10 @@
                  (when-not elide-vars file) (assoc :file file)
                  (when-not elide-vars line) (assoc :line line)
                  (when-not elide-vars column) (assoc :column column))]
-      varm))
+      varm)))
 
+;; separate deftime form, cljd host eval does not split top-level do
+(macros/deftime
   (defmacro macrofy [& args]
     (let [[sym & args] args]
       `(macrofy* ~sym ~@args ~@(repeat (- 2 (count args)) nil) ~(var-meta &env sym nil))))
@@ -122,21 +154,24 @@
           ;; Private vars: can't reference across namespaces with bare symbol
           init (if (and (or macro (:private base-meta))
                         (not (contains? opts :init)))
-                 #?(:clj `(deref (var ~sym))
+                 #?(:cljd init
+                    :clj `(deref (var ~sym))
                     :cljs init)
                  init)]
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if (and (not macro) elide-vars (not dyn) (not ctx))
         sym
-        `(sci.lang.Var. ~init ~nm ~varm false ~ctx nil ~ns))))
+        `(sci.lang/->Var ~init ~nm ~varm false ~ctx nil ~ns))))
   (defmacro copy-core-var
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))
 
   (defmacro avoid-method-too-large [v]
-    (macros/? :clj
-              `(deref (delay ~v))
-              :cljs v)))
+    #?(:cljd v
+       :default
+       (macros/? :clj
+                 `(deref (delay ~v))
+                 :cljs v))))
 
 (defn macrofy*
   ([f] (vary-meta f #(assoc % :sci/macro true)))
@@ -159,7 +194,9 @@
               clojure-core-ns
               (or ns clojure-core-ns))]
      (assert (and (not (boolean? ns))
-                  (instance? sci.lang.Namespace ns)) sym)
+                  (instance? #?(:cljd lang/Namespace
+                                :clj sci.lang.Namespace
+                                :cljs sci.lang.Namespace) ns)) sym)
      (utils/new-var sym f (cond-> {:ns ns
                                    :sci/built-in true}
                             (and (not elide-vars)

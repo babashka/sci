@@ -3,15 +3,16 @@
   (:refer-clojure :exclude [read-string eval])
   (:require
    [clojure.string :as str]
-   [clojure.tools.reader.reader-types :as rt]
+   #?(:cljd [edamame.impl.cljd-reader-types :as rt]
+      :default [clojure.tools.reader.reader-types :as rt])
    [edamame.core :as edamame]
    [sci.impl.interop :as interop]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
-(def ^:const eof :sci.impl.parser.edamame/eof)
+(def ^{#?@(:cljd [] :default [:const true])} eof :sci.impl.parser.edamame/eof)
 
 (def read-eval
   (utils/new-var '*read-eval* false {:ns utils/clojure-core-ns
@@ -99,7 +100,8 @@
               (res-without-sym sym)
               (let [sym-name (name sym)]
                 (or
-                 #?(:clj (when (and (= 1 (.length sym-name))
+                 #?(:cljd nil
+                    :clj (when (and (= 1 (.length sym-name))
                                     (Character/isDigit (.charAt sym-name 0)))
                            (when-let [clazz ^Class (interop/resolve-array-class ctx sym-ns sym-name)]
                              (symbol (pr-str clazz)))))
@@ -108,7 +110,8 @@
                      sym
                      (if-let [ns (get aliases sym-ns)]
                        (symbol (str ns) sym-name)
-                       #?(:cljs
+                       #?(:cljd sym
+                          :cljs
                           ;; This enables using `(fs/readFileSync) mode in macros, e.g. in nbb
                           (if-let [import (-> nss (get current-ns) :imports (get sym-ns))]
                             (symbol (str import) (name sym))
@@ -170,12 +173,15 @@
                         (vary-meta v assoc
                                    :line (get-line-number r)
                                    :column (- (get-column-number r)
-                                              #?(:clj (.length (str v))
+                                              #?(:cljd (.-length (str v))
+                                                 :clj (.length (str v))
                                                  :cljs (.-length (str v)))))
                         v)))
-                  (catch #?(:clj clojure.lang.ExceptionInfo
+                  (catch #?(:cljd cljd.core/ExceptionInfo
+                            :clj clojure.lang.ExceptionInfo
                             :cljs cljs.core/ExceptionInfo) e
-                    (throw (ex-info #?(:clj (.getMessage e)
+                    (throw (ex-info #?(:cljd (ex-message e)
+                                       :clj (.getMessage e)
                                        :cljs (.-message e))
                                     (assoc (ex-data e)
                                            :type :sci.error/parse

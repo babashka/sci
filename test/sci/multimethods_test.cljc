@@ -22,6 +22,8 @@
 (remove-method greeting \"English\")
 (greeting {\"id\" \"1\", \"language\" \"English\"})"))))
 
+;; TODO:cljd no hierarchies
+#?(:cljd nil :default
 (deftest prefer-method-test
   (is (= :rect-shape
          (eval* "
@@ -30,7 +32,7 @@
 (defmethod bar [::rect ::shape] [x y] :rect-shape)
 (defmethod bar [::shape ::rect] [x y] :shape-rect)
 (prefer-method bar [::rect ::shape] [::shape ::rect])
-(bar ::rect ::rect)"))))
+(bar ::rect ::rect)")))))
 
 (deftest multi-arity-test
   (is (= [:default :one :two :three :more]

@@ -1,0 +1,106 @@
+(ns repl.app
+  (:require ["package:flutter/material.dart" :as m]
+            [cljd.flutter :as f]
+            [sci.core :as sci]))
+
+(defn make-ctx []
+  (let [Text            (fn [data & {:keys [style]}]
+                          (m/Text (str data)
+                                  .style (or style (m/TextStyle .fontSize 20.0
+                                                                .color m/Colors.white))))
+        TextStyle       (fn [& {:keys [fontSize color]}]
+                          (m/TextStyle .fontSize fontSize .color color))
+        Column          (fn [& {:keys [children]}]
+                          (m/Column .mainAxisSize m/MainAxisSize.min .children (vec children)))
+        Row             (fn [& {:keys [children]}]
+                          (m/Row .mainAxisSize m/MainAxisSize.min .children (vec children)))
+        Container       (fn [& {:keys [padding color child]}]
+                          (m/Container .padding (or padding (m/EdgeInsets.all 12.0))
+                                       .color color .child child))
+        ElevatedButton  (fn [& {:keys [onPressed child]}]
+                          (m/Padding .padding (m/EdgeInsets.all 4.0)
+                                     .child (m/ElevatedButton .onPressed onPressed
+                                                              .child child)))
+        watch-fn        (fn [a render] (f/widget :watch [v a] (render v)))]
+    (sci/init
+     {:namespaces
+      {"package:flutter/material.dart"
+       {'Text           Text
+        'TextStyle      TextStyle
+        'Column         Column
+        'Row            Row
+        'Container      Container
+        'ElevatedButton ElevatedButton
+        'Colors.red     m/Colors.red
+        'Colors.blue    m/Colors.blue
+        'Colors.green   m/Colors.green
+        'Colors.white   m/Colors.white}
+       'cljd.flutter
+       {'watch (with-meta
+                 (fn [_&form _&env a bindings & body]
+                   (list watch-fn a (list* 'fn bindings body)))
+                 {:macro true})}}
+      :classes
+      {'String {:class String
+                :instance-methods {'upper (fn [s] (.toUpperCase s))
+                                   'lower (fn [s] (.toLowerCase s))}
+                :instance-fields  {'length (fn [s] (.-length s))}}}})))
+
+(def require-line
+  "(ns app\n  (:require [\"package:flutter/material.dart\" :as m]\n            [cljd.flutter :as f]))\n\n")
+
+(def examples
+  [["text"        (str require-line "(m/Text \"hello from SCI\")")]
+   ["interop"     (str require-line "(m/Text (.upper \"dude\"))")]
+   ["composition" (str require-line "(m/Column\n .children\n [(m/Text \"top\")\n  (m/Container .color m/Colors.blue\n              .child (m/Text \"boxed\"))])")]
+   ["counter"     (str require-line "(defonce n (atom 0))\n(f/watch n [c]\n (m/Column\n  .children\n  [(m/Text (str \"clicked \" c))\n   (m/ElevatedButton\n    .onPressed (fn [] (swap! n inc))\n    .child (m/Text \"click me\"))]))")]])
+
+(defn eval! [ctx code]
+  (try {:value (sci/eval-string* ctx code)}
+       (catch Object e {:error (or (ex-message e) (str e))})))
+
+(defn result-widget [{:keys [value error]}]
+  (cond
+    error (m/Text (str "error: " error) .style (m/TextStyle .color m/Colors.redAccent))
+    (instance? m/Widget value) value
+    :else (m/Text (pr-str value) .style (m/TextStyle .color m/Colors.greenAccent .fontSize 18.0))))
+
+(defn main []
+  (let [result     (atom {:value nil})
+        controller (m/TextEditingController .text (second (first examples)))
+        ctx        (make-ctx)
+        run!       (fn [] (reset! result (eval! ctx (.-text controller))))]
+    (run!)
+    (f/run
+      (m/MaterialApp .theme (m/ThemeData .brightness m/Brightness.dark))
+      .home
+      (m/Scaffold .appBar (m/AppBar .title (m/Text "SCI Flutter REPL")))
+      .body
+      (m/Row .crossAxisAlignment m/CrossAxisAlignment.stretch)
+      .children
+      [(m/Expanded
+        .child (m/Padding
+                .padding (m/EdgeInsets.all 12.0)
+                .child (m/Column
+                        .crossAxisAlignment m/CrossAxisAlignment.stretch
+                        .children
+                        [(m/Wrap .spacing 8.0
+                                 .children
+                                 (vec (for [[label code] examples]
+                                        (m/OutlinedButton
+                                         .onPressed (fn [] (set! (.-text controller) code) (run!))
+                                         .child (m/Text label)))))
+                         (m/SizedBox .height 12.0)
+                         (m/Expanded
+                          .child (m/TextField
+                                  .controller controller
+                                  .maxLines nil
+                                  .expands true
+                                  .style (m/TextStyle .color m/Colors.white .fontFamily "monospace")
+                                  .decoration (m/InputDecoration .border (m/OutlineInputBorder))))
+                         (m/SizedBox .height 8.0)
+                         (m/ElevatedButton .onPressed run! .child (m/Text "run"))])))
+       (m/VerticalDivider .width 1.0)
+       (m/Expanded
+        .child (m/Center
+                .child (f/widget :watch [r result] (result-widget r))))])))

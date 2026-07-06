@@ -28,8 +28,8 @@
                                                     true)
                                (= firstb :as) (pb ret (second bs) gvec)
                                :else (if seen-rest?
-                                       (throw #?(:clj (new Exception "Unsupported binding form, only :as can follow & parameter")
-                                                 :cljs (new js/Error "Unsupported binding form, only :as can follow & parameter")))
+                                       (throw #?(:cljs (new js/Error "Unsupported binding form, only :as can follow & parameter")
+            :default (new Exception "Unsupported binding form, only :as can follow & parameter")))
                                        (recur (pb (if has-rest
                                                     (conj ret
                                                           gfirst `(~first ~gseq)
@@ -79,7 +79,8 @@
                          (if (seq bes)
                            (let [bb (key (first bes))
                                  bk (val (first bes))
-                                 local (if #?(:clj  (instance? clojure.lang.Named bb)
+                                 local (if #?(:cljd (satisfies? INamed bb)
+                                              :clj  (instance? clojure.lang.Named bb)
                                               :cljs (implements? INamed bb))
                                          (with-meta (symbol nil (name bb)) (meta bb))
                                          bb)
@@ -99,15 +100,15 @@
                  (vector? b) (pvec bvec b v)
                  (map? b) (pmap bvec b v)
                  :else (throw
-                        #?(:clj (new Exception (str "Unsupported binding form: " b))
-                           :cljs (new js/Error (str "Unsupported binding form: " b)))))))
+                        #?(:cljs (new js/Error (str "Unsupported binding form: " b))
+            :default (new Exception (str "Unsupported binding form: " b)))))))
         process-entry (fn [bvec b] (pb bvec (first b) (second b)))]
     (if (every? symbol? (map first bents))
       bindings
       (if-let [kwbs (seq (filter #(keyword? (first %)) bents))]
         (throw
-         #?(:clj (new Exception (str "Unsupported binding key: " (ffirst kwbs)))
-            :cljs (new js/Error (str "Unsupported binding key: " (ffirst kwbs)))))
+         #?(:cljs (new js/Error (str "Unsupported binding key: " (ffirst kwbs)))
+            :default (new Exception (str "Unsupported binding key: " (ffirst kwbs)))))
         (reduce process-entry [] bents)))))
 
 (defn destructure

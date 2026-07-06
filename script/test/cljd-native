@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# AOT test: dart compile exe the sci eval binary and round-trip the suite
+# through it (SCI_TEST_ENV=native, like ./sci on the JVM). Run after
+# script/test/cljd, which scaffolds the cljd project.
+
+if [ ! -f pubspec.yaml ]; then
+  echo 'No pubspec.yaml. Run script/test/cljd first to scaffold the cljd project.' >&2
+  exit 1
+fi
+
+mkdir -p bin
+
+echo 'Compiling sci.aot-main to Dart'
+clojure -M:cljd compile sci.aot-main
+
+echo 'AOT-compiling the sci eval binary'
+echo 'export "../lib/cljd-out/sci/aot-main.dart" show main;' > bin/aot_test.dart
+bin_out="${TMPDIR:-/tmp}/sci-cljd-native"
+dart compile exe bin/aot_test.dart -o "$bin_out"
+
+echo 'Self-test: interop override survives AOT tree-shaking'
+"$bin_out" --selftest | grep -q 'SELFTEST-OK'
+
+echo 'Round-tripping the suite through the native binary'
+export SCI_TEST_ENV=native
+export SCI_NATIVE_BIN="$bin_out"
+# core-test round-trips through the native binary
+# override-fn tests cannot serialize and run in-process
+namespaces=(sci.core-test)
+if [ $# -gt 0 ]; then
+  namespaces=("$@")
+fi
+clojure -M:cljd test "${namespaces[@]}"

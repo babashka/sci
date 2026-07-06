@@ -1,9 +1,17 @@
 {:paths ["resources" "src"]
- :deps {borkdude/edamame {:mvn/version "1.5.39"}
+ :deps {borkdude/edamame {:mvn/version "1.6.41"}
         org.babashka/sci.impl.types {:mvn/version "0.0.3"}
         borkdude/graal.locking {:mvn/version "0.0.2"}}
+ :cljd/opts {:kind :dart :main sci-repl.main}
  :aliases
  {:examples {:extra-paths ["examples"]}
+  :cljd {:extra-paths ["test" "examples"]
+         :extra-deps {tensegritics/clojuredart
+                      {:git/url "https://github.com/tensegritics/ClojureDart.git"
+                       :git/sha "79759559c2cf4280832e596949a81226db336014"}}
+         :main-opts ["-m" "cljd.build"]}
+  ;; local ClojureDart checkout, compose as -M:cljd:cljd-local
+  :cljd-local {:override-deps {tensegritics/clojuredart {:local/root "/Users/borkdude/dev/ClojureDart"}}}
   :dev {:extra-deps {org.clojure/clojure {:mvn/version "1.12.0"}}}
   :test {:extra-paths ["test" "test-resources"]
          :extra-deps {org.clojure/clojure {:mvn/version "1.10.3"}

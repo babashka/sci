@@ -4,9 +4,79 @@
   (:require
    #?(:clj [clojure.string :as str])
    [sci.ctx-store :as store]
-   [sci.impl.hierarchies :refer [global-hierarchy]]))
+   ;; no hierarchies on cljd, like the host
+   #?@(:cljd [] :default [[sci.impl.hierarchies :refer [global-hierarchy]]])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
+
+#?(:cljd
+   (defn- no-method [mm-name dv]
+     (throw (ex-info (str "No method in multimethod '" mm-name "' for dispatch value: " dv) {}))))
+
+;; no hierarchies on cljd, dispatch is exact match with a default fallback
+#?(:cljd
+   (deftype SciMultiFn [mm-name dispatch-fn default method-table]
+     IFn
+     (-invoke [_]
+       (let [dv (dispatch-fn) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f) (no-method mm-name dv))))
+     (-invoke [_ a]
+       (let [dv (dispatch-fn a) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a) (no-method mm-name dv))))
+     (-invoke [_ a b]
+       (let [dv (dispatch-fn a b) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b) (no-method mm-name dv))))
+     (-invoke [_ a b c]
+       (let [dv (dispatch-fn a b c) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c) (no-method mm-name dv))))
+     (-invoke [_ a b c d]
+       (let [dv (dispatch-fn a b c d) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d) (no-method mm-name dv))))
+     (-invoke [_ a b c d e]
+       (let [dv (dispatch-fn a b c d e) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f*]
+       (let [dv (dispatch-fn a b c d e f*) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f*) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f* g]
+       (let [dv (dispatch-fn a b c d e f* g) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f* g) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f* g h]
+       (let [dv (dispatch-fn a b c d e f* g h) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f* g h) (no-method mm-name dv))))
+     (-invoke [_ a b c d e f* g h i]
+       (let [dv (dispatch-fn a b c d e f* g h i) mt @method-table f (or (get mt dv) (get mt default))]
+         (if f (f a b c d e f* g h i) (no-method mm-name dv))))
+     (-invoke-more [_ a b c d e f* g h i rest*]
+       (let [dv (apply dispatch-fn a b c d e f* g h i rest*)
+             mt @method-table
+             f (or (get mt dv) (get mt default))]
+         (if f (apply f a b c d e f* g h i rest*) (no-method mm-name dv))))
+     (-apply [this args]
+       (let [dv (apply dispatch-fn args)
+             mt @method-table
+             f (or (get mt dv) (get mt default))]
+         (if f (apply f args) (no-method mm-name dv))))))
+
+#?(:cljd
+   (do
+     ;; class values are registry maps, dispatch on the :class. Object is not
+     ;; special here, protocol extension to Object maps to :default in the
+     ;; protocol layer
+     (defn normalize-dispatch-val [dispatch-val]
+       (if (and (map? dispatch-val) (fn? (:instance? dispatch-val)))
+         (or (:class dispatch-val)
+             (throw (ex-info "Class cannot be used as a dispatch value" {})))
+         dispatch-val))
+     (defn get-method-impl [^SciMultiFn multifn dispatch-val]
+       (let [mt @(.-method-table multifn)
+             dispatch-val (normalize-dispatch-val dispatch-val)]
+         (or (get mt dispatch-val) (get mt (.-default multifn)))))
+     (defn methods-impl [^SciMultiFn multifn]
+       @(.-method-table multifn))
+     (defn remove-method-impl [^SciMultiFn multifn dispatch-val]
+       (swap! (.-method-table multifn) dissoc (normalize-dispatch-val dispatch-val))
+       multifn)))
 
 (defn ^:private check-valid-options
   "Throws an exception if the given option map contains keys not listed
@@ -17,7 +87,8 @@
                          (first valid-keys)
                          (map #(str ", " %) (rest valid-keys)))]
       (throw
-       #?(:clj (IllegalArgumentException. ^String message)
+       #?(:cljd (ArgumentError. message)
+          :clj (IllegalArgumentException. ^String message)
           :cljs (js/Error. ^string message))))))
 
 (defn defmulti
@@ -67,14 +138,16 @@
                       m)
         mm-name (with-meta mm-name m)]
     (when (= (count options) 1)
-      (throw (new #?(:clj Exception :cljs js/Error)
+      (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
                   "The syntax for defmulti has changed. Example: (defmulti name dispatch-fn :default dispatch-value)")))
 
     (let [options   (apply hash-map options)
           default   (get options :default :default)
-          hierarchy (get options :hierarchy (global-hierarchy))]
+          hierarchy (get options :hierarchy #?(:cljd nil :default (global-hierarchy)))]
       (check-valid-options options :default :hierarchy)
-      #?(:clj `(let [v# (def ~mm-name)]
+      #?(:cljd `(~'defonce ~(with-meta mm-name m)
+                 (clojure.core/multi-fn-impl ~(name mm-name) ~dispatch-fn ~default nil))
+         :clj `(let [v# (def ~mm-name)]
                  (when-not (and (clojure.core/has-root-impl v#) (clojure.core/multi-fn?-impl (deref v#)))
                    (def ~mm-name
                      (clojure.core/multi-fn-impl ~(name mm-name) ~dispatch-fn ~default ~hierarchy))))
@@ -87,25 +160,33 @@
                                                 method-table# prefer-table# method-cache# cached-hierarchy#)))))))
 
 (defn multi-fn?-impl [x]
-  (instance? #?(:clj clojure.lang.MultiFn
-                :cljs cljs.core/MultiFn) x))
+  #?(:cljd (instance? SciMultiFn x)
+     :clj (instance? clojure.lang.MultiFn x)
+     :cljs (instance? cljs.core/MultiFn x)))
 
-(defn multi-fn-impl #?(:clj [name dispatch-fn default hierarchy]
+(defn multi-fn-impl #?(:cljd [name dispatch-fn default hierarchy]
+                       :clj [name dispatch-fn default hierarchy]
                        :cljs [name dispatch-fn default hierarchy
                               method-table prefer-table method-cache cached-hierarchy])
-  (new #?(:clj clojure.lang.MultiFn
-          :cljs cljs.core/MultiFn) name dispatch-fn default hierarchy
-       #?@(:cljs [method-table prefer-table method-cache cached-hierarchy])))
+  #?(:cljd (SciMultiFn. name dispatch-fn default (atom {}))
+     :clj (new clojure.lang.MultiFn name dispatch-fn default hierarchy)
+     :cljs (new cljs.core/MultiFn name dispatch-fn default hierarchy
+                method-table prefer-table method-cache cached-hierarchy)))
 
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]
-  #?(:clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
+  #?(:cljd (do (swap! (.-method-table ^SciMultiFn multifn) assoc
+                      (normalize-dispatch-val dispatch-val) f)
+               multifn)
+     :clj (.addMethod ^clojure.lang.MultiFn multifn dispatch-val f)
      :cljs (-add-method multifn dispatch-val f)))
 
 (defn defmethod
   "Creates and installs a new method of multimethod associated with dispatch-value. "
   [_x _y multifn dispatch-val & fn-tail]
-  #?(:clj
+  #?(:cljd
+     (list 'clojure.core/multi-fn-add-method-impl multifn dispatch-val (list* 'fn fn-tail))
+     :clj
      (let [multifn-str (str multifn)]
        (if (or (str/ends-with? multifn-str "print-method")
                (str/ends-with? multifn-str "simple-dispatch"))

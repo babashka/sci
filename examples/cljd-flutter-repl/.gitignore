@@ -1,0 +1,23 @@
+# cljd + flutter generated output and scaffolding
+/lib/
+/build/
+/.dart_tool/
+/.metadata
+/pubspec.lock
+/android/
+/ios/
+/macos/
+/linux/
+/windows/
+/web/
+/.idea/
+*.iml
+
+# ClojureDart
+.cpcache/
+.clojuredart/
+lib/cljd-out/
+test/cljd-out/
+/.gitattributes
+/analysis_options.yaml
+/test/

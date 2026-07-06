@@ -17,12 +17,17 @@
   (when #?(:clj true :cljs (not (re-matches #".*\$macros" (name (ns-name *ns*)))))
     `(do ~@body)))
 
-(deftime
-  (defmacro ?
-    "Private. case macro from https://github.com/cgrand/macrovich"
-    [& {:keys [cljs clj]}]
-    (if (contains? &env '&env)
-      `(if (:ns ~'&env) ~cljs ~clj)
-      (if #?(:clj (:ns &env) :cljs true)
-        cljs
-        clj))))
+#?(:cljd
+   (defmacro ?
+     [& {:keys [cljd clj] :as opts}]
+     (if (contains? opts :cljd) cljd clj))
+   :default
+   (deftime
+     (defmacro ?
+       "Private. case macro from https://github.com/cgrand/macrovich"
+       [& {:keys [cljs clj]}]
+       (if (contains? &env '&env)
+         `(if (:ns ~'&env) ~cljs ~clj)
+         (if #?(:clj (:ns &env) :cljs true)
+           cljs
+           clj)))))

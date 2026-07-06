@@ -6,10 +6,10 @@
 
 (defn assert-args [seq-exprs _body-exprs]
   (when-not (vector? seq-exprs)
-    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+    (throw (new #?(:cljd ArgumentError :clj IllegalArgumentException :cljs js/Error)
                 "doseq requires a vector for its binding")))
   (when-not (even? (count seq-exprs))
-    (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+    (throw (new #?(:cljd ArgumentError :clj IllegalArgumentException :cljs js/Error)
                 "doseq requires an even number of forms in binding vector"))))
 
 (defn expand-doseq
@@ -44,7 +44,7 @@
                            needrec (steppair 0)
                            subform (steppair 1)
                            recform-chunk
-                           `(~allowed-recur ~seq- ~chunk- ~count- (unchecked-inc ~i-))
+                           `(~allowed-recur ~seq- ~chunk- ~count- (#?(:cljd ~'unchecked-inc :default unchecked-inc) ~i-))
                            steppair-chunk (step recform-chunk (nnext exprs))
                            subform-chunk (steppair-chunk 1)]
                        [true

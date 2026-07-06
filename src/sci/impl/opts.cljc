@@ -5,9 +5,9 @@
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
-   [sci.lang])
-  #?(:clj (:import
-           [sci.impl.types ICustomType])))
+   #?(:cljd [sci.lang :as lang] :default [sci.lang]))
+  #?@(:cljd [] :clj [(:import
+                      [sci.impl.types ICustomType])]))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -30,9 +30,11 @@
                      namespaces (-> namespaces
                                     (update 'user assoc :aliases aliases)
                                     (update 'clojure.core assoc
-                                            'global-hierarchy
-                                            (utils/new-var 'global-hierarchy (make-hierarchy)
-                                                           {:ns utils/clojure-core-ns})
+                                            ;; no hierarchies on cljd, like the host
+                                            #?@(:cljd []
+                                                :default ['global-hierarchy
+                                                          (utils/new-var 'global-hierarchy (make-hierarchy)
+                                                                         {:ns utils/clojure-core-ns})])
                                             '*loaded-libs* (namespaces/loaded-libs**
                                                             (concat (keys env-nss)
                                                                     namespace-syms))))
@@ -44,10 +46,10 @@
                  ;; TODO: is the first case ever hit?
                  (if-not env
                    #?(:clj (->Env namespaces imports load-fn)
-                      :cljs {:namespaces namespaces
-                             :imports imports
-                             :load-fn load-fn
-                             :async-load-fn async-load-fn})
+                      :default {:namespaces namespaces
+                                :imports imports
+                                :load-fn load-fn
+                                #?@(:cljs [:async-load-fn async-load-fn])})
                    (assoc env
                           :namespaces namespaces
                           :imports imports
@@ -56,6 +58,7 @@
                                      :js-libs js-libs])
                           :public-class (:public-class classes)
                           :class->opts (:class->opts classes)
+                          #?@(:cljd [:type->opts (:type->opts classes)])
                           :raw-classes raw-classes
                           :ns-aliases ns-aliases))))))
 
@@ -63,7 +66,39 @@
   (not-empty (into prev-perms (comp cat (map strip-core-ns)) permissions)))
 
 (def default-classes
-  #?(:clj {'java.lang.AssertionError AssertionError
+  ;; no runtime reflection on Dart, each class carries :constructor and :instance? closures
+  #?(:cljd {'Exception {:class Exception
+                        :constructor (fn [msg] (Exception. msg))
+                        :instance? (fn [x] (instance? Exception x))}
+            'Error {:class Error
+                    :instance? (fn [x] (instance? Error x))}
+            'ArgumentError {:class ArgumentError
+                            :constructor (fn [msg] (ArgumentError. msg))
+                            :instance? (fn [x] (instance? ArgumentError x))}
+            'StateError {:class StateError
+                         :constructor (fn [msg] (StateError. msg))
+                         :instance? (fn [x] (instance? StateError x))}
+            'Object {:class Object
+                     :instance? (fn [x] (some? x))}
+            ;; bare int/double/bool compile to cast fns on cljd,
+            ;; runtimeType yields the canonical Type objects
+            'dart.core.String {:class String
+                               :instance? (fn [x] (string? x))}
+            'dart.core.num {:instance? (fn [x] (number? x))}
+            'dart.core.int {:class (.-runtimeType 1)
+                            :instance? (fn [x] (int? x))}
+            'dart.core.double {:class (.-runtimeType 1.0)
+                               :instance? (fn [x] (double? x))}
+            'dart.core.bool {:class (.-runtimeType true)
+                             :instance? (fn [x] (boolean? x))}
+            'StringBuffer {:class StringBuffer
+                           :constructor (fn ([] (StringBuffer.))
+                                          ([s] (StringBuffer. s)))
+                           :instance? (fn [x] (instance? StringBuffer x))}
+            'cljd.core.ExceptionInfo {:class cljd.core/ExceptionInfo
+                                      :instance? (fn [x] (instance? cljd.core/ExceptionInfo x))}
+            'sci.lang.Type lang/Type}
+     :clj {'java.lang.AssertionError AssertionError
            'java.lang.Exception {:class Exception}
            'java.lang.IllegalArgumentException java.lang.IllegalArgumentException
            'clojure.lang.Delay clojure.lang.Delay
@@ -92,7 +127,19 @@
             'sci.lang.Type sci.lang.Type}))
 
 (def default-imports
-  #?(:clj '{AssertionError java.lang.AssertionError
+  #?(:cljd '{Exception Exception
+             Error Error
+             ArgumentError ArgumentError
+             StateError StateError
+             Object Object
+             StringBuffer StringBuffer
+             ExceptionInfo cljd.core.ExceptionInfo
+             String dart.core.String
+             num dart.core.num
+             int dart.core.int
+             double dart.core.double
+             bool dart.core.bool}
+     :clj '{AssertionError java.lang.AssertionError
             Exception java.lang.Exception
             String java.lang.String
             ArithmeticException java.lang.ArithmeticException
@@ -123,11 +170,21 @@
            (assoc! class->opts sym class-opts))
          (assoc! class->opts sym {:class class-opts}))
        (rest kvs))
-      {:public-class (:public-class classes)
-       :class->opts (persistent! class->opts)})))
+      (let [co (persistent! class->opts)]
+        {:public-class (:public-class classes)
+         :class->opts co
+         ;; cljd has no reflection and Type names are not stable under AOT
+         ;; obfuscation, so interop dispatches on the :class Type object itself
+         #?@(:cljd [:type->opts (reduce-kv
+                                 (fn [m _ opts]
+                                   (if-let [c (when (map? opts) (:class opts))]
+                                     (assoc m c opts)
+                                     m))
+                                 {} co)])}))))
 
 (def default-reify-fn
-  #?(:clj (fn [{:keys [interfaces methods protocols]}]
+  #?(:cljd (fn [_])
+     :clj (fn [{:keys [interfaces methods protocols]}]
             (reify
               Object
               (toString [this]
@@ -150,16 +207,18 @@
                         interrupt-fn]))
 
 (defn ->ctx [bindings env features readers check-permissions? & {:keys [interrupt-fn]}]
-  #?(:cljs {:bindings bindings
-            :env env
-            :features features
-            :readers readers
-            :check-permissions check-permissions?
-            :interrupt-fn interrupt-fn}
-     :clj (->Ctx bindings env features readers false check-permissions? interrupt-fn)))
+  #?(:clj (->Ctx bindings env features readers false check-permissions? interrupt-fn)
+     :default {:bindings bindings
+               :env env
+               :features features
+               :readers readers
+               :check-permissions check-permissions?
+               :interrupt-fn interrupt-fn}))
 
 (def default-ns-aliases
-  #?(:clj {}
+  #?(:cljd {;; in SCI the core namespace is always called clojure.core
+            'cljd.core 'clojure.core}
+     :clj {}
      :cljs {;; in SCI the core namespace is always called clojure.core
             'cljs.core 'clojure.core}))
 

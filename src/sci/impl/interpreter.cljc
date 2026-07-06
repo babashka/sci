@@ -2,16 +2,29 @@
   {:no-doc true}
   (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
-   [clojure.tools.reader.reader-types :as r]
+   #?(:cljd [edamame.impl.cljd-reader-types :as r]
+      :default [clojure.tools.reader.reader-types :as r])
    [sci.ctx-store :as store]
    [sci.impl.analyzer :as ana]
+   #?(:cljd [sci.impl.evaluator :as evaluator])
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
+
+(declare eval-form)
+
+;; cljd drops top-level side effects, wire the circular-dep volatiles explicitly
+#?(:cljd
+   (defn -install-wiring! []
+     (when-not @utils/eval-form-state
+       (vreset! utils/eval-form-state eval-form)
+       (vreset! utils/eval-resolve-state evaluator/eval-resolve)
+       (vreset! utils/analyze ana/analyze))
+     nil))
 
 (defn eval-form* [ctx form]
   (let [eval-file (:clojure.core/eval-file (meta form))]
@@ -37,12 +50,15 @@
                 _ (set! store/*ctx* ctx)
                 analyzed (ana/analyze ctx form true)
                 binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-                bindings (object-array binding-array-size)]
-            (if (instance? #?(:clj sci.impl.types.EvalForm
+                bindings #?(:cljd (#/(List/filled dynamic) binding-array-size nil)
+                            :clj (object-array binding-array-size)
+                            :cljs (object-array binding-array-size))]
+            (if (instance? #?(:cljd sci.impl.types/EvalForm
+                              :clj sci.impl.types.EvalForm
                               :cljs sci.impl.types/EvalForm) analyzed)
               (eval-form* ctx (types/getVal analyzed))
               (try (types/eval analyzed ctx bindings)
-                   (catch #?(:clj Throwable :cljs js/Error) e
+                   (catch #?(:cljd Object :clj Throwable :cljs js/Error) e
                      (utils/rethrow-with-location-of-node ctx bindings e analyzed))))))
         (let [upper-sym (gensym)
               cb (volatile! {upper-sym {0 {:syms {}}}})
@@ -51,15 +67,18 @@
                          :closure-bindings cb)
               analyzed (ana/analyze ctx form)
               binding-array-size (count (get-in @cb [upper-sym 0 :syms]))
-              bindings (object-array binding-array-size)]
+              bindings #?(:cljd (#/(List/filled dynamic) binding-array-size nil)
+                          :clj (object-array binding-array-size)
+                          :cljs (object-array binding-array-size))]
           (try (types/eval analyzed ctx bindings)
-               (catch #?(:clj Throwable :cljs js/Error) e
+               (catch #?(:cljd Object :clj Throwable :cljs js/Error) e
                  (utils/rethrow-with-location-of-node ctx bindings e analyzed)))))
       (finally
         (when eval-file
           (vars/pop-thread-bindings))))))
 
 (defn eval-form [ctx form]
+  #?(:cljd (-install-wiring!))
   (store/with-ctx ctx
     (eval-form* ctx form)))
 
@@ -71,6 +90,7 @@
   ([ctx s]
    (eval-string* ctx s nil))
   ([ctx s opts]
+   #?(:cljd (-install-wiring!))
    (vars/with-bindings
      {utils/current-ns (or (when opts (:ns opts)) @utils/current-ns)
       parser/data-readers @parser/data-readers

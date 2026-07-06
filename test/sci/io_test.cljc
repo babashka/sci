@@ -15,7 +15,8 @@
   (when-not tu/native?
     (is (= "hello\n" (sci/with-out-str (eval* "(println \"hello\")"))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest with-sci-in-str-test
      (when-not tu/native?
        (is (= "hello" (sci/with-in-str "hello\n" (eval* "(read-line)")))))))
@@ -23,7 +24,8 @@
 (deftest with-out-str-test
   (is (= "hello\n" (eval* "(with-out-str (println \"hello\"))"))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest with-in-str-test
      (is (= "hello" (eval* "(with-in-str \"hello\" (read-line))")))))
 
@@ -81,7 +83,8 @@
             (swap! flush-count-atom inc)))
         flush-count-atom])))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest flush-on-newline-test
      (let [[out counter] (flush-alerting-writer (java.io.StringWriter.))]
        (sci/binding [sci/out out]

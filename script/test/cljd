@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+if [ ! -f pubspec.yaml ]; then
+  echo 'Initializing ClojureDart project'
+  clojure -M:cljd init
+  # drop the generated sample test, only sci tests should run
+  rm -f test/sci_test.dart
+fi
+
+# Test namespaces that compile and pass on ClojureDart. Extend this list as
+# more of SCI is ported.
+default_namespaces=(sci.core-test sci.error-test sci.vars-test sci.namespaces-test sci.io-test sci.repl-test sci.impl.analyzer-test sci.impl.binding-array-refactor-test sci.multimethods-test sci.protocols-test sci.core-protocols-test sci.defrecords-and-deftype-test sci.reify-test sci.cljd-interop-test sci.parse-test sci.impl.vars-test)
+
+if [ $# -gt 0 ]; then
+  namespaces=("$@")
+else
+  namespaces=("${default_namespaces[@]}")
+fi
+
+echo 'Running ClojureDart tests'
+clojure -M:cljd test "${namespaces[@]}"

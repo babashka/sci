@@ -37,6 +37,7 @@ This library works with:
 - Clojure on the JVM
 - Clojure compiled with GraalVM native
 - ClojureScript, even when compiled with `:advanced`, and JavaScript
+- ClojureDart, compiled to Dart. See the [Flutter REPL example](examples/cljd-flutter-repl).
 
 ## API docs
 

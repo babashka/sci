@@ -28,7 +28,8 @@
                                 (conj (pop groups) (conj (peek groups) [k v]))
                                 (conj groups [k v])))
                             [] (partition 2 seq-exprs)))
-        err (fn [& msg] (throw (new #?(:clj IllegalArgumentException
+        err (fn [& msg] (throw (new #?(:cljd ArgumentError
+                                       :clj IllegalArgumentException
                                        :cljs js/Error) ^String (apply str msg))))
         emit-bind (fn emit-bind [[[bind expr & mod-pairs]
                                   & [[_ next-expr] :as next-groups]]]
@@ -67,12 +68,12 @@
                                           (= k :when) `(if ~v
                                                          ~(do-cmod etc)
                                                          (~allowed-recur
-                                                          (unchecked-inc ~gi)))
+                                                          (#?(:cljd ~'unchecked-inc :default unchecked-inc) ~gi)))
                                           (keyword? k)
                                           (err "Invalid 'for' keyword " k)
                                           :else
                                           `(do (chunk-append ~gb ~body-expr)
-                                               (~allowed-recur (unchecked-inc ~gi)))))
+                                               (~allowed-recur (#?(:cljd ~'unchecked-inc :default unchecked-inc) ~gi)))))
                               c-sym (gensym "c")]
                           `(fn ~giter [~gxs]
                              (lazy-seq

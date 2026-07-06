@@ -10,9 +10,10 @@
   #?(:cljs (:import [goog.string StringBuffer]))
   #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical? dotimes+]])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
-(derive :sci.error/parse :sci/error)
+;; cljd has no hierarchies
+#?(:cljd nil :default (derive :sci.error/parse :sci/error))
 
 (defn constant? [x]
   (or (nil? x)
@@ -20,19 +21,22 @@
       (string? x)
       (keyword? x)
       (boolean? x)
-      #?(:clj
-         (instance? java.util.regex.Pattern x)
-         :cljs
-         (instance? js/RegExp x))))
+      (instance? #?(:cljd RegExp :clj java.util.regex.Pattern :cljs js/RegExp) x)))
 
-(defmacro kw-identical? [k v]
-  (macros/?
-   :clj `(identical? ~k ~v)
-   :cljs `(cljs.core/keyword-identical? ~k ~v)))
+#?(:cljd
+   ;; keywords are not reference-equal on cljd
+   (defmacro kw-identical? [k v]
+     `(= ~k ~v))
+   :default
+   (defmacro kw-identical? [k v]
+     (macros/?
+      :clj `(identical? ~k ~v)
+      :cljs `(cljs.core/keyword-identical? ~k ~v))))
 
 ;; NOTE: we could add a unique object to the context instead of using this
 ;; global one, which would be an even safer solution
-(def recur #?(:clj (Object.)
+(def recur #?(:cljd ^:unique (Object.)
+              :clj (Object.)
               :cljs (js/Object.)))
 
 ;; Private sentinel marking an interrupt signal (see `sci.core/interrupt!`).
@@ -40,7 +44,8 @@
 ;; interrupt via a hand-built `ex-info`. `eval-try` checks for it and refuses to
 ;; let user `catch` clauses handle the exception, so interrupts always propagate
 ;; out of the sandbox.
-(def interrupt-marker #?(:clj (Object.)
+(def interrupt-marker #?(:cljd ^:unique (Object.)
+                         :clj (Object.)
                          :cljs (js/Object.)))
 
 (defn interrupt-ex?
@@ -76,10 +81,12 @@
      (symbol "append")))
 
 (defn demunge [s]
-  #?(:clj (clojure.lang.Compiler/demunge s)
+  #?(:cljd (.replaceAll ^String s "_" "-")
+     :clj (clojure.lang.Compiler/demunge s)
      :cljs (cljs.core/demunge s)))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (defn rewrite-ex-msg [ex-msg env fm]
      (when ex-msg
        (if-let [[_ printed-fn] (re-matches #"Wrong number of args \(\d+\) passed to: (.*)" ex-msg)]
@@ -112,9 +119,11 @@
          ex-msg))))
 
 (defn rethrow-with-location-of-node
-  ([ctx ^Throwable e raw-node] (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
-  ([ctx _bindings ^Throwable e raw-node]
-   (if (let [in-try #?(:clj (or *in-try*
+  ([ctx #?(:cljd e :clj ^Throwable e :cljs e) raw-node]
+   (rethrow-with-location-of-node ctx (:bindings ctx) e raw-node))
+  ([ctx _bindings #?(:cljd e :clj ^Throwable e :cljs e) raw-node]
+   (if (let [in-try #?(:cljd *in-try*
+                       :clj (or *in-try*
                                 (not= (:main-thread-id ctx)
                                       (.getId (Thread/currentThread))))
                        :cljs *in-try*)]
@@ -126,7 +135,7 @@
      (throw e)
      (let [stack (t/stack raw-node)
            ;; _ (prn :stack stack)
-           #?@(:clj [fm (:sci.impl/f-meta stack)])
+           #?@(:cljd [] :clj [fm (:sci.impl/f-meta stack)])
            env (:env ctx)
            id (:id ctx)
            d (ex-data e)
@@ -137,11 +146,17 @@
          (vswap! st conj stack))
        (let [d (ex-data e)
                ;; st (:sci.impl/callstack d)
-             wrapping-sci-error? (and (isa? (:type d) :sci/error)
+             wrapping-sci-error? (and #?(:cljd (contains? #{:sci/error :sci.error/parse} (:type d))
+                                         :default (isa? (:type d) :sci/error))
                                       (:sci.impl/callstack d))]
          (if wrapping-sci-error?
            (throw e)
-           (let [ex-msg #?(:clj (.getMessage e)
+           ;; Dart errors have no message accessor, fall back to str
+           (let [ex-msg #?(:cljd (let [s (or (ex-message e) (str e))]
+                                   (if (.startsWith ^String s "Exception: ")
+                                     (subs s 11)
+                                     s))
+                           :clj (.getMessage e)
                            :cljs (.-message e))
                  {:keys [:line :column :file]}
                  (or stack
@@ -150,7 +165,8 @@
                              deref last meta)
                      #_(meta node))]
              (if (and line column)
-               (let [ex-msg #?(:clj (rewrite-ex-msg ex-msg env fm)
+               (let [ex-msg #?(:cljd ex-msg
+                               :clj (rewrite-ex-msg ex-msg env fm)
                                :cljs ex-msg)
                      phase (:phase d)
                      new-exception
@@ -166,7 +182,8 @@
                (throw e)))))))))
 
 (defn- iobj? [obj]
-  (and #?(:clj (instance? clojure.lang.IObj obj)
+  (and #?(:cljd (satisfies? IWithMeta obj)
+          :clj (instance? clojure.lang.IObj obj)
           :cljs (implements? IWithMeta obj))
        (meta obj)))
 
@@ -179,12 +196,13 @@
 
 (defn strip-core-ns [sym]
   (case (namespace sym)
-    ("clojure.core" "cljs.core") (symbol (name sym))
+    ("clojure.core" "cljs.core" "cljd.core") (symbol (name sym))
     sym))
 
 (def allowed-loop (symbol "clojure.core/loop"))
 (def allowed-recur (symbol "recur"))
-(def var-unbound #?(:clj (Object.)
+(def var-unbound #?(:cljd ^:unique (Object.)
+                    :clj (Object.)
                     :cljs (js/Object.)))
 
 (defn namespace-object
@@ -200,17 +218,40 @@
             (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
             ns-obj)))))
 
+(defn reset-meta!* [x m]
+  #?(:cljd (t/-reset-meta! x m)
+     :clj (reset-meta! x m)
+     :cljs (reset-meta! x m)))
+
+#?(:cljd
+   (defn alter-meta!* [x f & args]
+     (if (satisfies? t/IResetMeta x)
+       (do
+         ;; writability check must precede applying f
+         (t/-reset-meta! x (meta x))
+         (let [m (apply f (meta x) args)]
+           (t/-reset-meta! x m)
+           m))
+       (apply alter-meta! x f args))))
+
+#?(:cljd
+   (defn reset-meta!** [x m]
+     (if (satisfies? t/IResetMeta x)
+       (do (t/-reset-meta! x m) m)
+       (reset-meta! x m))))
+
 (defn set-namespace!
   [ctx ns-sym attr-map set-meta?]
   (let [env (:env ctx)
         attr-map (merge (meta ns-sym) attr-map)
         ns-obj (namespace-object env ns-sym true attr-map)]
-    (when set-meta? (reset-meta! ns-obj attr-map))
+    (when set-meta? (reset-meta!* ns-obj attr-map))
     (t/setVal current-ns ns-obj)))
 
-(def eval-form-state (volatile! nil))
-(def eval-resolve-state (volatile! nil))
-(def analyze (volatile! nil))
+;; identity keeps the cljd Volatile type parameter dynamic instead of Null
+(def eval-form-state (volatile! #?(:cljd (identity nil) :default nil)))
+(def eval-resolve-state (volatile! #?(:cljd (identity nil) :default nil)))
+(def analyze (volatile! #?(:cljd (identity nil) :default nil)))
 
 (defn eval [sci-ctx form]
   (@eval-form-state sci-ctx form))
@@ -261,7 +302,8 @@
      special? (assoc :special true))))
 
 (defn log [& xs]
-  #?(:clj (.println System/err (str/join " " xs))
+  #?(:cljd (println (str/join " " xs))
+     :clj (.println System/err (str/join " " xs))
      :cljs (.log js/console (str/join " " xs))))
 
 (defn dynamic-var
@@ -271,7 +313,7 @@
    (dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (unqualify-symbol name))]
-     (sci.lang.Var. init-val name meta false false nil (:ns meta)))))
+     (lang/->Var init-val name meta false false nil (:ns meta)))))
 
 ;; foundational namespaces
 (def user-ns (lang/->Namespace 'user nil))
@@ -299,14 +341,18 @@
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :name (unqualify-symbol name))]
-     (sci.lang.Var. init-val name meta false nil nil (:ns meta)))))
+     (lang/->Var init-val name meta false nil nil (:ns meta)))))
 
 (defn var? [x]
-  (instance? sci.lang.Var x))
+  (instance? #?(:cljd lang/Var :clj sci.lang.Var :cljs sci.lang.Var) x))
 
 (defn namespace? [x]
-  (instance? #?(:clj sci.lang.Namespace
+  (instance? #?(:cljd lang/Namespace
+                :clj sci.lang.Namespace
                 :cljs sci.lang/Namespace) x))
+
+(defn sci-type? [x]
+  (instance? #?(:cljd lang/Type :clj sci.lang.Type :cljs sci.lang.Type) x))
 
 (defmacro dotimes+ [n body]
   `(do (dotimes [i# ~(dec n)]
@@ -317,13 +363,15 @@
 ;; (& monitor-exit case* try reify* finally loop* do letfn* if clojure.core/import* new deftype* let* fn* recur set! . var quote catch throw monitor-enter def)
 (def special-syms '#{try finally do if new recur quote throw def . var set! let* loop* case* deftype*})
 
-#?(:clj (def warn-on-reflection-var
+#?(:cljd nil
+   :clj (def warn-on-reflection-var
           (dynamic-var
            '*warn-on-reflection* false
            {:ns clojure-core-ns
             :doc "When set to true, the compiler will emit warnings when reflection is\n  needed to resolve Java method calls or field accesses.\n\n  Defaults to false."})))
 
-#?(:clj (def unchecked-math-var
+#?(:cljd nil
+   :clj (def unchecked-math-var
           (dynamic-var
            '*unchecked-math* clojure.core/*unchecked-math*
            {:ns clojure-core-ns

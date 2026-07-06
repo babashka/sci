@@ -105,6 +105,44 @@ jobs:
       - name: Run self-hosted tests
         run: bb test:self-hosted
 
+  test-cljd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ClojureDart needs Java 11+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: '3.12.2'
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          cli: 'latest'
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2
+            ~/.gitlibs
+            ~/.pub-cache
+          key: cljd-deps-${{ hashFiles('deps.edn') }}
+          restore-keys: cljd-deps-
+
+      - name: Run ClojureDart tests
+        run: ./script/test/cljd
+
+      - name: Run ClojureDart AOT test
+        run: ./script/test/cljd-native
+
   test-libsci:
     # Compile and test libsci across all OSs.
     strategy:

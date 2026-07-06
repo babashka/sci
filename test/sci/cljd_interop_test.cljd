@@ -1,0 +1,123 @@
+(ns sci.cljd-interop-test
+  ;; override fns in the ctx cannot serialize to the native binary, so these
+  ;; tests use sci/eval-string (in-process), not tu/eval*, matching the JVM.
+  (:require [clojure.test :refer [deftest is testing]]
+            [sci.core :as sci]
+            [sci.test-utils :as tu]))
+
+(deftest instance-method-override-test
+  (testing "instance method dispatches to override fn"
+    (is (= 3 (sci/eval-string "(.foo \"abc\")"
+                              {:classes {'String {:class String :instance-methods {'foo count}}}}))))
+  (testing "override receives args"
+    (is (= "abc!" (sci/eval-string "(.foo \"abc\" \"!\")"
+                                   {:classes {'String {:class String :instance-methods {'foo str}}}}))))
+  (testing "override body calls a real host method (compiled, tree-shakeable)"
+    (is (= "ABC" (sci/eval-string "(.upper \"abc\")"
+                                  {:classes {'String {:class String :instance-methods {'upper (fn [s] (.toUpperCase s))}}}}))))
+  (testing "unlisted method throws"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (sci/eval-string "(.bar \"abc\")"
+                                  {:classes {'String {:class String :instance-methods {'foo (fn [_s] :x)}}}})))))
+
+(deftest instance-field-override-test
+  (testing "instance field dispatches to override fn, which reads a real host field"
+    (is (= 4 (sci/eval-string "(.-len \"abcd\")"
+                              {:classes {'String {:class String :instance-fields {'len (fn [s] (.-length s))}}}}))))
+  (testing "unlisted field throws"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (sci/eval-string "(.-nope \"abcd\")"
+                                  {:classes {'String {:class String :instance-fields {'len (fn [_] 1)}}}})))))
+
+(deftest static-method-override-test
+  (testing "static method dispatches to override fn via Class/method"
+    (is (= :parsed (sci/eval-string "(DateTime/parse \"2020\")"
+                                    {:classes {'DateTime {:class DateTime
+                                                          :static-methods {'parse (fn [_ _s] :parsed)}}}}))))
+  (testing "and via the (. Class method) form"
+    (is (= :parsed (sci/eval-string "(. DateTime parse \"2020\")"
+                                    {:classes {'DateTime {:class DateTime
+                                                          :static-methods {'parse (fn [_ _s] :parsed)}}}})))))
+
+(deftest static-field-override-test
+  (testing "static field dispatches to override fn"
+    (is (= :field (sci/eval-string "DateTime/monthsPerYear"
+                                   {:classes {'DateTime {:class DateTime
+                                                         :static-fields {'monthsPerYear (fn [_] :field)}}}})))))
+
+(deftest named-arg-sugar-test
+  (testing "trailing .name val pairs desugar to keyword args"
+    (is (= [1 {:b 2 :c 3}]
+           (tu/eval* "(defn f [a & {:as opts}] [a opts]) (f 1 .b 2 .c 3)" {}))))
+  (testing "& {:keys} destructures desugared named args"
+    (is (= "red-10"
+           (tu/eval* "(defn style [& {:keys [color size]}] (str color \"-\" size)) (style .color \"red\" .size 10)" {}))))
+  (testing "positional args before the first .name are untouched"
+    (is (= [:a :b {:k 1}]
+           (tu/eval* "(defn f [x y & {:as o}] [x y o]) (f :a :b .k 1)" {}))))
+  (testing "no named args leaves the call unchanged"
+    (is (= 6 (tu/eval* "(defn f [a b c] (+ a b c)) (f 1 2 3)" {}))))
+  (testing "nested named-arg calls each desugar"
+    (is (= {:a {:b 2}}
+           (tu/eval* "(defn g [& {:as o}] o) (defn f [& {:as o}] o) (f .a (g .b 2))" {}))))
+  (testing "a local fn in operator position desugars"
+    (is (= {:a 1} (tu/eval* "(let [f (fn [& {:as o}] o)] (f .a 1))" {}))))
+  (testing "a dot-symbol in a vector literal is not a named arg"
+    (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(defn f [x] x) (f [.a 1])" {}))))
+  (testing "a dot-symbol in a let binding value is not desugared"
+    (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(let [x .a] x)" {}))))
+  (testing "an unpaired trailing form is a malformed call, not a dropped arg"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defn f [& {:as o}] o) (f .a 1 2)" {}))))
+  (testing "a .name with no value is a malformed call"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defn f [& {:as o}] o) (f .a)" {})))))
+
+(deftest deftype-ifn-test
+  (testing "a deftype implementing IFn is callable"
+    (is (= 42 (tu/eval* "(deftype Foo [] IFn (-invoke [_] 42)) ((->Foo))" {})))
+    (is (= 7 (tu/eval* "(deftype Adder [n] IFn (-invoke [_ x] (+ n x))) ((->Adder 5) 2)" {}))))
+  (testing "a deftype implementing IFn is ifn?"
+    (is (true? (tu/eval* "(deftype Foo [] IFn (-invoke [_] 42)) (ifn? (->Foo))" {}))))
+  (testing "a deftype not implementing IFn is not ifn?"
+    (is (false? (tu/eval* "(deftype Bar []) (ifn? (->Bar))" {})))))
+
+(deftest string-namespace-require-test
+  (testing "a namespace registered under a string name is requirable and aliasable"
+    (is (= "hi!" (sci/eval-string "(require '[\"my.pkg\" :as p]) (p/shout \"hi\")"
+                                  {:namespaces {"my.pkg" {'shout (fn [s] (str s "!"))}}}))))
+  (testing "string require works in an ns form"
+    (is (= 42 (sci/eval-string "(ns app (:require [\"my.pkg\" :as p])) (p/answer)"
+                               {:namespaces {"my.pkg" {'answer (fn [] 42)}}}))))
+  (testing "a string-named and a symbol-named ns coexist in loaded-libs"
+    (is (= [1 2]
+           (sci/eval-string "(require '[\"pkg.one\" :as a] '[reg.two :as b]) [(a/x) (b/y)]"
+                            {:namespaces {"pkg.one" {'x (fn [] 1)}
+                                          'reg.two {'y (fn [] 2)}}}))))
+  (testing "requiring the same string ns twice is idempotent"
+    (is (= 1 (sci/eval-string "(require '[\"pkg.one\" :as a]) (require '[\"pkg.one\" :as a]) (a/x)"
+                              {:namespaces {"pkg.one" {'x (fn [] 1)}}})))))
+
+(deftest multimethod-object-not-default-test
+  (testing "(defmethod m Object ...) dispatches on Object, not :default"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defmulti m identity) (defmethod m Object [_] :object) (m :x)" {}))))
+  (testing ":default still dispatches as the fallback"
+    (is (= :d (tu/eval* "(defmulti m identity) (defmethod m :default [_] :d) (m :x)" {}))))
+  (testing "extend-protocol to Object is still the protocol default"
+    (is (= :dflt (tu/eval* "(defprotocol P (pf [_])) (extend-protocol P Object (pf [_] :dflt)) (pf 42)" {})))))
+
+(deftest type-nil-test
+  (testing "(type nil) is nil, not the Null type"
+    (is (nil? (tu/eval* "(type nil)" {})))))
+
+(deftest instance-object-nil-test
+  (testing "(instance? Object nil) is false"
+    (is (false? (tu/eval* "(instance? Object nil)" {}))))
+  (testing "(instance? Object x) is true for a non-nil value"
+    (is (true? (tu/eval* "(instance? Object \"x\")" {})))))
+
+(deftest bare-dot-not-named-arg-test
+  (testing "a bare . arg is malformed, not a named arg"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defn f [& {:as o}] o) (f . 1)" {})))))

@@ -1,5 +1,5 @@
 (ns sci.error-test
-  (:require #?(:clj [sci.addons.future :as fut])
+  (:require #?@(:cljd [] :clj [[sci.addons.future :as fut]])
             [clojure.string :as str]
             [clojure.test :as t :refer [deftest testing is]]
             [sci.core :as sci :refer [eval-string]]))
@@ -12,7 +12,8 @@
 (defn bar [] (subs nil 0))
 (defn foo [] (bar))
 (foo)")
-             (catch #?(:clj Exception
+             (catch #?(:cljd cljd.core/ExceptionInfo
+                       :clj Exception
                        :cljs js/Error) e
                (map #(cond-> (select-keys % [:ns :name :line :column])
                       (= 'clojure.core (:ns %)) (select-keys [:ns :name]))
@@ -29,7 +30,8 @@
     (is (= expected
            stacktrace)))
   (let [stacktrace (try (eval-string "(1 2 3)")
-                        (catch #?(:clj Exception
+                        (catch #?(:cljd cljd.core/ExceptionInfo
+                                  :clj Exception
                                   :cljs js/Error) e
                           (map #(-> %
                                     (select-keys [:ns :name :line :column]))
@@ -37,7 +39,8 @@
     (is (= '({:ns user, :name nil, :line 1, :column 1}) stacktrace)))
   (testing "unresolved class in import"
     (let [stacktrace (try (eval-string "(ns foo (:import [java.io FooBar]))")
-                          (catch #?(:clj Exception
+                          (catch #?(:cljd cljd.core/ExceptionInfo
+                                    :clj Exception
                                     :cljs js/Error) e
                             (map #(-> %
                                       (select-keys [:ns :name :line :column]))
@@ -45,7 +48,8 @@
       (is (= '({:ns foo, :name nil, :line 1, :column 9}) stacktrace))))
   (testing "local"
     (let [stacktrace (try (eval-string "(defn foo []) (defn g [x] (x 1)) (g (foo))")
-                          (catch #?(:clj Exception
+                          (catch #?(:cljd cljd.core/ExceptionInfo
+                                    :clj Exception
                                     :cljs :default) e
                             (sci/stacktrace e)))]
       (is (= '({:ns user, :name g, :file nil}
@@ -68,7 +72,7 @@
             ks (keys locals)]
         (is (= '[x] ks)))))
 
-#?(:clj (deftest arity-error-test
+#?(:cljd nil :clj (deftest arity-error-test
           (testing "The name of the correct function is reported"
             (is (thrown-with-msg?
                  #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo)
@@ -86,7 +90,8 @@
 
 (main)"))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest arity-error-hof-test
      (testing "apply is not reported when higher order argument causes arity error"
        (is (thrown-with-msg?
@@ -116,9 +121,10 @@
 (defn throwing-fn [] (throw (ex-info \"ex-message\" {:column 3})))
 
 (throwing-fn)")
-             (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
+             (catch #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
                [(dissoc (ex-data e) :sci.impl/callstack :locals)
-                (ex-data #?(:clj (.getCause e)
+                (ex-data #?(:cljd (ex-cause e)
+                            :clj (.getCause e)
                             :cljs (ex-cause e)))]))))))
 
 (deftest implicit-do-error-test
@@ -128,7 +134,7 @@
                   :message "Assert failed: false"}
         try-string #(try
                       (eval-string %)
-                      (catch #?(:clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
+                      (catch #?(:cljd cljd.core/ExceptionInfo :clj clojure.lang.ExceptionInfo :cljs cljs.core/ExceptionInfo) e
                         (dissoc (ex-data e) :sci.impl/callstack :file)))]
     (testing "top level try with implicit do wraps exception"
       (is (= expected
@@ -144,21 +150,22 @@
   (is
    (= ["user - NO_SOURCE_PATH:1:1"]
       (sci/format-stacktrace
-       (sci/stacktrace (try (sci/eval-string "(def n x)") (catch #?(:clj Exception :cljs js/Error) e e)))))))
+       (sci/stacktrace (try (sci/eval-string "(def n x)") (catch #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) e e)))))))
 
 (deftest try-finally-test
   (is
    (= ["clojure.core/assoc - <built-in>" "user/foo           - NO_SOURCE_PATH:1:14" "user/foo           - NO_SOURCE_PATH:1:1" "user               - NO_SOURCE_PATH:1:84" "user               - NO_SOURCE_PATH:1:65"]
       (mapv #(str/replace % #"cl(?:ojure/core\.clj|js/core\.cljs):\d+:\d+" "<built-in>")
             (sci/format-stacktrace
-             (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:clj Exception :cljs js/Error) e e))))))))
+             (sci/stacktrace (try (sci/eval-string "(defn foo [] (assoc :foo :bar :baz)) (def ^:dynamic *foo* nil ) (binding [*foo* 3] (foo))") (catch #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error) e e))))))))
 
 (deftest macroexpansion-with-unresolved-symbol-has-location-test
-  (let [data (try (sci/eval-string "(defmacro dude [& body] `(do ~@body)) (dude x)") (catch Exception e (ex-data e)))]
+  (let [data (try (sci/eval-string "(defmacro dude [& body] `(do ~@body)) (dude x)") (catch #?(:cljd cljd.core/ExceptionInfo :default Exception) e (ex-data e)))]
     (is (:line data))
     (is (:column data))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest preserve-exception-type-in-threads-test
      (is (= java.lang.IllegalArgumentException
             (sci/eval-string "
@@ -170,7 +177,8 @@
                                             'Throwable Throwable}}
                                  (fut/install)))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest thread-test
      (let [invoke-ex-fn
            (fn [f]
@@ -197,7 +205,7 @@
     (try
       (sci.core/eval-string snippet)
       (is false)
-      (catch Exception e
+      (catch #?(:cljd cljd.core/ExceptionInfo :default Exception) e
         (is (= [line col] ((juxt :line :column) (ex-data e))) snippet)))))
 
 (deftest let-like-binding-arity-test
@@ -209,8 +217,9 @@
     (try
       (sci.core/eval-string snippet)
       (is false snippet)
-      (catch Exception e
-        (is (= expected-message #?(:clj (.getMessage e)
+      (catch #?(:cljd cljd.core/ExceptionInfo :default Exception) e
+        (is (= expected-message #?(:cljd (ex-message e)
+                                   :clj (.getMessage e)
                                    :cljs (.-message e)))
             snippet)
         (is (= [1 6] ((juxt :line :column) (ex-data e))) snippet)))))

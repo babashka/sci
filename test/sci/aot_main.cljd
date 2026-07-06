@@ -1,0 +1,34 @@
+(ns sci.aot-main
+  "SCI eval CLI for the cljd AOT test. Args: [form ctx-edn]. Prints the eval
+  result, or an error on stderr with exit 1."
+  (:require ["dart:io" :as io]
+            [edamame.core :as e]
+            [sci.core :as sci]))
+
+(defn selftest []
+  (let [ctx (sci/init {:classes {'String {:class String
+                                          :instance-methods {'upper (fn [s] (.toUpperCase s))}}}})
+        upper (sci/eval-string* ctx "(.upper \"ok\")")
+        denied (try (sci/eval-string* ctx "(.lower \"x\")")
+                    ::not-denied
+                    (catch Object _ ::denied))]
+    (if (and (= "OK" upper) (= ::denied denied))
+      (println "SELFTEST-OK")
+      (do (.write io/stderr (str "SELFTEST-FAIL upper=" (pr-str upper)
+                                 " denied=" (pr-str denied) "\n"))
+          (io/exit 1)))))
+
+(defn main [args]
+  (if (= "--selftest" (first args))
+    (selftest)
+    (let [form (first args)
+          ctx-str (second args)
+          ctx (if (and ctx-str (pos? (count ctx-str)))
+                (e/parse-string ctx-str)
+                {})]
+      (try
+        (let [v (sci/eval-string form ctx)]
+          (when (some? v) (prn v)))
+        (catch Object e
+          (.write io/stderr (str (or (ex-message e) e) "\n"))
+          (io/exit 1))))))

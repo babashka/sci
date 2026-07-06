@@ -12,7 +12,7 @@
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (defn core-dynamic-var
   "create a dynamic var with clojure.core :ns meta"
@@ -30,14 +30,18 @@
                                  :doc "A java.io.Reader object representing standard input for read operations.")))))
 
 (def out (binding [*unrestricted* true]
-           (doto (core-dynamic-var '*out*)
-             (vars/unbind)
-             #?(:clj (alter-meta! assoc :doc "A java.io.Writer object representing standard output for print operations.")))))
+           #?(:cljd (core-dynamic-var '*out* *out*)
+              :default
+              (doto (core-dynamic-var '*out*)
+                (vars/unbind)
+                #?(:clj (alter-meta! assoc :doc "A java.io.Writer object representing standard output for print operations."))))))
 
 (def err (binding [*unrestricted* true]
-           (doto (core-dynamic-var '*err*)
-             (vars/unbind)
-             #?(:clj (alter-meta! assoc :doc " A java.io.Writer object representing standard error for print operations.")))))
+           #?(:cljd (core-dynamic-var '*err* *err*)
+              :default
+              (doto (core-dynamic-var '*err*)
+                (vars/unbind)
+                #?(:clj (alter-meta! assoc :doc " A java.io.Writer object representing standard error for print operations."))))))
 
 #?(:cljs
    (def print-fn
@@ -56,8 +60,11 @@
 (def print-meta (copy-var *print-meta* utils/clojure-core-ns {:dynamic true}))
 (def print-length (copy-var *print-length* utils/clojure-core-ns {:dynamic true}))
 (def print-level (copy-var *print-level* utils/clojure-core-ns {:dynamic true}))
-(def print-namespace-maps (copy-var *print-namespace-maps* utils/clojure-core-ns {:dynamic true :init true}))
-(def flush-on-newline (copy-var *flush-on-newline* utils/clojure-core-ns {:dynamic true}))
+;; no-op on cljd, cljd.core/pr never emits the #:ns{...} form
+(def print-namespace-maps #?(:cljd (core-dynamic-var '*print-namespace-maps* true)
+                             :default (copy-var *print-namespace-maps* utils/clojure-core-ns {:dynamic true :init true})))
+(def flush-on-newline #?(:cljd (core-dynamic-var '*flush-on-newline* true)
+                         :default (copy-var *flush-on-newline* utils/clojure-core-ns {:dynamic true})))
 (def print-readably (copy-var *print-readably* utils/clojure-core-ns {:dynamic true}))
 (def print-dup-var (copy-var *print-dup* utils/clojure-core-ns {:dynamic true}))
 #?(:cljs (def print-newline (copy-var *print-newline* utils/clojure-core-ns {:dynamic true})))
@@ -75,7 +82,16 @@
             (print-method x w))
           nil))
 
-#?(:clj (defn pr
+#?(:cljd (defn pr
+           [& objs]
+           (binding [*out* @out
+                     *print-length* @print-length
+                     *print-level* @print-level
+                     *print-meta* @print-meta
+                     *print-readably* @print-readably
+                     *print-dup* @print-dup-var]
+             (apply cljd.core/pr objs)))
+   :clj (defn pr
           ([] nil)
           ([x]
            (binding [*print-length* @print-length
@@ -103,7 +119,9 @@
                      *print-dup* @print-dup-var]
              (apply cljs.core/pr objs))))
 
-#?(:clj
+#?(:cljd (defn flush [] ;stub
+           nil)
+   :clj
    (defn flush
      []
      (. ^java.io.Writer @out (flush))
@@ -113,7 +131,11 @@
 
 #?(:cljs (declare println))
 
-#?(:clj (defn newline
+#?(:cljd (defn newline
+           []
+           (binding [*out* @out]
+             (cljd.core/newline)))
+   :clj (defn newline
           []
           (. ^java.io.Writer @out (append ^String @#'clojure.core/system-newline))
           nil)
@@ -122,7 +144,14 @@
            (binding [*print-fn* @print-fn]
              (cljs.core/newline))))
 
-#?(:clj
+#?(:cljd
+   (defn pr-str
+     [& xs]
+     (let [sw (StringBuffer.)]
+       (vars/with-bindings {out sw}
+         (apply pr xs))
+       (str sw)))
+   :clj
    (defn pr-str
      "pr to a string, returning it"
      [& xs]
@@ -143,7 +172,14 @@
                *print-dup* @print-dup-var]
        (apply cljs.core/pr-str objs))))
 
-#?(:clj
+#?(:cljd
+   (defn prn
+     [& more]
+     (apply pr more)
+     (newline)
+     (when @flush-on-newline
+       (flush)))
+   :clj
    (defn prn
      [& more]
      (apply pr more)
@@ -163,7 +199,14 @@
                *print-dup* @print-dup-var]
        (apply cljs.core/prn objs))))
 
-#?(:clj
+#?(:cljd
+   (defn prn-str
+     [& xs]
+     (let [sw (StringBuffer.)]
+       (vars/with-bindings {out sw}
+         (apply prn xs))
+       (str sw)))
+   :clj
    (defn prn-str
      "prn to a string, returning it"
      [& xs]
@@ -184,7 +227,12 @@
                *print-dup* @print-dup-var]
        (apply cljs.core/prn-str objs))))
 
-#?(:clj
+#?(:cljd
+   (defn print
+     [& more]
+     (vars/with-bindings {print-readably nil}
+       (apply pr more)))
+   :clj
    (defn print
      [& more]
      (vars/with-bindings {print-readably nil}
@@ -201,7 +249,14 @@
                *print-dup* @print-dup-var]
        (apply cljs.core/print objs))))
 
-#?(:clj
+#?(:cljd
+   (defn print-str
+     [& xs]
+     (let [sw (StringBuffer.)]
+       (vars/with-bindings {out sw}
+         (apply print xs))
+       (str sw)))
+   :clj
    (defn print-str
      "print to a string, returning it"
      [& xs]
@@ -222,7 +277,12 @@
                *print-dup* @print-dup-var]
        (apply cljs.core/print-str objs))))
 
-#?(:clj
+#?(:cljd
+   (defn println
+     [& more]
+     (vars/with-bindings {print-readably nil}
+       (apply prn more)))
+   :clj
    (defn println
      [& more]
      (vars/with-bindings {print-readably nil}
@@ -240,7 +300,14 @@
                *print-dup* @print-dup-var]
        (apply cljs.core/println objs))))
 
-#?(:clj
+#?(:cljd
+   (defn println-str
+     [& xs]
+     (let [sw (StringBuffer.)]
+       (vars/with-bindings {out sw}
+         (apply println xs))
+       (str sw)))
+   :clj
    (defn println-str
      "println to a string, returning it"
      [& xs]
@@ -268,9 +335,14 @@
 
 (defn with-out-str
   [_ _ & body]
-  `(let [s# (new #?(:clj java.io.StringWriter
-                   :cljs goog.string.StringBuffer))]
-     #?(:clj
+  `(let [s# (new #?(:cljd ~'StringBuffer
+                    :clj java.io.StringWriter
+                    :cljs goog.string.StringBuffer))]
+     #?(:cljd
+        (binding [*out* s#]
+          ~@body
+          (str s#))
+        :clj
         (binding [*out* s#]
           ~@body
           (str s#))

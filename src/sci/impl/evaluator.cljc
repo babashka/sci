@@ -5,20 +5,20 @@
    [sci.impl.deftype]
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
-   [sci.impl.records]
+   [sci.impl.records :as records]
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [rethrow-with-location-of-node
                                      throw-error-with-location]]
    [sci.impl.vars :as vars]
-   [sci.lang])
+   [sci.lang :as lang])
   #?(:cljs (:require-macros [sci.impl.evaluator :refer [def-fn-call resolve-symbol]])))
 
 (declare fn-call)
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
-(def #?(:clj ^:const macros :cljs macros)
+(def #?(:cljd macros :clj ^:const macros :cljs macros)
   '#{do fn def defn
      syntax-quote})
 
@@ -34,16 +34,11 @@
                 prev (get the-current-ns var-name)
                 prev (if-not (utils/var? prev)
                        (let [m (meta prev)]
-                         (sci.lang.Var. prev var-name
-                                        m
-                                        false
-                                        false
-                                        nil
-                                        (:ns m)))
+                         (lang/->Var prev var-name m false false nil (:ns m)))
                        prev)
                 v (do (when-not (identical? utils/var-unbound init)
                         (vars/bindRoot prev init))
-                      (reset-meta! prev m)
+                      (utils/reset-meta!* prev m)
                       prev)
                 the-current-ns (assoc the-current-ns var-name v)]
             (assoc-in env [:namespaces cnn] the-current-ns)))
@@ -51,9 +46,13 @@
     ;; return var
     (get (get (get env :namespaces) cnn) var-name)))
 
-(defmacro resolve-symbol [bindings sym]
-  `(.get ~(with-meta bindings
-            {:tag 'java.util.Map}) ~sym))
+#?(:cljd
+   (defmacro resolve-symbol [bindings sym]
+     `(get ~bindings ~sym))
+   :default
+   (defmacro resolve-symbol [bindings sym]
+     `(.get ~(with-meta bindings
+               {:tag 'java.util.Map}) ~sym)))
 
 (declare eval-string*)
 
@@ -62,7 +61,7 @@
    (let [v (types/eval case-val ctx bindings)
          found (get case-map v ::not-found)]
      (if (utils/kw-identical? ::not-found found)
-       (throw (new #?(:clj IllegalArgumentException :cljs js/Error)
+       (throw (new #?(:cljd ArgumentError :clj IllegalArgumentException :cljs js/Error)
                    (str "No matching clause: " v)))
        (types/eval found ctx bindings))))
   ([ctx bindings case-map case-val case-default]
@@ -88,7 +87,16 @@
                                     (not (:sci-error c)))
                              (ex-cause e)
                              e)]
-                     (when #?(:cljs
+                     (when #?(:cljd
+                              ;; no runtime instance? on Dart, see :instance? closures in opts
+                              (or (utils/kw-identical? :default clazz)
+                                  (let [c (if (types/eval-node? clazz)
+                                            (types/eval clazz ctx bindings)
+                                            clazz)]
+                                    (cond (map? c) (when-let [p (:instance? c)] (p e))
+                                          (utils/sci-type? c) (= c (types/type-impl e))
+                                          :else (= c (.-runtimeType e)))))
+                              :cljs
                               (or (utils/kw-identical? :default clazz)
                                   (if (types/eval-node? clazz)
                                     (instance? (types/eval clazz ctx bindings) e)
@@ -96,7 +104,7 @@
                               :clj (instance? clazz e))
                        (reduced
                         [::try-result
-                         (do (aset ^objects bindings (:ex-idx c) e)
+                         (do (aset #?(:cljd ^List bindings :default ^objects bindings) (:ex-idx c) e)
                              (types/eval (:body c) ctx bindings))]))))
                  nil
                  catches)]
@@ -113,7 +121,7 @@
                                  (seq catches)
                                  utils/*in-try*)]
       (types/eval body ctx bindings))
-    (catch #?(:clj Throwable :cljs :default) e
+    (catch #?(:cljd Object :clj Throwable :cljs :default) e
       (eval-catches ctx bindings body catches sci-error e))))
 
 (defn- eval-try-plain
@@ -129,7 +137,7 @@
                                  (seq catches)
                                  utils/*in-try*)]
       (types/eval body ctx bindings))
-    (catch #?(:clj Throwable :cljs :default) e
+    (catch #?(:cljd Object :clj Throwable :cljs :default) e
       (eval-catches ctx bindings body catches sci-error e))
     (finally
       (when-not (nil? finally)
@@ -150,13 +158,13 @@
       (let [pending (volatile! nil)
             had-ex  (volatile! false)
             v (try (eval-try-body ctx bindings body catches sci-error)
-                   (catch #?(:clj Throwable :cljs :default) e
+                   (catch #?(:cljd Object :clj Throwable :cljs :default) e
                      (vreset! pending e)
                      (vreset! had-ex true)
                      nil))]
         (try
           (types/eval finally ctx bindings)
-          (catch #?(:clj Throwable :cljs :default) fe
+          (catch #?(:cljd Object :clj Throwable :cljs :default) fe
             (if (and @had-ex
                      (utils/interrupt-ex? @pending)
                      (not (utils/interrupt-ex? fe)))
@@ -177,13 +185,14 @@
      (let [instance-expr* (types/eval instance-expr ctx bindings)]
        (interop/invoke-instance-field instance-expr* nil method-str))))
 
-(def none-sentinel #?(:clj (Object.) :cljs (js/Object.)))
+(def none-sentinel #?(:cljd ^:unique (Object.) :clj (Object.) :cljs (js/Object.)))
 
-(defn get-from-type [instance _method-str method-str-unmunged #?(:clj arg-count :cljs args)]
-  (if (zero? #?(:clj arg-count :cljs (alength args)))
-    (if (instance? sci.impl.records.SciRecord instance)
+(defn get-from-type [instance _method-str method-str-unmunged #?(:cljd arg-count :clj arg-count :cljs args)]
+  (if (zero? #?(:cljd arg-count :clj arg-count :cljs (alength args)))
+    (if (instance? #?(:cljd records/SciRecord :clj sci.impl.records.SciRecord :cljs sci.impl.records.SciRecord) instance)
       (get instance (keyword method-str-unmunged) none-sentinel)
-      (if #?(:clj (instance? sci.impl.types.ICustomType instance)
+      (if #?(:cljd (satisfies? types/ICustomType instance)
+             :clj (instance? sci.impl.types.ICustomType instance)
              :cljs (implements? sci.impl.types.ICustomType instance))
         (get (types/getFields instance) (symbol method-str-unmunged) none-sentinel)
         none-sentinel))
@@ -198,10 +207,11 @@
   (let [#?@(:clj [instance-meta (meta instance-expr)
                   tag-class (:tag-class instance-meta)])
         instance-expr* (types/eval instance-expr ctx bindings)
-        v (get-from-type instance-expr* method-str method-str-unmunged #?(:clj arg-count :cljs args))]
+        v (get-from-type instance-expr* method-str method-str-unmunged #?(:cljd arg-count :clj arg-count :cljs args))]
     (if-not (identical? none-sentinel v)
       v
-      (let [instance-class #?(:clj (or (when tag-class
+      (let [instance-class #?(:cljd (.-runtimeType instance-expr*)
+                              :clj (or (when tag-class
                                           (if (instance? tag-class instance-expr*)
                                             tag-class
                                             (class instance-expr*)))
@@ -209,71 +219,88 @@
                               :cljs (type instance-expr*))
             env @(:env ctx)
             class->opts (:class->opts env)
-            cached @cache]
-        ;; cache keyed on class->opts identity too: merge-opts swaps in a fresh
-        ;; map, so a config change invalidates the cache for free
-        (if (and cached
-                 (identical? class->opts (aget #?(:clj ^objects cached :cljs cached) 0))
-                 (identical? instance-class (aget #?(:clj ^objects cached :cljs cached) 1)))
-          ;; fast path: this class resolved to plain interop before; reflect on
-          ;; the cached target class (may differ from instance-class via :public-class)
-          (if field-access
-            (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
-            #?(:clj (interop/invoke-instance-method-with-methods ctx bindings instance-expr* (aget ^objects cached 2) method-str (aget ^objects cached 3) args arg-count arg-types)
-               :cljs (interop/invoke-instance-method ctx bindings instance-expr* (aget cached 2) method-str args arg-count arg-types)))
-          (let [allowed? (or
-                          #?(:cljs allowed)
-                          (let [instance-class-name #?(:clj (.getName ^Class instance-class)
-                                                       :cljs (.-name instance-class))]
-                            (or (get class->opts (symbol instance-class-name))
-                                (get class->opts :allow))))
-                ^Class target-class (if allowed? instance-class
-                                        (when-let [f (:public-class env)]
-                                          (f instance-expr*)))]
-            (when-not #?(:clj target-class
-                         :cljs allowed?)
-              (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
-            ;; resolve config independently of :allow so it wins over :allow :all
-            (let [class-opts (or (when (map? allowed?) allowed?)
-                                 (get class->opts
-                                      (symbol #?(:clj (.getName ^Class instance-class)
-                                                 :cljs (.-name instance-class))))
-                                 (when target-class
-                                   (get class->opts
-                                        (symbol #?(:clj (.getName ^Class target-class)
-                                                   :cljs (.-name target-class))))))
-                  ;; safe to cache a :public-class result keyed on instance-class
-                  ;; unless the instance is a custom type: those share one class
-                  ;; but map to different targets per instance
-                  cache? (or (identical? target-class instance-class)
-                             (not #?(:clj (instance? sci.impl.types.ICustomType instance-expr*)
-                                     :cljs (implements? sci.impl.types.ICustomType instance-expr*))))]
-              (if field-access
-                (let [f (get (:instance-fields class-opts) method-sym)]
-                  (case (interop/member-disposition f class-opts :instance-fields)
-                    :override
-                    (f instance-expr*)
-                    :deny
-                    (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
-                    :reflect
-                    (do (when cache?
-                          (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil]
-                                                          :cljs [class->opts instance-class target-class]))))
-                        (interop/invoke-instance-field instance-expr* target-class method-str))))
-                (let [f (get (:instance-methods class-opts) method-sym)]
-                  (case (interop/member-disposition f class-opts :instance-methods)
-                    :override
-                    (apply f instance-expr* (map #(types/eval % ctx bindings) args))
-                    :deny
-                    (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
-                    :reflect
-                    #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
-                              (when cache?
-                                (vreset! cache (object-array [class->opts instance-class target-class methods])))
-                              (interop/invoke-instance-method-with-methods ctx bindings instance-expr* target-class method-str methods args arg-count arg-types))
-                       :cljs (do (when cache?
-                                   (vreset! cache (object-array [class->opts instance-class target-class])))
-                                 (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types)))))))))))))
+            #?@(:cljd [] :default [cached @cache])]
+        #?(:cljd
+           ;; cljd has no reflection: interop dispatches through override fns
+           ;; keyed on the :class Type object (runtimeType), every member is
+           ;; effectively closed
+           (let [type->opts (:type->opts env)
+                 class-opts (or (get type->opts instance-class)
+                                (when-let [f (:public-class env)]
+                                  (get type->opts (f instance-expr*))))
+                 section (if field-access :instance-fields :instance-methods)
+                 f (get (get class-opts section) method-sym)]
+             (case (interop/member-disposition f class-opts section)
+               :override (if field-access
+                           (f instance-expr*)
+                           (apply f instance-expr* (map #(types/eval % ctx bindings) args)))
+               (throw-error-with-location
+                (str (if field-access "Field " "Method ") method-str " on " instance-class " not allowed") instance-expr)))
+           :default
+           ;; cache keyed on class->opts identity too: merge-opts swaps in a fresh
+           ;; map, so a config change invalidates the cache for free
+           (if (and cached
+                      (identical? class->opts (aget #?(:clj ^objects cached :cljs cached) 0))
+                      (identical? instance-class (aget #?(:clj ^objects cached :cljs cached) 1)))
+               ;; fast path: this class resolved to plain interop before; reflect on
+               ;; the cached target class (may differ from instance-class via :public-class)
+               (if field-access
+                 (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
+                 #?(:clj (interop/invoke-instance-method-with-methods ctx bindings instance-expr* (aget ^objects cached 2) method-str (aget ^objects cached 3) args arg-count arg-types)
+                    :cljs (interop/invoke-instance-method ctx bindings instance-expr* (aget cached 2) method-str args arg-count arg-types)))
+               (let [allowed? (or
+                               #?(:cljs allowed)
+                               (let [instance-class-name #?(:clj (.getName ^Class instance-class)
+                                                            :cljs (.-name instance-class))]
+                                 (or (get class->opts (symbol instance-class-name))
+                                     (get class->opts :allow))))
+                     ^Class target-class (if allowed? instance-class
+                                             (when-let [f (:public-class env)]
+                                               (f instance-expr*)))]
+                 (when-not #?(:clj target-class
+                              :cljs allowed?)
+                   (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr))
+                 ;; resolve config independently of :allow so it wins over :allow :all
+                 (let [class-opts (or (when (map? allowed?) allowed?)
+                                      (get class->opts
+                                           (symbol #?(:clj (.getName ^Class instance-class)
+                                                      :cljs (.-name instance-class))))
+                                      (when target-class
+                                        (get class->opts
+                                             (symbol #?(:clj (.getName ^Class target-class)
+                                                        :cljs (.-name target-class))))))
+                       ;; safe to cache a :public-class result keyed on instance-class
+                       ;; unless the instance is a custom type: those share one class
+                       ;; but map to different targets per instance
+                       cache? (or (identical? target-class instance-class)
+                                  (not #?(:clj (instance? sci.impl.types.ICustomType instance-expr*)
+                                          :cljs (implements? sci.impl.types.ICustomType instance-expr*))))]
+                   (if field-access
+                     (let [f (get (:instance-fields class-opts) method-sym)]
+                       (case (interop/member-disposition f class-opts :instance-fields)
+                         :override
+                         (f instance-expr*)
+                         :deny
+                         (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
+                         :reflect
+                         (do (when cache?
+                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil]
+                                                               :cljs [class->opts instance-class target-class]))))
+                             (interop/invoke-instance-field instance-expr* target-class method-str))))
+                     (let [f (get (:instance-methods class-opts) method-sym)]
+                       (case (interop/member-disposition f class-opts :instance-methods)
+                         :override
+                         (apply f instance-expr* (map #(types/eval % ctx bindings) args))
+                         :deny
+                         (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
+                         :reflect
+                         #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
+                                   (when cache?
+                                     (vreset! cache (object-array [class->opts instance-class target-class methods])))
+                                   (interop/invoke-instance-method-with-methods ctx bindings instance-expr* target-class method-str methods args arg-count arg-types))
+                            :cljs (do (when cache?
+                                        (vreset! cache (object-array [class->opts instance-class target-class])))
+                                      (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))))))))))
 
 ;;;; End interop
 
@@ -334,7 +361,7 @@
                                 (let [cnn (utils/current-ns-name)]
                                   (swap! env assoc-in [:namespaces cnn :types class] type-val)
                                   type-val)
-                                (throw (new #?(:clj Exception :cljs js/Error)
+                                (throw (new #?(:cljd Exception :clj Exception :cljs js/Error)
                                             (str "Unable to resolve classname: " fq-class-name)))))))
                         nil
                         classes)))
@@ -384,7 +411,8 @@
 (def-fn-call)
 
 ;; The following types cannot be treated as constants in the analyzer
-#?(:clj (extend-protocol types/Eval
+#?(:cljd nil
+   :clj (extend-protocol types/Eval
           java.lang.Class
           (eval [expr _ _]
             expr)

@@ -8,7 +8,8 @@
   (:require
    [clojure.core :as c]
    [clojure.string :as str]
-   [clojure.tools.reader.reader-types :as rt]
+   #?(:cljd [edamame.impl.cljd-reader-types :as rt]
+      :default [clojure.tools.reader.reader-types :as rt])
    [edamame.core :as edamame]
    [edamame.impl.parser]
    [sci.ctx-store :as store]
@@ -29,7 +30,7 @@
                               copy-ns]]
             [sci.impl.cljs])))
 
-#?(:clj (set! *warn-on-reflection* true))
+#?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 (defn new-var
   "Returns a new sci var."
@@ -38,7 +39,7 @@
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :name (utils/unqualify-symbol name))]
-     (sci.lang.Var. init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
@@ -47,7 +48,7 @@
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (utils/unqualify-symbol name))]
-     (sci.lang.Var. init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -60,7 +61,7 @@
   ([name init-val] (new-macro-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :macro true :name (utils/unqualify-symbol name))]
-     (sci.lang.Var.
+     (sci.lang/->Var
       (vary-meta init-val
                  assoc :sci/macro true)
       name meta false false nil (:ns meta)))))
@@ -170,26 +171,35 @@
   StringWriter.  Returns the string created by any nested printing
   calls."
     [& body]
-    (macros/? :clj
-              `(let [out# (java.io.StringWriter.)]
-                 (with-bindings {out out#}
-                   (do ~@body)
-                   (str out#)))
-              :cljs
-              `(let [sb# (goog.string/StringBuffer.)]
-                 (cljs.core/binding []
-                   (with-bindings {sci.core/print-newline true
-                                   sci.core/print-fn (fn [x#] (.append sb# x#))}
-                     (do ~@body)
-                     (str sb#)))))))
+    #?(:cljd
+       `(let [out# (StringBuffer.)]
+          (with-bindings {out out#}
+            (do ~@body)
+            (str out#)))
+       :default
+       (macros/? :clj
+                 `(let [out# (java.io.StringWriter.)]
+                    (with-bindings {out out#}
+                      (do ~@body)
+                      (str out#)))
+                 :cljs
+                 `(let [sb# (goog.string/StringBuffer.)]
+                    (cljs.core/binding []
+                      (with-bindings {sci.core/print-newline true
+                                      sci.core/print-fn (fn [x#] (.append sb# x#))}
+                        (do ~@body)
+                        (str sb#))))))))
 
-(macros/deftime
-  (defmacro future
-    "Like clojure.core/future but also conveys sci bindings to the thread."
-    [& body]
-    `(let [f# (-> (fn [] ~@body)
-                  (vars/binding-conveyor-fn))]
-       (future-call f#))))
+;; no threads on cljd
+#?(:cljd nil
+   :default
+   (macros/deftime
+     (defmacro future
+       "Like clojure.core/future but also conveys sci bindings to the thread."
+       [& body]
+       `(let [f# (-> (fn [] ~@body)
+                     (vars/binding-conveyor-fn))]
+          (future-call f#)))))
 
 #?(:clj (defn pmap
           "Like clojure.core/pmap but also conveys sci bindings to the threads."
@@ -266,6 +276,7 @@
   options. The internal organization of the context is implementation
   detail and may change in the future."
   [opts]
+  #?(:cljd (i/-install-wiring!))
   (opts/init opts))
 
 (defn merge-opts
@@ -385,11 +396,11 @@
           {}
           ns-publics-map))
 
-(defn- process-publics [publics {:keys [exclude]}]
+(defn- ^:macro-support process-publics [publics {:keys [exclude]}]
   (let [publics (if exclude (apply dissoc publics exclude) publics)]
     publics))
 
-(defn- exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys]
+(defn- ^:macro-support exclude-when-meta [publics-map meta-fn key-fn val-fn skip-keys]
   (reduce (fn [ns-map [var-name var]]
             (if-let [m (meta-fn var)]
               (if (some m skip-keys)
@@ -399,12 +410,12 @@
           {}
           publics-map))
 
-(defn normalize-meta [m]
+(defn ^:macro-support normalize-meta [m]
   (if-let [sci-macro (:sci/macro m)]
     (assoc m :macro sci-macro)
     m))
 
-(defn- meta-fn [opts]
+(defn- ^:macro-support meta-fn [opts]
   (cond (= :all opts) normalize-meta
         opts #(-> (select-keys % opts) normalize-meta)
         :else #(-> (select-keys % [:arglists
@@ -443,7 +454,49 @@
   manually."
     ([ns-sym sci-ns] `(copy-ns ~ns-sym ~sci-ns nil))
     ([ns-sym sci-ns opts]
-     (macros/? :clj
+     #?(:cljd/clj-host
+        ;; publics come from the cljd compiler registry, :val symbols compile
+        ;; to Dart references so DCE keeps exactly what is copied
+        (let [nses @@(resolve 'cljd.compiler/nses)
+              the-ns (or (get nses ns-sym)
+                         (throw (ex-info (str "Copying non-existent namespace: " ns-sym)
+                                         {:ns ns-sym})))
+              publics-map (into {}
+                                (keep (fn [[k v]]
+                                        ;; $-names are compiler-generated protocol infrastructure
+                                        (when (and (symbol? k) (map? v)
+                                                   (not (.contains ^String (str k) "$")))
+                                          (let [m (:meta v)]
+                                            (when-not (:private m)
+                                              [k {:name k :meta m}])))))
+                                the-ns)
+              publics-map (process-publics publics-map opts)
+              mf (meta-fn (:copy-meta opts))
+              publics-map (exclude-when-meta
+                           publics-map
+                           :meta
+                           (fn [k] (list 'quote k))
+                           (fn [var m]
+                             (let [;; drop cljd compiler internals, some hold fn objects
+                                   m (dissoc m :macro-host-fn :inline :inline-arities :dart)
+                                   m (mf m)
+                                   ;; registry arglists are stored as (quote ...) forms
+                                   m (if-let [a (:arglists m)]
+                                       (assoc m :arglists
+                                              (if (and (seq? a) (= 'quote (first a)))
+                                                (second a)
+                                                a))
+                                       m)]
+                               {:name (list 'quote (:name var))
+                                :val (symbol (str ns-sym) (str (:name var)))
+                                :meta (list 'quote m)}))
+                           (or (:exclude-when-meta opts)
+                               [:no-doc :skip-wiki]))]
+          `(-copy-ns ~publics-map ~sci-ns))
+        :cljd
+        (throw (ex-info "copy-ns can only be used at compile time on ClojureDart" {}))
+        :default
+        (macros/? :clj
                ;; this branch is hit by macroexpanding in JVM Clojure, not in the CLJS compiler
                (let [publics-map (ns-publics ns-sym)
                      publics-map (process-publics publics-map opts)
@@ -515,7 +568,7 @@
                                                         m))})
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
-                          `(-copy-ns ~publics-map ~sci-ns)))))))
+                          `(-copy-ns ~publics-map ~sci-ns))))))))
 
 (defn add-import!
   "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
@@ -566,7 +619,8 @@
 
   In the future, more unrestricted access may be added, so only use this when you're not using SCI as a sandbox."
   []
-  #?(:cljs (set! unrestrict/*unrestricted* true)
+  #?(:cljd (set! unrestrict/*unrestricted* true)
+     :cljs (set! unrestrict/*unrestricted* true)
      :clj (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
 
 (defn var->symbol

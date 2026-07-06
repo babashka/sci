@@ -18,7 +18,12 @@ user/f
 Macro
   foodoc")
            (str/trim (sci/with-out-str (eval* "(defmacro f \"foodoc\" ([x]) ([x y])) (clojure.repl/doc f)")))))
-    (is (= (str/trim  #?(:clj "
+    ;; cljd.core/inc has no docstring
+    (is (= (str/trim  #?(:cljd "
+-------------------------
+clojure.core/inc
+([x])"
+                         :clj "
 -------------------------
 clojure.core/inc
 ([x])
@@ -62,7 +67,7 @@ foo-ns
   (when-not tu/native?
     (let [output (sci/with-out-str (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.string)"))]
       (is (str/includes? output "includes?"))))
-  (is (thrown-with-msg? #?(:clj Exception :cljs js/Error)
+  (is (thrown-with-msg? #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
                         #"No namespace.*found"
                         (eval* "(require '[clojure.repl :refer [dir]]) (dir clojure.typo)"))))
 
