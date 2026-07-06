@@ -5,8 +5,9 @@
 
   `make-ctx` is the part to copy: it exposes the host libraries under their real
   Dart names, so a script requires them exactly as ClojureDart source does,
-  `[\"package:flutter/material.dart\" :as m]` and `[\"cljd.flutter\" :as f]`, then
-  calls `m/text`, `m/column`, `f/watch`. Host classes come through `:classes`
+  `[\"package:flutter/material.dart\" :as m]` (a Dart package, string) and
+  `[cljd.flutter :as f]` (a namespace, symbol), then calls `m/Text`, `m/Column`,
+  `f/watch`. Host classes come through `:classes`
   override fns. Dart has no reflection, so interop goes through override fns, not
   reflective method lookup.
 
@@ -61,7 +62,8 @@
         'Colors.blue    m/Colors.blue
         'Colors.green   m/Colors.green
         'Colors.white   m/Colors.white}
-       "cljd.flutter"
+       ;; cljd.flutter is a normal namespace (symbol key), not a Dart package
+       'cljd.flutter
        ;; a macro plugged into the SCI context: a fn taking two extra args,
        ;; &form and &env, plus :macro metadata. Expands `(f/watch a [v] body)`
        ;; to a call of watch-fn, embedding the fn value directly
@@ -78,7 +80,7 @@
                 :instance-fields  {'length (fn [s] (.-length s))}}}})))
 
 (def require-line
-  "(ns app\n  (:require [\"package:flutter/material.dart\" :as m]\n            [\"cljd.flutter\" :as f]))\n\n")
+  "(ns app\n  (:require [\"package:flutter/material.dart\" :as m]\n            [cljd.flutter :as f]))\n\n")
 
 (def examples
   [["text"        (str require-line "(m/Text \"hello from SCI\")")]
