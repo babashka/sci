@@ -37,7 +37,8 @@ ergonomics features make that work:
   set of symbol lib names; a string lib name among symbols made the comparator
   throw String.compareTo(Symbol). A str-based comparator on cljd lets a
   namespace registered under a string key be required and aliased, so a script
-  does `(:require ["package:flutter/material.dart" :as m] ["cljd.flutter" :as f])`.
+  does `(:require ["package:flutter/material.dart" :as m])`. cljd.flutter is a
+  normal namespace, required as a symbol `[cljd.flutter :as f]`, not a string.
   CLJS dodges this via its js-lib branch; JVM has no string requires. cljd-gated.
 - Named-arg call sugar (analyzer.cljc): trailing `.name val` pairs in a call
   desugar to `:name val` keyword args, matching the cljd compiler's split-args,
@@ -100,20 +101,14 @@ so prefer-method and derive-based dispatch stay unsupported.
 ## Real test suite on cljd
 
 - core_test.cljc runs on cljd directly (shadow was merged back, single file).
-  Run: `clojure -M:cljd test sci.core-test` (add to script selector when
-  green). Status: ALL PASS with a patched local ClojureDart
-  (`clojure -M:cljd:cljd-local test ...`). With the unpatched git dep 3 tests
-  fail (assert-test, def-location-test, defn-test), all caused by an upstream
-  ClojureDart bug: cljd.core/list is compiled from a `^PersistentList ()`
-  literal (clj/src/cljd/core.cljd:3436) whose reader meta {:line 3436 :column
-  36 :tag PersistentList} is baked into the empty list, so EVERY runtime-built
-  list carries that meta and sci reads it as error location. Local fix in
-  ~/dev/ClojureDart: bind the loop seed to -EMPTY-LIST instead of the literal.
-  PR sent to tensegritics; until merged the :cljd alias pins the
-  borkdude/ClojureDart fork (branch fix-list-empty-literal-meta) and
-  sci.core-test is in the CI selector. Swap the dep back when the PR lands.
-  cljd-incompatible tests are gated with `#?(:cljd nil :default (deftest
-  ...))` + a ;; TODO:cljd marker.
+  Run: `clojure -M:cljd test sci.core-test`. Status: ALL PASS on upstream
+  tensegritics/clojuredart (sha 79759559). The empty-list-meta bug is fixed
+  upstream: cljd.core/list was compiled from a `^PersistentList ()` literal
+  whose reader meta was baked into every runtime-built list, which sci read as
+  error location (broke assert-test, def-location-test, defn-test). The
+  borkdude fork PR is merged, so both :cljd aliases (sci and the flutter-repl
+  example) are back on tensegritics. cljd-incompatible tests are gated with
+  `#?(:cljd nil :default (deftest ...))` + a ;; TODO:cljd marker.
 - sci fns use the direct fixed-arity representation like the other platforms
   (no wrapper). Runtime arity mismatch surfaces as a wrapped Dart
   NoSuchMethodError with correct location (str fallback in
