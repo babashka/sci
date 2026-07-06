@@ -9,9 +9,9 @@
   fns, not reflective method lookup.
 
   The app itself is vanilla - it holds no widgets of its own. Interactive UI is
-  built by the script: `flutter/watch` exposes cljd.flutter's atom reactivity (a
-  macro, given to scripts as a fn), so a script watching a `defonce` atom rebuilds
-  when the atom changes."
+  built by the script: `flutter/watch` is a macro plugged into the SCI context
+  (a fn with &form/&env args and :macro metadata) that gives scripts cljd.flutter
+  atom reactivity, so a script watching a `defonce` atom rebuilds on change."
   (:require ["package:flutter/material.dart" :as m]
             [cljd.flutter :as f]
             [sci.core :as sci]))
@@ -33,9 +33,15 @@
                    (m/Padding .padding (m/EdgeInsets.all 4.0)
                               .child (m/ElevatedButton .onPressed on-press
                                                        .child (m/Text (str label)))))
-      ;; reactivity for scripts: wraps cljd.flutter's `f/widget` :watch (a macro,
-      ;; so scripts get it as this fn) - the widget rebuilds when the atom changes
-      'watch     (fn [a render] (f/widget :watch [v a] (render v)))
+      ;; reactivity: the fn wraps cljd.flutter's `f/widget` :watch, the widget
+      ;; rebuilds when the atom changes
+      '-watch    (fn [a render] (f/widget :watch [v a] (render v)))
+      ;; and a macro plugged into the SCI context (a fn with two extra args,
+      ;; &form and &env, plus :macro metadata) for `(flutter/watch a [v] body)`
+      'watch     (with-meta
+                   (fn [_&form _&env a bindings & body]
+                     (list 'flutter/-watch a (list* 'fn bindings body)))
+                   {:macro true})
       'red       m/Colors.red
       'blue      m/Colors.blue
       'green     m/Colors.green}}
@@ -51,7 +57,7 @@
   [["text"        "(flutter/text \"hello from SCI\")"]
    ["interop"     "(flutter/text (.upper \"dude\"))"]
    ["composition" "(flutter/column\n [(flutter/text \"top\")\n  (flutter/container flutter/red (flutter/text \"boxed\"))])"]
-   ["counter"     "(defonce n (atom 0))\n(flutter/watch n\n (fn [c]\n  (flutter/column\n   [(flutter/text (str \"clicked \" c))\n    (flutter/button \"click me\" (fn [] (swap! n inc)))])))"]])
+   ["counter"     "(defonce n (atom 0))\n(flutter/watch n [c]\n (flutter/column\n  [(flutter/text (str \"clicked \" c))\n   (flutter/button \"click me\" (fn [] (swap! n inc)))]))"]])
 
 ;; --- the REPL UI (vanilla, no domain widgets) ---
 
