@@ -1775,14 +1775,25 @@
 #?(:cljd
    (defn- desugar-named-args
      "ClojureDart call-site sugar: trailing `.name val` pairs become `:name val`
-      keyword args, so a fn with `& {:keys [...]}` receives them."
+      keyword args, so a fn with `& {:keys [...]}` receives them. Every trailing
+      form after the first `.name` must be a `.name value` pair; a stray or
+      unpaired form is a malformed call, not a silently dropped argument."
      [args]
      (if (some named-arg-sym? args)
        (let [[pos named] (split-with (complement named-arg-sym?) args)
              named (if (identical? '.& (first named)) (next named) named)]
-         (into (vec pos)
-               (mapcat (fn [[k v]] [(keyword (subs (name k) 1)) v]))
-               (partition 2 named)))
+         (loop [pairs named
+                acc (vec pos)]
+           (if (seq pairs)
+             (let [k (first pairs)
+                   more (next pairs)]
+               (when-not (named-arg-sym? k)
+                 (throw (ex-info (str "Malformed named arguments: expected a .name but got "
+                                      (pr-str k)) {})))
+               (when-not more
+                 (throw (ex-info (str "Malformed named arguments: missing value for " k) {})))
+               (recur (next more) (conj acc (keyword (subs (name k) 1)) (first more))))
+             acc)))
        args)))
 
 (defn analyze-call [ctx expr m top-level?]

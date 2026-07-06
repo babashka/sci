@@ -351,8 +351,8 @@
     #?(:cljd (satisfies? types/SciTypeInstance x)
        :clj (instance? sci.impl.types.SciTypeInstance x)
        :cljs (cljs.core/implements? types/SciTypeInstance x))
-    ;; no get-method on cljd, sci-invoke methods are never registered there yet
-    #?(:cljd false
+    ;; cljd has no get-method, query the SciMultiFn method-table directly
+    #?(:cljd (boolean (mm/get-method-impl types/sci-invoke (types/type-impl x)))
        :default (boolean (get-method types/sci-invoke (types/type-impl x))))
     #?@(:cljd [(instance? types/Reified x)
                (boolean (get (types/getMethods x) '-invoke))]

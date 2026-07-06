@@ -58,7 +58,22 @@
   (testing "a dot-symbol in a vector literal is not a named arg (not a call)"
     (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(defn f [x] x) (f [.a 1])" {}))))
   (testing "a dot-symbol in a let binding value is not desugared (special form)"
-    (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(let [x .a] x)" {})))))
+    (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(let [x .a] x)" {}))))
+  (testing "an unpaired trailing form is a malformed call, not a dropped arg"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defn f [& {:as o}] o) (f .a 1 2)" {}))))
+  (testing "a .name with no value is a malformed call"
+    (is (thrown? cljd.core/ExceptionInfo
+                 (tu/eval* "(defn f [& {:as o}] o) (f .a)" {})))))
+
+(deftest deftype-ifn-test
+  (testing "a deftype implementing IFn is callable"
+    (is (= 42 (tu/eval* "(deftype Foo [] IFn (-invoke [_] 42)) ((->Foo))" {})))
+    (is (= 7 (tu/eval* "(deftype Adder [n] IFn (-invoke [_ x] (+ n x))) ((->Adder 5) 2)" {}))))
+  (testing "a deftype implementing IFn is ifn?"
+    (is (true? (tu/eval* "(deftype Foo [] IFn (-invoke [_] 42)) (ifn? (->Foo))" {}))))
+  (testing "a deftype not implementing IFn is not ifn?"
+    (is (false? (tu/eval* "(deftype Bar []) (ifn? (->Bar))" {})))))
 
 (deftest string-namespace-require-test
   (testing "a namespace registered under a string name is requirable and aliasable"
