@@ -1061,13 +1061,35 @@
               stack (assoc (meta expr)
                            :ns @utils/current-ns
                            :file @utils/current-file)]
-          #?(:cljd (with-meta
-                     (sci.impl.types/->Node
-                      (eval/eval-instance-method-invocation
-                       ctx bindings instance-expr meth-name meth-name (symbol meth-name) field-access (vec args) (count args) nil nil)
-                      stack)
-                     {::instance-expr instance-expr
-                      ::method-name method-name})
+          #?(:cljd
+             (if-let [class-expr (:class-expr (meta expr))]
+               ;; static Class/method (or Class/-FIELD): Dart has no reflection,
+               ;; so only override fns dispatch; unlisted/reflect throw
+               (let [class->opts (some-> ctx :env deref :class->opts)
+                     class-opts (get class->opts class-expr)
+                     override (if field-access
+                                (get (:static-fields class-opts) (symbol meth-name))
+                                (some-> class->opts :static-methods
+                                        (get class-expr) (get method-expr)))
+                     section (if field-access :static-fields :static-methods)]
+                 (case (interop/member-disposition override class-opts section)
+                   :override (if field-access
+                               (sci.impl.types/->Node (override instance-expr) stack)
+                               (sci.impl.types/->Node
+                                (apply override instance-expr
+                                       (map #(sci.impl.types/eval % ctx bindings) args))
+                                stack))
+                   (utils/throw-error-with-location
+                    (str (if field-access "Field " "Method ") meth-name " on " class-expr
+                         " not allowed (no static reflection on cljd)") expr)))
+               ;; instance
+               (with-meta
+                 (sci.impl.types/->Node
+                  (eval/eval-instance-method-invocation
+                   ctx bindings instance-expr meth-name meth-name (symbol meth-name) field-access (vec args) (count args) nil nil)
+                  stack)
+                 {::instance-expr instance-expr
+                  ::method-name method-name}))
              :clj (if (class? instance-expr)
                     (let [static-method
                           #(let [arg-count (count args)

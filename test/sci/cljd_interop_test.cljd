@@ -26,12 +26,8 @@
                  (tu/eval* "(.-nope \"abcd\")"
                            {:classes {'String {:class String :instance-fields {'len (fn [_] 1)}}}})))))
 
-;; TODO:cljd static interop (Class/method, Class/FIELD) is not wired on cljd yet.
-;; The analyzer's static resolution (member-disposition) lives in the :clj/:cljs
-;; arms; the cljd analyze-dot arm only handles instance interop. Needs a cljd
-;; static path before this passes.
-#_(deftest static-method-override-test
-    (testing "static method dispatches to override fn"
-      (is (= :parsed (tu/eval* "(DateTime/parse \"2020\")"
-                               {:classes {'DateTime {:class DateTime
-                                                     :static-methods {'parse (fn [_ _s] :parsed)}}}})))))
+(deftest static-method-override-test
+  (testing "static method dispatches to override fn"
+    (is (= :parsed (tu/eval* "(DateTime/parse \"2020\")"
+                             {:classes {'DateTime {:class DateTime
+                                                   :static-methods {'parse (fn [_ _s] :parsed)}}}})))))
