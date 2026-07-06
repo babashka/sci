@@ -1592,7 +1592,7 @@
           ;; Fused/specialized optimization for arities 1-2 only. Clojure
           ;; only inlines core functions at these arities (e.g. <=, + inline
           ;; at arity 2 but not 3). At arity 3+, calls go through IFn.invoke
-          ;; regardless, so the fused path would only save t/eval dispatch —
+          ;; regardless, so the fused path would only save t/eval dispatch,
           ;; not worth the extra generated code.
           gen-specialized-or-general (fn [i]
                                        (if (> i 2)
@@ -1601,7 +1601,7 @@
                                                fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
                                                ;; Only generate bc specs for arity 2+.
                                                ;; For arity 1, constants get folded at analysis time
-                                               ;; (e.g. (inc 1) → 2), so the condp is dead code.
+                                               ;; (e.g. (inc 1) -> 2), so the condp is dead code.
                                                bc-specs (when (and spec-fns (> i 1))
                                                           (gen-specs spec-fns i bc-arg-expr))]
                                            (if spec-fns
