@@ -2,11 +2,13 @@
 
 set -eo pipefail
 
-# AOT test for ClojureDart: dart compile exe a non-interactive sci-interop
-# program and run the native binary. Verifies the reflection-free interop model
-# survives Dart AOT tree-shaking, which the JIT `dart test` suite cannot catch.
-# Analogous to script/test/native (GraalVM). Run after script/test/cljd, which
-# scaffolds the cljd project (pubspec.yaml, deps).
+# AOT test for ClojureDart: round-trip the test suite through a native binary,
+# the cljd analogue of SCI_TEST_ENV=native on the JVM (which shells out ./sci).
+# sci.aot-main is a generic form+ctx eval CLI; script AOT-compiles it and runs
+# the suite with SCI_TEST_ENV=native so tu/eval* shells out to it. Tests whose
+# ctx carries override fns cannot serialize (same limit as the JVM) and use
+# sci/eval-string directly, running in-process. Run after script/test/cljd,
+# which scaffolds the cljd project.
 
 if [ ! -f pubspec.yaml ]; then
   echo 'No pubspec.yaml. Run script/test/cljd first to scaffold the cljd project.' >&2
@@ -18,17 +20,21 @@ mkdir -p bin
 echo 'Compiling sci.aot-main to Dart'
 clojure -M:cljd compile sci.aot-main
 
-echo 'AOT-compiling to a native executable'
+echo 'AOT-compiling the sci eval binary'
 echo 'export "../lib/cljd-out/sci/aot-main.dart" show main;' > bin/aot_test.dart
-bin_out="${TMPDIR:-/tmp}/sci-aot-test"
+bin_out="${TMPDIR:-/tmp}/sci-cljd-native"
 dart compile exe bin/aot_test.dart -o "$bin_out"
 
-echo 'Running the native binary'
-out="$("$bin_out")"
-echo "$out"
-if echo "$out" | grep -q 'AOT-OK'; then
-  echo 'AOT test passed'
-else
-  echo 'AOT test FAILED' >&2
-  exit 1
+echo 'Self-test: interop override survives AOT tree-shaking'
+"$bin_out" --selftest | grep -q 'SELFTEST-OK'
+
+echo 'Round-tripping the suite through the native binary'
+export SCI_TEST_ENV=native
+export SCI_NATIVE_BIN="$bin_out"
+# Namespaces whose tu/eval* ctx is plain data. fn-opts tests use sci/eval-string
+# and run in-process, as on the JVM.
+namespaces=(sci.core-test)
+if [ $# -gt 0 ]; then
+  namespaces=("$@")
 fi
+clojure -M:cljd test "${namespaces[@]}"

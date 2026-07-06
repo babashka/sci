@@ -1,42 +1,45 @@
 (ns sci.cljd-interop-test
+  ;; override fns in the ctx cannot serialize to the native binary, so these
+  ;; tests use sci/eval-string (in-process), not tu/eval*, matching the JVM.
   (:require [clojure.test :refer [deftest is testing]]
+            [sci.core :as sci]
             [sci.test-utils :as tu]))
 
 (deftest instance-method-override-test
   (testing "instance method dispatches to override fn"
-    (is (= 3 (tu/eval* "(.foo \"abc\")"
-                       {:classes {'String {:class String :instance-methods {'foo count}}}}))))
+    (is (= 3 (sci/eval-string "(.foo \"abc\")"
+                              {:classes {'String {:class String :instance-methods {'foo count}}}}))))
   (testing "override receives args"
-    (is (= "abc!" (tu/eval* "(.foo \"abc\" \"!\")"
-                            {:classes {'String {:class String :instance-methods {'foo str}}}}))))
+    (is (= "abc!" (sci/eval-string "(.foo \"abc\" \"!\")"
+                                   {:classes {'String {:class String :instance-methods {'foo str}}}}))))
   (testing "override body calls a real host method (compiled, tree-shakeable)"
-    (is (= "ABC" (tu/eval* "(.upper \"abc\")"
-                           {:classes {'String {:class String :instance-methods {'upper (fn [s] (.toUpperCase s))}}}}))))
+    (is (= "ABC" (sci/eval-string "(.upper \"abc\")"
+                                  {:classes {'String {:class String :instance-methods {'upper (fn [s] (.toUpperCase s))}}}}))))
   (testing "unlisted method throws"
     (is (thrown? cljd.core/ExceptionInfo
-                 (tu/eval* "(.bar \"abc\")"
-                           {:classes {'String {:class String :instance-methods {'foo (fn [_s] :x)}}}})))))
+                 (sci/eval-string "(.bar \"abc\")"
+                                  {:classes {'String {:class String :instance-methods {'foo (fn [_s] :x)}}}})))))
 
 (deftest instance-field-override-test
   (testing "instance field dispatches to override fn, which reads a real host field"
-    (is (= 4 (tu/eval* "(.-len \"abcd\")"
-                       {:classes {'String {:class String :instance-fields {'len (fn [s] (.-length s))}}}}))))
+    (is (= 4 (sci/eval-string "(.-len \"abcd\")"
+                              {:classes {'String {:class String :instance-fields {'len (fn [s] (.-length s))}}}}))))
   (testing "unlisted field throws"
     (is (thrown? cljd.core/ExceptionInfo
-                 (tu/eval* "(.-nope \"abcd\")"
-                           {:classes {'String {:class String :instance-fields {'len (fn [_] 1)}}}})))))
+                 (sci/eval-string "(.-nope \"abcd\")"
+                                  {:classes {'String {:class String :instance-fields {'len (fn [_] 1)}}}})))))
 
 (deftest static-method-override-test
   (testing "static method dispatches to override fn"
-    (is (= :parsed (tu/eval* "(DateTime/parse \"2020\")"
-                             {:classes {'DateTime {:class DateTime
-                                                   :static-methods {'parse (fn [_ _s] :parsed)}}}})))))
+    (is (= :parsed (sci/eval-string "(DateTime/parse \"2020\")"
+                                    {:classes {'DateTime {:class DateTime
+                                                          :static-methods {'parse (fn [_ _s] :parsed)}}}})))))
 
 (deftest static-field-override-test
   (testing "static field dispatches to override fn"
-    (is (= :field (tu/eval* "DateTime/monthsPerYear"
-                            {:classes {'DateTime {:class DateTime
-                                                  :static-fields {'monthsPerYear (fn [_] :field)}}}})))))
+    (is (= :field (sci/eval-string "DateTime/monthsPerYear"
+                                   {:classes {'DateTime {:class DateTime
+                                                         :static-fields {'monthsPerYear (fn [_] :field)}}}})))))
 
 (deftest named-arg-sugar-test
   (testing "trailing .name val pairs desugar to keyword args"
@@ -77,16 +80,16 @@
 
 (deftest string-namespace-require-test
   (testing "a namespace registered under a string name is requirable and aliasable"
-    (is (= "hi!" (tu/eval* "(require '[\"my.pkg\" :as p]) (p/shout \"hi\")"
-                           {:namespaces {"my.pkg" {'shout (fn [s] (str s "!"))}}}))))
+    (is (= "hi!" (sci/eval-string "(require '[\"my.pkg\" :as p]) (p/shout \"hi\")"
+                                  {:namespaces {"my.pkg" {'shout (fn [s] (str s "!"))}}}))))
   (testing "string require works in an ns form"
-    (is (= 42 (tu/eval* "(ns app (:require [\"my.pkg\" :as p])) (p/answer)"
-                        {:namespaces {"my.pkg" {'answer (fn [] 42)}}}))))
+    (is (= 42 (sci/eval-string "(ns app (:require [\"my.pkg\" :as p])) (p/answer)"
+                               {:namespaces {"my.pkg" {'answer (fn [] 42)}}}))))
   (testing "a string-named and a symbol-named ns coexist in loaded-libs"
     (is (= [1 2]
-           (tu/eval* "(require '[\"pkg.one\" :as a] '[reg.two :as b]) [(a/x) (b/y)]"
-                     {:namespaces {"pkg.one" {'x (fn [] 1)}
-                                   'reg.two {'y (fn [] 2)}}}))))
+           (sci/eval-string "(require '[\"pkg.one\" :as a] '[reg.two :as b]) [(a/x) (b/y)]"
+                            {:namespaces {"pkg.one" {'x (fn [] 1)}
+                                          'reg.two {'y (fn [] 2)}}}))))
   (testing "requiring the same string ns twice is idempotent"
-    (is (= 1 (tu/eval* "(require '[\"pkg.one\" :as a]) (require '[\"pkg.one\" :as a]) (a/x)"
-                       {:namespaces {"pkg.one" {'x (fn [] 1)}}})))))
+    (is (= 1 (sci/eval-string "(require '[\"pkg.one\" :as a]) (require '[\"pkg.one\" :as a]) (a/x)"
+                              {:namespaces {"pkg.one" {'x (fn [] 1)}}})))))

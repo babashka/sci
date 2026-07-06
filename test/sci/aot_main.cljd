@@ -1,20 +1,42 @@
 (ns sci.aot-main
-  "Non-interactive main for the Dart AOT test (script/test/cljd-native).
-  Exercises the reflection-free interop model under `dart compile exe`: an
-  override that calls a real Dart method must survive tree-shaking, and an
-  unlisted member must be denied. Prints AOT-OK on success, AOT-FAIL otherwise,
-  and exits non-zero on failure so the script can assert."
+  "Generic SCI eval CLI for the Dart AOT round-trip test, the cljd analogue of
+  sci.impl.main. Args: [form ctx-edn]. Reads the ctx as data, evals the form,
+  prints the result with prn. Errors go to stderr with a non-zero exit so the
+  caller can distinguish them. script/test/cljd-native AOT-compiles this and
+  tu/eval* native mode shells out to it, round-tripping the suite through the
+  native binary (like SCI_TEST_ENV=native on the JVM)."
   (:require ["dart:io" :as io]
+            [edamame.core :as e]
             [sci.core :as sci]))
 
-(defn main []
+(defn selftest
+  "The interop override path cannot round-trip (fns do not serialize), so assert
+  it here inside the AOT binary: an override that calls a real Dart method must
+  survive tree-shaking, and an unlisted member must be denied."
+  []
   (let [ctx (sci/init {:classes {'String {:class String
                                           :instance-methods {'upper (fn [s] (.toUpperCase s))}}}})
-        upper (sci/eval-string* ctx "(.upper \"hello from sci\")")
+        upper (sci/eval-string* ctx "(.upper \"ok\")")
         denied (try (sci/eval-string* ctx "(.lower \"x\")")
                     ::not-denied
                     (catch Object _ ::denied))]
-    (if (and (= "HELLO FROM SCI" upper) (= ::denied denied))
-      (println "AOT-OK" upper)
-      (do (println "AOT-FAIL upper=" (pr-str upper) "denied=" (pr-str denied))
+    (if (and (= "OK" upper) (= ::denied denied))
+      (println "SELFTEST-OK")
+      (do (.write io/stderr (str "SELFTEST-FAIL upper=" (pr-str upper)
+                                 " denied=" (pr-str denied) "\n"))
           (io/exit 1)))))
+
+(defn main [args]
+  (if (= "--selftest" (first args))
+    (selftest)
+    (let [form (first args)
+          ctx-str (second args)
+          ctx (if (and ctx-str (pos? (count ctx-str)))
+                (e/parse-string ctx-str)
+                {})]
+      (try
+        (let [v (sci/eval-string form ctx)]
+          (when (some? v) (prn v)))
+        (catch Object e
+          (.write io/stderr (str (or (ex-message e) e) "\n"))
+          (io/exit 1))))))

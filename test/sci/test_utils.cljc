@@ -1,5 +1,7 @@
 (ns sci.test-utils
-  (:require #?@(:cljd [] :clj [[edamame.core :as edamame]])
+  (:require #?@(:cljd [["dart:io" :as io]
+                       [edamame.core :as edamame]]
+                :clj [[edamame.core :as edamame]])
             #?@(:cljd [] :clj [[me.raynes.conch :refer [let-programs] :as sh]])
             [clojure.test :as test :refer [is]]
             ;; :refer of fns from ported namespaces breaks the cljd host pass
@@ -10,18 +12,26 @@
             [sci.test-utils.utils :as u])
   #?(:cljs (:require-macros [sci.test-utils.macros])))
 
-(def native? #?(:cljd false
+(def native? #?(:cljd (= "native" (get io/Platform.environment "SCI_TEST_ENV"))
                 :clj (= "native" (System/getenv "SCI_TEST_ENV"))
                 :cljs false))
 
 (when native? (println "Testing native version."))
 
 (defn eval* [form ctx]
-  (if #?(:cljd true
-         :clj (not native?)
-         :cljs true)
+  (if (not native?)
     (#?(:cljd sci/eval-string :default eval-string) (str form) ctx)
-    #?(:clj
+    #?(:cljd
+       ;; shell out to the AOT-compiled sci.aot-main binary, like the JVM
+       ;; SCI_TEST_ENV=native path shells out to ./sci
+       (let [bin (get io/Platform.environment "SCI_NATIVE_BIN")
+             result (io/Process.runSync bin [(str form) (str ctx)])]
+         (if (zero? (.-exitCode result))
+           (let [out (.trim (str (.-stdout result)))]
+             (when-not (= "" out)
+               (edamame/parse-string out {:all true :location? (constantly false)})))
+           (throw (ex-info (str (.-stderr result)) {}))))
+       :clj
        (let [v (let-programs [sci "./sci"]
                  (try (sci (str form) (str ctx))
                       (catch #?(:clj Exception :cljs :default) e
