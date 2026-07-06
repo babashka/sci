@@ -3,15 +3,17 @@
   and host interop pre-wired. Left pane is a code editor with example presets,
   right pane shows the eval result: a widget renders, any other value is printed.
 
-  `make-ctx` is the part to copy: it shows how to expose Flutter widgets to
-  scripts (a `flutter` namespace of builder fns) and host classes (`:classes`
-  with override fns). Dart has no reflection, so interop goes through override
-  fns, not reflective method lookup.
+  `make-ctx` is the part to copy: it exposes the host libraries under their real
+  Dart names, so a script requires them exactly as ClojureDart source does,
+  `[\"package:flutter/material.dart\" :as m]` and `[\"cljd.flutter\" :as f]`, then
+  calls `m/text`, `m/column`, `f/watch`. Host classes come through `:classes`
+  override fns. Dart has no reflection, so interop goes through override fns, not
+  reflective method lookup.
 
   The app itself is vanilla - it holds no widgets of its own. Interactive UI is
-  built by the script: `flutter/watch` is a macro plugged into the SCI context
-  (a fn with &form/&env args and :macro metadata) that gives scripts cljd.flutter
-  atom reactivity, so a script watching a `defonce` atom rebuilds on change."
+  built by the script: `f/watch` is a macro plugged into the SCI context (a fn
+  with &form/&env args and :macro metadata) that gives scripts cljd.flutter atom
+  reactivity, so a script watching a `defonce` atom rebuilds on change."
   (:require ["package:flutter/material.dart" :as m]
             [cljd.flutter :as f]
             [sci.core :as sci]))
@@ -19,45 +21,70 @@
 ;; --- the reference: a SCI context wired for Flutter ---
 
 (defn make-ctx []
-  (sci/init
-   {;; expose Flutter widgets as a `flutter` namespace of builder fns
-    :namespaces
-    {'flutter
-     {'text      (fn [s] (m/Text (str s)
-                                 .style (m/TextStyle .fontSize 20.0 .color m/Colors.white)))
-      'column    (fn [xs] (m/Column .mainAxisSize m/MainAxisSize.min .children (vec xs)))
-      'row       (fn [xs] (m/Row .mainAxisSize m/MainAxisSize.min .children (vec xs)))
-      'container (fn [color child] (m/Container .padding (m/EdgeInsets.all 12.0)
-                                                .color color .child child))
-      'button    (fn [label on-press]
-                   (m/Padding .padding (m/EdgeInsets.all 4.0)
-                              .child (m/ElevatedButton .onPressed on-press
-                                                       .child (m/Text (str label)))))
-      ;; reactivity: the fn wraps cljd.flutter's `f/widget` :watch, the widget
-      ;; rebuilds when the atom changes
-      '-watch    (fn [a render] (f/widget :watch [v a] (render v)))
-      ;; and a macro plugged into the SCI context (a fn with two extra args,
-      ;; &form and &env, plus :macro metadata) for `(flutter/watch a [v] body)`
-      'watch     (with-meta
-                   (fn [_&form _&env a bindings & body]
-                     (list 'flutter/-watch a (list* 'fn bindings body)))
-                   {:macro true})
-      'red       m/Colors.red
-      'blue      m/Colors.blue
-      'green     m/Colors.green}}
-    ;; expose host classes through override fns: no reflection on Dart, so each
-    ;; member you want is a compiled fn that calls the real Dart method or field
-    :classes
-    {'String {:class String
-              :instance-methods {'upper (fn [s] (.toUpperCase s))
-                                 'lower (fn [s] (.toLowerCase s))}
-              :instance-fields  {'length (fn [s] (.-length s))}}}}))
+  ;; each builder is one compiled cljd call site: it holds the real
+  ;; `(m/Widget ... .name val)` constructor. The analyzer desugars a script's
+  ;; `.name val` call sugar into `:name val`, so `& {:keys [...]}` receives it.
+  ;; Dart has no reflection, so this per-widget fn is the irreducible bridge.
+  (let [Text            (fn [data & {:keys [style]}]
+                          (m/Text (str data)
+                                  .style (or style (m/TextStyle .fontSize 20.0
+                                                                .color m/Colors.white))))
+        TextStyle       (fn [& {:keys [fontSize color]}]
+                          (m/TextStyle .fontSize fontSize .color color))
+        Column          (fn [& {:keys [children]}]
+                          (m/Column .mainAxisSize m/MainAxisSize.min .children (vec children)))
+        Row             (fn [& {:keys [children]}]
+                          (m/Row .mainAxisSize m/MainAxisSize.min .children (vec children)))
+        Container       (fn [& {:keys [padding color child]}]
+                          (m/Container .padding (or padding (m/EdgeInsets.all 12.0))
+                                       .color color .child child))
+        ElevatedButton  (fn [& {:keys [onPressed child]}]
+                          (m/Padding .padding (m/EdgeInsets.all 4.0)
+                                     .child (m/ElevatedButton .onPressed onPressed
+                                                              .child child)))
+        watch-fn        (fn [a render] (f/widget :watch [v a] (render v)))]
+    (sci/init
+     {;; expose the host libraries under their real Dart names, so scripts
+      ;; `(:require ["package:flutter/material.dart" :as m] ["cljd.flutter" :as f])`
+      ;; exactly as ClojureDart source does
+      :namespaces
+      {"package:flutter/material.dart"
+       {'Text           Text
+        'TextStyle      TextStyle
+        'Column         Column
+        'Row            Row
+        'Container      Container
+        'ElevatedButton ElevatedButton
+        ;; static getters exposed as members: `m/Colors.red` resolves the
+        ;; symbol `Colors.red` in the namespace
+        'Colors.red     m/Colors.red
+        'Colors.blue    m/Colors.blue
+        'Colors.green   m/Colors.green
+        'Colors.white   m/Colors.white}
+       "cljd.flutter"
+       ;; a macro plugged into the SCI context: a fn taking two extra args,
+       ;; &form and &env, plus :macro metadata. Expands `(f/watch a [v] body)`
+       ;; to a call of watch-fn, embedding the fn value directly
+       {'watch (with-meta
+                 (fn [_&form _&env a bindings & body]
+                   (list watch-fn a (list* 'fn bindings body)))
+                 {:macro true})}}
+      ;; expose host classes through override fns: no reflection on Dart, so each
+      ;; member you want is a compiled fn that calls the real Dart method or field
+      :classes
+      {'String {:class String
+                :instance-methods {'upper (fn [s] (.toUpperCase s))
+                                   'lower (fn [s] (.toLowerCase s))}
+                :instance-fields  {'length (fn [s] (.-length s))}}}})))
+
+(def require-line
+  "(ns app\n  (:require [\"package:flutter/material.dart\" :as m]\n            [\"cljd.flutter\" :as f]))\n\n")
 
 (def examples
-  [["text"        "(flutter/text \"hello from SCI\")"]
-   ["interop"     "(flutter/text (.upper \"dude\"))"]
-   ["composition" "(flutter/column\n [(flutter/text \"top\")\n  (flutter/container flutter/red (flutter/text \"boxed\"))])"]
-   ["counter"     "(defonce n (atom 0))\n(flutter/watch n [c]\n (flutter/column\n  [(flutter/text (str \"clicked \" c))\n   (flutter/button \"click me\" (fn [] (swap! n inc)))]))"]])
+  [["text"        (str require-line "(m/Text \"hello from SCI\")")]
+   ["interop"     (str require-line "(m/Text (.upper \"dude\"))")]
+   ["composition" (str require-line "(m/Column\n .children\n [(m/Text \"top\")\n  (m/Container .color m/Colors.blue\n              .child (m/Text \"boxed\"))])")]
+   ["counter"     (str require-line "(defonce n (atom 0))\n(f/watch n [c]\n (m/Column\n  .children\n  [(m/Text (str \"clicked \" c))\n   (m/ElevatedButton\n    .onPressed (fn [] (swap! n inc))\n    .child (m/Text \"click me\"))]))")]])
 
 ;; --- the REPL UI (vanilla, no domain widgets) ---
 
