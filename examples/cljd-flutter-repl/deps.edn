@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.babashka/sci {:local/root "../.."}}
- :cljd/opts {:kind :flutter :main tetris.app}
+ :cljd/opts {:kind :flutter :main repl.app}
  :aliases
  {:cljd {:extra-deps
          {tensegritics/clojuredart

@@ -1,5 +1,5 @@
-name: cljd_flutter_tetris
-description: Scripted Tetris on Flutter via SCI.
+name: cljd_flutter_repl
+description: A Flutter REPL over a SCI context with Flutter access.
 version: 1.0.0
 publish_to: none
 
@@ -20,5 +20,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/game.cljc
