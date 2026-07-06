@@ -1,19 +1,11 @@
 (ns sci.aot-main
-  "Generic SCI eval CLI for the Dart AOT round-trip test, the cljd analogue of
-  sci.impl.main. Args: [form ctx-edn]. Reads the ctx as data, evals the form,
-  prints the result with prn. Errors go to stderr with a non-zero exit so the
-  caller can distinguish them. script/test/cljd-native AOT-compiles this and
-  tu/eval* native mode shells out to it, round-tripping the suite through the
-  native binary (like SCI_TEST_ENV=native on the JVM)."
+  "SCI eval CLI for the cljd AOT test. Args: [form ctx-edn]. Prints the eval
+  result, or an error on stderr with exit 1."
   (:require ["dart:io" :as io]
             [edamame.core :as e]
             [sci.core :as sci]))
 
-(defn selftest
-  "The interop override path cannot round-trip (fns do not serialize), so assert
-  it here inside the AOT binary: an override that calls a real Dart method must
-  survive tree-shaking, and an unlisted member must be denied."
-  []
+(defn selftest []
   (let [ctx (sci/init {:classes {'String {:class String
                                           :instance-methods {'upper (fn [s] (.toUpperCase s))}}}})
         upper (sci/eval-string* ctx "(.upper \"ok\")")

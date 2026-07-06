@@ -2,13 +2,9 @@
 
 set -eo pipefail
 
-# AOT test for ClojureDart: round-trip the test suite through a native binary,
-# the cljd analogue of SCI_TEST_ENV=native on the JVM (which shells out ./sci).
-# sci.aot-main is a generic form+ctx eval CLI; script AOT-compiles it and runs
-# the suite with SCI_TEST_ENV=native so tu/eval* shells out to it. Tests whose
-# ctx carries override fns cannot serialize (same limit as the JVM) and use
-# sci/eval-string directly, running in-process. Run after script/test/cljd,
-# which scaffolds the cljd project.
+# AOT test: dart compile exe the sci eval binary and round-trip the suite
+# through it (SCI_TEST_ENV=native, like ./sci on the JVM). Run after
+# script/test/cljd, which scaffolds the cljd project.
 
 if [ ! -f pubspec.yaml ]; then
   echo 'No pubspec.yaml. Run script/test/cljd first to scaffold the cljd project.' >&2
@@ -31,8 +27,8 @@ echo 'Self-test: interop override survives AOT tree-shaking'
 echo 'Round-tripping the suite through the native binary'
 export SCI_TEST_ENV=native
 export SCI_NATIVE_BIN="$bin_out"
-# Namespaces whose tu/eval* ctx is plain data. fn-opts tests use sci/eval-string
-# and run in-process, as on the JVM.
+# core-test round-trips through the native binary
+# override-fn tests cannot serialize and run in-process
 namespaces=(sci.core-test)
 if [ $# -gt 0 ]; then
   namespaces=("$@")

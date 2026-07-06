@@ -62,9 +62,9 @@
            (tu/eval* "(defn g [& {:as o}] o) (defn f [& {:as o}] o) (f .a (g .b 2))" {}))))
   (testing "a local fn in operator position desugars"
     (is (= {:a 1} (tu/eval* "(let [f (fn [& {:as o}] o)] (f .a 1))" {}))))
-  (testing "a dot-symbol in a vector literal is not a named arg (not a call)"
+  (testing "a dot-symbol in a vector literal is not a named arg"
     (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(defn f [x] x) (f [.a 1])" {}))))
-  (testing "a dot-symbol in a let binding value is not desugared (special form)"
+  (testing "a dot-symbol in a let binding value is not desugared"
     (is (thrown? cljd.core/ExceptionInfo (tu/eval* "(let [x .a] x)" {}))))
   (testing "an unpaired trailing form is a malformed call, not a dropped arg"
     (is (thrown? cljd.core/ExceptionInfo
@@ -118,6 +118,6 @@
     (is (true? (tu/eval* "(instance? Object \"x\")" {})))))
 
 (deftest bare-dot-not-named-arg-test
-  (testing "a bare . arg is not a named arg (no empty keyword), it is malformed"
+  (testing "a bare . arg is malformed, not a named arg"
     (is (thrown? cljd.core/ExceptionInfo
                  (tu/eval* "(defn f [& {:as o}] o) (f . 1)" {})))))

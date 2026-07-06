@@ -34,7 +34,7 @@ context wired for Flutter. Scripts read exactly like ClojureDart source. Two
 ergonomics features make that work:
 
 - String-named namespace requires (namespaces.cljc): *loaded-libs* is a sorted
-  set of symbol lib names; a string lib name among symbols made the comparator
+  set of symbol lib names. A string lib name among symbols made the comparator
   throw String.compareTo(Symbol). A str-based comparator on cljd lets a
   namespace registered under a string key be required and aliased, so a script
   does `(:require ["package:flutter/material.dart" :as m])`. cljd.flutter is a
@@ -73,7 +73,7 @@ eval CLI (the cljd sci.impl.main); the script `dart compile exe`s it and:
   round-tripping each eval through the native build (like ./sci on the JVM). A
   ctx carrying override fns cannot serialize, so those tests use sci/eval-string
   (in-process), matching the JVM. The JIT `dart test` suite cannot catch a
-  tree-shaken reflective path; this can. This is why overrides are the right
+  tree-shaken reflective path. This can. This is why overrides are the right
   interop model for Dart, which has no runtime reflection.
 
 Non-record deftype works on cljd: the cljs arm
@@ -214,7 +214,7 @@ Deliberate, not TODOs. Dart constraints or host-parity choices.
   :namespaces builder fns or :override fns, never reflection.
 - Named-arg sugar covers the general fn-call path only, not interop call sites
   (constructor/static/instance). On cljd those would reach only an :override fn
-  anyway; not wired, niche.
+  anyway. Not wired, niche.
 - String-named requires: only :as aliasing is exercised. :refer/:rename from a
   string-named ns is untested.
 - Custom Object equals/hashCode on a deftype are clj-only in tests: the SciType

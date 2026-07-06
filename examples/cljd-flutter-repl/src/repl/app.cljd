@@ -1,31 +1,9 @@
 (ns repl.app
-  "Reference example: a Flutter REPL over a SCI context that has Flutter access
-  and host interop pre-wired. Left pane is a code editor with example presets,
-  right pane shows the eval result: a widget renders, any other value is printed.
-
-  `make-ctx` is the part to copy: it exposes the host libraries under their real
-  Dart names, so a script requires them exactly as ClojureDart source does,
-  `[\"package:flutter/material.dart\" :as m]` (a Dart package, string) and
-  `[cljd.flutter :as f]` (a namespace, symbol), then calls `m/Text`, `m/Column`,
-  `f/watch`. Host classes come through `:classes`
-  override fns. Dart has no reflection, so interop goes through override fns, not
-  reflective method lookup.
-
-  The app itself is vanilla - it holds no widgets of its own. Interactive UI is
-  built by the script: `f/watch` is a macro plugged into the SCI context (a fn
-  with &form/&env args and :macro metadata) that gives scripts cljd.flutter atom
-  reactivity, so a script watching a `defonce` atom rebuilds on change."
   (:require ["package:flutter/material.dart" :as m]
             [cljd.flutter :as f]
             [sci.core :as sci]))
 
-;; --- the reference: a SCI context wired for Flutter ---
-
 (defn make-ctx []
-  ;; each builder is one compiled cljd call site: it holds the real
-  ;; `(m/Widget ... .name val)` constructor. The analyzer desugars a script's
-  ;; `.name val` call sugar into `:name val`, so `& {:keys [...]}` receives it.
-  ;; Dart has no reflection, so this per-widget fn is the irreducible bridge.
   (let [Text            (fn [data & {:keys [style]}]
                           (m/Text (str data)
                                   .style (or style (m/TextStyle .fontSize 20.0
@@ -45,10 +23,7 @@
                                                               .child child)))
         watch-fn        (fn [a render] (f/widget :watch [v a] (render v)))]
     (sci/init
-     {;; expose the host libraries under their real Dart names, so scripts
-      ;; `(:require ["package:flutter/material.dart" :as m] ["cljd.flutter" :as f])`
-      ;; exactly as ClojureDart source does
-      :namespaces
+     {:namespaces
       {"package:flutter/material.dart"
        {'Text           Text
         'TextStyle      TextStyle
@@ -56,23 +31,15 @@
         'Row            Row
         'Container      Container
         'ElevatedButton ElevatedButton
-        ;; static getters exposed as members: `m/Colors.red` resolves the
-        ;; symbol `Colors.red` in the namespace
         'Colors.red     m/Colors.red
         'Colors.blue    m/Colors.blue
         'Colors.green   m/Colors.green
         'Colors.white   m/Colors.white}
-       ;; cljd.flutter is a normal namespace (symbol key), not a Dart package
        'cljd.flutter
-       ;; a macro plugged into the SCI context: a fn taking two extra args,
-       ;; &form and &env, plus :macro metadata. Expands `(f/watch a [v] body)`
-       ;; to a call of watch-fn, embedding the fn value directly
        {'watch (with-meta
                  (fn [_&form _&env a bindings & body]
                    (list watch-fn a (list* 'fn bindings body)))
                  {:macro true})}}
-      ;; expose host classes through override fns: no reflection on Dart, so each
-      ;; member you want is a compiled fn that calls the real Dart method or field
       :classes
       {'String {:class String
                 :instance-methods {'upper (fn [s] (.toUpperCase s))
@@ -87,8 +54,6 @@
    ["interop"     (str require-line "(m/Text (.upper \"dude\"))")]
    ["composition" (str require-line "(m/Column\n .children\n [(m/Text \"top\")\n  (m/Container .color m/Colors.blue\n              .child (m/Text \"boxed\"))])")]
    ["counter"     (str require-line "(defonce n (atom 0))\n(f/watch n [c]\n (m/Column\n  .children\n  [(m/Text (str \"clicked \" c))\n   (m/ElevatedButton\n    .onPressed (fn [] (swap! n inc))\n    .child (m/Text \"click me\"))]))")]])
-
-;; --- the REPL UI (vanilla, no domain widgets) ---
 
 (defn eval! [ctx code]
   (try {:value (sci/eval-string* ctx code)}

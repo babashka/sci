@@ -353,9 +353,8 @@
        :cljs (satisfies? clazz x))
     ;; could we have a fast path for CLJS too? please let me know!
     :else #?(:cljd (if (dart/is? clazz Type)
-                     ;; Object is the universal supertype: everything non-nil is an
-                     ;; instance. Other Types match by exact runtimeType (no runtime
-                     ;; subtype check on Dart).
+                     ;; Object matches any non-nil, other Types match by exact
+                     ;; runtimeType, Dart has no runtime subtype check
                      (if (identical? clazz Object)
                        (some? x)
                        (= clazz (.-runtimeType x)))

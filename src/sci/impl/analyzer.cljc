@@ -1045,9 +1045,7 @@
   (let [ctx (without-recur-target ctx)
         [method-expr & args] (if (seq? method-expr) method-expr
                                  (cons method-expr args))
-        ;; (. DateTime parse ...) with DateTime a configured class is static,
-        ;; like DateTime/parse. On the JVM `class?` detects this; on cljd the raw
-        ;; symbol is looked up in class->opts.
+        ;; (. DateTime parse ...) on a configured class is static, like DateTime/parse
         #?@(:cljd [static-class-sym
                    (when (and (symbol? instance-expr)
                               (not (:class-expr (meta expr)))
@@ -1785,9 +1783,7 @@
 #?(:cljd
    (defn- desugar-named-args
      "ClojureDart call-site sugar: trailing `.name val` pairs become `:name val`
-      keyword args, so a fn with `& {:keys [...]}` receives them. Every trailing
-      form after the first `.name` must be a `.name value` pair; a stray or
-      unpaired form is a malformed call, not a silently dropped argument."
+      keyword args. A stray or unpaired trailing form is malformed."
      [args]
      (if (some named-arg-sym? args)
        (let [[pos named] (split-with (complement named-arg-sym?) args)

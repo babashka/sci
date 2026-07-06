@@ -60,10 +60,9 @@
 
 #?(:cljd
    (do
-     ;; class values are registry maps, dispatch on the Dart type. Object is NOT
-     ;; special here: a plain (defmethod m Object ...) dispatches on Object, not
-     ;; :default. Protocol extension to Object maps to :default in the protocol
-     ;; layer (process-methods emits :default, the extend fn converts it).
+     ;; class values are registry maps, dispatch on the :class. Object is not
+     ;; special here, protocol extension to Object maps to :default in the
+     ;; protocol layer
      (defn normalize-dispatch-val [dispatch-val]
        (if (and (map? dispatch-val) (fn? (:instance? dispatch-val)))
          (or (:class dispatch-val)

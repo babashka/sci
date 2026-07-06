@@ -1,5 +1,5 @@
 name: cljd_flutter_repl
-description: A Flutter REPL over a SCI context with Flutter access.
+description: SCI Flutter REPL.
 version: 1.0.0
 publish_to: none
 
