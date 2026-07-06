@@ -31,3 +31,9 @@
     (is (= :parsed (tu/eval* "(DateTime/parse \"2020\")"
                              {:classes {'DateTime {:class DateTime
                                                    :static-methods {'parse (fn [_ _s] :parsed)}}}})))))
+
+(deftest static-field-override-test
+  (testing "static field dispatches to override fn"
+    (is (= :field (tu/eval* "DateTime/monthsPerYear"
+                            {:classes {'DateTime {:class DateTime
+                                                  :static-fields {'monthsPerYear (fn [_] :field)}}}})))))

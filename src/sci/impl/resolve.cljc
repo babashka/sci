@@ -99,9 +99,20 @@
                         :cljs
                         {:sci.impl.analyzer/static-access true}))
                    #?(:cljd
-                      (with-meta
-                        [clazz sym-name]
-                        {:sci.impl.analyzer/interop true})
+                      ;; static field read: Dart has no reflection, dispatch
+                      ;; through the :static-fields override fn or throw
+                      (let [stack (assoc (meta sym)
+                                         :file @utils/current-file
+                                         :ns @utils/current-ns)
+                            class->opts (some-> ctx :env deref :class->opts)
+                            class-opts (get class->opts sym-ns)
+                            override (get (:static-fields class-opts) sym-name)]
+                        (case (interop/member-disposition override class-opts :static-fields)
+                          :override (->Node (override clazz) stack)
+                          (throw-error-with-location
+                           (str "Field " sym-name " on " sym-ns
+                                " not allowed (no static reflection on cljd)")
+                           sym)))
                       :clj
                       (with-meta
                         [clazz sym-name]
