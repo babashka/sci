@@ -29,11 +29,28 @@ rewrite and dispatches `:static-methods` overrides) and static fields
 overrides). No reflection, so unlisted/reflect members throw; only override fns
 and the config carry interop.
 
-examples/cljd-flutter-tetris exposes Flutter to a SCI script end to end: app.cljd
-registers a `flutter` namespace of widget-builder fns and the script's `(render)`
-constructs the whole widget tree (score, board grid, buttons with SCI-fn
-callbacks). Verified running on Flutter web. Shows the reflection-free interop
-model driving real Flutter from interpreted Clojure.
+examples/cljd-flutter-repl is the reference example: an in-app REPL over a SCI
+context wired for Flutter. Scripts read exactly like ClojureDart source. Two
+ergonomics features make that work:
+
+- String-named namespace requires (namespaces.cljc): *loaded-libs* is a sorted
+  set of symbol lib names; a string lib name among symbols made the comparator
+  throw String.compareTo(Symbol). A str-based comparator on cljd lets a
+  namespace registered under a string key be required and aliased, so a script
+  does `(:require ["package:flutter/material.dart" :as m] ["cljd.flutter" :as f])`.
+  CLJS dodges this via its js-lib branch; JVM has no string requires. cljd-gated.
+- Named-arg call sugar (analyzer.cljc): trailing `.name val` pairs in a call
+  desugar to `:name val` keyword args, matching the cljd compiler's split-args,
+  so a builder fn with `& {:keys [...]}` receives them. Scoped to the general
+  fn-call path, special forms and macros still get raw forms. cljd-gated.
+
+Widgets are builder fns in :namespaces (called by name, they hold the compiled
+`(m/Widget ... .name val)` call site, the irreducible bridge since Dart cannot
+construct with named args reflectively); host classes are :classes override fns.
+flutter/watch is a plugged SCI macro (a fn with &form/&env args + :macro meta)
+giving cljd.flutter atom reactivity. Verified on Flutter web: composition
+renders, counter increments via the watch. Both features covered by
+named-arg-sugar-test and string-namespace-require-test in cljd_interop_test.cljd.
 
 Config is keyed on the `:class` Type object, not its name. Dart
 `Type.toString()` is not stable under AOT obfuscation (Flutter release), so
@@ -179,9 +196,31 @@ templates. Restore them with git after first init.
   read has :cljd so plain reader conditionals work there, unlike cljs).
   `^objects` breaks cljd, use `^List` (also avoids aset/aget dynamic
   warnings). No object-array/array-map, use List/filled and hash-map.
-  cljd catch-all is `(catch Object e)`. Non-record sci deftype on cljd
-  returns nil from analyze-deftype* (needs a cljd arm, see tasks).
+  cljd catch-all is `(catch Object e)`. Non-record sci deftype on cljd works:
+  the cljs arm of analyze-deftype* is the :default arm (SciType path), verified
+  by defrecords-and-deftype-test on cljd.
   utils/reset-meta!* + types/IResetMeta replace reset-meta! for sci types.
+
+## Accepted gaps (non-goals on cljd)
+
+Deliberate, not TODOs. Dart constraints or host-parity choices.
+
+- Hierarchies: derive/isa?/parents/make-hierarchy and hierarchy-based
+  multimethod dispatch (prefer-method) are omitted (opts.cljc `#?@(:cljd [])`).
+  The host has no global hierarchy either. hierarchies-test is cljd-gated.
+- No runtime reflection: interop is override-or-throw. The `true` sentinel and
+  :allow :all are meaningless on cljd. Named-arg sugar therefore only feeds
+  :namespaces builder fns or :override fns, never reflection.
+- Named-arg sugar covers the general fn-call path only, not interop call sites
+  (constructor/static/instance). On cljd those would reach only an :override fn
+  anyway; not wired, niche.
+- String-named requires: only :as aliasing is exercised. :refer/:rename from a
+  string-named ns is untested.
+- Custom Object equals/hashCode on a deftype are clj-only in tests: the SciType
+  cljd arm omits them (Dart == / hashCode), tests gated `#?(:clj ...)`.
+- Threads/future/agents/locking: Dart is single-isolate, these are no-ops or
+  absent.
+- Host readers, format, runtime resolve: absent.
 
 ## Remaining (the bulk - revisit here)
 
