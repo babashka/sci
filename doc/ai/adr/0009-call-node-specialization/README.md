@@ -151,6 +151,34 @@ against this.
 - All 371 JVM tests pass on Clojure 1.10.3/1.11.1/1.12; clj-kondo clean vs
   master.
 
+## Broader measurement: library loading in babashka (JVM mode)
+
+Profiled real lib workloads through `babashka.main/main` in-process (sci
+submodule on this branch, lib-tests classpath, fresh env per iteration by
+resetting `babashka.main/env`, clj-async-profiler at 1ms):
+
+- Loading 8 libs (honeysql, honeysql helpers, loom.graph, loom.alg, medley,
+  aero, camel-snake-kebab, version-clj) into a fresh env: **~52 ms median**.
+  App-sample breakdown: **analysis 38%, sci infra (resolve/vars/load) 20%,
+  parse (edamame) 18%, bb infra 16%, eval 9%**. `analyze-call` is on-stack in
+  58% of load samples. Within bb infra, ~8% of all samples are `stat` syscalls
+  (`File.exists` classpath probing in the load-fn) — a babashka-side caching
+  candidate, not sci.
+- Re-running those libs' test suites: **eval 69%** of app samples.
+- A/B this branch vs master on those workloads: **flat** — load 52 vs 50 ms
+  median, test run 15 vs 15 ms. Expected: load time is analysis+parse-bound
+  (this change keeps analysis flat by design), and these suites are
+  string/collection-churn, not the arithmetic/`get`/`count` shapes the fused
+  paths accelerate.
+
+Implication: the fused-call work pays off on compute-style interpreted code
+(loops, arithmetic, data access), not on lib load. The next frontier for load
+time is the analyzer itself — hot frames there are `PersistentArrayMap`/
+`PersistentHashMap` ops from per-node stack maps
+(`(assoc m :ns @current-ns :file @current-file :sci.impl/f-meta ...)`) and
+megamorphic dispatch (itable stubs) — plus edamame and the bb classpath stat
+churn.
+
 ## If introduced to master per item
 
 Item 4 must land first (or be bundled): items 1–3 without it regress analysis.
