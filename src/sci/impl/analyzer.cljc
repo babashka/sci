@@ -1495,7 +1495,13 @@
                                 'clojure.core/pos? 'clojure.lang.Numbers/isPos
                                 'clojure.core/neg? 'clojure.lang.Numbers/isNeg
                                 'clojure.core/nil? 'nil?
-                                'clojure.core/not 'not}
+                                'clojure.core/not 'not
+                                'clojure.core/first 'clojure.lang.RT/first
+                                'clojure.core/next 'clojure.lang.RT/next
+                                'clojure.core/rest 'clojure.lang.RT/more
+                                'clojure.core/seq 'clojure.lang.RT/seq
+                                'clojure.core/count 'clojure.lang.RT/count
+                                'clojure.core/boolean 'clojure.lang.RT/booleanCast}
                                :cljs
                                {'cljs.core/inc 'cljs.core/inc
                                 'cljs.core/dec 'cljs.core/dec
@@ -1505,7 +1511,13 @@
                                 'cljs.core/pos? 'cljs.core/pos?
                                 'cljs.core/neg? 'cljs.core/neg?
                                 'cljs.core/nil? 'nil?
-                                'cljs.core/not 'not}))
+                                'cljs.core/not 'not
+                                'cljs.core/first 'cljs.core/first
+                                'cljs.core/next 'cljs.core/next
+                                'cljs.core/rest 'cljs.core/rest
+                                'cljs.core/seq 'cljs.core/seq
+                                'cljs.core/count 'cljs.core/count
+                                'cljs.core/boolean 'cljs.core/boolean}))
           spec-fns-2 #?(:cljd nil
                         :default
                         (macros/? :clj
@@ -1520,7 +1532,20 @@
                                 'clojure.core/> 'clojure.lang.Numbers/gt
                                 'clojure.core/<= 'clojure.lang.Numbers/lte
                                 'clojure.core/>= 'clojure.lang.Numbers/gte
-                                'clojure.core/== 'clojure.lang.Numbers/equiv}
+                                'clojure.core/== 'clojure.lang.Numbers/equiv
+                                'clojure.core/= 'clojure.lang.Util/equiv
+                                'clojure.core/identical? 'clojure.lang.Util/identical
+                                'clojure.core/quot 'clojure.lang.Numbers/quotient
+                                'clojure.core/min 'clojure.lang.Numbers/min
+                                'clojure.core/max 'clojure.lang.Numbers/max
+                                'clojure.core/bit-and 'clojure.lang.Numbers/and
+                                'clojure.core/bit-or 'clojure.lang.Numbers/or
+                                'clojure.core/bit-xor 'clojure.lang.Numbers/xor
+                                'clojure.core/bit-shift-left 'clojure.lang.Numbers/shiftLeft
+                                'clojure.core/bit-shift-right 'clojure.lang.Numbers/shiftRight
+                                'clojure.core/get 'clojure.lang.RT/get
+                                'clojure.core/contains? 'clojure.lang.RT/contains
+                                'clojure.core/cons 'clojure.lang.RT/cons}
                                :cljs
                                {'cljs.core/+ 'cljs.core/+
                                 'cljs.core/- 'cljs.core/-
@@ -1533,15 +1558,57 @@
                                 'cljs.core/> 'cljs.core/>
                                 'cljs.core/<= 'cljs.core/<=
                                 'cljs.core/>= 'cljs.core/>=
-                                'cljs.core/== 'cljs.core/==}))
-          gen-specs (fn [spec-fns i arg-fn]
-                      (mapcat (fn [[f-sym static-sym]]
-                                [f-sym
-                                 `(sci.impl.types/->Node
-                                   (try (~static-sym ~@(map arg-fn (range i)))
-                                        ~catch-clause)
-                                   ~'stack)])
-                              spec-fns))
+                                'cljs.core/== 'cljs.core/==
+                                'cljs.core/= 'cljs.core/=
+                                'cljs.core/identical? 'identical?
+                                'cljs.core/quot 'cljs.core/quot
+                                'cljs.core/min 'cljs.core/min
+                                'cljs.core/max 'cljs.core/max
+                                'cljs.core/bit-and 'cljs.core/bit-and
+                                'cljs.core/bit-or 'cljs.core/bit-or
+                                'cljs.core/bit-xor 'cljs.core/bit-xor
+                                'cljs.core/bit-shift-left 'cljs.core/bit-shift-left
+                                'cljs.core/bit-shift-right 'cljs.core/bit-shift-right
+                                'cljs.core/get 'cljs.core/get
+                                'cljs.core/contains? 'cljs.core/contains?
+                                'cljs.core/cons 'cljs.core/cons}))
+          ;; values are either a static fn symbol applied to the args, or a
+          ;; template fn taking the arg forms (for ops that need nesting)
+          spec-fns-3 #?(:cljd nil
+                        :default
+                        (macros/? :clj
+                                  {'clojure.core/assoc 'clojure.lang.RT/assoc
+                                   'clojure.core/get 'clojure.lang.RT/get
+                                   'clojure.core/+ (fn [[a b c]] `(clojure.lang.Numbers/add (clojure.lang.Numbers/add ~a ~b) ~c))
+                                   'clojure.core/- (fn [[a b c]] `(clojure.lang.Numbers/minus (clojure.lang.Numbers/minus ~a ~b) ~c))
+                                   'clojure.core/* (fn [[a b c]] `(clojure.lang.Numbers/multiply (clojure.lang.Numbers/multiply ~a ~b) ~c))}
+                                  :cljs
+                                  {'cljs.core/assoc 'cljs.core/assoc
+                                   'cljs.core/get 'cljs.core/get
+                                   'cljs.core/+ 'cljs.core/+
+                                   'cljs.core/- 'cljs.core/-
+                                   'cljs.core/* 'cljs.core/*}))
+          ;; Emits a map from fn object -> node factory. Node creation looks
+          ;; the factory up by identity (fn objects have identity equality),
+          ;; so specialization is O(1) at analysis time and each factory
+          ;; compiles to its own small method, keeping return-call itself
+          ;; within JIT-friendly size. int-coerce? unboxes idx params once at
+          ;; node creation so the node closes over a primitive.
+          gen-factory-map (fn [spec-fns i arg-syms arg-fn int-coerce?]
+                            `(hash-map
+                              ~@(mapcat
+                                 (fn [[f-sym static-sym]]
+                                   [f-sym
+                                    `(fn [~@arg-syms ~'stack]
+                                       (let [~@(when int-coerce?
+                                                 (mapcat (fn [s] [s `(int ~s)]) arg-syms))]
+                                         (sci.impl.types/->Node
+                                          (try ~(if (fn? static-sym)
+                                                  (static-sym (map arg-fn (range i)))
+                                                  `(~static-sym ~@(map arg-fn (range i))))
+                                               ~catch-clause)
+                                          ~'stack)))])
+                                 spec-fns)))
           binding-instance? (fn [arg-sym]
                               #?(:cljd `(instance? sci.impl.types/BindingNode ~arg-sym)
                                  :default `(instance? sci.impl.types.BindingNode ~arg-sym)))
@@ -1578,47 +1645,73 @@
                         `(if ~(symbol (str "bnd" j))
                            (aget ~(with-meta 'bindings #?(:cljd {:tag 'List} :default {:tag 'objects})) ~(symbol (str "rv" j)))
                            ~(symbol (str "rv" j))))
-          gen-fused-node (fn [i specs]
-                           (let [bidx-binds (vec (mapcat (fn [j]
-                                                           [(symbol (str "bidx" j))
-                                                            (get-idx j)])
-                                                         (range i)))]
-                             `(let ~bidx-binds
-                                ~(if specs
-                                   `(condp identical? ~'f
-                                      ~@specs
-                                      ~(gen-node i aget-expr))
-                                   (gen-node i aget-expr)))))
+          bidx-binds (fn [i]
+                       (vec (mapcat (fn [j]
+                                      [(symbol (str "bidx" j))
+                                       (get-idx j)])
+                                    (range i))))
+          bidx-syms (fn [i] (map (fn [j] (symbol (str "bidx" j))) (range i)))
+          arg-syms (fn [i] (map (fn [j] (symbol (str "arg" j))) (range i)))
           ;; Fused/specialized optimization for arities 1-2 only. Clojure
           ;; only inlines core functions at these arities (e.g. <=, + inline
           ;; at arity 2 but not 3). At arity 3+, calls go through IFn.invoke
           ;; regardless, so the fused path would only save t/eval dispatch,
           ;; not worth the extra generated code.
           gen-specialized-or-general (fn [i]
-                                       (if (> i 2)
+                                       (if (> i (if spec-fns-1 3 2))
                                          (gen-node i eval-arg)
-                                         (let [spec-fns (case (int i) 1 spec-fns-1 2 spec-fns-2 nil)
-                                               fused-specs (when spec-fns (gen-specs spec-fns i aget-expr))
-                                               ;; Only generate bc specs for arity 2+.
-                                               ;; For arity 1, constants get folded at analysis time
-                                               ;; (e.g. (inc 1) -> 2), so the condp is dead code.
-                                               bc-specs (when (and spec-fns (> i 1))
-                                                          (gen-specs spec-fns i bc-arg-expr))]
-                                           (if spec-fns
-                                             `(if ~(all-bindings? i)
-                                                ~(gen-fused-node i fused-specs)
-                                                ~(if bc-specs
-                                                   `(if ~(all-binding-or-constant? i)
-                                                      (let ~(gen-bc-binds i)
-                                                        (condp identical? ~'f
-                                                          ~@bc-specs
-                                                          ~(gen-node i bc-arg-expr)))
-                                                      ~(gen-node i eval-arg))
-                                                   (gen-node i eval-arg)))
-                                             `(if ~(all-bindings? i)
-                                                ~(gen-fused-node i nil)
-                                                ~(gen-node i eval-arg))))))]
-      `(defn ~'return-call
+                                         (if-not spec-fns-1
+                                           ;; cljd: no specialization tables
+                                           `(if ~(all-bindings? i)
+                                              (let ~(bidx-binds i)
+                                                ~(gen-node i aget-expr))
+                                              ~(gen-node i eval-arg))
+                                           (case (int i)
+                                             1 `(if ~(all-bindings? 1)
+                                                  (let ~(bidx-binds 1)
+                                                    (if-let [fac# (get ~'return-call-fused-factories-1 ~'f)]
+                                                      (fac# ~@(bidx-syms 1) ~'stack)
+                                                      ~(gen-node 1 aget-expr)))
+                                                  ;; constants fold at analysis time (e.g. (inc 1) -> 2),
+                                                  ;; so no bc path at arity 1
+                                                  (if-let [fac# (get ~'return-call-eval-factories-1 ~'f)]
+                                                    (fac# ~@(arg-syms 1) ~'stack)
+                                                    ~(gen-node 1 eval-arg)))
+                                             2 `(if ~(all-bindings? 2)
+                                                  (let ~(bidx-binds 2)
+                                                    (if-let [fac# (get ~'return-call-fused-factories-2 ~'f)]
+                                                      (fac# ~@(bidx-syms 2) ~'stack)
+                                                      ~(gen-node 2 aget-expr)))
+                                                  (if ~(all-binding-or-constant? 2)
+                                                    (let ~(gen-bc-binds 2)
+                                                      (if-let [fac# (get ~'return-call-bc-factories-2 ~'f)]
+                                                        (fac# ~'bnd0 ~'rv0 ~'bnd1 ~'rv1 ~'stack)
+                                                        ~(gen-node 2 bc-arg-expr)))
+                                                    ;; general path (args are arbitrary nodes): still
+                                                    ;; dispatch to the static call, only the args go
+                                                    ;; through t/eval
+                                                    (if-let [fac# (get ~'return-call-eval-factories-2 ~'f)]
+                                                      (fac# ~@(arg-syms 2) ~'stack)
+                                                      ~(gen-node 2 eval-arg))))
+                                             3 `(if-let [fac# (get ~'return-call-eval-factories-3 ~'f)]
+                                                  (fac# ~@(arg-syms 3) ~'stack)
+                                                  ~(gen-node 3 eval-arg))))))
+          factory-defs (when spec-fns-1
+                         [`(def ~'return-call-fused-factories-1
+                             ~(gen-factory-map spec-fns-1 1 (bidx-syms 1) aget-expr true))
+                          `(def ~'return-call-eval-factories-1
+                             ~(gen-factory-map spec-fns-1 1 (arg-syms 1) eval-arg false))
+                          `(def ~'return-call-fused-factories-2
+                             ~(gen-factory-map spec-fns-2 2 (bidx-syms 2) aget-expr true))
+                          `(def ~'return-call-bc-factories-2
+                             ~(gen-factory-map spec-fns-2 2 '[bnd0 rv0 bnd1 rv1] bc-arg-expr false))
+                          `(def ~'return-call-eval-factories-2
+                             ~(gen-factory-map spec-fns-2 2 (arg-syms 2) eval-arg false))
+                          `(def ~'return-call-eval-factories-3
+                             ~(gen-factory-map spec-fns-3 3 (arg-syms 3) eval-arg false))])]
+      `(do
+         ~@factory-defs
+         (defn ~'return-call
          ~'[_ctx expr f analyzed-children stack wrap]
          (let [node#
                (case (count ~'analyzed-children)
@@ -1645,7 +1738,7 @@
                          ~'stack))]))
                tag# ~'(:tag (meta expr))]
            (cond-> node#
-             tag# (with-meta {:tag tag#})))))))
+             tag# (with-meta {:tag tag#}))))))))
 
 (gen-return-call)
 
