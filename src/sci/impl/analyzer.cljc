@@ -1226,21 +1226,35 @@
                                        :file @utils/current-file)
                                 nil))
                  (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
-       :clj (if-let [class (:class (interop/resolve-class-opts ctx class-sym))]
-              (invoke-constructor-node ctx class args)
-              (if-let [record (records/resolve-record-class ctx class-sym)]
-                (let [args (analyze-children ctx args)]
-                  ;; _ctx expr f analyzed-children stack
-                  (return-call ctx
-                               ;; for backwards compatibility with error reporting
-                               expr
-                               (:sci.impl/constructor (meta record))
-                               args
-                               (assoc (meta expr)
-                                      :ns @utils/current-ns
-                                      :file @utils/current-file)
-                               nil))
-                (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
+       :clj (let [class-opts (interop/resolve-class-opts ctx class-sym)
+                  ctor (:constructor class-opts)]
+              (case (interop/member-disposition ctor class-opts nil)
+                :override (let [args (analyze-children ctx args)]
+                            (return-call ctx
+                                         expr
+                                         ctor
+                                         args
+                                         (assoc (meta expr)
+                                                :ns @utils/current-ns
+                                                :file @utils/current-file)
+                                         nil))
+                :deny (utils/throw-error-with-location
+                       (str "Constructor of " class-sym " not allowed!") expr)
+                :reflect (if-let [class (:class class-opts)]
+                           (invoke-constructor-node ctx class args)
+                           (if-let [record (records/resolve-record-class ctx class-sym)]
+                             (let [args (analyze-children ctx args)]
+                               ;; _ctx expr f analyzed-children stack
+                               (return-call ctx
+                                            ;; for backwards compatibility with error reporting
+                                            expr
+                                            (:sci.impl/constructor (meta record))
+                                            args
+                                            (assoc (meta expr)
+                                                   :ns @utils/current-ns
+                                                   :file @utils/current-file)
+                                            nil))
+                             (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))))
        :cljs (if (symbol? class-sym)
                ;; try to statically analyze class for better performance
                (if-let [class (or

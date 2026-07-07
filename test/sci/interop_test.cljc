@@ -88,7 +88,7 @@
                                                            :instance-fields {:closed true 'x true}}}})))
        (is (thrown-with-msg? Exception #"Field x on .*PublicFields not allowed"
                              (sci/eval-string "(.-x (PublicFields.))"
-                                              {:classes {'PublicFields {:class PublicFields :closed true}}})))
+                                              {:classes {'PublicFields {:class PublicFields :closed true :constructor true}}})))
        (is (thrown-with-msg? Exception #"Field x on .*PublicFields not allowed"
                              (sci/eval-string "(.-x (PublicFields.))"
                                               {:classes {'PublicFields {:class PublicFields
@@ -152,7 +152,35 @@
 #?(:clj
    (deftest constructor-test
      (is (= "dude" (eval* "(String. (str \"dude\"))")))
-     (is (= "dude" (eval* "(new String (str \"dude\"))")))))
+     (is (= "dude" (eval* "(new String (str \"dude\"))")))
+     
+     ;; Manipulate constructors by configuring other classes and functions.
+     ;; Don't test in native because the config is not correctly serialized in this case
+     (when-not tu/native?       
+       (is (instance? java.io.File (tu/eval* "(String. \"dude\")" {:classes {'String {:class java.io.File}}})))
+              
+     (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:constructor (fn [_] 123)}}})))
+     (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+                                                                   :constructor (fn [_] 123)}}})))
+     
+     ;; Constructors and :closed classes
+     (is (thrown-with-msg? Exception #"Constructor of String not allowed" (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+                                                                                                                                             :closed true}}})))
+
+     (is (= "dude" (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+                                                                      :closed true
+                                                                      :constructor true}}})))
+     (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+                                                                   :closed true
+                                                                   :constructor (fn [_] 123)}}})))
+     ;; If you *just* want to deny a constructor you have to override it with a function that throws
+     (let [deny-ctor-opts {:classes {'String {:class String 
+                                              :constructor (fn [_] (throw (ex-info "Constructor of String not allowed" {})))}}}]
+       (is (thrown-with-msg? Exception #"Constructor of String not allowed" (tu/eval* "(String. \"dude\")" deny-ctor-opts)))
+       (is (= 4 (tu/eval* "(.length \"dude\")" deny-ctor-opts))))
+
+
+ )))
 
 #?(:clj
    (deftest import-test
