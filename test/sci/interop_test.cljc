@@ -152,7 +152,10 @@
 #?(:clj
    (deftest constructor-test
      (is (= "dude" (eval* "(String. (str \"dude\"))")))
-     (is (= "dude" (eval* "(new String (str \"dude\"))")))))
+     (is (= "dude" (eval* "(new String (str \"dude\"))")))
+     
+     ;; Manipulate constructors by configuring other classes
+     (is (instance? java.io.File (tu/eval* "(String. \"dude\")" {:classes {'String {:class java.io.File}}})))))
 
 #?(:clj
    (deftest import-test
