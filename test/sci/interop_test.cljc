@@ -173,6 +173,11 @@
      (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
                                                                    :closed true
                                                                    :constructor (fn [_] 123)}}})))
+     ;; If you *just* want to deny a constructor you have to override it with a function that throws
+     (let [deny-ctor-opts {:classes {'String {:class String 
+                                              :constructor (fn [_] (throw (ex-info "Constructor of String not allowed" {})))}}}]
+       (is (thrown-with-msg? Exception #"Constructor of String not allowed" (tu/eval* "(String. \"dude\")" deny-ctor-opts)))
+       (is (= 4 (tu/eval* "(.length \"dude\")" deny-ctor-opts))))
 
 
  )))
