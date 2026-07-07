@@ -200,14 +200,24 @@
                 nil)))
      :cljs (fn [_ _ _])))
 
+;; The fields after interrupt-fn are nil at init time and assoc'd during
+;; analysis. Declared as record fields because assoc with a non-field key
+;; copies the record AND rebuilds its extmap on every call — recur-target
+;; alone is assoc'd several times per analyzed form (analyze-children-tail).
 #?(:clj (defrecord Ctx [bindings env
                         features readers
                         reload-all
                         check-permissions
-                        interrupt-fn]))
+                        interrupt-fn
+                        recur-target
+                        params
+                        parents
+                        closure-bindings
+                        fn-expr]))
 
 (defn ->ctx [bindings env features readers check-permissions? & {:keys [interrupt-fn]}]
-  #?(:clj (->Ctx bindings env features readers false check-permissions? interrupt-fn)
+  #?(:clj (->Ctx bindings env features readers false check-permissions? interrupt-fn
+                 nil nil nil nil nil)
      :default {:bindings bindings
                :env env
                :features features
