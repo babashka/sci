@@ -1520,7 +1520,9 @@
                                 'clojure.core/> 'clojure.lang.Numbers/gt
                                 'clojure.core/<= 'clojure.lang.Numbers/lte
                                 'clojure.core/>= 'clojure.lang.Numbers/gte
-                                'clojure.core/== 'clojure.lang.Numbers/equiv}
+                                'clojure.core/== 'clojure.lang.Numbers/equiv
+                                'clojure.core/= 'clojure.lang.Util/equiv
+                                'clojure.core/get 'clojure.lang.RT/get}
                                :cljs
                                {'cljs.core/+ 'cljs.core/+
                                 'cljs.core/- 'cljs.core/-
@@ -1533,7 +1535,9 @@
                                 'cljs.core/> 'cljs.core/>
                                 'cljs.core/<= 'cljs.core/<=
                                 'cljs.core/>= 'cljs.core/>=
-                                'cljs.core/== 'cljs.core/==}))
+                                'cljs.core/== 'cljs.core/==
+                                'cljs.core/= 'cljs.core/=
+                                'cljs.core/get 'cljs.core/get}))
           gen-specs (fn [spec-fns i arg-fn]
                       (mapcat (fn [[f-sym static-sym]]
                                 [f-sym
