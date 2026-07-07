@@ -161,7 +161,21 @@
               
      (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:constructor (fn [_] 123)}}})))
      (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
-                                                                   :constructor (fn [_] 123)}}}))))))
+                                                                   :constructor (fn [_] 123)}}})))
+     
+     ;; Constructors and :closed classes
+     (is (thrown-with-msg? Exception #"Constructor on class java.lang.String not allowed" (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+                                                                                                                                             :closed true}}})))
+
+     (is (= "dude" (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+                                                                      :closed true
+                                                                      :constructor true}}})))
+     (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+                                                                   :closed true
+                                                                   :constructor (fn [_] 123)}}})))
+
+
+ )))
 
 #?(:clj
    (deftest import-test
