@@ -132,6 +132,16 @@ Extending `inlined-vars` itself (e.g. baking `first`/`assoc` for more speed)
 would change observable redef semantics under `*unrestricted*` and diverge from
 Clojure's `:inline` line — deliberately not done here.
 
+## Bundle size (CLJS)
+
+shadow-cljs release build (`npx shadow-cljs release sci`, advanced
+optimizations): 884,331 → 893,064 bytes raw (**+8,733, +1.0%**), 197,695 →
+198,438 gzipped (**+743, +0.4%**). The build report attributes all growth to
+`analyzer.cljc` (63,380 → 72,096 optimized bytes): each factory entry is a
+real closure in the bundle. Trimming the tables to `inlined-vars` (see Safety)
+already removed the dead weight; further table growth should be weighed
+against this.
+
 ## Non-effects
 
 - loop-1m: flat — `inc`/`dec`/`pos?`/`zero?` on plain bindings were already
