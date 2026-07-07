@@ -61,8 +61,14 @@ allocation hygiene, not headline wins.
    per binding identity; visible but diffuse.
 5. **babashka-side, not sci**: classpath `File.exists` stat churn is ~8% of
    total load samples in bb (one stat per classpath entry per require).
-   Caching directory listings in bb's load-fn is likely the single biggest
-   *startup* lever outside sci.
+   Caching directory listings in bb's load-fn — **REJECTED (2026-07)**. Explored
+   fully and verified correct/fast (~5.6x on a 200-dir synthetic classpath), but
+   the JDK re-stats directory entries on purpose: a classpath dir is mutable
+   (scripts generate `.class`/resources at runtime then require them), so a
+   cached listing would miss just-written files. bb is a general-purpose runtime
+   and can't assume a static filesystem any more than the JDK can. Win is also
+   ~0 at realistic scale (10 dirs: 6.4 vs 6.3ms; only shows at 50+ dirs).
+   Correctness over a few ms on extreme classpaths.
 
 ## Non-goals
 
