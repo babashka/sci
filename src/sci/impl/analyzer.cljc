@@ -1495,11 +1495,12 @@
                                 'clojure.core/pos? 'clojure.lang.Numbers/isPos
                                 'clojure.core/neg? 'clojure.lang.Numbers/isNeg
                                 'clojure.core/nil? 'nil?
-                                'clojure.core/not 'not
-                                'clojure.core/first 'clojure.lang.RT/first
-                                'clojure.core/next 'clojure.lang.RT/next
-                                'clojure.core/rest 'clojure.lang.RT/more
-                                'clojure.core/seq 'clojure.lang.RT/seq
+                                ;; Only vars in copy-vars/inlined-vars (the vars
+                                ;; Clojure itself :inline's) are baked into call
+                                ;; nodes at analysis time; other core fns are
+                                ;; called through the sci var and can never hit
+                                ;; these entries. This also keeps redefinition
+                                ;; semantics identical to Clojure's.
                                 'clojure.core/count 'clojure.lang.RT/count
                                 'clojure.core/boolean 'clojure.lang.RT/booleanCast}
                                :cljs
@@ -1511,11 +1512,6 @@
                                 'cljs.core/pos? 'cljs.core/pos?
                                 'cljs.core/neg? 'cljs.core/neg?
                                 'cljs.core/nil? 'nil?
-                                'cljs.core/not 'not
-                                'cljs.core/first 'cljs.core/first
-                                'cljs.core/next 'cljs.core/next
-                                'cljs.core/rest 'cljs.core/rest
-                                'cljs.core/seq 'cljs.core/seq
                                 'cljs.core/count 'cljs.core/count
                                 'cljs.core/boolean 'cljs.core/boolean}))
           spec-fns-2 #?(:cljd nil
@@ -1543,9 +1539,7 @@
                                 'clojure.core/bit-xor 'clojure.lang.Numbers/xor
                                 'clojure.core/bit-shift-left 'clojure.lang.Numbers/shiftLeft
                                 'clojure.core/bit-shift-right 'clojure.lang.Numbers/shiftRight
-                                'clojure.core/get 'clojure.lang.RT/get
-                                'clojure.core/contains? 'clojure.lang.RT/contains
-                                'clojure.core/cons 'clojure.lang.RT/cons}
+                                'clojure.core/get 'clojure.lang.RT/get}
                                :cljs
                                {'cljs.core/+ 'cljs.core/+
                                 'cljs.core/- 'cljs.core/-
@@ -1569,22 +1563,18 @@
                                 'cljs.core/bit-xor 'cljs.core/bit-xor
                                 'cljs.core/bit-shift-left 'cljs.core/bit-shift-left
                                 'cljs.core/bit-shift-right 'cljs.core/bit-shift-right
-                                'cljs.core/get 'cljs.core/get
-                                'cljs.core/contains? 'cljs.core/contains?
-                                'cljs.core/cons 'cljs.core/cons}))
+                                'cljs.core/get 'cljs.core/get}))
           ;; values are either a static fn symbol applied to the args, or a
           ;; template fn taking the arg forms (for ops that need nesting)
           spec-fns-3 #?(:cljd nil
                         :default
                         (macros/? :clj
-                                  {'clojure.core/assoc 'clojure.lang.RT/assoc
-                                   'clojure.core/get 'clojure.lang.RT/get
+                                  {'clojure.core/get 'clojure.lang.RT/get
                                    'clojure.core/+ (fn [[a b c]] `(clojure.lang.Numbers/add (clojure.lang.Numbers/add ~a ~b) ~c))
                                    'clojure.core/- (fn [[a b c]] `(clojure.lang.Numbers/minus (clojure.lang.Numbers/minus ~a ~b) ~c))
                                    'clojure.core/* (fn [[a b c]] `(clojure.lang.Numbers/multiply (clojure.lang.Numbers/multiply ~a ~b) ~c))}
                                   :cljs
-                                  {'cljs.core/assoc 'cljs.core/assoc
-                                   'cljs.core/get 'cljs.core/get
+                                  {'cljs.core/get 'cljs.core/get
                                    'cljs.core/+ 'cljs.core/+
                                    'cljs.core/- 'cljs.core/-
                                    'cljs.core/* 'cljs.core/*}))

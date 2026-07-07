@@ -41,12 +41,11 @@ drift from JIT profile pollution (same workload measured 0.88 ms in-suite vs
 
 ## The items, biggest win first
 
-### 1. Arity-3 specialization: `assoc`, `get`, `+`, `-`, `*`
+### 1. Arity-3 specialization: `get`, `+`, `-`, `*`
 
-Arity-3 calls previously always went through `IFn.invoke`. `assoc` and `get`
-have exact static equivalents (`RT/assoc`, `RT/get`); `+`/`-`/`*` fold left, so
-`(+ a b c)` compiles to two nested `Numbers/add` calls with identical
-semantics.
+Arity-3 calls previously always went through `IFn.invoke`. `get` has an exact
+static equivalent (`RT/get`); `+`/`-`/`*` fold left, so `(+ a b c)` compiles to
+two nested `Numbers/add` calls with identical semantics.
 
 - count-get-loop: **−53% cumulative (2.1×)**; this item alone took it from
   −18% to −53%, i.e. roughly **−43% on top of item 2**
@@ -61,13 +60,18 @@ single biggest jump in the whole exercise.
 
 New entries, same mechanism as the existing 21: `=` (`Util/equiv`),
 `identical?`, `quot`, `min`, `max`, `bit-and/or/xor`, `bit-shift-left/right`,
-`get`, `contains?`, `cons` at arity 2; `first`, `next`, `rest`, `seq`, `count`,
-`boolean` at arity 1.
+`get` at arity 2; `count`, `boolean` at arity 1.
 
 - eq-rem-loop: **−13%** (`=` on bindings and on constant+call args)
 - count-get-loop: **−18%** (before item 1; `count`/`get` fused)
 - destructure-call: **−12%** (map destructuring expands to `get` calls)
-- seq-first-next: **−10–15%**
+
+The candidate set is bounded by `copy-vars/inlined-vars` — see Safety below.
+Entries outside that set (`first`, `next`, `rest`, `seq`, `cons`, `contains?`,
+arity-3 `assoc`) were tried, turned out to be dead code (those fns reach call
+sites as sci vars, never as raw fn objects), and were removed again; the
+pre-existing dead `not` entry was removed along the way. Removal measurably
+cost nothing (seq-first-next 26 µs isolated, at the low end of all runs).
 
 Semantics notes: `Util/equiv` *is* `=`; `RT/booleanCast` matches
 `(boolean 0)` → `true`; user redefinitions still win because dispatch is on fn
@@ -101,22 +105,32 @@ small method; `return-call` lands at 6191 bytes, still JIT-compiled).
 
 Dispatch is `identical?` on the fn object the analyzer already resolved, so
 specialization can only fire where analysis had committed to a concrete host
-fn anyway:
+fn anyway. The gate is `copy-vars/inlined-vars`: exactly the clojure.core vars
+that carry `:inline` metadata (`+`, `=`, `get`, `count`, `zero?`, bit ops, ...).
+Only those get the raw fn baked into call nodes via `:sci.impl/inlined` meta in
+`analyze-call`; every other core fn (`assoc`, `first`, `seq`, `contains?`, ...)
+is invoked through its sci var and sees redefinitions. This mirrors Clojure
+itself, where `:inline` ops compile inline and ignore var mutation at call
+sites while everything else respects it.
+
+Verified per case, master and branch behaving identically:
 
 - Default SCI: built-in core vars are read-only; `with-redefs` and
   `alter-var-root` on them throw. Nothing to interact with.
-- Under `sci.impl.unrestrict/*unrestricted*` (babashka): redefining a built-in
-  was already invisible to call sites on master — `copy-var` attaches the raw
-  fn as `:sci.impl/inlined` meta and `analyze-call` bakes it into the call
-  node. Verified with `=` (not specialized on master): `alter-var-root` then
-  `(= x y)` returns `true` on master and on this branch. Value position
-  (`(reduce + ...)`) goes through the var and sees the redef, call position
-  does not — identical before/after.
+- Under `sci.impl.unrestrict/*unrestricted*` (babashka): `alter-var-root` on
+  `=` (inlined set) is invisible at call sites on master too — analysis-time
+  baking, not this change. `alter-var-root` on `assoc`/`first`/`not` (outside
+  the set) is honored on both. Value position (`(reduce + ...)`) goes through
+  the var and sees redefs on both.
 - Script-level `(defn = ...)` or `:namespaces {'clojure.core {'+ my-plus}}`
   resolve to the user fn, the identity check misses, general invoke runs the
   user fn (tested).
 - `with-redefs` on user vars: call sites invoke through the sci Var (deref per
   call), f is never a raw host fn there, so never specialized.
+
+Extending `inlined-vars` itself (e.g. baking `first`/`assoc` for more speed)
+would change observable redef semantics under `*unrestricted*` and diverge from
+Clojure's `:inline` line — deliberately not done here.
 
 ## Non-effects
 
