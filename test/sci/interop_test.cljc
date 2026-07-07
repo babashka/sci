@@ -164,7 +164,7 @@
                                                                    :constructor (fn [_] 123)}}})))
      
      ;; Constructors and :closed classes
-     (is (thrown-with-msg? Exception #"Constructor on class java.lang.String not allowed" (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
+     (is (thrown-with-msg? Exception #"Constructor of String not allowed" (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
                                                                                                                                              :closed true}}})))
 
      (is (= "dude" (tu/eval* "(String. \"dude\")" {:classes {'String {:class String 
