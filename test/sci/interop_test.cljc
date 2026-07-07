@@ -88,7 +88,7 @@
                                                            :instance-fields {:closed true 'x true}}}})))
        (is (thrown-with-msg? Exception #"Field x on .*PublicFields not allowed"
                              (sci/eval-string "(.-x (PublicFields.))"
-                                              {:classes {'PublicFields {:class PublicFields :closed true}}})))
+                                              {:classes {'PublicFields {:class PublicFields :closed true :constructor true}}})))
        (is (thrown-with-msg? Exception #"Field x on .*PublicFields not allowed"
                              (sci/eval-string "(.-x (PublicFields.))"
                                               {:classes {'PublicFields {:class PublicFields
