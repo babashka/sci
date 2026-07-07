@@ -97,6 +97,27 @@ small method; `return-call` lands at 6191 bytes, still JIT-compiled).
 - analyze-defn: **flat vs baseline** (19.9–21.0 µs) with all tables in place
 - items 1–3 at this table size are not shippable without this
 
+## Safety: redefinition semantics unchanged
+
+Dispatch is `identical?` on the fn object the analyzer already resolved, so
+specialization can only fire where analysis had committed to a concrete host
+fn anyway:
+
+- Default SCI: built-in core vars are read-only; `with-redefs` and
+  `alter-var-root` on them throw. Nothing to interact with.
+- Under `sci.impl.unrestrict/*unrestricted*` (babashka): redefining a built-in
+  was already invisible to call sites on master — `copy-var` attaches the raw
+  fn as `:sci.impl/inlined` meta and `analyze-call` bakes it into the call
+  node. Verified with `=` (not specialized on master): `alter-var-root` then
+  `(= x y)` returns `true` on master and on this branch. Value position
+  (`(reduce + ...)`) goes through the var and sees the redef, call position
+  does not — identical before/after.
+- Script-level `(defn = ...)` or `:namespaces {'clojure.core {'+ my-plus}}`
+  resolve to the user fn, the identity check misses, general invoke runs the
+  user fn (tested).
+- `with-redefs` on user vars: call sites invoke through the sci Var (deref per
+  call), f is never a raw host fn there, so never specialized.
+
 ## Non-effects
 
 - loop-1m: flat — `inc`/`dec`/`pos?`/`zero?` on plain bindings were already
