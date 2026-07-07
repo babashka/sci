@@ -26,15 +26,18 @@ eval 3%.
    from the alloc profile.
 2. **parse-opts cache in `parse-next`** (parser.cljc). Every top-level form
    rebuilt the edamame options: 6-key assoc onto the Options record plus three
-   fresh closures — the single biggest allocation site during loading (~38% of
-   sci alloc samples). Now a single-entry cache keyed on identity of ctx,
+   fresh closures. Now a single-entry cache keyed on identity of ctx,
    current-ns aliases map, readers, and `*read-eval*`; any `require`/`in-ns`
-   changes the aliases map identity and invalidates. Wall-clock flat on JVM
-   (TLAB allocs are cheap under C2) but the allocation is gone — matters more
-   on native image (serial GC, no JIT).
+   changes the aliases map identity and invalidates. Measured effect: wall
+   clock flat on JVM, total allocation during load −5%. (An earlier "top
+   allocation site, 38%" reading was a mis-attribution: nearest-sci-frame
+   aggregation charged edamame's parse work under sci's syntax-quote resolve
+   callback to the closure frame.) Native-image benefit is plausible
+   (serial GC) but unmeasured.
 
-Result: 8.0 → 7.8 ms JVM; total allocation during load down materially
-(top alloc site eliminated). All test suites green.
+Result: 8.0 → 7.8 ms JVM (~2.5%, essentially all from item 1); allocation
+−9% across both items. All test suites green. Individually these are
+allocation hygiene, not headline wins.
 
 ## Measured but not done (ranked candidates)
 
