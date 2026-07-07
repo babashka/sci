@@ -154,8 +154,10 @@
      (is (= "dude" (eval* "(String. (str \"dude\"))")))
      (is (= "dude" (eval* "(new String (str \"dude\"))")))
      
-     ;; Manipulate constructors by configuring other classes
-     (is (instance? java.io.File (tu/eval* "(String. \"dude\")" {:classes {'String {:class java.io.File}}})))))
+     ;; Manipulate constructors by configuring other classes and functions
+     (is (instance? java.io.File (tu/eval* "(String. \"dude\")" {:classes {'String {:class java.io.File}}})))
+     (is (= 123 (tu/eval* "(String. \"dude\")" {:classes {'String {:class java.io.File 
+                                                                   :constructor (fn [_] 123)}}})))))
 
 #?(:clj
    (deftest import-test
