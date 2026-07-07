@@ -159,4 +159,5 @@ they touch the same ~150 lines of `gen-return-call` and separate cleanly only
 as table entries, not as mechanism.
 
 CLJS parity was kept (tables map to `cljs.core` fns; direct arity-invoke
-instead of `f.call`), but node tests have not been run yet.
+instead of `f.call`); node tests pass at both `:none` and `:advanced`
+(364 tests, 1260 assertions, 0 failures).
