@@ -139,32 +139,58 @@
 (defn get-column-number [reader]
   (rt/get-column-number reader))
 
+;; parse-next runs once per top-level form; rebuilding the edamame options
+;; (a 6-key assoc plus three fresh closures) per form is a hot allocation
+;; site during namespace loading. The options only change when the ctx, the
+;; current ns (its aliases map), the reader map or *read-eval* change, so a
+;; single-entry cache keyed on their identities covers the whole load of a
+;; file. A race just rebuilds the same value.
+(def ^:private parse-opts-cache (volatile! nil))
+
+(defn- build-parse-opts [ctx readers auto-resolve re]
+  (assoc default-opts
+         :features (:features ctx)
+         :auto-resolve auto-resolve
+         :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
+         :readers (fn [t]
+                    (or (and readers (readers t))
+                        (@data-readers t)
+                        (some-> (@utils/eval-resolve-state ctx {} t)
+                                meta
+                                :sci.impl.record/map-constructor)
+                        (when-let [f @default-data-reader-fn]
+                          (fn [form]
+                            (f t form)))))
+         :read-eval (if re
+                      (fn [x]
+                        (utils/eval ctx x))
+                      throw-eval-read)))
+
 (defn parse-next
   ([ctx r]
    (parse-next ctx r nil))
   ([ctx r opts]
-   (let [features (:features ctx)
-         readers (:readers ctx)
+   (let [readers (:readers ctx)
          readers (if (utils/var? readers) @readers readers)
-         auto-resolve (auto-resolve ctx opts)
-         parse-opts (cond-> (assoc default-opts
-                                   :features features
-                                   :auto-resolve auto-resolve
-                                   :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
-                                   :readers (fn [t]
-                                              (or (and readers (readers t))
-                                                  (@data-readers t)
-                                                  (some-> (@utils/eval-resolve-state ctx {} t)
-                                                          meta
-                                                          :sci.impl.record/map-constructor)
-                                                  (when-let [f @default-data-reader-fn]
-                                                    (fn [form]
-                                                      (f t form)))))
-                                   :read-eval (if @read-eval
-                                                (fn [x]
-                                                  (utils/eval ctx x))
-                                                throw-eval-read))
-                      opts (merge opts))
+         re @read-eval
+         current-ns (utils/current-ns-name)
+         aliases (:aliases (get (get @(:env ctx) :namespaces) current-ns))
+         cache @parse-opts-cache
+         parse-opts (if (and (nil? opts)
+                             cache
+                             (identical? ctx (nth cache 0))
+                             (identical? aliases (nth cache 1))
+                             (identical? readers (nth cache 2))
+                             (identical? re (nth cache 3))
+                             (= current-ns (nth cache 4)))
+                      (nth cache 5)
+                      (let [auto-resolve (or (:auto-resolve opts)
+                                             (assoc aliases :current current-ns))
+                            po (cond-> (build-parse-opts ctx readers auto-resolve re)
+                                 opts (merge opts))]
+                        (when (nil? opts)
+                          (vreset! parse-opts-cache [ctx aliases readers re current-ns po]))
+                        po))
          ret (try (let [v (edamame/parse-next r parse-opts)]
                     (if (utils/kw-identical? v :edamame.core/eof)
                       eof
