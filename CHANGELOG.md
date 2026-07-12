@@ -12,7 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## 0.14.55
 
-ClojureScript: native protocol support ([#639](https://github.com/babashka/sci/issues/639)). Sci code can implement CLJS protocols on `deftype`, `defrecord` and `reify`, and host code calling protocol methods on such instances dispatches into the sci implementations. Works under `:advanced` compilation.
+ClojureScript: native protocol support ([#639](https://github.com/babashka/sci/issues/639)). SCI code can implement CLJS protocols on `deftype`, `defrecord` and `reify`, and host code calling protocol methods on such instances dispatches into the sci implementations. Works under `:advanced` compilation.
 
 - [#639](https://github.com/babashka/sci/issues/639): implement CLJS protocols like `ILookup` on `deftype`: host `get`, `assoc`, `count`, `satisfies?` etc. work on SCI instances
 - Most `cljs.core` protocols are available in SCI now by default, including their method fns (`-lookup`, `-conj!`, ...).
