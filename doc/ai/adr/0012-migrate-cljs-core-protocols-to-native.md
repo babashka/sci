@@ -41,11 +41,19 @@ implement IFn directly at the class level. It stays as-is.
    `-install-native-protocol-on!` (specify!-style, no per-type prototype:
    reify results are not extend-type targets). The reify macro passes a
    per-method implemented-arities map so only implemented arities get slots.
-2. Native defrecord (open). Records implementing IDeref/IFn (issue #808). Wrinkle:
-   `SciRecord` already implements the map protocols via its class, so a
-   record with a custom native protocol needs a per-record prototype
-   chaining to `SciRecord.prototype`, the same trick as deftype with more
-   surface.
+2. Native defrecord: DONE (branch `native-defrecord`). Every record type
+   gets a prototype chaining to `SciRecord.prototype` (`-create-type` picks
+   the base class by the `:sci.impl/record` flag); `->record-impl`
+   constructs via `Object.create` + `SciRecord.call`. Own-prototype slots
+   shadow the class-level map protocols, so a record can override e.g.
+   ICounted while other records keep the default. Key wrinkle found:
+   `-assoc`/`-dissoc`/`-with-meta`/`-clone` used `(new SciRecord ...)`,
+   which would DROP the per-record prototype; they now go through
+   `clone-record*` (`Object.create (getPrototypeOf this)` + ctor `.call`)
+   so derived instances keep their native slots. extend-type on record
+   types is allowed and retroactive.
+
+Both prerequisites are done: the migration steps below are unblocked.
 
 ## Migration steps (CLJS only), in order
 

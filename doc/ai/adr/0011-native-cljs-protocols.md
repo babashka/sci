@@ -143,8 +143,9 @@ clj-kondo clean vs master.
 
 ## Not covered (future work)
 
-- defrecord throws "not yet supported" for native protocol entries. reify
-  is supported: slots installed per instance, implemented arities only.
+- deftype, defrecord, reify and extend-type/extend-protocol on sci types are
+  all supported now (see ADR 0012 prerequisites for the record and reify
+  mechanics).
 - base types (`extend-type string ...` via goog.typeOf
   string keys on protocol/method-fn objects — advanced-safe, would need
   per-method `:fn` refs in the entry, deliberately not emitted today to

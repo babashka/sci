@@ -260,10 +260,40 @@ f")]
     (let [v (eval* "(let [x 10] (reify ICounted (-count [_] x)))")]
       (is (= 10 (count v))))))
 
-(deftest defrecord-native-protocol-not-supported-test
-  (is (thrown-with-msg?
-       js/Error #"not yet supported"
-       (eval* "(defrecord Foo [] ICounted (-count [_] 1))")))
-  (is (thrown-with-msg?
-       js/Error #"deftype"
-       (eval* "(defrecord Foo []) (extend-type Foo ICounted (-count [_] 1))"))))
+(deftest defrecord-native-protocol-test
+  (testing "custom protocol on a record, host side, map behavior intact"
+    (let [v (sci/eval-string "
+(require '[sci.protocol-lib :as plib])
+(defrecord R [w]
+  plib/IShout
+  (shout [_] (str w \"!\"))
+  (shout2 [this n] (str (:w this) n)))
+(->R \"hey\")" plib-opts)]
+      (is (= "hey!" (plib/shout v)))
+      (is (= "hey3" (plib/shout2 v 3)))
+      (is (true? (satisfies? plib/IShout v)))
+      (is (= "hey" (:w v)))
+      (testing "assoc/dissoc/with-meta/clone preserve native slots"
+        (is (= "hey!" (plib/shout (assoc v :x 1))))
+        (is (= 1 (:x (assoc v :x 1))))
+        (is (= "hey!" (plib/shout (dissoc (assoc v :x 1) :x))))
+        (is (= "hey!" (plib/shout (with-meta v {:m 1}))))
+        (is (= {:m 1} (meta (with-meta v {:m 1})))))))
+  (testing "shadowing a SciRecord class-level protocol"
+    (is (= 42 (eval* "(defrecord R [] ICounted (-count [_] 42)) (count (->R))")))
+    (testing "other records keep the default"
+      (is (= 2 (eval* "
+(defrecord R [] ICounted (-count [_] 42))
+(defrecord S [a])
+(count (assoc (->S 1) :b 2))")))))
+  (testing "sci side + extend-type on a record type, retroactive"
+    (is (= ["ext" true]
+           (sci/eval-string "
+(require '[sci.protocol-lib :as plib])
+(defrecord R [])
+(def r (->R))
+(extend-type R
+  plib/IShout
+  (shout [_] \"ext\")
+  (shout2 [_ n] n))
+[(plib/shout r) (satisfies? plib/IShout r)]" plib-opts)))))

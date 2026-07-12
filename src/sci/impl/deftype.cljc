@@ -188,10 +188,11 @@
 
 #?(:cljs
    (defn new-js-prototype
-     "Fresh prototype chaining to SciType's, so native protocol methods can be
-  installed per sci type without affecting other sci types."
-     []
-     (js/Object.create (.-prototype SciType))))
+     "Fresh prototype chaining to base-class's (SciType or SciRecord), so
+  native protocol methods can be installed per sci type without affecting
+  other sci types."
+     ([] (new-js-prototype SciType))
+     ([base-class] (js/Object.create (.-prototype base-class)))))
 
 #?(:cljs
    (defn ensure-js-prototype [t]
@@ -353,7 +354,34 @@
   "Record-specific path — protocol implementations with keyword-based field access."
   [ctx form rec-type record-name constructor-fn-sym map-factory-sym
    field-set protocol-impls]
-  (let [protocol-impls
+  (let [transform-bodies
+        (fn [bodies]
+          (mapv (fn [impl]
+                  (let [args (first impl)
+                        body (rest impl)
+                        destr (utils/maybe-destructured args body)
+                        args (:params destr)
+                        body (:body destr)
+                        orig-this-sym (first args)
+                        rest-args (rest args)
+                        shadows-this? (some #(= orig-this-sym %) rest-args)
+                        this-sym (if shadows-this?
+                                   (gensym "this_")
+                                   orig-this-sym)
+                        args (if shadows-this?
+                               (vec (cons this-sym rest-args))
+                               args)
+                        bindings (mapcat (fn [field]
+                                           [field (list (keyword field) this-sym)])
+                                         (reduce disj field-set args))
+                        bindings (if shadows-this?
+                                   (concat bindings [orig-this-sym this-sym])
+                                   bindings)
+                        bindings (vec bindings)]
+                    `(~args
+                      (let ~bindings
+                        ~@body)))) bodies))
+        protocol-impls
         (mapcat
          (fn [[protocol-name & impls]]
            (let [impls (group-by first impls)
@@ -366,52 +394,38 @@
                       (str "Protocol not found: " protocol-name)
                       form))
                  #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name form nil)])
-                 protocol (if (utils/var? protocol) @protocol protocol)
-                 _ (when (and (map? protocol) (:marker-setter protocol))
-                     (utils/throw-error-with-location
-                      (str "Implementing protocol " (:name protocol)
-                           " natively is not yet supported in defrecord")
-                      form))
-                 protocol-var (:var protocol)
-                 _ (when protocol-var
-                     (vars/alter-var-root protocol-var update :satisfies
-                                          (fnil conj #{}) (str rec-type)))
-                 protocol-ns (:ns protocol)
-                 pns (cond protocol-ns (str (types/getName protocol-ns))
-                           (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records"
-                           #?@(:clj [(= clojure.lang.IFn protocol) "clojure.lang"]))
-                 fq-meth-name #(if (simple-symbol? %)
-                                  (symbol pns (str %))
-                                  %)]
-             (map (fn [[method-name bodies]]
-                    (let [bodies (map rest bodies)
-                          bodies (mapv (fn [impl]
-                                         (let [args (first impl)
-                                               body (rest impl)
-                                               destr (utils/maybe-destructured args body)
-                                               args (:params destr)
-                                               body (:body destr)
-                                               orig-this-sym (first args)
-                                               rest-args (rest args)
-                                               shadows-this? (some #(= orig-this-sym %) rest-args)
-                                               this-sym (if shadows-this?
-                                                          (gensym "this_")
-                                                          orig-this-sym)
-                                               args (if shadows-this?
-                                                      (vec (cons this-sym rest-args))
-                                                      args)
-                                               bindings (mapcat (fn [field]
-                                                                  [field (list (keyword field) this-sym)])
-                                                                (reduce disj field-set args))
-                                               bindings (if shadows-this?
-                                                          (concat bindings [orig-this-sym this-sym])
-                                                          bindings)
-                                               bindings (vec bindings)]
-                                           `(~args
-                                             (let ~bindings
-                                               ~@body)))) bodies)]
-                      `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
-                  impls)))
+                 protocol (if (utils/var? protocol) @protocol protocol)]
+             (if (and (map? protocol) (:marker-setter protocol))
+               ;; native CLJS protocol, entry created by sci.core/copy-var on
+               ;; a protocol: install on the record type's JS prototype
+               (let [method-impls
+                     (into {}
+                           (map (fn [[method-name bodies]]
+                                  (let [bodies (map rest bodies)
+                                        arities (into #{} (map (comp count first)) bodies)
+                                        bodies (transform-bodies bodies)]
+                                    [(list 'quote (symbol (name method-name)))
+                                     {:arities arities
+                                      :impl `(fn ~@bodies)}])))
+                           impls)]
+                 [`(sci.impl.deftype/-install-native-protocol!
+                    ~rec-type ~protocol-name ~method-impls)])
+               (let [protocol-var (:var protocol)
+                     _ (when protocol-var
+                         (vars/alter-var-root protocol-var update :satisfies
+                                              (fnil conj #{}) (str rec-type)))
+                     protocol-ns (:ns protocol)
+                     pns (cond protocol-ns (str (types/getName protocol-ns))
+                               (= #?(:clj Object :cljs ::object) protocol) "sci.impl.records"
+                               #?@(:clj [(= clojure.lang.IFn protocol) "clojure.lang"]))
+                     fq-meth-name #(if (simple-symbol? %)
+                                     (symbol pns (str %))
+                                     %)]
+                 (map (fn [[method-name bodies]]
+                        (let [bodies (map rest bodies)
+                              bodies (transform-bodies bodies)]
+                          `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
+                      impls)))))
          protocol-impls)]
     (emit-record-type rec-type record-name constructor-fn-sym map-factory-sym
                       protocol-impls)))

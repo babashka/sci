@@ -120,10 +120,9 @@
      "Extends native CLJS protocol (entry created by sci.core/copy-var on a protocol)
   to a sci type by installing the method impls on its JS prototype."
      [atype proto-map impls]
-     (when-not (and (instance? sci.lang/Type atype)
-                    (not (:sci.impl/record (types/getVal atype))))
+     (when-not (instance? sci.lang/Type atype)
        (throw (js/Error. (str "Protocol " (:name proto-map)
-                              " can only be extended natively to types created with deftype in sci"))))
+                              " can only be extended natively to types created with deftype or defrecord in sci"))))
      (sci.impl.deftype/-install-native-protocol! atype proto-map impls)))
 
 (defn ^:private native-protocol? [proto-data]

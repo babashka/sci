@@ -277,6 +277,8 @@
      (applyTo [this args] (types/sci-apply-to this args))))
 
 ;; See https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
+#?(:cljs (declare clone-record*))
+
 #?(:cljs
    (deftype SciRecord [rec-name
                        type
@@ -286,8 +288,8 @@
      IRecord ;; marker interface
 
      ICloneable
-     (-clone [_]
-       (new SciRecord rec-name type basis-fields type-meta ext-map my_hash))
+     (-clone [this]
+       (clone-record* this ext-map my_hash))
 
      IHash
      (-hash [_]
@@ -312,9 +314,8 @@
        (meta ext-map))
 
      IWithMeta
-     (-with-meta [_ m]
-       (new SciRecord
-            rec-name type basis-fields type-meta (with-meta ext-map m) my_hash))
+     (-with-meta [this m]
+       (clone-record* this (with-meta ext-map m) my_hash))
 
      ILookup
      (-lookup [_ k]
@@ -337,14 +338,14 @@
      IAssociative
      (-contains-key? [_ k]
        (-contains-key? ext-map k))
-     (-assoc [_ k v]
-       (new SciRecord rec-name type basis-fields type-meta (assoc ext-map k v) nil))
+     (-assoc [this k v]
+       (clone-record* this (assoc ext-map k v) nil))
 
      IMap
-     (-dissoc [_ k]
+     (-dissoc [this k]
        (if (contains? basis-fields k)
          (dissoc ext-map k)
-         (new SciRecord rec-name type basis-fields type-meta (dissoc ext-map k) nil)))
+         (clone-record* this (dissoc ext-map k) nil)))
 
      ISeqable
      (-seq [_]
@@ -399,12 +400,27 @@
    (defmethod print-method SciRecord [v w]
      (-sci-print-method v w)))
 
+#?(:cljs
+   (defn clone-record*
+     "Copy of record `this` with new ext-map and hash, preserving the
+  prototype so native protocol slots survive assoc/dissoc/with-meta/clone."
+     [^SciRecord this ext-map my-hash]
+     (let [obj (js/Object.create (js/Object.getPrototypeOf this))]
+       (.call SciRecord obj (.-rec-name this) (.-type this) (.-basis-fields this)
+              (.-type-meta this) ext-map my-hash)
+       obj)))
+
 #?(:cljd (defn ->record-impl [rec-name type basis-fields type-meta m]
            (SciRecord. rec-name type basis-fields type-meta m nil))
    :clj  (defn ->record-impl [rec-name type basis-fields type-meta m]
            (SciRecord. rec-name type basis-fields type-meta m 0 0))
    :cljs (defn ->record-impl [rec-name type basis-fields type-meta m]
-           (SciRecord. rec-name type basis-fields type-meta m nil)))
+           (if-let [proto (when (instance? lang/Type type)
+                            (:sci.impl/js-prototype (types/getVal type)))]
+             (let [obj (js/Object.create proto)]
+               (.call SciRecord obj rec-name type basis-fields type-meta m nil)
+               obj)
+             (SciRecord. rec-name type basis-fields type-meta m nil))))
 
 (defn defrecord-macro
   "Macro expansion for defrecord. Emits factory fns directly (like Clojure),
