@@ -216,13 +216,13 @@
        (fn [& args] (this-as self (apply impl self (rest args)))))))
 
 #?(:cljs
-   (defn -install-native-protocol!
+   (defn -install-native-protocol-on!
      "Installs method impls for a native CLJS protocol (entry created with
-  sci.core/copy-var on a protocol) on the JS prototype of sci type `t`."
-     [t proto-map impls]
-     (let [proto (ensure-js-prototype t)
-           native-methods (:native-methods proto-map)]
-       ((:marker-setter proto-map) proto)
+  sci.core/copy-var on a protocol) on JS object `obj`: a per-type prototype
+  for deftype, a single instance for reify."
+     [obj proto-map impls]
+     (let [native-methods (:native-methods proto-map)]
+       ((:marker-setter proto-map) obj)
        (doseq [[msym {:keys [arities impl]}] impls]
          (let [m (or (get native-methods msym)
                      (throw (js/Error. (str "Method " msym " not found on protocol " (:name proto-map)))))]
@@ -230,8 +230,15 @@
              (let [setter (or (get (:setters m) arity)
                               (throw (js/Error. (str "Invalid arity " arity " for method " msym
                                                      " of protocol " (:name proto-map)))))]
-               (setter proto (with-js-this arity impl))))))
+               (setter obj (with-js-this arity impl))))))
        nil)))
+
+#?(:cljs
+   (defn -install-native-protocol!
+     "Installs method impls for a native CLJS protocol on the JS prototype of
+  sci type `t`."
+     [t proto-map impls]
+     (-install-native-protocol-on! (ensure-js-prototype t) proto-map impls)))
 
 (defn ->type-impl [rec-name type type-meta m]
   #?(:cljs (if-let [proto (when (instance? lang/Type type)

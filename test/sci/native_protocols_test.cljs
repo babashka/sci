@@ -227,10 +227,38 @@ f")]
   (extend-type Foo ICounted (-count [_] 7))
   (count inst))")))))
 
-(deftest reify-native-protocol-not-supported-test
-  (is (thrown-with-msg?
-       js/Error #"not yet supported"
-       (eval* "(reify ILookup (-lookup [this k] k))"))))
+(deftest reify-native-protocol-test
+  (testing "host side"
+    (let [v (eval* "
+(reify
+  ILookup
+  (-lookup [_ k] [:got k])
+  (-lookup [_ k nf] nf)
+  ICounted
+  (-count [_] 42))")]
+      (is (= [:got :x] (get v :x)))
+      (is (= :nf (get v :missing :nf)))
+      (is (= 42 (count v)))
+      (is (true? (satisfies? ILookup v)))
+      (is (false? (satisfies? IAssociative v)))))
+  (testing "sci side, mixed with a sci protocol"
+    (is (= [[:got :x] 1 true true :bar]
+           (eval* "
+(defprotocol Bar (bar [_]))
+(def r (reify
+         ILookup
+         (-lookup [_ k] [:got k])
+         ICounted
+         (-count [_] 1)
+         Bar
+         (bar [_] :bar)))
+[(get r :x) (count r) (satisfies? ILookup r) (satisfies? Bar r) (bar r)]"))))
+  (testing "partial implementation installs only implemented arities"
+    (let [v (eval* "(reify ILookup (-lookup [_ k] :two))")]
+      (is (= :two (get v :x)))))
+  (testing "closed-over locals"
+    (let [v (eval* "(let [x 10] (reify ICounted (-count [_] x)))")]
+      (is (= 10 (count v))))))
 
 (deftest defrecord-native-protocol-not-supported-test
   (is (thrown-with-msg?

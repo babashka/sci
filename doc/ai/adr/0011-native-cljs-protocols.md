@@ -143,8 +143,8 @@ clj-kondo clean vs master.
 
 ## Not covered (future work)
 
-- defrecord and reify throw "not yet supported" for native protocol
-  entries (reify would otherwise succeed silently with broken dispatch).
+- defrecord throws "not yet supported" for native protocol entries. reify
+  is supported: slots installed per instance, implemented arities only.
 - base types (`extend-type string ...` via goog.typeOf
   string keys on protocol/method-fn objects — advanced-safe, would need
   per-method `:fn` refs in the entry, deliberately not emitted today to
