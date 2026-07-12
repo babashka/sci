@@ -889,13 +889,16 @@
         data (if existing
                (merge (types/getVal existing) data)
                data)
-        ;; on CLJS every sci deftype gets its own JS prototype so that native
-        ;; protocols can be implemented/extended per type (see
+        ;; on CLJS every sci deftype and defrecord gets its own JS prototype
+        ;; so that native protocols can be implemented/extended per type (see
         ;; sci.impl.deftype/-install-native-protocol!)
-        data #?(:cljs (if (or (:sci.impl/record data)
-                              (:sci.impl/js-prototype data))
+        data #?(:cljs (if (:sci.impl/js-prototype data)
                         data
-                        (assoc data :sci.impl/js-prototype (sci.impl.deftype/new-js-prototype)))
+                        (assoc data :sci.impl/js-prototype
+                               (sci.impl.deftype/new-js-prototype
+                                (if (:sci.impl/record data)
+                                  sci.impl.records/SciRecord
+                                  sci.impl.deftype/SciType))))
                 :default data)
         t (if existing
             (do (types/setVal existing data)
