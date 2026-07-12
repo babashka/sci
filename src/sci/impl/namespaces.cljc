@@ -871,13 +871,36 @@
 ;;;; Record impl
 
 (defn -create-type [data]
-  (let [t (sci.lang/->Type data)
-        ctx (store/get-ctx)
+  (let [ctx (store/get-ctx)
         env (:env ctx)
         cnn (sci.impl.utils/current-ns-name)
-        type-name (symbol (let [s (clojure.core/str t)
-                                  i (str/last-index-of s ".")]
-                              (if i (subs s (inc i)) s)))]
+        type-name (symbol (let [s (clojure.core/str (:sci.impl/type-name data))
+                                i (str/last-index-of s ".")]
+                            (if i (subs s (inc i)) s)))
+        ;; adopt the Type that analyze-deftype* registered at analysis time:
+        ;; analyzed method bodies and factories reference that object, so
+        ;; creating a fresh one here would make (instance? Foo x) and native
+        ;; protocol installs miss
+        existing (let [t (get-in @env [:namespaces cnn :types type-name])]
+                   (when (and (sci.impl.utils/sci-type? t)
+                              (= (:sci.impl/type-name (types/getVal t))
+                                 (:sci.impl/type-name data)))
+                     t))
+        data (if existing
+               (merge (types/getVal existing) data)
+               data)
+        ;; on CLJS every sci deftype gets its own JS prototype so that native
+        ;; protocols can be implemented/extended per type (see
+        ;; sci.impl.deftype/-install-native-protocol!)
+        data #?(:cljs (if (or (:sci.impl/record data)
+                              (:sci.impl/js-prototype data))
+                        data
+                        (assoc data :sci.impl/js-prototype (sci.impl.deftype/new-js-prototype)))
+                :default data)
+        t (if existing
+            (do (types/setVal existing data)
+                existing)
+            (sci.lang/->Type data))]
     (swap! env (fn [env]
                  (-> env
                      (update-in [:namespaces cnn :types] assoc type-name t)
@@ -902,11 +925,13 @@
    '->type-impl sci.impl.deftype/->type-impl
    '-inner-impl sci.impl.types/getVal
    '-mutate sci.impl.types/-mutate
+   #?@(:cljs ['-install-native-protocol! sci.impl.deftype/-install-native-protocol!])
    'type types/type-impl})
 
 (def sci-impl-protocols
   {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)
    :private true
+   #?@(:cljs ['-extend-native! sci.impl.protocols/-extend-native!])
    'type->str sci.impl.protocols/type->str})
 
 ;;;; REPL vars

@@ -1,0 +1,80 @@
+# ADR 0012: Migrate CLJS core protocols to the native mechanism
+
+Status: proposed (not started). Builds on ADR 0011.
+
+## Context
+
+ADR 0011 added native CLJS protocol support: a sci `deftype` implementing a
+protocol entry (copy-var on a protocol) gets the protocol's method slots installed on a
+per-type JS prototype, so host `get`/`assoc`/`count`/`satisfies?` dispatch
+directly into the interpreted impls.
+
+Before that, the only host protocols sci could implement were the ones
+hand-wired in `core_protocols.cljc`: IDeref, ISwap, IReset,
+IPrintWithWriter, IFn. Each is a defmulti keyed on `type-impl`, with a
+`:sci.impl.protocols/reified` method that reads `getMethods`, a `:default`
+that falls back to `clojure.core`, and a wrapper (`deref*`, `swap!*`,
+`reset!*`) that fast-paths host atoms. This machinery is CLJS+CLJ shared via
+reader conditionals.
+
+The native mechanism is both cleaner and more capable than the hand-wired
+multimethods on CLJS. Proof of concept (exposing IDeref via a protocol entry
+instead of the hand-wired multimethod): `@instance` dispatches into the
+interpreted `-deref` both inside sci AND from host CLJS code, and
+`satisfies? IDeref` works. The current multimethod path does not give
+host-side `@` on sci instances at all.
+
+## Decision
+
+Migrate the CLJS side of the hand-wired core protocols to native
+protocol entries, delete the CLJS multimethod machinery, and let all
+CLJS protocol participation go through per-type prototypes. Keep the JVM side
+on multimethods (no JS prototypes on the JVM).
+
+IFn is excluded: copy-var protocol detection skips it and `SciType`/`Reified`
+implement IFn directly at the class level. It stays as-is.
+
+## Prerequisites (both currently throw "not yet supported")
+
+1. Native reify. `(reify IDeref (-deref [_] ...))` is the most common IDeref
+   shape. Native must support reify before the hand-wired path is removed, or
+   every reify-based deref/swap/reset regresses.
+2. Native defrecord. Records implementing IDeref/IFn (issue #808). Wrinkle:
+   `SciRecord` already implements the map protocols via its class, so a
+   record with a custom native protocol needs a per-record prototype
+   chaining to `SciRecord.prototype`, the same trick as deftype with more
+   surface.
+
+## Migration steps (CLJS only), in order
+
+1. Land native reify.
+2. Land native defrecord.
+3. Replace the `clojure.core` entries for IDeref, ISwap, IReset,
+   IPrintWithWriter in `namespaces.cljc` with protocol entries (CLJS
+   branch).
+4. Delete the CLJS branches of the `-deref`/`-swap!`/`-reset!` defmultis,
+   their `:sci.impl.protocols/reified` methods, and the `getMethods`
+   indirection in `core_protocols.cljc`. Keep the `#?(:clj ...)` branches.
+5. Collapse `deref*`/`swap!*`/`reset!*` on CLJS toward plain
+   `cljs.core/deref`/`swap!`/`reset!`, keeping the host-`Atom`/`IAtom`
+   fast path only if it measures.
+
+## Payoff
+
+- Deletes a large block of `core_protocols.cljc` CLJS branches.
+- One uniform CLJS model: every protocol participation via prototypes.
+- Host-side `@`, `swap!`, `pr-str`, and protocol-fn calls start working on
+  sci instances, not just sci-internal routing.
+
+## Watch items before flipping
+
+- Confirm plain `cljs.core/deref` works on `sci.lang/Var` and any internal
+  type that currently rides the `-deref` `:default` -> `clojure.core/deref`
+  fallback.
+- `extend-protocol IDeref` / `IPrintWithWriter` to host base types via the
+  old defmethod path is dropped on CLJS (native supports sci types only).
+  Confirm no embedder relies on it, or keep those specific protocols
+  hand-wired.
+- IPrintWithWriter: a per-type native `-pr-writer` shadows the existing
+  `sci-pr-writer` `:default` defmethod. Confirm default printing still holds
+  for types that do not implement it.
