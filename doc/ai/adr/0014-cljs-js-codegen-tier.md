@@ -55,6 +55,15 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
 - Interrupt check (`:interrupt-fn`) emitted at loop heads, matching `gen-fn`.
 - CSP probe: `enable!` try/catches a `new Function` construction; when
   blocked everything stays interpreted.
+- Stacktraces via call-site tables (the line-number-table trick): one
+  try/catch per template, a plain `s` register written before each call
+  site, and a const table mapping site index -> the call node's existing
+  stack map. The catch rethrows through the same
+  rethrow-with-location-of-node machinery as the interpreter, so frames and
+  locations are identical (verified: the previously-failing 5 stacktrace
+  tests pass; nbb output byte-identical to interpreted). Operator-inlined
+  sites can't throw and get no table entry. Measured cost: zero (all bench
+  numbers within noise).
 
 ## Measurements (node 22, `-O simple` harness in scratch/, min of 7)
 
@@ -70,8 +79,9 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
 | higher-order | 3.46ms | 0.77ms | 4.5x | parity | 1.4x slower |
 
 - Correctness: full CLJS test suite with jit force-enabled, `:none` and
-  `:advanced`: 1338 assertions, 5 failures, 0 errors — all 5 are
-  stacktrace/error-location tests (see limitations). 16-case smoke set
+  `:advanced`: 1338 assertions, 0 failures, 0 errors (after the call-site
+  table work; before it the only failures were 5 stacktrace tests).
+  16-case smoke set
   (redef through jitted call sites, keyword-as-fn via binding, recur through
   interpreted `case`, dynamic binding, variadic/multi-arity fallback, fn
   meta) matches the interpreter exactly.
@@ -84,10 +94,6 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
 
 ## Known limitations (prototype)
 
-- Stacktrace fidelity: compiled frames push no per-node stack info, so
-  `sci/stacktrace` loses intra-fn frames and error locations coarsen to the
-  fn. Candidate fix: per-call try/catch emitting rethrow-with-location (V8
-  try is ~free when not throwing); needs measurement.
 - Fallback (interpreter, correct but uncompiled): varargs bodies,
   `this-as`, and any form without an AST — `or`/`and`, `case`, `try`,
   collection literals, interop, fn-creation nodes (the created fn's own
@@ -116,9 +122,11 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
 
 - Eager compilation accepted: +5.7% analysis is fine against 20x+ runtime
   wins. Tiering and coverage heuristics dropped from the plan.
-- Stacktrace fidelity deferred: acceptable to document for an opt-in
-  experimental flag; the per-call try/catch idea needs its own measurement
-  before committing to it.
+- Stacktrace fidelity: DONE via call-site tables (see architecture).
+  Considered and rejected: shadow stacks (happy-path cost violates
+  pay-on-throw), parsing named-fn JS stacks (engine-specific, fn-level
+  granularity only). The site-table design was chosen because it keeps all
+  cost in the throw path except one register write per call site.
 
 ## Next steps, ranked by payoff/effort
 
