@@ -1,6 +1,7 @@
 (ns sci.native-protocols-test
   (:require [clojure.test :refer [deftest is testing]]
-            [sci.core :as sci]))
+            [sci.core :as sci]
+            [sci.protocol-lib :as plib]))
 
 (def cljs-core-ns (sci/create-ns 'cljs.core))
 
@@ -15,6 +16,39 @@
 
 (defn eval* [s]
   (sci/eval-string s opts))
+
+(def plib-sci-ns (sci/create-ns 'sci.protocol-lib))
+
+(def plib-opts
+  {:namespaces {'sci.protocol-lib (sci/copy-ns sci.protocol-lib plib-sci-ns)}})
+
+(deftest copy-ns-protocol-test
+  (testing "copy-ns turns protocol publics into protocol entries"
+    (let [v (sci/eval-string "
+(require '[sci.protocol-lib :as plib])
+(deftype T [w]
+  plib/IShout
+  (shout [_] (str w \"!\"))
+  (shout2 [_ n] (str w n)))
+(->T \"hey\")" plib-opts)]
+      (testing "host-side protocol fn dispatches into sci impl"
+        (is (= "hey!" (plib/shout v)))
+        (is (= "hey3" (plib/shout2 v 3)))
+        (is (= "hey!" (plib/shout-loudly v)))
+        (is (true? (satisfies? plib/IShout v)))
+        (is (false? (satisfies? plib/IMarker v))))))
+  (testing "sci-side satisfies?, marker protocol, extend-type"
+    (is (= [true "yo!" true]
+           (sci/eval-string "
+(require '[sci.protocol-lib :as plib])
+(deftype T [] plib/IShout (shout [_] \"yo!\") (shout2 [_ n] n))
+(deftype M [])
+(extend-type M plib/IMarker)
+[(satisfies? plib/IShout (->T)) (plib/shout (->T)) (satisfies? plib/IMarker (->M))]"
+                            plib-opts))))
+  (testing "non-protocol publics still copied as plain vars"
+    (is (fn? (sci/eval-string "
+(require '[sci.protocol-lib :as plib]) plib/shout-loudly" plib-opts)))))
 
 (deftest copy-var-protocol-entry-test
   (testing "copy-var wraps a protocol entry in a sci var, sharing the ns object"
