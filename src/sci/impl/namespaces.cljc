@@ -1983,22 +1983,24 @@
                #?@(:cljd [] :default ['rationalize (copy-core-var rationalize)])
                #?@(:cljd [] :default ['seque (copy-core-var seque)])
                #?@(:cljd [] :default ['xml-seq (copy-core-var xml-seq)])])})
-   ;; every cljs.core protocol as a native protocol entry, so sci code can
-   ;; implement them on deftype/defrecord/reify and extend them with
-   ;; extend-type. IFn is implemented on SciType at the class level; IDeref,
-   ;; ISwap, IReset and IPrintWithWriter come from sci.impl.core-protocols;
-   ;; IRecord keeps its dedicated marker entry.
+   ;; the implementable cljs.core protocols as native protocol entries, so
+   ;; sci code can implement them on deftype/defrecord/reify and extend them
+   ;; with extend-type. IFn is implemented on SciType at the class level;
+   ;; IDeref, ISwap, IReset and IPrintWithWriter come from
+   ;; sci.impl.core-protocols; IRecord keeps its dedicated marker entry.
+   ;; Deliberately absent internals: Fn, ASeq, APersistentVector, IChunk,
+   ;; IChunkedSeq, IChunkedNext, IMultiFn, IDerefWithTimeout, IUUID, IDrop.
    #?(:cljs (sci.impl.copy-vars/protocol-vars
              clojure-core-ns
-             Fn ICloneable ICounted IEmptyableCollection ICollection IIndexed
-             ASeq ISeq INext ILookup IAssociative IFind IMap IMapEntry ISet
-             IStack IVector IDerefWithTimeout IMeta IWithMeta IReduce
+             ICloneable ICounted IEmptyableCollection ICollection IIndexed
+             ISeq INext ILookup IAssociative IFind IMap IMapEntry ISet
+             IStack IVector IMeta IWithMeta IReduce
              IKVReduce IEquiv IHash ISeqable ISequential IList IReversible
              ISorted IWriter IPending IWatchable IEditableCollection
              ITransientCollection ITransientAssociative ITransientMap
-             ITransientVector ITransientSet IComparable IChunk IChunkedSeq
-             IChunkedNext INamed IAtom IVolatile IIterable IDrop Inst
-             APersistentVector IEncodeJS IEncodeClojure IMultiFn IUUID))))
+             ITransientVector ITransientSet IComparable
+             INamed IAtom IVolatile IIterable Inst
+             IEncodeJS IEncodeClojure))))
 
  (defn dir-fn
    [ns]
