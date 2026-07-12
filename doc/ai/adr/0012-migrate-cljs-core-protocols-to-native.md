@@ -17,6 +17,14 @@ Implementation notes (delta from the plan below):
   IDeref/ISwap/IReset rows in `satisfies?`'s condp (IRecord and IFn stay).
 - Host-side payoff verified in tests: `@`, `swap!`, `reset!` and `pr-str`
   on sci deftype/reify instances now work from compiled CLJS.
+- Bundle size (shadow-cljs release :sci, gzip): pre-#639 baseline 197,555 B,
+  after the four native-protocol merges 199,671 B (+2,116), after this
+  migration 199,065 B (-606: the deleted multimethod machinery outweighs
+  the four protocol entries). Whole feature net: +1,510 B gzip.
+- Self-hosted gotcha: macro-support fns in deftime live in the $macros twin
+  ns under self-hosted CLJS; cross-ns references from another macro body
+  need `#?(:clj ns/f :cljs ns$macros/f)`. `bb test:self-hosted` runs
+  locally via planck.
 
 ## Context
 
