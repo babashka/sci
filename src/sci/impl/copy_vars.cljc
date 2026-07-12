@@ -285,4 +285,20 @@
   sci namespace object. Compiles to nil outside ClojureScript."
       [psym ns]
       (when-let [info (cljs-protocol-info &env psym)]
-        (protocol-entry-form psym info ns)))))
+        (protocol-entry-form psym info ns)))
+
+    (defmacro protocol-vars
+      "Map of protocol name -> sci var holding a native protocol entry (see
+  protocol-entry), for the given cljs.core protocols. `ns` evaluates to a sci
+  namespace object. ClojureScript only."
+      [ns & psyms]
+      (into {}
+            (map (fn [p]
+                   (let [info (cljs-protocol-info &env p)]
+                     (when-not info
+                       (throw (ex-info (str "Not a protocol: " p) {:sym p})))
+                     [(list 'quote (symbol (name p)))
+                      `(utils/new-var '~(symbol (str "cljs.core." (name p)))
+                                      ~(protocol-entry-form p info ns)
+                                      {:ns ~ns})])))
+            psyms))))
