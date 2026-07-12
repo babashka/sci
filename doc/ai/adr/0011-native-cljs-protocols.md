@@ -153,7 +153,25 @@ clj-kondo clean vs master.
   `'-lookup -lookup` to `:namespaces` manually.
 - Self-hosted CLJS: macro has the branch (mirrors `copy-ns`), untested.
 
-## Open question: should `copy-ns` include host protocols?
+## `copy-ns` includes host protocols (implemented)
+
+Implemented on branch `copy-ns-protocols`: both CLJS macro-time branches of
+`copy-ns` detect protocol publics (`copy-ns-protocol-var?`:
+`:protocol-symbol` + `:protocol-info` on the analyzer var map or its meta,
+IFn excluded) and emit `protocol-entry-form` as the entry `:val`, wrapped in
+a sci var by `-copy-ns` like every other public. The sci-ns argument is
+hoisted into a let (gensym) so an inline `(sci/create-ns ...)` argument is
+evaluated once, not per protocol. Method vars stay plain copies: the copied
+host fn dispatches by property into sci impls once a sci deftype implements
+the protocol. Non-protocol publics unchanged. Verified in
+`test/sci/native_protocols_test.cljs` with the `sci.protocol-lib` fixture:
+host-side method calls, satisfies?, marker protocol via extend-type,
+multi-arity, plain fns using the protocol. The macro-support helpers moved
+into `macros/deftime` so they are not compiled into runtime CLJS bundles
+(also removes an undeclared `cljs.analyzer.api/resolve` warning present
+since the copy-var fold).
+
+The original question and analysis, kept for the record:
 
 `copy-ns` already copies protocol vars, but as sci-style entries (the
 `:protocol-symbol` path), not native protocol entries. Open question
@@ -187,8 +205,8 @@ Both reasons are cljs.core-specific. Bundle size only bites when sweeping a
 huge namespace, and embedders do not `copy-ns 'cljs.core` anyway (cljs.core
 is the interpreter's own core). The collision set is also cljs.core-only.
 
-TODO (post-merge, user namespaces): make `copy-ns` emit protocol entries for
-protocol publics on CLJS. For a user namespace this is a pure, no-collision
+Resolution (see top of this section, now implemented): for user namespaces
+this is a pure, no-collision
 addition. Today copy-ns half-does it: it already copies the protocol method
 fns (`m` from `(defprotocol P (m [_]))`) as the real host fns, but no sci
 instance carries the slots, so `(m sci-instance)` fails and the protocol is

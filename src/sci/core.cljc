@@ -68,23 +68,26 @@
 
 #?(:cljd nil
    :default
-   (defn- ^:macro-support protocol-prefix*
+   (macros/deftime
+    (defn- ^:macro-support protocol-prefix*
      "Munged property prefix for a fully qualified protocol symbol. Mirrors
   cljs.core/protocol-prefix: cljs.core/ILookup => cljs$core$ILookup$"
      [fq-sym]
      (str (-> (str fq-sym)
               (str/replace "." "$")
               (str/replace "/" "$"))
-          "$")))
+          "$"))))
 
 #?(:cljd nil
    :default
-   (defn- ^:macro-support protocol-prop* [s]
-     (with-meta (symbol (str "-" s)) {:protocol-prop true})))
+   (macros/deftime
+    (defn- ^:macro-support protocol-prop* [s]
+     (with-meta (symbol (str "-" s)) {:protocol-prop true}))))
 
 #?(:cljd nil
    :default
-   (defn- ^:macro-support cljs-protocol-info
+   (macros/deftime
+    (defn- ^:macro-support cljs-protocol-info
      "Analyzer var info when `sym` names a CLJS protocol var and we are
   compiling ClojureScript, nil otherwise. cljs.core/IFn is excluded: it is
   implemented on SciType at the class level (sci-invoke) and its
@@ -97,11 +100,12 @@
          (when (and (:name info)
                     (:protocol-symbol info)
                     (not= 'cljs.core/IFn (:name info)))
-           info)))))
+           info))))))
 
 #?(:cljd nil
    :default
-   (defn- ^:macro-support protocol-entry-form
+   (macros/deftime
+    (defn- ^:macro-support protocol-entry-form
      "Expansion for copying a CLJS protocol: a map entry with the protocol
      object, a compiled satisfies? fn and per-arity property setters that
      install method impls on a JS prototype (see
@@ -134,7 +138,19 @@
          :marker-setter (fn [o#]
                           (~'set! (. o# ~(protocol-prop* prefix)) cljs.core/PROTOCOL_SENTINEL)
                           nil)
-         :native-methods ~methods-form})))
+         :native-methods ~methods-form}))))
+
+#?(:cljd nil
+   :default
+   (macros/deftime
+    (defn- ^:macro-support copy-ns-protocol-var?
+     "True when a copy-ns public (analyzer var map + meta) names a CLJS
+  protocol that should be copied as a protocol entry. cljs.core/IFn is
+  excluded, see cljs-protocol-info."
+     [var m]
+     (and (or (:protocol-symbol var) (:protocol-symbol m))
+          (or (:protocol-info var) (:protocol-info m))
+          (not= 'cljs.core/IFn (:name var))))))
 
 (macros/deftime
   (defmacro copy-var
@@ -609,21 +625,32 @@
                               (sci.impl.cljs/cljs-ns-publics ns-sym)
                               publics-map (process-publics publics-map opts)
                               mf (meta-fn (:copy-meta opts))
+                              ns-gs (gensym "sci-ns")
                               publics-map (exclude-when-meta
                                            publics-map
                                            :meta
                                            (fn [k]
                                              (list 'quote k))
                                            (fn [var m]
-                                             {:name (list 'quote (:name var))
-                                              :val (:name var)
-                                              :meta (let [m (mf m)]
-                                                      (if (:protocol-symbol m)
-                                                        (list 'quote m)
-                                                        m))})
+                                             (if (copy-ns-protocol-var? var m)
+                                               {:name (list 'quote (:name var))
+                                                :val (protocol-entry-form
+                                                      (:name var)
+                                                      {:name (:name var)
+                                                       :protocol-info (or (:protocol-info var)
+                                                                          (:protocol-info m))}
+                                                      ns-gs)
+                                                :meta (list 'quote (mf m))}
+                                               {:name (list 'quote (:name var))
+                                                :val (:name var)
+                                                :meta (let [m (mf m)]
+                                                        (if (:protocol-symbol m)
+                                                          (list 'quote m)
+                                                          m))}))
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
-                          `(-copy-ns ~publics-map ~sci-ns))
+                          `(let [~ns-gs ~sci-ns]
+                             (-copy-ns ~publics-map ~ns-gs)))
                         :cljs
                         ;; this branch is hit by self-hosted
                         (let [ns?
@@ -636,21 +663,32 @@
                               (cljs.analyzer.api/ns-publics ns-sym)
                               publics-map (process-publics publics-map opts)
                               mf (meta-fn (:copy-meta opts))
+                              ns-gs (gensym "sci-ns")
                               publics-map (exclude-when-meta
                                            publics-map
                                            :meta
                                            (fn [k]
                                              (list 'quote k))
                                            (fn [var m]
-                                             {:name (list 'quote (:name var))
-                                              :val (:name var)
-                                              :meta (let [m (mf m)]
-                                                      (if (:protocol-symbol m)
-                                                        (list 'quote m)
-                                                        m))})
+                                             (if (copy-ns-protocol-var? var m)
+                                               {:name (list 'quote (:name var))
+                                                :val (protocol-entry-form
+                                                      (:name var)
+                                                      {:name (:name var)
+                                                       :protocol-info (or (:protocol-info var)
+                                                                          (:protocol-info m))}
+                                                      ns-gs)
+                                                :meta (list 'quote (mf m))}
+                                               {:name (list 'quote (:name var))
+                                                :val (:name var)
+                                                :meta (let [m (mf m)]
+                                                        (if (:protocol-symbol m)
+                                                          (list 'quote m)
+                                                          m))}))
                                            (or (:exclude-when-meta opts)
                                                [:no-doc :skip-wiki]))]
-                          `(-copy-ns ~publics-map ~sci-ns))))))))
+                          `(let [~ns-gs ~sci-ns]
+                             (-copy-ns ~publics-map ~ns-gs)))))))))
 
 (defn add-import!
   "Adds import of class named by `class-name` (a symbol) to namespace named by `ns-name` (a symbol) under alias `alias` (a symbol). Returns mutated context."
