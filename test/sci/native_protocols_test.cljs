@@ -331,3 +331,47 @@ f")]
   [@(->Box 42) (swap! c inc) (reset! c 9)])" nil))))
   (testing "host atoms unaffected"
     (is (= 2 (sci/eval-string "(let [a (atom 1)] (swap! a inc) @a)" nil)))))
+
+(deftest default-protocols-test
+  (testing "cljs.core protocols are available by default, no opts"
+    (is (= [1 :nf 2 false]
+           (sci/eval-string "
+(deftype B [m]
+  ILookup
+  (-lookup [_ k] (get m k))
+  (-lookup [_ k nf] (get m k nf))
+  ICounted
+  (-count [_] (count m))
+  IAssociative
+  (-contains-key? [_ k] (contains? m k))
+  (-assoc [_ k v] (->B (assoc m k v))))
+(def b (->B {:a 1}))
+[(get b :a) (get b :x :nf) (count (assoc b :b 2)) (satisfies? ISeqable b)]" nil))))
+  (testing "transients"
+    (is (= [1] (sci/eval-string "
+(deftype T [^:mutable v]
+  ITransientCollection
+  (-conj! [this x] (set! v (conj v x)) this)
+  (-persistent! [_] v))
+(deftype E [v]
+  IEditableCollection
+  (-as-transient [_] (->T v)))
+(persistent! (conj! (transient (->E [])) 1))" nil))))
+  (testing "INamed drives host name/namespace"
+    (let [v (sci/eval-string "
+(deftype N []
+  INamed
+  (-name [_] \"nm\")
+  (-namespace [_] \"nsp\"))
+(->N)" nil)]
+      (is (= "nm" (name v)))
+      (is (= "nsp" (namespace v)))))
+  (testing "IHash drives host hash"
+    (is (= 42 (hash (sci/eval-string "(deftype H [] IHash (-hash [_] 42)) (->H)" nil)))))
+  (testing "Inst drives inst-ms"
+    (is (= 42 (sci/eval-string "(deftype I [] Inst (inst-ms* [_] 42)) (inst-ms (->I))" nil))))
+  (testing "marker protocol via extend-type"
+    (is (true? (sci/eval-string "
+(deftype M [])
+(extend-type M IList)
+(satisfies? IList (->M))" nil)))))

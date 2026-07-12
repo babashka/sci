@@ -141,6 +141,22 @@ Full node suite passes under **both `:none` and `:advanced`** (the advanced
 run is the proof of the compiled-setter munging story), JVM suite and
 clj-kondo clean vs master.
 
+## Default protocol entries (branch `default-protocols`)
+
+The implementable cljs.core protocols (42) are exposed as native entries in
+sci's `clojure.core` by default (`protocol-vars` macro in copy_vars, merged
+into the core namespace map): no `copy-var` wiring needed to implement
+ILookup, IAssociative, ITransient*, INamed, Inst, ... on sci types. IDeref,
+ISwap, IReset and IPrintWithWriter keep their entries in core_protocols;
+IRecord keeps its dedicated marker entry. Deliberately absent as internals
+or vestigial: IFn (class-level on SciType), Fn, ASeq, APersistentVector,
+IChunk/IChunkedSeq/IChunkedNext (chunking perf internals), IMultiFn,
+IDerefWithTimeout (dead in cljs itself), IUUID, IDrop. Bundle cost
+measured: ~128 B gzip per protocol (52 protocols measured +6,659 B on a
+199,476 B baseline; the shipped 42 cost ~5.4 KB). Embedders can shadow
+individual entries via `:namespaces`, and cut ones remain available through
+`copy-var`.
+
 ## Not covered
 
 - deftype, defrecord, reify and extend-type/extend-protocol on sci types are
