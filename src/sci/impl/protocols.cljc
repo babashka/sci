@@ -115,10 +115,41 @@
            ~(list 'quote protocol-name))]
     expansion))
 
+#?(:cljs
+   (defn -extend-native!
+     "Extends native CLJS protocol (entry created by sci.core/copy-var on a protocol)
+  to a sci type by installing the method impls on its JS prototype."
+     [atype proto-map impls]
+     (when-not (and (instance? sci.lang/Type atype)
+                    (not (:sci.impl/record (types/getVal atype))))
+       (throw (js/Error. (str "Protocol " (:name proto-map)
+                              " can only be extended natively to types created with deftype in sci"))))
+     (sci.impl.deftype/-install-native-protocol! atype proto-map impls)))
+
+(defn ^:private native-protocol? [proto-data]
+  (boolean (and (map? proto-data) (:marker-setter proto-data))))
+
+(defn ^:private native-method-impls
+  "Builds the impls map consumed by -install-native-protocol! from
+  extend-type/extend-protocol method bodies."
+  [meths]
+  (into {}
+        (map (fn [[meth-name & fn-body]]
+               (let [bodies (if (vector? (first fn-body)) [fn-body] fn-body)
+                     arities (into #{} (map (comp count first)) bodies)]
+                 [(list 'quote (symbol (name meth-name)))
+                  {:arities arities
+                   :impl `(fn ~@bodies)}])))
+        meths))
+
 ;; TODO: apply patches for default override for records
 (defn extend [atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)
-          :let [extend-via-metadata (:extend-via-metadata proto)
+          :let [_ (when (native-protocol? proto)
+                    (throw (ex-info (str "Protocol " (:name proto)
+                                         " cannot be extended natively with `extend`, use `extend-type` instead")
+                                    {:protocol (:name proto)})))
+                extend-via-metadata (:extend-via-metadata proto)
                 proto-ns (:ns proto)
                 pns (types/getName proto-ns)
                 pns-str (when extend-via-metadata (str pns))]]
@@ -222,9 +253,11 @@
         protocol-var
         (or (@utils/eval-resolve-state ctx (:bindingx ctx) protocol-name)
             (utils/throw-error-with-location (str "Protocol not found: " protocol-name) form))
-        protocol-data (when (utils/var? protocol-var)
-                        (deref protocol-var))
+        protocol-data (if (utils/var? protocol-var)
+                        (deref protocol-var)
+                        protocol-var)
         extend-via-metadata (:extend-via-metadata protocol-data)
+        native? (native-protocol? protocol-data)
         protocol-ns (:ns protocol-data)
         pns (str (types/getName protocol-ns))
         expansion
@@ -233,11 +266,14 @@
                     (let [type #?(:cljd type
                                   :clj type
                                   :cljs (get cljs-type-symbols type type))]
-                      `(do
+                      (if native?
+                        `(sci.impl.protocols/-extend-native!
+                          ~type ~protocol-name ~(native-method-impls meths))
+                        `(do
                            (clojure.core/alter-var-root
                             (var ~protocol-name) update :satisfies (fnil conj #{})
                             (type->str ~type))
-                           ~@(process-methods ctx type meths pns extend-via-metadata))))
+                           ~@(process-methods ctx type meths pns extend-via-metadata)))))
                   impls))]
     expansion))
 
@@ -249,15 +285,21 @@
             (fn [[proto & meths]]
               (let [protocol-var (or (@utils/eval-resolve-state ctx (:bindingx ctx) proto)
                                      (utils/throw-error-with-location (str "Protocol not found: " proto) form))
-                    proto-data (deref protocol-var)
-                    protocol-ns (:ns proto-data)
-                    pns (str (types/getName protocol-ns))
-                    extend-via-metadata (:extend-via-metadata proto-data)]
-                `(do
-                   (clojure.core/alter-var-root
-                    (var ~proto) update :satisfies (fnil conj #{})
-                    (type->str ~atype))
-                   ~@(process-methods ctx atype meths pns extend-via-metadata)))) proto+meths))))
+                    proto-data (if (utils/var? protocol-var)
+                                 (deref protocol-var)
+                                 protocol-var)]
+                (if (native-protocol? proto-data)
+                  `(sci.impl.protocols/-extend-native!
+                    ~atype ~proto ~(native-method-impls meths))
+                  (let [protocol-ns (:ns proto-data)
+                        pns (str (types/getName protocol-ns))
+                        extend-via-metadata (:extend-via-metadata proto-data)]
+                    `(do
+                       (clojure.core/alter-var-root
+                        (var ~proto) update :satisfies (fnil conj #{})
+                        (type->str ~atype))
+                       ~@(process-methods ctx atype meths pns extend-via-metadata))))))
+            proto+meths))))
 
 ;; IAtom can be implemented as a protocol on reify and defrecords in sci
 
@@ -311,6 +353,9 @@
                 (find-matching-non-default-method protocol obj)))
        :cljs (let [p (:protocol protocol)]
                (or
+                ;; native protocol entry created by sci.core/copy-var on a protocol
+                (when-let [sf (:satisfies-fn protocol)]
+                  (sf obj))
                 (and p
                      (condp = p
                        IDeref (cljs.core/satisfies? IDeref obj)

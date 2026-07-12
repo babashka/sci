@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- [#639](https://github.com/babashka/sci/issues/639) (ClojureScript): `copy-var` on a protocol (e.g. `ILookup`) now copies it as a native protocol: sci code can implement it on `deftype` and extend it with `extend-type`, and host code calling protocol methods on such instances dispatches into the sci implementations. `cljs.core/IFn` is excluded.
+
 ## 0.14.54
 
 - ClojureDart support. See the [Flutter REPL example](examples/cljd-flutter-repl).

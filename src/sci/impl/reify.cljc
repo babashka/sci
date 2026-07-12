@@ -35,4 +35,8 @@
      ;; NOTE: in CLJS everything is a protocol in reify, except Object
      ;; So it's probably better if we dissoc-ed that from the set of classes
      ;; However, we only use that set to test in satisfies?
-     :cljs (t/->Reified classes methods (set classes))))
+     :cljs (do (doseq [c classes]
+                 (when (and (map? c) (:marker-setter c))
+                   (throw (js/Error. (str "Protocol " (:name c)
+                                          " is not yet supported in reify")))))
+               (t/->Reified classes methods (set classes)))))

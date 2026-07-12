@@ -66,12 +66,88 @@
                  assoc :sci/macro true)
       name meta false false nil (:ns meta)))))
 
+#?(:cljd nil
+   :default
+   (defn- ^:macro-support protocol-prefix*
+     "Munged property prefix for a fully qualified protocol symbol. Mirrors
+  cljs.core/protocol-prefix: cljs.core/ILookup => cljs$core$ILookup$"
+     [fq-sym]
+     (str (-> (str fq-sym)
+              (str/replace "." "$")
+              (str/replace "/" "$"))
+          "$")))
+
+#?(:cljd nil
+   :default
+   (defn- ^:macro-support protocol-prop* [s]
+     (with-meta (symbol (str "-" s)) {:protocol-prop true})))
+
+#?(:cljd nil
+   :default
+   (defn- ^:macro-support cljs-protocol-info
+     "Analyzer var info when `sym` names a CLJS protocol var and we are
+  compiling ClojureScript, nil otherwise. cljs.core/IFn is excluded: it is
+  implemented on SciType at the class level (sci-invoke) and its
+  arity/variadic call convention does not fit per-arity slot setters."
+     [env sym]
+     (when (:ns env)
+       (let [info #_:clj-kondo/ignore
+             (#?(:clj sci.impl.cljs/cljs-resolve
+                 :cljs cljs.analyzer.api/resolve) env sym)]
+         (when (and (:name info)
+                    (:protocol-symbol info)
+                    (not= 'cljs.core/IFn (:name info)))
+           info)))))
+
+#?(:cljd nil
+   :default
+   (defn- ^:macro-support protocol-entry-form
+     "Expansion for copying a CLJS protocol: a map entry with the protocol
+     object, a compiled satisfies? fn and per-arity property setters that
+     install method impls on a JS prototype (see
+     sci.impl.deftype/-install-native-protocol!). The setters are emitted as
+     property access forms so Closure renames them consistently with cljs.core
+     under :advanced."
+     [psym info ns]
+     (let [fq (:name info)
+           minfo (get-in info [:protocol-info :methods])
+           prefix (protocol-prefix* fq)
+           methods-form
+           (into {}
+                 (map (fn [[fname sigs]]
+                        [(list 'quote (symbol (name fname)))
+                         {:setters
+                          (into {}
+                                (map (fn [sig]
+                                       (let [n (count sig)
+                                             slot (protocol-prop* (str prefix (munge (name fname)) "$arity$" n))]
+                                         [n `(fn [o# f#]
+                                               (~'set! (. o# ~slot) f#)
+                                               nil)])))
+                                sigs)}]))
+                 minfo)]
+       `{:protocol ~psym
+         :name '~fq
+         :ns ~ns
+         :methods #{}
+         :satisfies-fn (fn [x#] (satisfies? ~psym x#))
+         :marker-setter (fn [o#]
+                          (~'set! (. o# ~(protocol-prop* prefix)) cljs.core/PROTOCOL_SENTINEL)
+                          nil)
+         :native-methods ~methods-form})))
+
 (macros/deftime
   (defmacro copy-var
     "Copies contents from var `sym` to a new sci var. The value `ns` is an
   object created with `sci.core/create-ns`.
 
-  Options:
+  On ClojureScript, when `sym` names a protocol (except `cljs.core/IFn`),
+  the sci var holds a protocol entry instead of the raw protocol object.
+  Sci code can then implement the protocol on `deftype` types, extend those
+  with `extend-type` and use `satisfies?`. Host code calling protocol
+  methods on such instances dispatches into the sci implementations.
+
+  Options (ignored for protocols):
 
   - `:name`: The name of the copied var. Defaults to the original var name.
   - `:copy-meta-from`: A symbol resolving to a var whose metadata (`:doc`,
@@ -80,7 +156,13 @@
     ([sym ns]
      `(copy-var ~sym ~ns nil))
     ([sym ns opts]
-     `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true)))))
+     #?(:cljd
+        `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true))
+        :default
+        (if-let [info (cljs-protocol-info &env sym)]
+          (let [nm (symbol (name (:name info)))]
+            `(new-var '~nm ~(protocol-entry-form sym info ns) {:ns ~ns}))
+          `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true)))))))
 
 (defn copy-var*
   "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`."
