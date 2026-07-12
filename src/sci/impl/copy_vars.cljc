@@ -228,9 +228,7 @@
   arity/variadic call convention does not fit per-arity slot setters."
       [env sym]
       (when (:ns env)
-        (let [info #_:clj-kondo/ignore
-              (#?(:clj sci.impl.cljs/cljs-resolve
-                  :cljs cljs.analyzer.api/resolve) env sym)]
+        (let [info (cljs-resolve env sym)]
           (when (and (:name info)
                      (:protocol-symbol info)
                      (not= 'cljs.core/IFn (:name info)))
