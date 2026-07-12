@@ -2,6 +2,7 @@
   {:no-doc true
    :doc "See doc/impl/copy-var.md for architecture overview."}
   (:require
+   [clojure.string :as str]
    [sci.impl.cljs]
    [sci.impl.macros :as macros]
    [sci.impl.utils :as utils :refer [clojure-core-ns]]
@@ -202,3 +203,86 @@
                             (and (not elide-vars)
                                  extra-meta)
                             (merge extra-meta))))))
+
+;;;; Native CLJS protocol entries (see doc/ai/adr/0011-native-cljs-protocols.md)
+
+#?(:cljd nil
+   :default
+   (macros/deftime
+    (defn- ^:macro-support protocol-prefix*
+      "Munged property prefix for a fully qualified protocol symbol. Mirrors
+  cljs.core/protocol-prefix: cljs.core/ILookup => cljs$core$ILookup$"
+      [fq-sym]
+      (str (-> (str fq-sym)
+               (str/replace "." "$")
+               (str/replace "/" "$"))
+           "$"))
+
+    (defn- ^:macro-support protocol-prop* [s]
+      (with-meta (symbol (str "-" s)) {:protocol-prop true}))
+
+    (defn ^:macro-support cljs-protocol-info
+      "Analyzer var info when `sym` names a CLJS protocol var and we are
+  compiling ClojureScript, nil otherwise. cljs.core/IFn is excluded: it is
+  implemented on SciType at the class level (sci-invoke) and its
+  arity/variadic call convention does not fit per-arity slot setters."
+      [env sym]
+      (when (:ns env)
+        (let [info #_:clj-kondo/ignore
+              (#?(:clj sci.impl.cljs/cljs-resolve
+                  :cljs cljs.analyzer.api/resolve) env sym)]
+          (when (and (:name info)
+                     (:protocol-symbol info)
+                     (not= 'cljs.core/IFn (:name info)))
+            info))))
+
+    (defn ^:macro-support protocol-entry-form
+      "Expansion for copying a CLJS protocol: a map entry with the protocol
+  object, a compiled satisfies? fn and per-arity property setters that
+  install method impls on a JS prototype (see
+  sci.impl.deftype/-install-native-protocol!). The setters are emitted as
+  property access forms so Closure renames them consistently with cljs.core
+  under :advanced."
+      [psym info ns]
+      (let [fq (:name info)
+            minfo (get-in info [:protocol-info :methods])
+            prefix (protocol-prefix* fq)
+            methods-form
+            (into {}
+                  (map (fn [[fname sigs]]
+                         [(list 'quote (symbol (name fname)))
+                          {:setters
+                           (into {}
+                                 (map (fn [sig]
+                                        (let [n (count sig)
+                                              slot (protocol-prop* (str prefix (munge (name fname)) "$arity$" n))]
+                                          [n `(fn [o# f#]
+                                                (~'set! (. o# ~slot) f#)
+                                                nil)])))
+                                 sigs)}]))
+                  minfo)]
+        `{:protocol ~psym
+          :name '~fq
+          :ns ~ns
+          :methods #{}
+          :satisfies-fn (fn [x#] (satisfies? ~psym x#))
+          :marker-setter (fn [o#]
+                           (~'set! (. o# ~(protocol-prop* prefix)) cljs.core/PROTOCOL_SENTINEL)
+                           nil)
+          :native-methods ~methods-form}))
+
+    (defn ^:macro-support copy-ns-protocol-var?
+      "True when a copy-ns public (analyzer var map + meta) names a CLJS
+  protocol that should be copied as a protocol entry. cljs.core/IFn is
+  excluded, see cljs-protocol-info."
+      [var m]
+      (and (or (:protocol-symbol var) (:protocol-symbol m))
+           (or (:protocol-info var) (:protocol-info m))
+           (not= 'cljs.core/IFn (:name var))))
+
+    (defmacro protocol-entry
+      "Native protocol entry map for CLJS protocol `psym`. `ns` evaluates to a
+  sci namespace object. Compiles to nil outside ClojureScript."
+      [psym ns]
+      (when-let [info (cljs-protocol-info &env psym)]
+        (protocol-entry-form psym info ns)))))

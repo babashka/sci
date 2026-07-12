@@ -297,3 +297,37 @@ f")]
   (shout [_] \"ext\")
   (shout2 [_ n] n))
 [(plib/shout r) (satisfies? plib/IShout r)]" plib-opts)))))
+
+(deftest core-protocols-native-host-side-test
+  (testing "IDeref: host @ on sci deftype and reify, no opts needed"
+    (is (= 42 @(sci/eval-string "(deftype Box [x] IDeref (-deref [_] x)) (->Box 42)" nil)))
+    (is (= :r @(sci/eval-string "(reify IDeref (-deref [_] :r))" nil))))
+  (testing "ISwap/IReset: host swap! and reset! on a sci deftype"
+    (let [v (sci/eval-string "
+(deftype Cell [^:mutable v]
+  ISwap
+  (-swap! [_ f] (set! v (f v)) v)
+  IReset
+  (-reset! [_ nv] (set! v nv) v))
+(->Cell 1)" nil)]
+      (is (= 2 (swap! v inc)))
+      (is (= 9 (reset! v 9)))))
+  (testing "IPrintWithWriter: host pr-str on a sci deftype"
+    (is (= "#P[]" (pr-str (sci/eval-string "
+(deftype P []
+  IPrintWithWriter
+  (-pr-writer [_ w _] (-write w \"#P[]\")))
+(->P)" nil)))))
+  (testing "sci-side deref/swap!/reset! still work"
+    (is (= [42 2 9]
+           (sci/eval-string "
+(deftype Box [x] IDeref (-deref [_] x))
+(deftype Cell [^:mutable v]
+  ISwap
+  (-swap! [_ f] (set! v (f v)) v)
+  IReset
+  (-reset! [_ nv] (set! v nv) v))
+(let [c (->Cell 1)]
+  [@(->Box 42) (swap! c inc) (reset! c 9)])" nil))))
+  (testing "host atoms unaffected"
+    (is (= 2 (sci/eval-string "(let [a (atom 1)] (swap! a inc) @a)" nil)))))
