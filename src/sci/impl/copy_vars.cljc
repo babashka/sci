@@ -297,8 +297,10 @@
                    (let [info (cljs-protocol-info &env p)]
                      (when-not info
                        (throw (ex-info (str "Not a protocol: " p) {:sym p})))
+                     ;; plain var name, like copy-var on a protocol: consumers
+                     ;; (e.g. nbb's implements?) build symbols from it
                      [(list 'quote (symbol (name p)))
-                      `(utils/new-var '~(symbol (str "cljs.core." (name p)))
+                      `(utils/new-var '~(symbol (name p))
                                       ~(protocol-entry-form p info ns)
                                       {:ns ~ns})])))
             psyms))))

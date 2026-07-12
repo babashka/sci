@@ -375,3 +375,8 @@ f")]
 (deftype M [])
 (extend-type M IList)
 (satisfies? IList (->M))" nil)))))
+
+(deftest default-protocol-var-name-test
+  (testing "default entries have plain var names like copy-var, so consumers
+  building symbols from the var name resolve them"
+    (is (= 'ICounted (sci/eval-string "(:name (meta #'ICounted))" nil)))))
