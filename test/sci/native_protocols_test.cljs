@@ -380,3 +380,21 @@ f")]
   (testing "default entries have plain var names like copy-var, so consumers
   building symbols from the var name resolve them"
     (is (= 'ICounted (sci/eval-string "(:name (meta #'ICounted))" nil)))))
+
+(deftest protocol-method-vars-test
+  (testing "protocol method fns are exposed as vars in sci"
+    (is (= 1 (sci/eval-string "(-lookup {:a 1} :a)" nil)))
+    (is (= 3 (sci/eval-string "(-count [1 2 3])" nil)))
+    (is (= 2 (sci/eval-string "(deftype B [] ILookup (-lookup [_ k] 2)) (-lookup (->B) :x)" nil)))
+    (is (= "x" (sci/eval-string "(deftype N [] INamed (-name [_] \"x\") (-namespace [_] nil)) (-name (->N))" nil)))))
+
+(deftest extend-fn-native-test
+  (testing "extend (the fn) with native protocols"
+    (is (= [:looked 2]
+           (sci/eval-string "
+(deftype T [])
+(extend T
+  ILookup {:-lookup (fn [_ k] :looked)}
+  ICounted {:-count (fn [_] 2)})
+(def t (->T))
+[(get t :x) (count t)]" nil)))))

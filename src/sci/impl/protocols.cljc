@@ -143,33 +143,41 @@
 
 ;; TODO: apply patches for default override for records
 (defn extend [atype & proto+mmaps]
-  (doseq [[proto mmap] (partition 2 proto+mmaps)
-          :let [_ (when (native-protocol? proto)
-                    (throw (ex-info (str "Protocol " (:name proto)
-                                         " cannot be extended natively with `extend`, use `extend-type` instead")
-                                    {:protocol (:name proto)})))
-                extend-via-metadata (:extend-via-metadata proto)
-                proto-ns (:ns proto)
-                pns (types/getName proto-ns)
-                pns-str (when extend-via-metadata (str pns))]]
-    (doseq [[meth-name f] mmap]
-      (let [meth-str (name meth-name)
-            meth-sym (symbol meth-str)
-            env@(:env (store/get-ctx))
-            multi-method-var (get-in env [:namespaces pns meth-sym])
-            multi-method @multi-method-var]
-        (mms/multi-fn-add-method-impl
-         multi-method #?(:cljd (if (identical? Object atype) :default atype)
-                         :default atype)
-         (if extend-via-metadata
-           (let [fq (symbol pns-str meth-str)]
-             (fn [this & args]
-               (if-let [m (meta this)]
-                 (if-let [meth (get m fq)]
-                   (apply meth this args)
-                   (apply f this args))
-                 (apply f this args))))
-           f))))))
+  (doseq [[proto mmap] (partition 2 proto+mmaps)]
+    (if (native-protocol? proto)
+      ;; native CLJS protocol: install on the sci type's JS prototype, at
+      ;; every arity the protocol declares for each given method
+      #?(:cljs (sci.impl.deftype/-install-native-protocol!
+                atype proto
+                (into {}
+                      (map (fn [[meth-name f]]
+                             (let [msym (symbol (name meth-name))]
+                               [msym {:arities (set (keys (:setters (get (:native-methods proto) msym))))
+                                      :impl f}])))
+                      mmap))
+         :default nil)
+      (let [extend-via-metadata (:extend-via-metadata proto)
+            proto-ns (:ns proto)
+            pns (types/getName proto-ns)
+            pns-str (when extend-via-metadata (str pns))]
+        (doseq [[meth-name f] mmap]
+          (let [meth-str (name meth-name)
+                meth-sym (symbol meth-str)
+                env (deref (:env (store/get-ctx)))
+                multi-method-var (get-in env [:namespaces pns meth-sym])
+                multi-method @multi-method-var]
+            (mms/multi-fn-add-method-impl
+             multi-method #?(:cljd (if (identical? Object atype) :default atype)
+                             :default atype)
+             (if extend-via-metadata
+               (let [fq (symbol pns-str meth-str)]
+                 (fn [this & args]
+                   (if-let [m (meta this)]
+                     (if-let [meth (get m fq)]
+                       (apply meth this args)
+                       (apply f this args))
+                     (apply f this args))))
+               f))))))))
 
 (defn process-single-extend-meta
   "Processes single args+body pair for extending via metadata"
