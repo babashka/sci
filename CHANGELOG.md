@@ -12,7 +12,14 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
-- [#639](https://github.com/babashka/sci/issues/639) (ClojureScript): `copy-var` on a protocol (e.g. `ILookup`) now copies it as a native protocol: sci code can implement it on `deftype` and extend it with `extend-type`, and host code calling protocol methods on such instances dispatches into the sci implementations. `cljs.core/IFn` is excluded.
+ClojureScript: native protocol support ([#639](https://github.com/babashka/sci/issues/639)). Sci code can implement CLJS protocols on `deftype`, `defrecord` and `reify`, and host code calling protocol methods on such instances dispatches into the sci implementations. Works under `:advanced` compilation.
+
+- [#639](https://github.com/babashka/sci/issues/639): implement CLJS protocols like `ILookup` on `deftype`: host `get`, `assoc`, `count`, `satisfies?` etc. work on sci instances
+- Most `cljs.core` protocols are available in sci by default, including their method fns (`-lookup`, `-conj!`, ...). `IFn` is implemented on sci types directly.
+- `IDeref`, `ISwap`, `IReset` and `IPrintWithWriter` implementations now also work from host code: `@`, `swap!`, `reset!` and `pr-str` on sci instances
+- `extend-type`, `extend-protocol` and `extend` work with CLJS protocols on sci types, retroactively for existing instances
+- `copy-var` on a protocol var and `copy-ns` protocol publics produce working protocol entries instead of inert copies
+- Extending CLJS protocols to base types (`string`, `number`, ...) and JS classes is not supported: it would mutate shared host objects
 
 ## 0.14.54
 

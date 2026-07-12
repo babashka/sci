@@ -289,18 +289,26 @@
 
     (defmacro protocol-vars
       "Map of protocol name -> sci var holding a native protocol entry (see
-  protocol-entry), for the given cljs.core protocols. `ns` evaluates to a sci
-  namespace object. ClojureScript only."
+  protocol-entry) plus method name -> sci var holding the host protocol fn,
+  for the given cljs.core protocols. `ns` evaluates to a sci namespace
+  object. ClojureScript only."
       [ns & psyms]
       (into {}
-            (map (fn [p]
-                   (let [info (cljs-protocol-info &env p)]
-                     (when-not info
-                       (throw (ex-info (str "Not a protocol: " p) {:sym p})))
-                     ;; plain var name, like copy-var on a protocol: consumers
-                     ;; (e.g. nbb's implements?) build symbols from it
-                     [(list 'quote (symbol (name p)))
-                      `(utils/new-var '~(symbol (name p))
-                                      ~(protocol-entry-form p info ns)
-                                      {:ns ~ns})])))
+            (mapcat (fn [p]
+                      (let [info (cljs-protocol-info &env p)]
+                        (when-not info
+                          (throw (ex-info (str "Not a protocol: " p) {:sym p})))
+                        (cons
+                         ;; plain var name, like copy-var on a protocol:
+                         ;; consumers (e.g. nbb's implements?) build symbols
+                         ;; from it
+                         [(list 'quote (symbol (name p)))
+                          `(utils/new-var '~(symbol (name p))
+                                          ~(protocol-entry-form p info ns)
+                                          {:ns ~ns})]
+                         (map (fn [[fname _sigs]]
+                                (let [m (symbol (name fname))]
+                                  [(list 'quote m)
+                                   `(utils/new-var '~m ~(symbol "cljs.core" (name m)) {:ns ~ns})]))
+                              (get-in info [:protocol-info :methods]))))))
             psyms))))

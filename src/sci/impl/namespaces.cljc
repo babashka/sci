@@ -1941,7 +1941,7 @@
      'zipmap (copy-core-var zipmap)
      'zero? (copy-core-var zero?)
 
-     #?@(:cljs ['-write (copy-var -write clojure-core-ns)])
+     ;; -write comes from the IWriter protocol-vars entry below
      'locking (macrofy 'locking locking*)
      #?@(:cljd ['-lazy-seq* (new-var '-lazy-seq* (fn [f] (lazy-seq (f))) clojure-core-ns)
                 '-delay* (new-var '-delay* (fn [f] (delay (f))) clojure-core-ns)
