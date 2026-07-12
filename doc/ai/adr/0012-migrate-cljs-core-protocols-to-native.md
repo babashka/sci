@@ -34,12 +34,14 @@ on multimethods (no JS prototypes on the JVM).
 IFn is excluded: copy-var protocol detection skips it and `SciType`/`Reified`
 implement IFn directly at the class level. It stays as-is.
 
-## Prerequisites (both currently throw "not yet supported")
+## Prerequisites
 
-1. Native reify. `(reify IDeref (-deref [_] ...))` is the most common IDeref
-   shape. Native must support reify before the hand-wired path is removed, or
-   every reify-based deref/swap/reset regresses.
-2. Native defrecord. Records implementing IDeref/IFn (issue #808). Wrinkle:
+1. Native reify: DONE (branch `native-reify`). reify* installs implemented
+   slots directly on the Reified instance via
+   `-install-native-protocol-on!` (specify!-style, no per-type prototype:
+   reify results are not extend-type targets). The reify macro passes a
+   per-method implemented-arities map so only implemented arities get slots.
+2. Native defrecord (open). Records implementing IDeref/IFn (issue #808). Wrinkle:
    `SciRecord` already implements the map protocols via its class, so a
    record with a custom native protocol needs a per-record prototype
    chaining to `SciRecord.prototype`, the same trick as deftype with more
