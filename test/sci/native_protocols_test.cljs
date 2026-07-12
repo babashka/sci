@@ -398,3 +398,8 @@ f")]
   ICounted {:-count (fn [_] 2)})
 (def t (->T))
 [(get t :x) (count t)]" nil)))))
+
+(deftest extend-fn-native-guard-test
+  (is (thrown-with-msg?
+       js/Error #"deftype or defrecord"
+       (sci/eval-string "(extend \"foo\" ILookup {:-lookup (fn [_ k] k)})" nil))))

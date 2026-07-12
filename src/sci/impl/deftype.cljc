@@ -318,9 +318,7 @@
                                                   body (:body destr)
                                                   orig-this-sym (first args)
                                                   rest-args (rest args)
-                                                  this-sym (if true #_shadows-this?
-                                                               '__sci_this
-                                                               orig-this-sym)
+                                                  this-sym '__sci_this
                                                   args (vec (cons this-sym rest-args))
                                                   ext-map-binding (gensym)
                                                   bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
@@ -546,9 +544,7 @@
                                    body (:body destr)
                                    orig-this-sym (first args)
                                    rest-args (rest args)
-                                   this-sym (if true #_shadows-this?
-                                                '__sci_this
-                                                orig-this-sym)
+                                   this-sym '__sci_this
                                    args (vec (cons this-sym rest-args))
                                    ext-map-binding (gensym)
                                    bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]

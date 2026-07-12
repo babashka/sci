@@ -147,7 +147,7 @@
     (if (native-protocol? proto)
       ;; native CLJS protocol: install on the sci type's JS prototype, at
       ;; every arity the protocol declares for each given method
-      #?(:cljs (sci.impl.deftype/-install-native-protocol!
+      #?(:cljs (-extend-native!
                 atype proto
                 (into {}
                       (map (fn [[meth-name f]]
