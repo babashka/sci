@@ -10,16 +10,14 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.14.55
 
 ClojureScript: native protocol support ([#639](https://github.com/babashka/sci/issues/639)). Sci code can implement CLJS protocols on `deftype`, `defrecord` and `reify`, and host code calling protocol methods on such instances dispatches into the sci implementations. Works under `:advanced` compilation.
 
-- [#639](https://github.com/babashka/sci/issues/639): implement CLJS protocols like `ILookup` on `deftype`: host `get`, `assoc`, `count`, `satisfies?` etc. work on sci instances
-- Most `cljs.core` protocols are available in sci by default, including their method fns (`-lookup`, `-conj!`, ...). `IFn` is implemented on sci types directly.
-- `IDeref`, `ISwap`, `IReset` and `IPrintWithWriter` implementations now also work from host code: `@`, `swap!`, `reset!` and `pr-str` on sci instances
-- `extend-type`, `extend-protocol` and `extend` work with CLJS protocols on sci types, retroactively for existing instances
+- [#639](https://github.com/babashka/sci/issues/639): implement CLJS protocols like `ILookup` on `deftype`: host `get`, `assoc`, `count`, `satisfies?` etc. work on SCI instances
+- Most `cljs.core` protocols are available in SCI now by default, including their method fns (`-lookup`, `-conj!`, ...).
+- `IDeref`, `ISwap`, `IReset` and `IPrintWithWriter` implementations now also work from host code: `@`, `swap!`, `reset!` and `pr-str` on SCI instances
 - `copy-var` on a protocol var and `copy-ns` protocol publics produce working protocol entries instead of inert copies
-- Extending CLJS protocols to base types (`string`, `number`, ...) and JS classes is not supported: it would mutate shared host objects
 
 ## 0.14.54
 
