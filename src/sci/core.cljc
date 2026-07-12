@@ -89,9 +89,17 @@
      #?(:cljd
         `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true))
         :default
-        (if-let [info (sci.impl.copy-vars/cljs-protocol-info &env sym)]
+        ;; in self-hosted CLJS the macro-support fns live in the $macros twin
+        ;; of sci.impl.copy-vars, the runtime ns has them elided by deftime
+        (if-let [info (#?(:clj sci.impl.copy-vars/cljs-protocol-info
+                          :cljs #_:clj-kondo/ignore
+                          sci.impl.copy-vars$macros/cljs-protocol-info) &env sym)]
           (let [nm (symbol (name (:name info)))]
-            `(new-var '~nm ~(sci.impl.copy-vars/protocol-entry-form sym info ns) {:ns ~ns}))
+            `(new-var '~nm
+                      ~(#?(:clj sci.impl.copy-vars/protocol-entry-form
+                           :cljs #_:clj-kondo/ignore
+                           sci.impl.copy-vars$macros/protocol-entry-form) sym info ns)
+                      {:ns ~ns}))
           `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true)))))))
 
 (defn copy-var*
@@ -584,9 +592,11 @@
                                            (fn [k]
                                              (list 'quote k))
                                            (fn [var m]
-                                             (if (sci.impl.copy-vars/copy-ns-protocol-var? var m)
+                                             (if (#_:clj-kondo/ignore
+                                                  sci.impl.copy-vars$macros/copy-ns-protocol-var? var m)
                                                {:name (list 'quote (:name var))
-                                                :val (sci.impl.copy-vars/protocol-entry-form
+                                                :val (#_:clj-kondo/ignore
+                                                      sci.impl.copy-vars$macros/protocol-entry-form
                                                       (:name var)
                                                       {:name (:name var)
                                                        :protocol-info (or (:protocol-info var)
