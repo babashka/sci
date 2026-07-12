@@ -1395,14 +1395,16 @@
      'satisfies? (copy-var sci.impl.protocols/satisfies? clojure-core-ns {:name 'satisfies?})
      ;; end protocols
      ;; IDeref as protocol
-     'deref (copy-var core-protocols/deref* clojure-core-ns {:name 'deref})
+     'deref #?(:cljs (copy-core-var deref)
+               :default (copy-var core-protocols/deref* clojure-core-ns {:name 'deref}))
      #?@(:cljd ['-deref (new-var '-deref core-protocols/-deref)
                 'IDeref core-protocols/deref-protocol]
-         :cljs ['-deref (new-var '-deref core-protocols/-deref)
+         :cljs ['-deref (new-var '-deref -deref)
                 'IDeref core-protocols/deref-protocol])
      ;; end IDeref as protocol
      ;; IAtom / ISwap as protocol
-     'swap! (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!})
+     'swap! #?(:cljs (copy-core-var swap!)
+               :default (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!}))
      'compare-and-set! #?(:cljd (copy-core-var compare-and-set!)
                           :clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
                           :cljs (copy-core-var compare-and-set!))
@@ -1412,8 +1414,8 @@
                 '-reset! (new-var '-reset! core-protocols/-reset!)]
          :cljs ['IReset core-protocols/reset-protocol
                 'ISwap core-protocols/swap-protocol
-                '-swap! (new-var '-swap! core-protocols/-swap!)
-                '-reset! (new-var '-reset! core-protocols/-reset!)])
+                '-swap! (new-var '-swap! -swap!)
+                '-reset! (new-var '-reset! -reset!)])
      ;; in CLJS swap-vals! and reset-vals! are going through the other protocols
      #?@(:clj ['swap-vals! (copy-var core-protocols/swap-vals!* clojure-core-ns {:name 'swap-vals!})
                'reset-vals! (copy-var core-protocols/reset-vals!* clojure-core-ns {:name 'reset-vals!})])
@@ -1425,7 +1427,7 @@
          :cljs ['IRecord (utils/new-var 'IRecord {:protocol IRecord :ns clojure-core-ns}
                                         {:ns clojure-core-ns})
                 'IPrintWithWriter core-protocols/print-writer-protocol
-                '-pr-writer (new-var '-pr-writer types/sci-pr-writer)
+                '-pr-writer (new-var '-pr-writer -pr-writer)
                 'IFn core-protocols/ifn-protocol
                 '-invoke (new-var '-invoke types/sci-invoke)])
      ;; cljs data structures
@@ -1800,7 +1802,8 @@
      'reduce-kv (copy-core-var reduce-kv)
      'reduced (copy-core-var reduced)
      'reduced? (copy-core-var reduced?)
-     'reset! (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!})
+     'reset! #?(:cljs (copy-core-var reset!)
+                :default (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!}))
      'reset-thread-binding-frame-impl (new-var 'reset-thread-binding-frame-impl sci.impl.vars/reset-thread-binding-frame)
      'resolve (copy-var sci-resolve clojure-core-ns {:name 'resolve})
      #?@(:cljd [] :default ['reversible? (copy-core-var reversible?)])

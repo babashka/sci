@@ -4,6 +4,7 @@
   (:require
    [sci.impl.deftype]
    #?(:cljd [sci.impl.multimethods :as mm])
+   #?(:cljs [sci.impl.copy-vars :as copy-vars])
    [sci.impl.records]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
@@ -23,31 +24,34 @@
                                ((get (types/getMethods ref) '-deref) ref))
                              :default
                              (fn [ref] (clojure.core/deref ref))})))
-   :default
-   (do (defmulti #?(:clj deref :cljs -deref) types/type-impl)
+   :clj
+   (do (defmulti deref types/type-impl)
 
-       (defmethod #?(:clj deref :cljs -deref) :sci.impl.protocols/reified [ref]
+       (defmethod deref :sci.impl.protocols/reified [ref]
          (let [methods (types/getMethods ref)]
-           ((get methods #?(:clj 'deref :cljs '-deref)) ref)))
+           ((get methods 'deref) ref)))
 
-       (defmethod #?(:clj deref :cljs -deref) :default [ref]
-         (clojure.core/deref ref))))
+       (defmethod deref :default [ref]
+         (clojure.core/deref ref)))
+   ;; on CLJS sci types implement IDeref natively (per-type/per-instance
+   ;; protocol slots), so plain cljs.core/deref dispatches into sci impls
+   :cljs nil)
 
-(defn deref*
-  ([x]
-   #?(:cljd (if (satisfies? IDeref x)
-              (clojure.core/deref x)
-              (-deref x))
-      :clj (if (instance? clojure.lang.IDeref x)
-             (clojure.core/deref x)
-             (deref x))
-      :cljs (if (or (instance? Atom x)
-                    (implements? IDeref x))
-              (clojure.core/deref x)
-              (-deref x))))
-  #?@(:cljd [] :clj
-      [([x & args]
-        (apply clojure.core/deref x args))]))
+;; on CLJS sci types implement the protocols natively, so clojure.core's
+;; deref/swap!/reset! are exposed directly and no re-routing wrappers exist
+#?(:cljd
+   (defn deref* [x]
+     (if (satisfies? IDeref x)
+       (clojure.core/deref x)
+       (-deref x)))
+   :clj
+   (defn deref*
+     ([x]
+      (if (instance? clojure.lang.IDeref x)
+        (clojure.core/deref x)
+        (deref x)))
+     ([x & args]
+      (apply clojure.core/deref x args))))
 
 #?(:cljd
    (def cljd-core-ns (lang/->Namespace 'cljd.core nil)))
@@ -74,9 +78,7 @@
      :cljs
      (utils/new-var
       'cljs.core.IDeref
-      {:protocol IDeref
-       :methods #{-deref}
-       :ns cljs-core-ns}
+      (copy-vars/protocol-entry IDeref cljs-core-ns)
       {:ns cljs-core-ns})))
 
 ;;;; end IDeref
@@ -104,7 +106,7 @@
                              :default
                              (fn [ref f & args]
                                (apply clojure.core/swap! ref f args))})))
-   :default (defmulti #?(:clj swap :cljs -swap!) types/type-impl))
+   :clj (defmulti swap types/type-impl))
 #?(:cljd
    (def -reset!
      (mm/->SciMultiFn '-reset! types/type-impl :default
@@ -113,34 +115,32 @@
                                ((get (types/getMethods ref) '-reset!) ref v))
                              :default
                              (fn [ref v] (reset! ref v))})))
-   :default (defmulti #?(:clj reset :cljs -reset!) types/type-impl))
+   :clj (defmulti reset types/type-impl))
 #?(:clj (defmulti compareAndSet types/type-impl))
 #?(:clj (defmulti swapVals types/type-impl))
 #?(:clj (defmulti resetVals types/type-impl))
 
 ;;;; Protocol methods
 
-#?(:cljd nil
-   :default
-   (defmethod #?(:clj swap :cljs -swap!) :sci.impl.protocols/reified
+#?(:clj
+   (defmethod swap :sci.impl.protocols/reified
      ([ref f]
       (let [methods (types/getMethods ref)]
-        ((get methods #?(:clj 'swap :cljs '-swap!)) ref f)))
+        ((get methods 'swap) ref f)))
      ([ref f a1]
       (let [methods (types/getMethods ref)]
-        ((get methods #?(:clj 'swap :cljs '-swap!)) ref f a1)))
+        ((get methods 'swap) ref f a1)))
      ([ref f a1 a2]
       (let [methods (types/getMethods ref)]
-        ((get methods #?(:clj 'swap :cljs '-swap!)) ref f a1 a2)))
+        ((get methods 'swap) ref f a1 a2)))
      ([ref f a1 a2 & args]
       (let [methods (types/getMethods ref)]
-        (apply (get methods #?(:clj 'swap :cljs '-swap!)) ref f a1 a2 args)))))
+        (apply (get methods 'swap) ref f a1 a2 args)))))
 
-#?(:cljd nil
-   :default
-   (defmethod #?(:clj reset :cljs -reset!) :sci.impl.protocols/reified [ref v]
+#?(:clj
+   (defmethod reset :sci.impl.protocols/reified [ref v]
      (let [methods (types/getMethods ref)]
-       ((get methods #?(:clj 'reset :cljs '-reset!)) ref v))))
+       ((get methods 'reset) ref v))))
 
 #?(:clj
    (defmethod compareAndSet :sci.impl.protocols/reified [ref old new]
@@ -169,15 +169,13 @@
 
 ;;;; Defaults
 
-#?(:cljd nil
-   :default
-   (defmethod #?(:clj swap :cljs -swap!) :default [ref f & args]
+#?(:clj
+   (defmethod swap :default [ref f & args]
      ;; TODO: optimize arities
      (apply clojure.core/swap! ref f args)))
 
-#?(:cljd nil
-   :default
-   (defmethod #?(:clj reset :cljs -reset!) :default [ref v]
+#?(:clj
+   (defmethod reset :default [ref v]
      (reset! ref v)))
 
 #?(:clj
@@ -194,31 +192,40 @@
 
 ;;;; Re-routing
 
-(defn swap!* [ref f & args]
-  (if
-      ;; fast-path for host IAtom
-      #?(:cljd (or (instance? cljd.core/Atom ref)
-                   (satisfies? ISwap ref))
-         :cljs (or (instance? Atom ref)
-                   (implements? ISwap ref))
-         :clj (instance? clojure.lang.IAtom ref))
-    (if args
-      (apply clojure.core/swap! ref f args)
-      (clojure.core/swap! ref f))
-    (if args
-      (apply #?(:cljd -swap! :clj swap :cljs -swap!) ref f args)
-      (#?(:cljd -swap! :clj swap :cljs -swap!) ref f))))
+#?(:cljd nil :cljs nil :clj
+   (defn swap!* [ref f & args]
+     (if
+         ;; fast-path for host IAtom
+         (instance? clojure.lang.IAtom ref)
+       (if args
+         (apply clojure.core/swap! ref f args)
+         (clojure.core/swap! ref f))
+       (if args
+         (apply swap ref f args)
+         (swap ref f)))))
 
-(defn reset!* [ref v]
-  (if
-      ;; fast-path for host IAtoms
-      #?(:cljd (or (instance? cljd.core/Atom ref)
-                   (satisfies? IReset ref))
-         :cljs (or (instance? Atom ref)
-                   (implements? IReset ref))
-         :clj (instance? clojure.lang.IAtom ref))
-    (clojure.core/reset! ref v)
-    (#?(:cljd -reset! :clj reset :cljs -reset!) ref v)))
+#?(:cljd
+   (defn swap!* [ref f & args]
+     (if (or (instance? cljd.core/Atom ref)
+             (satisfies? ISwap ref))
+       (if args
+         (apply clojure.core/swap! ref f args)
+         (clojure.core/swap! ref f))
+       (if args
+         (apply -swap! ref f args)
+         (-swap! ref f)))))
+
+#?(:cljd
+   (defn reset!* [ref v]
+     (if (or (instance? cljd.core/Atom ref)
+             (satisfies? IReset ref))
+       (clojure.core/reset! ref v)
+       (-reset! ref v)))
+   :clj
+   (defn reset!* [ref v]
+     (if (instance? clojure.lang.IAtom ref)
+       (clojure.core/reset! ref v)
+       (reset ref v))))
 
 #?(:clj
    (defn compare-and-set!* [ref old new]
@@ -259,9 +266,7 @@
      :cljs
      (utils/new-var
       'cljs.core.ISwap
-      {:protocol ISwap
-       :methods #{-swap!}
-       :ns cljs-core-ns}
+      (copy-vars/protocol-entry ISwap cljs-core-ns)
       {:ns cljs-core-ns})))
 
 #?(:cljd
@@ -277,9 +282,7 @@
    (def reset-protocol
      (utils/new-var
       'cljs.core.IReset
-      {:protocol IReset
-       :methods #{-reset!}
-       :ns cljs-core-ns}
+      (copy-vars/protocol-entry IReset cljs-core-ns)
       {:ns cljs-core-ns})))
 
 #?(:clj
@@ -296,22 +299,10 @@
 ;;;; IPrintWithWriter (CLJS only)
 
 #?(:cljs
-   (defmethod types/sci-pr-writer :sci.impl.protocols/reified [this w opts]
-     (if-let [pm (get (types/getMethods this) '-pr-writer)]
-       (pm this w opts)
-       (-write w "#object[sci.impl.types.Reified]"))))
-
-#?(:cljs
-   (defn -pr-writer* [this writer opts]
-     (cljs.core/-pr-writer this writer opts)))
-
-#?(:cljs
    (def print-writer-protocol
      (utils/new-var
       'cljs.core.IPrintWithWriter
-      {:protocol IPrintWithWriter
-       :methods #{types/sci-pr-writer}
-       :ns cljs-core-ns}
+      (copy-vars/protocol-entry IPrintWithWriter cljs-core-ns)
       {:ns cljs-core-ns})))
 
 ;;;; end IPrintWithWriter

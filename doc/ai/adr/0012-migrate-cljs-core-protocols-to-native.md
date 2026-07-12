@@ -1,6 +1,22 @@
 # ADR 0012: Migrate CLJS core protocols to the native mechanism
 
-Status: proposed (not started). Builds on ADR 0011.
+Status: implemented (branch `adr-0012-core-protocols`). Builds on ADR 0011.
+
+Implementation notes (delta from the plan below):
+- The protocol-entry machinery moved from sci.core to `sci.impl.copy-vars`
+  (deftime, `protocol-entry` macro) so `core_protocols.cljc` can build the
+  IDeref/ISwap/IReset/IPrintWithWriter entries without a dependency cycle;
+  sci.core's copy-var/copy-ns use it from there.
+- The method vars sci exposes (`-deref`, `-swap!`, `-reset!`, `-pr-writer`)
+  now hold the real cljs.core protocol fns instead of the multimethods.
+- `deref`/`swap!`/`reset!` on CLJS are plain `copy-core-var` copies; the
+  `deref*`/`swap!*`/`reset!*` re-routing wrappers are CLJ/cljd only now.
+- Deleted on CLJS: the `-deref`/`-swap!`/`-reset!` defmultis with their
+  `:sci.impl.protocols/reified` and `:default` methods, the
+  `types/sci-pr-writer` `:reified` method and `-pr-writer*`, and the
+  IDeref/ISwap/IReset rows in `satisfies?`'s condp (IRecord and IFn stay).
+- Host-side payoff verified in tests: `@`, `swap!`, `reset!` and `pr-str`
+  on sci deftype/reify instances now work from compiled CLJS.
 
 ## Context
 

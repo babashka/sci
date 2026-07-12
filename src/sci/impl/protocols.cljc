@@ -352,14 +352,13 @@
                 (find-matching-non-default-method protocol obj)))
        :cljs (let [p (:protocol protocol)]
                (or
-                ;; native protocol entry created by sci.core/copy-var on a protocol
+                ;; native protocol entry created by sci.core/copy-var on a
+                ;; protocol; IDeref, ISwap, IReset and IPrintWithWriter are
+                ;; such entries since ADR 0012
                 (when-let [sf (:satisfies-fn protocol)]
                   (sf obj))
                 (and p
                      (condp = p
-                       IDeref (cljs.core/satisfies? IDeref obj)
-                       ISwap (cljs.core/satisfies? ISwap obj)
-                       IReset (cljs.core/satisfies? IReset obj)
                        IRecord (cljs.core/satisfies? IRecord obj)
                        IFn (core-protocols/sci-ifn? obj)
                        nil))

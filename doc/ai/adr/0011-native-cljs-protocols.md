@@ -141,15 +141,22 @@ Full node suite passes under **both `:none` and `:advanced`** (the advanced
 run is the proof of the compiled-setter munging story), JVM suite and
 clj-kondo clean vs master.
 
-## Not covered (future work)
+## Not covered
 
 - deftype, defrecord, reify and extend-type/extend-protocol on sci types are
   all supported now (see ADR 0012 prerequisites for the record and reify
   mechanics).
-- base types (`extend-type string ...` via goog.typeOf
-  string keys on protocol/method-fn objects — advanced-safe, would need
-  per-method `:fn` refs in the entry, deliberately not emitted today to
-  keep bundles DCE-friendly), JS classes via `:classes`.
+- Base types (`extend-type string ...` for native protocols): REJECTED.
+  Never worked (verified on pre-migration master: errors at analysis), and
+  supporting it would require goog.typeOf string keys set ON the host
+  protocol object and its method fns, so extending a native protocol to
+  `string`/`number`/... from sci would mutate shared host objects and change
+  dispatch for every such value in the host app, not just sci-created
+  values. That breaks the no-host-mutation property this design is built on
+  (for core protocols it is sandbox leakage into host semantics).
+  `-extend-native!` keeps throwing for non-sci-type targets.
+- JS classes via `:classes` as extend-type targets: not planned for now,
+  same host-mutation concern (writes to a host class's prototype).
 - Direct method vars (`(-lookup x k)` in sci code) — embedder can add
   `'-lookup -lookup` to `:namespaces` manually.
 - Self-hosted CLJS: macro has the branch (mirrors `copy-ns`), untested.

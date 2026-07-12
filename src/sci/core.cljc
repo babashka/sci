@@ -66,92 +66,6 @@
                  assoc :sci/macro true)
       name meta false false nil (:ns meta)))))
 
-#?(:cljd nil
-   :default
-   (macros/deftime
-    (defn- ^:macro-support protocol-prefix*
-     "Munged property prefix for a fully qualified protocol symbol. Mirrors
-  cljs.core/protocol-prefix: cljs.core/ILookup => cljs$core$ILookup$"
-     [fq-sym]
-     (str (-> (str fq-sym)
-              (str/replace "." "$")
-              (str/replace "/" "$"))
-          "$"))))
-
-#?(:cljd nil
-   :default
-   (macros/deftime
-    (defn- ^:macro-support protocol-prop* [s]
-     (with-meta (symbol (str "-" s)) {:protocol-prop true}))))
-
-#?(:cljd nil
-   :default
-   (macros/deftime
-    (defn- ^:macro-support cljs-protocol-info
-     "Analyzer var info when `sym` names a CLJS protocol var and we are
-  compiling ClojureScript, nil otherwise. cljs.core/IFn is excluded: it is
-  implemented on SciType at the class level (sci-invoke) and its
-  arity/variadic call convention does not fit per-arity slot setters."
-     [env sym]
-     (when (:ns env)
-       (let [info #_:clj-kondo/ignore
-             (#?(:clj sci.impl.cljs/cljs-resolve
-                 :cljs cljs.analyzer.api/resolve) env sym)]
-         (when (and (:name info)
-                    (:protocol-symbol info)
-                    (not= 'cljs.core/IFn (:name info)))
-           info))))))
-
-#?(:cljd nil
-   :default
-   (macros/deftime
-    (defn- ^:macro-support protocol-entry-form
-     "Expansion for copying a CLJS protocol: a map entry with the protocol
-     object, a compiled satisfies? fn and per-arity property setters that
-     install method impls on a JS prototype (see
-     sci.impl.deftype/-install-native-protocol!). The setters are emitted as
-     property access forms so Closure renames them consistently with cljs.core
-     under :advanced."
-     [psym info ns]
-     (let [fq (:name info)
-           minfo (get-in info [:protocol-info :methods])
-           prefix (protocol-prefix* fq)
-           methods-form
-           (into {}
-                 (map (fn [[fname sigs]]
-                        [(list 'quote (symbol (name fname)))
-                         {:setters
-                          (into {}
-                                (map (fn [sig]
-                                       (let [n (count sig)
-                                             slot (protocol-prop* (str prefix (munge (name fname)) "$arity$" n))]
-                                         [n `(fn [o# f#]
-                                               (~'set! (. o# ~slot) f#)
-                                               nil)])))
-                                sigs)}]))
-                 minfo)]
-       `{:protocol ~psym
-         :name '~fq
-         :ns ~ns
-         :methods #{}
-         :satisfies-fn (fn [x#] (satisfies? ~psym x#))
-         :marker-setter (fn [o#]
-                          (~'set! (. o# ~(protocol-prop* prefix)) cljs.core/PROTOCOL_SENTINEL)
-                          nil)
-         :native-methods ~methods-form}))))
-
-#?(:cljd nil
-   :default
-   (macros/deftime
-    (defn- ^:macro-support copy-ns-protocol-var?
-     "True when a copy-ns public (analyzer var map + meta) names a CLJS
-  protocol that should be copied as a protocol entry. cljs.core/IFn is
-  excluded, see cljs-protocol-info."
-     [var m]
-     (and (or (:protocol-symbol var) (:protocol-symbol m))
-          (or (:protocol-info var) (:protocol-info m))
-          (not= 'cljs.core/IFn (:name var))))))
-
 (macros/deftime
   (defmacro copy-var
     "Copies contents from var `sym` to a new sci var. The value `ns` is an
@@ -175,9 +89,17 @@
      #?(:cljd
         `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true))
         :default
-        (if-let [info (cljs-protocol-info &env sym)]
+        ;; in self-hosted CLJS the macro-support fns live in the $macros twin
+        ;; of sci.impl.copy-vars, the runtime ns has them elided by deftime
+        (if-let [info (#?(:clj sci.impl.copy-vars/cljs-protocol-info
+                          :cljs #_:clj-kondo/ignore
+                          sci.impl.copy-vars$macros/cljs-protocol-info) &env sym)]
           (let [nm (symbol (name (:name info)))]
-            `(new-var '~nm ~(protocol-entry-form sym info ns) {:ns ~ns}))
+            `(new-var '~nm
+                      ~(#?(:clj sci.impl.copy-vars/protocol-entry-form
+                           :cljs #_:clj-kondo/ignore
+                           sci.impl.copy-vars$macros/protocol-entry-form) sym info ns)
+                      {:ns ~ns}))
           `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true)))))))
 
 (defn copy-var*
@@ -632,9 +554,9 @@
                                            (fn [k]
                                              (list 'quote k))
                                            (fn [var m]
-                                             (if (copy-ns-protocol-var? var m)
+                                             (if (sci.impl.copy-vars/copy-ns-protocol-var? var m)
                                                {:name (list 'quote (:name var))
-                                                :val (protocol-entry-form
+                                                :val (sci.impl.copy-vars/protocol-entry-form
                                                       (:name var)
                                                       {:name (:name var)
                                                        :protocol-info (or (:protocol-info var)
@@ -670,9 +592,11 @@
                                            (fn [k]
                                              (list 'quote k))
                                            (fn [var m]
-                                             (if (copy-ns-protocol-var? var m)
+                                             (if (#_:clj-kondo/ignore
+                                                  sci.impl.copy-vars$macros/copy-ns-protocol-var? var m)
                                                {:name (list 'quote (:name var))
-                                                :val (protocol-entry-form
+                                                :val (#_:clj-kondo/ignore
+                                                      sci.impl.copy-vars$macros/protocol-entry-form
                                                       (:name var)
                                                       {:name (:name var)
                                                        :protocol-info (or (:protocol-info var)
