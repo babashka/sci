@@ -4,6 +4,7 @@
    [clojure.test :refer [are deftest is testing]]
    [sci.core :as sci]
    #?(:clj [sci.impl.deftype :as deftype])
+   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [sci.test-utils :as tu]))
 
 (deftest protocol-test
@@ -676,3 +677,36 @@
   (applyTo [_ xs] 3))
 (apply (->Dude) [])"
                                  {:classes {'clojure.lang.IFn clojure.lang.IFn}})))))))
+
+#?(:cljs
+   (deftest mutable-field-hints-test
+     (doseq [hint ["^:mutable" "^:unsynchronized-mutable" "^:volatile-mutable"]]
+       (testing hint
+         (is (= 2 (tu/eval* (str "(defprotocol IBump (bump [_]) (value [_]))"
+                                 " (deftype Box [" hint " n]"
+                                 " IBump (bump [this] (set! n (inc n)) this) (value [_] n))"
+                                 " (value (bump (bump (->Box 0))))")
+                            {})))))))
+
+#?(:cljs
+   (deftest unrestricted-field-interop-test
+     (binding [unrestrict/*unrestricted* true]
+       (testing "deftype field read"
+         (is (= [:a :b] (tu/eval* "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])" {}))))
+       (testing "defrecord field read"
+         (is (= [1 2] (tu/eval* "(defrecord R [a b]) (let [x (->R 1 2)] [(.-a x) (.-b x)])" {}))))
+       (testing "external set! on deftype fields"
+         (is (= [42 43] (tu/eval* "(deftype Foo [a ^:mutable b]) (def x (->Foo 1 2)) (set! (.-a x) 42) (set! (.-b x) 43) [(.-a x) (.-b x)]" {}))))
+       (testing "external set! visible in method bodies"
+         (is (= 42 (tu/eval* "(defprotocol IGet (value [_])) (deftype Foo [a] IGet (value [_] a)) (def x (->Foo 1)) (set! (.-a x) 42) (value x)" {}))))
+       (testing "field shadows an inherited JS member"
+         (is (= "f" (tu/eval* "(deftype Bar [toString]) (.-toString (->Bar \"f\"))" {}))))
+       (testing "munged field name"
+         (is (= :yes (tu/eval* "(deftype Dash [my-field]) (.-my-field (->Dash :yes))" {}))))
+       (testing "nil field value"
+         (is (nil? (tu/eval* "(deftype N [v]) (.-v (->N nil))" {}))))
+       (testing "custom toString"
+         (is (= "Q<1>" (tu/eval* "(deftype Q [x] Object (toString [_] (str \"Q<\" x \">\"))) (.toString (->Q 1))" {}))))
+       (testing "host member access"
+         (is (= 3 (tu/eval* "(.-length \"abc\")" {})))
+         (is (= "AB" (tu/eval* "(.toUpperCase \"ab\")" {})))))))
