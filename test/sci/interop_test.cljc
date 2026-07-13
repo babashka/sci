@@ -179,18 +179,20 @@
 
 #?(:cljs
    (deftest ctx-unrestricted-test
-     (testing "ctx :unrestricted false sandboxes interop inside an unrestricted host"
-       (binding [unrestrict/*unrestricted* true]
-         (is (= "A" (sci/eval-string "(.toUpperCase \"a\")")))
-         (is (thrown-with-msg? js/Error #"not allowed"
-                               (sci/eval-string "(.toUpperCase \"a\")" {:unrestricted false})))))
-     (testing "ctx :unrestricted true opts in without the global flag"
+     (testing "ctx :unrestricted true enables the interop fast path"
        (is (thrown-with-msg? js/Error #"not allowed"
                              (sci/eval-string "(.toUpperCase \"a\")")))
        (is (= "A" (sci/eval-string "(.toUpperCase \"a\")" {:unrestricted true}))))
-     (testing "absent ctx key follows the global flag"
+     (testing "an ambient global binding does not leak into an eval"
        (binding [unrestrict/*unrestricted* true]
-         (is (= "A" (sci/eval-string "(.toUpperCase \"a\")" {})))))
+         (is (thrown-with-msg? js/Error #"not allowed"
+                               (sci/eval-string "(.toUpperCase \"a\")" {})))))
+     (testing "nested eval-string does not inherit the host eval's unrestrictedness"
+       (is (thrown-with-msg? js/Error #"not allowed"
+                             (sci/eval-string
+                              "(nested-eval \"(.toUpperCase \\\"a\\\")\")"
+                              {:unrestricted true
+                               :namespaces {'user {'nested-eval (fn [s] (sci/eval-string s))}}}))))
      (testing "merge-opts inherits the ctx value and can override it"
        (let [ctx (sci/init {:unrestricted true})]
          (is (= "A" (sci/eval-string* ctx "(.toUpperCase \"a\")")))

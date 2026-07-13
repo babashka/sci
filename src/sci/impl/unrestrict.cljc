@@ -1,11 +1,12 @@
 (ns sci.impl.unrestrict
   {:no-doc true})
 
+;; internal conduit from the ctx :unrestricted flag to runtime checks that
+;; have no ctx in hand (built-in var mutation); bound by eval-form, never a
+;; source of truth on its own
 (def ^:dynamic *unrestricted* false)
 
 (defn unrestricted?
-  "PLACEHOLDER-DOCSTRING: ctx :unrestricted wins over the global when set."
+  "PLACEHOLDER-DOCSTRING: the ctx :unrestricted flag is the only source."
   [ctx]
-  (if-some [u (:unrestricted ctx)]
-    u
-    *unrestricted*))
+  (true? (:unrestricted ctx)))

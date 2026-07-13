@@ -81,12 +81,11 @@
 (defn eval-form [ctx form]
   #?(:cljd (-install-wiring!))
   (store/with-ctx ctx
-    ;; ctx :unrestricted (re)binds the global for the duration of the
-    ;; evaluation, so a nested ctx can sandbox what an unrestricted host
-    ;; allows (and vice versa); absent key keeps the current global value
-    (if-some [u (:unrestricted ctx)]
-      (binding [unrestrict/*unrestricted* u]
-        (eval-form* ctx form))
+    ;; the ctx is the only source of unrestrictedness; the global is just
+    ;; the conduit to runtime checks that have no ctx in hand (var
+    ;; mutation). ALWAYS rebind, so a nested eval-string with a fresh ctx
+    ;; can never inherit the binding of the evaluation it runs inside of
+    (binding [unrestrict/*unrestricted* (true? (:unrestricted ctx))]
       (eval-form* ctx form))))
 
 (vreset! utils/eval-form-state eval-form)

@@ -4,7 +4,6 @@
    [clojure.test :refer [are deftest is testing]]
    [sci.core :as sci]
    #?(:clj [sci.impl.deftype :as deftype])
-   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [sci.test-utils :as tu]))
 
 (deftest protocol-test
@@ -690,23 +689,23 @@
 
 #?(:cljs
    (deftest unrestricted-field-interop-test
-     (binding [unrestrict/*unrestricted* true]
+     (let [opts {:unrestricted true}]
        (testing "deftype field read"
-         (is (= [:a :b] (tu/eval* "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])" {}))))
+         (is (= [:a :b] (tu/eval* "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])" opts))))
        (testing "defrecord field read"
-         (is (= [1 2] (tu/eval* "(defrecord R [a b]) (let [x (->R 1 2)] [(.-a x) (.-b x)])" {}))))
+         (is (= [1 2] (tu/eval* "(defrecord R [a b]) (let [x (->R 1 2)] [(.-a x) (.-b x)])" opts))))
        (testing "external set! on deftype fields"
-         (is (= [42 43] (tu/eval* "(deftype Foo [a ^:mutable b]) (def x (->Foo 1 2)) (set! (.-a x) 42) (set! (.-b x) 43) [(.-a x) (.-b x)]" {}))))
+         (is (= [42 43] (tu/eval* "(deftype Foo [a ^:mutable b]) (def x (->Foo 1 2)) (set! (.-a x) 42) (set! (.-b x) 43) [(.-a x) (.-b x)]" opts))))
        (testing "external set! visible in method bodies"
-         (is (= 42 (tu/eval* "(defprotocol IGet (value [_])) (deftype Foo [a] IGet (value [_] a)) (def x (->Foo 1)) (set! (.-a x) 42) (value x)" {}))))
+         (is (= 42 (tu/eval* "(defprotocol IGet (value [_])) (deftype Foo [a] IGet (value [_] a)) (def x (->Foo 1)) (set! (.-a x) 42) (value x)" opts))))
        (testing "field shadows an inherited JS member"
-         (is (= "f" (tu/eval* "(deftype Bar [toString]) (.-toString (->Bar \"f\"))" {}))))
+         (is (= "f" (tu/eval* "(deftype Bar [toString]) (.-toString (->Bar \"f\"))" opts))))
        (testing "munged field name"
-         (is (= :yes (tu/eval* "(deftype Dash [my-field]) (.-my-field (->Dash :yes))" {}))))
+         (is (= :yes (tu/eval* "(deftype Dash [my-field]) (.-my-field (->Dash :yes))" opts))))
        (testing "nil field value"
-         (is (nil? (tu/eval* "(deftype N [v]) (.-v (->N nil))" {}))))
+         (is (nil? (tu/eval* "(deftype N [v]) (.-v (->N nil))" opts))))
        (testing "custom toString"
-         (is (= "Q<1>" (tu/eval* "(deftype Q [x] Object (toString [_] (str \"Q<\" x \">\"))) (.toString (->Q 1))" {}))))
+         (is (= "Q<1>" (tu/eval* "(deftype Q [x] Object (toString [_] (str \"Q<\" x \">\"))) (.toString (->Q 1))" opts))))
        (testing "host member access"
-         (is (= 3 (tu/eval* "(.-length \"abc\")" {})))
-         (is (= "AB" (tu/eval* "(.toUpperCase \"ab\")" {})))))))
+         (is (= 3 (tu/eval* "(.-length \"abc\")" opts)))
+         (is (= "AB" (tu/eval* "(.toUpperCase \"ab\")" opts)))))))

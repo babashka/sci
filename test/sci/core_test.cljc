@@ -7,7 +7,6 @@
    [sci.copy-ns-test-ns]
    [sci.copy-var-inlined-clash-ns]
    [sci.core :as sci]
-   [sci.impl.unrestrict :as unrestrict]
    [sci.test-utils :as tu]
    #?(:cljd [sci.test-utils.macros :refer [thrown-with-data?]])))
 
@@ -1550,9 +1549,9 @@
       (is (= 2 (sci/eval-string* ctx "foo/x")))))
   (testing "with-redefs + intern"
     (is (true?
-         (binding [unrestrict/*unrestricted* true]
-           (sci/eval-string
-            "(ns foo) (ns bar) (with-redefs [intern intern] (intern 'foo (with-meta 'x {:a true}) 1)) (:a (meta #'foo/x))"))))))
+         (sci/eval-string
+          "(ns foo) (ns bar) (with-redefs [intern intern] (intern 'foo (with-meta 'x {:a true}) 1)) (:a (meta #'foo/x))"
+          {:unrestricted true})))))
 
 (deftest instance?-test
   (is (false? (eval* "(defrecord Foo []) (instance? Foo 1)")))
