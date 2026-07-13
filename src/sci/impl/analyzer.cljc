@@ -8,7 +8,6 @@
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
    #?(:cljs [goog.object :as gobj])
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
-   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
    [sci.ctx-store :as store]
    #?(:cljs [sci.impl.async-macro :as async-macro])
@@ -1139,7 +1138,7 @@
                     (analyze-instance-method ctx instance-expr method-expr args expr))
              :cljs (let [;; only unconditional allows skip config resolution;
                          ;; :allow :all routes to the config-aware node so :closed wins
-                         allowed? (or unrestrict/*unrestricted*
+                         allowed? (or (:unrestricted ctx)
                                       (identical? method-expr utils/allowed-append))
                          args (into-array args)]
                      (with-meta

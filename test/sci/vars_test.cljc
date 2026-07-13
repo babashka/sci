@@ -4,7 +4,6 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.impl.unrestrict :refer [*unrestricted*]]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -231,8 +230,30 @@
          #"Built-in var"
          (sci/eval-string
           "[(with-redefs [*x* (fn [] 11)] (*x*)) (*x*)]" {:bindings {'*x* x}}))))
-  (binding [*unrestricted* true]
-    (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))))
+  (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))"
+                             {:unrestricted true}))))
+
+(deftest ctx-unrestricted-var-mutation-test
+  (testing "ctx :unrestricted true allows built-in var mutation"
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+         #"Built-in var"
+         (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))
+    (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))"
+                               {:unrestricted true}))))
+  (testing "nested eval-string does not inherit the host eval's unrestrictedness"
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+         #"Built-in var"
+         (sci/eval-string
+          "(nested-eval \"(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))\")"
+          {:unrestricted true
+           :namespaces {'user {'nested-eval (fn [s] (sci/eval-string s))}}})))
+    (is (= {} (sci/eval-string
+               "(nested-eval \"(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))\")"
+               {:unrestricted true
+                :namespaces {'user {'nested-eval
+                                    (fn [s] (sci/eval-string s {:unrestricted true}))}}})))))
 
 (deftest var-get-set-test
   (is (= "10\n11\n"

@@ -11,9 +11,9 @@
                             var-get
                             var-set
                             bound-fn*])
-  (:require [sci.impl.macros :as macros]
-            [sci.impl.types :as t]
-            [sci.impl.unrestrict :refer [*unrestricted*]])
+  (:require [sci.ctx-store]
+            [sci.impl.macros :as macros]
+            [sci.impl.types :as t])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
                                                    with-writeable-namespace
                                                    with-writeable-var]])))
@@ -24,7 +24,7 @@
   (defmacro with-writeable-namespace
     [the-ns-object ns-meta & body]
     `(let [m# ~ns-meta]
-       (if (or *unrestricted* (not (:sci/built-in m#)))
+       (if (or (:unrestricted sci.ctx-store/*ctx*) (not (:sci/built-in m#)))
          (do ~@body)
          (let [ns-obj# ~the-ns-object
                name# (t/getName ns-obj#)]
@@ -252,7 +252,7 @@
   (defmacro with-writeable-var
     [the-var var-meta & body]
     `(let [vm# ~var-meta]
-       (if (or *unrestricted* (not (:sci/built-in vm#)))
+       (if (or (:unrestricted sci.ctx-store/*ctx*) (not (:sci/built-in vm#)))
          (do ~@body)
          (let [the-var# ~the-var
                ns# (:ns vm#)

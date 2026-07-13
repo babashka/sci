@@ -6,9 +6,9 @@
                             #?@(:clj [print-simple])])
   (:require
    #?(:cljs [goog.string])
+   [sci.ctx-store :as store]
    [sci.impl.copy-vars :refer [copy-var]]
    [sci.impl.records]
-   [sci.impl.unrestrict :refer [*unrestricted*]]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
@@ -23,20 +23,20 @@
                                                  (assoc extra-meta :ns utils/clojure-core-ns
                                                         :sci/built-in true))))
 
-(def in (binding [*unrestricted* true]
+(def in (store/with-ctx {:unrestricted true}
           (doto (core-dynamic-var '*in*)
             (vars/unbind)
             #?(:clj (alter-meta! assoc
                                  :doc "A java.io.Reader object representing standard input for read operations.")))))
 
-(def out (binding [*unrestricted* true]
+(def out (store/with-ctx {:unrestricted true}
            #?(:cljd (core-dynamic-var '*out* *out*)
               :default
               (doto (core-dynamic-var '*out*)
                 (vars/unbind)
                 #?(:clj (alter-meta! assoc :doc "A java.io.Writer object representing standard output for print operations."))))))
 
-(def err (binding [*unrestricted* true]
+(def err (store/with-ctx {:unrestricted true}
            #?(:cljd (core-dynamic-var '*err* *err*)
               :default
               (doto (core-dynamic-var '*err*)
@@ -45,13 +45,13 @@
 
 #?(:cljs
    (def print-fn
-     (binding [*unrestricted* true]
+     (store/with-ctx {:unrestricted true}
        (doto (core-dynamic-var '*print-fn*)
          (vars/unbind)))))
 
 #?(:cljs
    (def print-err-fn
-     (binding [*unrestricted* true]
+     (store/with-ctx {:unrestricted true}
        (doto (core-dynamic-var '*print-err-fn*)
          (vars/unbind)))))
 

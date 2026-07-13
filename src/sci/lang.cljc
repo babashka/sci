@@ -1,8 +1,7 @@
 (ns sci.lang
-  (:require [sci.impl.types :as types]
-            [sci.impl.vars :as vars]
-            #?(:cljd [sci.impl.unrestrict :refer [*unrestricted*]]
-               :cljs [sci.impl.unrestrict :refer [*unrestricted*]]))
+  (:require [sci.ctx-store]
+            [sci.impl.types :as types]
+            [sci.impl.vars :as vars])
   (:refer-clojure :exclude [Var ->Var var? Namespace ->Namespace]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
@@ -138,11 +137,11 @@
                      (format "Can't set!: %s from non-binding thread" (vars/toSymbol this))))
              (types/setVal b v)))
          :cljs (types/setVal b v))
-      #?(:cljd (if *unrestricted*
+      #?(:cljd (if (:unrestricted sci.ctx-store/*ctx*)
                  (set! (.-root this) v)
                  (throw-root-binding this))
          :clj (throw-root-binding this)
-         :cljs (if *unrestricted*
+         :cljs (if (:unrestricted sci.ctx-store/*ctx*)
                  (set! (.-root this) v)
                  (throw-root-binding this)))))
   (getVal [_this] root)

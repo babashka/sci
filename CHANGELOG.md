@@ -12,6 +12,9 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- New `:unrestricted` option on `init` and `eval-string`: when `true`, evaluated code may mutate built-in vars and CLJS instance interop skips `:classes` checks. The option applies only to the context it was passed to: a nested `eval-string` without it is sandboxed, also inside an unrestricted context.
+- BREAKING: `enable-unrestricted-access!` now throws. Use the `:unrestricted` option instead. The old function set a process-global flag that leaked into nested contexts.
+- BREAKING: the `sci.impl.unrestrict` namespace and its `*unrestricted*` dynamic var are removed. As with all `sci.impl` namespaces, do not rely on them: they are implementation detail.
 - [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `set!` on a deftype field accepts `^:unsynchronized-mutable` and `^:volatile-mutable`
 - [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `deftype` and `defrecord` fields are JS accessors on the type's prototype: `(.-field x)` works on instances, `(set! (.-field x) v)` mutates deftype fields
 - Bump edamame to `1.6.42`
@@ -746,6 +749,11 @@ Details about releases prior to v0.1.0 can be found
 [here](https://github.com/babashka/sci/releases).
 
 ## Breaking changes
+
+### Unreleased
+
+- `enable-unrestricted-access!` now throws. Use the `:unrestricted` option of `init` or `eval-string` instead.
+- The `sci.impl.unrestrict` namespace and its `*unrestricted*` dynamic var are removed. Do not rely on `sci.impl` namespaces: they are implementation detail.
 
 ### 0.2.4
 

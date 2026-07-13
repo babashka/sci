@@ -176,6 +176,26 @@
      (is (= {:foo {:bar :baz}}
             (tu/eval* "(def x #js {:foo #js {}}) (set! (.. x -foo -bar) :baz) (js->clj x :keywordize-keys true)" {:classes {:allow :all}})))))
 
+#?(:cljs
+   (deftest ctx-unrestricted-test
+     (testing "ctx :unrestricted true enables the interop fast path"
+       (is (thrown-with-msg? js/Error #"not allowed"
+                             (sci/eval-string "(.toUpperCase \"a\")")))
+       (is (= "A" (sci/eval-string "(.toUpperCase \"a\")" {:unrestricted true}))))
+     (testing "nested eval-string does not inherit the host eval's unrestrictedness"
+       (is (thrown-with-msg? js/Error #"not allowed"
+                             (sci/eval-string
+                              "(nested-eval \"(.toUpperCase \\\"a\\\")\")"
+                              {:unrestricted true
+                               :namespaces {'user {'nested-eval (fn [s] (sci/eval-string s))}}}))))
+     (testing "merge-opts inherits the ctx value and can override it"
+       (let [ctx (sci/init {:unrestricted true})]
+         (is (= "A" (sci/eval-string* ctx "(.toUpperCase \"a\")")))
+         (is (= "A" (sci/eval-string* (sci/merge-opts ctx {}) "(.toUpperCase \"a\")")))
+         (is (thrown-with-msg? js/Error #"not allowed"
+                               (sci/eval-string* (sci/merge-opts ctx {:unrestricted false})
+                                                 "(.toUpperCase \"a\")")))))))
+
 #?(:clj
    (deftest instance-method-overrides-test
      (testing "override with reflective fallback for unlisted methods"

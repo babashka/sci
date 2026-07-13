@@ -21,7 +21,6 @@
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
    [sci.impl.types :as t]
-   [sci.impl.unrestrict :as unrestrict]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
    [sci.lang])
@@ -244,10 +243,10 @@
   "Atomically alters the root binding of sci var v by applying f to its
   current value plus any args."
   ([v f]
-   (c/binding [unrestrict/*unrestricted* true]
+   (store/with-ctx (assoc store/*ctx* :unrestricted true)
      (vars/alter-var-root v f)))
   ([v f & args]
-   (c/binding [unrestrict/*unrestricted* true]
+   (store/with-ctx (assoc store/*ctx* :unrestricted true)
      (apply vars/alter-var-root v f args))))
 
 (defn intern
@@ -284,6 +283,11 @@
   - `:ns-aliases`: a map of aliases to namespaces that are globally valid, e.g. `{'clojure.test 'cljs.test}`
 
   - `:interrupt-fn`: a zero-arg fn called on every interpreted `fn` entry / `loop` entry
+
+  - `:unrestricted`: when `true`, evaluated code may mutate built-in vars
+  and CLJS instance interop skips `:classes` checks. Off by default.
+  Applies only to this context: a context created during an unrestricted
+  evaluation is sandboxed unless it also gets this option.
 
   - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))
@@ -655,17 +659,12 @@
   (store/with-ctx ctx
     (namespaces/sci-all-ns)))
 
-(defn enable-unrestricted-access!
-  "Calling this will enable
-  - Altering core vars using `alter-var-root`
-  - In CLJS: `set!` is able to set the value of any var.
-  - In CLJS: instance method calls are not restricted to only `:classes`
-
-  In the future, more unrestricted access may be added, so only use this when you're not using SCI as a sandbox."
+(defn ^{:deprecated "0.14.56"} enable-unrestricted-access!
+  "Removed. Use the `:unrestricted` option of `init` or `eval-string`
+  instead. Throws when called."
   []
-  #?(:cljd (set! unrestrict/*unrestricted* true)
-     :cljs (set! unrestrict/*unrestricted* true)
-     :clj (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
+  (throw (ex-info "enable-unrestricted-access! has been removed. Use the :unrestricted option of sci.core/init or eval-string instead. See https://github.com/babashka/sci#unrestricted-mode"
+                  {:type :sci/error})))
 
 (defn var->symbol
   "Returns a fully qualified symbol from a `sci.lang.Var`"
