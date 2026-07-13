@@ -247,6 +247,7 @@
            proxy-fn
            deftype-fn
            interrupt-fn
+           unrestricted
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
            ns-aliases]}]
@@ -266,6 +267,7 @@
                    :reify-fn (or reify-fn default-reify-fn)
                    :proxy-fn proxy-fn
                    :deftype-fn deftype-fn
+                   :unrestricted unrestricted
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
     ctx))
 
@@ -295,11 +297,13 @@
                      bindings (merge {'user (assoc bindings :obj utils/user-ns)}))
         _ (init-env! !env aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         interrupt-fn (if (contains? opts :interrupt-fn) (:interrupt-fn opts) (:interrupt-fn ctx))
+        unrestricted (if (contains? opts :unrestricted) (:unrestricted opts) (:unrestricted ctx))
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny)
                           :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions (:allow ctx) allow))
                    :deny (when deny (process-permissions (:deny ctx) deny))
                    :reify-fn reify-fn
                    :deftype-fn deftype-fn
+                   :unrestricted unrestricted
                    :main-thread-id (:main-thread-id ctx))]
     ctx))

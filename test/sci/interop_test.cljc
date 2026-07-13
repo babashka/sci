@@ -5,6 +5,7 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [are deftest is testing #?(:cljs async)]]
    [sci.core :as sci]
+   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [sci.test-utils :as tu]
    #?(:cljs [goog.object :as gobj]))
   #?(:clj (:import PublicFields)))
@@ -175,6 +176,28 @@
                               {:classes {:allow :all}})))
      (is (= {:foo {:bar :baz}}
             (tu/eval* "(def x #js {:foo #js {}}) (set! (.. x -foo -bar) :baz) (js->clj x :keywordize-keys true)" {:classes {:allow :all}})))))
+
+#?(:cljs
+   (deftest ctx-unrestricted-test
+     (testing "ctx :unrestricted false sandboxes interop inside an unrestricted host"
+       (binding [unrestrict/*unrestricted* true]
+         (is (= "A" (sci/eval-string "(.toUpperCase \"a\")")))
+         (is (thrown-with-msg? js/Error #"not allowed"
+                               (sci/eval-string "(.toUpperCase \"a\")" {:unrestricted false})))))
+     (testing "ctx :unrestricted true opts in without the global flag"
+       (is (thrown-with-msg? js/Error #"not allowed"
+                             (sci/eval-string "(.toUpperCase \"a\")")))
+       (is (= "A" (sci/eval-string "(.toUpperCase \"a\")" {:unrestricted true}))))
+     (testing "absent ctx key follows the global flag"
+       (binding [unrestrict/*unrestricted* true]
+         (is (= "A" (sci/eval-string "(.toUpperCase \"a\")" {})))))
+     (testing "merge-opts inherits the ctx value and can override it"
+       (let [ctx (sci/init {:unrestricted true})]
+         (is (= "A" (sci/eval-string* ctx "(.toUpperCase \"a\")")))
+         (is (= "A" (sci/eval-string* (sci/merge-opts ctx {}) "(.toUpperCase \"a\")")))
+         (is (thrown-with-msg? js/Error #"not allowed"
+                               (sci/eval-string* (sci/merge-opts ctx {:unrestricted false})
+                                                 "(.toUpperCase \"a\")")))))))
 
 #?(:clj
    (deftest instance-method-overrides-test

@@ -1138,8 +1138,10 @@
                           (static-method))))
                     (analyze-instance-method ctx instance-expr method-expr args expr))
              :cljs (let [;; only unconditional allows skip config resolution;
-                         ;; :allow :all routes to the config-aware node so :closed wins
-                         allowed? (or unrestrict/*unrestricted*
+                         ;; :allow :all routes to the config-aware node so :closed wins.
+                         ;; ctx :unrestricted overrides the process-global flag, so a
+                         ;; nested ctx can sandbox interop inside an unrestricted host
+                         allowed? (or (unrestrict/unrestricted? ctx)
                                       (identical? method-expr utils/allowed-append))
                          args (into-array args)]
                      (with-meta
