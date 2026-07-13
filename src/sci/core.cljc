@@ -663,7 +663,7 @@
   "Removed. Use the `:unrestricted` option of `init` or `eval-string`
   instead. Throws when called."
   []
-  (throw (ex-info "enable-unrestricted-access! has been removed. Use the :unrestricted option of sci.core/init or eval-string instead."
+  (throw (ex-info "enable-unrestricted-access! has been removed. Use the :unrestricted option of sci.core/init or eval-string instead. See https://github.com/babashka/sci#unrestricted-mode"
                   {:type :sci/error})))
 
 (defn var->symbol
