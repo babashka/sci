@@ -900,6 +900,13 @@
                                   sci.impl.records/SciRecord
                                   sci.impl.deftype/SciType))))
                 :default data)
+        ;; fields become JS accessors on the prototype so host-style
+        ;; interop ((.-field x), set!) matches compiled CLJS semantics
+        _ #?(:cljs (when-let [fields (:sci.impl/fields data)]
+                     (sci.impl.deftype/-install-field-accessors!
+                      (:sci.impl/js-prototype data) fields
+                      (boolean (:sci.impl/record data))))
+             :default nil)
         t (if existing
             (do (types/setVal existing data)
                 existing)

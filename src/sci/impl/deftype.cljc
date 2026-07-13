@@ -195,6 +195,27 @@
      ([base-class] (js/Object.create (.-prototype base-class)))))
 
 #?(:cljs
+   (defn -install-field-accessors!
+     "Installs a JS accessor on the type's prototype for each field, so
+  host-style interop on instances resolves fields like compiled CLJS:
+  (.-field x) reads the field and, on deftypes, (set! (.-field x) v)
+  mutates it. A field shadows inherited members like toString when it
+  shares the name. One-time cost per type definition; instance
+  construction and host-object interop are unaffected."
+     [proto fields record?]
+     (doseq [field fields]
+       (js/Object.defineProperty
+        proto (utils/munge-str (str field))
+        (if record?
+          (let [k (keyword field)]
+            #js {:get (fn [] (this-as self (get self k)))
+                 ;; allow redefinition when the type is redefined
+                 :configurable true})
+          #js {:get (fn [] (this-as self (get (types/getVal self) field)))
+               :set (fn [v] (this-as self (types/-mutate self field v)))
+               :configurable true})))))
+
+#?(:cljs
    (defn ensure-js-prototype [t]
      (let [data (types/getVal t)]
        (or (:sci.impl/js-prototype data)
@@ -264,25 +285,27 @@
 
 (defn ^:private emit-deftype
   "Generate the common deftype boilerplate: declare, def type, defn factory, protocol-impls."
-  [rec-type record-name factory-fn-sym factory-fn-body & [protocol-impls]]
+  [rec-type record-name factory-fn-sym fields factory-fn-body & [protocol-impls]]
   `(do
      (declare ~factory-fn-sym)
      (sci.impl.deftype/-create-type
       ~{:sci.impl/type-name (list 'quote rec-type)
-        :sci.impl/constructor (list 'var factory-fn-sym)})
+        :sci.impl/constructor (list 'var factory-fn-sym)
+        :sci.impl/fields (list 'quote fields)})
      ~factory-fn-body
      ~@protocol-impls
      ~record-name))
 
 (defn ^:private emit-record-type
   "Generate record type creation and protocol implementations (no factory fns)."
-  [rec-type record-name constructor-fn-sym map-factory-sym protocol-impls]
+  [rec-type record-name constructor-fn-sym map-factory-sym fields protocol-impls]
   `(do
      (sci.impl.records/-create-record-type
       ~{:sci.impl/type-name (list 'quote rec-type)
         :sci.impl/record true
         :sci.impl/constructor (list 'var constructor-fn-sym)
-        :sci.impl.record/map-constructor (list 'var map-factory-sym)})
+        :sci.impl.record/map-constructor (list 'var map-factory-sym)
+        :sci.impl/fields (list 'quote fields)})
      ~@protocol-impls
      ~record-name))
 
@@ -341,7 +364,7 @@
                           `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                      impls)))
             protocol-impls)]
-       (emit-deftype rec-type record-name factory-fn-sym
+       (emit-deftype rec-type record-name factory-fn-sym fields
                      `(defn ~(with-meta factory-fn-sym
                                {:doc (str "Positional factory function for class " rec-type ".")})
                         ~fields
@@ -426,7 +449,7 @@
                       impls)))))
          protocol-impls)]
     (emit-record-type rec-type record-name constructor-fn-sym map-factory-sym
-                      protocol-impls)))
+                      (vec field-set) protocol-impls)))
 
 (defn analyze-deftype*
   "Analyzer handler for deftype* special form.
@@ -523,7 +546,7 @@
                        protocols-form (if (seq protocols)
                                        `#{~@(map (fn [p] (list 'deref (:var p))) protocols)}
                                        `#{})]
-                   (emit-deftype rec-type record-name factory-fn-sym
+                   (emit-deftype rec-type record-name factory-fn-sym fields
                                  `(defn ~(with-meta factory-fn-sym
                                            {:doc (str "Positional factory function for class " rec-type ".")
                                             :arglists (list fields)})
@@ -608,7 +631,7 @@
                                       `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                                  impls)))))
                     protocol-impls)]
-               (emit-deftype rec-type record-name factory-fn-sym
+               (emit-deftype rec-type record-name factory-fn-sym fields
                             `(defn ~(with-meta factory-fn-sym
                                       {:doc (str "Positional factory function for class " rec-type ".")})
                                ~fields
