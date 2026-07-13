@@ -17,7 +17,8 @@
 (defn expr->data [expr]
   (let [m (or (meta expr) expr)
         f (when (seqable? expr) (first expr))
-        fm (or (:sci.impl/f-meta m)
+        fm (or (:f-meta m)
+               (:sci.impl/f-meta m)
                (some-> f meta))
         fm (if (= :resolve-sym (:sci.impl/op fm))
              (assoc fm :ns (:ns m))

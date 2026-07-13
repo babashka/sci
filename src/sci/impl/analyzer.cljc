@@ -848,10 +848,7 @@
   [ctx expr]
   (let [exprs (rest expr)
         children (analyze-children ctx exprs)
-        stack (assoc (meta expr)
-                     :ns @utils/current-ns
-                     :file @utils/current-file
-                     :special true)]
+        stack (utils/stack-frame (meta expr) nil true)]
     (case (count children)
       (0 1) (throw-error-with-location "Too few arguments to if" expr)
       2 (let [condition (nth children 0)
@@ -962,10 +959,7 @@
      expr))
   (let [ctx (without-recur-target ctx)
         ana (analyze ctx ex)
-        stack (assoc (meta expr)
-                     :ns @utils/current-ns
-                     :file @utils/current-file
-                     :special true)]
+        stack (utils/stack-frame (meta expr) nil true)]
     (sci.impl.types/->Node
      (rethrow-with-location-of-node ctx bindings (t/eval ana ctx bindings) this)
      stack)))
@@ -1015,9 +1009,7 @@
            meth-name* meth-name
            meth-sym (symbol meth-name*)
            meth-name (#?(:clj munge :cljs utils/munge-str) meth-name)
-           stack (assoc (meta expr)
-                        :ns @utils/current-ns
-                        :file @utils/current-file)
+           stack (utils/stack-frame (meta expr) nil)
            arg-count (count args)
            args (object-array args)
            ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
@@ -1065,9 +1057,7 @@
               #?@(:cljs [meth-name* meth-name])
               #?@(:cljs [meth-sym (symbol meth-name*)])
               #?@(:cljs [meth-name (utils/munge-str meth-name)])
-              stack (assoc (meta expr)
-                           :ns @utils/current-ns
-                           :file @utils/current-file)]
+              stack (utils/stack-frame (meta expr) nil)]
           #?(:cljd
              (if-let [class-expr (or (:class-expr (meta expr)) static-class-sym)]
                ;; static Class/method (or Class/-FIELD): Dart has no reflection,
@@ -1211,9 +1201,7 @@
                               expr
                               ctor
                               args
-                              (assoc (meta expr)
-                                     :ns @utils/current-ns
-                                     :file @utils/current-file)
+                              (utils/stack-frame (meta expr) nil)
                               nil))
                (if-let [record (records/resolve-record-class ctx class-sym)]
                  (let [args (analyze-children ctx args)]
@@ -1221,9 +1209,7 @@
                                 expr
                                 (:sci.impl/constructor (meta record))
                                 args
-                                (assoc (meta expr)
-                                       :ns @utils/current-ns
-                                       :file @utils/current-file)
+                                (utils/stack-frame (meta expr) nil)
                                 nil))
                  (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
        :clj (if-let [class (:class (interop/resolve-class-opts ctx class-sym))]
@@ -1236,9 +1222,7 @@
                                expr
                                (:sci.impl/constructor (meta record))
                                args
-                               (assoc (meta expr)
-                                      :ns @utils/current-ns
-                                      :file @utils/current-file)
+                               (utils/stack-frame (meta expr) nil)
                                nil))
                 (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
        :cljs (if (symbol? class-sym)
@@ -1273,9 +1257,7 @@
                                       expr
                                       maybe-record-constructor
                                       args
-                                      (assoc (meta expr)
-                                             :ns @utils/current-ns
-                                             :file @utils/current-file)
+                                      (utils/stack-frame (meta expr) nil)
                                       nil)
                          var?
                          (let [args (into-array args)]
@@ -1303,9 +1285,7 @@
                                   expr
                                   (:sci.impl/constructor (meta record))
                                   args
-                                  (assoc (meta expr)
-                                         :ns @utils/current-ns
-                                         :file @utils/current-file)
+                                  (utils/stack-frame (meta expr) nil)
                                   nil))
                    (throw-error-with-location (str "Unable to resolve classname: " class-sym) class-sym)))
                (let [class (analyze ctx class-sym)
@@ -1331,9 +1311,7 @@
 ;;;; Namespaces
 
 (defn return-ns-op [_ctx f expr analyzed-args]
-  (let [stack (assoc (meta expr)
-                     :file @utils/current-file
-                     :ns @utils/current-ns)]
+  (let [stack (utils/stack-frame (meta expr) nil)]
     (sci.impl.types/->Node
      (try
        (apply f ctx analyzed-args)
@@ -1661,9 +1639,7 @@
 
 (defn analyze-import [_ctx expr]
   (let [args (rest expr)
-        stack (assoc (meta expr)
-                     :ns @utils/current-ns
-                     :file @utils/current-file)]
+        stack (utils/stack-frame (meta expr) nil)]
     (sci.impl.types/->Node
      (try (apply eval/eval-import ctx args)
           (catch #?(:cljd Object :clj Throwable :cljs js/Error) e
@@ -1728,9 +1704,7 @@
    :clj
    (defn analyze-interop [ctx expr [^Class clazz meth]]
      (let [meth (str meth)
-           stack (assoc (meta expr)
-                        :ns @utils/current-ns
-                        :file @utils/current-file)]
+           stack (utils/stack-frame (meta expr) nil)]
        (cond (str/starts-with? meth ".")
              (let [meth (subs meth 1)
                    ;; class is explicit and is the dispatch class, resolve config here
@@ -1860,10 +1834,7 @@
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)
                                  (let [method (unchecked-get class method-name)
-                                       stack (assoc m
-                                                    :ns @utils/current-ns
-                                                    :file @utils/current-file
-                                                    :sci.impl/f-meta f-meta)]
+                                       stack (utils/stack-frame m f-meta)]
                                    (sci.impl.types/->Node
                                     (try (interop/invoke-static-method ctx bindings class method children)
                                          (catch :default e
@@ -1898,10 +1869,7 @@
                                       override (get (:instance-methods class-opts) (symbol meth))
                                       args (object-array args)
                                       arg-count (count args)
-                                      stack (assoc m
-                                                   :ns @utils/current-ns
-                                                   :file @utils/current-file
-                                                   :sci.impl/f-meta f-meta)
+                                      stack (utils/stack-frame m f-meta)
                                       ^"[Ljava.lang.Class;" arg-types (when (pos? arg-count)
                                                                         (make-array Class arg-count))
                                       has-types? (volatile! nil)]
@@ -1981,10 +1949,7 @@
                             (return-call ctx
                                          expr
                                          f (analyze-children ctx rest-forms)
-                                         (assoc m
-                                                :ns @utils/current-ns
-                                                :file @utils/current-file
-                                                :sci.impl/f-meta f-meta)
+                                         (utils/stack-frame m f-meta)
                                          nil)
                             (if-let [op (:sci.impl/op (meta f))]
                               (case op
@@ -1993,37 +1958,25 @@
                                                      expr
                                                      (:sci.impl/idx (meta f))
                                                      f (analyze-children ctx rest-forms)
-                                                     (assoc m
-                                                            :ns @utils/current-ns
-                                                            :file @utils/current-file
-                                                            :sci.impl/f-meta f-meta))
+                                                     (utils/stack-frame m f-meta))
                                 (let [children (analyze-children ctx rest-forms)]
                                   (return-call ctx
                                                expr
-                                               f children (assoc m
-                                                                 :ns @utils/current-ns
-                                                                 :file @utils/current-file
-                                                                 :sci.impl/f-meta f-meta)
+                                               f children (utils/stack-frame m f-meta)
                                                nil)))
                               (let [self-ref? (:self-ref? ctx)]
                                 (if (and self-ref? (self-ref? f))
                                   (let [children (analyze-children ctx rest-forms)]
                                     (return-call ctx
                                                  expr
-                                                 f children (assoc m
-                                                                   :ns @utils/current-ns
-                                                                   :file @utils/current-file
-                                                                   :sci.impl/f-meta f-meta)
+                                                 f children (utils/stack-frame m f-meta)
                                                  (fn [_ bindings _]
                                                    (deref
                                                     (eval/resolve-symbol bindings fsym)))))
                                   (let [children (analyze-children ctx rest-forms)]
                                     (return-call ctx
                                                  expr
-                                                 f children (assoc m
-                                                                   :ns @utils/current-ns
-                                                                   :file @utils/current-file
-                                                                   :sci.impl/f-meta f-meta)
+                                                 f children (utils/stack-frame m f-meta)
                                                  #?(:cljd nil
                                                     :cljs (when (utils/var? f) (fn [_ _ v]
                                                                                  (deref v))) :clj nil)))))))))
@@ -2032,10 +1985,7 @@
                           ;; stack on it, the only interesting bit it the map
                           ;; with :ns and :file
                           (rethrow-with-location-of-node ctx e
-                                                         (let [stack (assoc m
-                                                                            :ns @utils/current-ns
-                                                                            :file @utils/current-file
-                                                                            :sci.impl/f-meta f-meta)]
+                                                         (let [stack (utils/stack-frame m f-meta)]
                                                            (sci.impl.types/->Node nil stack)))))))
               (keyword? f*)
               (let [children (analyze-children ctx (rest expr))
@@ -2055,9 +2005,7 @@
               :else
               (let [f (analyze ctx f*)
                     children (analyze-children ctx (rest expr))
-                    stack (assoc m
-                                 :ns @utils/current-ns
-                                 :file @utils/current-file)]
+                    stack (utils/stack-frame m nil)]
                 (return-call ctx
                              expr
                              f children stack
