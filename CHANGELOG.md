@@ -10,6 +10,11 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `set!` on a deftype field accepts `^:unsynchronized-mutable` and `^:volatile-mutable`
+- [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `deftype` and `defrecord` fields are JS accessors on the type's prototype: `(.-field x)` works on instances, `(set! (.-field x) v)` mutates deftype fields
+
 ## 0.14.55
 
 ClojureScript: native protocol support ([#639](https://github.com/babashka/sci/issues/639)). SCI code can implement CLJS protocols on `deftype`, `defrecord` and `reify`, and host code calling protocol methods on such instances dispatches into the sci implementations. Works under `:advanced` compilation.
