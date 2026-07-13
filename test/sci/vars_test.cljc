@@ -234,6 +234,23 @@
   (binding [*unrestricted* true]
     (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))))
 
+(deftest ctx-unrestricted-var-mutation-test
+  (testing "ctx :unrestricted false sandboxes built-in var mutation inside an unrestricted host"
+    (binding [*unrestricted* true]
+      (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))
+      (is (thrown-with-msg?
+           #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+           #"Built-in var"
+           (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))"
+                            {:unrestricted false})))))
+  (testing "ctx :unrestricted true allows built-in var mutation without the global flag"
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+         #"Built-in var"
+         (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))
+    (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))"
+                               {:unrestricted true})))))
+
 (deftest var-get-set-test
   (is (= "10\n11\n"
          (sci/with-out-str

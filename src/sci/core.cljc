@@ -655,8 +655,10 @@
   (store/with-ctx ctx
     (namespaces/sci-all-ns)))
 
-(defn enable-unrestricted-access!
-  "Calling this will enable
+(defn ^{:deprecated "PLACEHOLDER-VERSION"} enable-unrestricted-access!
+  "DEPRECATED-PLACEHOLDER: pass `:unrestricted true` to `init`/`eval-string` opts instead; the ctx-scoped flag also lets nested contexts opt back into sandboxing.
+
+  Calling this will enable
   - Altering core vars using `alter-var-root`
   - In CLJS: `set!` is able to set the value of any var.
   - In CLJS: instance method calls are not restricted to only `:classes`

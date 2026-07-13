@@ -10,6 +10,7 @@
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
    [sci.impl.types :as types]
+   [sci.impl.unrestrict :as unrestrict]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
@@ -80,7 +81,13 @@
 (defn eval-form [ctx form]
   #?(:cljd (-install-wiring!))
   (store/with-ctx ctx
-    (eval-form* ctx form)))
+    ;; ctx :unrestricted (re)binds the global for the duration of the
+    ;; evaluation, so a nested ctx can sandbox what an unrestricted host
+    ;; allows (and vice versa); absent key keeps the current global value
+    (if-some [u (:unrestricted ctx)]
+      (binding [unrestrict/*unrestricted* u]
+        (eval-form* ctx form))
+      (eval-form* ctx form))))
 
 (vreset! utils/eval-form-state eval-form)
 
