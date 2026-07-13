@@ -14,6 +14,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 - [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `set!` on a deftype field accepts `^:unsynchronized-mutable` and `^:volatile-mutable`
 - [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `deftype` and `defrecord` fields are JS accessors on the type's prototype: `(.-field x)` works on instances, `(set! (.-field x) v)` mutates deftype fields
+- Bump edamame to `1.6.42`
 
 ## 0.14.55
 
