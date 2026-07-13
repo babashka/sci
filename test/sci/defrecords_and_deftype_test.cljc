@@ -225,6 +225,9 @@
   (is (= 1 (tu/eval* "(defprotocol GetX (getX [_])) (deftype Foo [x y] GetX (getX [_] x)) (getX (->Foo 1 2)) " {})))
   (let [prog "(deftype Foo [a b]) (let [x (->Foo :a :b)] [(.-a x) (.-b x)])"]
     (is (= [:a :b] (tu/eval* prog {}))))
+  #?(:cljs
+     (testing "external set! on a mutable field, sandboxed"
+       (is (= 43 (tu/eval* "(deftype Foo [a ^:mutable b]) (def x (->Foo 1 2)) (set! (.-b x) 43) (.-b x)" {})))))
   (is
    (= 10
       (tu/eval* (str/replace "(defprotocol IFoo (setField [_]) (getField [_])) (deftype Foo [^:volatile-mutable a] IFoo (setField [_] (set! a 10)) (getField [_] a)) (getField (doto (->Foo nil) (setField)))"
