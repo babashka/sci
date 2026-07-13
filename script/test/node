@@ -9,3 +9,7 @@ clojure -M:test:cljs-test-runner -c cljs-opts.edn $@
 echo 'Running CLJS test in Node with optimizations :advanced'
 echo '{:optimizations :advanced}' > cljs-opts.edn
 clojure -M:test:cljs-test-runner -c cljs-opts.edn $@
+
+echo 'Running CLJS test in Node with optimizations :none, jit forced off'
+echo '{:optimizations :none :closure-defines {sci.impl.types/jit-force-off true}}' > cljs-opts.edn
+clojure -M:test:cljs-test-runner -c cljs-opts.edn $@

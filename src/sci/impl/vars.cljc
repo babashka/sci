@@ -16,7 +16,8 @@
             [sci.impl.types :as t])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
                                                    with-writeable-namespace
-                                                   with-writeable-var]])))
+                                                   with-writeable-var
+                                                   bumping-set!]])))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
@@ -43,6 +44,34 @@
    :cljs
    (def dvals (volatile! top-frame)))
 
+#?(:cljs
+   (def var-epoch
+     "Bumped on EVERY var mutation (root bind, unbind, set!, thread-binding
+     push/pop). Jitted call sites cache var derefs keyed on this; a missed
+     bump means a stale callee, so any new mutation path must bump."
+     #js [0]))
+
+#?(:cljs
+   (defn bump-var-epoch! []
+     (aset var-epoch 0 (inc (aget var-epoch 0)))))
+
+;; The chokepoint for var value mutation: any write to a var root or
+;; thread-binding box must go through this so jit deref caches can't go
+;; stale. Expands to a bare set! off-CLJS; deftype fields can only be
+;; set! inside the owning type's methods, hence a macro.
+#?(:cljd
+   (defmacro bumping-set! [target v]
+     `(set! ~target ~v))
+   :default
+   (macros/deftime
+     (defmacro bumping-set! [target v]
+       (macros/?
+        :clj `(set! ~target ~v)
+        :cljs `(let [v# ~v]
+                 (set! ~target v#)
+                 (sci.impl.vars/bump-var-epoch!)
+                 v#)))))
+
 (defn get-thread-binding-frame ^Frame []
   #?(:cljd @dvals
      :clj (.get dvals)
@@ -53,7 +82,7 @@
                  :cljs [thread ^:mutable val])
   t/IBox
   (setVal [_this v]
-    (set! val v))
+    (bumping-set! val v))
   (getVal [_this] val))
 
 (defn clone-thread-binding-frame ^Frame []
@@ -99,9 +128,11 @@
                                                  :cljs nil) val*)))
                      bmap
                      bindings)]
+    #?(:cljs (bump-var-epoch!))
     (reset-thread-binding-frame (Frame. bmap frame))))
 
 (defn pop-thread-bindings []
+  #?(:cljs (bump-var-epoch!))
   ;; type hint needed to satisfy CLJS compiler / shadow
   (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
     (if (identical? top-frame f)

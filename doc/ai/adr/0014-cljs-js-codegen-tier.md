@@ -55,6 +55,22 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
 - Interrupt check (`:interrupt-fn`) emitted at loop heads, matching `gen-fn`.
 - CSP probe: `enable!` try/catches a `new Function` construction; when
   blocked everything stays interpreted.
+- Var-deref caching with epoch invalidation (BOTH modes: jitted call
+  sites and, on CLJS, the interpreter's var-call wrap closures — interp
+  var-call 146.5 -> 139.2ms/1e6): every var mutation primitive
+  (bindRoot, unbind, root set!, TBox set, thread-binding push/pop — defn
+  redefinition and alter-var-root route through bindRoot) bumps a global
+  epoch; jitted :call-var sites keep a per-site [value epoch] cache, so
+  the hot path is two array reads + compare instead of a deref. binding
+  correctness falls out: push/pop bump, sites re-deref inside and after
+  the scope. defn fib 30 warm: 38 -> 17.5ms (let-bound 14.7, interp 112).
+  A missed bump means a stale callee: any NEW var mutation path must bump
+  (see the var-epoch docstring). Both modes share the cache, so
+  interp/jit agreement cannot catch a missed bump — the mutation
+  visibility tests assert LITERAL values. GC note: only CALL-position
+  derefs cache (fn values); vars read in value position ((count x))
+  re-deref every time, so plain data in vars is never retained. Worst
+  case is one generation of a redefined fn pinned per cold call site.
 - Stacktraces via call-site tables (the line-number-table trick): one
   try/catch per template, a plain `s` register written before each call
   site, and a const table mapping site index -> the call node's existing
@@ -86,18 +102,109 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
   interpreted `case`, dynamic binding, variadic/multi-arity fallback, fn
   meta) matches the interpreter exactly.
 - Bundle: +7.4KB raw / +2.3KB gzip (~1.1%) on the shadow release build.
-- Analysis-time cost when enabled: +5.7% on a 50-defn source (~18µs per fn
-  body including `new Function`).
+- Analysis-time cost when enabled: originally +5.7% on a 50-defn source
+  (~18µs per fn body including `new Function`), and +8.1% on loading
+  honeysql through nbb (93.0 -> 100.5ms). Templates are now compiled
+  LAZILY (a delay forced at first closure creation), so fn bodies — loops
+  included — inside never-executed code don't compile at load: honeysql
+  load overhead drops to ~3%, and with per-arity first-invocation stubs
+  (compile deferred past closure creation to first call; array-slot impl
+  cache, inlined nil-check hot path — var-call unchanged at ~29ms/1e6) to
+  ~2%; the 50-defn microbench is noise or negative. Caveat
+  for harnesses that flip enable!/disable! globally: a body's delay seals
+  in the mode active at its first closure creation.
 - Allocation-heavy shapes (assoc-loop) barely move — interpreter overhead is
   not the bottleneck there. Gains concentrate in loops/calls/arithmetic,
   matching the JVM specialization findings.
+- Real programs (nbb, jit build vs same build forced off): editscript diff
+  on a 300-key nested map 93.0 -> 68.9ms (1.35x), honeysql formatting 500
+  complex queries 133.7 -> 118.3ms (1.13x), a 20k-line log-parsing script
+  20.3 -> 18.2ms (1.11x). Real library code is dominated by compiled
+  cljs.core plus escapes (collection literals, destructuring, or/and,
+  multimethods) that also force array mode — that's the gap items 2-3 in
+  the ranked next steps attack. Kernel-style user loops see the 20-60x;
+  glue code sees 1.1-1.4x today.
 
 ## Known limitations (prototype)
 
 - Fallback (interpreter, correct but uncompiled): varargs bodies,
-  `this-as`, and any form without an AST — `or`/`and`, `case`, `try`,
-  collection literals, interop, fn-creation nodes (the created fn's own
-  body still jits).
+  `this-as`, and any form without an AST (see remaining escape sources).
+
+## Remaining escape sources, by estimated real-world impact
+
+Every escape also drags its enclosing fn body from locals mode into array
+mode, so eliminating one pays twice.
+
+1. **fn-creation nodes** (fn/closure in let-init or argument position):
+   the created fn's own body jits, but the creating site escapes. Hits any
+   code using local helper fns or higher-order style — editscript's current
+   ceiling. Tricky: closure capture reads the creating fn's bindings array,
+   so locals mode needs the capture set spilled or the enclosed-array
+   construction emitted inline. Related conservatism: ANY escape forces the
+   whole body into array mode, even when the escaped node provably never
+   touches the environment — a ZERO-capture (fn ...) in a let-init drags
+   its enclosing body out of locals mode for nothing. The capture set is
+   known at analysis, so a cheap intermediate fix is an env-free flag on
+   such escapes (pass null for B, keep locals mode); the full fix
+   (compiling fn-creation) subsumes it for the capturing case. Do both
+   together in the follow-up PR.
+2. **case**: DONE, hybrid — dispatch stays the interpreter's structural
+   map lookup (JS switch semantics are ===, and keyword literals aren't
+   interned under :none/:simple, so switching on values would be wrong);
+   the helper returns a branch index and a JS switch runs compiled arms.
+   Arms are true tail positions (recur = continue through the switch).
+   Real-program deltas modest (honeysql 1.19x, editscript 1.41x, crunch
+   1.17x vs interp): remaining escape mass is fn-creation sites and try.
+3. **try/catch/finally**: JS has the same construct; main work is binding
+   the catch local and matching sci's exception-class dispatch.
+4. **Instance interop** (method calls, field access): DONE for the
+   `*unrestricted*` case — the analyzer's own unconditional-allow gate
+   (`:allow :all` deliberately routes to the config-aware node so `:closed`
+   can win, so *unrestricted* is the correct signal; nbb sets it). Emission
+   replicates invoke-instance-method exactly: obj, then method lookup with
+   the interpreter's "Could not find instance method" error BEFORE args,
+   then Reflect.apply (nbb#118). Restricted ctxs keep the checked escape:
+   no permission logic in generated code. Getting error-location parity
+   required the ambient-site discipline (below). Still open: js/ globals
+   (static access) and constructors, same pattern.
+
+   Follow-up: make the gate ctx-scoped. `*unrestricted*` is process-global
+   (nbb `set!`s the root, bb binds around main), so a NESTED sci ctx with a
+   restrictive `:classes` config inside bb/nbb gets the unchecked
+   `allowed-instance-*` nodes too — its sandbox does not enforce instance
+   interop. Pre-existing interpreter behavior, demonstrated on released
+   nbb 1.4.207: `(sci/eval-string "(.toUpperCase \"a\")")` nested inside
+   nbb returns "A" where plain browser SCI throws "Method toUpperCase ...
+   not allowed!". CLJS-only (JVM instance interop always runtime-checks
+   `class->opts`). The jit inherits the gate but adds nothing: restricted
+   ctxs escape to the config-aware interpreter node either way. Fix: a
+   per-ctx flag consulted at these analyzer arms instead of the global;
+   hosts set it on their root ctx, nested `sci/init` ctxs default to
+   sandboxed. Naming: prefer opt-IN to danger (`{:unrestricted true}`,
+   matching the existing `enable-unrestricted-access!` vocabulary) over a
+   default-true `{:sandbox true}` — a boolean whose default is true forces
+   `(not (false? ...))` reads, and "sandbox" collides with the granular
+   `:classes` config (what would `{:sandbox true :classes {:allow :all}}`
+   mean?). Both directions fail safe on a typo; the positive-danger flag
+   reads better at call sites and in checks. The jit arms sit behind the
+   same conditional and inherit the fix for free.
+5. **Site discipline** (learned via fuzzing the interop emission): the s
+   register must mirror the interpreter's try nesting — only call nodes
+   own sites, a call's site covers callee+args and closes with its
+   statement, s=-1 means transparent rethrow. The emitter tracks s
+   statically, re-asserts the ambient site at statement boundaries and
+   invalidates across control-flow merges. Interop/escape/operator nodes
+   carry no own site; they defer to the ambient one, exactly like
+   interpreter nodes without a catch.
+6. **Multimethods / protocol dispatch**: currently var-calls (already
+   jitted as calls); the dispatch itself lives in compiled cljs.core, so
+   little headroom beyond what call sites already get.
+7. **Varargs and this-as bodies**: whole-fn fallback; varargs needs rest
+   arg building in the prologue, mechanical. this-as is browser-interop
+   territory, low value.
+8. **Literals over the call-arity cap** (>8 elements, non-constant):
+   escape via the arity check; could emit chunked builders if it ever shows
+   up in a profile.
 - Global enable flag; production wants a ctx-scoped option
   (e.g. `(sci/init {:experimental-jit true})`) so a sandboxed ctx and a
   jitted ctx can coexist. AST attachment currently unconditional
@@ -117,11 +224,25 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
   keys because generated code references them textually.
 - `cljs.main` caches compiled deps in the `-d`/default `out/` dir; a stale
   cache silently reran old emitter code. `rm -rf out` when in doubt.
+- cljs `==`: the MACRO emits `===` but the FN's arity-2 body is
+  `(-equiv x y)` — structural. Worse: sci-CLJS `==` is path-dependent on
+  master TODAY — the fused specialization (ADR 0009) compiles the macro,
+  the general path calls the fn. Caught by the fuzzer (fn side) and the
+  operator-parity matrix test (fused side); the jit mirrors the
+  path-dependence exactly. Upstream fix worth considering. Every
+  operator-table entry is now pinned by a 4k-assertion parity matrix in
+  test/sci/jit_test.cljs instead of hand verification.
 
 ## Decisions after review (2026-07-12)
 
 - Eager compilation accepted: +5.7% analysis is fine against 20x+ runtime
   wins. Tiering and coverage heuristics dropped from the plan.
+- Non-opt-in: JIT is on by default, no flags. First compilation lazily
+  probes eval availability once; CSP-blocked environments fall back to the
+  interpreter permanently and silently. enable!/disable! remain as internal
+  overrides for tests/benchmarks. Site-table cost on call-dense workloads
+  (1e6 calls): <=2.5%, same order as run noise, so error fidelity is not a
+  reason to keep a flag.
 - Stacktrace fidelity: DONE via call-site tables (see architecture).
   Considered and rejected: shadow stacks (happy-path cost violates
   pay-on-throw), parsing named-fn JS stacks (engine-specific, fn-level
@@ -140,17 +261,54 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
    way). NOT eligible: `rem` (quot-based composite body, not JS `%`), `=`
    (deep equality), `get`. Expected: tight-loop from 1.32ms toward compiled
    CLJS (~0.4ms), 35x -> ~100x.
-2. **Collection literal nodes** (vector/map/set). Any literal currently
-   escapes, forcing array mode for the whole body. Supporting them keeps
-   real-world bodies escape-free (locals mode). Helps destructuring and
-   data-access shapes broadly.
-3. **`or`/`and`**: trivial emit (truthiness temps, short circuit),
-   ubiquitous in real code, same escape-free benefit.
-4. **ctx-scoped opt-in** (`{:experimental-jit true}`-style): ship
-   requirement, not perf. Replaces the global `enable!` volatile, gates the
-   AST attach so disabled ctxs pay zero analysis cost.
-5. Browser validation: scittle demo under a CSP page (probe fallback), real
-   DOM workloads; nbb/joyride integration.
+2. **Collection literal nodes** (vector/map/set). DONE: non-constant
+   literals were already return-call nodes with a builder fn (vector,
+   map-fn, checked set builder), so they reuse the :call-direct machinery —
+   an ast attach at two analyzer sites, no new emitter vocabulary. Literals
+   over the call-arity cap (8) still escape.
+3. **`or`/`and`**: DONE — short-circuit chains; last child is a true tail
+   position (recur-safe), non-last children early-return in tail mode.
+   With 2+3: editscript diff 1.35x -> 1.37x, honeysql 1.13x -> 1.24x,
+   log-crunch 1.11x -> 1.20x vs interpreter; suite green both levels;
+   30k fuzz seeds clean on the new emission.
+4. Browser validation: scittle demo under a CSP page (probe fallback), real
+   DOM workloads; nbb/joyride integration. (The ctx-scoped opt-in idea that
+   used to sit here was superseded by the non-opt-in decision below.)
+5. **Migrate nbb to `sci.async`**: SCI now has its own async/await
+   (`^:async` fn metadata + `await`, `sci.impl.async-macro`), so nbb's
+   bespoke await machinery can be retired. Interacts cleanly with the jit:
+   the async transform runs before analysis, turning bodies into plain
+   promise-helper call chains (`sci.impl.async-await/then|catch-for-try|...`
+   inlined vars), which compile like any other calls. Error UX today:
+   errors thrown by SCI code inside async fns keep location + callstack
+   (wrapped at the throw node, so the rejection carries the :sci/error
+   ex-info); `try/catch` around `await` unwraps to the original exception
+   (ex-data intact). Gap: host rejections whose value is not an
+   Error/ex-info (e.g. `(js/Promise.reject 42)`) surface with no message,
+   location, or stack — nothing ever passes a SCI throw site, so nothing
+   wraps it. A migration should make the embedder's top-level rejection
+   handler render non-Error rejection values explicitly. Worst current case
+   (old and new nbb alike): an error thrown in a non-promise host callback
+   (`js/setTimeout`, event handlers) never reaches nbb's error printer —
+   Node's default handler dumps the wrapped ex-info as raw object guts
+   (minified frames + the SCI callstack as persistent-vector internals).
+   The migration should install `process.on("uncaughtException")` /
+   `"unhandledRejection"` handlers routing through the SCI error formatter.
+6. **Compile `^:async` fns to native async/await** (follow-up to 5): the
+   promise-chain transform is jit-hostile — every `await` point becomes a
+   closure (fn-creation = escape source #1), so async bodies drop to array
+   mode or the interpreter. Instead keep `await` as a mini-AST node and emit
+   real `await` inside an `async function` template (`AsyncFunction`
+   constructor, same eval gate as `Function`). JS locals persist across
+   `await`, so locals mode and the `s` site register survive suspension
+   points unchanged; `loop`+`await` is the existing `for(;;)` with an await
+   inside; `try` around `await` is native JS try once try-compilation lands
+   (no `catch-for-try` unwrapping); V8 async stack traces + site tables
+   should beat the chain's error output. Constraint: `H.ev` is synchronous,
+   so an `await` inside an unsupported construct cannot partially escape —
+   the whole fn falls back to the promise-chain transform, which means
+   analyzing async fns twice (untransformed for the template, transformed
+   as interpreter fallback). Acceptable: `^:async` fns are rare.
 
 ROI caveat: items 1-3 widen the gap on loop/arithmetic code and keep more
 bodies in locals mode. Allocation-heavy code stays ~2x regardless — that
