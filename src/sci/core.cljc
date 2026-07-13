@@ -656,18 +656,10 @@
     (namespaces/sci-all-ns)))
 
 (defn ^{:deprecated "PLACEHOLDER-VERSION"} enable-unrestricted-access!
-  "DEPRECATED-PLACEHOLDER: pass `:unrestricted true` to `init`/`eval-string` opts instead; the ctx-scoped flag also lets nested contexts opt back into sandboxing.
-
-  Calling this will enable
-  - Altering core vars using `alter-var-root`
-  - In CLJS: `set!` is able to set the value of any var.
-  - In CLJS: instance method calls are not restricted to only `:classes`
-
-  In the future, more unrestricted access may be added, so only use this when you're not using SCI as a sandbox."
+  "DEPRECATED-PLACEHOLDER: throws; pass `:unrestricted true` to `init`/`eval-string` opts instead. The ctx-scoped flag also lets nested contexts opt back into sandboxing."
   []
-  #?(:cljd (set! unrestrict/*unrestricted* true)
-     :cljs (set! unrestrict/*unrestricted* true)
-     :clj (c/alter-var-root #'unrestrict/*unrestricted* (constantly true))))
+  (throw (ex-info "enable-unrestricted-access! has been removed: pass {:unrestricted true} to sci.core/init or eval-string opts instead. The ctx-scoped flag replaces the process-global one and lets nested contexts opt back into sandboxing with {:unrestricted false}."
+                  {:type :sci/error})))
 
 (defn var->symbol
   "Returns a fully qualified symbol from a `sci.lang.Var`"
