@@ -209,6 +209,7 @@
                         reload-all
                         check-permissions
                         interrupt-fn
+                        unrestricted
                         recur-target
                         params
                         parents
@@ -217,7 +218,7 @@
 
 (defn ->ctx [bindings env features readers check-permissions? & {:keys [interrupt-fn]}]
   #?(:clj (->Ctx bindings env features readers false check-permissions? interrupt-fn
-                 nil nil nil nil nil)
+                 nil nil nil nil nil nil)
      :default {:bindings bindings
                :env env
                :features features
