@@ -286,8 +286,8 @@
 
   - `:unrestricted`: when `true`, evaluated code may mutate built-in vars
   and CLJS instance interop skips `:classes` checks. Off by default.
-  Contexts do not inherit this setting from the context they are
-  evaluated in.
+  Applies only to this context: a context created during an unrestricted
+  evaluation is sandboxed unless it also gets this option.
 
   - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))

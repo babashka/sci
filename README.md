@@ -152,9 +152,9 @@ user=> (sci/eval-string "(with-redefs [inc dec] (inc 1))" {:unrestricted true})
 0
 ```
 
-Contexts do not inherit `:unrestricted` from the context they are evaluated
-in. A program evaluated with it can still evaluate untrusted code in a fresh
-sandboxed context.
+`:unrestricted` applies only to the context it was passed to. When code
+running in an unrestricted context calls `eval-string` again, the context of
+that call is sandboxed unless it also passes `:unrestricted true`.
 
 ### Macros
 
