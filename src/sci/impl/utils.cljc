@@ -135,7 +135,7 @@
      (throw e)
      (let [stack (t/stack raw-node)
            ;; _ (prn :stack stack)
-           #?@(:cljd [] :clj [fm (:sci.impl/f-meta stack)])
+           #?@(:cljd [] :clj [fm (or (:f-meta stack) (:sci.impl/f-meta stack))])
            env (:env ctx)
            id (:id ctx)
            d (ex-data e)
@@ -293,13 +293,20 @@
 
 (def unqualify-symbol vars/unqualify-symbol)
 
+(defrecord StackFrame [line column end-line end-column ns file f-meta special])
+
+(defn stack-frame
+  "Stack info for a call node. Replaces per-node map building; f-meta is
+  a plain field because namespaced keywords can't be record fields."
+  ([expr-meta f-meta] (stack-frame expr-meta f-meta false))
+  ([expr-meta f-meta special?]
+   (->StackFrame (:line expr-meta) (:column expr-meta)
+                 (:end-line expr-meta) (:end-column expr-meta)
+                 @current-ns @current-file f-meta special?)))
+
 (defn make-stack
-  ([expr-meta] (make-stack expr-meta false))
-  ([expr-meta special?]
-   (cond-> (assoc expr-meta
-                  :ns @current-ns
-                  :file @current-file)
-     special? (assoc :special true))))
+  ([expr-meta] (stack-frame expr-meta nil))
+  ([expr-meta special?] (stack-frame expr-meta nil special?)))
 
 (defn log [& xs]
   #?(:cljd (println (str/join " " xs))
