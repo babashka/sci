@@ -1,8 +1,8 @@
 (ns sci.ctx-store
   "Canonical place for projects to store, update and retrieve a context.
   This can be used by projects that need to expose their context to
-  functions. SCI does not populate this dynamic var itself during
-  evaluation. Projects like `sci.configs` assume this var to be set in
+  functions. SCI binds this dynamic var to the evaluating context during
+  `eval-form`. Projects like `sci.configs` assume this var to be set in
   some of their functions."
   #?(:cljs (:require-macros [sci.ctx-store :refer [with-ctx]])))
 

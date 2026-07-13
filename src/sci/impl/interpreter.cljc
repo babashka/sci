@@ -10,7 +10,6 @@
    [sci.impl.opts :as opts]
    [sci.impl.parser :as parser]
    [sci.impl.types :as types]
-   [sci.impl.unrestrict :as unrestrict]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]))
 
@@ -81,12 +80,7 @@
 (defn eval-form [ctx form]
   #?(:cljd (-install-wiring!))
   (store/with-ctx ctx
-    ;; the ctx is the only source of unrestrictedness; the global is just
-    ;; the conduit to runtime checks that have no ctx in hand (var
-    ;; mutation). ALWAYS rebind, so a nested eval-string with a fresh ctx
-    ;; can never inherit the binding of the evaluation it runs inside of
-    (binding [unrestrict/*unrestricted* (true? (:unrestricted ctx))]
-      (eval-form* ctx form))))
+    (eval-form* ctx form)))
 
 (vreset! utils/eval-form-state eval-form)
 

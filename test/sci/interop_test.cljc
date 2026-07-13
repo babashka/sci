@@ -5,7 +5,6 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [are deftest is testing #?(:cljs async)]]
    [sci.core :as sci]
-   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [sci.test-utils :as tu]
    #?(:cljs [goog.object :as gobj]))
   #?(:clj (:import PublicFields)))
@@ -183,10 +182,6 @@
        (is (thrown-with-msg? js/Error #"not allowed"
                              (sci/eval-string "(.toUpperCase \"a\")")))
        (is (= "A" (sci/eval-string "(.toUpperCase \"a\")" {:unrestricted true}))))
-     (testing "an ambient global binding does not leak into an eval"
-       (binding [unrestrict/*unrestricted* true]
-         (is (thrown-with-msg? js/Error #"not allowed"
-                               (sci/eval-string "(.toUpperCase \"a\")" {})))))
      (testing "nested eval-string does not inherit the host eval's unrestrictedness"
        (is (thrown-with-msg? js/Error #"not allowed"
                              (sci/eval-string

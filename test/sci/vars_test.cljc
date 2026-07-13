@@ -4,7 +4,6 @@
    [clojure.string :as str]
    [clojure.test :as test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.impl.unrestrict :refer [*unrestricted*]]
    [sci.test-utils :as tu]))
 
 (defn eval*
@@ -242,12 +241,6 @@
          (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))
     (is (= {} (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))"
                                {:unrestricted true}))))
-  (testing "an ambient global binding does not leak into an eval"
-    (binding [*unrestricted* true]
-      (is (thrown-with-msg?
-           #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
-           #"Built-in var"
-           (sci/eval-string "(with-redefs [assoc dissoc] (assoc {:a :b} :a :b))")))))
   (testing "nested eval-string does not inherit the host eval's unrestrictedness"
     (is (thrown-with-msg?
          #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)

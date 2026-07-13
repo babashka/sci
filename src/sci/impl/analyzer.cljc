@@ -8,7 +8,6 @@
    #?(:cljs [cljs.tagged-literals :refer [JSValue]])
    #?(:cljs [goog.object :as gobj])
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
-   #?(:cljs [sci.impl.unrestrict :as unrestrict])
    [clojure.string :as str]
    [sci.ctx-store :as store]
    #?(:cljs [sci.impl.async-macro :as async-macro])
@@ -1138,10 +1137,8 @@
                           (static-method))))
                     (analyze-instance-method ctx instance-expr method-expr args expr))
              :cljs (let [;; only unconditional allows skip config resolution;
-                         ;; :allow :all routes to the config-aware node so :closed wins.
-                         ;; ctx :unrestricted overrides the process-global flag, so a
-                         ;; nested ctx can sandbox interop inside an unrestricted host
-                         allowed? (or (unrestrict/unrestricted? ctx)
+                         ;; :allow :all routes to the config-aware node so :closed wins
+                         allowed? (or (:unrestricted ctx)
                                       (identical? method-expr utils/allowed-append))
                          args (into-array args)]
                      (with-meta

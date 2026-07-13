@@ -141,6 +141,21 @@ user=> (sci/eval-string "(inc 1)" {:deny '[inc]})
 ExceptionInfo inc is not allowed! [at line 1, column 2]  clojure.core/ex-info (core.clj:4739)
 ```
 
+### Unrestricted mode
+
+By default built-in vars are read-only and CLJS instance interop is limited to
+`:classes`. Hosts that embed SCI as a general purpose runtime can opt out with
+the `:unrestricted` option:
+
+``` clojure
+user=> (sci/eval-string "(with-redefs [inc dec] (inc 1))" {:unrestricted true})
+0
+```
+
+Contexts do not inherit `:unrestricted` from the context they are evaluated
+in. A program evaluated with it can still evaluate untrusted code in a fresh
+sandboxed context.
+
 ### Macros
 
 Providing a macro as a binding can be done by providing a normal function that:
