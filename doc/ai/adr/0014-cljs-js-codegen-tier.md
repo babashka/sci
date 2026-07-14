@@ -224,6 +224,15 @@ mode, so eliminating one pays twice.
 8. **Literals over the call-arity cap** (>8 elements, non-constant):
    escape via the arity check; could emit chunked builders if it ever shows
    up in a profile.
+9. **Skip the loop scaffold for non-recurring bodies**: every template
+   emits `r: for(;;){ ... }`, the recur-sentinel handling and the
+   loop-head interrupt check, even for straight-line bodies (the common
+   case). A `recur` targeting THIS frame is detectable at compile time
+   (loop* makes its own frame, so only self-tail-recursion counts); when
+   absent, emit the body directly with no loop label, no `for(;;)`, no
+   sentinel checks. Payoff is mostly generated-code size (helps every
+   non-recursive fn) plus a simpler tail-escape path; runtime gain is
+   small (V8 handles a one-iteration loop well). Cheap to add.
 
 ## CLJS gotchas hit (worth remembering)
 
