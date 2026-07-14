@@ -725,17 +725,29 @@ To use SCI as a native shared library from e.g. C++, Rust, Python, read this [tu
 
 On ClojureScript, SCI compiles interpreted function bodies to JavaScript at
 runtime through `js/Function`. This is on by default and needs no
-configuration. In environments where `eval` is unavailable, SCI uses its
-interpreter instead. Results, error messages and error locations are
-identical either way.
+configuration. Loops and numerical computations become much faster (and, in
+unrestricted contexts, JS interop too):
+
+``` clojure
+(require '[sci.core :as sci])
+
+;; a tight numeric loop, evaluated by SCI (:advanced build)
+(sci/eval-string "(time (loop [i 0 j 10000000] (if (zero? j) i (recur (inc i) (dec j)))))")
+;; interpreter:  ~175 ms
+;; JIT (default):  ~7 ms   — over 20x faster
+```
+
+In environments where `eval` is unavailable, SCI uses its interpreter
+instead. Results, error messages and error locations are identical either
+way.
 
 To turn it off:
 
-- Runtime: set `js/globalThis.SCI_DISABLE_JIT = true` before loading SCI.
+- At runtime: set `js/globalThis.SCI_DISABLE_JIT = true` before loading SCI.
   Use this in a page with a Content Security Policy that forbids `eval`, to
   avoid the console violation the availability probe would otherwise log.
-- Compile time: add `:closure-defines {sci.core/disable-jit true}` to the
-  ClojureScript compiler options. This forces the tier off in the build.
+- At compile time: add `:closure-defines {sci.core/disable-jit true}` to the
+  ClojureScript compiler options. This forces the JIT off in the build.
 
 ## Async/Await in ClojureScript
 
