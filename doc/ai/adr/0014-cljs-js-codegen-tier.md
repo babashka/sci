@@ -276,6 +276,29 @@ with the extended generator clean.
    (`.-innerHTML`, `.-onclick`) constantly. Needs a `:iset` analyzer arm
    under `:unrestricted` and the emitter arm; error/`this` semantics are
    simpler than :imeth (a plain assignment, no call).
+8c. **More escape sources, ranked by real-world payoff** (each escapes to
+   the interpreter and forces its body into array mode; correct today,
+   just slower):
+   - `throw`: no AST arm, so `(throw ...)` escapes — and it co-occurs with
+     the now-compiled `:try`, so a compiled try whose body throws still has
+     an escaping throw inside. Very common; cheap arm (emit `throw` with
+     the interpreter's rethrow-with-location).
+   - `set!` beyond field write: dynamic var `(set! *v* x)`, mutable deftype
+     field in a method. No `set!` arm at all.
+   - `binding` / `with-redefs`: dynamic-scope special forms, no AST. Common
+     in real programs; needs push/pop-thread-bindings emission.
+   - interop in a SANDBOXED ctx: the whole interop family is gated on
+     `:unrestricted`, so a plain-sci embedder compiles none of it. Bigger
+     job (config-aware permission, so `:closed` still wins) — see the
+     unrestricted follow-up above.
+   - `try` under an interrupt-fn ctx: `:try` only attaches when there is no
+     interrupt-fn (the #1044 finally-masking stays interpreted). bb-style
+     ctxs escape every try.
+   Low value, fine as escapes forever: `deftype`/`defrecord`/`reify`/
+   `defprotocol` in a body, `lazy-seq`, `def`/`var`/`quote` in expression
+   position, ctor/static-call via a runtime-resolved class. Whole-fn
+   fallbacks (fn not jitted at all): varargs, `this-as`, multi-arity,
+   `^:async`, `with-meta` fn, macro fn.
 9. **Direct method call for static interop**: DONE for `:jsstatic`. It
    emitted `Reflect.apply(C[method], C[class], [args])`; a jitted
    `(fn [] (Math/sin 3))` ran 139ms/1e7 vs 40ms native (3.5x), while a
