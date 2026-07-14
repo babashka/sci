@@ -247,9 +247,12 @@ mode, so eliminating one pays twice.
    dominates, never slower. NB the `new Array(...)` builtin fast path is
    Array-specific and unreachable through an indirect `new C[i]` ref, so
    an Array bench misleads; a normal user class shows variable-`new` ==
-   literal-`new`. NB2 `:jsctor` only fires for `js/X.` global ctors;
-   a registered-class-symbol ctor `(Point. 1 2)` still escapes to the
-   interpreter (separate limitation). STILL OPEN for `:imeth`: instance
+   literal-`new`. Registered-class-symbol
+   ctors `(Point. 1 2)` now jit too: analyze-new's cljs `:else` arm
+   attaches `:jsctor` when the class resolved at analysis and the ctx is
+   unrestricted (514ms interpreted -> 68ms, 1.66x native). Covers required
+   JS libs, which register as classes the same way. STILL OPEN for
+   `:imeth`: instance
    dispatch uses Reflect.apply deliberately (nbb#118), so the same change
    there needs that issue understood first.
 10. **Skip the loop scaffold for non-recurring bodies**: every template

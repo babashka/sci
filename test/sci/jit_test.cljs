@@ -120,6 +120,17 @@
     (let [[interp jitted] (eval-both src {:unrestricted true})]
       (is (= interp jitted) src))))
 
+(deftest jit-registered-class-ctor-test
+  ;; a class registered under a plain symbol takes analyze-new's :else arm
+  ;; (distinct from the js/X. static-access ctor), incl. required JS libs
+  (let [opts {:unrestricted true :classes {'MyDate js/Date 'MyArr js/Array}}]
+    (doseq [src ["(.getFullYear (MyDate. 2020 0 1))"
+                 "(vec (MyArr. 1 2 3))"
+                 "(.-length (MyArr. 5))"
+                 "((fn [y] (.getFullYear (MyDate. y 0 1))) 1999)"]]
+      (let [[interp jitted] (eval-both src opts)]
+        (is (= interp jitted) src)))))
+
 (deftest jit-fallback-test
   (testing "disabled jit still evaluates"
     (jit/disable!)

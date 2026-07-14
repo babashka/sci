@@ -1318,11 +1318,16 @@
                                                             args)
                             nil))
                          :else
-                         (let [args (into-array args)]
+                         (let [children args
+                               args (into-array args)]
                            (sci.impl.types/->Node
                             (interop/invoke-js-constructor* ctx bindings class ;; no eval needed
                                                             args)
-                            nil))))
+                            nil
+                            ;; registered-class ctor (incl. required JS libs);
+                            ;; class resolved at analysis, same as js/X.
+                            (when (:unrestricted ctx)
+                              [:jsctor class (vec children)])))))
                  (if-let [record (records/resolve-record-class ctx class-sym)]
                    (let [args (analyze-children ctx args)]
                      (return-call ctx
