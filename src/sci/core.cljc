@@ -31,6 +31,13 @@
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
+;; Public compile-time opt-out for the CLJS JS codegen tier:
+;; :closure-defines {sci.core/disable-jit true}. Forces the tier off in the
+;; build. For a runtime opt-out (and to keep a CSP page silent), set
+;; js/globalThis.SCI_DISABLE_JIT before loading sci.
+#?(:cljs (goog-define disable-jit false))
+#?(:cljs (when ^boolean disable-jit (vreset! t/jit-enabled false)))
+
 (defn new-var
   "Returns a new sci var."
   ([name] (doto (new-var name nil nil)

@@ -734,9 +734,8 @@ To turn it off:
 - Runtime: set `js/globalThis.SCI_DISABLE_JIT = true` before loading SCI.
   Use this in a page with a Content Security Policy that forbids `eval`, to
   avoid the console violation the availability probe would otherwise log.
-- Compile time: add `:closure-defines {sci.impl.types/jit-force-off true}`
-  to the ClojureScript compiler options. Under `:advanced` this removes the
-  codegen tier from the build.
+- Compile time: add `:closure-defines {sci.core/disable-jit true}` to the
+  ClojureScript compiler options. This forces the tier off in the build.
 
 ## Async/Await in ClojureScript
 

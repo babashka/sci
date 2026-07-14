@@ -4,18 +4,21 @@ Status (2026-07-15): complete implementation under review on branch `jit`
 (one commit on master; `worktree-js-eval` carries the full history). ON BY
 DEFAULT, no user-facing flags: an eager probe at load checks `js/Function`
 availability and falls back to the interpreter permanently and silently when
-eval is blocked (CSP). Internal switches only: `jit/enable!`/`disable!` for
-tests, and a compile-time `goog-define sci.impl.types/jit-force-off` for the
-jit-off CI leg. Validated: 5635 assertions x 3 CI legs (jit-on `:none`,
+eval is blocked (CSP). Opt-outs: `jit/enable!`/`disable!` (internal, for
+tests), the public compile-time `goog-define sci.core/disable-jit` (also
+used by the jit-off CI leg), and the public runtime
+`js/globalThis.SCI_DISABLE_JIT`. Validated: 5635 assertions x 3 CI legs (jit-on `:none`,
 jit-on `:advanced`, jit-off `:none`), ~450k differential fuzz programs (see
 Fuzzing below), full nbb ci:test, scittle CSP field test.
 
-Opt-outs: `js/globalThis.SCI_DISABLE_JIT = true` BEFORE loading sci skips
-the probe entirely (for consumers of compiled artifacts like scittle; also
-avoids the console violation a CSP page logs when the probe's Function
-construction is refused — browsers log that even inside try/catch). The
-`goog-define` stays as the compile-time switch for the jit-off CI leg,
-where it dead-code-eliminates under `:advanced`.
+Opt-outs (both public): `js/globalThis.SCI_DISABLE_JIT = true` set BEFORE
+loading sci is checked before the probe, so a CSP page stays silent (a
+refused Function construction logs a console violation even inside
+try/catch) and consumers of compiled artifacts (scittle) get a runtime
+switch. `:closure-defines {sci.core/disable-jit true}` is the compile-time
+switch; `sci.core` vresets the `sci.impl.types/jit-enabled` volatile off at
+load. The define lives in the PUBLIC `sci.core`, not the impl namespace
+that holds the volatile. The CI jit-off leg uses this same define.
 
 ## Context
 
