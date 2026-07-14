@@ -129,7 +129,10 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
   (redef through jitted call sites, keyword-as-fn via binding, recur through
   interpreted `case`, dynamic binding, variadic/multi-arity fallback, fn
   meta) matches the interpreter exactly.
-- Bundle: +7.4KB raw / +2.3KB gzip (~1.1%) on the shadow release build.
+- Bundle: +7.4KB raw / +2.3KB gzip (~1.1%) on the shadow release build for
+  the initial tier; the COMPLETE tier (interop, case, fn-creation, try)
+  measures +22.8KB raw / +5.4KB gzip (+2.6%, 207.0 -> 212.4KB gzip)
+  against master.
 - Analysis-time cost when enabled: originally +5.7% on a 50-defn source
   (~18µs per fn body including `new Function`), and +8.1% on loading
   honeysql through nbb (93.0 -> 100.5ms). Templates are now compiled
@@ -218,7 +221,18 @@ mode, so eliminating one pays twice.
    Real-program deltas ~flat (honeysql 1075->1050ms, editscript
    unchanged): these libs rarely have try in hot paths. The win is user
    code with try inside loops, which previously interpreted the whole
-   subtree.
+   subtree. Second fuzz catch: the catch-side wrap must only apply when
+   `s` moved off the try's ambient — a site opened OUTSIDE the try (the
+   try as an argument of a sited call) must not wrap in the compiled
+   catch, because the interpreter's try catch runs first and its
+   no-match rethrow supplies the body location (seed 38778).
+
+Final downstream validation (2026-07-14, complete tier): nbb ci:test
+green (84+123+69 assertions, rebuilt), scittle browser smoke green
+(plain 7.6ms / CSP 34.5ms interpreted, redef semantics identical, and
+the pinball demo plays), honeysql require overhead ~2% (137.6 vs
+135.0ms with SCI_DISABLE_JIT), suite 5669 x 3 legs, 100k fuzz seeds
+with the extended generator clean.
 4. **Instance interop** (method calls, field access): DONE for the
    unrestricted case, together with js/ static calls and constructors —
    the analyzer's own unconditional-allow gate (`:allow :all` deliberately
@@ -436,9 +450,15 @@ stack discipline, or `escape-free?`.
 
 The generator must GROW with the emitter: a new compiled node kind gets
 zero fuzz coverage until `jit-fuzz.gen` produces programs containing it
-(case, interop and var-mutation shapes were each added when their emission
-landed). When adding an emitter capability, add a generator shape in the
-same change and re-baseline with 100k seeds.
+(case, interop, var-mutation, and try shapes — incl. ^:sci/error and
+class catches plus finally — were each added when their emission landed;
+`*print-meta*` is bound during stringification so catch metadata
+survives). When adding an emitter capability, add a generator shape in
+the same change and re-baseline with 100k seeds. The suite still catches
+what the generator does not: the ^:sci/error wrap-at-call-site bug
+surfaced in the suite while 100k generator-less-shape seeds were clean,
+and the try-site shape added afterwards caught the outside-site
+overwrap at seed 38778 within the first 100k.
 
 Strict compile (test-only): `compile-template` wraps emission in a catch
 that returns nil on any exception, so a compiler BUG silently falls back to

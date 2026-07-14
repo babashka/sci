@@ -499,10 +499,15 @@
              (line! st (str t "=" (emit-expr st amb body) ";"))
              (line! st (str "}catch(" e "){"))
              (invalidate-stack! st)
-             ;; wrap BEFORE restoring *in-try*: with :sci/error active the
-             ;; interpreter's call nodes wrap inside the try body, and the
-             ;; wrap consults *in-try*
-             (line! st (str e "=H.tw(CTX," e "," (.-tbl-ref st) "[s]);"))
+             ;; when the throw crossed a call opened INSIDE the body
+             ;; (s moved off the try's ambient), apply the wrap that call
+             ;; site would have applied — BEFORE restoring *in-try*, since
+             ;; the wrap consults it (:sci/error re-enables wrapping). A
+             ;; site opened OUTSIDE the try must not wrap here: the
+             ;; interpreter's try catch runs first and its no-match
+             ;; rethrow supplies the body location.
+             (line! st (str "if(s!==" amb "){" e "=H.tw(CTX," e ","
+                            (.-tbl-ref st) "[s]);}"))
              (when in-try-val
                (line! st (str "H.sit(" oit ");")))
              (line! st (str "s=" amb ";"))

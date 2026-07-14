@@ -168,15 +168,31 @@
         (gexpr r env fns (dec size))))
 
 (defn- gtry [r env fns size]
-  (let [e (gsym r "e")]
-    (list 'try
-          (if (chance r 40)
-            (list 'throw (list 'ex-info "boom" {:v (glit-num r)}))
-            (gexpr r env fns (dec size)))
-          (list 'catch :default e
-                (if (chance r 50)
+  (let [e (gsym r "e")
+        body (if (chance r 40)
+               (list 'throw (list 'ex-info "boom" {:v (glit-num r)}))
+               (gexpr r env fns (dec size)))
+        handler (if (chance r 50)
                   (list 'ex-message e)
-                  (gexpr r env fns (dec size)))))))
+                  (gexpr r env fns (dec size)))
+        fin (when (chance r 25)
+              (list 'finally (gexpr r env fns 0)))]
+    (concat
+     (case (rint r 4)
+       ;; :default catch
+       0 (list 'try body (list 'catch :default e handler))
+       ;; ^:sci/error catch (wrap-at-call-site path, callstack preserved)
+       1 (list 'try body
+               (list 'catch (with-meta 'js/Error {:sci/error true}) e handler))
+       ;; class catch before ^:sci/error catch (unwrap dispatch)
+       2 (list 'try body
+               (list 'catch 'js/RangeError e (list 'do handler :range))
+               (list 'catch (with-meta 'js/Error {:sci/error true}) e handler))
+       ;; try/finally only, or plain class catch
+       3 (if (chance r 50)
+           (list 'try body)
+           (list 'try body (list 'catch 'js/Error e handler))))
+     (when fin [fin]))))
 
 (def ^:private interop-exprs
   '[(.toUpperCase X3) (.indexOf X3 "b") (.charAt X3 I) (.-length X3)
@@ -289,6 +305,8 @@
                       var-mut
                       [calls])]
     (->> forms
-         (map #(if (string? %) % (pr-str %)))
+         ;; *print-meta*: the ^:sci/error catch metadata must survive
+         ;; stringification; generated forms carry no other metadata
+         (map #(if (string? %) % (binding [*print-meta* true] (pr-str %))))
          (interpose "\n")
          (apply str))))
