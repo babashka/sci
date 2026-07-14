@@ -103,16 +103,16 @@
 ;; The members of the generated-code helpers object H, as the emitter
 ;; interpolates them (short at runtime, named here so the emitter reads
 ;; meaningfully). Implementations in `helpers` above.
-(def ^:private H-escape "H.ev")      ; interpreter escape (node, CTX, B)
-(def ^:private H-deref "H.d")        ; var deref
-(def ^:private H-recur-sentinel "H.s")
-(def ^:private H-epoch "H.g")        ; var-mutation epoch array
-(def ^:private H-case-dispatch "H.cs")
-(def ^:private H-rethrow "H.re")     ; template catch rethrow-with-location
-(def ^:private H-get-in-try "H.git")
-(def ^:private H-set-in-try "H.sit")
-(def ^:private H-try-catches "H.tc") ; eval-catches dispatch
-(def ^:private H-try-wrap "H.tw")    ; non-throwing wrap at intercepted site
+(def ^:private interpret "H.ev")      ; interpreter escape (node, CTX, B)
+(def ^:private deref-var "H.d")        ; var deref
+(def ^:private recur-sentinel "H.s")
+(def ^:private mutation-epoch "H.g")        ; var-mutation epoch array
+(def ^:private case-branch-index "H.cs")
+(def ^:private rethrow-located "H.re")     ; template catch rethrow-with-location
+(def ^:private read-in-try "H.git")
+(def ^:private write-in-try "H.sit")
+(def ^:private catch-dispatch "H.tc") ; eval-catches dispatch
+(def ^:private wrap-at-site "H.tw")    ; non-throwing wrap at intercepted site
 
 (def ^:private max-call-arity 8)
 
@@ -208,6 +208,11 @@
   (.push (.-lines st) s)
   nil)
 
+(defn- stmt!
+  "Emit one JS statement from string fragments."
+  [^EmitterState st & parts]
+  (line! st (apply str parts)))
+
 (defn- tmp! [^EmitterState st]
   (let [n (.-tmp st)]
     (set! (.-tmp st) (inc n))
@@ -252,7 +257,7 @@
 (defn- assert-stack! [^EmitterState st idx]
   (when-not (= idx (.-stack-idx st))
     (set! (.-stack-idx st) idx)
-    (line! st (str "s=" idx ";"))))
+    (stmt! st "s=" idx ";")))
 
 (defn- invalidate-stack! [^EmitterState st]
   (set! (.-stack-idx st) nil))
@@ -269,7 +274,7 @@
   (if (re-matches #"C\[\d+\]|t\d+|null|true|false|\(-?[0-9.e+-]+\)" e)
     e
     (let [t (tmp! st)]
-      (line! st (str "var " t "=" e ";"))
+      (stmt! st "var " t "=" e ";")
       t)))
 
 (defn- emit-arg
@@ -282,6 +287,11 @@
 
 (defn- join-args [args]
   (.join (to-array args) ","))
+
+(defn- js-call
+  "A JS call expression f(arg1,arg2,...); f and args are JS fragments."
+  [f & args]
+  (str f "(" (join-args args) ")"))
 
 (defn- arity-impl
   "Arity-specific invoke fn of a multi-arity CLJS fn, when present.
@@ -392,11 +402,11 @@
                    :call-var (let [cache (const! st #js [nil -1])
                                    var-ref (const! st callee)
                                    deref-tmp (tmp! st)]
-                               (line! st (str "var " deref-tmp ";"))
-                               (line! st (str "if(" cache "[1]===" H-epoch "[0]){" deref-tmp "=" cache "[0];}else{"
-                                              deref-tmp "=" H-deref "(" var-ref ");"
+                               (stmt! st "var " deref-tmp ";")
+                               (stmt! st "if(" cache "[1]===" mutation-epoch "[0]){" deref-tmp "=" cache "[0];}else{"
+                                              deref-tmp "=" deref-var "(" var-ref ");"
                                               cache "[0]=" deref-tmp ";"
-                                              cache "[1]=" H-epoch "[0];}"))
+                                              cache "[1]=" mutation-epoch "[0];}")
                                deref-tmp)
                    ;; callee = binding slot index
                    :call-bind (spill st (slot st callee))
@@ -409,10 +419,10 @@
 (defn- emit-chain
   "Short-circuit chain for or/and into temp t via nested ifs."
   [st amb t children and?]
-  (line! st (str t "=" (emit-expr st amb (first children)) ";"))
+  (stmt! st t "=" (emit-expr st amb (first children)) ";")
   (assert-stack! st amb)
   (when-let [more (next children)]
-    (line! st (str "if(" (when-not and? "!") (truthy t) "){"))
+    (stmt! st "if(" (when-not and? "!") (truthy t) "){")
     (emit-chain st amb t more and?)
     (line! st "}")
     (invalidate-stack! st)
@@ -420,7 +430,7 @@
 
 (defn- emit-let-bindings [st amb [_ idxs inits _body]]
   (dotimes [i (count idxs)]
-    (line! st (str (slot st (nth idxs i)) "=" (emit-expr st amb (nth inits i)) ";"))
+    (stmt! st (slot st (nth idxs i)) "=" (emit-expr st amb (nth inits i)) ";")
     (assert-stack! st amb)))
 
 (defn- emit-expr [st amb x]
@@ -436,16 +446,16 @@
       ;; interpreter nodes locate their own errors (or defer to the
       ;; enclosing call, which the active s already reflects)
       :escape (let [[_ node] a]
-                (str H-escape "(" (const! st node) ",CTX,B)"))
+                (js-call interpret (const! st node) "CTX" "B"))
       :if (let [[_ test then else] a
                 test-expr (emit-arg st amb test)
                 res (tmp! st)]
-            (line! st (str "var " res ";"))
-            (line! st (str "if" (truthy test-expr) "{"))
-            (line! st (str res "=" (emit-expr st amb then) ";"))
+            (stmt! st "var " res ";")
+            (stmt! st "if" (truthy test-expr) "{")
+            (stmt! st res "=" (emit-expr st amb then) ";")
             (line! st "}else{")
             (invalidate-stack! st)
-            (line! st (str res "=" (emit-expr st amb else) ";"))
+            (stmt! st res "=" (emit-expr st amb else) ";")
             (line! st "}")
             (invalidate-stack! st)
             (assert-stack! st amb)
@@ -454,7 +464,7 @@
             (if (empty? children)
               "null"
               (do (doseq [child (butlast children)]
-                    (line! st (str (emit-expr st amb child) ";"))
+                    (stmt! st (emit-expr st amb child) ";")
                     (assert-stack! st amb))
                   (emit-expr st amb (last children)))))
       :let (let [[_ _ _ body] a]
@@ -462,7 +472,7 @@
              (emit-expr st amb body))
       (:or :and) (let [[_ children] a
                        res (tmp! st)]
-                   (line! st (str "var " res ";"))
+                   (stmt! st "var " res ";")
                    (emit-chain st amb res children (keyword-identical? :and op))
                    res)
       ;; instance interop, only attached under ctx :unrestricted: no own
@@ -476,10 +486,10 @@
                    obj-expr (emit-arg st amb obj)
                    meth (tmp! st)
                    key-lit (str "[" (js/JSON.stringify meth-name) "]")]
-               (line! st (str "var " meth "=" obj-expr key-lit ";"))
+               (stmt! st "var " meth "=" obj-expr key-lit ";")
                ;; method missing throws before args evaluate, like the interpreter
-               (line! st (str "if(" meth "==null)throw new Error("
-                              (js/JSON.stringify (str "Could not find instance method: " meth-name)) ");"))
+               (stmt! st "if(" meth "==null)throw new Error("
+                              (js/JSON.stringify (str "Could not find instance method: " meth-name)) ");")
                (let [args (mapv #(emit-arg st amb %) arg-children)]
                  ;; exactly invoke-instance-method: the property is read
                  ;; ONCE (an accessor must not fire twice) and the call is
@@ -493,17 +503,17 @@
                   idx-map-ref (const! st idx-map)
                   branch-idx (tmp! st)
                   res (tmp! st)]
-              (line! st (str "var " res ";"))
-              (line! st (str "var " branch-idx "=" H-case-dispatch "(" idx-map-ref "," dispatch-expr ");"))
-              (line! st (str "switch(" branch-idx "){"))
+              (stmt! st "var " res ";")
+              (stmt! st "var " branch-idx "=" (js-call case-branch-index idx-map-ref dispatch-expr) ";")
+              (stmt! st "switch(" branch-idx "){")
               (dotimes [i (count branches)]
                 (invalidate-stack! st)
-                (line! st (str "case " i ":"))
-                (line! st (str res "=" (emit-expr st amb (nth branches i)) ";"))
+                (stmt! st "case " i ":")
+                (stmt! st res "=" (emit-expr st amb (nth branches i)) ";")
                 (line! st "break;"))
               (invalidate-stack! st)
               (line! st "default:")
-              (line! st (str res "=" (emit-expr st amb default) ";"))
+              (stmt! st res "=" (emit-expr st amb default) ";")
               (line! st "}")
               (invalidate-stack! st)
               (assert-stack! st amb)
@@ -525,12 +535,12 @@
                  res (tmp! st)
                  old-in-try (when in-try-val (tmp! st))
                  err (tmp! st)]
-             (line! st (str "var " res ";"))
+             (stmt! st "var " res ";")
              (when in-try-val
-               (line! st (str "var " old-in-try "=" H-get-in-try "();" H-set-in-try "(" in-try-val ");")))
+               (stmt! st "var " old-in-try "=" read-in-try "();" write-in-try "(" in-try-val ");"))
              (line! st "try{")
-             (line! st (str res "=" (emit-expr st amb body) ";"))
-             (line! st (str "}catch(" err "){"))
+             (stmt! st res "=" (emit-expr st amb body) ";")
+             (stmt! st "}catch(" err "){")
              (invalidate-stack! st)
              ;; when the throw crossed a call opened INSIDE the body
              ;; (s moved off the try's ambient), apply the wrap that call
@@ -539,19 +549,19 @@
              ;; site opened OUTSIDE the try must not wrap here: the
              ;; interpreter's try catch runs first and its no-match
              ;; rethrow supplies the body location.
-             (line! st (str "if(s!==" amb "){" err "=" H-try-wrap "(CTX," err ","
-                            (.-tbl-ref st) "[s]);}"))
+             (stmt! st "if(s!==" amb "){" err "=" wrap-at-site "(CTX," err ","
+                            (.-tbl-ref st) "[s]);}")
              (when in-try-val
-               (line! st (str H-set-in-try "(" old-in-try ");")))
-             (line! st (str "s=" amb ";"))
-             (line! st (str res "=" H-try-catches "(CTX,B," (const! st body) "," (const! st catches) ","
-                            (if sci-error "true" "false") "," err ");"))
+               (stmt! st write-in-try "(" old-in-try ");"))
+             (stmt! st "s=" amb ";")
+             (stmt! st res "=" catch-dispatch "(CTX,B," (const! st body) "," (const! st catches) ","
+                            (if sci-error "true" "false") "," err ");")
              (line! st "}finally{")
              (invalidate-stack! st)
              (when in-try-val
-               (line! st (str H-set-in-try "(" old-in-try ");")))
+               (stmt! st write-in-try "(" old-in-try ");"))
              (when fin
-               (line! st (str (emit-expr st amb fin) ";")))
+               (stmt! st (emit-expr st amb fin) ";"))
              (assert-stack! st amb)
              (line! st "}")
              ;; the finally guarantees s=amb on every path
@@ -579,7 +589,7 @@
       ;; value-position var read: plain deref, never cached (unlike
       ;; :call-var) so plain data in vars is not retained
       :vderef (let [[_ v] a]
-                (str H-deref "(" (const! st v) ")"))
+                (js-call deref-var (const! st v)))
       ;; closure creation: build the enclosed array from this template's
       ;; own slots (static capture pairs) and hand it to mk, which reuses
       ;; make-fn — stubs, laziness and self-reference patching included.
@@ -591,9 +601,9 @@
               (if (nil? enclosed-cnt)
                 (str mk-ref "(CTX,null)")
                 (let [enclosed (tmp! st)]
-                  (line! st (str "var " enclosed "=new Array(" enclosed-cnt ");"))
+                  (stmt! st "var " enclosed "=new Array(" enclosed-cnt ");")
                   (doseq [[binding-idx enclosed-idx] capture-pairs]
-                    (line! st (str enclosed "[" enclosed-idx "]=" (slot st binding-idx) ";")))
+                    (stmt! st enclosed "[" enclosed-idx "]=" (slot st binding-idx) ";"))
                   (str mk-ref "(CTX," enclosed ")"))))
       ;; interp ctor node has no catch: no own stack. direct `new C(args)`
       ;; when the ctor is a real function (V8 optimizes it, unlike
@@ -611,7 +621,7 @@
     (case op
       :if (let [[_ test then else] a
                 test-expr (emit-arg st amb test)]
-            (line! st (str "if" (truthy test-expr) "{"))
+            (stmt! st "if" (truthy test-expr) "{")
             (emit-tail st amb then)
             (line! st "}else{")
             (invalidate-stack! st)
@@ -622,7 +632,7 @@
             (if (empty? children)
               (line! st "return null;")
               (do (doseq [child (butlast children)]
-                    (line! st (str (emit-expr st amb child) ";"))
+                    (stmt! st (emit-expr st amb child) ";")
                     (assert-stack! st amb))
                   (emit-tail st amb (last children)))))
       :let (let [[_ _ _ body] a]
@@ -633,11 +643,11 @@
       (:or :and) (let [[_ children] a
                        and? (keyword-identical? :and op)
                        res (tmp! st)]
-                   (line! st (str "var " res ";"))
+                   (stmt! st "var " res ";")
                    (doseq [child (butlast children)]
-                     (line! st (str res "=" (emit-expr st amb child) ";"))
+                     (stmt! st res "=" (emit-expr st amb child) ";")
                      (assert-stack! st amb)
-                     (line! st (str "if(" (when and? "!") (truthy res) ")return " res ";")))
+                     (stmt! st "if(" (when and? "!") (truthy res) ")return " res ";"))
                    (emit-tail st amb (last children)))
       ;; recur args evaluate against the old bindings: spill all, then
       ;; assign; s stays ambient across the backedge (recur is only legal
@@ -645,7 +655,7 @@
       :recur (let [[_ args] a
                    spilled (mapv #(emit-arg st amb %) args)]
                (dotimes [i (count spilled)]
-                 (line! st (str (slot st i) "=" (nth spilled i) ";")))
+                 (stmt! st (slot st i) "=" (nth spilled i) ";"))
                (line! st "continue r;"))
       ;; arms are real tail positions: recur compiles to continue, which
       ;; jumps from inside the switch to the labeled fn loop
@@ -653,11 +663,11 @@
                   dispatch-expr (emit-arg st amb dispatch)
                   idx-map-ref (const! st idx-map)
                   branch-idx (tmp! st)]
-              (line! st (str "var " branch-idx "=" H-case-dispatch "(" idx-map-ref "," dispatch-expr ");"))
-              (line! st (str "switch(" branch-idx "){"))
+              (stmt! st "var " branch-idx "=" (js-call case-branch-index idx-map-ref dispatch-expr) ";")
+              (stmt! st "switch(" branch-idx "){")
               (dotimes [i (count branches)]
                 (invalidate-stack! st)
-                (line! st (str "case " i ":"))
+                (stmt! st "case " i ":")
                 (emit-tail st amb (nth branches i)))
               (invalidate-stack! st)
               (line! st "default:")
@@ -669,10 +679,10 @@
       :escape (let [[_ node] a
                     res (tmp! st)]
                 (assert-stack! st amb)
-                (line! st (str "var " res "=" H-escape "(" (const! st node) ",CTX,B);"))
-                (line! st (str "if(" res "===" H-recur-sentinel ")continue r;"))
-                (line! st (str "return " res ";")))
-      (line! st (str "return " (emit-expr st amb x) ";")))))
+                (stmt! st "var " res "=" (js-call interpret (const! st node) "CTX" "B") ";")
+                (stmt! st "if(" res "===" recur-sentinel ")continue r;")
+                (stmt! st "return " res ";"))
+      (stmt! st "return " (emit-expr st amb x) ";"))))
 
 (defn- make-stub
   "Per-arity stub that compiles the template at FIRST INVOCATION rather
@@ -736,18 +746,18 @@
                      (mapv #(str "p" %) (range arity)))]
         (if locals?
           (do (when (> invoc-size arity)
-                (line! st (str "var "
+                (stmt! st "var "
                                (join-args (map #(str "b" %) (range arity invoc-size)))
-                               ";")))
+                               ";"))
               (when e2i-idxs
                 (dotimes [i (alength e2i-idxs)]
                   (let [pair (aget e2i-idxs i)]
-                    (line! st (str "b" (aget pair 1) "=E[" (aget pair 0) "];"))))))
-          (do (line! st (str "var B=new Array(" invoc-size ");"))
+                    (stmt! st "b" (aget pair 1) "=E[" (aget pair 0) "];")))))
+          (do (stmt! st "var B=new Array(" invoc-size ");")
               (when e2i
-                (line! st (str (const! st e2i) "(E,B);")))
+                (stmt! st (const! st e2i) "(E,B);"))
               (dotimes [i arity]
-                (line! st (str "B[" i "]=p" i ";")))))
+                (stmt! st "B[" i "]=p" i ";"))))
         (line! st "var s=-1;")
         (line! st "try{")
         (line! st "r: for(;;){")
@@ -756,7 +766,7 @@
         (line! st "}")
         ;; the stack table is the first const (see tbl-ref); H.re rethrows
         ;; with the active call's stack, matching interpreter frames
-        (line! st (str "}catch(e){" H-rethrow "(CTX,e," (.-tbl-ref st) "[s]);throw e;}"))
+        (stmt! st "}catch(e){" rethrow-located "(CTX,e," (.-tbl-ref st) "[s]);throw e;}")
         (let [src (str "return function(CTX,E,INT){return function("
                        (join-args params)
                        "){" (.join (.-lines st) "\n") "}}")
