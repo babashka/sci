@@ -366,6 +366,18 @@ zero fuzz coverage until `jit-fuzz.gen` produces programs containing it
 landed). When adding an emitter capability, add a generator shape in the
 same change and re-baseline with 100k seeds.
 
+Strict compile (test-only): `compile-template` wraps emission in a catch
+that returns nil on any exception, so a compiler BUG silently falls back to
+the interpreter — and the differential checks can't see it, because both
+sides then run the interpreter and agree. `sci.impl.jit/strict-compile?`
+(a volatile, set true by both `jit_test` and the fuzzer) makes that catch
+rethrow, so an emitter exception fails loudly instead of hiding. It stays
+false in production, where a compile failure must never break evaluation.
+Legitimate non-compilation (varargs, this-as, escapes) does not reach the
+catch — it returns nil through guards or emits an `H.ev` escape — so strict
+mode has no false positives (verified: full suite and 20k seeds green with
+it on).
+
 ## Idea parked: lazy body analysis in the interpreter itself
 
 The first-invocation stubs mean loaded-but-never-called fns skip CODEGEN.

@@ -28,6 +28,13 @@
   "Debug: JS sources of compiled templates, only when collect-srcs? is on."
   (volatile! []))
 
+(def strict-compile?
+  "When true, compile-template rethrows an emitter exception instead of
+  falling back to the interpreter. Off in production (a compile failure
+  must never break evaluation); ON in tests, so an emitter bug surfaces as
+  a failure instead of hiding behind a silent, still-correct fallback."
+  (volatile! false))
+
 (defn js-eval-available? []
   (try ((js/Function. "return 1")) true
        (catch :default _ false)))
@@ -583,5 +590,6 @@
               factory ((js/Function. "C" "H" src) (.-consts st) helpers)]
           (fn [ctx enclosed-array]
             (factory ctx enclosed-array (:interrupt-fn ctx)))))
-      (catch :default _e
+      (catch :default e
+        (when @strict-compile? (throw e))
         nil))))

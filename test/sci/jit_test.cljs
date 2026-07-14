@@ -6,7 +6,11 @@
             [sci.core :as sci]
             [sci.impl.jit :as jit]))
 
-;; other test namespaces expect the default (jit on): restore after each test
+;; strict compile: an emitter exception must fail the test, not hide behind
+;; a silent interpreter fallback (which the differential checks can't see,
+;; since both sides then run the interpreter and agree). other test
+;; namespaces expect the default (jit on): restore after each test.
+(vreset! jit/strict-compile? true)
 (t/use-fixtures :each (fn [f] (try (f) (finally (jit/enable!)))))
 
 (defn- eval-both

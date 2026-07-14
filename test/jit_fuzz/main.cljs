@@ -14,6 +14,9 @@
   (-> (binding [*print-length* 64 *print-level* 6] (pr-str v))
       (str/replace #"#object\[[^\]]*\]" "#fn")))
 
+;; an emitter exception must surface as a mismatch, not a silent fallback
+(vreset! jit/strict-compile? true)
+
 (defn- eval-one [mode src]
   (if (= :jit mode) (jit/enable!) (jit/disable!))
   ;; unrestricted: exercises the direct interop emission (nbb-style)
