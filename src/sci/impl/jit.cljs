@@ -100,8 +100,44 @@
                    (utils/rethrow-with-location-of-node
                     ctx e (t/->NodeR nil (when stack stack) nil))))))
 
+;; The members of the generated-code helpers object H, as the emitter
+;; interpolates them (short at runtime, named here so the emitter reads
+;; meaningfully). Implementations in `helpers` above.
+(def ^:private H-escape "H.ev")      ; interpreter escape (node, CTX, B)
+(def ^:private H-deref "H.d")        ; var deref
+(def ^:private H-recur-sentinel "H.s")
+(def ^:private H-epoch "H.g")        ; var-mutation epoch array
+(def ^:private H-case-dispatch "H.cs")
+(def ^:private H-rethrow "H.re")     ; template catch rethrow-with-location
+(def ^:private H-get-in-try "H.git")
+(def ^:private H-set-in-try "H.sit")
+(def ^:private H-try-catches "H.tc") ; eval-catches dispatch
+(def ^:private H-try-wrap "H.tw")    ; non-throwing wrap at intercepted site
+
 (def ^:private max-call-arity 8)
 
+;; AST shapes, attached by the analyzer (children are nodes or constants,
+;; resolved through ->ast):
+;;   [:const value]                          synthesized by ->ast
+;;   [:binding idx]                          synthesized by ->ast
+;;   [:escape node]                          synthesized by ->ast (no ast)
+;;   [:if test then else]
+;;   [:do [child ...]]
+;;   [:let [idx ...] [init ...] body]
+;;   [:recur [arg ...]]
+;;   [:or [child ...]] / [:and [child ...]]
+;;   [:call-direct f [arg ...] stack]        f = known fn value
+;;   [:call-var var [arg ...] stack]         deref cached on the epoch
+;;   [:call-bind idx [arg ...] stack]        callee = binding slot
+;;   [:call-node callee [arg ...] stack]     callee = expression
+;;   [:vderef var]                           value-position var read
+;;   [:iget obj name stack]                  instance field
+;;   [:imeth obj name [arg ...] stack]       instance method
+;;   [:case dispatch idx-map [branch ...] default]
+;;   [:jsstatic method class [arg ...] stack]  resolved at analysis
+;;   [:jsctor ctor [arg ...]]                  resolved at analysis
+;;   [:mkfn mk capture-pairs enclosed-cnt]     closure creation
+;;   [:try body catches finally sci-error]
 (defn- call-ast? [op]
   (case op (:call-direct :call-var :call-bind :call-node) true false))
 
@@ -120,33 +156,32 @@
         [:escape x]))
     :else [:const x]))
 
-(defn escape-free? [x]
-  (let [a (->ast x)]
-    (case (nth a 0)
+(defn escape-free?
+  "True when compiling x needs no B array: every subtree compiles (no
+  interpreter escape) and none of it hands bindings to the runtime."
+  [x]
+  (let [[op x1 x2 x3 x4] (->ast x)]
+    (case op
       (:const :binding) true
       :escape false
-      :if (and (escape-free? (nth a 1))
-               (escape-free? (nth a 2))
-               (escape-free? (nth a 3)))
-      :do (every? escape-free? (nth a 1))
-      :let (and (every? escape-free? (nth a 2))
-                (escape-free? (nth a 3)))
-      :recur (every? escape-free? (nth a 1))
-      (:or :and) (every? escape-free? (nth a 1))
-      (:call-direct :call-var :call-bind) (every? escape-free? (nth a 2))
-      :call-node (and (escape-free? (nth a 1))
-                      (every? escape-free? (nth a 2)))
-      :iget (escape-free? (nth a 1))
-      :imeth (and (escape-free? (nth a 1))
-                  (every? escape-free? (nth a 3)))
-      :case (and (escape-free? (nth a 1))
-                 (every? escape-free? (nth a 3))
-                 (escape-free? (nth a 4)))
-      :jsctor (every? escape-free? (nth a 2))
-      :jsstatic (every? escape-free? (nth a 3))
+      :if (and (escape-free? x1) (escape-free? x2) (escape-free? x3))
+      :do (every? escape-free? x1)
+      :let (and (every? escape-free? x2) (escape-free? x3))
+      :recur (every? escape-free? x1)
+      (:or :and) (every? escape-free? x1)
+      (:call-direct :call-var :call-bind) (every? escape-free? x2)
+      :call-node (and (escape-free? x1) (every? escape-free? x2))
+      :iget (escape-free? x1)
+      :imeth (and (escape-free? x1) (every? escape-free? x3))
+      :case (and (escape-free? x1)
+                 (every? escape-free? x3)
+                 (escape-free? x4))
+      :jsctor (every? escape-free? x2)
+      :jsstatic (every? escape-free? x3)
       ;; closure creation reads captures straight from slots, needs no B
       :mkfn true
       :vderef true
+      ;; :try catch dispatch hands B to eval-catches
       false)))
 
 ;; --- emitter ---
@@ -322,11 +357,9 @@
     3 (.get op-gens-3 f)
     nil))
 
-(defn- emit-call [st amb a]
-  (let [op (nth a 0)
-        children (nth a 2)
-        n (count children)
-        idx (intern-stack! st (nth a 3 nil) amb)]
+(defn- emit-call [st amb [op callee children stack]]
+  (let [n (count children)
+        idx (intern-stack! st stack amb)]
     ;; the interpreter's call-node try wraps callee and argument
     ;; evaluation too, so the call's stack activates before both; each
     ;; argument restores it (a nested call moves it, then its try closes)
@@ -336,16 +369,15 @@
       ;; operator template (which can still throw: JS coercion of a lazy
       ;; operand forces it), then the arity impl to skip variadic dispatch
       :call-direct
-      (let [f (nth a 1)
-            gen (if (identical? f eq-eq)
+      (let [gen (if (identical? callee eq-eq)
                   (when (and (= 2 n)
                              (every? #(case (nth (->ast %) 0)
                                         (:binding :const) true
                                         false)
                                      children))
                     eq-eq-gen)
-                  (op-gen f n))
-            head (when-not gen (const! st (or (arity-impl f n) f)))
+                  (op-gen callee n))
+            head (when-not gen (const! st (or (arity-impl callee n) callee)))
             args (mapv #(emit-arg st idx %) children)]
         (if gen
           (gen args)
@@ -358,18 +390,19 @@
                    ;; the global var-mutation epoch: hot path is two array
                    ;; reads + compare instead of the full deref
                    :call-var (let [cache (const! st #js [nil -1])
-                                   vref (const! st (nth a 1))
-                                   c (tmp! st)]
-                               (line! st (str "var " c ";"))
-                               (line! st (str "if(" cache "[1]===H.g[0]){" c "=" cache "[0];}else{"
-                                              c "=H.d(" vref ");"
-                                              cache "[0]=" c ";"
-                                              cache "[1]=H.g[0];}"))
-                               c)
-                   :call-bind (spill st (slot st (nth a 1)))
+                                   var-ref (const! st callee)
+                                   deref-tmp (tmp! st)]
+                               (line! st (str "var " deref-tmp ";"))
+                               (line! st (str "if(" cache "[1]===" H-epoch "[0]){" deref-tmp "=" cache "[0];}else{"
+                                              deref-tmp "=" H-deref "(" var-ref ");"
+                                              cache "[0]=" deref-tmp ";"
+                                              cache "[1]=" H-epoch "[0];}"))
+                               deref-tmp)
+                   ;; callee = binding slot index
+                   :call-bind (spill st (slot st callee))
                    ;; computed callee ((add 1) 2): a full expression, itself
                    ;; recursively compiled (or escaping on its own)
-                   :call-node (emit-arg st idx (nth a 1)))
+                   :call-node (emit-arg st idx callee))
             args (mapv #(emit-arg st idx %) children)]
         (str head ".call(" (join-args (cons "null" args)) ")")))))
 
@@ -385,93 +418,96 @@
     (invalidate-stack! st)
     (assert-stack! st amb)))
 
-(defn- emit-let-bindings [st amb a]
-  (let [idxs (nth a 1)
-        inits (nth a 2)]
-    (dotimes [i (count idxs)]
-      (line! st (str (slot st (nth idxs i)) "=" (emit-expr st amb (nth inits i)) ";"))
-      (assert-stack! st amb))))
+(defn- emit-let-bindings [st amb [_ idxs inits _body]]
+  (dotimes [i (count idxs)]
+    (line! st (str (slot st (nth idxs i)) "=" (emit-expr st amb (nth inits i)) ";"))
+    (assert-stack! st amb)))
 
 (defn- emit-expr [st amb x]
-  (let [a (->ast x)]
-    (case (nth a 0)
-      :const (let [v (nth a 1)]
+  (let [[op :as a] (->ast x)]
+    (case op
+      :const (let [[_ v] a]
                (cond (nil? v) "null"
                      (true? v) "true"
                      (false? v) "false"
                      (and (number? v) (js/isFinite v)) (str "(" v ")")
                      :else (const! st v)))
-      :binding (slot st (nth a 1))
+      :binding (let [[_ idx] a] (slot st idx))
       ;; interpreter nodes locate their own errors (or defer to the
       ;; enclosing call, which the active s already reflects)
-      :escape (str "H.ev(" (const! st (nth a 1)) ",CTX,B)")
-      :if (let [c (emit-arg st amb (nth a 1))
-                t (tmp! st)]
-            (line! st (str "var " t ";"))
-            (line! st (str "if" (truthy c) "{"))
-            (line! st (str t "=" (emit-expr st amb (nth a 2)) ";"))
+      :escape (let [[_ node] a]
+                (str H-escape "(" (const! st node) ",CTX,B)"))
+      :if (let [[_ test then else] a
+                test-expr (emit-arg st amb test)
+                res (tmp! st)]
+            (line! st (str "var " res ";"))
+            (line! st (str "if" (truthy test-expr) "{"))
+            (line! st (str res "=" (emit-expr st amb then) ";"))
             (line! st "}else{")
             (invalidate-stack! st)
-            (line! st (str t "=" (emit-expr st amb (nth a 3)) ";"))
+            (line! st (str res "=" (emit-expr st amb else) ";"))
             (line! st "}")
             (invalidate-stack! st)
             (assert-stack! st amb)
-            t)
-      :do (let [children (nth a 1)]
+            res)
+      :do (let [[_ children] a]
             (if (empty? children)
               "null"
-              (do (doseq [c (butlast children)]
-                    (line! st (str (emit-expr st amb c) ";"))
+              (do (doseq [child (butlast children)]
+                    (line! st (str (emit-expr st amb child) ";"))
                     (assert-stack! st amb))
                   (emit-expr st amb (last children)))))
-      :let (do (emit-let-bindings st amb a)
-               (emit-expr st amb (nth a 3)))
-      (:or :and) (let [t (tmp! st)]
-                   (line! st (str "var " t ";"))
-                   (emit-chain st amb t (nth a 1) (case (nth a 0) :and true :or false))
-                   t)
+      :let (let [[_ _ _ body] a]
+             (emit-let-bindings st amb a)
+             (emit-expr st amb body))
+      (:or :and) (let [[_ children] a
+                       res (tmp! st)]
+                   (line! st (str "var " res ";"))
+                   (emit-chain st amb res children (keyword-identical? :and op))
+                   res)
       ;; instance interop, only attached under ctx :unrestricted: no own
       ;; stack, matching the interpreter where dot nodes don't catch;
       ;; errors defer to the enclosing call (the ambient s). Semantics match
       ;; interop/invoke-instance-field / invoke-instance-method.
-      :iget (str (emit-arg st amb (nth a 1))
-                 "[" (js/JSON.stringify (nth a 2)) "]")
-      :imeth (let [o (emit-arg st amb (nth a 1))
-                   nm (nth a 2)
-                   m (tmp! st)
-                   k (str "[" (js/JSON.stringify nm) "]")]
-               (line! st (str "var " m "=" o k ";"))
+      :iget (let [[_ obj field-name] a]
+              (str (emit-arg st amb obj)
+                   "[" (js/JSON.stringify field-name) "]"))
+      :imeth (let [[_ obj meth-name arg-children] a
+                   obj-expr (emit-arg st amb obj)
+                   meth (tmp! st)
+                   key-lit (str "[" (js/JSON.stringify meth-name) "]")]
+               (line! st (str "var " meth "=" obj-expr key-lit ";"))
                ;; method missing throws before args evaluate, like the interpreter
-               (line! st (str "if(" m "==null)throw new Error("
-                              (js/JSON.stringify (str "Could not find instance method: " nm)) ");"))
-               (let [args (mapv #(emit-arg st amb %) (nth a 3))]
+               (line! st (str "if(" meth "==null)throw new Error("
+                              (js/JSON.stringify (str "Could not find instance method: " meth-name)) ");"))
+               (let [args (mapv #(emit-arg st amb %) arg-children)]
                  ;; exactly invoke-instance-method: the property is read
                  ;; ONCE (an accessor must not fire twice) and the call is
-                 ;; Reflect.apply on that value with this=o (nbb#118 rules
-                 ;; out .call/.apply on the method itself)
-                 (str "Reflect.apply(" m "," o ",[" (join-args args) "])")))
+                 ;; Reflect.apply on that value with this=obj (nbb#118
+                 ;; rules out .call/.apply on the method itself)
+                 (str "Reflect.apply(" meth "," obj-expr ",[" (join-args args) "])")))
       ;; hybrid case: interpreter-identical dispatch (structural map
       ;; lookup via H.cs), compiled arms behind a JS switch on the index
-      :case (let [v (emit-arg st amb (nth a 1))
-                  im (const! st (nth a 2))
-                  branches (nth a 3)
-                  d (tmp! st)
-                  t (tmp! st)]
-              (line! st (str "var " t ";"))
-              (line! st (str "var " d "=H.cs(" im "," v ");"))
-              (line! st (str "switch(" d "){"))
+      :case (let [[_ dispatch idx-map branches default] a
+                  dispatch-expr (emit-arg st amb dispatch)
+                  idx-map-ref (const! st idx-map)
+                  branch-idx (tmp! st)
+                  res (tmp! st)]
+              (line! st (str "var " res ";"))
+              (line! st (str "var " branch-idx "=" H-case-dispatch "(" idx-map-ref "," dispatch-expr ");"))
+              (line! st (str "switch(" branch-idx "){"))
               (dotimes [i (count branches)]
                 (invalidate-stack! st)
                 (line! st (str "case " i ":"))
-                (line! st (str t "=" (emit-expr st amb (nth branches i)) ";"))
+                (line! st (str res "=" (emit-expr st amb (nth branches i)) ";"))
                 (line! st "break;"))
               (invalidate-stack! st)
               (line! st "default:")
-              (line! st (str t "=" (emit-expr st amb (nth a 4)) ";"))
+              (line! st (str res "=" (emit-expr st amb default) ";"))
               (line! st "}")
               (invalidate-stack! st)
               (assert-stack! st amb)
-              t)
+              res)
       ;; hybrid try: the body and finally compile, catch dispatch is the
       ;; interpreter's eval-catches (exception path only, needs B — a try
       ;; therefore keeps its enclosing body in array mode). *in-try* is
@@ -482,22 +518,19 @@
       ;; no-match rethrow wraps like the interpreter's transparent try
       ;; node. JS finally-throw masking matches eval-try-plain (host
       ;; semantics); interrupt-fn ctxs never get this ast.
-      :try (let [body (nth a 1)
-                 catches (nth a 2)
-                 fin (nth a 3)
-                 sci-error (nth a 4)
+      :try (let [[_ body catches fin sci-error] a
                  in-try-val (cond sci-error (const! st :sci/error)
                                   (seq catches) "true"
                                   :else nil)
-                 t (tmp! st)
-                 oit (when in-try-val (tmp! st))
-                 e (tmp! st)]
-             (line! st (str "var " t ";"))
+                 res (tmp! st)
+                 old-in-try (when in-try-val (tmp! st))
+                 err (tmp! st)]
+             (line! st (str "var " res ";"))
              (when in-try-val
-               (line! st (str "var " oit "=H.git();H.sit(" in-try-val ");")))
+               (line! st (str "var " old-in-try "=" H-get-in-try "();" H-set-in-try "(" in-try-val ");")))
              (line! st "try{")
-             (line! st (str t "=" (emit-expr st amb body) ";"))
-             (line! st (str "}catch(" e "){"))
+             (line! st (str res "=" (emit-expr st amb body) ";"))
+             (line! st (str "}catch(" err "){"))
              (invalidate-stack! st)
              ;; when the throw crossed a call opened INSIDE the body
              ;; (s moved off the try's ambient), apply the wrap that call
@@ -506,24 +539,24 @@
              ;; site opened OUTSIDE the try must not wrap here: the
              ;; interpreter's try catch runs first and its no-match
              ;; rethrow supplies the body location.
-             (line! st (str "if(s!==" amb "){" e "=H.tw(CTX," e ","
+             (line! st (str "if(s!==" amb "){" err "=" H-try-wrap "(CTX," err ","
                             (.-tbl-ref st) "[s]);}"))
              (when in-try-val
-               (line! st (str "H.sit(" oit ");")))
+               (line! st (str H-set-in-try "(" old-in-try ");")))
              (line! st (str "s=" amb ";"))
-             (line! st (str t "=H.tc(CTX,B," (const! st body) "," (const! st catches) ","
-                            (if sci-error "true" "false") "," e ");"))
+             (line! st (str res "=" H-try-catches "(CTX,B," (const! st body) "," (const! st catches) ","
+                            (if sci-error "true" "false") "," err ");"))
              (line! st "}finally{")
              (invalidate-stack! st)
              (when in-try-val
-               (line! st (str "H.sit(" oit ");")))
+               (line! st (str H-set-in-try "(" old-in-try ");")))
              (when fin
                (line! st (str (emit-expr st amb fin) ";")))
              (assert-stack! st amb)
              (line! st "}")
              ;; the finally guarantees s=amb on every path
              (set! (.-stack-idx st) amb)
-             t)
+             res)
       ;; js/ static interop, attached only under ctx :unrestricted; class
       ;; and method were resolved at analysis time and the RESOLVED method
       ;; identity must be called (mutating the class property after
@@ -534,108 +567,111 @@
       ;; not-a-function error matches invoke-static-method exactly. The
       ;; interpreter's static node catches, so this call has its own
       ;; stack entry.
-      :jsstatic (let [idx (intern-stack! st (nth a 4 nil) amb)]
+      :jsstatic (let [[_ method class arg-children stack] a
+                      idx (intern-stack! st stack amb)]
                   (assert-stack! st idx)
-                  (let [method (nth a 1)
-                        args (mapv #(emit-arg st idx %) (nth a 3))]
+                  (let [args (mapv #(emit-arg st idx %) arg-children)]
                     (if (fn? method)
-                      (str (const! st (.bind method (nth a 2))) "("
+                      (str (const! st (.bind method class)) "("
                            (join-args args) ")")
                       (str "Reflect.apply(" (const! st method) ","
-                           (const! st (nth a 2)) ",[" (join-args args) "])"))))
+                           (const! st class) ",[" (join-args args) "])"))))
       ;; value-position var read: plain deref, never cached (unlike
       ;; :call-var) so plain data in vars is not retained
-      :vderef (str "H.d(" (const! st (nth a 1)) ")")
+      :vderef (let [[_ v] a]
+                (str H-deref "(" (const! st v) ")"))
       ;; closure creation: build the enclosed array from this template's
       ;; own slots (static capture pairs) and hand it to mk, which reuses
       ;; make-fn — stubs, laziness and self-reference patching included.
-      ;; cnt nil = zero captures, mk gets null like (constantly nil) would.
-      ;; No own stack: the interpreter's fn node has none.
-      :mkfn (let [mk (const! st (nth a 1))
-                  pairs (nth a 2)
-                  cnt (nth a 3)]
-              (if (nil? cnt)
-                (str mk "(CTX,null)")
-                (let [t (tmp! st)]
-                  (line! st (str "var " t "=new Array(" cnt ");"))
-                  (doseq [[bidx eidx] pairs]
-                    (line! st (str t "[" eidx "]=" (slot st bidx) ";")))
-                  (str mk "(CTX," t ")"))))
+      ;; enclosed-cnt nil = zero captures, mk gets null like
+      ;; (constantly nil) would. No own stack: the interpreter's fn node
+      ;; has none.
+      :mkfn (let [[_ mk capture-pairs enclosed-cnt] a
+                  mk-ref (const! st mk)]
+              (if (nil? enclosed-cnt)
+                (str mk-ref "(CTX,null)")
+                (let [enclosed (tmp! st)]
+                  (line! st (str "var " enclosed "=new Array(" enclosed-cnt ");"))
+                  (doseq [[binding-idx enclosed-idx] capture-pairs]
+                    (line! st (str enclosed "[" enclosed-idx "]=" (slot st binding-idx) ";")))
+                  (str mk-ref "(CTX," enclosed ")"))))
       ;; interp ctor node has no catch: no own stack. direct `new C(args)`
       ;; when the ctor is a real function (V8 optimizes it, unlike
       ;; Reflect.construct); keep Reflect.construct otherwise so the
       ;; not-a-constructor error matches invoke-js-constructor*.
-      :jsctor (let [ctor (nth a 1)
-                    args (mapv #(emit-arg st amb %) (nth a 2))]
+      :jsctor (let [[_ ctor arg-children] a
+                    args (mapv #(emit-arg st amb %) arg-children)]
                 (if (fn? ctor)
                   (str "new " (const! st ctor) "(" (join-args args) ")")
                   (str "Reflect.construct(" (const! st ctor) ",[" (join-args args) "])")))
       (:call-direct :call-var :call-bind :call-node) (emit-call st amb a))))
 
 (defn- emit-tail [st amb x]
-  (let [a (->ast x)]
-    (case (nth a 0)
-      :if (let [c (emit-arg st amb (nth a 1))]
-            (line! st (str "if" (truthy c) "{"))
-            (emit-tail st amb (nth a 2))
+  (let [[op :as a] (->ast x)]
+    (case op
+      :if (let [[_ test then else] a
+                test-expr (emit-arg st amb test)]
+            (line! st (str "if" (truthy test-expr) "{"))
+            (emit-tail st amb then)
             (line! st "}else{")
             (invalidate-stack! st)
-            (emit-tail st amb (nth a 3))
+            (emit-tail st amb else)
             (line! st "}")
             (invalidate-stack! st))
-      :do (let [children (nth a 1)]
+      :do (let [[_ children] a]
             (if (empty? children)
               (line! st "return null;")
-              (do (doseq [c (butlast children)]
-                    (line! st (str (emit-expr st amb c) ";"))
+              (do (doseq [child (butlast children)]
+                    (line! st (str (emit-expr st amb child) ";"))
                     (assert-stack! st amb))
                   (emit-tail st amb (last children)))))
-      :let (do (emit-let-bindings st amb a)
-               (emit-tail st amb (nth a 3)))
+      :let (let [[_ _ _ body] a]
+             (emit-let-bindings st amb a)
+             (emit-tail st amb body))
       ;; non-last children: early return on short-circuit; last child is a
       ;; real tail position (recur allowed)
-      (:or :and) (let [children (nth a 1)
-                       and? (case (nth a 0) :and true :or false)
-                       t (tmp! st)]
-                   (line! st (str "var " t ";"))
-                   (doseq [c (butlast children)]
-                     (line! st (str t "=" (emit-expr st amb c) ";"))
+      (:or :and) (let [[_ children] a
+                       and? (keyword-identical? :and op)
+                       res (tmp! st)]
+                   (line! st (str "var " res ";"))
+                   (doseq [child (butlast children)]
+                     (line! st (str res "=" (emit-expr st amb child) ";"))
                      (assert-stack! st amb)
-                     (line! st (str "if(" (when and? "!") (truthy t) ")return " t ";")))
+                     (line! st (str "if(" (when and? "!") (truthy res) ")return " res ";")))
                    (emit-tail st amb (last children)))
       ;; recur args evaluate against the old bindings: spill all, then
       ;; assign; s stays ambient across the backedge (recur is only legal
       ;; where amb is the fn body's -1)
-      :recur (let [args (nth a 1)
-                   ts (mapv #(emit-arg st amb %) args)]
-               (dotimes [i (count ts)]
-                 (line! st (str (slot st i) "=" (nth ts i) ";")))
+      :recur (let [[_ args] a
+                   spilled (mapv #(emit-arg st amb %) args)]
+               (dotimes [i (count spilled)]
+                 (line! st (str (slot st i) "=" (nth spilled i) ";")))
                (line! st "continue r;"))
       ;; arms are real tail positions: recur compiles to continue, which
       ;; jumps from inside the switch to the labeled fn loop
-      :case (let [v (emit-arg st amb (nth a 1))
-                  im (const! st (nth a 2))
-                  branches (nth a 3)
-                  d (tmp! st)]
-              (line! st (str "var " d "=H.cs(" im "," v ");"))
-              (line! st (str "switch(" d "){"))
+      :case (let [[_ dispatch idx-map branches default] a
+                  dispatch-expr (emit-arg st amb dispatch)
+                  idx-map-ref (const! st idx-map)
+                  branch-idx (tmp! st)]
+              (line! st (str "var " branch-idx "=" H-case-dispatch "(" idx-map-ref "," dispatch-expr ");"))
+              (line! st (str "switch(" branch-idx "){"))
               (dotimes [i (count branches)]
                 (invalidate-stack! st)
                 (line! st (str "case " i ":"))
                 (emit-tail st amb (nth branches i)))
               (invalidate-stack! st)
               (line! st "default:")
-              (emit-tail st amb (nth a 4))
+              (emit-tail st amb default)
               (line! st "}")
               (invalidate-stack! st))
       ;; a tail escape may produce the recur sentinel (e.g. recur inside
-      ;; an interpreted case/try-less special form)
-      :escape (let [node (nth a 1)
-                    t (tmp! st)]
+      ;; an interpreted special form)
+      :escape (let [[_ node] a
+                    res (tmp! st)]
                 (assert-stack! st amb)
-                (line! st (str "var " t "=H.ev(" (const! st node) ",CTX,B);"))
-                (line! st (str "if(" t "===H.s)continue r;"))
-                (line! st (str "return " t ";")))
+                (line! st (str "var " res "=" H-escape "(" (const! st node) ",CTX,B);"))
+                (line! st (str "if(" res "===" H-recur-sentinel ")continue r;"))
+                (line! st (str "return " res ";")))
       (line! st (str "return " (emit-expr st amb x) ";")))))
 
 (defn- make-stub
@@ -720,7 +756,7 @@
         (line! st "}")
         ;; the stack table is the first const (see tbl-ref); H.re rethrows
         ;; with the active call's stack, matching interpreter frames
-        (line! st (str "}catch(e){H.re(CTX,e," (.-tbl-ref st) "[s]);throw e;}"))
+        (line! st (str "}catch(e){" H-rethrow "(CTX,e," (.-tbl-ref st) "[s]);throw e;}"))
         (let [src (str "return function(CTX,E,INT){return function("
                        (join-args params)
                        "){" (.join (.-lines st) "\n") "}}")
