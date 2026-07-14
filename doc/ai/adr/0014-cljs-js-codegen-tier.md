@@ -219,9 +219,19 @@ mode, so eliminating one pays twice.
    B, so a try keeps its enclosing body in array mode; interrupt-fn ctxs
    keep the fully interpreted try (the #1044 finally-masking logic).
    Real-program deltas ~flat (honeysql 1075->1050ms, editscript
-   unchanged): these libs rarely have try in hot paths. The win is user
-   code with try inside loops, which previously interpreted the whole
-   subtree. Second fuzz catch: the catch-side wrap must only apply when
+   unchanged) ONLY because those libs have no try in hot paths — that
+   flatness undersells the feature. A targeted try-in-loop bench (200-iter
+   loop, jit vs jit-disabled) shows the real shape: a NON-throwing
+   try/catch is 27x, try/finally 50x — because before this, a try node
+   escaped via H.ev and the whole subtree (incl. the hot per-iteration
+   arithmetic inside the try) ran interpreted every iteration; now the
+   loop and body compile and the catch dispatch (never taken) is the only
+   interpreter touch. When the try THROWS every iteration it is ~flat
+   (1.06x): exception machinery dominates both sides, `throw` still
+   escapes (no AST arm), and catch dispatch is eval-catches either way.
+   So: big win for try-that-rarely-fires (the common case), neutral for
+   try-in-the-hot-throw-path (rare, exception-bound).
+   Second fuzz catch: the catch-side wrap must only apply when
    `s` moved off the try's ambient — a site opened OUTSIDE the try (the
    try as an argument of a sited call) must not wrap in the compiled
    catch, because the interpreter's try catch runs first and its

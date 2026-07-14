@@ -86,7 +86,7 @@
                  (if (nil? stack)
                    e
                    (try (utils/rethrow-with-location-of-node
-                         ctx e (t/->NodeR nil (when stack stack) nil))
+                         ctx e (t/->NodeR nil stack nil))
                         (catch :default e2 e2))))
           ;; re: the template's single catch calls this with the stack map
           ;; of the innermost open call (the stacks const indexed by s). nil
@@ -98,7 +98,7 @@
                  (if (nil? stack)
                    (throw e)
                    (utils/rethrow-with-location-of-node
-                    ctx e (t/->NodeR nil (when stack stack) nil))))))
+                    ctx e (t/->NodeR nil stack nil))))))
 
 ;; The members of the generated-code helpers object H, as the emitter
 ;; interpolates them (short at runtime, named here so the emitter reads
