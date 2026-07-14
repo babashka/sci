@@ -450,9 +450,15 @@
                            (join-args args) ")")
                       (str "Reflect.apply(" (const! st method) ","
                            (const! st (nth a 2)) ",[" (join-args args) "])"))))
-      :jsctor (let [args (mapv #(emit-arg st amb %) (nth a 2))]
-                ;; interp ctor node has no catch: no own stack
-                (str "Reflect.construct(" (const! st (nth a 1)) ",[" (join-args args) "])"))
+      ;; interp ctor node has no catch: no own stack. direct `new C(args)`
+      ;; when the ctor is a real function (V8 optimizes it, unlike
+      ;; Reflect.construct); keep Reflect.construct otherwise so the
+      ;; not-a-constructor error matches invoke-js-constructor*.
+      :jsctor (let [ctor (nth a 1)
+                    args (mapv #(emit-arg st amb %) (nth a 2))]
+                (if (fn? ctor)
+                  (str "new " (const! st ctor) "(" (join-args args) ")")
+                  (str "Reflect.construct(" (const! st ctor) ",[" (join-args args) "])")))
       (:call-direct :call-var :call-bind) (emit-call st amb a))))
 
 (defn- emit-tail [st amb x]

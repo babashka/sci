@@ -239,9 +239,19 @@ mode, so eliminating one pays twice.
    `Reflect.apply` when it is not a function so the not-a-function error
    still matches invoke-static-method. Result: `Math/sin` 139->66ms,
    `js/Math.sin` 168->70ms (3.5x -> 1.64x native). Suite green x3, 30k
-   fuzz seeds clean, js/Math.nope error parity preserved. STILL OPEN for
-   `:imeth`: instance dispatch uses Reflect.apply deliberately (nbb#118),
-   so the same change there needs that issue understood first.
+   fuzz seeds clean, js/Math.nope error parity preserved. Same change
+   DONE for `:jsctor`: `Reflect.construct(C[ctor], [args])` -> `new
+   C[ctor](args)` when the ctor is callable, else keep Reflect.construct
+   for the not-a-constructor error. Micro-bench (normal class): 115->52ms
+   (2.2x); heavy builtins (Date) barely move because construction cost
+   dominates, never slower. NB the `new Array(...)` builtin fast path is
+   Array-specific and unreachable through an indirect `new C[i]` ref, so
+   an Array bench misleads; a normal user class shows variable-`new` ==
+   literal-`new`. NB2 `:jsctor` only fires for `js/X.` global ctors;
+   a registered-class-symbol ctor `(Point. 1 2)` still escapes to the
+   interpreter (separate limitation). STILL OPEN for `:imeth`: instance
+   dispatch uses Reflect.apply deliberately (nbb#118), so the same change
+   there needs that issue understood first.
 10. **Skip the loop scaffold for non-recurring bodies**: every template
    emits `r: for(;;){ ... }`, the recur-sentinel handling and the
    loop-head interrupt check, even for straight-line bodies (the common
