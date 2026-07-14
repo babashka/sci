@@ -10,6 +10,13 @@ jit-off CI leg. Validated: 5635 assertions x 3 CI legs (jit-on `:none`,
 jit-on `:advanced`, jit-off `:none`), ~450k differential fuzz programs (see
 Fuzzing below), full nbb ci:test, scittle CSP field test.
 
+Opt-outs: `js/globalThis.SCI_DISABLE_JIT = true` BEFORE loading sci skips
+the probe entirely (for consumers of compiled artifacts like scittle; also
+avoids the console violation a CSP page logs when the probe's Function
+construction is refused — browsers log that even inside try/catch). The
+`goog-define` stays as the compile-time switch for the jit-off CI leg,
+where it dead-code-eliminates under `:advanced`.
+
 ## Context
 
 On CLJS, SCI evaluates a tree of `NodeR` closures: every node eval is a
@@ -341,6 +348,12 @@ location mismatches), and the cljs `==` fn-vs-macro divergence. Practice:
 20k seeds after a localized change, 100k+ after touching emit-call, the
 stack discipline, or `escape-free?`.
 
+The generator must GROW with the emitter: a new compiled node kind gets
+zero fuzz coverage until `jit-fuzz.gen` produces programs containing it
+(case, interop and var-mutation shapes were each added when their emission
+landed). When adding an emitter capability, add a generator shape in the
+same change and re-baseline with 100k seeds.
+
 ## Idea parked: lazy body analysis in the interpreter itself
 
 The first-invocation stubs mean loaded-but-never-called fns skip CODEGEN.
@@ -351,5 +364,10 @@ loading). It is not free, unlike the stub trick: analysis is where
 unresolved symbols, bad arities and syntax errors surface, so deferring it
 moves those errors from load time to first call, an observable semantics
 change (Clojure itself analyzes eagerly). Would need to be opt-in or
-limited to shapes where the errors can't differ. Not part of this work;
-recorded because the stub design makes the follow-on question obvious.
+limited to shapes where the errors can't differ. A partial split may dodge
+the semantics problem: keep resolution/validation (macroexpansion, symbol
+resolution, arity checks — where the errors live) eager, defer only NODE
+CONSTRUCTION (closure allocation) to first call. Needs a profile first:
+if resolution dominates analysis time, the deferred half is not worth the
+machinery. Applies to the JVM/bb equally. Not part of this work; recorded
+because the stub design makes the follow-on question obvious.

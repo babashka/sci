@@ -181,10 +181,13 @@
 
 #?(:cljs
    (def jit-enabled
-     (volatile! (if ^boolean jit-force-off
-                  false
-                  (try ((js/Function. "return 1")) true
-                       (catch :default _ false))))))
+     ;; the global opt-out is checked BEFORE the probe: a CSP-blocked
+     ;; Function construction logs a console violation even when caught,
+     ;; so pages that know eval is off can set the global and stay silent
+     (volatile! (cond ^boolean jit-force-off false
+                      (true? (unchecked-get js/globalThis "SCI_DISABLE_JIT")) false
+                      :else (try ((js/Function. "return 1")) true
+                                 (catch :default _ false))))))
 
 ;; ast: walkable mini-AST for the JS codegen tier (jit), a field rather
 ;; than an extmap key so attaching it costs one ctor call, not a map build
