@@ -100,11 +100,25 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
   try/catch per template, a plain `s` register written before each call
   site, and a const table mapping site index -> the call node's existing
   stack map. The catch rethrows through the same
-  rethrow-with-location-of-node machinery as the interpreter, so frames and
-  locations are identical (verified: the previously-failing 5 stacktrace
-  tests pass; nbb output byte-identical to interpreted). Operator-inlined
-  sites can't throw and get no table entry. Measured cost: zero (all bench
-  numbers within noise).
+  rethrow-with-location-of-node machinery as the interpreter, with the
+  same StackFrame objects, so the TOP-LEVEL error location (message +
+  line/column) is byte-identical (verified: the 5 stacktrace tests pass;
+  nbb top-level output identical). Measured cost: zero (all bench numbers
+  within noise). INTENTIONAL divergence in the intermediate frame chain:
+  operator-inlined ops (inc, +, <, ...) get NO stack site — the op itself
+  can't throw, and giving it one would mean an `s=` write per operator in
+  exactly the hot numeric loops inlining exists to speed up. So when an
+  inlined op WRAPS a throwing subexpression, e.g. `(inc (bar x))` where
+  bar throws, the interpreter records a `clojure.core/inc` frame (it calls
+  inc as a fn with its own try/catch) and the jit does not. That frame is
+  arguably noise (inc didn't cause the error), and the top-level location
+  is unaffected, so this is accepted. TEST GAP to close: the differential
+  tests compare only the top-level location, so they would equally miss a
+  REAL frame bug (jit dropping a frame it should keep). Add a full-frame
+  differential that compares stacktraces after filtering inlined-op
+  frames, so the accepted difference is modeled and any other frame
+  divergence fails loudly. (Found during the merge-review trace, 2026-07,
+  via `(inc (bar x))`.)
 
 ## Measurements (node 22, `-O simple` harness in scratch/, min of 7)
 
@@ -544,3 +558,20 @@ CONSTRUCTION (closure allocation) to first call. Needs a profile first:
 if resolution dominates analysis time, the deferred half is not worth the
 machinery. Applies to the JVM/bb equally. Not part of this work; recorded
 because the stub design makes the follow-on question obvious.
+
+## Idea parked: eager AOT emission for a whole .cljs file
+
+The emitter already produces real JS function bodies from analyzed sci
+nodes; today they are `new Function`-compiled at runtime. An AOT path would
+SERIALIZE those instead — emit standalone JS for a whole file ahead of
+time. Payoff: sidesteps CSP entirely (no runtime eval), and unlike cherry
+it is driven by sci's OWN analyzer, so sci vars, macros and sandbox
+semantics are honored (cherry has its own analyzer and can't see
+sci-defined things — the reason we didn't use it). Key tension to scope
+first: the emitter leans on live runtime objects — the `H` helpers (H.ev
+escape, eval-catches dispatch, rethrow-located, the deref cache keyed on a
+live var-epoch) and the `C[]` consts holding real fn objects and var refs.
+So "AOT" here realistically means "emit JS that LINKS a small sci runtime"
+(escapes/consts still resolved against it), not "fully standalone like
+cherry" (which would require eliminating every escape and const). Decide
+which target before estimating feasibility. Not part of this work.
