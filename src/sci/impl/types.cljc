@@ -175,15 +175,16 @@
 ;; attachment on it without a cycle. Probed eagerly: eval availability
 ;; (CSP) is fixed per JS realm, and this makes analysis pay zero when
 ;; blocked. On a CSP page the probe logs one console warning at load.
-;; test-build kill switch (closure-define), so CI can run the suite with
-;; the jit off; not a user-facing flag
+;; compile-time opt-out: :closure-defines {sci.impl.types/jit-force-off true}
+;; turns the codegen tier off in the build (dead-code-eliminated under
+;; :advanced). Public and documented; CI also uses it for the jit-off leg.
 #?(:cljs (goog-define jit-force-off false))
 
 #?(:cljs
    (def jit-enabled
-     ;; the global opt-out is checked BEFORE the probe: a CSP-blocked
-     ;; Function construction logs a console violation even when caught,
-     ;; so pages that know eval is off can set the global and stay silent
+     ;; runtime opt-out js/globalThis.SCI_DISABLE_JIT is checked BEFORE the
+     ;; probe: a CSP-blocked Function construction logs a console violation
+     ;; even when caught, so pages that know eval is off can stay silent
      (volatile! (cond ^boolean jit-force-off false
                       (true? (unchecked-get js/globalThis "SCI_DISABLE_JIT")) false
                       :else (try ((js/Function. "return 1")) true

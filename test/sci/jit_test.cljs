@@ -101,6 +101,21 @@
       (is (= {:val expected} interp) src)
       (is (= {:val expected} jitted) src))))
 
+(deftest jit-interop-member-name-emission-test
+  ;; interop member names are interpolated into generated JS source as a
+  ;; JSON.stringify'd string literal, not a bare identifier, so a name that
+  ;; is not a legal JS identifier (dashes, dollar) still reads the right key
+  ;; instead of emitting broken source. (Quote/bracket injection is not
+  ;; reachable from user source: member names come from reader symbols; the
+  ;; JSON.stringify is defense in depth.)
+  (doseq [src ["(let [o (js-obj \"we-ird\" 1)] (.-we-ird o))"
+               "(let [o (js-obj \"a$b\" 2)] (.-a$b o))"
+               "(let [o (js-obj \"toUpperCase\" 3)] (.-toUpperCase o))"
+               "(.toUpperCase \"ab\")"
+               "(.indexOf \"abcabc\" \"b\")"]]
+    (let [[interp jitted] (eval-both src {:unrestricted true})]
+      (is (= interp jitted) src))))
+
 (deftest jit-fallback-test
   (testing "disabled jit still evaluates"
     (jit/disable!)

@@ -721,6 +721,23 @@ To use SCI as a native shared library from e.g. C++, Rust, Python, read this [tu
 (assoc {} :a (eval '(+ 1 2 3))) ;;=> {:a 6}
 ```
 
+## JIT compilation in ClojureScript
+
+On ClojureScript, SCI compiles interpreted function bodies to JavaScript at
+runtime through `js/Function`. This is on by default, needs no configuration,
+and falls back to the interpreter for any code it does not compile and for
+environments where `eval` is unavailable. Results, error messages and
+stacktraces are identical either way.
+
+To turn it off:
+
+- Runtime: set `js/globalThis.SCI_DISABLE_JIT = true` before loading SCI.
+  Use this in a page with a Content Security Policy that forbids `eval`, to
+  avoid the console violation the availability probe would otherwise log.
+- Compile time: add `:closure-defines {sci.impl.types/jit-force-off true}`
+  to the ClojureScript compiler options. Under `:advanced` this removes the
+  codegen tier from the build.
+
 ## Async/Await in ClojureScript
 
 SCI supports `async`/`await` syntax for working with JavaScript Promises:
