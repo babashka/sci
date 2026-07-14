@@ -251,10 +251,18 @@ mode, so eliminating one pays twice.
    ctors `(Point. 1 2)` now jit too: analyze-new's cljs `:else` arm
    attaches `:jsctor` when the class resolved at analysis and the ctx is
    unrestricted (514ms interpreted -> 68ms, 1.66x native). Covers required
-   JS libs, which register as classes the same way. STILL OPEN for
-   `:imeth`: instance
-   dispatch uses Reflect.apply deliberately (nbb#118), so the same change
-   there needs that issue understood first.
+   JS libs, which register as classes the same way. DONE for `:imeth`
+   too: nbb#118 was about `(.apply method ...)` specifically (methods
+   lacking Function.prototype.apply), which is why the interpreter uses
+   Reflect.apply on the cached method. A DIRECT `o[name](args)` sidesteps
+   that (plain call expression, no .apply/.call on the method, works on
+   any callable), binds this=o, folds to a monomorphic call. Micro-bench:
+   Reflect.apply 361ms vs direct 241 vs native 209 (5e7); sci-level
+   `.indexOf` loop 100->91ms (method work + fn wrapper dilute the dispatch
+   win). The m null-check is kept for the missing-method error; the call
+   re-reads o[name] (same value on a stable object; divergence would need
+   a side-effecting accessor named like a method, which real code never
+   has). Error parity verified. `:iget` field access was already direct.
 10. **Skip the loop scaffold for non-recurring bodies**: every template
    emits `r: for(;;){ ... }`, the recur-sentinel handling and the
    loop-head interrupt check, even for straight-line bodies (the common

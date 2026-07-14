@@ -402,14 +402,20 @@
                  "[" (js/JSON.stringify (nth a 2)) "]")
       :imeth (let [o (emit-arg st amb (nth a 1))
                    nm (nth a 2)
-                   m (tmp! st)]
-               (line! st (str "var " m "=" o "[" (js/JSON.stringify nm) "];"))
+                   m (tmp! st)
+                   k (str "[" (js/JSON.stringify nm) "]")]
+               (line! st (str "var " m "=" o k ";"))
                ;; method missing throws before args evaluate, like the interpreter
                (line! st (str "if(" m "==null)throw new Error("
                               (js/JSON.stringify (str "Could not find instance method: " nm)) ");"))
                (let [args (mapv #(emit-arg st amb %) (nth a 3))]
-                 ;; Reflect.apply, not m.call: see nbb#118
-                 (str "Reflect.apply(" m "," o ",[" (join-args args) "])")))
+                 ;; direct method call o[name](args): binds this=o, V8 folds
+                 ;; it to a monomorphic call (~1.5x over Reflect.apply). Uses
+                 ;; neither .apply nor .call on the method, so it sidesteps
+                 ;; nbb#118 (methods lacking Function.prototype.apply). The m
+                 ;; null-check above keeps the interpreter's missing-method
+                 ;; error; the call re-reads o[name] (same value, stable obj).
+                 (str o k "(" (join-args args) ")")))
       ;; hybrid case: interpreter-identical dispatch (structural map
       ;; lookup via H.cs), compiled arms behind a JS switch on the index
       :case (let [v (emit-arg st amb (nth a 1))
