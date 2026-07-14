@@ -202,8 +202,23 @@ mode, so eliminating one pays twice.
    Arms are true tail positions (recur = continue through the switch).
    Real-program deltas modest (honeysql 1.19x, editscript 1.41x, crunch
    1.17x vs interp): remaining escape mass is fn-creation sites and try.
-3. **try/catch/finally**: JS has the same construct; main work is binding
-   the catch local and matching sci's exception-class dispatch.
+3. **try/catch/finally**: DONE, hybrid like case — the body and finally
+   compile, catch dispatch delegates to the interpreter's eval-catches
+   (exception path only, made public). *in-try* is set around the body
+   exactly like the interpreter's binding (:sci/error / true / untouched
+   for try-finally-only). The compiled try's catch intercepts before the
+   template catch, so it first applies the wrap the innermost open call
+   site would have applied (H.tw, a non-throwing H.re) BEFORE restoring
+   *in-try* — without this, ^:sci/error catches received raw errors
+   (caught by the suite, not the fuzzer: generated programs had no
+   ^:sci/error). The stacks table is now the template's first const
+   (tbl-ref) so nested catches can reference it. Catch bodies still need
+   B, so a try keeps its enclosing body in array mode; interrupt-fn ctxs
+   keep the fully interpreted try (the #1044 finally-masking logic).
+   Real-program deltas ~flat (honeysql 1075->1050ms, editscript
+   unchanged): these libs rarely have try in hot paths. The win is user
+   code with try inside loops, which previously interpreted the whole
+   subtree.
 4. **Instance interop** (method calls, field access): DONE for the
    unrestricted case, together with js/ static calls and constructors —
    the analyzer's own unconditional-allow gate (`:allow :all` deliberately
@@ -266,18 +281,20 @@ mode, so eliminating one pays twice.
    ctors `(Point. 1 2)` now jit too: analyze-new's cljs `:else` arm
    attaches `:jsctor` when the class resolved at analysis and the ctx is
    unrestricted (514ms interpreted -> 68ms, 1.66x native). Covers required
-   JS libs, which register as classes the same way. DONE for `:imeth`
-   too: nbb#118 was about `(.apply method ...)` specifically (methods
-   lacking Function.prototype.apply), which is why the interpreter uses
-   Reflect.apply on the cached method. A DIRECT `o[name](args)` sidesteps
-   that (plain call expression, no .apply/.call on the method, works on
-   any callable), binds this=o, folds to a monomorphic call. Micro-bench:
-   Reflect.apply 361ms vs direct 241 vs native 209 (5e7); sci-level
-   `.indexOf` loop 100->91ms (method work + fn wrapper dilute the dispatch
-   win). The m null-check is kept for the missing-method error; the call
-   re-reads o[name] (same value on a stable object; divergence would need
-   a side-effecting accessor named like a method, which real code never
-   has). Error parity verified. `:iget` field access was already direct.
+   JS libs, which register as classes the same way. `:imeth` stays
+   single-read + Reflect.apply: review caught that a direct
+   `o[name](args)` re-reads the property, firing an accessor-defined
+   method twice; the revert measured FREE (95ms both ways on the .indexOf
+   harness — the earlier "direct is faster" was constant-arg hoisting in
+   the micro-bench). Review also caught that re-reading `class[name]` at
+   call time observes post-analysis mutation of the class property, which
+   the interpreter (closed over the resolved method) does not: `:jsstatic`
+   now calls the ANALYSIS-RESOLVED method bound to the class once at
+   template compile (`(.bind method class)` interned as a const) — same
+   speed as the direct read, correct identity. Regression tests pin both:
+   accessors fire once, and a static mutated after analysis returns the
+   originally-resolved result, in both modes. `:iget` field access is a
+   single read.
 10. **Skip the loop scaffold for non-recurring bodies**: REJECTED after
    measurement. The idea: every template emits `r: for(;;){ ... }` plus a
    loop-head interrupt check `if(INT!==null)INT();` even for straight-line

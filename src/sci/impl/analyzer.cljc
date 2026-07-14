@@ -1018,10 +1018,17 @@
                       catches)
         sci-error (some :sci-error catches)
         finally (when finally
-                  (analyze ctx (cons 'do (rest finally))))]
-    (sci.impl.types/->Node
-     (eval/eval-try ctx bindings body catches finally sci-error)
-     stack)))
+                  (analyze ctx (cons 'do (rest finally))))
+        node (sci.impl.types/->Node
+              (eval/eval-try ctx bindings body catches finally sci-error)
+              stack)]
+    ;; hybrid try: body and finally compile, catch dispatch stays
+    ;; eval-catches (exception path only). The interrupt-fn masking
+    ;; logic (#1044) stays interpreted.
+    #?(:cljs (if (nil? (:interrupt-fn ctx))
+               (t/attach-ast node [:try body catches finally sci-error])
+               node)
+       :default node)))
 
 (defn analyze-throw [ctx [_throw ex :as expr]]
   (when-not (= 2 (count expr))

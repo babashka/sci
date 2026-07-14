@@ -12,7 +12,8 @@
   everything falls back to the interpreter when blocked. enable!/disable!
   exist as internal overrides for tests and benchmarks."
   {:no-doc true}
-  (:require [sci.impl.types :as t]
+  (:require [sci.impl.evaluator :as eval]
+            [sci.impl.types :as t]
             [sci.impl.vars :as vars]
             [sci.impl.utils :as utils]))
 
@@ -67,6 +68,26 @@
           ;; cs: case dispatch, the same structural map lookup as
           ;; eval-case; returns the branch index, -1 = default
           "cs" (fn [idx-map v] (get idx-map v -1))
+          ;; git/sit: read/write utils/*in-try*, the compiled try's
+          ;; equivalent of the interpreter's binding around the try body
+          "git" (fn [] utils/*in-try*)
+          "sit" (fn [v] (set! utils/*in-try* v))
+          ;; tc: catch dispatch for compiled try, the interpreter's own
+          ;; eval-catches (exception path only)
+          "tc" (fn [ctx b body catches sci-error e]
+                 (eval/eval-catches ctx b body catches sci-error e))
+          ;; tw: the wrap the innermost open call site would have applied
+          ;; had the exception unwound through the template catch — a
+          ;; compiled try's catch intercepts first, so it must wrap before
+          ;; dispatching (matters when *in-try* is :sci/error, where the
+          ;; interpreter's call nodes wrap inside the try body). Returns
+          ;; the (possibly) wrapped error instead of throwing.
+          "tw" (fn [ctx e stack]
+                 (if (nil? stack)
+                   e
+                   (try (utils/rethrow-with-location-of-node
+                         ctx e (t/->NodeR nil (when stack stack) nil))
+                        (catch :default e2 e2))))
           ;; re: the template's single catch calls this with the stack map
           ;; of the innermost open call (the stacks const indexed by s). nil
           ;; stack (s=-1): rethrow raw, transparent. otherwise rethrow
@@ -143,7 +164,10 @@
 ;; stack-idx: what the s register holds at the current emission point
 ;;   (nil = unknown, e.g. after a control-flow merge)
 ;; locals: locals mode (params/bindings are real JS locals) vs array mode
-(deftype EmitterState [lines consts stacks ^:mutable tmp ^:mutable stack-idx locals])
+;; tbl-ref: the C[i] expression of the stacks table (interned as the first
+;;   const so compiled try catches can reference it; the array is mutable,
+;;   later pushes are visible)
+(deftype EmitterState [lines consts stacks ^:mutable tmp ^:mutable stack-idx locals ^:mutable tbl-ref])
 
 (defn- line! [^EmitterState st s]
   (.push (.-lines st) s)
@@ -448,6 +472,53 @@
               (invalidate-stack! st)
               (assert-stack! st amb)
               t)
+      ;; hybrid try: the body and finally compile, catch dispatch is the
+      ;; interpreter's eval-catches (exception path only, needs B — a try
+      ;; therefore keeps its enclosing body in array mode). *in-try* is
+      ;; set around the body exactly like the interpreter's binding:
+      ;; :sci/error when a ^:sci/error catch exists, else true when any
+      ;; catch exists, untouched for try/finally-only. On the exception
+      ;; path s is restored to the ambient site before dispatch, so a
+      ;; no-match rethrow wraps like the interpreter's transparent try
+      ;; node. JS finally-throw masking matches eval-try-plain (host
+      ;; semantics); interrupt-fn ctxs never get this ast.
+      :try (let [body (nth a 1)
+                 catches (nth a 2)
+                 fin (nth a 3)
+                 sci-error (nth a 4)
+                 in-try-val (cond sci-error (const! st :sci/error)
+                                  (seq catches) "true"
+                                  :else nil)
+                 t (tmp! st)
+                 oit (when in-try-val (tmp! st))
+                 e (tmp! st)]
+             (line! st (str "var " t ";"))
+             (when in-try-val
+               (line! st (str "var " oit "=H.git();H.sit(" in-try-val ");")))
+             (line! st "try{")
+             (line! st (str t "=" (emit-expr st amb body) ";"))
+             (line! st (str "}catch(" e "){"))
+             (invalidate-stack! st)
+             ;; wrap BEFORE restoring *in-try*: with :sci/error active the
+             ;; interpreter's call nodes wrap inside the try body, and the
+             ;; wrap consults *in-try*
+             (line! st (str e "=H.tw(CTX," e "," (.-tbl-ref st) "[s]);"))
+             (when in-try-val
+               (line! st (str "H.sit(" oit ");")))
+             (line! st (str "s=" amb ";"))
+             (line! st (str t "=H.tc(CTX,B," (const! st body) "," (const! st catches) ","
+                            (if sci-error "true" "false") "," e ");"))
+             (line! st "}finally{")
+             (invalidate-stack! st)
+             (when in-try-val
+               (line! st (str "H.sit(" oit ");")))
+             (when fin
+               (line! st (str (emit-expr st amb fin) ";")))
+             (assert-stack! st amb)
+             (line! st "}")
+             ;; the finally guarantees s=amb on every path
+             (set! (.-stack-idx st) amb)
+             t)
       ;; js/ static interop, attached only under ctx :unrestricted; class
       ;; and method were resolved at analysis time and the RESOLVED method
       ;; identity must be called (mutating the class property after
@@ -617,7 +688,8 @@
             e2i (:copy-enclosed->invocation fn-body)
             e2i-idxs (:enclosed->invocation-idxs fn-body)
             locals? (escape-free? body)
-            st (EmitterState. #js [] #js [] #js [] 0 -1 locals?)
+            st (EmitterState. #js [] #js [] #js [] 0 -1 locals? nil)
+            _ (set! (.-tbl-ref st) (const! st (.-stacks st)))
             params (if locals?
                      (mapv #(str "b" %) (range arity))
                      (mapv #(str "p" %) (range arity)))]
@@ -641,10 +713,9 @@
         (line! st "if(INT!==null)INT();")
         (emit-tail st -1 body)
         (line! st "}")
-        ;; the stack table is a const; H.re rethrows with the active
-        ;; call's stack, matching interpreter frames during unwind
-        (let [tbl (const! st (.-stacks st))]
-          (line! st (str "}catch(e){H.re(CTX,e," tbl "[s]);throw e;}")))
+        ;; the stack table is the first const (see tbl-ref); H.re rethrows
+        ;; with the active call's stack, matching interpreter frames
+        (line! st (str "}catch(e){H.re(CTX,e," (.-tbl-ref st) "[s]);throw e;}"))
         (let [src (str "return function(CTX,E,INT){return function("
                        (join-args params)
                        "){" (.join (.-lines st) "\n") "}}")
