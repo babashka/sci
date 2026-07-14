@@ -1472,7 +1472,9 @@
     #?@(:cljs [(and (= 4 (count expr))
                     (str/starts-with? (str v) "-"))
                (let [obj (analyze ctx obj)
-                     prop (munge (subs (str v) 1))
+                     ;; utils/munge-str, like the read path: dashes munge,
+                     ;; reserved words don't (issue 987)
+                     prop (utils/munge-str (subs (str v) 1))
                      v (analyze ctx (nth expr 3))]
                  (sci.impl.types/->Node
                   (let [obj (t/eval obj ctx bindings)
@@ -1505,7 +1507,9 @@
                (let [obj (analyze ctx obj)
                      v (analyze ctx v)
                      info (meta obj)
-                     k (subs (::method-name info) 1)
+                     ;; munge like the read path, so the write lands on the
+                     ;; key (.-foo-bar o) reads (issue 987)
+                     k (utils/munge-str (subs (::method-name info) 1))
                      obj (::instance-expr info)]
                  (sci.impl.types/->Node
                   (let [obj (t/eval obj ctx bindings)
