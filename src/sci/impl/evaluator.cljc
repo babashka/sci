@@ -71,11 +71,12 @@
        (types/eval case-default ctx bindings)
        (types/eval found ctx bindings)))))
 
-(defn- eval-catches
+(defn eval-catches
   "Handles a Throwable `e` thrown by a try body: matches it against the catch
   clauses (returning the handler result) or rethrows. Called only on the
   exception path, so it adds no cost to normal execution. An interrupt signal
-  (sci.core/interrupt!) is never catchable here."
+  (sci.core/interrupt!) is never catchable here. Public: the jit's compiled
+  try delegates its catch dispatch here."
   [ctx bindings body catches sci-error e]
   (if (utils/interrupt-ex? e)
     (throw e)

@@ -4,7 +4,7 @@
   #?@(:cljd [(:require [sci.impl.multimethods :as mm])]
       :clj [(:require [sci.impl.macros :as macros])])
   #?(:cljs (:require-macros [sci.impl.macros :as macros]
-                            [sci.impl.types :refer [->Node]]))
+                            [sci.impl.types :refer [->Node attach-ast]]))
   #?@(:cljd [] :clj [(:import [sci.impl.types ICustomType])]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
@@ -171,11 +171,32 @@
    :clj (defprotocol Eval
           (eval [expr ctx ^objects bindings])))
 
+;; The single eval-availability probe for the whole runtime (the jit and
+;; interop's accessor fast path both consume it). Lives here (dependency
+;; root) so no cycles. The runtime opt-out js/globalThis.SCI_DISABLE_JIT
+;; is checked BEFORE the probe: a CSP-blocked Function construction logs
+;; a console violation even when caught, so pages that set the global
+;; stay silent. Probed eagerly: eval availability is fixed per JS realm.
+#?(:cljs
+   (def js-eval-available
+     (and (not (unchecked-get js/globalThis "SCI_DISABLE_JIT"))
+          (try ((js/Function. "return 1")) true
+               (catch :default _ false)))))
+
+;; The jit flag: the analyzer gates ast attachment on it without a cycle.
+;; The compile-time opt-out lives in sci.core (public goog-define), which
+;; vresets this to false at load.
+#?(:cljs
+   (def jit-enabled
+     (volatile! js-eval-available)))
+
+;; ast: walkable mini-AST for the JS codegen tier (jit), a field rather
+;; than an extmap key so attaching it costs one ctor call, not a map build
 #?(:cljd
-   (defrecord NodeR [f stack]
+   (defrecord NodeR [f stack ast]
      Stack (stack [_] stack))
    :cljs
-   (defrecord NodeR [f stack]
+   (defrecord NodeR [f stack ast]
      Stack (stack [_] stack)))
 
 (deftype BindingNode [#?(:cljd idx :clj ^int idx :cljs idx)
@@ -221,28 +242,53 @@
          (aget bindings (.-idx ^BindingNode expr))
          expr))))
 
+;; The optional ast argument is the jit's walkable mini-AST. It only
+;; exists on CLJS: the :clj reify and :cljd branches DISCARD the form at
+;; expansion time, so passing it costs other platforms nothing.
 #?(:cljd
    (defmacro ->Node
-     [body stack]
-     `(->NodeR
-       (fn [~'this ~'ctx ~'bindings]
-         ~body)
-       ~stack))
+     ([body stack]
+      `(->NodeR
+        (fn [~'this ~'ctx ~'bindings]
+          ~body)
+        ~stack
+        nil))
+     ([body stack _ast]
+      `(->NodeR
+        (fn [~'this ~'ctx ~'bindings]
+          ~body)
+        ~stack
+        nil)))
    :default
    (macros/deftime
      (defmacro ->Node
-       [body stack]
-       (macros/?
-        :clj `(reify
-                sci.impl.types/Eval
-                (~'eval [~'this ~'ctx ~'bindings]
-                 ~body)
-                sci.impl.types/Stack
-                (~'stack [_#] ~stack))
-        :cljs `(->NodeR
-                (fn [~'this ~'ctx ~'bindings]
+       ([body stack] `(sci.impl.types/->Node ~body ~stack nil))
+       ([body stack ast]
+        (macros/?
+         :clj `(reify
+                 sci.impl.types/Eval
+                 (~'eval [~'this ~'ctx ~'bindings]
                   ~body)
-                ~stack)))))
+                 sci.impl.types/Stack
+                 (~'stack [_#] ~stack))
+         :cljs `(->NodeR
+                 (fn [~'this ~'ctx ~'bindings]
+                   ~body)
+                 ~stack
+                 (when ^boolean @sci.impl.types/jit-enabled ~ast)))))
+     ;; attach an ast to an already-built node; the form is discarded on
+     ;; :clj and only evaluated on :cljs when the jit is enabled
+     (defmacro attach-ast
+       [node ast]
+       (macros/?
+        :clj node
+        :cljs `(let [n# ~node]
+                 (if ^boolean @sci.impl.types/jit-enabled
+                   (cljs.core/assoc n# :ast ~ast)
+                   n#))))))
+
+;; the jit and its ast only exist on cljs
+#?(:cljd (defmacro attach-ast [node _ast] node))
 
 #?(:cljd nil
    :clj

@@ -97,7 +97,7 @@
   (bindRoot [this v]
     (let [old-root (.-root this)]
       (vars/with-writeable-var this meta
-        (set! root v))
+        (vars/bumping-set! root v))
       (notify-watches this watches old-root v))
     ;; this is the return value for alter-var-root which should be the only place calling bindRoot directly
     v)
@@ -118,7 +118,7 @@
        :default (set! (.-thread-bound this) v)))
   (unbind [this]
     (vars/with-writeable-var this meta
-      (set! (.-root this) (vars/->SciUnbound this))))
+      (vars/bumping-set! (.-root this) (vars/->SciUnbound this))))
   (hasRoot [_this]
     (not (instance? #?(:cljd vars/SciUnbound
                        :clj sci.impl.vars.SciUnbound
@@ -142,7 +142,7 @@
                  (throw-root-binding this))
          :clj (throw-root-binding this)
          :cljs (if (:unrestricted sci.ctx-store/*ctx*)
-                 (set! (.-root this) v)
+                 (vars/bumping-set! (.-root this) v)
                  (throw-root-binding this)))))
   (getVal [_this] root)
   #?(:cljd IDeref :clj clojure.lang.IDeref :cljs IDeref)

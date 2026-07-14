@@ -12,7 +12,27 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
-- New `:unrestricted` option on `init` and `eval-string`: when `true`, evaluated code may mutate built-in vars and CLJS instance interop skips `:classes` checks. The option applies only to the context it was passed to: a nested `eval-string` without it is sandboxed, also inside an unrestricted context.
+Highlight:
+
+### ClojureScript: JIT compilation.
+
+SCI on CLJS compiles interpreted function bodies to JavaScript at runtime via `js/Function`. This is enabled by default and needs no configuration. When JIT is enabled, loops and numerical computations become much faster (and, in unrestricted contexts, JS interop too).
+
+``` clojure
+(require '[sci.core :as sci])
+
+;; a tight numeric loop, evaluated by SCI (:advanced build)
+(sci/eval-string "(time (loop [i 0 j 10000000] (if (zero? j) i (recur (inc i) (dec j)))))")
+;; interpreter:  ~175 ms
+;; JIT (default):  ~7 ms   — over 20x faster
+```
+
+When `eval` is unavailable (e.g. under a Content Security Policy) SCI falls back to the interpreter. Results, error messages and error locations should be identical. And of course, it works under `:advanced` compilation.
+
+You can turn JIT off at runtime with `js/globalThis.SCI_DISABLE_JIT = true` before loading SCI, or in your Google Closure compile settings with `:closure-defines {sci.core/disable-jit true}`
+
+- Errors thrown inside a `loop` now report a located stack frame for the `loop` form instead of a frame without location (all platforms, including babashka)
+- New `:unrestricted` option on `init` and `eval-string`: when `true`, evaluated code may mutate built-in vars and CLJS instance interop skips `:classes` checks. The option applies only to the context it was passed to: a nested `eval-string` without it is sandboxed, also inside an unrestricted context. This replaces `enable-unrestricted-access!`.
 - BREAKING: `enable-unrestricted-access!` now throws. Use the `:unrestricted` option instead. The old function set a process-global flag that leaked into nested contexts.
 - BREAKING: the `sci.impl.unrestrict` namespace and its `*unrestricted*` dynamic var are removed. As with all `sci.impl` namespaces, do not rely on them: they are implementation detail.
 - [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `set!` on a deftype field accepts `^:unsynchronized-mutable` and `^:volatile-mutable`

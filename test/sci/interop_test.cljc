@@ -631,6 +631,11 @@
        (is (= 1 (sci/eval-string "(d/foo-bar)" {:imports {'d 'dude}
                                                 :classes {:allow :all 'dude #js {:foo_bar (fn [] 1)}}}))))
      (is (= {:foo_bar 1} (sci/eval-string "(js->clj (doto #js {} (set! -foo-bar 1)) :keywordize-keys true)" {:classes {:allow :all}})))
+     (testing "set! writes the munged key the read path reads"
+       (is (= {:foo_bar 1} (sci/eval-string "(js->clj (let [o #js {}] (set! (.-foo-bar o) 1) o) :keywordize-keys true)" {:classes {:allow :all}})))
+       (is (= 1 (sci/eval-string "(let [o #js {}] (set! (.-foo-bar o) 1) (.-foo-bar o))" {:classes {:allow :all}})))
+       (is (= {:catch 1} (sci/eval-string "(js->clj (doto #js {} (set! -catch 1)) :keywordize-keys true)" {:classes {:allow :all}})))
+       (is (= 1 (sci/eval-string "(let [o #js {}] (set! (.-catch o) 1) (.-catch o))" {:classes {:allow :all}}))))
      (testing "dotted access"
        (is (= 2 (sci/eval-string "(def x #js {:a 1 :foo_bar #js {:catch 2}}) x.foo-bar.catch" {:classes {'js goog/global}})))
        (is (= 3 (sci/eval-string "(let [a #js {:foo_bar #js {:catch 3}}] a.foo-bar.catch)"))))))

@@ -6,6 +6,23 @@
 
 #?(:cljs (def Exception js/Error))
 
+(deftest loop-error-location-test
+  ;; analyze-loop* carries the loop form's meta onto the synthesized IIFE
+  ;; call, so an error inside a loop attributes a frame to the loop form
+  ;; instead of a nil-location frame. cljc: guards the JVM interpreter too
+  ;; (the fix lives in the analyzer, not the jit).
+  (let [frames (try (eval-string "(defn f []\n  (loop [i 0]\n    (subs nil 0)))\n(f)")
+                    (catch #?(:cljd cljd.core/ExceptionInfo
+                              :clj Exception
+                              :cljs js/Error) e
+                      (mapv #(select-keys % [:name :line :column]) (sci/stacktrace e))))]
+    ;; the loop form is at line 2, column 3 — that frame must be located
+    (is (some #(= {:name 'f :line 2 :column 3} %) frames)
+        (str "no located loop frame: " (pr-str frames)))
+    ;; and no frame for f may have a nil location (the pre-fix regression)
+    (is (not-any? #(and (= 'f (:name %)) (nil? (:line %))) frames)
+        (str "loop frame with nil location: " (pr-str frames)))))
+
 (deftest stacktrace-test
   (let [stacktrace
         (try (eval-string "
