@@ -70,16 +70,16 @@
   (let [tmpl (pick r coll-exprs)
         sub (fn sub [form]
               (cond
-                (= form 'C) (if (chance r 50) (pick r '[[1 2 3] [:a :b] []])
+                (= 'C form) (if (chance r 50) (pick r '[[1 2 3] [:a :b] []])
                                 (gexpr r env fns (dec size)))
-                (= form 'V) (pick r '[[10 20 30] [1 2 3 4 5]])
-                (= form 'M) (if (chance r 60) (pick r '[{:a 1 :b 2} {} {:k [1 2]}])
+                (= 'V form) (pick r '[[10 20 30] [1 2 3 4 5]])
+                (= 'M form) (if (chance r 60) (pick r '[{:a 1 :b 2} {} {:k [1 2]}])
                                 (gexpr r env fns (dec size)))
-                (= form 'K) (pick r [:a :b :k :missing])
-                (= form 'I) (rint r 4)
-                (= form 'X) (gatom r env)
-                (= form 'X2) (gatom r env)
-                (= form 'X3) (pick r ["abc" "k" "hello"])
+                (= 'K form) (pick r [:a :b :k :missing])
+                (= 'I form) (rint r 4)
+                (= 'X form) (gatom r env)
+                (= 'X2 form) (gatom r env)
+                (= 'X3 form) (pick r ["abc" "k" "hello"])
                 (seq? form) (map sub form)
                 :else form))]
     (sub tmpl)))
@@ -204,12 +204,12 @@
   (let [tmpl (pick r interop-exprs)
         sub (fn sub [form]
               (cond
-                (= form 'X3) (if (chance r 60)
+                (= 'X3 form) (if (chance r 60)
                                (pick r ["abc" "k" "hello"])
                                (gexpr r env fns (dec size)))
-                (= form 'N) (glit-num r)
-                (= form 'I) (rint r 4)
-                (= form 'X) (gatom r env)
+                (= 'N form) (glit-num r)
+                (= 'I form) (rint r 4)
+                (= 'X form) (gatom r env)
                 (seq? form) (map sub form)
                 :else form))]
     (sub tmpl)))
@@ -238,7 +238,7 @@
 
 ;; --- top-level program ---
 
-(defn- gdefn [r idx fns size]
+(defn- gdefn [r idx _fns size]
   (let [name (symbol (str "f" idx))
         arity (inc (rint r 2))
         params (vec (repeatedly arity #(gsym r "a")))

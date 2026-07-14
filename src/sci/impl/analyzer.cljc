@@ -482,7 +482,7 @@
         iden->enclosed-idx (if fn-name
                              (assoc iden->enclosed-idx fn-id closed-over-cnt)
                              iden->enclosed-idx)
-        [bindings-fn enclosed-array-cnt capture-pairs]
+        [bindings-fn enclosed-array-cnt #?(:cljs capture-pairs :default _capture-pairs)]
         (if (or self-ref? (seq closed-over-iden->binding-idx))
           (let [enclosed-array-cnt (cond-> closed-over-cnt
                                      fn-name (inc))
@@ -536,21 +536,21 @@
                                                 enclosed-val (aget #?(:cljd ^List enclosed-array :default ^objects enclosed-array) enclosed-idx)
                                                 invoc-idx (aget idxs 1)]
                                             (aset #?(:cljd ^List ret :default ^objects ret) invoc-idx enclosed-val)
-                                            ret))))]
-                         (let [body (assoc body
-                                           :invoc-size invoc-size
-                                           :invocation-self-idx invocation-self-idx
-                                           :copy-enclosed->invocation copy-enclosed->invocation
-                                           #?@(:cljs [:enclosed->invocation-idxs enclosed->invocation]))]
-                           ;; lazy: pay the new Function only when a closure
-                           ;; over this body is first created, so fn bodies
-                           ;; (incl. loops) inside never-called code don't
-                           ;; compile at load time
-                           #?(:cljs (if @t/jit-enabled
-                                      (assoc body :jit-template
-                                             (delay (jit/compile-template body)))
-                                      body)
-                              :default body))))
+                                            ret))))
+                             body (assoc body
+                                         :invoc-size invoc-size
+                                         :invocation-self-idx invocation-self-idx
+                                         :copy-enclosed->invocation copy-enclosed->invocation
+                                         #?@(:cljs [:enclosed->invocation-idxs enclosed->invocation]))]
+                         ;; lazy: pay the new Function only when a closure
+                         ;; over this body is first created, so fn bodies
+                         ;; (incl. loops) inside never-called code don't
+                         ;; compile at load time
+                         #?(:cljs (if @t/jit-enabled
+                                    (assoc body :jit-template
+                                           (delay (jit/compile-template body)))
+                                    body)
+                            :default body)))
                      bodies)
         ;; arglists (:arglists analyzed-bodies)
         fn-meta (dissoc fn-expr-m :line :column)
@@ -679,9 +679,9 @@
            (partition 2 destructured-let-bindings))
           body (return-do (with-recur-target ctx rt) expr exprs)
           iden->invoke-idx (:iden->invoke-idx ctx)
-          idxs (mapv iden->invoke-idx idens)]
-      ;; (prn :params params :idens idens :idxs idxs)
-      (let [node (case (count idxs)
+          idxs (mapv iden->invoke-idx idens)
+          ;; (prn :params params :idens idens :idxs idxs)
+          node (case (count idxs)
         0 (sci.impl.types/->Node
            (t/eval body ctx bindings)
            stack)
@@ -760,7 +760,7 @@
                        (aset #?(:cljd ^List bindings :default ^objects bindings) idx4 val4)
                        (t/eval body ctx bindings))))))
              stack)))]
-        (t/attach-ast node [:let idxs let-nodes body])))))
+        (t/attach-ast node [:let idxs let-nodes body]))))
 
 (defn init-var! [ctx name expr]
   (let [cnn (utils/current-ns-name)

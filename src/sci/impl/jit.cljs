@@ -14,8 +14,8 @@
   {:no-doc true}
   (:require [sci.impl.evaluator :as eval]
             [sci.impl.types :as t]
-            [sci.impl.vars :as vars]
-            [sci.impl.utils :as utils]))
+            [sci.impl.utils :as utils]
+            [sci.impl.vars :as vars]))
 
 ;; nil = not probed yet
 (def ^:private enabled (volatile! nil))
