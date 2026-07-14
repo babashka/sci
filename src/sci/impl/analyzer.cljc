@@ -547,8 +547,8 @@
                          ;; (incl. loops) inside never-called code don't
                          ;; compile at load time
                          #?(:cljs (if @t/jit-enabled
-                                    (assoc body :jit-factory
-                                           (delay (jit/compile-fn-body body)))
+                                    (assoc body :jit-template
+                                           (delay (jit/compile-template body)))
                                     body)
                             :default body)))
                      bodies)

@@ -42,12 +42,6 @@ a transparent tier inside sci.
 
 ## Architecture
 
-Terminology note: this document grew up saying "template" for the product
-of compiling a fn body. The code now says FACTORY for that product
-(`compile-fn-body` returns `(fn [ctx enclosed-array] -> impl)`, stored as
-`:jit-factory`) and IMPL for the concrete JS closure a factory returns.
-Read "template" below as "factory".
-
 Codegen is driven by SCI's own analysis, so semantics come for free:
 
 - Supported analyzer sites additionally attach a small walkable AST (the

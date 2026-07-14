@@ -2,7 +2,7 @@
   "Experimental JS codegen for analyzed fn bodies (CLJS only).
 
   The analyzer attaches a small walkable AST (the ast field of NodeR,
-  CLJS-only) at supported sites. compile-fn-body turns a fn body into a JS
+  CLJS-only) at supported sites. compile-template turns a fn body into a JS
   function via js/Function once per analyzed body; closure creation just
   instantiates it. Unsupported subtrees compile to an interpreter escape
   (H.ev), sharing the invocation array, so semantics are preserved.
@@ -21,16 +21,16 @@
 (def ^:private enabled (volatile! nil))
 
 (def collect-srcs?
-  "Debug: when true, the JS sources of compiled bodies accumulate in last-srcs.
+  "Debug: when true, compiled template sources accumulate in last-srcs.
   Never enable in production - unbounded growth."
   (volatile! false))
 
 (def last-srcs
-  "Debug: JS sources of compiled fn bodies, only when collect-srcs? is on."
+  "Debug: JS sources of compiled templates, only when collect-srcs? is on."
   (volatile! []))
 
 (def strict-compile?
-  "When true, compile-fn-body rethrows an emitter exception instead of
+  "When true, compile-template rethrows an emitter exception instead of
   falling back to the interpreter. Off in production (a compile failure
   must never break evaluation); ON in tests, so an emitter bug surfaces as
   a failure instead of hiding behind a silent, still-correct fallback."
@@ -60,7 +60,7 @@
           "ev" (fn [node ctx b] (t/eval node ctx b))
           "s" utils/recur
           ;; stack nil/undefined (s=-1): no enclosing sited call in this
-          ;; compiled body, stay transparent like an interpreter node without a
+          ;; template, stay transparent like an interpreter node without a
           ;; catch (calls with nil stack maps never own a site, see
           ;; intern-stack!).
           ;; g: the var-mutation epoch; call-var sites cache derefs on it
@@ -77,7 +77,7 @@
           "tc" (fn [ctx b body catches sci-error e]
                  (eval/eval-catches ctx b body catches sci-error e))
           ;; tw: the wrap the innermost open call site would have applied
-          ;; had the exception unwound through the compiled body's catch — a
+          ;; had the exception unwound through the template catch — a
           ;; compiled try's catch intercepts first, so it must wrap before
           ;; dispatching (matters when *in-try* is :sci/error, where the
           ;; interpreter's call nodes wrap inside the try body). Returns
@@ -88,7 +88,7 @@
                    (try (utils/rethrow-with-location-of-node
                          ctx e (t/->NodeR nil (when stack stack) nil))
                         (catch :default e2 e2))))
-          ;; re: the compiled body's single catch calls this with the stack map
+          ;; re: the template's single catch calls this with the stack map
           ;; of the innermost open call (the stacks const indexed by s). nil
           ;; stack (s=-1): rethrow raw, transparent. otherwise rethrow
           ;; through the interpreter's location machinery, so frames and
@@ -108,7 +108,7 @@
 (def ^:private recur-sentinel "H.s")
 (def ^:private mutation-epoch "H.g")        ; var-mutation epoch array
 (def ^:private case-branch-index "H.cs")
-(def ^:private rethrow-located "H.re")     ; body catch rethrow-with-location
+(def ^:private rethrow-located "H.re")     ; template catch rethrow-with-location
 (def ^:private read-in-try "H.git")
 (def ^:private write-in-try "H.sit")
 (def ^:private catch-dispatch "H.tc") ; eval-catches dispatch
@@ -194,7 +194,7 @@
 ;; consts: values the generated code references as C[i] (fn objects, stack
 ;;   maps, per-site deref caches) — user values reach the code only this way
 ;; stacks: interned call stack maps; stored in consts, indexed by s at the
-;;   compiled body's catch (C[i][s])
+;;   template catch (C[i][s])
 ;; tmp: counter for fresh temp variable names (t0, t1, ...)
 ;; stack-idx: what the s register holds at the current emission point
 ;;   (nil = unknown, e.g. after a control-flow merge)
@@ -232,17 +232,17 @@
 ;; nodes catch, and a call's try covers callee and argument evaluation and
 ;; closes when the call returns. The emitter keeps the invariant that at
 ;; runtime s always equals the stack index of the innermost OPEN call
-;; (-1 = none, the body's catch rethrows raw, like interpreter nodes
+;; (-1 = none, the template catch rethrows raw, like interpreter nodes
 ;; without a catch). Emission tracks the current s statically and
 ;; re-asserts the ambient stack after statements that may have moved it;
 ;; control-flow merges invalidate the tracking so the next assert always
 ;; emits.
 (defn- intern-stack!
-  "Intern a call's stack map into the body's stack table, returning
+  "Intern a call's stack map into the template's stack table, returning
   its index. Only stacks that are guaranteed to WRAP are interned (line
   and column present): rethrow-with-location-of-node passes through
   otherwise, and the interpreter's next enclosing catch wraps instead —
-  which in the flat one-catch-per-body model is the ambient site, so
+  which in the flat one-catch-per-template model is the ambient site, so
   a passthrough stack returns the ambient index rather than shadowing it.
   With this invariant the flat model reproduces the interpreter's catch
   nesting exactly: the innermost open SITED call is always the one whose
@@ -376,7 +376,7 @@
     (assert-stack! st idx)
     (case op
       ;; :call-direct is always a real fn: plain call is safe; prefer an
-      ;; operator emission (which can still throw: JS coercion of a lazy
+      ;; operator template (which can still throw: JS coercion of a lazy
       ;; operand forces it), then the arity impl to skip variadic dispatch
       :call-direct
       (let [gen (if (identical? callee eq-eq)
@@ -572,7 +572,7 @@
       ;; identity must be called (mutating the class property after
       ;; analysis is not observed — same as the interpreter node, which
       ;; closed over the method). When the member is a real function it is
-      ;; bound to the class ONCE when the body compiles, so the call site is
+      ;; bound to the class ONCE at template compile, so the call site is
       ;; a plain fn call; otherwise keep Reflect.apply so the
       ;; not-a-function error matches invoke-static-method exactly. The
       ;; interpreter's static node catches, so this call has its own
@@ -590,7 +590,7 @@
       ;; :call-var) so plain data in vars is not retained
       :vderef (let [[_ v] a]
                 (js-call deref-var (const! st v)))
-      ;; closure creation: build the enclosed array from this body's
+      ;; closure creation: build the enclosed array from this template's
       ;; own slots (static capture pairs) and hand it to mk, which reuses
       ;; make-fn — stubs, laziness and self-reference patching included.
       ;; enclosed-cnt nil = zero captures, mk gets null like
@@ -685,7 +685,7 @@
       (stmt! st "return " (emit-expr st amb x) ";"))))
 
 (defn- make-stub
-  "Per-arity stub that compiles the fn body at FIRST INVOCATION rather
+  "Per-arity stub that compiles the template at FIRST INVOCATION rather
   than closure creation, so loaded-but-never-called fns cost nothing.
   The stub stays the closure's identity forever: one array read and nil
   check per call after the first (V8 inlines through it once impl is
@@ -694,8 +694,8 @@
   (let [state #js [nil]
         ensure! (fn []
                   (or (aget state 0)
-                      (aset state 0 (if-let [factory @d]
-                                      (factory ctx enclosed-array)
+                      (aset state 0 (if-let [tpl @d]
+                                      (tpl ctx enclosed-array)
                                       (fallback)))))]
     (case arity
       0 (fn [] (let [i (aget state 0)] (if (nil? i) ((ensure!)) (i))))
@@ -712,21 +712,21 @@
       (ensure!))))
 
 (defn make-fn
-  "The closure for fn-body: an impl from the compiled factory, a lazy stub, or
+  "The closure for fn-body: a realized template instance, a lazy stub, or
   the interpreter fallback (varargs/this-as bodies, jit off)."
   [fn-body ctx enclosed-array fallback]
-  (let [d (:jit-factory fn-body)]
+  (let [d (:jit-template fn-body)]
     (cond
       (nil? d) (fallback)
       (some? (:vararg-idx fn-body)) (fallback)
       (some? (:this-as-idx fn-body)) (fallback)
-      (realized? d) (if-let [factory @d]
-                      (factory ctx enclosed-array)
+      (realized? d) (if-let [tpl @d]
+                      (tpl ctx enclosed-array)
                       (fallback))
       :else (make-stub d ctx enclosed-array fallback (:fixed-arity fn-body)))))
 
-(defn compile-fn-body
-  "Compile a fn body to a FACTORY (fn [ctx enclosed-array] -> impl JS fn),
+(defn compile-template
+  "Compile a fn body to a template (fn [ctx enclosed-array] -> JS fn),
   or nil when the body can't/shouldn't be compiled."
   [fn-body]
   (when (and (enabled?)
@@ -771,9 +771,9 @@
                        (join-args params)
                        "){" (.join (.-lines st) "\n") "}}")
               _ (when @collect-srcs? (vswap! last-srcs conj src))
-              js-factory ((js/Function. "C" "H" src) (.-consts st) helpers)]
+              factory ((js/Function. "C" "H" src) (.-consts st) helpers)]
           (fn [ctx enclosed-array]
-            (js-factory ctx enclosed-array (:interrupt-fn ctx)))))
+            (factory ctx enclosed-array (:interrupt-fn ctx)))))
       (catch :default e
         (when @strict-compile? (throw e))
         nil))))
