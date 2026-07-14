@@ -263,15 +263,18 @@ mode, so eliminating one pays twice.
    re-reads o[name] (same value on a stable object; divergence would need
    a side-effecting accessor named like a method, which real code never
    has). Error parity verified. `:iget` field access was already direct.
-10. **Skip the loop scaffold for non-recurring bodies**: every template
-   emits `r: for(;;){ ... }`, the recur-sentinel handling and the
-   loop-head interrupt check, even for straight-line bodies (the common
-   case). A `recur` targeting THIS frame is detectable at compile time
-   (loop* makes its own frame, so only self-tail-recursion counts); when
-   absent, emit the body directly with no loop label, no `for(;;)`, no
-   sentinel checks. Payoff is mostly generated-code size (helps every
-   non-recursive fn) plus a simpler tail-escape path; runtime gain is
-   small (V8 handles a one-iteration loop well). Cheap to add.
+10. **Skip the loop scaffold for non-recurring bodies**: REJECTED after
+   measurement. The idea: every template emits `r: for(;;){ ... }` plus a
+   loop-head interrupt check `if(INT!==null)INT();` even for straight-line
+   bodies, so a body with no `recur` targeting this frame could emit
+   directly. Measured on all three axes and it buys nothing: runtime is
+   free (V8 optimizes the one-iteration loop and the predicted
+   `INT!==null` branch away; isolated `x+1` body 199 vs 207ms), compile
+   time is identical within noise (20k `new Function`: 102-105 vs 96-111ms,
+   no consistent ordering), and the 35 bytes/template of extra source are
+   discarded after compile. The interrupt check specifically could be
+   compile-time elided when the ctx has no interrupt-fn (known at analysis)
+   but that measured the same. Not worth the emitter complexity.
 
 ## CLJS gotchas hit (worth remembering)
 
