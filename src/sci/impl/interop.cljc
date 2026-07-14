@@ -79,9 +79,9 @@
 
 #?(:cljs
    (def fn-eval-allowed?
-     (try (do (js/Function. "return 1")
-              true)
-          (catch :default _ false))))
+     ;; the shared probe respects SCI_DISABLE_JIT and CSP; when false,
+     ;; accessor-fn uses the loop fallback
+     sci.impl.types/js-eval-available))
 
 #?(:cljs
    (do

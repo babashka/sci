@@ -152,6 +152,32 @@
       (is (:err interp) src)
       (is (= expected-loc (:loc interp)) src))))
 
+(deftest jit-interop-semantics-test
+  (testing "an accessor-defined method is read exactly once per call"
+    (let [reads (atom 0)
+          obj (js/Object.create nil)
+          _ (js/Object.defineProperty obj "m"
+                                      #js {:get (fn [] (swap! reads inc) (fn [] 42))})
+          opts {:unrestricted true :namespaces {'user {'o obj}}}
+          count-reads (fn []
+                        (reset! reads 0)
+                        (sci/eval-string* (sci/init opts) "(.m o)")
+                        @reads)]
+      (jit/disable!)
+      (let [interp-reads (count-reads)]
+        (jit/enable!)
+        (is (= 1 interp-reads))
+        (is (= interp-reads (count-reads))))))
+  (testing "static call uses the method resolved at analysis"
+    (doseq [jit? [false true]]
+      (let [K (fn [])
+            _ (set! (.-stat K) (fn [] 1))
+            ctx (sci/init {:unrestricted true :classes {'K K}})]
+        (if jit? (jit/enable!) (jit/disable!))
+        (sci/eval-string* ctx "(defn f [] (K/stat))")
+        (set! (.-stat K) (fn [] 2))
+        (is (= 1 (sci/eval-string* ctx "(f)")) (str "jit? " jit?))))))
+
 (deftest jit-fallback-test
   (testing "disabled jit still evaluates"
     (jit/disable!)

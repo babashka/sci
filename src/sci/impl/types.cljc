@@ -171,21 +171,24 @@
    :clj (defprotocol Eval
           (eval [expr ctx ^objects bindings])))
 
-;; The jit flag lives here (dependency root) so the analyzer can gate ast
-;; attachment on it without a cycle. Probed eagerly: eval availability
-;; (CSP) is fixed per JS realm, and this makes analysis pay zero when
-;; blocked. On a CSP page the probe logs one console warning at load.
+;; The single eval-availability probe for the whole runtime (the jit and
+;; interop's accessor fast path both consume it). Lives here (dependency
+;; root) so no cycles. The runtime opt-out js/globalThis.SCI_DISABLE_JIT
+;; is checked BEFORE the probe: a CSP-blocked Function construction logs
+;; a console violation even when caught, so pages that set the global
+;; stay silent. Probed eagerly: eval availability is fixed per JS realm.
+#?(:cljs
+   (def js-eval-available
+     (and (not (unchecked-get js/globalThis "SCI_DISABLE_JIT"))
+          (try ((js/Function. "return 1")) true
+               (catch :default _ false)))))
+
+;; The jit flag: the analyzer gates ast attachment on it without a cycle.
+;; The compile-time opt-out lives in sci.core (public goog-define), which
+;; vresets this to false at load.
 #?(:cljs
    (def jit-enabled
-     ;; runtime opt-out js/globalThis.SCI_DISABLE_JIT is checked BEFORE the
-     ;; probe: a CSP-blocked Function construction logs a console violation
-     ;; even when caught, so pages that know eval is off can stay silent.
-     ;; The compile-time opt-out lives in sci.core (public goog-define),
-     ;; which vresets this to false at load
-     (volatile! (if (true? (unchecked-get js/globalThis "SCI_DISABLE_JIT"))
-                  false
-                  (try ((js/Function. "return 1")) true
-                       (catch :default _ false))))))
+     (volatile! js-eval-available)))
 
 ;; ast: walkable mini-AST for the JS codegen tier (jit), a field rather
 ;; than an extmap key so attaching it costs one ctor call, not a map build

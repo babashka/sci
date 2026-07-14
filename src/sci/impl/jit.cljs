@@ -35,12 +35,8 @@
   a failure instead of hiding behind a silent, still-correct fallback."
   (volatile! false))
 
-(defn js-eval-available? []
-  (try ((js/Function. "return 1")) true
-       (catch :default _ false)))
-
 (defn enable! []
-  (vreset! enabled (js-eval-available?))
+  (vreset! enabled t/js-eval-available)
   @enabled)
 
 (defn disable! []
@@ -50,7 +46,7 @@
   (and ^boolean @t/jit-enabled
        (if-some [e @enabled]
          e
-         (vreset! enabled (js-eval-available?)))))
+         (vreset! enabled t/js-eval-available))))
 
 ;; Helpers passed to generated code, which accesses them as literal
 ;; property names (H.d, H.ev, ...): string keys via js-obj so advanced
@@ -425,13 +421,11 @@
                (line! st (str "if(" m "==null)throw new Error("
                               (js/JSON.stringify (str "Could not find instance method: " nm)) ");"))
                (let [args (mapv #(emit-arg st amb %) (nth a 3))]
-                 ;; direct method call o[name](args): binds this=o, V8 folds
-                 ;; it to a monomorphic call (~1.5x over Reflect.apply). Uses
-                 ;; neither .apply nor .call on the method, so it sidesteps
-                 ;; nbb#118 (methods lacking Function.prototype.apply). The m
-                 ;; null-check above keeps the interpreter's missing-method
-                 ;; error; the call re-reads o[name] (same value, stable obj).
-                 (str o k "(" (join-args args) ")")))
+                 ;; exactly invoke-instance-method: the property is read
+                 ;; ONCE (an accessor must not fire twice) and the call is
+                 ;; Reflect.apply on that value with this=o (nbb#118 rules
+                 ;; out .call/.apply on the method itself)
+                 (str "Reflect.apply(" m "," o ",[" (join-args args) "])")))
       ;; hybrid case: interpreter-identical dispatch (structural map
       ;; lookup via H.cs), compiled arms behind a JS switch on the index
       :case (let [v (emit-arg st amb (nth a 1))
@@ -454,21 +448,22 @@
               (invalidate-stack! st)
               (assert-stack! st amb)
               t)
-      ;; js/ static interop, attached only under ctx :unrestricted; class,
-      ;; method and name were resolved at analysis time. When the member is
-      ;; a real function, emit a DIRECT C[class][name](args) call: V8 folds
-      ;; it into a monomorphic call, ~3.7x faster than routing through the
-      ;; resolved fn object. When it is not callable, keep Reflect.apply so
-      ;; the not-a-function error matches invoke-static-method exactly.
-      ;; Both bind this=class. The interpreter's static node catches, so
-      ;; this call has its own stack entry.
+      ;; js/ static interop, attached only under ctx :unrestricted; class
+      ;; and method were resolved at analysis time and the RESOLVED method
+      ;; identity must be called (mutating the class property after
+      ;; analysis is not observed — same as the interpreter node, which
+      ;; closed over the method). When the member is a real function it is
+      ;; bound to the class ONCE at template compile, so the call site is
+      ;; a plain fn call; otherwise keep Reflect.apply so the
+      ;; not-a-function error matches invoke-static-method exactly. The
+      ;; interpreter's static node catches, so this call has its own
+      ;; stack entry.
       :jsstatic (let [idx (intern-stack! st (nth a 4 nil) amb)]
                   (assert-stack! st idx)
                   (let [method (nth a 1)
-                        nm (nth a 5 nil)
                         args (mapv #(emit-arg st idx %) (nth a 3))]
-                    (if (and nm (fn? method))
-                      (str (const! st (nth a 2)) "[" (js/JSON.stringify nm) "]("
+                    (if (fn? method)
+                      (str (const! st (.bind method (nth a 2))) "("
                            (join-args args) ")")
                       (str "Reflect.apply(" (const! st method) ","
                            (const! st (nth a 2)) ",[" (join-args args) "])"))))
