@@ -38,6 +38,8 @@ You can turn JIT off at runtime with `js/globalThis.SCI_DISABLE_JIT = true` befo
 - [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `set!` on a deftype field accepts `^:unsynchronized-mutable` and `^:volatile-mutable`
 - [#1063](https://github.com/babashka/sci/pull/1063): CLJS: `deftype` and `defrecord` fields are JS accessors on the type's prototype: `(.-field x)` works on instances, `(set! (.-field x) v)` mutates deftype fields
 - Bump edamame to `1.6.42`
+- Munging fixes around `(set! ...)`
+- `set!` now returns value like CLJS
 
 ## 0.14.55
 
