@@ -1,7 +1,14 @@
-# ADR 0014: Experimental JS codegen tier for SCI on CLJS (prototype)
+# ADR 0014: Experimental JS codegen tier for SCI on CLJS
 
-Status: prototype on branch `worktree-js-eval` (2026-07-12). Not wired to any
-public API yet; disabled by default.
+Status (2026-07-15): complete implementation under review on branch `jit`
+(one commit on master; `worktree-js-eval` carries the full history). ON BY
+DEFAULT, no user-facing flags: an eager probe at load checks `js/Function`
+availability and falls back to the interpreter permanently and silently when
+eval is blocked (CSP). Internal switches only: `jit/enable!`/`disable!` for
+tests, and a compile-time `goog-define sci.impl.types/jit-force-off` for the
+jit-off CI leg. Validated: 5635 assertions x 3 CI legs (jit-on `:none`,
+jit-on `:advanced`, jit-off `:none`), ~450k differential fuzz programs (see
+Fuzzing below), full nbb ci:test, scittle CSP field test.
 
 ## Context
 
@@ -27,16 +34,22 @@ a transparent tier inside sci.
 
 Codegen is driven by SCI's own analysis, so semantics come for free:
 
-- Supported analyzer sites additionally attach a small walkable AST
-  (`:sci.impl/ast` on the `NodeR` record's extmap, CLJS only): `:if`, `:do`,
-  `:let`, `:recur`, `:call-direct` (inlined core fn), `:call-var` (sci var,
-  deref per call — redefinition honored), `:call-bind` (binding in call
-  position).
+- Supported analyzer sites additionally attach a small walkable AST (the
+  `ast` FIELD on the `NodeR` record; a macro discards it at expansion on
+  clj/cljd, and construction is gated on the jit-enabled flag so disabled
+  environments pay nothing): `:if`, `:do`, `:let`, `:recur`,
+  `:call-direct` (inlined core fn), `:call-var` (sci var, deref per call —
+  redefinition honored), `:call-bind` (binding in call position), `:or`,
+  `:and`, `:case`, and under ctx `:unrestricted` the interop kinds
+  `:iget`, `:imeth`, `:jsstatic`, `:jsctor`.
 - `loop*` already expands to `let*` + immediately-invoked `fn*`, so fn-body
   compilation covers loops; `recur` becomes assignments + `continue`.
-- One template per analyzed fn body, compiled once at analysis time
-  (`sci.impl.jit/compile-template`); closure creation just instantiates the
-  template with (ctx, enclosed-array). Nested fns like `fib` never recompile.
+- One template per analyzed fn body (`sci.impl.jit/compile-template`),
+  compiled LAZILY: analysis attaches a delay, closure creation returns a
+  per-arity stub, and the first invocation forces the compile (see the
+  analysis-cost bullet under measurements). Closure creation instantiates
+  the template with (ctx, enclosed-array); nested fns like `fib` never
+  recompile.
 - Universal escape hatch: any node without an AST compiles to
   `H.ev(node, CTX, B)` — an interpreter call sharing the invocation array.
   Tail-position escapes check for the recur sentinel and `continue`. Mixed
@@ -53,8 +66,10 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
   helpers object with string keys, CTX/E/INT/B) — no textual cljs.core
   names, so it survives advanced compilation without externs.
 - Interrupt check (`:interrupt-fn`) emitted at loop heads, matching `gen-fn`.
-- CSP probe: `enable!` try/catches a `new Function` construction; when
-  blocked everything stays interpreted.
+- CSP probe: `sci.impl.types` try/catches a `new Function` construction at
+  load; when blocked everything stays interpreted (field-tested: a scittle
+  page with a CSP meta tag without unsafe-eval runs interpreted with
+  identical results, no page errors).
 - Var-deref caching with epoch invalidation (BOTH modes: jitted call
   sites and, on CLJS, the interpreter's var-call wrap closures — interp
   var-call 146.5 -> 139.2ms/1e6): every var mutation primitive
@@ -94,10 +109,13 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
 | destructure | 6.0ms | 3.04ms | 2.0x | 1.9x slower | 1.5x slower |
 | higher-order | 3.46ms | 0.77ms | 4.5x | parity | 1.4x slower |
 
-- Correctness: full CLJS test suite with jit force-enabled, `:none` and
-  `:advanced`: 1338 assertions, 0 failures, 0 errors (after the call-site
-  table work; before it the only failures were 5 stacktrace tests).
-  16-case smoke set
+- Correctness: full CLJS test suite green on all three CI legs (jit-on
+  `:none`, jit-on `:advanced`, jit-off `:none` via the goog-define):
+  5635 assertions, 0 failures, 0 errors. The jit test namespace adds
+  differential cases (run under both a sandboxed and an `:unrestricted`
+  ctx so interop emission is exercised in-suite), a 4k-assertion operator
+  parity matrix, and var-mutation visibility tests asserting literal
+  values. 16-case smoke set
   (redef through jitted call sites, keyword-as-fn via binding, recur through
   interpreted `case`, dynamic binding, variadic/multi-arity fallback, fn
   meta) matches the interpreter exactly.
@@ -125,10 +143,14 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
   the ranked next steps attack. Kernel-style user loops see the 20-60x;
   glue code sees 1.1-1.4x today.
 
-## Known limitations (prototype)
+## Known limitations
 
 - Fallback (interpreter, correct but uncompiled): varargs bodies,
   `this-as`, and any form without an AST (see remaining escape sources).
+- Escape-heavy bodies still compile a template shell at first invocation
+  (shell + escapes runs at ~interpreter speed, so the compile is wasted).
+  A coverage heuristic could skip those; not worth it until profiles show
+  it.
 
 ## Remaining escape sources, by estimated real-world impact
 
@@ -158,36 +180,23 @@ mode, so eliminating one pays twice.
 3. **try/catch/finally**: JS has the same construct; main work is binding
    the catch local and matching sci's exception-class dispatch.
 4. **Instance interop** (method calls, field access): DONE for the
-   `*unrestricted*` case — the analyzer's own unconditional-allow gate
-   (`:allow :all` deliberately routes to the config-aware node so `:closed`
-   can win, so *unrestricted* is the correct signal; nbb sets it). Emission
+   unrestricted case, together with js/ static calls and constructors —
+   the analyzer's own unconditional-allow gate (`:allow :all` deliberately
+   routes to the config-aware node so `:closed` can win). Emission
    replicates invoke-instance-method exactly: obj, then method lookup with
    the interpreter's "Could not find instance method" error BEFORE args,
    then Reflect.apply (nbb#118). Restricted ctxs keep the checked escape:
    no permission logic in generated code. Getting error-location parity
-   required the ambient-site discipline (below). Still open: js/ globals
-   (static access) and constructors, same pattern.
+   required the ambient-site discipline (below).
 
-   Follow-up: make the gate ctx-scoped. `*unrestricted*` is process-global
-   (nbb `set!`s the root, bb binds around main), so a NESTED sci ctx with a
-   restrictive `:classes` config inside bb/nbb gets the unchecked
-   `allowed-instance-*` nodes too — its sandbox does not enforce instance
-   interop. Pre-existing interpreter behavior, demonstrated on released
-   nbb 1.4.207: `(sci/eval-string "(.toUpperCase \"a\")")` nested inside
-   nbb returns "A" where plain browser SCI throws "Method toUpperCase ...
-   not allowed!". CLJS-only (JVM instance interop always runtime-checks
-   `class->opts`). The jit inherits the gate but adds nothing: restricted
-   ctxs escape to the config-aware interpreter node either way. Fix: a
-   per-ctx flag consulted at these analyzer arms instead of the global;
-   hosts set it on their root ctx, nested `sci/init` ctxs default to
-   sandboxed. Naming: prefer opt-IN to danger (`{:unrestricted true}`,
-   matching the existing `enable-unrestricted-access!` vocabulary) over a
-   default-true `{:sandbox true}` — a boolean whose default is true forces
-   `(not (false? ...))` reads, and "sandbox" collides with the granular
-   `:classes` config (what would `{:sandbox true :classes {:allow :all}}`
-   mean?). Both directions fail safe on a typo; the positive-danger flag
-   reads better at call sites and in checks. The jit arms sit behind the
-   same conditional and inherit the fix for free.
+   The gate is `(:unrestricted ctx)`: the ctx-scoped flag shipped to
+   master as #1065 (which also removed the process-global `*unrestricted*`
+   var and made `enable-unrestricted-access!` throw), fixing the
+   pre-existing nested-sandbox leak — a nested restricted ctx inside
+   bb/nbb now really sandboxes interop, and the jit arms sit behind the
+   same conditional. Still open: a wider gate for ctxs configured with
+   `{:classes {:allow :all}}` and no member-level configs, which today
+   stay on the config-aware escape.
 5. **Site discipline** (learned via fuzzing the interop emission): the s
    register must mirror the interpreter's try nesting — only call nodes
    own sites, a call's site covers callee+args and closes with its
@@ -205,13 +214,6 @@ mode, so eliminating one pays twice.
 8. **Literals over the call-arity cap** (>8 elements, non-constant):
    escape via the arity check; could emit chunked builders if it ever shows
    up in a profile.
-- Global enable flag; production wants a ctx-scoped option
-  (e.g. `(sci/init {:experimental-jit true})`) so a sandboxed ctx and a
-  jitted ctx can coexist. AST attachment currently unconditional
-  (analysis allocation even when disabled) — should be gated.
-- Escape-heavy bodies still compile (template shell + escapes ≈ interpreter
-  speed, wasted compile). Needs a coverage heuristic or invocation-count
-  tiering.
 
 ## CLJS gotchas hit (worth remembering)
 
@@ -251,7 +253,7 @@ mode, so eliminating one pays twice.
 
 ## Next steps, ranked by payoff/effort
 
-1. **Operator inlining for the numeric spec set** (in progress). Verified
+1. **Operator inlining for the numeric spec set**: DONE. Verified
    against cljs.core 1.11.132 source: the compiled fn bodies of `+ - * < >
    <= >= ==` (arity 2), `inc dec zero? pos? neg? nil? not` (arity 1) and the
    `unchecked-*` aliases are bare JS operators (`-` is `x - y`, `zero?` is
@@ -259,8 +261,9 @@ mode, so eliminating one pays twice.
    already calls those fn bodies, so emitting the operator inline is
    semantically identical — no type guards ((inc "a") stays "a1" either
    way). NOT eligible: `rem` (quot-based composite body, not JS `%`), `=`
-   (deep equality), `get`. Expected: tight-loop from 1.32ms toward compiled
-   CLJS (~0.4ms), 35x -> ~100x.
+   (deep equality), `get`. Measured: tight loop 35.7x -> 68.5x, fib -> 28x,
+   data-access beats `-O simple` compiled CLJS. Every table entry pinned by
+   the parity matrix test.
 2. **Collection literal nodes** (vector/map/set). DONE: non-constant
    literals were already return-call nodes with a builder fn (vector,
    map-fn, checked set builder), so they reuse the :call-direct machinery —
@@ -271,9 +274,12 @@ mode, so eliminating one pays twice.
    With 2+3: editscript diff 1.35x -> 1.37x, honeysql 1.13x -> 1.24x,
    log-crunch 1.11x -> 1.20x vs interpreter; suite green both levels;
    30k fuzz seeds clean on the new emission.
-4. Browser validation: scittle demo under a CSP page (probe fallback), real
-   DOM workloads; nbb/joyride integration. (The ctx-scoped opt-in idea that
-   used to sit here was superseded by the non-opt-in decision below.)
+4. Browser validation: DONE for scittle — CSP field test on a real page
+   (plain page 2M loop 8.5ms jitted, CSP meta-tag page 45-50ms clean
+   interpreter fallback, identical results and redef semantics). nbb runs
+   the full ci:test suite green with the jit build. Joyride integration
+   still pending. (The ctx-scoped opt-in idea that used to sit here was
+   superseded by the non-opt-in decision below.)
 5. **Migrate nbb to `sci.async`**: SCI now has its own async/await
    (`^:async` fn metadata + `await`, `sci.impl.async-macro`), so nbb's
    bespoke await machinery can be retired. Interacts cleanly with the jit:
@@ -313,3 +319,37 @@ mode, so eliminating one pays twice.
 ROI caveat: items 1-3 widen the gap on loop/arithmetic code and keep more
 bodies in locals mode. Allocation-heavy code stays ~2x regardless — that
 floor is cljs.core itself, not the interpreter.
+
+## Fuzzing (run this after ANY emitter or attach-site change)
+
+The differential fuzzer lives in `test/jit_fuzz/` (`jit-fuzz.gen` is a
+seeded LCG program generator, `jit-fuzz.main` evaluates each program
+through interpreter and jit and compares values, error messages AND error
+locations). It runs under an `:unrestricted` ctx so interop emission is
+exercised. The suffix-less ns names keep it out of the cljs-test-runner's
+test discovery.
+
+    clojure -M:test -m cljs.main -t nodejs -O simple -o fuzz.js -c jit-fuzz.main
+    node fuzz.js 0 20000        # start-seed count; ~35s for 20k seeds
+    FUZZ_DUMP=1 node fuzz.js 42 3   # print the generated programs first
+
+Exit code 1 on any mismatch, with seed + program + both results printed.
+Seeds are deterministic: a mismatch reproduces with `node fuzz.js <seed> 1`.
+History: ~450k seeds clean at review time; earlier rounds caught the
+operator-site location bug, the ambient-stack discipline gaps (944 interop
+location mismatches), and the cljs `==` fn-vs-macro divergence. Practice:
+20k seeds after a localized change, 100k+ after touching emit-call, the
+stack discipline, or `escape-free?`.
+
+## Idea parked: lazy body analysis in the interpreter itself
+
+The first-invocation stubs mean loaded-but-never-called fns skip CODEGEN.
+The same idea applied one level down — deferring the interpreter's own
+ANALYSIS of fn bodies to first invocation — is independent of the jit and
+would attack the biggest lib-load cost (analysis is ~38% of bb lib
+loading). It is not free, unlike the stub trick: analysis is where
+unresolved symbols, bad arities and syntax errors surface, so deferring it
+moves those errors from load time to first call, an observable semantics
+change (Clojure itself analyzes eagerly). Would need to be opt-in or
+limited to shapes where the errors can't differ. Not part of this work;
+recorded because the stub design makes the follow-on question obvious.
