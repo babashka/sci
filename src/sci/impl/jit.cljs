@@ -71,6 +71,12 @@
           ;; cs: case dispatch, the same structural map lookup as
           ;; eval-case; returns the branch index, -1 = default
           "cs" (fn [idx-map v] (get idx-map v -1))
+          ;; re: the template's single catch calls this with the stack map
+          ;; of the innermost open call (TBL[s]). nil stack (s=-1): rethrow
+          ;; raw, transparent. otherwise rethrow through the interpreter's
+          ;; location machinery, so frames and error locations match the
+          ;; interpreter exactly. the throwaway NodeR only carries the map
+          ;; to the Stack protocol.
           "re" (fn [ctx e stack]
                  (if (nil? stack)
                    (throw e)
@@ -126,8 +132,15 @@
 ;; emit-tail pushes statements ending in return/continue.
 ;; deftype (not #js literal): field access must survive advanced renaming.
 
-;; stack-idx tracks what the s register holds at the current emission point
-;; (nil = unknown, e.g. after a control-flow merge)
+;; lines: the JS statements emitted so far (a mutable JS array), joined with
+;;   newlines into the function body at the end
+;; consts: values the generated code references as C[i] (fn objects, stack
+;;   maps, per-site deref caches) — user values reach the code only this way
+;; stacks: interned call stack maps, indexed by the s register; becomes TBL
+;; tmp: counter for fresh temp variable names (t0, t1, ...)
+;; stack-idx: what the s register holds at the current emission point
+;;   (nil = unknown, e.g. after a control-flow merge)
+;; locals: locals mode (params/bindings are real JS locals) vs array mode
 (deftype EmitterState [lines consts stacks ^:mutable tmp ^:mutable stack-idx locals])
 
 (defn- line! [^EmitterState st s]
