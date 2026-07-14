@@ -268,6 +268,14 @@ with the extended generator clean.
 8. **Literals over the call-arity cap** (>8 elements, non-constant):
    escape via the arity check; could emit chunked builders if it ever shows
    up in a profile.
+8b. **Instance field write** `(set! (.-x o) v)`: no emitter arm today, so
+   it escapes even under `:unrestricted` AND drags its whole body into
+   array mode. Field READ is already `:iget`; the write is the mirror
+   (`o[name]=v`, JSON.stringify the name like :iget/:imeth, resolve the
+   value expr). Matters for scittle/nbb DOM code, which mutates fields
+   (`.-innerHTML`, `.-onclick`) constantly. Needs a `:iset` analyzer arm
+   under `:unrestricted` and the emitter arm; error/`this` semantics are
+   simpler than :imeth (a plain assignment, no call).
 9. **Direct method call for static interop**: DONE for `:jsstatic`. It
    emitted `Reflect.apply(C[method], C[class], [args])`; a jitted
    `(fn [] (Math/sin 3))` ran 139ms/1e7 vs 40ms native (3.5x), while a
