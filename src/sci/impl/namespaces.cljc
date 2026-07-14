@@ -32,6 +32,7 @@
    [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
+   #?(:clj [sci.impl.jvm-type-emit])
    [sci.impl.destructure :as destructure]
    [sci.impl.doseq-macro :as doseq-macro]
    [sci.impl.fns :as fns]
@@ -933,6 +934,8 @@
              'hashCode sci.impl.deftype/hashCode])
    '-create-type -create-type
    '->type-impl sci.impl.deftype/->type-impl
+   #?@(:clj ['-define-jvm-type! sci.impl.jvm-type-emit/define-type-class!
+             '-construct-jvm-type sci.impl.jvm-type-emit/construct])
    '-inner-impl sci.impl.types/getVal
    '-mutate sci.impl.types/-mutate
    #?@(:cljs ['-install-native-protocol! sci.impl.deftype/-install-native-protocol!])

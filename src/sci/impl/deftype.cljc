@@ -4,6 +4,7 @@
   (:require
    [sci.ctx-store :as store]
    #?(:cljd [sci.impl.multimethods :as mm])
+   #?(:clj [sci.impl.jvm-type-emit :as jvm-emit])
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
@@ -283,6 +284,11 @@
    (defmethod print-method SciType [v w]
      (-sci-print-method v w)))
 
+;; emitted wrapper types (deftype with JVM interfaces) print like SciType
+#?(:clj
+   (defmethod print-method sci.impl.jvm_type_emit.IJvmSciType [v w]
+     (-sci-print-method v w)))
+
 (defn ^:private emit-deftype
   "Generate the common deftype boilerplate: declare, def type, defn factory, protocol-impls."
   [rec-type record-name factory-fn-sym fields factory-fn-body & [protocol-impls]]
@@ -310,21 +316,94 @@
      ~record-name))
 
 #?(:clj
+   (defn ^:private transform-type-method-bodies
+     "Rewrites deftype method bodies: `this` renamed to __sci_this, fields
+     not shadowed by params bound from the instance ext-map."
+     [field-set bodies]
+     (mapv (fn [impl]
+             (let [args (first impl)
+                   body (rest impl)
+                   destr (utils/maybe-destructured args body)
+                   args (:params destr)
+                   body (:body destr)
+                   orig-this-sym (first args)
+                   rest-args (rest args)
+                   this-sym '__sci_this
+                   args (vec (cons this-sym rest-args))
+                   ext-map-binding (gensym)
+                   bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
+                   bindings (concat bindings
+                                    (mapcat (fn [field]
+                                              [field (list 'get ext-map-binding (list 'quote field))])
+                                            (reduce disj field-set args)))
+                   bindings (concat bindings [orig-this-sym this-sym])
+                   bindings (vec bindings)]
+               `(~args
+                 (let ~bindings
+                   ~@body)))) bodies)))
+
+#?(:clj
+   (defn ^:private type-method-ctx
+     "Analysis ctx for deftype method bodies: field set and set! mutators."
+     [ctx field-set]
+     (assoc ctx
+            :deftype-fields field-set
+            :local->mutator (zipmap field-set
+                                    (map (fn [field]
+                                           (fn [this v]
+                                             (types/-mutate this field v)))
+                                         field-set)))))
+
+#?(:clj
+   (defn ^:private jvm-interface?
+     "A real Java interface to implement via an emitted class. Object and
+     IFn keep their existing special handling."
+     [protocol]
+     (and (class? protocol)
+          (.isInterface ^Class protocol)
+          (not= clojure.lang.IFn protocol))))
+
+#?(:clj
    (defn ^:private standard-scitype-path
-     "Standard SciType path for deftype — protocol-only implementations."
+     "Standard SciType path for deftype — protocol implementations, plus
+     real JVM interfaces via an emitted SciType subclass when the host
+     supports runtime class definition."
      [ctx form rec-type record-name factory-fn-sym fields field-set
       protocol-impls error-hint]
-     (let [protocol-impls
+     (let [resolve-protocol (fn [protocol-name]
+                              (let [p (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)]
+                                (when-not p
+                                  (utils/throw-error-with-location
+                                   (str "Protocol not found: " protocol-name)
+                                   form))
+                                (if (utils/var? p) @p p)))
+           ;; a :deftype-fn :error is a deliberate embedder rejection with
+           ;; guidance and wins over auto-implementation
+           {jvm-impls true proto-impls nil}
+           (group-by (fn [[protocol-name]]
+                       (when (and (nil? error-hint)
+                                  @jvm-emit/class-defining-available?
+                                  (jvm-interface? (resolve-protocol protocol-name)))
+                         true))
+                     protocol-impls)
+           jvm-ifaces (mapv (fn [[protocol-name]] (resolve-protocol protocol-name)) jvm-impls)
+           ;; {method-name-str analyzed-fn-node}; arities of the same name
+           ;; merge into one fn, also across interfaces
+           jvm-methods
+           (when (seq jvm-impls)
+             (let [by-name (group-by first (mapcat rest jvm-impls))]
+               (into {}
+                     (map (fn [[method-name bodies]]
+                            [(str method-name)
+                             (@utils/analyze (type-method-ctx ctx field-set)
+                              `(fn ~@(transform-type-method-bodies field-set (map rest bodies))))]))
+                     by-name)))
+           protocol-impls
            (mapcat
             (fn [[protocol-name & impls]]
               (let [impls (group-by first impls)
-                    protocol (@utils/eval-resolve-state ctx (:bindings ctx) protocol-name)
-                    _ (when-not protocol
-                        (utils/throw-error-with-location
-                         (str "Protocol not found: " protocol-name)
-                         form))
+                    protocol (resolve-protocol protocol-name)
                     _ (assert-no-jvm-interface protocol protocol-name form error-hint)
-                    protocol (if (utils/var? protocol) @protocol protocol)
                     protocol-ns (:ns protocol)
                     pns (cond protocol-ns (str (types/getName protocol-ns))
                               (= Object protocol) "sci.impl.deftype")
@@ -332,43 +411,26 @@
                                     (symbol pns (str %))
                                     %)]
                 (map (fn [[method-name bodies]]
-                       (let [bodies (map rest bodies)
-                             bodies (mapv (fn [impl]
-                                            (let [args (first impl)
-                                                  body (rest impl)
-                                                  destr (utils/maybe-destructured args body)
-                                                  args (:params destr)
-                                                  body (:body destr)
-                                                  orig-this-sym (first args)
-                                                  rest-args (rest args)
-                                                  this-sym '__sci_this
-                                                  args (vec (cons this-sym rest-args))
-                                                  ext-map-binding (gensym)
-                                                  bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
-                                                  bindings (concat bindings
-                                                                   (mapcat (fn [field]
-                                                                             [field (list 'get ext-map-binding (list 'quote field))])
-                                                                           (reduce disj field-set args)))
-                                                  bindings (concat bindings [orig-this-sym this-sym])
-                                                  bindings (vec bindings)]
-                                              `(~args
-                                                (let ~bindings
-                                                  ~@body)))) bodies)]
-                         (@utils/analyze (assoc ctx
-                                                :deftype-fields field-set
-                                                :local->mutator (zipmap field-set
-                                                                        (map (fn [field]
-                                                                               (fn [this v]
-                                                                                 (types/-mutate this field v)))
-                                                                             field-set)))
+                       (let [bodies (transform-type-method-bodies field-set (map rest bodies))]
+                         (@utils/analyze (type-method-ctx ctx field-set)
                           `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
                      impls)))
-            protocol-impls)]
+            proto-impls)
+           protocol-impls
+           (if (seq jvm-impls)
+             (cons (@utils/analyze ctx
+                    `(sci.impl.deftype/-define-jvm-type!
+                      '~rec-type ~jvm-ifaces ~jvm-methods))
+                   protocol-impls)
+             protocol-impls)
+           construct-form (if (seq jvm-impls)
+                            `(sci.impl.deftype/-construct-jvm-type '~rec-type '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) ~fields))
+                            `(sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) ~fields)))]
        (emit-deftype rec-type record-name factory-fn-sym fields
                      `(defn ~(with-meta factory-fn-sym
                                {:doc (str "Positional factory function for class " rec-type ".")})
                         ~fields
-                        (sci.impl.deftype/->type-impl '~rec-type ~record-name ~record-name (zipmap ~(list 'quote fields) ~fields)))
+                        ~construct-form)
                      protocol-impls))))
 
 (defn ^:private analyze-defrecord*
