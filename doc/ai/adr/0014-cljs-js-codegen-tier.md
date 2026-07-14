@@ -299,6 +299,20 @@ with the extended generator clean.
    position, ctor/static-call via a runtime-resolved class. Whole-fn
    fallbacks (fn not jitted at all): varargs, `this-as`, multi-arity,
    `^:async`, `with-meta` fn, macro fn.
+8d. **INTERPRETER-SEMANTICS (not a jit item): make js/-static resolution
+   dynamic.** `analyze-static-access` resolves the class+method at ANALYSIS
+   time and closes over the method, so mutating the class property after
+   analysis (`(set! (.-stat K) new-fn)`) is NOT observed — a stale,
+   surprising freeze that has been in sci a long time (an old perf choice:
+   resolve once, skip per-call lookup). The jit currently MIRRORS it for
+   parity (`:jsstatic` calls the analysis-resolved method bound at
+   compile), like it mirrors the `==` path-dependence. Fix BOTH together:
+   change the interpreter to re-resolve `class[name]` at call time (a cheap
+   property read; keep the resolved value only as a re-checkable cache if
+   perf matters), then the jit follows by emitting the re-read it used to
+   have. Deliberate semantic change: bump the differential tests to expect
+   the new (dynamic) behavior in both modes. Low urgency, edge case, but
+   parity + intuition both favor the dynamic form.
 9. **Direct method call for static interop**: DONE for `:jsstatic`. It
    emitted `Reflect.apply(C[method], C[class], [args])`; a jitted
    `(fn [] (Math/sin 3))` ran 139ms/1e7 vs 40ms native (3.5x), while a
