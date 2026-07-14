@@ -72,11 +72,11 @@
           ;; eval-case; returns the branch index, -1 = default
           "cs" (fn [idx-map v] (get idx-map v -1))
           ;; re: the template's single catch calls this with the stack map
-          ;; of the innermost open call (TBL[s]). nil stack (s=-1): rethrow
-          ;; raw, transparent. otherwise rethrow through the interpreter's
-          ;; location machinery, so frames and error locations match the
-          ;; interpreter exactly. the throwaway NodeR only carries the map
-          ;; to the Stack protocol.
+          ;; of the innermost open call (the stacks const indexed by s). nil
+          ;; stack (s=-1): rethrow raw, transparent. otherwise rethrow
+          ;; through the interpreter's location machinery, so frames and
+          ;; error locations match the interpreter exactly. the throwaway
+          ;; NodeR only carries the map to the Stack protocol.
           "re" (fn [ctx e stack]
                  (if (nil? stack)
                    (throw e)
@@ -136,7 +136,8 @@
 ;;   newlines into the function body at the end
 ;; consts: values the generated code references as C[i] (fn objects, stack
 ;;   maps, per-site deref caches) — user values reach the code only this way
-;; stacks: interned call stack maps, indexed by the s register; becomes TBL
+;; stacks: interned call stack maps; stored in consts, indexed by s at the
+;;   template catch (C[i][s])
 ;; tmp: counter for fresh temp variable names (t0, t1, ...)
 ;; stack-idx: what the s register holds at the current emission point
 ;;   (nil = unknown, e.g. after a control-flow merge)
