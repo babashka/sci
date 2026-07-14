@@ -12,6 +12,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+ClojureScript: JIT compilation. SCI compiles interpreted function bodies to JavaScript at runtime via `js/Function`. On by default, no configuration needed. When `eval` is unavailable (e.g. under a Content Security Policy) SCI falls back to the interpreter. Results, error messages and error locations are identical either way. Works under `:advanced` compilation.
+
+- Turn the JIT off at runtime with `js/globalThis.SCI_DISABLE_JIT = true` before loading SCI, or at compile time with `:closure-defines {sci.core/disable-jit true}`
+- Errors thrown inside a `loop` now report a located stack frame for the `loop` form instead of a frame without location (all platforms, including babashka)
 - New `:unrestricted` option on `init` and `eval-string`: when `true`, evaluated code may mutate built-in vars and CLJS instance interop skips `:classes` checks. The option applies only to the context it was passed to: a nested `eval-string` without it is sandboxed, also inside an unrestricted context.
 - BREAKING: `enable-unrestricted-access!` now throws. Use the `:unrestricted` option instead. The old function set a process-global flag that leaked into nested contexts.
 - BREAKING: the `sci.impl.unrestrict` namespace and its `*unrestricted*` dynamic var are removed. As with all `sci.impl` namespaces, do not rely on them: they are implementation detail.
