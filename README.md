@@ -726,8 +726,8 @@ To use SCI as a native shared library from e.g. C++, Rust, Python, read this [tu
 On ClojureScript, SCI compiles interpreted function bodies to JavaScript at
 runtime through `js/Function`. This is on by default and needs no
 configuration. In environments where `eval` is unavailable, SCI uses its
-interpreter instead. Results, error messages and stacktraces are identical
-either way.
+interpreter instead. Results, error messages and error locations are
+identical either way.
 
 To turn it off:
 
