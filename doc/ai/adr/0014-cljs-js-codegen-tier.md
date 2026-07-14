@@ -224,22 +224,24 @@ mode, so eliminating one pays twice.
 8. **Literals over the call-arity cap** (>8 elements, non-constant):
    escape via the arity check; could emit chunked builders if it ever shows
    up in a profile.
-9. **Direct method call for static/instance interop**: `:jsstatic` emits
-   `Reflect.apply(C[method], C[class], [args])` and `:imeth` an analogous
-   indirect call. Measured (node): a jitted `(fn [] (Math/sin 3))` runs
-   139ms/1e7 vs 40ms native (3.5x), while a jitted non-interop body is
-   near-native (arith `(+ 1 2)` 55ms, 1.37x) — so the gap is the interop
-   emission, not fn-call overhead. Micro-bench isolates the cause: it is
-   NOT the args-array allocation (`Reflect.apply` 706ms ~= `m.call(cls,x)`
-   685ms for 5e7), it is the indirect call through a function-object
-   reference, which V8 cannot fold into the monomorphic `Math.sin(3)`. A
-   DIRECT `C[class][name](args)` runs 189ms, 3.7x faster. Emitting the
-   direct form (name known at analysis, interpolated via JSON.stringify;
-   re-looking-up `class[name]` on a stable class is semantically identical
-   and binds `this` correctly) should pull jitted interop toward the
-   fn-call floor. Applies to `:jsstatic` and, where the method reference is
-   safe, `:imeth` (mind nbb#118: instance dispatch used Reflect.apply
-   deliberately, so verify).
+9. **Direct method call for static interop**: DONE for `:jsstatic`. It
+   emitted `Reflect.apply(C[method], C[class], [args])`; a jitted
+   `(fn [] (Math/sin 3))` ran 139ms/1e7 vs 40ms native (3.5x), while a
+   jitted non-interop body is near-native (arith `(+ 1 2)` 55ms, 1.37x) —
+   so the gap was the interop emission, not fn-call overhead. Micro-bench
+   isolated the cause: NOT the args-array allocation (`Reflect.apply` 706ms
+   ~= `m.call(cls,x)` 685ms for 5e7) but the indirect call through a
+   function-object reference, which V8 cannot fold into the monomorphic
+   `Math.sin(3)`; a DIRECT `C[class][name](args)` runs 189ms, 3.7x faster.
+   Now emits the direct form when the resolved member is callable (name in
+   the ast, interpolated via JSON.stringify; re-looking-up `class[name]` on
+   a stable class is semantically identical and binds `this`), keeping
+   `Reflect.apply` when it is not a function so the not-a-function error
+   still matches invoke-static-method. Result: `Math/sin` 139->66ms,
+   `js/Math.sin` 168->70ms (3.5x -> 1.64x native). Suite green x3, 30k
+   fuzz seeds clean, js/Math.nope error parity preserved. STILL OPEN for
+   `:imeth`: instance dispatch uses Reflect.apply deliberately (nbb#118),
+   so the same change there needs that issue understood first.
 10. **Skip the loop scaffold for non-recurring bodies**: every template
    emits `r: for(;;){ ... }`, the recur-sentinel handling and the
    loop-head interrupt check, even for straight-line bodies (the common

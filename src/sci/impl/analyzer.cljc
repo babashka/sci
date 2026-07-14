@@ -1893,7 +1893,7 @@
                                            (utils/rethrow-with-location-of-node ctx e this)))
                                     stack
                                     (when (:unrestricted ctx)
-                                      [:jsstatic method class (vec children) stack])))))
+                                      [:jsstatic method class (vec children) stack method-name])))))
                              (if ctor?
                                (sci.impl.types/->Node
                                 (let [arr (lookup-fn)
