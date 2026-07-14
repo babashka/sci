@@ -58,6 +58,12 @@
                  "(mapv (fn [k] (case k :a 1 :b 2 [1 2] :vec 0)) [:a :b [1 2] :c])"
                  "((fn [x] (case x \"s\" :str 5 :five nil :nil :other)) \"s\")"
                  "(try ((fn [x] (case x 1 :one)) 42) (catch :default e (ex-message e)))"
+                 "((fn [n] (let [f (fn [x] (+ x n))] (f 10))) 5)"
+                 "((fn [n] (let [add (fn [x] (fn [y] (+ x y n)))] ((add 1) 2))) 10)"
+                 "((fn [n] (let [fib (fn fib [i] (if (< i 2) i (+ (fib (- i 1)) (fib (- i 2)))))] (fib n))) 10)"
+                 "(let [mk (fn [n] (fn [] n)) fs (mapv mk [1 2 3])] (mapv (fn [f] (f)) fs))"
+                 "((fn [n] ((comp inc (fn [x] (* x n))) 3)) 5)"
+                 "(let [counter (fn [] (let [state (atom 0)] (fn [] (swap! state inc)))) c (counter)] [(c) (c)])"
                  "((fn [x] (js/Math.abs (js/Math.sin x))) -1)"
                  "((fn [x] (vec (js/Array. x 2))) 1)"
                  "(try ((fn [x] (js/Math.nope x)) 1) (catch :default e (ex-message e)))"]
@@ -130,6 +136,21 @@
                  "((fn [y] (.getFullYear (MyDate. y 0 1))) 1999)"]]
       (let [[interp jitted] (eval-both src opts)]
         (is (= interp jitted) src)))))
+
+(deftest jit-error-location-in-loop-test
+  ;; loop* carries the loop form's meta on its synthesized call, and only
+  ;; wrap-guaranteed stacks become jit sites (intern-stack!): both modes
+  ;; must agree AND report the pinned location (a differential check alone
+  ;; cannot catch an analyzer-level location shift, both modes move
+  ;; together)
+  (doseq [[src expected-loc]
+          [["(defn g [] (loop [i 0] (.toUpperCase (pos? i))))\n(g)" [1 12]]
+           ["(defmacro m [] (list (list 'fn [] (list '.toUpperCase nil))))\n(defn f [] (pos? (m)))\n(f)" [2 18]]
+           ["(defn f0 [x] (pos? (loop [i 0 acc x] (if (< i 2) (recur (inc i) (.toUpperCase (> :k acc))) acc))))\n(f0 42)" [1 20]]]]
+    (let [[interp jitted] (eval-both src {:unrestricted true})]
+      (is (= interp jitted) src)
+      (is (:err interp) src)
+      (is (= expected-loc (:loc interp)) src))))
 
 (deftest jit-fallback-test
   (testing "disabled jit still evaluates"

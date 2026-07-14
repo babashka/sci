@@ -343,36 +343,57 @@
               m)]
     m))
 
-(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?]
+(defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
+                       #?@(:cljs [capture-pairs enclosed-array-cnt])]
   (let [fixed-arity (:fixed-arity fn-body)
         copy-enclosed->invocation (:copy-enclosed->invocation fn-body)
         invoc-size (:invoc-size fn-body)
         body (:body fn-body)
         vararg-idx (:vararg-idx fn-body)
-        #?@(:cljs [this-as-idx (:this-as-idx fn-body)])]
-    (sci.impl.types/->Node
-     (let [enclosed-array (bindings-fn bindings)
-           f #?(:cljs (jit/make-fn fn-body ctx enclosed-array
-                                   (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                                                   body invoc-size nsm vararg-idx this-as-idx)))
-                :default (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
-                                  body invoc-size nsm vararg-idx))
-           f (if (nil? fn-meta) f
-                 (let [fn-meta (t/eval fn-meta ctx bindings)]
-                   (vary-meta f merge fn-meta)))
-           f (if macro?
-               (vary-meta f
-                          #(assoc %
-                                  :sci/macro macro?
-                                  ;; added for better error reporting
-                                  :sci.impl/inner-fn f))
-               f)]
-       (when self-ref?
-         (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
-               self-ref-in-enclosed-idx
-               f))
-       f)
-     nil)))
+        #?@(:cljs [this-as-idx (:this-as-idx fn-body)])
+        node
+        (sci.impl.types/->Node
+         (let [enclosed-array (bindings-fn bindings)
+               f #?(:cljs (jit/make-fn fn-body ctx enclosed-array
+                                       (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                                                       body invoc-size nsm vararg-idx this-as-idx)))
+                    :default (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                                      body invoc-size nsm vararg-idx))
+               f (if (nil? fn-meta) f
+                     (let [fn-meta (t/eval fn-meta ctx bindings)]
+                       (vary-meta f merge fn-meta)))
+               f (if macro?
+                   (vary-meta f
+                              #(assoc %
+                                      :sci/macro macro?
+                                      ;; added for better error reporting
+                                      :sci.impl/inner-fn f))
+                   f)]
+           (when self-ref?
+             (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
+                   self-ref-in-enclosed-idx
+                   f))
+           f)
+         nil)]
+    #?(:cljs
+       ;; fn-creation ast: the emitter builds the enclosed array from its
+       ;; own slots via the static capture pairs and calls mk, so creating
+       ;; a closure no longer escapes (nor forces array mode). fn-meta
+       ;; needs the creating scope's bindings, macros never occur in
+       ;; jitted positions: both keep the escape.
+       (if (or fn-meta macro?)
+         node
+         (t/attach-ast
+          node
+          [:mkfn (fn [ctx enclosed-array]
+                   (let [f (jit/make-fn fn-body ctx enclosed-array
+                                        (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                                                        body invoc-size nsm vararg-idx this-as-idx)))]
+                     (when self-ref?
+                       (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
+                     f))
+           capture-pairs enclosed-array-cnt]))
+       :default node)))
 
 (defn multi-arity-fn-body [fn-body fn-name nsm]
   (let [fixed-arity (:fixed-arity fn-body)
@@ -461,7 +482,7 @@
         iden->enclosed-idx (if fn-name
                              (assoc iden->enclosed-idx fn-id closed-over-cnt)
                              iden->enclosed-idx)
-        [bindings-fn enclosed-array-cnt]
+        [bindings-fn enclosed-array-cnt capture-pairs]
         (if (or self-ref? (seq closed-over-iden->binding-idx))
           (let [enclosed-array-cnt (cond-> closed-over-cnt
                                      fn-name (inc))
@@ -485,7 +506,11 @@
                               enclosed-idx (aget idxs 1)]
                           (aset #?(:cljd ^List ret :default ret) enclosed-idx binding-val)
                           ret)))
-             enclosed-array-cnt])
+             enclosed-array-cnt
+             #?(:cljs (vec (keep (fn [iden]
+                                   (when-let [binding-idx (get iden->invoke-idx iden)]
+                                     [binding-idx (get iden->enclosed-idx iden)]))
+                                 closed-over-idens)))])
           [(constantly nil)])
         bodies (:bodies analyzed-bodies)
         bodies (mapv (fn [body]
@@ -535,7 +560,8 @@
         nsm (utils/current-ns-name)
         self-ref-in-enclosed-idx (some-> enclosed-array-cnt dec)
         ret-node (if single-arity
-                   (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?)
+                   (single-arity-fn bindings-fn single-arity fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
+                                    #?@(:cljs [capture-pairs enclosed-array-cnt]))
                    (let [arities (reduce
                                   (fn [arity-map fn-body]
                                     (let [f (multi-arity-fn-body fn-body fn-name nsm)
@@ -864,8 +890,12 @@
         syms (take-nth 2 bv)
         body (nnext expr)
         expansion `(let* ~bv
-                     ~(list* `(fn* ~(vec syms) ~@body)
-                             syms))]
+                     ~(with-meta
+                        (list* `(fn* ~(vec syms) ~@body)
+                               syms)
+                        ;; the synthesized call carries the loop's location,
+                        ;; so errors thrown inside locate at the loop form
+                        (meta expr)))]
     (analyze ctx expansion)))
 
 (defn analyze-lazy-seq
@@ -2074,19 +2104,25 @@
               :else
               (let [f (analyze ctx f*)
                     children (analyze-children ctx (rest expr))
-                    stack (utils/stack-frame m nil)]
-                (return-call ctx
-                             expr
-                             f children stack
-                             #?(:cljd (fn [ctx bindings f]
-                                        (t/eval f ctx bindings))
-                                :cljs (if (utils/var? f)
-                                        (fn [ctx bindings f]
-                                          (t/eval @f ctx bindings))
-                                        (fn [ctx bindings f]
-                                          (t/eval f ctx bindings)))
-                                :clj (fn [ctx bindings f]
-                                       (t/eval f ctx bindings)))))))
+                    stack (utils/stack-frame m nil)
+                    node (return-call ctx
+                                      expr
+                                      f children stack
+                                      #?(:cljd (fn [ctx bindings f]
+                                                 (t/eval f ctx bindings))
+                                         :cljs (if (utils/var? f)
+                                                 (fn [ctx bindings f]
+                                                   (t/eval @f ctx bindings))
+                                                 (fn [ctx bindings f]
+                                                   (t/eval f ctx bindings)))
+                                         :clj (fn [ctx bindings f]
+                                                (t/eval f ctx bindings))))]
+                #?(:cljs (if (utils/var? f)
+                           node
+                           ;; computed callee, e.g. ((add 1) 2): the callee
+                           ;; node compiles like any child expression
+                           (t/attach-ast node [:call-node f children stack]))
+                   :default node))))
       (catch #?(:cljd Object
                 :clj Exception
                 :cljs :default) e
@@ -2232,7 +2268,11 @@
                                                        (str "Can't take value of a macro: " v ""))))
                                   (sci.impl.types/->Node
                                    (faster/deref-1 v)
-                                   nil)))
+                                   nil
+                                   ;; value-position var read: emitted as a
+                                   ;; plain deref, never cached (see the
+                                   ;; retention note on the deref cache)
+                                   [:vderef v])))
                               #?@(:clj
                                   [(:sci.impl.analyzer/interop mv)
                                    (analyze-interop ctx expr v)])

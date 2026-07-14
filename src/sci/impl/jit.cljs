@@ -62,10 +62,10 @@
   (js-obj "d" deref
           "ev" (fn [node ctx b] (t/eval node ctx b))
           "s" utils/recur
-          ;; stack nil/undefined (s=-1): no enclosing call in this template,
-          ;; stay transparent like an interpreter node without a catch.
-          ;; stack false: a call whose stack map is nil; wrap like the
-          ;; interpreter's call node does (location from fallback).
+          ;; stack nil/undefined (s=-1): no enclosing sited call in this
+          ;; template, stay transparent like an interpreter node without a
+          ;; catch (calls with nil stack maps never own a site, see
+          ;; intern-stack!).
           ;; g: the var-mutation epoch; call-var sites cache derefs on it
           "g" vars/var-epoch
           ;; cs: case dispatch, the same structural map lookup as
@@ -86,7 +86,7 @@
 (def ^:private max-call-arity 8)
 
 (defn- call-ast? [op]
-  (case op (:call-direct :call-var :call-bind) true false))
+  (case op (:call-direct :call-var :call-bind :call-node) true false))
 
 (defn ->ast
   "Resolve a child (node or constant) to a walkable AST vector."
@@ -117,6 +117,8 @@
       :recur (every? escape-free? (nth a 1))
       (:or :and) (every? escape-free? (nth a 1))
       (:call-direct :call-var :call-bind) (every? escape-free? (nth a 2))
+      :call-node (and (escape-free? (nth a 1))
+                      (every? escape-free? (nth a 2)))
       :iget (escape-free? (nth a 1))
       :imeth (and (escape-free? (nth a 1))
                   (every? escape-free? (nth a 3)))
@@ -125,6 +127,9 @@
                  (escape-free? (nth a 4)))
       :jsctor (every? escape-free? (nth a 2))
       :jsstatic (every? escape-free? (nth a 3))
+      ;; closure creation reads captures straight from slots, needs no B
+      :mkfn true
+      :vderef true
       false)))
 
 ;; --- emitter ---
@@ -174,12 +179,20 @@
 ;; emits.
 (defn- intern-stack!
   "Intern a call's stack map into the template's stack table, returning
-  its index (false marks a nil stack: wrap with no location, like the
-  interpreter's call node with a nil stack)."
-  [^EmitterState st stack]
-  (let [stacks (.-stacks st)]
-    (.push stacks (if (nil? stack) false stack))
-    (dec (.-length stacks))))
+  its index. Only stacks that are guaranteed to WRAP are interned (line
+  and column present): rethrow-with-location-of-node passes through
+  otherwise, and the interpreter's next enclosing catch wraps instead —
+  which in the flat one-catch-per-template model is the ambient site, so
+  a passthrough stack returns the ambient index rather than shadowing it.
+  With this invariant the flat model reproduces the interpreter's catch
+  nesting exactly: the innermost open SITED call is always the one whose
+  location wins."
+  [^EmitterState st stack amb]
+  (if (and (some? stack) (:line stack) (:column stack))
+    (let [stacks (.-stacks st)]
+      (.push stacks stack)
+      (dec (.-length stacks)))
+    amb))
 
 (defn- assert-stack! [^EmitterState st idx]
   (when-not (= idx (.-stack-idx st))
@@ -289,11 +302,11 @@
     3 (.get op-gens-3 f)
     nil))
 
-(defn- emit-call [st _amb a]
+(defn- emit-call [st amb a]
   (let [op (nth a 0)
         children (nth a 2)
         n (count children)
-        idx (intern-stack! st (nth a 3 nil))]
+        idx (intern-stack! st (nth a 3 nil) amb)]
     ;; the interpreter's call-node try wraps callee and argument
     ;; evaluation too, so the call's stack activates before both; each
     ;; argument restores it (a nested call moves it, then its try closes)
@@ -333,7 +346,10 @@
                                               cache "[0]=" c ";"
                                               cache "[1]=H.g[0];}"))
                                c)
-                   :call-bind (spill st (slot st (nth a 1))))
+                   :call-bind (spill st (slot st (nth a 1)))
+                   ;; computed callee ((add 1) 2): a full expression, itself
+                   ;; recursively compiled (or escaping on its own)
+                   :call-node (emit-arg st idx (nth a 1)))
             args (mapv #(emit-arg st idx %) children)]
         (str head ".call(" (join-args (cons "null" args)) ")")))))
 
@@ -446,7 +462,7 @@
       ;; the not-a-function error matches invoke-static-method exactly.
       ;; Both bind this=class. The interpreter's static node catches, so
       ;; this call has its own stack entry.
-      :jsstatic (let [idx (intern-stack! st (nth a 4 nil))]
+      :jsstatic (let [idx (intern-stack! st (nth a 4 nil) amb)]
                   (assert-stack! st idx)
                   (let [method (nth a 1)
                         nm (nth a 5 nil)
@@ -456,6 +472,24 @@
                            (join-args args) ")")
                       (str "Reflect.apply(" (const! st method) ","
                            (const! st (nth a 2)) ",[" (join-args args) "])"))))
+      ;; value-position var read: plain deref, never cached (unlike
+      ;; :call-var) so plain data in vars is not retained
+      :vderef (str "H.d(" (const! st (nth a 1)) ")")
+      ;; closure creation: build the enclosed array from this template's
+      ;; own slots (static capture pairs) and hand it to mk, which reuses
+      ;; make-fn — stubs, laziness and self-reference patching included.
+      ;; cnt nil = zero captures, mk gets null like (constantly nil) would.
+      ;; No own stack: the interpreter's fn node has none.
+      :mkfn (let [mk (const! st (nth a 1))
+                  pairs (nth a 2)
+                  cnt (nth a 3)]
+              (if (nil? cnt)
+                (str mk "(CTX,null)")
+                (let [t (tmp! st)]
+                  (line! st (str "var " t "=new Array(" cnt ");"))
+                  (doseq [[bidx eidx] pairs]
+                    (line! st (str t "[" eidx "]=" (slot st bidx) ";")))
+                  (str mk "(CTX," t ")"))))
       ;; interp ctor node has no catch: no own stack. direct `new C(args)`
       ;; when the ctor is a real function (V8 optimizes it, unlike
       ;; Reflect.construct); keep Reflect.construct otherwise so the
@@ -465,7 +499,7 @@
                 (if (fn? ctor)
                   (str "new " (const! st ctor) "(" (join-args args) ")")
                   (str "Reflect.construct(" (const! st ctor) ",[" (join-args args) "])")))
-      (:call-direct :call-var :call-bind) (emit-call st amb a))))
+      (:call-direct :call-var :call-bind :call-node) (emit-call st amb a))))
 
 (defn- emit-tail [st amb x]
   (let [a (->ast x)]

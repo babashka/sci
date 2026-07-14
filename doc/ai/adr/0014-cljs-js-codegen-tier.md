@@ -167,19 +167,34 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
 Every escape also drags its enclosing fn body from locals mode into array
 mode, so eliminating one pays twice.
 
-1. **fn-creation nodes** (fn/closure in let-init or argument position):
-   the created fn's own body jits, but the creating site escapes. Hits any
-   code using local helper fns or higher-order style — editscript's current
-   ceiling. Tricky: closure capture reads the creating fn's bindings array,
-   so locals mode needs the capture set spilled or the enclosed-array
-   construction emitted inline. Related conservatism: ANY escape forces the
-   whole body into array mode, even when the escaped node provably never
-   touches the environment — a ZERO-capture (fn ...) in a let-init drags
-   its enclosing body out of locals mode for nothing. The capture set is
-   known at analysis, so a cheap intermediate fix is an env-free flag on
-   such escapes (pass null for B, keep locals mode); the full fix
-   (compiling fn-creation) subsumes it for the capturing case. Do both
-   together in the follow-up PR.
+1. **fn-creation nodes**: DONE, together with computed-callee calls and
+   value-position var reads — the three escape kinds that dominate
+   higher-order glue code. `:mkfn`: single-arity creation compiles to an
+   enclosed-array built inline from the creating template's own slots (the
+   static [binding-idx enclosed-idx] capture pairs fall out of the
+   analyzer's existing binding->enclosed data) handed to a const mk fn
+   that reuses make-fn, so stubs, laziness and self-reference patching
+   carry over; zero captures pass null, subsuming the env-free-flag idea.
+   Multi-arity, fn-meta and macro creation still escape. `:call-node`:
+   a call whose callee is itself an expression (((add 1) 2), (comp ...)
+   results) — the callee compiles recursively, .call(null, ...) like other
+   unknown callees. `:vderef`: a var read in value position emits a plain
+   H.d deref, never cached (retention decision unchanged). Bodies with all
+   three now stay in locals mode. Real programs (nbb A/B, same session):
+   honeysql formatting 1.28x over the jit without this, editscript 1.05x;
+   MICRO shapes are flat — the interpreter's creation node costs about the
+   same as the inline emission, the win is staying compiled around it.
+   Fuzzing this (150k seeds) exposed a latent site-discipline bug: a call
+   whose stack map lacks line/column is a rethrow PASSTHROUGH, so
+   interning it as a site shadowed the enclosing real site (the
+   interpreter's nested catches just fall through to the next one).
+   Invariant now in intern-stack!: only wrap-guaranteed stacks (line and
+   column present) become sites, everything else defers to ambient — with
+   that, the flat one-catch model provably equals the interpreter's catch
+   nesting. Root cause also fixed: analyze-loop* now carries the loop
+   form's meta on its synthesized call (errors inside loops locate at the
+   loop, all platforms). Regression tests pin literal locations, since a
+   differential check alone cannot catch analyzer-level location shifts.
 2. **case**: DONE, hybrid — dispatch stays the interpreter's structural
    map lookup (JS switch semantics are ===, and keyword literals aren't
    interned under :none/:simple, so switching on values would be wrong);
