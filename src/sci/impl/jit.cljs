@@ -132,6 +132,7 @@
 ;;   [:call-node callee [arg ...] stack]     callee = expression
 ;;   [:vderef var]                           value-position var read
 ;;   [:iget obj name stack]                  instance field
+;;   [:iset obj name val]                    instance field write
 ;;   [:imeth obj name [arg ...] stack]       instance method
 ;;   [:case dispatch idx-map [branch ...] default]
 ;;   [:jsstatic method class [arg ...] stack]  resolved at analysis
@@ -172,6 +173,7 @@
       (:call-direct :call-var :call-bind) (every? escape-free? x2)
       :call-node (and (escape-free? x1) (every? escape-free? x2))
       :iget (escape-free? x1)
+      :iset (and (escape-free? x1) (escape-free? x3))
       :imeth (and (escape-free? x1) (every? escape-free? x3))
       :case (and (escape-free? x1)
                  (every? escape-free? x3)
@@ -482,6 +484,12 @@
       :iget (let [[_ obj field-name] a]
               (str (emit-arg st amb obj)
                    "[" (js/JSON.stringify field-name) "]"))
+      ;; a JS assignment yields the assigned value, matching set! in CLJS
+      :iset (let [[_ obj field-name val] a
+                  obj-expr (emit-arg st amb obj)
+                  val-expr (emit-arg st amb val)]
+              (str "(" obj-expr "[" (js/JSON.stringify field-name) "]="
+                   val-expr ")"))
       :imeth (let [[_ obj meth-name arg-children] a
                    obj-expr (emit-arg st amb obj)
                    meth (tmp! st)

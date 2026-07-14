@@ -51,7 +51,7 @@ Codegen is driven by SCI's own analysis, so semantics come for free:
   `:call-direct` (inlined core fn), `:call-var` (sci var, deref per call —
   redefinition honored), `:call-bind` (binding in call position), `:or`,
   `:and`, `:case`, and under ctx `:unrestricted` the interop kinds
-  `:iget`, `:imeth`, `:jsstatic`, `:jsctor`.
+  `:iget`, `:iset`, `:imeth`, `:jsstatic`, `:jsctor`.
 - `loop*` already expands to `let*` + immediately-invoked `fn*`, so fn-body
   compilation covers loops; `recur` becomes assignments + `continue`.
 - One template per analyzed fn body (`sci.impl.jit/compile-template`),
@@ -292,14 +292,17 @@ with the extended generator clean.
 8. **Literals over the call-arity cap** (>8 elements, non-constant):
    escape via the arity check; could emit chunked builders if it ever shows
    up in a profile.
-8b. **Instance field write** `(set! (.-x o) v)`: no emitter arm today, so
-   it escapes even under `:unrestricted` AND drags its whole body into
-   array mode. Field READ is already `:iget`; the write is the mirror
-   (`o[name]=v`, JSON.stringify the name like :iget/:imeth, resolve the
-   value expr). Matters for scittle/nbb DOM code, which mutates fields
-   (`.-innerHTML`, `.-onclick`) constantly. Needs a `:iset` analyzer arm
-   under `:unrestricted` and the emitter arm; error/`this` semantics are
-   simpler than :imeth (a plain assignment, no call).
+8b. ~~**Instance field write** `(set! (.-x o) v)`~~ DONE: `:iset`
+   analyzer arm (both cljs set! shapes, `(set! (.-x o) v)` and
+   `(set! o -x v)`) under `:unrestricted`, emitter arm
+   `(o[name]=v)` (JSON.stringify'd name like :iget/:imeth, plain
+   assignment yields the assigned value). This also fixed an
+   interpreter bug: the old node returned gobj/set's undefined, while
+   CLJS set! returns the assigned value — the interpreter now returns
+   v too. Bench (node, `-O simple`, 1M-iteration loop): field-write
+   loop 77ms interp / 0.7ms jit; the body is pure interop + operator
+   arithmetic so nothing remains but raw JS. Fuzz gen grew two
+   fresh-js-obj set! shapes.
 8c. **More escape sources, ranked by real-world payoff** (each escapes to
    the interpreter and forces its body into array mode; correct today,
    just slower):
@@ -308,7 +311,8 @@ with the extended generator clean.
      an escaping throw inside. Very common; cheap arm (emit `throw` with
      the interpreter's rethrow-with-location).
    - `set!` beyond field write: dynamic var `(set! *v* x)`, mutable deftype
-     field in a method. No `set!` arm at all.
+     field in a method. Field write is `:iset` (8b); the other two set!
+     shapes still escape.
    - `binding` / `with-redefs`: dynamic-scope special forms, no AST. Common
      in real programs; needs push/pop-thread-bindings emission.
    - interop in a SANDBOXED ctx: the whole interop family is gated on

@@ -198,7 +198,9 @@
   '[(.toUpperCase X3) (.indexOf X3 "b") (.charAt X3 I) (.-length X3)
     (.toFixed N 2) (.nope X) (.-nope X) (.concat X3 X3)
     (js/Math.abs N) (js/Math.max N I) (js/parseInt X3) (js/Math.nope N)
-    (vec (js/Array. I N))])
+    (vec (js/Array. I N))
+    (let [obj0 (js-obj)] (set! (.-p obj0) X) (.-p obj0))
+    (let [obj0 (js-obj)] (set! (.-q obj0) N))])
 
 (defn- ginterop [r env fns size]
   (let [tmpl (pick r interop-exprs)

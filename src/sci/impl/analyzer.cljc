@@ -1477,8 +1477,12 @@
                  (sci.impl.types/->Node
                   (let [obj (t/eval obj ctx bindings)
                         v (t/eval v ctx bindings)]
-                    (gobj/set obj prop v))
-                  nil))])
+                    ;; set! returns the assigned value, like CLJS
+                    (gobj/set obj prop v)
+                    v)
+                  nil
+                  (when (:unrestricted ctx)
+                    [:iset obj prop v])))])
     (symbol? obj) ;; assume dynamic var
     (let [sym obj
           obj (resolve/resolve-symbol ctx obj)
@@ -1506,8 +1510,12 @@
                  (sci.impl.types/->Node
                   (let [obj (t/eval obj ctx bindings)
                         v (t/eval v ctx bindings)]
-                    (gobj/set obj k v))
-                  nil))])
+                    ;; set! returns the assigned value, like CLJS
+                    (gobj/set obj k v)
+                    v)
+                  nil
+                  (when (:unrestricted ctx)
+                    [:iset obj k v])))])
     :else (throw-error-with-location "Invalid assignment target" expr)))
 
 ;;;; End vars

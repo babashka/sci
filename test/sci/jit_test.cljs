@@ -64,6 +64,13 @@
                  "(let [mk (fn [n] (fn [] n)) fs (mapv mk [1 2 3])] (mapv (fn [f] (f)) fs))"
                  "((fn [n] ((comp inc (fn [x] (* x n))) 3)) 5)"
                  "(let [counter (fn [] (let [state (atom 0)] (fn [] (swap! state inc)))) c (counter)] [(c) (c)])"
+                 "((fn [] (let [o (js-obj)] (set! (.-x o) 41) (inc (.-x o)))))"
+                 "((fn [] (let [o (js-obj)] [(set! (.-x o) 1) (.-x o)])))"
+                 "((fn [] (let [o (js-obj \"we-ird\" 1)] (set! (.-we-ird o) 7) (.-we-ird o))))"
+                 "((fn [f] (let [o (js-obj)] (set! (.-a o) (f 2)) (.-a o))) inc)"
+                 "((fn [o] (set! (.-x o) 3)) (js-obj))"
+                 "((fn [] (let [o (js-obj)] (set! o -x 5) (.-x o))))"
+                 "(try ((fn [] (set! (.-x nil) 1))) (catch :default e (ex-message e)))"
                  "((fn [x] (js/Math.abs (js/Math.sin x))) -1)"
                  "((fn [x] (vec (js/Array. x 2))) 1)"
                  "(try ((fn [x] (js/Math.nope x)) 1) (catch :default e (ex-message e)))"]
