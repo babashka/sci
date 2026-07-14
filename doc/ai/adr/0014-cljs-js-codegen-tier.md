@@ -224,7 +224,23 @@ mode, so eliminating one pays twice.
 8. **Literals over the call-arity cap** (>8 elements, non-constant):
    escape via the arity check; could emit chunked builders if it ever shows
    up in a profile.
-9. **Skip the loop scaffold for non-recurring bodies**: every template
+9. **Direct method call for static/instance interop**: `:jsstatic` emits
+   `Reflect.apply(C[method], C[class], [args])` and `:imeth` an analogous
+   indirect call. Measured (node): a jitted `(fn [] (Math/sin 3))` runs
+   139ms/1e7 vs 40ms native (3.5x), while a jitted non-interop body is
+   near-native (arith `(+ 1 2)` 55ms, 1.37x) — so the gap is the interop
+   emission, not fn-call overhead. Micro-bench isolates the cause: it is
+   NOT the args-array allocation (`Reflect.apply` 706ms ~= `m.call(cls,x)`
+   685ms for 5e7), it is the indirect call through a function-object
+   reference, which V8 cannot fold into the monomorphic `Math.sin(3)`. A
+   DIRECT `C[class][name](args)` runs 189ms, 3.7x faster. Emitting the
+   direct form (name known at analysis, interpolated via JSON.stringify;
+   re-looking-up `class[name]` on a stable class is semantically identical
+   and binds `this` correctly) should pull jitted interop toward the
+   fn-call floor. Applies to `:jsstatic` and, where the method reference is
+   safe, `:imeth` (mind nbb#118: instance dispatch used Reflect.apply
+   deliberately, so verify).
+10. **Skip the loop scaffold for non-recurring bodies**: every template
    emits `r: for(;;){ ... }`, the recur-sentinel handling and the
    loop-head interrupt check, even for straight-line bodies (the common
    case). A `recur` targeting THIS frame is detectable at compile time
