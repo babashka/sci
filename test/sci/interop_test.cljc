@@ -717,3 +717,54 @@
        (is (true? (sci/eval-string
                    "(= PublicFields/1 (class (make-array PublicFields 0)))"
                    {:classes {'PublicFields PublicFields}}))))))
+
+#?(:cljs
+   (deftest cljs-static-method-override-test
+     (testing "a :static-methods override binds instead of the real method"
+       (is (= :intercepted
+              (sci/eval-string "(Math/abs -1)"
+                               {:classes {'Math {:class js/Math
+                                                 :static-methods {'abs (fn [_] :intercepted)}}}}))))
+     (testing "override also binds in an unrestricted ctx"
+       (is (= :intercepted
+              (sci/eval-string "(Math/abs -1)"
+                               {:unrestricted true
+                                :classes {'Math {:class js/Math
+                                                 :static-methods {'abs (fn [_] :intercepted)}}}}))))
+     (testing "sibling statics on the same class stay untouched"
+       (is (= 4 (sci/eval-string "(Math/max 1 4)"
+                                 {:unrestricted true
+                                  :classes {'Math {:class js/Math
+                                                   :static-methods {'abs (fn [_] :intercepted)}}}}))))
+     (testing "dotted access under a root class is not consulted"
+       (is (= 1 (sci/eval-string "(js/Math.abs -1)"
+                                 {:unrestricted true
+                                  :classes {'js goog/global
+                                            'Math {:class js/Math
+                                                   :static-methods {'abs (fn [_] :intercepted)}}}}))))))
+
+#?(:cljs
+   (deftest cljs-instance-override-unrestricted-test
+     (testing "an :instance-methods override wins over :unrestricted"
+       (is (= :intercepted
+              (sci/eval-string "(.getFullYear (js/Date. 2020 0 1))"
+                               {:unrestricted true
+                                :classes {'js goog/global
+                                          'Date {:class js/Date
+                                                 :instance-methods {'getFullYear (fn [_] :intercepted)}}}}))))
+     (testing "methods without an override still reflect, in the same ctx"
+       (is (= 5 (sci/eval-string "(.getMonth (js/Date. 2020 5 1))"
+                                 {:unrestricted true
+                                  :classes {'js goog/global
+                                            'Date {:class js/Date
+                                                   :instance-methods {'getFullYear (fn [_] :intercepted)}}}}))))
+     (testing "same name on another runtime class is not intercepted"
+       (is (= :own (sci/eval-string "(.getFullYear (js-obj \"getFullYear\" (fn [] :own)))"
+                                    {:unrestricted true
+                                     :classes {'js goog/global
+                                               'Date {:class js/Date
+                                                      :instance-methods {'getFullYear (fn [_] :intercepted)}}}}))))
+     (testing "without overrides the unrestricted fast path is unchanged"
+       (is (= 2020 (sci/eval-string "(.getFullYear (js/Date. 2020 0 1))"
+                                    {:unrestricted true
+                                     :classes {'js goog/global}}))))))

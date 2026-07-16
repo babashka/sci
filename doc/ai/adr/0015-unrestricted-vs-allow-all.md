@@ -70,24 +70,40 @@ Do not fold one into the other. A CLJS host with no `:public-class` and no
 `:closed` carve-outs may drop `:allow :all` when it sets `:unrestricted`, but
 that is a host-specific simplification, not a general equivalence.
 
-## Addendum (2026-07-15): member overrides on CLJS
+## Addendum (2026-07-15): member overrides under `:unrestricted` on CLJS
 
 `:classes` is a permission gate and also behavior customization via
 `:instance-methods`, `:instance-fields` and `:static-methods` override fns.
-On CLJS the override part is only partially in effect:
+CLJS `:unrestricted` silently dropped the override part. The unchecked
+instance node consulted no config at all. The CLJS static path bound
+`(unchecked-get class name)` without consulting `:static-methods`. Config
+was accepted and ignored. The JVM honored overrides regardless of
+`:unrestricted`. This predates the jit tier.
 
-- Sandboxed ctx: instance overrides are honored (the config-aware node is
-  shared cljc machinery). Static method overrides are never consulted on
-  CLJS: the static path binds `(unchecked-get class name)` at analysis.
-- `:unrestricted` ctx: instance interop takes the unchecked node, which
-  consults no config, so instance overrides are silently ignored too.
+Fixed on branch `cljs-interop-overrides`:
 
-This predates the jit tier. The JVM honors overrides in all ctxs.
+- Static method overrides bind at analysis time on CLJS, in all ctxs, for
+  members directly on a registered class:
+  `{'process {:class js/process :static-methods {'exit f}}}` with
+  `(process/exit 0)`. Dotted access under a root class, like
+  `js/process.exit`, does not consult overrides. Register the direct
+  parent instead. Zero runtime cost. The jit `:jsstatic` arm binds the
+  override like any resolved method.
+- Instance interop is gated per member name. A callsite routes through the
+  config-aware node only when its method or field name has an override in
+  some `:classes` entry. See `sci.impl.interop/instance-override-names`, a
+  name set cached on class->opts identity. The runtime class then decides
+  whether the override applies. The `allowed?` flag still skips the
+  permission check there, so `:unrestricted` permission semantics are
+  unchanged. All other names keep the unchecked fast path and full jit
+  interop emission. Overriding `exit` costs nothing anywhere else.
+  Overridden-name callsites run interpreted. The jit never compiles
+  config-aware interop, so overrides cannot be bypassed.
 
-Decision: document, do not change. Interception on CLJS works by patching
-the object registered in `:classes` (e.g. register a wrapped `process`),
-which the analyzer then resolves and the jit binds, keeping full jit
-coverage. A tested reference implementation that honors config-map
-overrides (static binding at analysis, per-member-name gating for
-instance interop) lives on branch `cljs-interop-overrides`. Revive it if
-a real use case appears that object patching cannot serve.
+Known limitations:
+
+- Static field value reads, like `js/process.pid` in value position,
+  resolve at analysis and are not interceptable.
+- `sci/add-class!` after a callsite was analyzed does not retrofit that
+  callsite. Same staleness family as ADR 0014 backlog 8d.
+- Static override keys use munged member names.

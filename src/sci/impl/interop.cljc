@@ -84,6 +84,33 @@
      sci.impl.types/js-eval-available))
 
 #?(:cljs
+   (def ^:private instance-override-names-cache
+     ;; [class->opts result], keyed on map identity: any add-class! or init
+     ;; produces a new map
+     (volatile! nil)))
+
+#?(:cljs
+   (defn instance-override-names
+     "Returns the set of member name symbols with an :instance-methods or
+     :instance-fields override in any :classes entry. Cached on class->opts
+     identity."
+     [ctx]
+     (let [class->opts (:class->opts @(:env ctx))
+           cached @instance-override-names-cache]
+       (if (and cached (identical? (nth cached 0) class->opts))
+         (nth cached 1)
+         (let [res (reduce (fn [acc opts]
+                             (if (map? opts)
+                               (-> acc
+                                   (into (keys (:instance-methods opts)))
+                                   (into (keys (:instance-fields opts))))
+                               acc))
+                           #{}
+                           (vals class->opts))]
+           (vreset! instance-override-names-cache [class->opts res])
+           res)))))
+
+#?(:cljs
    (do
      (defn get-static-fields [cur ^js parts]
        (loop [cur cur

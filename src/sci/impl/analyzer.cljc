@@ -1221,9 +1221,16 @@
                          ;; :allow :all routes to the config-aware node so :closed wins
                          allowed? (or (:unrestricted ctx)
                                       (identical? method-expr utils/allowed-append))
+                         ;; names with a configured instance override route to
+                         ;; the config-aware node so overrides win over
+                         ;; :unrestricted. Other names keep the fast path.
+                         unchecked? (and allowed?
+                                         (or (identical? method-expr utils/allowed-append)
+                                             (not (contains? (interop/instance-override-names ctx)
+                                                             meth-sym))))
                          args (into-array args)]
                      (with-meta
-                       (case [(boolean allowed?) field-access]
+                       (case [(boolean unchecked?) field-access]
                          [true true]
                          (sci.impl.types/->Node
                           (eval/allowed-instance-field-invocation ctx bindings instance-expr meth-name)
@@ -1913,6 +1920,16 @@
                                            (fn []
                                              #js [(interop/get-static-fields class subpath)
                                                   last-path]))
+                               ;; :static-methods override for a member directly
+                               ;; on a registered class, e.g. (process/exit 0)
+                               ;; with {'process {:static-methods {'exit f}}}.
+                               ;; Dotted paths like js/process.exit are not
+                               ;; consulted.
+                               static-override
+                               (when (and (not ctor?) (= 1 method-len))
+                                 (when-let [class-sym (nth f 2 nil)]
+                                   (let [class-opts (get (:class->opts @(:env ctx)) class-sym)]
+                                     (get (:static-methods class-opts) (symbol last-path)))))
                                [class method-name] (try (lookup-fn)
                                                         (catch :default _ nil))
                                children (analyze-children ctx (rest expr))
@@ -1936,10 +1953,12 @@
                                (if (t/eval-node? class)
                                  (sci.impl.types/->Node
                                   (let [class (t/eval class ctx bindings)
-                                        method (unchecked-get class method-name)]
+                                        method (or static-override
+                                                   (unchecked-get class method-name))]
                                     (interop/invoke-static-method ctx bindings class method children))
                                   nil)
-                                 (let [method (unchecked-get class method-name)
+                                 (let [method (or static-override
+                                                  (unchecked-get class method-name))
                                        stack (utils/stack-frame m f-meta)]
                                    (sci.impl.types/->Node
                                     (try (interop/invoke-static-method ctx bindings class method children)
@@ -1958,7 +1977,8 @@
                                 (let [arr (lookup-fn)
                                       class (aget arr 0)
                                       method-name (aget arr 1)
-                                      method (unchecked-get class method-name)]
+                                      method (or static-override
+                                                 (unchecked-get class method-name))]
                                   (interop/invoke-static-method ctx bindings class method children))
                                 nil))))
                          :default

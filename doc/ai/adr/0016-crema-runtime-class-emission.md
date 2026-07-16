@@ -7,9 +7,9 @@ branches rot.
 
 ## Branches
 
-- sci: `jvm-jit` (integration `5acc2d6`, spike code preserved in `110cd41`): the emitter (`sci.impl.jvm-type-emit`)
+- sci: `jvm-jit` (integration `5acc2d6`, spike code preserved in `110cd41`) — the emitter (`sci.impl.jvm-type-emit`)
   and the deftype integration.
-- babashka: `crema-deftype` (tip `2387a525`): build flags, interop
+- babashka: `crema-deftype` (tip `2387a525`) — build flags, interop
   allowlist hook, sci submodule pointed at the sci branch. Spike code for
   the fn-body bytecode JIT and the wrapper-class prototype is on the sci
   branch under `scratch/src/sci_jvm_jit/` (force-added past gitignore in
