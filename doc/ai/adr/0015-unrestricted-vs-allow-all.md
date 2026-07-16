@@ -91,3 +91,22 @@ coverage. A tested reference implementation that honors config-map
 overrides (static binding at analysis, per-member-name gating for
 instance interop) lives on branch `cljs-interop-overrides`. Revive it if
 a real use case appears that object patching cannot serve.
+
+### Why CLJS differs from the JVM
+
+Three reasons stack:
+
+1. Host mutability. JVM classes are closed. Intercepting a member is only
+   possible through sci, which is why the override config exists and why
+   babashka uses it. JS objects are open. Embedders patch the object and
+   register the patched object, so the override config duplicates a
+   language feature.
+2. Cost structure. JVM interop pays for reflection on every call, so a
+   class->opts lookup on top is noise and overrides ride along on every
+   path. CLJS interop is a property read plus a call. A config lookup per
+   call would dominate the work, hence the unchecked fast path, which is
+   also what the jit compiles for.
+3. History. Because of reason 1, member overrides on CLJS had no demand.
+   The static path never grew a config consult and the unrestricted
+   shortcut shipped without one. The asymmetry was an unexercised path,
+   not a decision, until this addendum made it one.
