@@ -69,3 +69,25 @@ Keep the two options independent:
 Do not fold one into the other. A CLJS host with no `:public-class` and no
 `:closed` carve-outs may drop `:allow :all` when it sets `:unrestricted`, but
 that is a host-specific simplification, not a general equivalence.
+
+## Addendum (2026-07-15): member overrides on CLJS
+
+`:classes` is a permission gate and also behavior customization via
+`:instance-methods`, `:instance-fields` and `:static-methods` override fns.
+On CLJS the override part is only partially in effect:
+
+- Sandboxed ctx: instance overrides are honored (the config-aware node is
+  shared cljc machinery). Static method overrides are never consulted on
+  CLJS: the static path binds `(unchecked-get class name)` at analysis.
+- `:unrestricted` ctx: instance interop takes the unchecked node, which
+  consults no config, so instance overrides are silently ignored too.
+
+This predates the jit tier. The JVM honors overrides in all ctxs.
+
+Decision: document, do not change. Interception on CLJS works by patching
+the object registered in `:classes` (e.g. register a wrapped `process`),
+which the analyzer then resolves and the jit binds, keeping full jit
+coverage. A tested reference implementation that honors config-map
+overrides (static binding at analysis, per-member-name gating for
+instance interop) lives on branch `cljs-interop-overrides`. Revive it if
+a real use case appears that object patching cannot serve.
