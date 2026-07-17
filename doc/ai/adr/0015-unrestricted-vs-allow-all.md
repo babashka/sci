@@ -110,3 +110,15 @@ Three reasons stack:
    The static path never grew a config consult and the unrestricted
    shortcut shipped without one. The asymmetry was an unexercised path,
    not a decision, until this addendum made it one.
+
+Keeping the sandboxed behavior costs nothing. The permission check in a
+sandboxed context already resolves the config per call, so honoring
+overrides and `:closed` there rides on machinery the sandbox needs
+anyway. The result is cached per call site and runtime class, and
+sandboxed interop is interpreted regardless, so `:closed` does not cost
+speed. Full parity for the unrestricted path (statics, and instance
+overrides under `:unrestricted`) is implemented on the
+`cljs-interop-overrides` branch, priced for near-zero overhead (static
+overrides bind at analysis, instance interop gated per member name), and
+can land when a use case appears that object patching cannot serve. It
+stays parked because there is no demand, not because of cost.
