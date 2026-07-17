@@ -57,3 +57,28 @@ A per-class member config takes precedence ove `:allow :all` when it is `:closed
              :instance-methods {'getName true}}}})
 ;;=> throws: Method getPath on class java.io.File not allowed!
 ```
+
+## ClojureScript
+
+On CLJS the member configs are only partially honored:
+
+- In a sandboxed context, `:instance-methods`, `:instance-fields` and
+  `:closed` work as on the JVM.
+- With `:unrestricted true`, instance interop skips the `:classes` config
+  entirely, including overrides and `:closed`.
+- `:static-methods` and `:static-fields` overrides are never consulted on
+  CLJS.
+
+To intercept or replace a member on CLJS, register a patched object in
+`:classes` instead:
+
+``` clojure
+(sci/eval-string "(Math/abs -1)"
+  {:classes {'Math #js {:abs (fn [x] :intercepted)
+                        :floor js/Math.floor}}})
+;;=> :intercepted
+```
+
+This also works in unrestricted contexts. The member is resolved when the
+code is analyzed, so register the patched object before evaluating code
+that uses it.
