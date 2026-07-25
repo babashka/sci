@@ -54,6 +54,30 @@
 
 (declare analyze analyze-children analyze-call return-call return-map)
 
+;;;; Constant children
+
+;; A constant child carries its value at analysis time, so a consumer can read
+;; it without an eval node. On the JVM analyze wraps constants in ConstantNode,
+;; on CLJS and cljd it returns them unwrapped, and on the JVM anything that is
+;; not an Eval instance self-evaluates through the Object impl in the
+;; evaluator. These two cover all three cases.
+
+(defn const-node?
+  "True when x is an analyzed child whose value is already known: a
+  ConstantNode, or a value that evaluates to itself (a class, a symbol, a
+  constant collection)."
+  [x]
+  #?(:cljd (not (t/eval-node? x))
+     :clj (or (instance? sci.impl.types.ConstantNode x)
+              (not (instance? sci.impl.types.Eval x)))
+     :cljs (not (t/eval-node? x))))
+
+(defn const-node-val [x]
+  #?(:clj (if (instance? sci.impl.types.ConstantNode x)
+            (.x ^sci.impl.types.ConstantNode x)
+            x)
+     :default x))
+
 (defn analyze-children-tail [ctx children]
   (let [rt (recur-target ctx)
         non-tail-ctx (without-recur-target ctx)
@@ -916,24 +940,24 @@
       (0 1) (throw-error-with-location "Too few arguments to if" expr)
       2 (let [condition (nth children 0)
               then (nth children 1)]
-          (cond (not condition) nil
-                (constant? condition) then
-                :else (sci.impl.types/->Node
-                       (when (t/eval condition ctx bindings)
-                         (t/eval then ctx bindings))
-                       stack
-                       [:if condition then nil])))
+          (if (const-node? condition)
+            (when (const-node-val condition) then)
+            (sci.impl.types/->Node
+             (when (t/eval condition ctx bindings)
+               (t/eval then ctx bindings))
+             stack
+             [:if condition then nil])))
       3 (let [condition (nth children 0)
               then (nth children 1)
               else (nth children 2)]
-          (cond (not condition) else
-                (constant? condition) then
-                :else (sci.impl.types/->Node
-                       (if (t/eval condition ctx bindings)
-                         (t/eval then ctx bindings)
-                         (t/eval else ctx bindings))
-                       stack
-                       [:if condition then else])))
+          (if (const-node? condition)
+            (if (const-node-val condition) then else)
+            (sci.impl.types/->Node
+             (if (t/eval condition ctx bindings)
+               (t/eval then ctx bindings)
+               (t/eval else ctx bindings))
+             stack
+             [:if condition then else])))
       (throw-error-with-location "Too many arguments to if" expr))))
 
 (defn analyze-case*
