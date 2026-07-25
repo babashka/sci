@@ -193,7 +193,7 @@
 ;; PATCH: drop with the destructure patch if clojure/clojure keeps 208443ae
 (deftest patch-or-default-refers-to-sibling-binding-test
   (is (= "Does not conform to :int"
-         (eval* '(let [{:keys [pred] :exo/keys [message]
+         (eval* '(let [{:keys [pred message]
                         :or {message (str "Does not conform to " pred)}}
                        {:pred :int}]
                    message))))
