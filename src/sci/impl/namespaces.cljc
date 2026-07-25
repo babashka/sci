@@ -993,6 +993,31 @@
                                           (.createAsIfByAssoc PersistentArrayMap (to-array s))
                                           (if (seq s) (first s) (.-EMPTY PersistentArrayMap))))))
 
+;;;; Clojure 1.13 destructuring
+
+(def ^:private req-not-found #?(:cljd ^:unique (Object.)
+                                :clj (Object.)
+                                :cljs (js/Object.)))
+
+(defn req!*
+  "Like arity-2 'get', but throws if key not present."
+  [m k]
+  (let [v (get m k req-not-found)]
+    (if (identical? v req-not-found)
+      (throw (new #?(:cljd ArgumentError
+                     :clj IllegalArgumentException
+                     :cljs js/Error)
+                  (str "Missing required key: " (if (string? k) (pr-str k) k))))
+      v)))
+
+(defn some-vals*
+  "Returns a map with only the non-nil values of map m. Returns nil if
+  m has no non-nil vals."
+  [m]
+  (reduce-kv
+   (fn [m k v] (if (some? v) (assoc m k v) m))
+   nil m))
+
 #?(:clj (def clojure-version-var
           (sci.impl.utils/dynamic-var
            '*clojure-version* (update clojure.core/*clojure-version*
@@ -1809,6 +1834,7 @@
      'reduce-kv (copy-core-var reduce-kv)
      'reduced (copy-core-var reduced)
      'reduced? (copy-core-var reduced?)
+     'req! (copy-var req!* clojure-core-ns {:name 'req!})
      'reset! #?(:cljs (copy-core-var reset!)
                 :default (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!}))
      'reset-thread-binding-frame-impl (new-var 'reset-thread-binding-frame-impl sci.impl.vars/reset-thread-binding-frame)
@@ -1830,6 +1856,7 @@
      'simple-keyword? (copy-core-var simple-keyword?)
      'simple-symbol? (copy-core-var simple-symbol?)
      'some? (copy-core-var some?)
+     'some-vals (copy-var some-vals* clojure-core-ns {:name 'some-vals})
      'some-> (macrofy 'some-> some->*)
      'some->> (macrofy 'some->> some->>*)
      'string? (copy-core-var string?)

@@ -10,6 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
+## Unreleased
+
+- Clojure 1.13 map destructuring: `:keys!`, `:syms!`, `:strs!`, `&` inside a directive, `:select`, `:all` and `:defaults`. Adds `req!` and `some-vals` to `clojure.core`.
+
 ## 0.15.56
 
 Highlight:
