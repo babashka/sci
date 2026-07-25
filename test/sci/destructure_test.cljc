@@ -190,6 +190,19 @@
 (deftest unsupported-map-directive-test
   (is (throws? '(let [{:vals [a]} {:a 1}] a))))
 
+;; PATCH: drop with the destructure patch if clojure/clojure keeps 208443ae
+(deftest patch-or-default-refers-to-sibling-binding-test
+  (is (= "Does not conform to :int"
+         (eval* '(let [{:keys [pred] :exo/keys [message]
+                        :or {message (str "Does not conform to " pred)}}
+                       {:pred :int}]
+                   message))))
+  (testing ":defaults, :select and :all still evaluate a default once"
+    (is (= [42 {:a 42} 1]
+           (eval* '(let [n (atom 0) f (fn [] (swap! n inc) 42)
+                         {:keys [a] :or {a (f)} :defaults d} {}]
+                     [a d @n]))))))
+
 (deftest binding-contexts-test
   (testing "fn params"
     (is (= [1 2] (eval* '((fn [{:keys! [a b]}] [a b]) {:a 1 :b 2}))))

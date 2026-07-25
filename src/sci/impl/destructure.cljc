@@ -67,9 +67,12 @@
         _ (when (and defaults-as (not defaults))
             (destructure-error "Can't specify :defaults without :or"))
         b (dissoc b :defaults)
-        gdefaults (when defaults (zipmap (keys defaults) (repeatedly #(gensym "default__"))))
         select (:select b)
         all (:all b)
+        ;; PATCH: hoist :or defaults only for :defaults/:select/:all, clojure/clojure 208443ae breaks siblings
+        new-or-code (and defaults (or defaults-as select all))
+        gdefaults (when new-or-code (zipmap (keys defaults) (repeatedly #(gensym "default__"))))
+        defexpr (fn [k] (if gdefaults (gdefaults k) (defaults k)))
         xf (fn [mk]
              (let [mkns (namespace mk)
                    mkn (name mk)]
@@ -107,9 +110,7 @@
                              (if req?
                                (destructure-error
                                 (str "Can't supply default value for required key: " bk))
-                               (list `get gmap bk (if local-default?
-                                                    (gdefaults local)
-                                                    (gdefaults bk)))))
+                               (list `get gmap bk (defexpr (if local-default? local bk)))))
                            (list getter gmap bk))]
                   (if (or (keyword? bb) (symbol? bb)) ;(ident? bb)
                     (-> ret (conj local bv))
@@ -156,7 +157,6 @@
                   (recur (push1 ret bb bk false) (conj sel bk) (next bes) b->k subs suba))))
             {:ret ret, :sel sel, :b->k b->k, :subs subs, :suba suba}))
         ret (:ret retsel), sel (:sel retsel), b->k (:b->k retsel)
-        new-or-code (and defaults (or defaults-as select all))
         bk #(if (symbol? %)
               (let [bk (b->k %)]
                 (when (and new-or-code (not bk))
