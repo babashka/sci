@@ -4,6 +4,9 @@
   (:refer-clojure :exclude [destructure])
   (:require [clojure.string :as str]))
 
+;; destvec* and destmap* track clojure/clojure core.clj at dd006fb9 (2026-07-24),
+;; the commit that added the :all directive. Diff against that when syncing.
+
 (defn- destructure-error [msg]
   (throw #?(:cljs (new js/Error msg)
             :default (new Exception msg))))
