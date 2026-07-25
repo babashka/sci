@@ -4,6 +4,7 @@
    [sci.core-protocols-test]
    [sci.core-test]
    [sci.defrecords-and-deftype-test]
+   [sci.destructure-test]
    [sci.error-test]
    [sci.hierarchies-test]
    [sci.impl.analyzer-test]
@@ -47,6 +48,7 @@
   (cljs.test/run-tests
    'sci.core-protocols-test
    'sci.core-test
+   'sci.destructure-test
    'sci.error-test
    'sci.hierarchies-test
    'sci.interop-test
