@@ -9,6 +9,7 @@
    #?(:cljs [goog.object :as gobj])
    #?(:cljs [sci.impl.types :as t :refer [->constant]])
    #?(:cljs [sci.impl.jit :as jit])
+   #?(:clj [sci.impl.jit :as jit])
    [clojure.string :as str]
    [sci.ctx-store :as store]
    #?(:cljs [sci.impl.async-macro :as async-macro])
@@ -381,6 +382,9 @@
                f #?(:cljs (jit/make-fn fn-body ctx enclosed-array
                                        (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
                                                        body invoc-size nsm vararg-idx this-as-idx)))
+                    :clj (jit/make-fn fn-body ctx enclosed-array
+                                      (fn [] (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
+                                                      body invoc-size nsm vararg-idx)))
                     :default (fns/fun ctx enclosed-array body fn-name macro? fixed-arity copy-enclosed->invocation
                                       body invoc-size nsm vararg-idx))
                f (if (nil? fn-meta) f
@@ -565,7 +569,8 @@
                                          :invoc-size invoc-size
                                          :invocation-self-idx invocation-self-idx
                                          :copy-enclosed->invocation copy-enclosed->invocation
-                                         #?@(:cljs [:enclosed->invocation-idxs enclosed->invocation]))]
+                                         #?@(:cljs [:enclosed->invocation-idxs enclosed->invocation]
+                                             :clj [:enclosed->invocation-idxs enclosed->invocation]))]
                          ;; lazy: pay the new Function only when a closure
                          ;; over this body is first created, so fn bodies
                          ;; (incl. loops) inside never-called code don't
@@ -574,6 +579,10 @@
                                     (assoc body :jit-template
                                            (delay (jit/compile-template body)))
                                     body)
+                            :clj (if @t/jit-enabled
+                                   (assoc body :jit-template
+                                          (delay (jit/compile-template body)))
+                                   body)
                             :default body)))
                      bodies)
         ;; arglists (:arglists analyzed-bodies)
@@ -2121,6 +2130,11 @@
                                                    (fn? f)
                                                    (t/attach-ast node [:call-direct f children stack])
                                                    :else node)
+                                       :clj (cond (utils/var? f)
+                                                  (t/attach-ast node [:call-var f children stack])
+                                                  (fn? f)
+                                                  (t/attach-ast node [:call-direct f children stack])
+                                                  :else node)
                                        :default node))))))))
                         (catch #?(:cljd Object :clj Exception :cljs js/Error) e
                           ;; we pass a ctx-fn because the rethrow function calls

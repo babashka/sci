@@ -110,7 +110,11 @@
                                                fstr
                                                (str/replace fstr #"^sci\.impl\." ""))]
                                     fstr))]
-               (cond (and fstr printed-fn (= fstr printed-fn))
+               (cond (and fstr printed-fn
+                          ;; the prefix strip above targets sci.impl.fns; a
+                          ;; jit-compiled fn keeps its sci.impl.jit prefix
+                          (or (= fstr printed-fn)
+                              (= (str "sci.impl." fstr) printed-fn)))
                      (str/replace ex-msg printed-fn
                                   (str (:ns fm) "/" (:name fm)))
                      friendly-name (str/replace ex-msg fn-match friendly-name)

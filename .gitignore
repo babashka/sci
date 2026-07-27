@@ -58,3 +58,4 @@ scratch.clj
 /test/sci_test.dart
 sci-repl
 .cljs_node_repl/
+/scratch

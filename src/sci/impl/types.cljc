@@ -190,6 +190,29 @@
    (def jit-enabled
      (volatile! js-eval-available)))
 
+;; The JVM codegen tier (sci.impl.jit) is experimental and off by default;
+;; SCI_JVM_JIT=true turns it on for a whole run (test suites, benchmarks).
+#?(:clj
+   (def jit-enabled
+     (volatile! (= "true" (System/getenv "SCI_JVM_JIT")))))
+
+;; :clj nodes are reifies, so there is no ast field to carry the jit's
+;; mini-AST. A weak, identity-keyed side table holds it instead: entries
+;; live exactly as long as the analyzed node, and the interpreter's node
+;; types stay untouched.
+#?(:clj
+   (def ^java.util.Map ast-table
+     (java.util.Collections/synchronizedMap (java.util.WeakHashMap.))))
+
+#?(:clj
+   (defn attach-ast! [node ast]
+     (.put ast-table node ast)
+     node))
+
+#?(:clj
+   (defn node-ast [node]
+     (.get ast-table node)))
+
 ;; ast: walkable mini-AST for the JS codegen tier (jit), a field rather
 ;; than an extmap key so attaching it costs one ctor call, not a map build
 #?(:cljd
@@ -242,9 +265,9 @@
          (aget bindings (.-idx ^BindingNode expr))
          expr))))
 
-;; The optional ast argument is the jit's walkable mini-AST. It only
-;; exists on CLJS: the :clj reify and :cljd branches DISCARD the form at
-;; expansion time, so passing it costs other platforms nothing.
+;; The optional ast argument is the jit's walkable mini-AST: a field on
+;; the CLJS NodeR, an ast-table entry on :clj (both only when the jit is
+;; enabled). The :cljd branch DISCARDS the form at expansion time.
 #?(:cljd
    (defmacro ->Node
      ([body stack]
@@ -265,23 +288,32 @@
        ([body stack] `(sci.impl.types/->Node ~body ~stack nil))
        ([body stack ast]
         (macros/?
-         :clj `(reify
-                 sci.impl.types/Eval
-                 (~'eval [~'this ~'ctx ~'bindings]
-                  ~body)
-                 sci.impl.types/Stack
-                 (~'stack [_#] ~stack))
+         :clj (let [node `(reify
+                            sci.impl.types/Eval
+                            (~'eval [~'this ~'ctx ~'bindings]
+                             ~body)
+                            sci.impl.types/Stack
+                            (~'stack [_#] ~stack))]
+                (if (nil? ast)
+                  node
+                  `(let [n# ~node]
+                     (if @sci.impl.types/jit-enabled
+                       (sci.impl.types/attach-ast! n# ~ast)
+                       n#))))
          :cljs `(->NodeR
                  (fn [~'this ~'ctx ~'bindings]
                    ~body)
                  ~stack
                  (when ^boolean @sci.impl.types/jit-enabled ~ast)))))
-     ;; attach an ast to an already-built node; the form is discarded on
-     ;; :clj and only evaluated on :cljs when the jit is enabled
+     ;; attach an ast to an already-built node; the form is only evaluated
+     ;; when the jit is enabled
      (defmacro attach-ast
        [node ast]
        (macros/?
-        :clj node
+        :clj `(let [n# ~node]
+                (if @sci.impl.types/jit-enabled
+                  (sci.impl.types/attach-ast! n# ~ast)
+                  n#))
         :cljs `(let [n# ~node]
                  (if ^boolean @sci.impl.types/jit-enabled
                    (cljs.core/assoc n# :ast ~ast)
