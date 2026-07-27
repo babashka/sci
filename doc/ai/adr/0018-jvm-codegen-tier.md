@@ -1,6 +1,7 @@
 # ADR 0018: Experimental JVM codegen tier for SCI
 
-Status (2026-07-27): demo spike on branch `jvm-jit-demo`, local only. Off by
+Status (2026-07-27): demo spike, code on branch `jvm-jit-demo` (pushed, not
+merged; this ADR is also on master, the code is not). Off by
 default (`sci.impl.types/jit-enabled` volatile, `SCI_JVM_JIT=true` turns it
 on for a whole run, `jit/enable!` / `disable!` for tests and benchmarks).
 Not proposed for master as-is: the escape hatch and the call-site stack
