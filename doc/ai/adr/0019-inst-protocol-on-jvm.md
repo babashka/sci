@@ -116,6 +116,31 @@ protocol's backing interface (`clojure.core.Inst`), i.e. per-type or per-combo
 classes: the build-time stub tier of ADR 0013, or runtime emission via Crema
 (ADR 0016). Out of scope here.
 
+## Decision matrix
+
+A = sci-only multimethod (`issue-1321-inst-protocol`), B = registry extend on
+the shared sci classes (`issue-1321-inst-host-protocol`), C = method var swap
+(`issue-1321-inst-var-swap`). B and C build on A, sci-side behavior is
+identical in all three.
+
+| Criterion | A | B | C |
+|---|---|---|---|
+| sci code: implement via defrecord/deftype/reify/extend-*, exact `inst?`/`satisfies?` | GOOD | GOOD | GOOD |
+| host `inst-ms` dispatches into sci impls | bad (throws) | GOOD | GOOD |
+| host `inst?` on an implementing sci type | bad (false) | GOOD (true) | bad (false) |
+| host `inst?` on a non-implementing sci value | GOOD (false) | bad (true, lies) | GOOD (false) |
+| host `inst-ms` error on a non-implementing sci value names the sci type | bad (names SciRecord) | GOOD | GOOD |
+| `(extenders Inst)` free of sci internals | GOOD | bad | GOOD |
+| no mutation of host state | GOOD | bad (registry, permanent) | bad (var root, re-assertable) |
+| survives a later host-side `extend` of the protocol | GOOD (n/a) | GOOD | bad (window until next sci impl re-asserts) |
+| host-type call path (`inst-ms` on Date) unchanged | GOOD | GOOD | bad (extra multimethod hop) |
+| moving parts | GOOD (fewest) | bad | bad |
+
+C dominates B except on two rows: survival of host-side `extend` (self-healing
+in C, and misdispatch is impossible in the window) and host `inst?` on
+implementing types, which B only wins by answering true for every sci value.
+The real choice is A (no host mutation at all) vs C (host dispatch works).
+
 ## Caveat: the protocol var and its multimethod are global
 
 `inst-protocol` and `inst-ms*` are `def`s in the sci jar, not per-context
