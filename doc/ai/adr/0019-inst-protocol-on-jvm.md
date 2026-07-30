@@ -43,6 +43,59 @@ This is what makes `defrecord`, `deftype`, `reify`, `extend-type`,
 `extend-protocol` and `extend` all work, since each of them ends up emitting
 `(defmethod clojure.core/inst-ms* <type> ...)`.
 
+## Second half: extending the host protocol in unrestricted contexts
+
+The multimethod alone only serves sci code. Compiled host code calls
+`clojure.core/inst-ms` directly and never sees the sci implementation, so
+`(clojure.core/inst-ms sci-record)` throws.
+
+How much this matters in babashka today: nothing observable. The one candidate
+consumer, `clojure.spec.alpha/inst-in`, turns out to be loaded as sci source
+from a bundled resource, not compiled, so it already worked. The value is for
+embedders whose compiled code consumes a protocol, and for the mechanism,
+which applies to any host protocol mapped into sci, not just `Inst`.
+
+CLJS solves the same problem by installing the impls on the sci type's own JS
+prototype, so `cljs.core/inst-ms` finds them. The JVM analog of "install so
+the host protocol sees it" is `clojure.core/extend`, and the JVM analog of
+"the type's own prototype" does not exist: every sci record is a
+`sci.impl.records.SciRecord`, every deftype a `sci.impl.deftype.SciType`, and
+reify instances come from a shared pre-compiled pool. Per-type registration is
+impossible without per-type classes.
+
+What is possible is one bridge per protocol, on the interfaces all sci types
+share, delegating to the multimethod that already holds the per-type impls:
+
+```clojure
+(clojure.core/extend sci.impl.types.SciTypeInstance clojure.core/Inst
+                     {:inst-ms* inst-ms*})
+(clojure.core/extend sci.impl.types.ICustomType clojure.core/Inst
+                     {:inst-ms* inst-ms*})
+```
+
+`sci.impl.utils/install-host-protocol!` does this, at most once per protocol,
+for protocol maps carrying a `:host-impls` map of method keyword to
+multimethod. It is called from `extend-protocol`, `extend-type`, `extend`,
+`analyze-defrecord*`, `analyze-deftype*` and `reify*`, so a program that never
+touches a bridged protocol never installs a bridge.
+
+Gated on `:unrestricted`. It mutates a var of the embedding program, which a
+sandboxed context must not be able to do. babashka sets `:unrestricted true`.
+
+The multimethod's `:default` had to stop delegating to `clojure.core/inst-ms`
+for sci types, since with a bridge installed that comes straight back through
+the bridge. It now throws the same message Clojure throws, naming the sci
+type.
+
+### The cost: host-side `satisfies?` is class-granular
+
+Once one sci type implements `Inst`, `(clojure.core/inst? x)` is true for
+every sci record, type and reify, because the registry is keyed by class.
+`inst-ms` on such a value still throws, and sci's own `inst?` stays accurate
+because it consults the multimethod's method table, but compiled host code
+sees the coarse answer. This is the wart ADR 0013 predicted, and it has no fix
+short of per-type classes.
+
 ## Caveat: the protocol var and its multimethod are global
 
 `inst-protocol` and `inst-ms*` are `def`s in the sci jar, not per-context

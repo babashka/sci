@@ -1,5 +1,6 @@
 (ns sci.core-protocols-test
   (:require [clojure.test :refer [deftest is testing]]
+            #?(:clj [sci.core :as sci])
             [sci.test-utils :as tu]))
 
 (defn eval* [prog]
@@ -215,3 +216,19 @@
        ;; tracked on the shared Inst var by type name, so extending Inst to
        ;; user.Foo in one context is visible from another
        (is (false? (eval* "(defrecord NotAnInst [t]) (satisfies? Inst (->NotAnInst 1))"))))))
+
+#?(:clj
+   (deftest inst-host-protocol-test
+     (testing "an unrestricted context extends the host protocol, so compiled
+               host code dispatches into sci implementations"
+       (let [ctx (sci/init {:unrestricted true})]
+         (is (= 42 (inst-ms (sci/eval-string* ctx "(defrecord Hosted [t] Inst (inst-ms* [_] t)) (->Hosted 42)"))))
+         (is (= 7 (inst-ms (sci/eval-string* ctx "(reify Inst (inst-ms* [_] 7))"))))
+         (is (= 9 (inst-ms (sci/eval-string* ctx "(deftype HostedT [t] Inst (inst-ms* [_] t)) (->HostedT 9)"))))
+         (is (true? (inst? (sci/eval-string* ctx "(defrecord Hosted [t] Inst (inst-ms* [_] t)) (->Hosted 1)"))))
+         (is (thrown-with-msg?
+              IllegalArgumentException #"No implementation of method"
+              (inst-ms (sci/eval-string* ctx "(defrecord Unhosted [t]) (->Unhosted 1)"))))))
+     (testing "a restricted context keeps working through sci's own inst-ms"
+       (let [ctx (sci/init {})]
+         (is (= 5 (sci/eval-string* ctx "(defrecord Sandboxed [t] Inst (inst-ms* [_] t)) (inst-ms (->Sandboxed 5))")))))))

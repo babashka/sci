@@ -363,16 +363,27 @@
 
 #?(:clj
    (do
+     (defn ^:private no-inst-impl [t]
+       (throw (IllegalArgumentException.
+               (str "No implementation of method: :inst-ms* of protocol: "
+                    "#'clojure.core/Inst found for class: " t))))
+
      (defmulti inst-ms* types/type-impl)
 
      (defmethod inst-ms* :sci.impl.protocols/reified [x]
-       (let [methods (types/getMethods x)]
-         ((get methods 'inst-ms*) x)))
+       (if-let [m (get (types/getMethods x) 'inst-ms*)]
+         (m x)
+         (no-inst-impl (types/type-impl x))))
 
-     ;; host types (java.util.Date, java.time.Instant) and anything that
-     ;; extended clojure.core/Inst outside of sci
      (defmethod inst-ms* :default [x]
-       (clojure.core/inst-ms x))
+       (let [t (types/type-impl x)]
+         (if (or (nil? t) (class? t))
+           ;; host types (java.util.Date, java.time.Instant) and anything that
+           ;; extended clojure.core/Inst outside of sci
+           (clojure.core/inst-ms x)
+           ;; a sci type without an implementation. Going to clojure.core here
+           ;; would come back through the host protocol bridge, if installed
+           (no-inst-impl t))))
 
      (defn inst-ms [x]
        (inst-ms* x))
@@ -382,6 +393,7 @@
         'Inst
         {:protocol clojure.core/Inst
          :methods #{inst-ms*}
+         :host-impls {:inst-ms* inst-ms*}
          :ns utils/clojure-core-ns}
         {:ns utils/clojure-core-ns}))))
 

@@ -415,7 +415,8 @@
                       (str "Protocol not found: " protocol-name)
                       form))
                  #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name form nil)])
-                 protocol (if (utils/var? protocol) @protocol protocol)]
+                 protocol (if (utils/var? protocol) @protocol protocol)
+                 #?@(:clj [_ (utils/install-host-protocol! ctx protocol)])]
              (if (and (map? protocol) (:marker-setter protocol))
                ;; native CLJS protocol, entry created by sci.core/copy-var on
                ;; a protocol: install on the record type's JS prototype
@@ -518,6 +519,7 @@
                                          (map :resolved))
                                    resolved-impls)
                    _ (doseq [protocol protocols]
+                       (utils/install-host-protocol! ctx protocol)
                        (when-let [protocol-var (:var protocol)]
                          (vars/alter-var-root protocol-var update :satisfies
                                               (fnil conj #{}) (symbol (str rec-type)))))

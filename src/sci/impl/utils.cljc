@@ -361,6 +361,31 @@
 (defn sci-type? [x]
   (instance? #?(:cljd lang/Type :clj sci.lang.Type :cljs sci.lang.Type) x))
 
+;;;; Host protocol bridging (JVM, see doc/ai/adr/0019-inst-protocol-on-jvm.md)
+
+#?(:clj
+   (def ^:private installed-host-protocols (atom #{})))
+
+#?(:clj
+   (defn install-host-protocol!
+     "Extends the host protocol behind `proto-map` to the classes shared by all
+  sci types, delegating to the multimethods that hold the interpreted
+  implementations. This lets compiled host code dispatch into sci impls.
+
+  Only for unrestricted contexts: it mutates a var of the embedding program.
+  Runs at most once per protocol. `proto-map` needs a `:host-impls` map of
+  method keyword to multimethod."
+     [ctx proto-map]
+     (when (:unrestricted ctx)
+       (when-let [impls (:host-impls proto-map)]
+         (let [pvar (:var (:protocol proto-map))]
+           (when-not (contains? @installed-host-protocols pvar)
+             (swap! installed-host-protocols conj pvar)
+             (let [p (deref pvar)]
+               ;; records and deftypes are SciTypeInstance, reify is ICustomType
+               (clojure.core/extend sci.impl.types.SciTypeInstance p impls)
+               (clojure.core/extend sci.impl.types.ICustomType p impls))))))))
+
 (defmacro dotimes+ [n body]
   `(do (dotimes [i# ~(dec n)]
          ~body)

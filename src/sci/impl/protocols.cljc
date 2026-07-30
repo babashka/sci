@@ -156,7 +156,8 @@
                                       :impl f}])))
                       mmap))
          :default nil)
-      (let [extend-via-metadata (:extend-via-metadata proto)
+      (let [_ #?(:clj (utils/install-host-protocol! (store/get-ctx) proto) :default nil)
+            extend-via-metadata (:extend-via-metadata proto)
             proto-ns (:ns proto)
             pns (types/getName proto-ns)
             pns-str (when extend-via-metadata (str pns))]
@@ -267,6 +268,7 @@
         native? (native-protocol? protocol-data)
         protocol-ns (:ns protocol-data)
         pns (str (types/getName protocol-ns))
+        _ #?(:clj (utils/install-host-protocol! ctx protocol-data) :default nil)
         expansion
         `(do
            ~@(map (fn [[type & meths]]
@@ -294,7 +296,8 @@
                                      (utils/throw-error-with-location (str "Protocol not found: " proto) form))
                     proto-data (if (utils/var? protocol-var)
                                  (deref protocol-var)
-                                 protocol-var)]
+                                 protocol-var)
+                    _ #?(:clj (utils/install-host-protocol! ctx proto-data) :default nil)]
                 (if (native-protocol? proto-data)
                   `(sci.impl.protocols/-extend-native!
                     ~atype ~proto ~(native-method-impls meths))
