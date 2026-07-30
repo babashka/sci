@@ -13,6 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Clojure 1.13 map destructuring: `:keys!`, `:syms!`, `:strs!`, `&` inside a directive, `:select`, `:all` and `:defaults`. Adds `req!` and `some-vals` to `clojure.core`.
+- Expose `clojure.core/Inst` and `clojure.core/inst-ms*` on the JVM, so `defrecord`, `deftype`, `reify`, `extend-type` and `extend-protocol` can implement `inst-ms*` and have `inst-ms` and `inst?` pick it up. On CLJS `Inst` was already exposed as a native protocol.
 
 ## 0.15.56
 

@@ -1,6 +1,6 @@
 (ns sci.impl.core-protocols
   {:no-doc true}
-  (:refer-clojure :exclude [deref -deref -swap! -reset!])
+  (:refer-clojure :exclude [deref -deref -swap! -reset! inst-ms inst-ms*])
   (:require
    [sci.impl.deftype]
    #?(:cljd [sci.impl.multimethods :as mm])
@@ -355,3 +355,34 @@
              :cljs (ifn? x))))
 
 ;;;; end IFn
+
+;;;; Inst
+
+;; JVM only: on CLJS cljs.core/Inst is exposed as a native protocol entry, see
+;; the protocol-vars call in sci.impl.namespaces.
+
+#?(:clj
+   (do
+     (defmulti inst-ms* types/type-impl)
+
+     (defmethod inst-ms* :sci.impl.protocols/reified [x]
+       (let [methods (types/getMethods x)]
+         ((get methods 'inst-ms*) x)))
+
+     ;; host types (java.util.Date, java.time.Instant) and anything that
+     ;; extended clojure.core/Inst outside of sci
+     (defmethod inst-ms* :default [x]
+       (clojure.core/inst-ms x))
+
+     (defn inst-ms [x]
+       (inst-ms* x))
+
+     (def inst-protocol
+       (utils/new-var
+        'Inst
+        {:protocol clojure.core/Inst
+         :methods #{inst-ms*}
+         :ns utils/clojure-core-ns}
+        {:ns utils/clojure-core-ns}))))
+
+;;;; end Inst

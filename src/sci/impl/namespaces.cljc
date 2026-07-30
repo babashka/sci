@@ -1685,8 +1685,13 @@
      'if-not (macrofy 'if-not if-not*)
      'ifn? (copy-var core-protocols/sci-ifn? clojure-core-ns {:name 'ifn?})
      'inc (copy-core-var inc)
-     'inst? (copy-core-var inst?)
-     'inst-ms (copy-core-var inst-ms)
+     'inst? #?(:clj (copy-var protocols/inst?* clojure-core-ns {:name 'inst?})
+               :default (copy-core-var inst?))
+     'inst-ms #?(:clj (copy-var core-protocols/inst-ms clojure-core-ns {:name 'inst-ms})
+                 :default (copy-core-var inst-ms))
+     #?@(:clj ['Inst core-protocols/inst-protocol
+               'inst-ms* (new-var 'inst-ms* core-protocols/inst-ms*
+                                  clojure-core-ns {:arglists '([inst])})])
      'instance? (copy-var protocols/instance-impl clojure-core-ns {:name 'instance?})
      #?@(:cljd [] :default ['int-array (copy-core-var int-array)])
      'interleave (copy-core-var interleave)

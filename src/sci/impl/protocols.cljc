@@ -378,6 +378,12 @@
                (clojure.core/satisfies? p obj))
              (find-matching-non-default-method protocol obj)))))
 
+;; clojure.core/inst? only sees types that extended the host protocol, so it
+;; misses sci types that implemented sci's clojure.core/Inst
+#?(:clj
+   (defn inst?* [x]
+     (satisfies? (deref core-protocols/inst-protocol) x)))
+
 (defn instance-impl [clazz x]
   (cond
     ;; fast path for Clojure when using normal clazz
