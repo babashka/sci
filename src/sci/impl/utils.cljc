@@ -364,27 +364,25 @@
 ;;;; Host protocol bridging (JVM, see doc/ai/adr/0019-inst-protocol-on-jvm.md)
 
 #?(:clj
-   (def ^:private installed-host-protocols (atom #{})))
-
-#?(:clj
    (defn install-host-protocol!
-     "Extends the host protocol behind `proto-map` to the classes shared by all
-  sci types, delegating to the multimethods that hold the interpreted
-  implementations. This lets compiled host code dispatch into sci impls.
+     "Replaces the root of the host protocol method vars behind `proto-map` with
+  the multimethods that hold the interpreted implementations, so compiled
+  host code dispatches into sci impls. The previous root becomes the
+  multimethod's fallback for host types.
 
-  Only for unrestricted contexts: it mutates a var of the embedding program.
-  Runs at most once per protocol. `proto-map` needs a `:host-impls` map of
-  method keyword to multimethod."
+  Only for unrestricted contexts: it mutates vars of the embedding program.
+  Called from every protocol implementation path, so a host-side `extend` of
+  the same protocol, which rebinds the method vars, is repaired on the next
+  sci implementation. `proto-map` carries `:host-swap`, a map of host var to
+  {:multi multifn :capture-root! (fn [old-root])}."
      [ctx proto-map]
      (when (:unrestricted ctx)
-       (when-let [impls (:host-impls proto-map)]
-         (let [pvar (:var (:protocol proto-map))]
-           (when-not (contains? @installed-host-protocols pvar)
-             (swap! installed-host-protocols conj pvar)
-             (let [p (deref pvar)]
-               ;; records and deftypes are SciTypeInstance, reify is ICustomType
-               (clojure.core/extend sci.impl.types.SciTypeInstance p impls)
-               (clojure.core/extend sci.impl.types.ICustomType p impls))))))))
+       (when-let [swaps (:host-swap proto-map)]
+         (doseq [[host-var {:keys [multi capture-root!]}] swaps]
+           (let [old (deref host-var)]
+             (when-not (identical? old multi)
+               (capture-root! old)
+               (alter-var-root host-var (constantly multi)))))))))
 
 (defmacro dotimes+ [n body]
   `(do (dotimes [i# ~(dec n)]

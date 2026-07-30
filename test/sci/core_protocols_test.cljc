@@ -218,17 +218,33 @@
        (is (false? (eval* "(defrecord NotAnInst [t]) (satisfies? Inst (->NotAnInst 1))"))))))
 
 #?(:clj
+   (defrecord HostSideInst [ms]))
+
+#?(:clj
    (deftest inst-host-protocol-test
-     (testing "an unrestricted context extends the host protocol, so compiled
-               host code dispatches into sci implementations"
+     (testing "an unrestricted context reroutes the host protocol method, so
+               compiled host code dispatches into sci implementations"
        (let [ctx (sci/init {:unrestricted true})]
          (is (= 42 (inst-ms (sci/eval-string* ctx "(defrecord Hosted [t] Inst (inst-ms* [_] t)) (->Hosted 42)"))))
          (is (= 7 (inst-ms (sci/eval-string* ctx "(reify Inst (inst-ms* [_] 7))"))))
          (is (= 9 (inst-ms (sci/eval-string* ctx "(deftype HostedT [t] Inst (inst-ms* [_] t)) (->HostedT 9)"))))
-         (is (true? (inst? (sci/eval-string* ctx "(defrecord Hosted [t] Inst (inst-ms* [_] t)) (->Hosted 1)"))))
          (is (thrown-with-msg?
               IllegalArgumentException #"No implementation of method"
-              (inst-ms (sci/eval-string* ctx "(defrecord Unhosted [t]) (->Unhosted 1)"))))))
+              (inst-ms (sci/eval-string* ctx "(defrecord Unhosted [t]) (->Unhosted 1)"))))
+         (testing "host types keep working after the reroute"
+           (is (= 1577836800000 (inst-ms #inst "2020")))
+           (is (true? (inst? #inst "2020"))))
+         (testing "host satisfies? is class-keyed and cannot see sci
+                   implementations, but it does not over-report either"
+           (is (false? (inst? (sci/eval-string* ctx "(defrecord Hosted [t] Inst (inst-ms* [_] t)) (->Hosted 1)")))))
+         (testing "a host-side extend rebinds the method var; the next sci
+                   implementation repairs the reroute and keeps the host
+                   extension visible"
+           (clojure.core/extend-protocol Inst HostSideInst (inst-ms* [r] (:ms r)))
+           (let [hosted (sci/eval-string* ctx "(defrecord Repaired [t] Inst (inst-ms* [_] t)) (->Repaired 42)")]
+             (is (= 42 (inst-ms hosted)))
+             (is (= 5 (inst-ms (->HostSideInst 5))))
+             (is (= 1577836800000 (inst-ms #inst "2020")))))))
      (testing "a restricted context keeps working through sci's own inst-ms"
        (let [ctx (sci/init {})]
          (is (= 5 (sci/eval-string* ctx "(defrecord Sandboxed [t] Inst (inst-ms* [_] t)) (inst-ms (->Sandboxed 5))")))))))

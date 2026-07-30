@@ -368,6 +368,12 @@
                (str "No implementation of method: :inst-ms* of protocol: "
                     "#'clojure.core/Inst found for class: " t))))
 
+     ;; the root of clojure.core/inst-ms* as captured when
+     ;; install-host-protocol! swapped the multimethod in. The fallback for
+     ;; host types afterwards: going through clojure.core/inst-ms would come
+     ;; straight back to the multimethod
+     (def ^:private inst-ms*-host-root (volatile! nil))
+
      (defmulti inst-ms* types/type-impl)
 
      (defmethod inst-ms* :sci.impl.protocols/reified [x]
@@ -380,9 +386,10 @@
          (if (or (nil? t) (class? t))
            ;; host types (java.util.Date, java.time.Instant) and anything that
            ;; extended clojure.core/Inst outside of sci
-           (clojure.core/inst-ms x)
-           ;; a sci type without an implementation. Going to clojure.core here
-           ;; would come back through the host protocol bridge, if installed
+           (if-let [f @inst-ms*-host-root]
+             (f x)
+             (clojure.core/inst-ms x))
+           ;; a sci type without an implementation
            (no-inst-impl t))))
 
      (defn inst-ms [x]
@@ -393,7 +400,9 @@
         'Inst
         {:protocol clojure.core/Inst
          :methods #{inst-ms*}
-         :host-impls {:inst-ms* inst-ms*}
+         :host-swap {#'clojure.core/inst-ms*
+                     {:multi inst-ms*
+                      :capture-root! #(vreset! inst-ms*-host-root %)}}
          :ns utils/clojure-core-ns}
         {:ns utils/clojure-core-ns}))))
 

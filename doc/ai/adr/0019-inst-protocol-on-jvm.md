@@ -56,45 +56,65 @@ embedders whose compiled code consumes a protocol, and for the mechanism,
 which applies to any host protocol mapped into sci, not just `Inst`.
 
 CLJS solves the same problem by installing the impls on the sci type's own JS
-prototype, so `cljs.core/inst-ms` finds them. The JVM analog of "install so
-the host protocol sees it" is `clojure.core/extend`, and the JVM analog of
-"the type's own prototype" does not exist: every sci record is a
-`sci.impl.records.SciRecord`, every deftype a `sci.impl.deftype.SciType`, and
-reify instances come from a shared pre-compiled pool. Per-type registration is
-impossible without per-type classes.
+prototype, so `cljs.core/inst-ms` finds them. The JVM analog of "the type's
+own prototype" does not exist: every sci record is a
+`sci.impl.records.SciRecord` (final, so not even subclassable), every deftype
+a `sci.impl.deftype.SciType`, and reify instances come from a shared
+pre-compiled pool. Per-type registration in the host is impossible without
+per-type classes.
 
-What is possible is one bridge per protocol, on the interfaces all sci types
-share, delegating to the multimethod that already holds the per-type impls:
+The mechanism, taken from grease
+(https://github.com/phronmophobic/grease/blob/main/src/com/phronemophobic/grease/scify.clj),
+is to replace the root of the host protocol METHOD var with the multimethod
+that already holds the per-type sci impls:
 
 ```clojure
-(clojure.core/extend sci.impl.types.SciTypeInstance clojure.core/Inst
-                     {:inst-ms* inst-ms*})
-(clojure.core/extend sci.impl.types.ICustomType clojure.core/Inst
-                     {:inst-ms* inst-ms*})
+(alter-var-root #'clojure.core/inst-ms* (constantly inst-ms*))
 ```
 
-`sci.impl.utils/install-host-protocol!` does this, at most once per protocol,
-for protocol maps carrying a `:host-impls` map of method keyword to
-multimethod. It is called from `extend-protocol`, `extend-type`, `extend`,
+The previous root is captured first and becomes the multimethod's fallback for
+host types (going through `clojure.core/inst-ms` instead would come straight
+back to the multimethod). This works on compiled callers because protocol
+method vars are rebound via `bindRoot` at runtime by `-reset-methods`, so call
+sites are never direct-linked to them - the same property that makes host
+`extend` work in direct-linked code. Grease uses this in GraalVM native
+images.
+
+`sci.impl.utils/install-host-protocol!` does the swap for protocol maps
+carrying a `:host-swap` map of host var to `{:multi multifn :capture-root!
+fn}`. It is called from `extend-protocol`, `extend-type`, `extend`,
 `analyze-defrecord*`, `analyze-deftype*` and `reify*`, so a program that never
-touches a bridged protocol never installs a bridge.
+touches a bridged protocol never mutates anything.
 
 Gated on `:unrestricted`. It mutates a var of the embedding program, which a
 sandboxed context must not be able to do. babashka sets `:unrestricted true`.
 
-The multimethod's `:default` had to stop delegating to `clojure.core/inst-ms`
-for sci types, since with a bridge installed that comes straight back through
-the bridge. It now throws the same message Clojure throws, naming the sci
-type.
+Known interaction: a host-side `extend` of the same protocol calls
+`-reset-methods`, which rebinds the method var and undoes the swap. Every sci
+implementation path re-asserts the swap (`identical?` check on the root) and
+re-captures the new root, so the host extension stays visible through the
+fallback and sci dispatch is repaired by the next sci-side implementation of
+the protocol. In between, host calls on sci values throw the
+no-implementation error, they never silently misdispatch.
 
-### The cost: host-side `satisfies?` is class-granular
+### Rejected variant: extending the registry to the shared sci classes
 
-Once one sci type implements `Inst`, `(clojure.core/inst? x)` is true for
-every sci record, type and reify, because the registry is keyed by class.
-`inst-ms` on such a value still throws, and sci's own `inst?` stays accurate
-because it consults the multimethod's method table, but compiled host code
-sees the coarse answer. This is the wart ADR 0013 predicted, and it has no fix
-short of per-type classes.
+The first cut (commit `bad94a13`) used `clojure.core/extend` on
+`SciTypeInstance` and `ICustomType` with a delegating fn map. It dispatches
+correctly, but the protocol registry is class-keyed, so once one sci type
+implemented `Inst`, host `(inst? x)` answered true for EVERY sci record, type
+and reify, and `(extenders Inst)` showed sci internals. The var swap gets the
+same dispatch without touching the registry: host `satisfies?` on sci values
+answers false across the board. That is still wrong for implementing types,
+but under-reporting is the safe direction, host code guarded by `(inst? x)`
+skips sci values instead of crashing on them, and it lies about nothing. Sci's
+own `inst?` consults the multimethod's method table and stays exact on both
+sides of the boundary.
+
+Exact host-side `satisfies?` needs the instance's class to implement the
+protocol's backing interface (`clojure.core.Inst`), i.e. per-type or per-combo
+classes: the build-time stub tier of ADR 0013, or runtime emission via Crema
+(ADR 0016). Out of scope here.
 
 ## Caveat: the protocol var and its multimethod are global
 
