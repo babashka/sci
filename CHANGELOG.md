@@ -13,7 +13,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 ## Unreleased
 
 - Clojure 1.13 map destructuring: `:keys!`, `:syms!`, `:strs!`, `&` inside a directive, `:select`, `:all` and `:defaults`. Adds `req!` and `some-vals` to `clojure.core`.
-- Expose `clojure.core/Inst` and `clojure.core/inst-ms*` on the JVM, so `defrecord`, `deftype`, `reify`, `extend-type` and `extend-protocol` can implement `inst-ms*` and have `inst-ms` and `inst?` pick it up. On CLJS `Inst` was already exposed as a native protocol. In an `:unrestricted` context the host protocol method is rerouted as well, so compiled host code calling `clojure.core/inst-ms` dispatches into the implementation.
+- Expose `clojure.core/Inst` and `clojure.core/inst-ms*` on the JVM, so `defrecord`, `deftype`, `reify`, `extend-type` and `extend-protocol` can implement `inst-ms*` and have `inst-ms` and `inst?` pick it up. On CLJS `Inst` was already exposed as a native protocol. In an `:unrestricted` context the host protocol method is rerouted as well, so compiled host code calling `clojure.core/inst-ms` dispatches into the implementation, and extending `Inst` to a host class registers it in the host protocol, making host `inst?` exact for that class.
 
 ## 0.15.56
 

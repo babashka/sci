@@ -116,30 +116,83 @@ protocol's backing interface (`clojure.core.Inst`), i.e. per-type or per-combo
 classes: the build-time stub tier of ADR 0013, or runtime emission via Crema
 (ADR 0016). Out of scope here.
 
+## Usage research (2026-07-30)
+
+Before settling on a design, every implementation of `Inst` reachable locally
+was classified: all 8148 jars in `~/.m2` plus `~/dev` and `~/.gitlibs`,
+searched with grasp for `extend-protocol`/`extend-type`/`extend`/`defrecord`/
+`deftype`/`reify` forms involving `Inst` or `inst-ms*`. Findings:
+
+- Dominant shape, by far: `extend-protocol Inst <host class>`. clojure core
+  (Date, Instant), clojurescript core plus four CLJS libs (js/Date), clj-time
+  (org.joda.time.ReadableInstant), clojure-future-spec (Date, Instant),
+  promesa (Duration).
+- The ONLY library implementing Inst on its own type is promesa:
+  `deftype Task [pt/ICancellable clojure.core/Inst IFn]` and
+  `deftype ExecutorBulkheadTask [clojure.core/Inst Runnable]`. Both are combo
+  shapes with host interfaces, which babashka's deftype cannot host anyway.
+- Nobody uses defrecord-inline, reify, extend-type, extend or metadata
+  extension with Inst.
+
+Consequences: a per-protocol sibling class (`SciRecordInst`) was rejected
+before this research on scaling grounds (2^N combos), and the research
+confirms the only real sci-type usage is exactly a combo it cannot express.
+More importantly, the dominant shape targets HOST classes, where the registry
+is keyed on a real, distinct class - so a genuine `clojure.core/extend` on
+that class gives exact dispatch AND exact host `satisfies?`, with no
+granularity problem at all. The granularity wart only ever applied to
+sci-defined types sharing SciRecord/SciType.
+
+## Approach E (implemented): split by extension target
+
+Branch `issue-1321-inst-target-split`. On top of C:
+
+- Extension target is a host class (`extend-protocol Inst java.time.Duration`
+  in sci): `sci.impl.protocols/-extend-host-class!` writes a genuine host
+  registry entry on that exact class, unrestricted contexts only. The entry
+  delegates through `get-method` on the multimethod so sci-side redefinition
+  stays live, and throws when the method was removed (falling through to the
+  multimethod default would recurse into the host protocol fn).
+  `clojure.core/extend` calls `-reset-methods`, which rebinds the method
+  vars, so when the var swap was active it is re-asserted afterwards.
+- Extension target is a sci type: C's method var swap, unchanged. Programs
+  that only extend host classes never install the swap, so the Date fast path
+  stays untouched for the dominant shape.
+- `-bridge-host-protocol!` picks the branch; it is emitted into
+  extend-protocol/extend-type expansions and called from `extend`. The
+  deftype/defrecord/reify paths keep calling `install-host-protocol!`
+  directly - their targets are always sci types.
+- Protocols opt in with `:host-class-impls` (method keyword -> multimethod)
+  next to `:host-swap`. Both generic: babashka's Datafiable/Navigable can
+  adopt them.
+
 ## Decision matrix
 
 A = sci-only multimethod (`issue-1321-inst-protocol`), B = registry extend on
 the shared sci classes (`issue-1321-inst-host-protocol`), C = method var swap
-(`issue-1321-inst-var-swap`). B and C build on A, sci-side behavior is
-identical in all three.
+(`issue-1321-inst-var-swap`), E = target-split
+(`issue-1321-inst-target-split`, implemented). All build on A, sci-side
+behavior is identical throughout. Shape frequency from the research above.
 
-| Criterion | A | B | C |
-|---|---|---|---|
-| sci code: implement via defrecord/deftype/reify/extend-*, exact `inst?`/`satisfies?` | GOOD | GOOD | GOOD |
-| host `inst-ms` dispatches into sci impls | bad (throws) | GOOD | GOOD |
-| host `inst?` on an implementing sci type | bad (false) | GOOD (true) | bad (false) |
-| host `inst?` on a non-implementing sci value | GOOD (false) | bad (true, lies) | GOOD (false) |
-| host `inst-ms` error on a non-implementing sci value names the sci type | bad (names SciRecord) | GOOD | GOOD |
-| `(extenders Inst)` free of sci internals | GOOD | bad | GOOD |
-| no mutation of host state | GOOD | bad (registry, permanent) | bad (var root, re-assertable) |
-| survives a later host-side `extend` of the protocol | GOOD (n/a) | GOOD | bad (window until next sci impl re-asserts) |
-| host-type call path (`inst-ms` on Date) unchanged | GOOD | GOOD | bad (extra multimethod hop) |
-| moving parts | GOOD (fewest) | bad | bad |
+| Criterion | A | B | C | E |
+|---|---|---|---|---|
+| sci-side: all implement forms, exact `inst?`/`satisfies?` | GOOD | GOOD | GOOD | GOOD |
+| host `inst-ms` on sci-type impls (rare) | bad | GOOD | GOOD | GOOD |
+| host `inst-ms` on host-class extensions (dominant) | bad | bad | GOOD | GOOD |
+| host `inst?` on host-class extensions (dominant) | bad (false) | bad (false) | bad (false) | GOOD (exact) |
+| host `inst?` on an implementing sci type (rare) | bad (false) | GOOD | bad (false) | bad (false) |
+| host `inst?` on a non-implementing sci value | GOOD | bad (lies) | GOOD | GOOD |
+| registry holds only genuine entries | GOOD | bad | GOOD | GOOD |
+| survives a later host-side `extend` | n/a | GOOD | bad (window) | GOOD for host classes, self-healing window for sci types |
+| host-type call path (Date) unchanged | GOOD | GOOD | bad (hop) | GOOD until a sci type implements the protocol |
+| no mutation of host state | GOOD | bad | bad | bad |
+| moving parts | GOOD | bad | bad | bad |
 
-C dominates B except on two rows: survival of host-side `extend` (self-healing
-in C, and misdispatch is impossible in the window) and host `inst?` on
-implementing types, which B only wins by answering true for every sci value.
-The real choice is A (no host mutation at all) vs C (host dispatch works).
+The one bad cell E keeps - host `inst?` false for an implementing sci type -
+corresponds to one library's pattern in the entire corpus, which babashka
+cannot run for independent reasons. Every shape that occurs in the wild lands
+all-GOOD. Exact host `satisfies?` for sci types would need per-type classes:
+the build-time stub tier of ADR 0013 or Crema (ADR 0016).
 
 ## Caveat: the protocol var and its multimethod are global
 

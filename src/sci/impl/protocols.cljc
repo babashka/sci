@@ -141,6 +141,60 @@
                    :impl `(fn ~@bodies)}])))
         meths))
 
+#?(:clj
+   (defn ^:private host-class-method-fn
+     "Host registry entry for one protocol method: dispatches through the
+  multimethod so sci-side redefinition stays live. Throws instead of falling
+  through to the multimethod default, which would recurse into the host
+  protocol fn."
+     [mk multi proto-var]
+     (fn [x & args]
+       (let [m (clojure.core/get-method multi (class x))
+             d (clojure.core/get-method multi :default)]
+         (if (identical? m d)
+           (throw (IllegalArgumentException.
+                   (str "No implementation of method: " mk " of protocol: "
+                        proto-var " found for class: " (some-> x class .getName))))
+           (apply m x args))))))
+
+#?(:clj
+   (defn -extend-host-class!
+     "Extending a protocol with `:host-class-impls` to a host class in an
+  unrestricted context writes a genuine entry into the host protocol
+  registry, keyed on that exact class: compiled host code dispatches into the
+  sci implementation and host satisfies? answers exactly. Re-asserts the
+  method var swap of install-host-protocol! when one was installed, since
+  clojure.core/extend rebinds the method vars."
+     [proto-data atype]
+     (let [ctx (store/get-ctx)]
+       (when (and (class? atype)
+                  (not (identical? Object atype))
+                  (:unrestricted ctx))
+         (when-let [impls (:host-class-impls proto-data)]
+           (let [p (:protocol proto-data)
+                 swaps (:host-swap proto-data)
+                 swapped? (boolean (some (fn [[host-var {:keys [multi]}]]
+                                           (identical? (deref host-var) multi))
+                                         swaps))]
+             (clojure.core/extend atype p
+               (into {}
+                     (map (fn [[mk multi]]
+                            [mk (host-class-method-fn mk multi (:var p))]))
+                     impls))
+             (when swapped?
+               (utils/install-host-protocol! ctx proto-data))))))))
+
+#?(:clj
+   (defn -bridge-host-protocol!
+     "Called from extend-protocol/extend-type expansions and extend: host class
+  targets get a genuine host registry entry, sci type targets get the method
+  var swap. No-op for protocols without host bridging keys and in restricted
+  contexts."
+     [proto-data atype]
+     (if (class? atype)
+       (-extend-host-class! proto-data atype)
+       (utils/install-host-protocol! (store/get-ctx) proto-data))))
+
 ;; TODO: apply patches for default override for records
 (defn extend [atype & proto+mmaps]
   (doseq [[proto mmap] (partition 2 proto+mmaps)]
@@ -156,7 +210,7 @@
                                       :impl f}])))
                       mmap))
          :default nil)
-      (let [_ #?(:clj (utils/install-host-protocol! (store/get-ctx) proto) :default nil)
+      (let [_ #?(:clj (-bridge-host-protocol! proto atype) :default nil)
             extend-via-metadata (:extend-via-metadata proto)
             proto-ns (:ns proto)
             pns (types/getName proto-ns)
@@ -268,7 +322,6 @@
         native? (native-protocol? protocol-data)
         protocol-ns (:ns protocol-data)
         pns (str (types/getName protocol-ns))
-        _ #?(:clj (utils/install-host-protocol! ctx protocol-data) :default nil)
         expansion
         `(do
            ~@(map (fn [[type & meths]]
@@ -279,6 +332,8 @@
                         `(sci.impl.protocols/-extend-native!
                           ~type ~protocol-name ~(native-method-impls meths))
                         `(do
+                           ~@#?(:clj [`(sci.impl.protocols/-bridge-host-protocol! ~protocol-name ~type)]
+                                :default nil)
                            (clojure.core/alter-var-root
                             (var ~protocol-name) update :satisfies (fnil conj #{})
                             (type->str ~type))
@@ -296,8 +351,7 @@
                                      (utils/throw-error-with-location (str "Protocol not found: " proto) form))
                     proto-data (if (utils/var? protocol-var)
                                  (deref protocol-var)
-                                 protocol-var)
-                    _ #?(:clj (utils/install-host-protocol! ctx proto-data) :default nil)]
+                                 protocol-var)]
                 (if (native-protocol? proto-data)
                   `(sci.impl.protocols/-extend-native!
                     ~atype ~proto ~(native-method-impls meths))
@@ -305,6 +359,8 @@
                         pns (str (types/getName protocol-ns))
                         extend-via-metadata (:extend-via-metadata proto-data)]
                     `(do
+                       ~@#?(:clj [`(sci.impl.protocols/-bridge-host-protocol! ~proto ~atype)]
+                            :default nil)
                        (clojure.core/alter-var-root
                         (var ~proto) update :satisfies (fnil conj #{})
                         (type->str ~atype))
@@ -386,6 +442,7 @@
 #?(:clj
    (defn inst?* [x]
      (satisfies? (deref core-protocols/inst-protocol) x)))
+
 
 (defn instance-impl [clazz x]
   (cond

@@ -942,6 +942,7 @@
   {:obj (sci.lang/->Namespace 'sci.impl.protocols nil)
    :private true
    #?@(:cljs ['-extend-native! sci.impl.protocols/-extend-native!])
+   #?@(:clj ['-bridge-host-protocol! sci.impl.protocols/-bridge-host-protocol!])
    'type->str sci.impl.protocols/type->str})
 
 ;;;; REPL vars

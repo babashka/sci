@@ -248,3 +248,42 @@
      (testing "a restricted context keeps working through sci's own inst-ms"
        (let [ctx (sci/init {})]
          (is (= 5 (sci/eval-string* ctx "(defrecord Sandboxed [t] Inst (inst-ms* [_] t)) (inst-ms (->Sandboxed 5))")))))))
+
+#?(:clj
+   (deftest inst-host-class-test
+     (let [ctx (sci/init {:unrestricted true
+                          :classes {'java.time.Duration java.time.Duration
+                                    'java.util.Calendar java.util.Calendar
+                                    'java.math.MathContext java.math.MathContext}})]
+       (testing "extending Inst to a host class writes a genuine registry
+                 entry: host dispatch and host inst? are exact"
+         (sci/eval-string* ctx "(extend-protocol Inst java.time.Duration (inst-ms* [d] (.toMillis d)))")
+         (is (= 5000 (inst-ms (java.time.Duration/ofSeconds 5))))
+         (is (true? (inst? (java.time.Duration/ofSeconds 5))))
+         (is (false? (inst? (java.util.BitSet.))))
+         (is (true? (inst? #inst "2020"))))
+       (testing "sci-side redefinition stays visible through the host entry"
+         (sci/eval-string* ctx "(extend-protocol Inst java.time.Duration (inst-ms* [d] 42))")
+         (is (= 42 (inst-ms (java.time.Duration/ofSeconds 5)))))
+       (testing "extending a superclass covers subclasses, like on the host"
+         (sci/eval-string* ctx "(extend-protocol Inst java.util.Calendar (inst-ms* [c] 777))")
+         (is (= 777 (inst-ms (java.util.GregorianCalendar.))))
+         (is (true? (inst? (java.util.GregorianCalendar.)))))
+       (testing "a removed sci method throws host-side instead of recursing"
+         (sci/eval-string* ctx "(remove-method inst-ms* java.time.Duration)")
+         (is (thrown-with-msg?
+              IllegalArgumentException #"No implementation of method"
+              (inst-ms (java.time.Duration/ofSeconds 5))))
+         (sci/eval-string* ctx "(extend-protocol Inst java.time.Duration (inst-ms* [d] (.toMillis d)))"))
+       (testing "a host-class extend rebinds the method var; an active sci-type
+                 reroute is re-asserted"
+         (let [f (sci/eval-string* ctx "(defrecord WithSwap [t] Inst (inst-ms* [_] t)) (->WithSwap 42)")]
+           (is (= 42 (inst-ms f)))
+           (sci/eval-string* ctx "(extend-protocol Inst java.math.MathContext (inst-ms* [m] 1))")
+           (is (= 42 (inst-ms f)))
+           (is (= 1 (inst-ms (java.math.MathContext. 3)))))))
+     (testing "a restricted context does not touch the host registry"
+       (let [ctx (sci/init {:classes {'java.util.UUID java.util.UUID}})]
+         (sci/eval-string* ctx "(extend-protocol Inst java.util.UUID (inst-ms* [u] 9))")
+         (is (= 9 (sci/eval-string* ctx "(inst-ms (java.util.UUID/randomUUID))")))
+         (is (false? (inst? (java.util.UUID/randomUUID))))))))

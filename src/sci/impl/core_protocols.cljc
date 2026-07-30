@@ -403,6 +403,7 @@
          :host-swap {#'clojure.core/inst-ms*
                      {:multi inst-ms*
                       :capture-root! #(vreset! inst-ms*-host-root %)}}
+         :host-class-impls {:inst-ms* inst-ms*}
          :ns utils/clojure-core-ns}
         {:ns utils/clojure-core-ns}))))
 
