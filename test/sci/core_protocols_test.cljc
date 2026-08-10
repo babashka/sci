@@ -182,3 +182,36 @@
      (testing "satisfies? IFn correct for reify"
        (is (false? (eval* "(satisfies? IFn (reify IDeref (-deref [_] :val)))")))
        (is (true? (eval* "(satisfies? IFn (reify IFn (-invoke [_] 42)))"))))))
+
+#?(:cljd nil
+   :default
+   (deftest inst-test
+     (testing "record implementation"
+       (is (= 42 (eval* "(defrecord Foo [t] Inst (inst-ms* [_] t)) (inst-ms (->Foo 42))")))
+       (is (true? (eval* "(defrecord Foo [t] Inst (inst-ms* [_] t)) (inst? (->Foo 42))"))))
+     (testing "deftype implementation"
+       (is (= 42 (eval* "(deftype Foo [t] Inst (inst-ms* [_] t)) (inst-ms (->Foo 42))"))))
+     (testing "reify implementation"
+       (is (= 42 (eval* "(inst-ms (reify Inst (inst-ms* [_] 42)))")))
+       (is (true? (eval* "(inst? (reify Inst (inst-ms* [_] 42)))"))))
+     (testing "extend-protocol"
+       (is (= 42 (eval* "(defrecord Foo [t])
+                         (extend-protocol Inst Foo (inst-ms* [x] (:t x)))
+                         (inst-ms (->Foo 42))")))
+       (is (true? (eval* "(defrecord Foo [t])
+                          (extend-protocol Inst Foo (inst-ms* [x] (:t x)))
+                          (inst? (->Foo 42))"))))
+     (testing "extend-type"
+       (is (= 42 (eval* "(defrecord Foo [t])
+                         (extend-type Foo Inst (inst-ms* [x] (:t x)))
+                         (inst-ms (->Foo 42))"))))
+     (testing "host date is unaffected"
+       (is (= 1577836800000 (eval* "(inst-ms #inst \"2020\")")))
+       (is (true? (eval* "(inst? #inst \"2020\")")))
+       (is (false? (eval* "(inst? 1)"))))
+     (testing "satisfies?"
+       (is (true? (eval* "(defrecord Foo [t] Inst (inst-ms* [_] t)) (satisfies? Inst (->Foo 1))")))
+       ;; NOTE: a name that no other test extends Inst to: :satisfies is
+       ;; tracked on the shared Inst var by type name, so extending Inst to
+       ;; user.Foo in one context is visible from another
+       (is (false? (eval* "(defrecord NotAnInst [t]) (satisfies? Inst (->NotAnInst 1))"))))))
