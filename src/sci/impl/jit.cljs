@@ -438,7 +438,7 @@
     (stmt! st (slot st (nth idxs i)) "=" (emit-expr st amb (nth inits i)) ";")
     (assert-stack! st amb)))
 
-(defn- emit-expr [st amb x]
+(defn- emit-expr [^EmitterState st amb x]
   (let [[op :as a] (->ast x)]
     (case op
       :const (let [[_ v] a]
