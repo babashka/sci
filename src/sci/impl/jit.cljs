@@ -352,22 +352,25 @@
 (def ^:private eq-eq ==)
 (def ^:private eq-eq-gen (bin-op "==="))
 
-(defn- tri-op [op]
-  ;; + - * fold left at arity 3, like the cljs.core macros
-  (fn [a] (str "(" (nth a 0) op (nth a 1) op (nth a 2) ")")))
+(defn- n-op [op]
+  ;; + - * fold left at every arity, like the cljs.core macros, so the
+  ;; chained JS operator is exact in floating point too
+  (fn [a] (str "(" (.join (to-array a) op) ")")))
 
-(def ^:private op-gens-3
+(def ^:private op-gens-n
   (doto (js/Map.)
-    (.set + (tri-op "+"))
-    (.set - (tri-op "-"))
-    (.set * (tri-op "*"))))
+    (.set + (n-op "+"))
+    (.set - (n-op "-"))
+    (.set * (n-op "*"))
+    (.set unchecked-add (n-op "+"))
+    (.set unchecked-subtract (n-op "-"))
+    (.set unchecked-multiply (n-op "*"))))
 
 (defn- op-gen [f n]
   (case n
     1 (.get op-gens-1 f)
     2 (.get op-gens-2 f)
-    3 (.get op-gens-3 f)
-    nil))
+    (when (> n 2) (.get op-gens-n f))))
 
 (defn- emit-call [st amb [op callee children stack]]
   (let [n (count children)

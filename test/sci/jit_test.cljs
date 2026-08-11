@@ -2,7 +2,8 @@
   "Differential tests for the JS codegen tier: the same program evaluated
   jitted and interpreted must agree on values, error messages and error
   locations."
-  (:require [clojure.test :as t :refer [deftest is testing]]
+  (:require [clojure.string :as str]
+            [clojure.test :as t :refer [deftest is testing]]
             [sci.core :as sci]
             [sci.impl.jit :as jit]))
 
@@ -102,6 +103,38 @@
                   (str "((fn [x] (" op " x)) " a ")"))
             [interp jitted] (eval-both src)]
         (is (= interp jitted) src)))))
+
+(deftest jit-nary-operator-parity-test
+  (testing "n-ary + - * agree with the interpreter, left-folded, at every arity"
+    (let [vals-src ["0" "1" "-1" "0.1" "0.5" "##NaN" "##Inf" "1e308" "1000000"
+                    "\"a\"" "nil" "true" "[1 2]" "{:a 1}" ":k"]
+          n-vals (count vals-src)]
+      (doseq [op '[+ - * unchecked-add unchecked-subtract unchecked-multiply]
+              arity (range 3 9)
+              offset (range n-vals)]
+        (let [args (map #(nth vals-src (mod (+ offset %) n-vals)) (range arity))
+              params (map #(str "x" %) (range arity))
+              src (str "((fn [" (str/join " " params) "] ("
+                       op " " (str/join " " params) ")) "
+                       (str/join " " args) ")")
+              [interp jitted] (eval-both src)]
+          (is (= interp jitted) src))))))
+
+(deftest jit-nary-arithmetic-inlines-test
+  (testing "n-ary + - * emit a chained operator, not a variadic call"
+    (doseq [[op sep] '[[+ "+"] [- "-"] [* "*"]]
+            arity (range 2 9)
+            :when (do (jit/enable!) (jit/enabled?))]
+      (let [params (map #(str "x" %) (range arity))
+            src (str "(fn [" (str/join " " params) "] ("
+                     op " " (str/join " " params) "))")]
+        (vreset! jit/last-srcs [])
+        (vreset! jit/collect-srcs? true)
+        (apply (sci/eval-string* (sci/init {}) src) (repeat arity 2))
+        (vreset! jit/collect-srcs? false)
+        (let [js (apply str @jit/last-srcs)
+              chained (str/join sep (map #(str "t" %) (range arity)))]
+          (is (str/includes? js chained) src))))))
 
 (deftest jit-var-mutation-visibility-test
   ;; BOTH modes cache var derefs keyed on sci.impl.vars/var-epoch, so
