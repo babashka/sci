@@ -10,7 +10,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.15.58
 
 - Support async functions by adding `:async true` in the attr map of `defn`.
 
