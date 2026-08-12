@@ -10,9 +10,10 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 [joyride](https://github.com/BetterThanTomorrow/joyride/) and many
 [other](https://github.com/babashka/sci#projects-using-sci) projects.
 
-## Unreleased
+## 0.15.57
 
 - Clojure 1.13 map destructuring: `:keys!`, `:syms!`, `:strs!`, `&` inside a directive, `:select`, `:all` and `:defaults`. Adds `req!` and `some-vals` to `clojure.core`.
+- More CLJS JIT performance improvements. Up to 20x on arithmetic-dense code for >2 arity. Keyword lookups, `instance?` and js globals no longer fall back to the interpreter.
 - Expose `clojure.core/Inst` and `clojure.core/inst-ms*` on the JVM, so `defrecord`, `deftype`, `reify`, `extend-type` and `extend-protocol` can implement `inst-ms*` and have `inst-ms` and `inst?` pick it up. On CLJS `Inst` was already exposed as a native protocol.
 
 ## 0.15.56
