@@ -4,7 +4,7 @@
             [sci.impl.faster :as faster]
             [sci.impl.interop :as interop]
             [sci.impl.records :as records]
-            [sci.impl.types :refer [->Node]]
+            [sci.impl.types :as t :refer [->Node]]
             [sci.impl.utils :as utils :refer [strip-core-ns
                                               ana-macros]]))
 
@@ -125,9 +125,15 @@
                             path (.split sym-name ".")
                             len (alength path)]
                         (if (== 1 len)
-                          (->Node
-                           (interop/get-static-field clazz sym-name)
-                           stack)
+                          ;; js/Math and friends: a property read on a class
+                          ;; resolved here, which is what :iget compiles.
+                          ;; Without an ast the read escapes and takes the
+                          ;; enclosing fn out of locals mode with it.
+                          (t/attach-ast
+                           (->Node
+                            (interop/get-static-field clazz sym-name)
+                            stack)
+                           [:iget clazz sym-name stack])
                           (->Node
                            (interop/get-static-fields clazz path)
                            stack))
