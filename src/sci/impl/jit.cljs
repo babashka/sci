@@ -13,6 +13,7 @@
   exist as internal overrides for tests and benchmarks."
   {:no-doc true}
   (:require [sci.impl.evaluator :as eval]
+            [sci.impl.protocols :as protocols]
             [sci.impl.types :as t]
             [sci.impl.utils :as utils]
             [sci.impl.vars :as vars]))
@@ -433,7 +434,21 @@
                    ;; recursively compiled (or escaping on its own)
                    :call-node (emit-arg st idx callee))
             args (mapv #(emit-arg st idx %) children)]
-        (str head ".call(" (join-args (cons "null" args)) ")")))))
+        (if (and (= 2 n)
+                 (keyword-identical? op :call-var)
+                 (identical? (deref callee) protocols/instance-impl))
+          ;; instance-impl walks a cond (sci type, protocol map, ...) before
+          ;; reaching the host check. Only a plain JS constructor takes that
+          ;; last branch, and only those are typeof "function": sci types are
+          ;; sci.lang.Type instances and protocols are maps, both objects.
+          ;; Comparing the cached deref keeps a rebound instance? working.
+          (let [impl (const! st protocols/instance-impl)
+                clazz (spill st (nth args 0))
+                x (spill st (nth args 1))]
+            (str "((" head "===" impl "&&typeof " clazz "===\"function\")?("
+                 x " instanceof " clazz "):"
+                 head ".call(null," clazz "," x "))"))
+          (str head ".call(" (join-args (cons "null" args)) ")"))))))
 
 (defn- emit-chain
   "Short-circuit chain for or/and into temp t via nested ifs."

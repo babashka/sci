@@ -204,6 +204,49 @@
       (unchecked-set js/globalThis "sciJitProbe" 2)
       (is (= [1 2] [before (f)])))))
 
+(deftest jit-instance-fast-path-test
+  (testing "only a JS constructor takes the instanceof path"
+    (doseq [src ["((fn [x] (instance? js/Object x)) (js-obj))"
+                 "((fn [x] (instance? js/Object x)) 1)"
+                 "((fn [x] (instance? js/Array x)) (array))"
+                 "((fn [x] (instance? js/Array x)) (js-obj))"
+                 "((fn [x] (instance? js/Function x)) (fn []))"
+                 ;; sci types are sci.lang.Type instances, not functions
+                 "(do (defrecord Foo [a]) ((fn [x] (instance? Foo x)) (->Foo 1)))"
+                 "(do (defrecord Foo [a]) ((fn [x] (instance? Foo x)) {:a 1}))"
+                 "(do (deftype Bar []) ((fn [x] (instance? Bar x)) (->Bar)))"
+                 "(do (deftype Bar []) (deftype Baz []) ((fn [x] (instance? Bar x)) (->Baz)))"
+                 ;; protocols are maps
+                 "(do (defprotocol P) ((fn [x] (instance? P x)) 1))"
+                 "(do (defprotocol P (m [_])) (defrecord R [] P (m [_] 1)) ((fn [x] (satisfies? P x)) (->R)))"
+                 ;; nil/garbage class must fail the same way both modes
+                 "(try ((fn [x] (instance? nil x)) 1) (catch :default e (ex-message e)))"
+                 "(try ((fn [x] (instance? \"s\" x)) 1) (catch :default e (ex-message e)))"]]
+      (let [[interp jitted] (eval-both src js-opts)]
+        (is (= interp jitted) src))))
+  (testing "the instanceof operator is emitted, guarded"
+    (when (do (jit/enable!) (jit/enabled?))
+      (vreset! jit/last-srcs [])
+      (vreset! jit/collect-srcs? true)
+      ((sci/eval-string* (sci/init js-opts) "(fn [x] (instance? js/Object x))") 1)
+      (vreset! jit/collect-srcs? false)
+      (let [js (apply str @jit/last-srcs)]
+        (is (str/includes? js " instanceof ") js)
+        (is (str/includes? js "typeof ") js))))
+  (testing "rebinding instance? is honored through a warm call site"
+    ;; instance? is a built-in: its root is shared across contexts, so the
+    ;; rebind must be undone or it leaks into every later test
+    (let [src (str "(def orig instance?)"
+                   " (defn call [x] (instance? js/Object x))"
+                   " (def before (call 1))"
+                   " (alter-var-root #'instance? (constantly (fn [c x] :redefined)))"
+                   " (def after (call 1))"
+                   " (alter-var-root #'instance? (constantly orig))"
+                   " [before after (call 1)]")
+          [interp jitted] (eval-both src js-opts)]
+      (is (= {:val "[false :redefined false]"} jitted) (pr-str jitted))
+      (is (= interp jitted) src))))
+
 (deftest jit-var-mutation-visibility-test
   ;; BOTH modes cache var derefs keyed on sci.impl.vars/var-epoch, so
   ;; interp/jit agreement alone can't catch a missed bump — each case
