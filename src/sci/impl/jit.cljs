@@ -288,7 +288,7 @@
   "Capture e in a temp unless it is immutable (const ref, temp, literal).
   Used where evaluation order relative to later statements matters."
   [st e]
-  (if (re-matches #"C\[\d+\]|t\d+|null|true|false|\(-?[0-9.e+-]+\)" e)
+  (if (re-matches #"c\d+|t\d+|null|true|false|\(-?[0-9.e+-]+\)" e)
     e
     (let [t (tmp! st)]
       (stmt! st "var " t "=" e ";")
