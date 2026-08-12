@@ -349,7 +349,7 @@
         name-m (meta name)
         m (conj (if name-m name-m {}) m)
         macro? (:macro name-m)
-        async? (:async name-m)
+        async? (:async m)
         expr (cons `fn fdecl)
         expr (list 'def (with-meta name m)
                    (if (or macro? name)

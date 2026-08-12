@@ -533,3 +533,25 @@
                (p/catch (fn [err]
                           (is false (str err))))
                (p/finally done)))))
+
+(deftest async-attr-map-test
+  (testing "defn attr-map marks the fn async, like ^:async on the symbol"
+    (async done
+           (-> (p/let [ctx (sci/init {:classes {'js js/globalThis :allow :all}})
+                       v (sci/eval-string* ctx
+                           "(defn attr-map-async
+                              {:async true}
+                              []
+                              (inc (await (js/Promise.resolve 41))))
+                            (attr-map-async)")
+                       docstring (sci/eval-string* ctx
+                                   "(defn doc+attr-map
+                                      \"docs\"
+                                      {:async true}
+                                      []
+                                      (await (js/Promise.resolve :ok)))
+                                    (doc+attr-map)")]
+                 (is (= 42 v))
+                 (is (= :ok docstring)))
+               (p/catch (fn [e] (is false (str "threw: " (.-message e)))))
+               (p/finally done)))))
