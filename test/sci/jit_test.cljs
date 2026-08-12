@@ -174,6 +174,36 @@
           ;; escape-free means locals mode, no invocation array
           (is (not (str/includes? js "new Array")) (str src " left locals mode: " js)))))))
 
+(def ^:private js-opts
+  {:unrestricted true :classes {'js js/globalThis :allow :all}})
+
+(deftest jit-js-global-read-test
+  (testing "reading a js global agrees with the interpreter"
+    (doseq [src ["((fn [] (.-PI js/Math)))"
+                 "((fn [] (js/Math.abs -1)))"
+                 "((fn [x] (instance? js/Object x)) (js-obj))"
+                 "((fn [x] (instance? js/Object x)) 1)"
+                 "((fn [] (nil? js/undefinedThing)))"]]
+      ;; not agree?: its message pr-strs the opts, and those hold globalThis
+      (let [[interp jitted] (eval-both src js-opts)]
+        (is (= interp jitted) src))))
+  (testing "js global read compiles instead of escaping"
+    (when (do (jit/enable!) (jit/enabled?))
+      (vreset! jit/last-srcs [])
+      (vreset! jit/collect-srcs? true)
+      ((sci/eval-string* (sci/init js-opts) "(fn [x] (instance? js/Object x))") 1)
+      (vreset! jit/collect-srcs? false)
+      (let [js (apply str @jit/last-srcs)]
+        (is (not (str/includes? js "H.ev")) js)
+        (is (not (str/includes? js "new Array")) js))))
+  (testing "the global is read per call, not frozen at analysis"
+    (unchecked-set js/globalThis "sciJitProbe" 1)
+    (let [f (sci/eval-string* (sci/init js-opts)
+                              "(fn [] js/sciJitProbe)")
+          before (f)]
+      (unchecked-set js/globalThis "sciJitProbe" 2)
+      (is (= [1 2] [before (f)])))))
+
 (deftest jit-var-mutation-visibility-test
   ;; BOTH modes cache var derefs keyed on sci.impl.vars/var-epoch, so
   ;; interp/jit agreement alone can't catch a missed bump — each case
