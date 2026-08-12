@@ -136,6 +136,21 @@
               chained (str/join sep (map #(str "t" %) (range arity)))]
           (is (str/includes? js chained) src))))))
 
+(deftest jit-consts-hoisted-and-deduped-test
+  (testing "repeated callee gets one hoisted const, referenced as a binding"
+    (when (do (jit/enable!) (jit/enabled?))
+      (let [src "(fn [m] (+ (get m :a) (get m :b) (get m :c) (get m :d)))"]
+        (vreset! jit/last-srcs [])
+        (vreset! jit/collect-srcs? true)
+        ((sci/eval-string* (sci/init {}) src) {:a 1 :b 2 :c 3 :d 4})
+        (vreset! jit/collect-srcs? false)
+        (let [js (apply str @jit/last-srcs)
+              [preamble body] (str/split js #";" 2)]
+          (is (str/starts-with? preamble "const c0=C[0]") js)
+          (is (not (str/includes? body "C[")) "call site indexes C instead of a const")
+          ;; stacks table, one get, 4 keywords: 9 without dedup
+          (is (= 6 (count (re-seq #"c\d+=C\[" preamble))) preamble))))))
+
 (deftest jit-var-mutation-visibility-test
   ;; BOTH modes cache var derefs keyed on sci.impl.vars/var-epoch, so
   ;; interp/jit agreement alone can't catch a missed bump — each case

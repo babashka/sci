@@ -193,18 +193,23 @@
 
 ;; lines: the JS statements emitted so far (a mutable JS array), joined with
 ;;   newlines into the function body at the end
-;; consts: values the generated code references as C[i] (fn objects, stack
-;;   maps, per-site deref caches) — user values reach the code only this way
+;; consts: values the generated code references as c0, c1, ... (fn objects,
+;;   stack maps, per-site deref caches), hoisted from C in the template
+;;   preamble — user values reach the code only this way
 ;; stacks: interned call stack maps; stored in consts, indexed by s at the
 ;;   template catch (C[i][s])
 ;; tmp: counter for fresh temp variable names (t0, t1, ...)
 ;; stack-idx: what the s register holds at the current emission point
 ;;   (nil = unknown, e.g. after a control-flow merge)
 ;; locals: locals mode (params/bindings are real JS locals) vs array mode
-;; tbl-ref: the C[i] expression of the stacks table (interned as the first
+;; tbl-ref: the const reference of the stacks table (interned as the first
 ;;   const so compiled try catches can reference it; the array is mutable,
 ;;   later pushes are visible)
-(deftype EmitterState [lines consts stacks ^:mutable tmp ^:mutable stack-idx locals ^:mutable tbl-ref])
+;; const-idx: identity index into consts, so a value referenced by several
+;;   call sites gets one slot (and one monomorphic load) instead of many.
+;;   Identity keyed: a per-site mutable value (deref cache, bound method) is
+;;   a fresh object and never merges with another site's.
+(deftype EmitterState [lines consts stacks ^:mutable tmp ^:mutable stack-idx locals ^:mutable tbl-ref const-idx])
 
 (defn- line! [^EmitterState st s]
   (.push (.-lines st) s)
@@ -220,10 +225,19 @@
     (set! (.-tmp st) (inc n))
     (str "t" n)))
 
+;; consts are hoisted to closure vars (c0, c1, ...) in the template
+;; preamble: a call site then loads a binding instead of indexing C, which
+;; lets the engine see one stable callee per site
 (defn- const! [^EmitterState st v]
-  (let [c (.-consts st)]
-    (.push c v)
-    (str "C[" (dec (.-length c)) "]")))
+  (let [m (.-const-idx st)
+        hit (.get m v)]
+    (if (some? hit)
+      (str "c" hit)
+      (let [c (.-consts st)
+            idx (.-length c)]
+        (.push c v)
+        (.set m v idx)
+        (str "c" idx)))))
 
 (defn- slot [^EmitterState st idx]
   (if ^boolean (.-locals st)
@@ -438,7 +452,7 @@
     (stmt! st (slot st (nth idxs i)) "=" (emit-expr st amb (nth inits i)) ";")
     (assert-stack! st amb)))
 
-(defn- emit-expr [st amb x]
+(defn- emit-expr [^EmitterState st amb x]
   (let [[op :as a] (->ast x)]
     (case op
       :const (let [[_ v] a]
@@ -750,7 +764,7 @@
             e2i (:copy-enclosed->invocation fn-body)
             e2i-idxs (:enclosed->invocation-idxs fn-body)
             locals? (escape-free? body)
-            st (EmitterState. #js [] #js [] #js [] 0 -1 locals? nil)
+            st (EmitterState. #js [] #js [] #js [] 0 -1 locals? nil (js/Map.))
             _ (set! (.-tbl-ref st) (const! st (.-stacks st)))
             params (if locals?
                      (mapv #(str "b" %) (range arity))
@@ -778,7 +792,16 @@
         ;; the stack table is the first const (see tbl-ref); H.re rethrows
         ;; with the active call's stack, matching interpreter frames
         (stmt! st "}catch(e){" rethrow-located "(CTX,e," (.-tbl-ref st) "[s]);throw e;}")
-        (let [src (str "return function(CTX,E,INT){return function("
+        (let [n-consts (.-length (.-consts st))
+              hoist (if (zero? n-consts)
+                      ""
+                      (str "const "
+                           (.join (.map (js/Array.from (js/Array. n-consts))
+                                        (fn [_ i] (str "c" i "=C[" i "]")))
+                                  ",")
+                           ";"))
+              src (str hoist
+                       "return function(CTX,E,INT){return function("
                        (join-args params)
                        "){" (.join (.-lines st) "\n") "}}")
               _ (when @collect-srcs? (vswap! last-srcs conj src))
