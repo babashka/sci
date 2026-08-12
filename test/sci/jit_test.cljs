@@ -151,6 +151,29 @@
           ;; stacks table, one get, 4 keywords: 9 without dedup
           (is (= 6 (count (re-seq #"c\d+=C\[" preamble))) preamble))))))
 
+(deftest jit-keyword-call-parity-test
+  (testing "(:k coll) and (:k coll default) agree with the interpreter"
+    (doseq [kw [":a" ":missing" ":a/b"]
+            coll ["{:a 1}" "{}" "nil" "[1 2]" "\"s\"" "#{:a}" "(list 1)"
+                  "(js-obj \"a\" 1)" "1" ":a" "(sorted-map :a 1)"]
+            dflt [nil ":dflt"]]
+      (let [src (str "((fn [c] (" kw " c" (when dflt (str " " dflt)) ")) " coll ")")
+            [interp jitted] (eval-both src)]
+        (is (= interp jitted) src)))))
+
+(deftest jit-keyword-call-compiles-test
+  (testing "(:k m) compiles instead of escaping to the interpreter"
+    (when (do (jit/enable!) (jit/enabled?))
+      (doseq [src ["(fn [m] (:a m))" "(fn [m] (:a m :dflt))"]]
+        (vreset! jit/last-srcs [])
+        (vreset! jit/collect-srcs? true)
+        ((sci/eval-string* (sci/init {}) src) {:a 1})
+        (vreset! jit/collect-srcs? false)
+        (let [js (apply str @jit/last-srcs)]
+          (is (not (str/includes? js "H.ev")) (str src " escaped: " js))
+          ;; escape-free means locals mode, no invocation array
+          (is (not (str/includes? js "new Array")) (str src " left locals mode: " js)))))))
+
 (deftest jit-var-mutation-visibility-test
   ;; BOTH modes cache var derefs keyed on sci.impl.vars/var-epoch, so
   ;; interp/jit agreement alone can't catch a missed bump — each case

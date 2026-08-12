@@ -2130,19 +2130,27 @@
                                                          (let [stack (utils/stack-frame m f-meta)]
                                                            (sci.impl.types/->Node nil stack)))))))
               (keyword? f*)
+              ;; a cljs Keyword's -invoke is (get coll kw [not-found]), so the
+              ;; jit compiles it as that call instead of escaping. Without an
+              ;; ast one keyword lookup drops the whole enclosing fn out of
+              ;; locals mode.
               (let [children (analyze-children ctx (rest expr))
                     ccount (count children)]
                 (case ccount
                   1 (let [arg (nth children 0)]
-                      (sci.impl.types/->Node
-                       (f* (t/eval arg ctx bindings))
-                       nil))
+                      (t/attach-ast
+                       (sci.impl.types/->Node
+                        (f* (t/eval arg ctx bindings))
+                        nil)
+                       [:call-direct get [arg f*] nil]))
                   2 (let [arg0 (nth children 0)
                           arg1 (nth children 1)]
-                      (sci.impl.types/->Node
-                       (f* (t/eval arg0 ctx bindings)
-                           (t/eval arg1 ctx bindings))
-                       nil))
+                      (t/attach-ast
+                       (sci.impl.types/->Node
+                        (f* (t/eval arg0 ctx bindings)
+                            (t/eval arg1 ctx bindings))
+                        nil)
+                       [:call-direct get [arg0 f* arg1] nil]))
                   (throw-error-with-location (str "Wrong number of args (" ccount ") passed to: " f*) expr)))
               :else
               (let [f (analyze ctx f*)
