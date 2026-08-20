@@ -853,17 +853,8 @@
    (def clojure-lang
      {:private true
       :obj (sci.lang/->Namespace 'clojure.lang nil)
-      ;; IDeref as protocol instead of class
-      'IDeref core-protocols/deref-protocol
-      'deref core-protocols/deref
-      ;; IAtom as protocol instead of class
-      'IAtom core-protocols/swap-protocol
-      'swap core-protocols/swap
-      'reset core-protocols/reset
-      'compareAndSet core-protocols/compareAndSet
-      'IAtom2 core-protocols/iatom2-protocol
-      'resetVals core-protocols/resetVals
-      'swapVals core-protocols/swapVals
+      ;; the IDeref/IAtom/IAtom2 protocol vars and their method multifns are
+      ;; per context, see sci.impl.core-protocols/install-protocol-vars
       'IFn core-protocols/ifn-protocol
       'invoke (new-var 'invoke types/sci-invoke)
       'applyTo (new-var 'applyTo types/sci-apply-to)}))
@@ -1429,8 +1420,9 @@
      ;; IDeref as protocol
      'deref #?(:cljs (copy-core-var deref)
                :default (copy-var core-protocols/deref* clojure-core-ns {:name 'deref}))
-     #?@(:cljd ['-deref (new-var '-deref core-protocols/-deref)
-                'IDeref core-protocols/deref-protocol]
+     ;; on :cljd -deref and IDeref are per context, see
+     ;; sci.impl.core-protocols/install-protocol-vars
+     #?@(:cljd []
          :cljs ['-deref (new-var '-deref -deref)
                 'IDeref core-protocols/deref-protocol])
      ;; end IDeref as protocol
@@ -1440,10 +1432,9 @@
      'compare-and-set! #?(:cljd (copy-core-var compare-and-set!)
                           :clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
                           :cljs (copy-core-var compare-and-set!))
-     #?@(:cljd ['IReset core-protocols/reset-protocol
-                'ISwap core-protocols/swap-protocol
-                '-swap! (new-var '-swap! core-protocols/-swap!)
-                '-reset! (new-var '-reset! core-protocols/-reset!)]
+     ;; on :cljd IReset/ISwap/-swap!/-reset! are per context, see
+     ;; sci.impl.core-protocols/install-protocol-vars
+     #?@(:cljd []
          :cljs ['IReset core-protocols/reset-protocol
                 'ISwap core-protocols/swap-protocol
                 '-swap! (new-var '-swap! -swap!)
@@ -1689,9 +1680,8 @@
                :default (copy-core-var inst?))
      'inst-ms #?(:clj (copy-var core-protocols/inst-ms clojure-core-ns {:name 'inst-ms})
                  :default (copy-core-var inst-ms))
-     #?@(:clj ['Inst core-protocols/inst-protocol
-               'inst-ms* (new-var 'inst-ms* core-protocols/inst-ms*
-                                  clojure-core-ns {:arglists '([inst])})])
+     ;; on :clj Inst and inst-ms* are per context, see
+     ;; sci.impl.core-protocols/install-protocol-vars
      'instance? (copy-var protocols/instance-impl clojure-core-ns {:name 'instance?})
      #?@(:cljd [] :default ['int-array (copy-core-var int-array)])
      'interleave (copy-core-var interleave)

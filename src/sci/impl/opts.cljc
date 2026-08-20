@@ -2,6 +2,7 @@
   {:no-doc true}
   (:require
    #?(:cljs [goog.string])
+   [sci.impl.core-protocols :as core-protocols]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
@@ -10,7 +11,7 @@
                       [sci.impl.types ICustomType])]))
 
 #?(:clj
-   (defrecord Env [namespaces imports load-fn]))
+   (defrecord Env [namespaces imports load-fn protocol-multis]))
 
 (def namespace-syms (keys namespaces/namespaces))
 
@@ -18,12 +19,18 @@
                  load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases]
   (swap! env (fn [env]
                (let [env-nss (:namespaces env)
+                     #?@(:cljs []
+                         :default [fresh-multis (when-not env-nss
+                                                  (core-protocols/new-protocol-multis))])
                      namespaces (merge-with merge
                                             (or
                                              ;; either the env has already got namespaces
                                              env-nss
-                                             ;; or we need to install the default namespaces
-                                             namespaces/namespaces)
+                                             ;; or we need to install the default namespaces,
+                                             ;; with fresh per-context protocol multifns
+                                             #?(:cljs namespaces/namespaces
+                                                :default (core-protocols/install-protocol-vars
+                                                          namespaces/namespaces fresh-multis)))
                                             namespaces)
                      aliases (merge aliases
                                     (get-in env [:namespaces 'user :aliases]))
@@ -45,13 +52,17 @@
                      #?@(:cljs [js-libs (merge (:js-libs env) js-libs)])]
                  ;; TODO: is the first case ever hit?
                  (if-not env
-                   #?(:clj (->Env namespaces imports load-fn)
+                   #?(:clj (->Env namespaces imports load-fn fresh-multis)
                       :default {:namespaces namespaces
                                 :imports imports
                                 :load-fn load-fn
-                                #?@(:cljs [:async-load-fn async-load-fn])})
+                                #?@(:cljs [:async-load-fn async-load-fn]
+                                    :default [:protocol-multis fresh-multis])})
                    (assoc env
                           :namespaces namespaces
+                          #?@(:cljs []
+                              :default [:protocol-multis (or (:protocol-multis env)
+                                                             fresh-multis)])
                           :imports imports
                           :load-fn load-fn
                           #?@(:cljs [:async-load-fn async-load-fn

@@ -382,7 +382,7 @@
 ;; misses sci types that implemented sci's clojure.core/Inst
 #?(:clj
    (defn inst?* [x]
-     (satisfies? (deref core-protocols/inst-protocol) x)))
+     (satisfies? (deref (core-protocols/lookup 'Inst)) x)))
 
 (defn instance-impl [clazz x]
   (cond

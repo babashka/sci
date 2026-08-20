@@ -1,5 +1,6 @@
 (ns sci.core-protocols-test
   (:require [clojure.test :refer [deftest is testing]]
+            #?(:clj [sci.core :as sci])
             [sci.test-utils :as tu]))
 
 (defn eval* [prog]
@@ -211,7 +212,23 @@
        (is (false? (eval* "(inst? 1)"))))
      (testing "satisfies?"
        (is (true? (eval* "(defrecord Foo [t] Inst (inst-ms* [_] t)) (satisfies? Inst (->Foo 1))")))
-       ;; NOTE: a name that no other test extends Inst to: :satisfies is
-       ;; tracked on the shared Inst var by type name, so extending Inst to
-       ;; user.Foo in one context is visible from another
        (is (false? (eval* "(defrecord NotAnInst [t]) (satisfies? Inst (->NotAnInst 1))"))))))
+
+#?(:clj
+   (deftest cross-context-isolation-test
+     (testing "extend-type on a host class stays in its own context"
+       (let [ctx1 (sci/init {})
+             ctx2 (sci/init {})]
+         (is (= 42 (sci/eval-string* ctx1 "(extend-type String Inst (inst-ms* [x] 42)) (inst-ms \"foo\")")))
+         (is (false? (sci/eval-string* ctx2 "(inst? \"foo\")")))
+         (is (thrown? Exception (sci/eval-string* ctx2 "(inst-ms \"foo\")")))
+         (is (true? (sci/eval-string* ctx1 "(inst? \"foo\")")))))
+     (testing "a :default override stays in its own context"
+       (let [ctx1 (sci/init {})]
+         (is (= :hijacked (sci/eval-string* ctx1 "(defmethod inst-ms* :default [x] :hijacked) (inst-ms #inst \"2020\")")))
+         (is (= 1577836800000 (sci/eval-string* (sci/init {}) "(inst-ms #inst \"2020\")")))))
+     (testing ":satisfies bookkeeping on the protocol var stays in its own context"
+       (let [ctx1 (sci/init {})
+             ctx2 (sci/init {})]
+         (sci/eval-string* ctx1 "(defrecord SameName [t]) (extend-protocol Inst SameName (inst-ms* [x] (:t x)))")
+         (is (false? (sci/eval-string* ctx2 "(defrecord SameName [t]) (satisfies? Inst (->SameName 1))")))))))
