@@ -1273,10 +1273,22 @@
           "Sets the value at the index/indices. Works on Java arrays of
            reference types. Returns val."
           ([arr idx val]
-           (let [ctype (.getComponentType (class arr))
-                 prim? (.isPrimitive ctype)]
-             (if prim?
-               (reflective-aset arr idx val)
+           (let [ctype (.getComponentType (class arr))]
+             (if (.isPrimitive ctype)
+               ;; dispatch to the typed RT/aset overloads: calling the
+               ;; overloaded RT/aset with Object arguments reflects on every
+               ;; write, which costs microseconds
+               (let [i (int idx)]
+                 (condp identical? ctype
+                   Double/TYPE    (clojure.lang.RT/aset ^doubles arr i (double val))
+                   Long/TYPE      (clojure.lang.RT/aset ^longs arr i (long val))
+                   Integer/TYPE   (clojure.lang.RT/aset ^ints arr i (int val))
+                   Boolean/TYPE   (clojure.lang.RT/aset ^booleans arr i (boolean val))
+                   Byte/TYPE      (clojure.lang.RT/aset ^bytes arr i (byte val))
+                   Character/TYPE (clojure.lang.RT/aset ^chars arr i (char val))
+                   Float/TYPE     (clojure.lang.RT/aset ^floats arr i (float val))
+                   Short/TYPE     (clojure.lang.RT/aset ^shorts arr i (short val))
+                   (reflective-aset arr idx val)))
                (aset ^objects arr idx val))))
           ([arr idx idx2 & idxv]
            (apply aset* (aget ^objects arr idx) idx2 idxv))))
