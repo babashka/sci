@@ -31,7 +31,8 @@
        (catch #?(:cljd Object :clj Throwable :cljs :default) e
          (rethrow-driver-error e loc))))
 
-(defn for-driver
+(defn ^:no-doc for-driver
+  "Implementation detail of for, don't call directly."
   ;; innermost level: lazy chunk-aware map of f over coll, f may return
   ;; skip (:when failed) or stop (:while failed)
   [coll f loc]
@@ -58,7 +59,8 @@
                             :else (cons v (step (rest s)))))))))]
     (lazy-seq (step (seq-guard coll loc)))))
 
-(defn for-driver-cat
+(defn ^:no-doc for-driver-cat
+  "Implementation detail of for, don't call directly."
   ;; outer level: f returns the (already lazy) inner seq per element,
   ;; concatenated lazily
   [coll f loc]

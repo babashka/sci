@@ -98,6 +98,7 @@
                                       (= 'ns sym)
                                       (= 'lazy-seq sym)))
           dyn (:dynamic m)
+          no-doc (:no-doc m)
           private (:private m)
           arglists (:arglists m)
           ;; host tags are JVM classes, they don't compile on cljd
@@ -110,6 +111,7 @@
                  inline (assoc :sci.impl/inlined (:inlined opts fqsym))
                  (not elide-vars) (assoc :doc (:doc m))
                  dyn (assoc :dynamic dyn)
+                 no-doc (assoc :no-doc no-doc)
                  private (assoc :private private)
                  (and (not macro) (:sci.impl/public opts)
                       (or (:macro m) (:sci/macro m)))

@@ -13,7 +13,8 @@
     (throw (new #?(:cljd ArgumentError :clj IllegalArgumentException :cljs js/Error)
                 "doseq requires an even number of forms in binding vector"))))
 
-(defn doseq-driver
+(defn ^:no-doc doseq-driver
+  "Implementation detail of doseq, don't call directly."
   ;; iteration driver compiled into the host image: doseq expansions call
   ;; this instead of interpreting the chunked-seq loop scaffold
   [coll f loc]
