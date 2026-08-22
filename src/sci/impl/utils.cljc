@@ -71,6 +71,21 @@
 
 (def ^:dynamic *in-try* false)
 
+(defn rethrow-driver-error
+  ;; compiled iteration drivers (doseq/for) call this for errors escaping
+  ;; host-side iteration, e.g. seq creation on a non-seqable: sci errors
+  ;; and errors inside try keep their identity, the rest gets the
+  ;; originating form's location
+  [e loc]
+  (let [d (ex-data e)]
+    (if (or *in-try*
+            (and (isa? (:type d) :sci/error) (:sci.impl/callstack d)))
+      (throw e)
+      ;; the callstack entry makes rethrow-with-location-of-node preserve
+      ;; this error instead of re-wrapping it at an enclosing node
+      (throw-error-with-location (ex-message e) (with-meta [] loc)
+                                 {:sci.impl/callstack (volatile! '())}))))
+
 (defn macro? [f]
   (when-some [m (meta f)]
     (or (:sci/macro m)

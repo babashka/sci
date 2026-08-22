@@ -1,6 +1,7 @@
 (ns sci.impl.doseq-macro
   {:no-doc true}
-  (:require [sci.impl.utils :refer [allowed-loop allowed-recur]]))
+  (:require [sci.impl.utils :refer [allowed-loop allowed-recur
+                                    rethrow-driver-error]]))
 
 ;; based on the source of clojure.core/doseq
 
@@ -15,8 +16,10 @@
 (defn doseq-driver
   ;; iteration driver compiled into the host image: doseq expansions call
   ;; this instead of interpreting the chunked-seq loop scaffold
-  [coll f]
-  (reduce (fn [_ x] (f x) nil) nil coll)
+  [coll f loc]
+  (try (reduce (fn [_ x] (f x) nil) nil coll)
+       (catch #?(:cljd Object :clj Throwable :cljs :default) e
+         (rethrow-driver-error e loc)))
   nil)
 
 (defn expand-doseq-driver
@@ -34,9 +37,11 @@
                        (= :when k) `(~'when ~v ~subform))
                      (with-meta
                        (if (simple-symbol? k)
-                         `(~doseq-driver ~v (fn* [~k] ~subform))
+                         `(~doseq-driver ~v (fn* [~k] ~subform) ~loc)
                          (let [g (gensym "x_")]
-                           `(~doseq-driver ~v (fn* [~g] (let [~k ~g] ~subform)))))
+                           `(~doseq-driver ~v (fn* [~g] ~(with-meta
+                                                           `(let [~k ~g] ~subform)
+                                                           loc)) ~loc)))
                        loc)))))]
     (step (seq seq-exprs))))
 

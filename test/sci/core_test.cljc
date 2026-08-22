@@ -512,10 +512,9 @@
                         #"allowed"
                         (tu/eval* "(clojure.core/inc 1)" {:deny '[clojure.core/inc]})))
 
-  (testing "for/doseq are macroexpanded properly"
-    (is (= 'loop* (first (tu/eval* "(macroexpand '(doseq [i [1 2 3]] nil))" {}))))
-    (is (= 'let*
-           (first (tu/eval* "(macroexpand '(for [i [1 2 3]] i))" {})))))
+  (testing "for/doseq expansions contain no symbols that permissions could deny"
+    (is (true? (tu/eval* "(not-any? #{'loop* 'recur} (tree-seq seqable? seq (macroexpand '(doseq [i [1 2 3]] nil))))" {})))
+    (is (true? (tu/eval* "(not-any? #{'loop* 'recur} (tree-seq seqable? seq (macroexpand '(for [i [1 2 3]] i))))" {}))))
   (testing "for/doseq/dotimes use loop in a safe manner, so `{:deny '[loop recur]}` should not forbid it, see #141"
     (is '(1 2 3) (tu/eval* "(for [i [1 2 3] j [4 5 6]] [i j])" {:deny '[loop recur]}))
     (is (nil? (tu/eval* "(doseq [i [1 2 3]] i)" {:deny '[loop recur]})))
@@ -1205,9 +1204,7 @@
 (deftest macroexpand-1-test
   (is (= [1 1] (eval* "(defmacro foo [x] `[~x ~x]) (macroexpand-1 '(foo 1))")))
   (is (= '(if 1 1 (clojure.core/cond)) (eval* "(macroexpand-1 '(cond 1 1))")))
-  (is (= #?(:clj 'clojure.core/let
-            :cljs 'cljs.core/let)
-         (first (eval* "(macroexpand-1 '(for [x [1 2 3]] x))"))))
+  (is (true? (eval* "(fn? (first (macroexpand-1 '(for [x [1 2 3]] x))))")))
   (is (= '(user/bar 1) (eval* "(defmacro foo [x] `(bar ~x)) (defmacro bar [x] x) (macroexpand-1 '(foo 1))")))
   (is (= '(foobar) (eval* "(defmacro foo [] '(foobar)) (macroexpand '(foo))")))
   (is (= 'do (first (eval* "(macroexpand '(defrecord Foo []))"))))
