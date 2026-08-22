@@ -12,9 +12,36 @@
     (throw (new #?(:cljd ArgumentError :clj IllegalArgumentException :cljs js/Error)
                 "doseq requires an even number of forms in binding vector"))))
 
-(defn expand-doseq
-  [expr _ seq-exprs & body]
-  (assert-args seq-exprs body)
+(defn doseq-driver
+  ;; iteration driver compiled into the host image: doseq expansions call
+  ;; this instead of interpreting the chunked-seq loop scaffold
+  [coll f]
+  (reduce (fn [_ x] (f x) nil) nil coll)
+  nil)
+
+(defn expand-doseq-driver
+  [expr seq-exprs body]
+  (let [loc (meta expr)
+        step (fn step [exprs]
+               (if-not exprs
+                 `(~'do ~@body)
+                 (let [k (first exprs)
+                       v (second exprs)
+                       subform (step (nnext exprs))]
+                   (if (keyword? k)
+                     (cond
+                       (= :let k) `(let ~v ~subform)
+                       (= :when k) `(~'when ~v ~subform))
+                     (with-meta
+                       (if (simple-symbol? k)
+                         `(~doseq-driver ~v (fn* [~k] ~subform))
+                         (let [g (gensym "x_")]
+                           `(~doseq-driver ~v (fn* [~g] (let [~k ~g] ~subform)))))
+                       loc)))))]
+    (step (seq seq-exprs))))
+
+(defn expand-doseq-loop
+  [expr seq-exprs body]
   (let [loc (meta expr)
         step (fn step [recform exprs]
                (if-not exprs
@@ -72,3 +99,12 @@
         ret (nth (step nil (seq seq-exprs)) 1)]
     ;; (prn :ret ret)
     ret))
+
+(defn expand-doseq
+  [expr _ seq-exprs & body]
+  (assert-args seq-exprs body)
+  ;; :while needs early exit from the driver's reduce; keep the loop
+  ;; expansion for that case
+  (if (some #(= :while %) (take-nth 2 seq-exprs))
+    (expand-doseq-loop expr seq-exprs body)
+    (expand-doseq-driver expr seq-exprs body)))
