@@ -95,7 +95,9 @@
                                 (= :when k) `(if ~v ~(do-mod etc) ~skip)
                                 (keyword? k) (err "Invalid 'for' keyword " k)
                                 :else inner))
-                     driver (if next-groups for-driver-cat for-driver)
+                     driver (if next-groups
+                              `clojure.core/for-driver-cat
+                              `clojure.core/for-driver)
                      thunk-body (do-mod (seq mod-pairs))]
                  (with-meta
                    (if (simple-symbol? bind)

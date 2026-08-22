@@ -37,11 +37,12 @@
                        (= :when k) `(~'when ~v ~subform))
                      (with-meta
                        (if (simple-symbol? k)
-                         `(~doseq-driver ~v (fn* [~k] ~subform) ~loc)
+                         `(clojure.core/doseq-driver ~v (fn* [~k] ~subform) ~loc)
                          (let [g (gensym "x_")]
-                           `(~doseq-driver ~v (fn* [~g] ~(with-meta
-                                                           `(let [~k ~g] ~subform)
-                                                           loc)) ~loc)))
+                           `(clojure.core/doseq-driver
+                             ~v (fn* [~g] ~(with-meta
+                                             `(let [~k ~g] ~subform)
+                                             loc)) ~loc)))
                        loc)))))]
     (step (seq seq-exprs))))
 
