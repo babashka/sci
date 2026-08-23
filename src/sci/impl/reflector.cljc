@@ -267,6 +267,38 @@
        widened)))
 
 #?(:clj
+   (defn resolve-accessible-method
+     "For a monomorphic call site: when methods holds exactly one Method,
+      resolves the accessible version for this receiver once and returns
+      [Method paramTypes returnType] as an object array, or nil when the site
+      is overloaded or no accessible version exists. Sound to cache per
+      receiver class: accessibility depends on the class and its module, not
+      the instance."
+     ^objects [^java.util.List methods target]
+     (when (== 1 (.size methods))
+       (let [^Method m (.get methods 0)
+             ^Method am (if (or (not (Modifier/isPublic
+                                      (.getModifiers (.getDeclaringClass m))))
+                                (and target (not (.canAccess m target))))
+                          (clojure.lang.Reflector/getAsMethodOfAccessibleBase
+                           (.getClass ^Object target) m target)
+                          m)]
+         (when am
+           (object-array [am (.getParameterTypes am) (.getReturnType am)]))))))
+
+#?(:clj
+   (defn invoke-resolved-method
+     "Invokes a method pre-resolved by resolve-accessible-method: no per-call
+      accessibility checks, no getParameterTypes clone, no overload matching."
+     [^objects resolved target ^objects args]
+     (let [^Method m (aget resolved 0)]
+       (try
+         (Reflector/prepRet ^Class (aget resolved 2)
+                            (.invoke m target (box-args (aget resolved 1) args)))
+         (catch Exception e
+           (throw (clojure.lang.Util/sneakyThrow (or (.getCause e) e))))))))
+
+#?(:clj
    (defn invoke-matching-method
      "Invoke a method matching the given name from a list of methods.
       This is the core SCI-specific method that supports type hints via arg-types.

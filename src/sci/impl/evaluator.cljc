@@ -6,6 +6,7 @@
    [sci.impl.interop :as interop]
    [sci.impl.macros :as macros]
    [sci.impl.records :as records]
+   #?@(:cljd [] :cljs [] :default [[sci.impl.reflector :as reflector]])
    [sci.impl.resolve :as resolve]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [rethrow-with-location-of-node
@@ -243,12 +244,19 @@
            (if (and cached
                       (identical? class->opts (aget #?(:clj ^objects cached :cljs cached) 0))
                       (identical? instance-class (aget #?(:clj ^objects cached :cljs cached) 1)))
-               ;; fast path: this class resolved to plain interop before; reflect on
-               ;; the cached target class (may differ from instance-class via :public-class)
-               (if field-access
-                 (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
-                 #?(:clj (interop/invoke-instance-method-with-methods ctx bindings instance-expr* (aget ^objects cached 2) method-str (aget ^objects cached 3) args arg-count arg-types)
-                    :cljs (interop/invoke-instance-method ctx bindings instance-expr* (aget cached 2) method-str args arg-count arg-types)))
+               ;; fast path: this class resolved here before; call the cached
+               ;; override, or reflect on the cached target class (which may
+               ;; differ from instance-class via :public-class)
+               (if-some [f (aget #?(:clj ^objects cached :cljs cached) #?(:clj 4 :cljs 3))]
+                 (if field-access
+                   (f instance-expr*)
+                   (fn-call ctx bindings (partial f instance-expr*) args))
+                 (if field-access
+                   (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
+                   #?(:clj (if-some [resolved (aget ^objects cached 5)]
+                             (interop/invoke-instance-method-resolved ctx bindings instance-expr* resolved args arg-count)
+                             (interop/invoke-instance-method-with-methods ctx bindings instance-expr* (aget ^objects cached 2) method-str (aget ^objects cached 3) args arg-count arg-types))
+                      :cljs (interop/invoke-instance-method ctx bindings instance-expr* (aget cached 2) method-str args arg-count arg-types))))
                (let [allowed? (or
                                #?(:cljs allowed)
                                (let [instance-class-name #?(:clj (.getName ^Class instance-class)
@@ -280,27 +288,40 @@
                      (let [f (get (:instance-fields class-opts) method-sym)]
                        (case (interop/member-disposition f class-opts :instance-fields)
                          :override
-                         (f instance-expr*)
+                         (do (when cache?
+                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil f nil]
+                                                               :cljs [class->opts instance-class target-class f]))))
+                             (f instance-expr*))
                          :deny
                          (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
                          :reflect
                          (do (when cache?
-                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil]
-                                                               :cljs [class->opts instance-class target-class]))))
+                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil nil nil]
+                                                               :cljs [class->opts instance-class target-class nil]))))
                              (interop/invoke-instance-field instance-expr* target-class method-str))))
                      (let [f (get (:instance-methods class-opts) method-sym)]
                        (case (interop/member-disposition f class-opts :instance-methods)
                          :override
-                         (apply f instance-expr* (map #(types/eval % ctx bindings) args))
+                         (do (when cache?
+                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil f nil]
+                                                               :cljs [class->opts instance-class target-class f]))))
+                             (fn-call ctx bindings (partial f instance-expr*) args))
                          :deny
                          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
                          :reflect
                          #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
                                    (when cache?
-                                     (vreset! cache (object-array [class->opts instance-class target-class methods])))
+                                     ;; a monomorphic single-method site also caches the
+                                     ;; accessibility-resolved Method: no per-call access
+                                     ;; checks, parameter-type clone or overload matching.
+                                     ;; nil for overloaded sites and for sites with
+                                     ;; param-tags, which pick a method per call
+                                     (vreset! cache (object-array [class->opts instance-class target-class methods nil
+                                                                   (when (nil? arg-types)
+                                                                     (reflector/resolve-accessible-method methods instance-expr*))])))
                                    (interop/invoke-instance-method-with-methods ctx bindings instance-expr* target-class method-str methods args arg-count arg-types))
                             :cljs (do (when cache?
-                                        (vreset! cache (object-array [class->opts instance-class target-class])))
+                                        (vreset! cache (object-array [class->opts instance-class target-class nil])))
                                       (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))))))))))
 
 ;;;; End interop
@@ -389,13 +410,14 @@
           (apply f args))))
   (defmacro def-fn-call []
     (let [cases
+          ;; nth-based: args may be a vector (analyzer fallback) or an object
+          ;; array (interop overrides), both index in O(1), and neither pays
+          ;; the seq allocation of a first/rest chain
           (mapcat (fn [i]
-                    [i (let [arg-syms (map (fn [_] (gensym "arg")) (range i))
-                             args-sym 'args ;; (gensym "args")
-                             let-syms (interleave arg-syms (repeat args-sym))
-                             let-vals (interleave (repeat `(types/eval (first ~args-sym) ~'ctx ~'bindings))
-                                                  (repeat `(rest ~args-sym)))
-                             let-bindings (vec (interleave let-syms let-vals))]
+                    [i (let [arg-syms (mapv (fn [j] (gensym (str "arg" j))) (range i))
+                             let-bindings (vec (mapcat (fn [j sym]
+                                                         [sym `(types/eval (nth ~'args ~j) ~'ctx ~'bindings)])
+                                                       (range i) arg-syms))]
                          `(let ~let-bindings
                             (~'f ~@arg-syms)))]) (range 20))
           cases (concat cases ['(let [args (mapv #(types/eval % ctx bindings) args)]

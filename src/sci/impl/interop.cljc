@@ -44,6 +44,16 @@
                  :instance-methods)))
 
 #?(:clj
+   (defn invoke-instance-method-resolved
+     "Invokes a method that resolve-accessible-method pre-resolved for this
+      call site: evaluate the arguments and invoke, nothing else."
+     [ctx bindings obj ^objects resolved ^objects args arg-count]
+     (let [args-array (object-array arg-count)]
+       (areduce args idx _ret nil
+                (aset args-array idx (sci.impl.types/eval (aget args idx) ctx bindings)))
+       (reflector/invoke-resolved-method resolved obj args-array))))
+
+#?(:clj
    (defn invoke-instance-method-with-methods
      "Like invoke-instance-method but takes a pre-resolved method list, skipping
      the meth-cache lookup. Used by the per-call-site inline cache."
