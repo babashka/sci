@@ -108,6 +108,19 @@
        resolved)))
 
 #?(:clj
+   (defn- invoke-no-entry
+     "No resolved entry yet: zero-arg field fallback, a first call, or a
+      param-tags site."
+     [ctx bindings obj ^Class target-class method cache ^objects cached ^objects args arg-count arg-types]
+     (let [^java.util.List methods (aget cached 3)]
+       (if (and (zero? (int arg-count)) (.isEmpty methods))
+         (invoke-instance-field obj target-class method)
+         (let [args-array (eval-args ctx bindings args arg-count)]
+           (reflector/invoke-resolved-method
+            (resolve-and-cache obj target-class method cache cached args-array arg-types)
+            obj args-array))))))
+
+#?(:clj
    (defn invoke-instance-method-cached
      "When the argument classes match, this function uses the resolved entry
       in cache slot 4. Otherwise, it resolves and caches the method again."
@@ -115,18 +128,12 @@
      (if-some [^objects entry (aget cached 4)]
        (let [args-array (eval-args ctx bindings args arg-count)
              ^objects prev-arg-classes (aget entry 3)]
-         (reflector/invoke-resolved-method
-          (if (or (nil? prev-arg-classes) (arg-classes-match? prev-arg-classes args-array))
-            entry
-            (resolve-and-cache obj target-class method cache cached args-array arg-types))
-          obj args-array))
-       (let [^java.util.List methods (aget cached 3)]
-         (if (and (zero? (int arg-count)) (.isEmpty methods))
-           (invoke-instance-field obj target-class method)
-           (let [args-array (eval-args ctx bindings args arg-count)]
-             (reflector/invoke-resolved-method
-              (resolve-and-cache obj target-class method cache cached args-array arg-types)
-              obj args-array)))))))
+         (if (or (nil? prev-arg-classes) (arg-classes-match? prev-arg-classes args-array))
+           (reflector/invoke-resolved-method entry obj args-array)
+           (reflector/invoke-resolved-method
+            (resolve-and-cache obj target-class method cache cached args-array arg-types)
+            obj args-array)))
+       (invoke-no-entry ctx bindings obj target-class method cache cached args arg-count arg-types))))
 
 (defn invoke-instance-method
   #?@(:cljd [[_ctx _bindings _obj _target-class method-name _args _arg-count _arg-types]
