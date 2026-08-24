@@ -45,7 +45,7 @@
 
 #?(:clj
    (defn eval-args
-     "Evaluates the argument nodes into a fresh object array."
+     "This function evaluates the argument nodes into a new object array."
      ^objects [ctx bindings ^objects args arg-count]
      (let [out (object-array (int arg-count))]
        (areduce args idx _ret nil
@@ -64,7 +64,7 @@
 
 #?(:clj
    (defn- arg-classes
-     "The classes of the evaluated arguments, nil for a nil argument."
+     "This function returns the class of each evaluated argument. A nil argument produces a nil element."
      ^objects [^objects args]
      (let [n (alength args)
            out (object-array n)]
@@ -87,15 +87,16 @@
 
 #?(:clj
    (defn- resolve-and-cache
-     "Resolves the method by reflection and, for a site without param-tags,
-      publishes a [Method paramTypes returnType prevArgClasses] entry in cache
-      slot 4. prevArgClasses is checked against the argument classes of later
-      calls; it is nil for a single-candidate site: any arguments either fit
-      or error. Publishing goes through the cache volatile so a fresh array
-      with a fully built entry is all other threads can observe."
+     "This function resolves the method with reflection. For a site without
+      parameter tags, it stores a [Method paramTypes returnType prevArgClasses]
+      entry in cache slot 4.
+      Later calls compare prevArgClasses with their argument classes. For a
+      single-candidate site, prevArgClasses is nil. The arguments either fit
+      that candidate or cause an error. The function builds the full entry
+      before it updates the volatile."
      ^objects [obj ^Class target-class method cache ^objects cached ^objects args-array arg-types]
      (let [^java.util.List methods (aget cached 3)
-           ;; classes recorded before matching, which may widen args in place
+           ;; The code records the classes before matching. Matching can widen args in place.
            prev-arg-classes (when (and (nil? arg-types) (< 1 (.size methods)))
                               (arg-classes args-array))
            resolved (reflector/resolve-method method methods target-class obj args-array arg-types)]
@@ -108,8 +109,8 @@
 
 #?(:clj
    (defn invoke-instance-method-cached
-     "Invokes through the resolved entry in cache slot 4 when the argument
-      classes still match, else (re)resolves via resolve-and-cache."
+     "When the argument classes match, this function uses the resolved entry
+      in cache slot 4. Otherwise, it resolves and caches the method again."
      [ctx bindings obj ^Class target-class method cache ^objects cached ^objects args arg-count arg-types]
      (if-some [^objects entry (aget cached 4)]
        (let [args-array (eval-args ctx bindings args arg-count)

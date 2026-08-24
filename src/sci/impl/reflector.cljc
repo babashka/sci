@@ -268,7 +268,7 @@
 
 #?(:clj
    (defn- accessible-version
-     "Accessible version of Method m for this target, or nil."
+     "This function returns an accessible version of Method m for this target, or nil."
      ^Method [^Method m context-class target]
      (if (or (not (Modifier/isPublic (.getModifiers (.getDeclaringClass m))))
              (and target (not (.canAccess m target))))
@@ -278,15 +278,15 @@
 
 #?(:clj
    (defn resolve-method
-     "Selects the matching method and resolves its accessible version,
-      returning [Method paramTypes returnType] without invoking it. May widen
-      boxed numbers in args in place."
+     "This function selects the matching method and its accessible version.
+      It returns [Method paramTypes returnType] without invocation. It can
+      widen boxed numbers in args."
      ^objects [method-name ^java.util.List methods context-class target ^objects args arg-types]
      (let [^Method m (when-not (.isEmpty methods)
                        (if (== 1 (.size methods))
                          (.get methods 0)
                          (or (match-method methods args arg-types)
-                             ;; widen boxed args and re-try
+                             ;; Widen boxed args and try again.
                              (match-method methods (widen-boxed-args! args) arg-types))))]
        (if (nil? m)
          (throw (IllegalArgumentException.
@@ -300,8 +300,8 @@
 
 #?(:clj
    (defn invoke-resolved-method
-     "Invokes a resolved [Method paramTypes returnType]: no accessibility
-      checks, parameter-type clone or overload matching."
+     "This function invokes a resolved [Method paramTypes returnType] entry.
+      It skips accessibility checks, parameter-type cloning, and overload matching."
      [^objects resolved target ^objects args]
      (let [^Method m (aget resolved 0)]
        (try

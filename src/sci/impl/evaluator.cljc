@@ -243,10 +243,10 @@
            (if (and cached
                       (identical? class->opts (aget #?(:clj ^objects cached :cljs cached) 0))
                       (identical? instance-class (aget #?(:clj ^objects cached :cljs cached) 1)))
-               ;; fast path: this class resolved to plain interop before; invoke
-               ;; through the site's resolved-method entry, or reflect on the
-               ;; cached target class (may differ from instance-class via
-               ;; :public-class)
+               ;; Fast path: This class previously resolved to plain interop.
+               ;; This path uses the site's resolved method. Without an entry,
+               ;; it reflects on the cached target class. :public-class can
+               ;; cause the cached and instance classes to differ.
                (if field-access
                  (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
                  #?(:clj (interop/invoke-instance-method-cached ctx bindings instance-expr* (aget ^objects cached 2) method-str cache cached args arg-count arg-types)
