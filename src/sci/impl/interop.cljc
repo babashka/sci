@@ -11,6 +11,17 @@
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
+#?(:clj
+   (defn get-instance-field
+     "This function resolves a public non-static field on target-class."
+     [^Class target-class ^String field-name]
+     (let [^Field field (.getField target-class field-name)
+           mod (.getModifiers field)]
+       (if (and (not (Modifier/isStatic mod))
+                (Modifier/isPublic mod))
+         field
+         (throw (ex-info (str "Not found or accessible instance field: " field-name) {}))))))
+
 (defn invoke-instance-field
   #?@(:cljd [[obj _target-class field-name]
              (throw (ex-info (str "Instance fields not yet supported in cljd: " field-name) {}))]
@@ -19,12 +30,7 @@
              (aget obj field-name)]
       :clj
       [[obj ^Class target-class method]
-       (let [^Field field (.getField target-class method)
-             mod (.getModifiers field)]
-         (if (and (not (Modifier/isStatic mod))
-                  (Modifier/isPublic mod))
-           (.get field obj)
-           (throw (ex-info (str "Not found or accessible instance field: " method) {}))))]))
+       (.get ^Field (get-instance-field target-class method) obj)]))
 
 #?(:cljd nil
    :clj
@@ -111,12 +117,19 @@
 
 #?(:clj
    (defn- invoke-no-entry
-     "No resolved entry yet: zero-arg field fallback, a first call, or a
-      param-tags site."
+     "The cache has no resolved entry for a zero-argument field fallback, a
+      first call, or a param-tags site. The fallback caches its Field in slot 5."
      [ctx bindings obj ^Class target-class method cache ^objects cached ^objects args arg-count arg-types]
      (let [^java.util.List methods (aget cached 3)]
        (if (and (zero? (int arg-count)) (.isEmpty methods))
-         (invoke-instance-field obj target-class method)
+         (if-some [field (aget cached 5)]
+           (.get ^Field field obj)
+           (let [^Field field (get-instance-field target-class method)]
+             (when cache
+               (let [^objects arr (aclone cached)]
+                 (aset arr 5 field)
+                 (vreset! cache arr)))
+             (.get field obj)))
          (let [args-array (eval-args ctx bindings args arg-count)]
            (reflector/invoke-resolved-method
             (resolve-and-cache obj target-class method cache cached args-array arg-types)
@@ -158,6 +171,21 @@
   #?(:cljd (throw (ex-info (str "Static fields not yet supported in cljd: " field-name-sym) {}))
      :clj (reflector/get-static-field class (str field-name-sym))
      :cljs (unchecked-get class field-name-sym)))
+
+#?(:clj
+   (defn get-static-field-cached
+     "This function reads a static field through the Field in the volatile cache.
+      It caches the Field instead of its value. Thus, a non-final static field
+      stays readable after mutation."
+     [^Class class ^String field-name cache]
+     (let [f @cache
+           ^Field f (or f
+                        (let [f (clojure.lang.Reflector/getField class field-name true)]
+                          (if (nil? f)
+                            (throw (IllegalArgumentException.
+                                    (str "No matching field found: " field-name " for " class)))
+                            (do (vreset! cache f) f))))]
+       (clojure.lang.Reflector/prepRet (.getType f) (.get f nil)))))
 
 #?(:cljs
    (def fn-eval-allowed?
