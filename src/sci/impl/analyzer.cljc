@@ -1221,9 +1221,10 @@
                                   :override (sci.impl.types/->Node (override instance-expr) stack)
                                   :deny (utils/throw-error-with-location
                                          (str "Field " field-name-str " on " instance-expr " not allowed!") expr)
-                                  :reflect (sci.impl.types/->Node
-                                            (interop/get-static-field instance-expr field-name-str)
-                                            stack))))]
+                                  :reflect (let [cache (volatile! nil)]
+                                             (sci.impl.types/->Node
+                                              (interop/get-static-field-cached instance-expr field-name-str cache)
+                                              stack)))))]
                         (if (nil? args)
                           (if field-access
                             (static-field meth-name)
@@ -1870,9 +1871,10 @@
                  :override (sci.impl.types/->Node (override clazz) stack)
                  :deny (utils/throw-error-with-location
                         (str "Field " meth " on class " (.getName ^Class clazz) " not allowed!") expr)
-                 :reflect (sci.impl.types/->Node
-                           (interop/get-static-field clazz meth)
-                           stack)))
+                 :reflect (let [cache (volatile! nil)]
+                            (sci.impl.types/->Node
+                             (interop/get-static-field-cached clazz meth cache)
+                             stack))))
              ;; Clojure 1.12 supports a constructor as a value: String/new
              (= "new" meth)
              (let [cache (volatile! nil)]

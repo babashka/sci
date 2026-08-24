@@ -248,7 +248,10 @@
                ;; it reflects on the cached target class. :public-class can
                ;; cause the cached and instance classes to differ.
                (if field-access
-                 (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
+                 #?(:clj (if-some [field (aget ^objects cached 4)]
+                           (.get ^java.lang.reflect.Field field instance-expr*)
+                           (interop/invoke-instance-field instance-expr* (aget ^objects cached 2) method-str))
+                    :cljs (interop/invoke-instance-field instance-expr* (aget cached 2) method-str))
                  #?(:clj (interop/invoke-instance-method-cached ctx bindings instance-expr* (aget ^objects cached 2) method-str cache cached args arg-count arg-types)
                     :cljs (interop/invoke-instance-method ctx bindings instance-expr* (aget cached 2) method-str args arg-count arg-types)))
                (let [allowed? (or
@@ -286,10 +289,13 @@
                          :deny
                          (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
                          :reflect
-                         (do (when cache?
-                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil nil]
-                                                               :cljs [class->opts instance-class target-class]))))
-                             (interop/invoke-instance-field instance-expr* target-class method-str))))
+                         #?(:clj (let [field (interop/get-instance-field target-class method-str)]
+                                   (when cache?
+                                     (vreset! cache (object-array [class->opts instance-class target-class nil field])))
+                                   (.get ^java.lang.reflect.Field field instance-expr*))
+                            :cljs (do (when cache?
+                                        (vreset! cache (object-array [class->opts instance-class target-class])))
+                                      (interop/invoke-instance-field instance-expr* target-class method-str)))))
                      (let [f (get (:instance-methods class-opts) method-sym)]
                        (case (interop/member-disposition f class-opts :instance-methods)
                          :override
