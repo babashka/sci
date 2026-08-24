@@ -210,9 +210,9 @@
 
 #?(:clj
    (defn- resolve-static-and-cache
-     "This function resolves a static method with reflection and stores a
-      [Method paramTypes returnType prevArgClasses] entry in the cache
-      volatile. prevArgClasses is nil for a single-candidate site."
+     "This function uses reflection to resolve a static method. It stores a
+      [Method paramTypes returnType prevArgClasses] entry in the volatile cache.
+      prevArgClasses is nil for a call site with one candidate."
      [ctx ^Class class ^String method-name cache ^objects args-array]
      (let [arg-count (alength args-array)
            ^java.util.List methods (meth-cache ctx class method-name arg-count
@@ -228,7 +228,7 @@
 #?(:clj
    (defn invoke-static-method-cached
      "When the argument classes match, this function uses the resolved entry
-      in the cache volatile. Otherwise, it resolves and caches the method."
+      in the volatile cache. Otherwise, it resolves and caches the method."
      [ctx bindings ^Class class ^String method-name cache ^objects args arg-count]
      (let [args-array (eval-args ctx bindings args arg-count)
            ^objects entry @cache]
@@ -242,8 +242,8 @@
 
 #?(:clj
    (defn invoke-static-value
-     "Invoke for a static method used as a value. The arity can differ per
-      call, so the entry is also guarded on the argument count."
+     "This function invokes a static method that is used as a value. The arity
+      can differ between calls. Thus, the function also compares the argument count."
      [ctx ^Class class ^String method-name cache ^objects args-array]
      (let [^objects entry @cache]
        (if (and entry

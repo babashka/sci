@@ -1871,7 +1871,7 @@
                  :reflect (sci.impl.types/->Node
                            (interop/get-static-field clazz meth)
                            stack)))
-             ;; Clojure 1.12 constructor as value: String/new
+             ;; Clojure 1.12 supports a constructor as a value: String/new
              (= "new" meth)
              (sci.impl.types/->Node
               (fn [& args]
