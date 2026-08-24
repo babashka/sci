@@ -46,7 +46,9 @@
 #?(:clj
    (defn eval-args
      "This function evaluates the argument nodes into a new object array."
-     ^objects [ctx bindings ^objects args arg-count]
+     ;; No ^objects hint on the parameter vector: ClojureDart host-compiles
+     ;; this :clj branch and reads that hint as a Dart return type.
+     [ctx bindings ^objects args arg-count]
      (let [out (object-array (int arg-count))]
        (areduce args idx _ret nil
                 (aset out idx (sci.impl.types/eval (aget args idx) ctx bindings)))
@@ -65,7 +67,7 @@
 #?(:clj
    (defn- arg-classes
      "This function returns the class of each evaluated argument. A nil argument produces a nil element."
-     ^objects [^objects args]
+     [^objects args]
      (let [n (alength args)
            out (object-array n)]
        (dotimes [i n]
@@ -94,7 +96,7 @@
       single-candidate site, prevArgClasses is nil. The arguments either fit
       that candidate or cause an error. The function builds the full entry
       before it updates the volatile."
-     ^objects [obj ^Class target-class method cache ^objects cached ^objects args-array arg-types]
+     [obj ^Class target-class method cache ^objects cached ^objects args-array arg-types]
      (let [^java.util.List methods (aget cached 3)
            ;; The code records the classes before matching. Matching can widen args in place.
            prev-arg-classes (when (and (nil? arg-types) (< 1 (.size methods)))
