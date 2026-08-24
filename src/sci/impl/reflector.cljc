@@ -312,8 +312,8 @@
 
 #?(:clj
    (defn resolve-constructor
-     "This function selects the matching constructor like invoke-constructor
-      and returns [Constructor paramTypes multiple?] without invoking it."
+     "This function selects a constructor in the same way as invoke-constructor.
+      It returns [Constructor paramTypes multiple?] but does not invoke the constructor."
      [^Class c ^objects args]
      (let [ctors (.getConstructors c)
            arg-count (alength args)

@@ -257,9 +257,9 @@
 
 #?(:clj
    (defn- resolve-ctor-and-cache
-     "This function resolves a constructor with reflection and stores a
-      [Constructor paramTypes prevArgClasses] entry in the cache volatile.
-      prevArgClasses is nil for a single-candidate site."
+     "This function uses reflection to resolve a constructor. It stores a
+      [Constructor paramTypes prevArgClasses] entry in the volatile cache.
+      prevArgClasses is nil for a call site with one candidate."
      [^Class class cache ^objects args-array]
      (let [^objects resolved (reflector/resolve-constructor class args-array)
            prev-arg-classes (when (aget resolved 2)
@@ -270,7 +270,7 @@
 #?(:clj
    (defn invoke-constructor-cached
      "When the argument classes match, this function uses the resolved entry
-      in the cache volatile. Otherwise, it resolves and caches the constructor."
+      in the volatile cache. Otherwise, it resolves and caches the constructor."
      [ctx bindings ^Class class cache ^objects args arg-count]
      (let [args-array (eval-args ctx bindings args arg-count)
            ^objects entry @cache]
