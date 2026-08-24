@@ -117,8 +117,8 @@
 
 #?(:clj
    (defn- invoke-no-entry
-     "No resolved entry yet: zero-arg field fallback, a first call, or a
-      param-tags site. The fallback caches its Field in slot 5."
+     "The cache has no resolved entry for a zero-argument field fallback, a
+      first call, or a param-tags site. The fallback caches its Field in slot 5."
      [ctx bindings obj ^Class target-class method cache ^objects cached ^objects args arg-count arg-types]
      (let [^java.util.List methods (aget cached 3)]
        (if (and (zero? (int arg-count)) (.isEmpty methods))
@@ -174,9 +174,9 @@
 
 #?(:clj
    (defn get-static-field-cached
-     "This function reads a static field through the Field object in the cache
-      volatile. It caches the Field, not the value: a non-final static stays
-      readable after mutation."
+     "This function reads a static field through the Field in the volatile cache.
+      It caches the Field instead of its value. Thus, a non-final static field
+      stays readable after mutation."
      [^Class class ^String field-name cache]
      (let [f @cache
            ^Field f (or f
