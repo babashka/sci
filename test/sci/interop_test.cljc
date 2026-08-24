@@ -736,10 +736,13 @@
                {:classes {:allow :all
                           'Integer Integer
                           'java.util.concurrent.atomic.AtomicLong java.util.concurrent.atomic.AtomicLong}}))))
-     (testing "nil and non-nil arguments alternate on one site"
-       (is (= "xnully"
+     (testing "nil forces re-resolution away from a cached primitive overload"
+       ;; the first call caches append(int); invoking that entry with nil would
+       ;; throw in argument boxing, so this only passes when the class guard
+       ;; re-resolves to a non-primitive overload
+       (is (= "49null50"
               (sci/eval-string
-               "(let [sb (StringBuilder.)] (doseq [x [\"x\" nil \"y\"]] (.append sb x)) (str sb))"
+               "(let [sb (StringBuilder.)] (doseq [x [(int 49) nil (int 50)]] (.append sb x)) (str sb))"
                {:classes {:allow :all 'StringBuilder StringBuilder}}))))
      (testing "a type error on a warm site does not poison the cache"
        (let [ctx (sci/init {:classes {:allow :all 'StringBuilder StringBuilder}})]
@@ -789,6 +792,10 @@
      (testing "constructor as value re-resolves when the arity changes"
        (is (= ["" "x" "" "x"]
               (sci/eval-string "(let [f StringBuilder/new] (mapv str [(f) (f \"x\") (f) (f \"x\")]))"
+                               {:classes {:allow :all 'StringBuilder StringBuilder}}))))
+     (testing "constructor as value re-resolves when the argument classes change at one arity"
+       (is (= ["x" "" "y" ""]
+              (sci/eval-string "(let [f StringBuilder/new] (mapv str [(f \"x\") (f (int 16)) (f \"y\") (f (int 8))]))"
                                {:classes {:allow :all 'StringBuilder StringBuilder}}))))
      (testing "a type error on a warm constructor site does not poison the cache"
        (let [ctx (sci/init {:classes {:allow :all 'java.io.File java.io.File}})]
