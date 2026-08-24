@@ -1295,9 +1295,11 @@
    :clj
    (defn- invoke-constructor-node [ctx class args]
      (let [ctx (without-recur-target ctx)
-           args (analyze-children ctx args)]
+           args (object-array (analyze-children ctx args))
+           arg-count (alength args)
+           cache (volatile! nil)]
        (sci.impl.types/->Node
-        (interop/invoke-constructor class (mapv #(t/eval % ctx bindings) args))
+        (interop/invoke-constructor-cached ctx bindings class cache args arg-count)
         nil))))
 
 (defn analyze-new [ctx [_new class-sym & args :as expr]]
@@ -1873,10 +1875,22 @@
                            stack)))
              ;; Clojure 1.12 supports a constructor as a value: String/new
              (= "new" meth)
-             (sci.impl.types/->Node
-              (fn [& args]
-                (reflector/invoke-constructor clazz (into-array Object args)))
-              stack)
+             (let [cache (volatile! nil)]
+               (sci.impl.types/->Node
+                (fn
+                  ([]
+                   (interop/invoke-constructor-value clazz cache (object-array 0)))
+                  ([a]
+                   (interop/invoke-constructor-value clazz cache (doto (object-array 1) (aset 0 a))))
+                  ([a b]
+                   (interop/invoke-constructor-value clazz cache (doto (object-array 2) (aset 0 a) (aset 1 b))))
+                  ([a b c]
+                   (interop/invoke-constructor-value clazz cache (doto (object-array 3) (aset 0 a) (aset 1 b) (aset 2 c))))
+                  ([a b c d]
+                   (interop/invoke-constructor-value clazz cache (doto (object-array 4) (aset 0 a) (aset 1 b) (aset 2 c) (aset 3 d))))
+                  ([a b c d & more]
+                   (interop/invoke-constructor-value clazz cache (into-array Object (list* a b c d more)))))
+                stack))
              :else (let [cache (volatile! nil)]
                      (sci.impl.types/->Node
                       (fn

@@ -717,3 +717,89 @@
        (is (true? (sci/eval-string
                    "(= PublicFields/1 (class (make-array PublicFields 0)))"
                    {:classes {'PublicFields PublicFields}}))))))
+
+#?(:clj
+   (deftest instance-callsite-cache-test
+     (testing "overloaded site re-resolves when the argument classes change"
+       (is (= "a1b2.0ca1b2.0c"
+              (sci/eval-string
+               "(let [sb (StringBuilder.)] (doseq [x [\"a\" 1 \"b\" 2.0 \"c\" \"a\" 1 \"b\" 2.0 \"c\"]] (.append sb x)) (str sb))"
+               {:classes {:allow :all 'StringBuilder StringBuilder}}))))
+     (testing "cache rebuilds when the receiver class changes"
+       (is (= ["a" "1" "2.0" "a" "1" "2.0"]
+              (sci/eval-string "(mapv #(.toString %) [\"a\" 1 2.0 \"a\" 1 2.0])"
+                               {:classes {:allow :all}}))))
+     (testing "boxed widening keeps working on cache hits"
+       (is (= [3 3 3]
+              (sci/eval-string
+               "(let [al (java.util.concurrent.atomic.AtomicLong.)] (mapv (fn [_] (do (.set al (Integer/valueOf 3)) (.get al))) [0 1 2]))"
+               {:classes {:allow :all
+                          'Integer Integer
+                          'java.util.concurrent.atomic.AtomicLong java.util.concurrent.atomic.AtomicLong}}))))
+     (testing "nil forces re-resolution away from a cached primitive overload"
+       ;; the first call caches append(int); invoking that entry with nil would
+       ;; throw in argument boxing, so this only passes when the class guard
+       ;; re-resolves to a non-primitive overload
+       (is (= "49null50"
+              (sci/eval-string
+               "(let [sb (StringBuilder.)] (doseq [x [(int 49) nil (int 50)]] (.append sb x)) (str sb))"
+               {:classes {:allow :all 'StringBuilder StringBuilder}}))))
+     (testing "a type error on a warm site does not poison the cache"
+       (let [ctx (sci/init {:classes {:allow :all 'StringBuilder StringBuilder}})]
+         (sci/eval-string* ctx "(def sb (StringBuilder.)) (defn f [x] (.setLength sb x) (str sb))")
+         (is (= "" (sci/eval-string* ctx "(f 0)")))
+         (is (thrown? Exception (sci/eval-string* ctx "(f \"boom\")")))
+         (is (= "" (sci/eval-string* ctx "(f 0)")))))))
+
+#?(:clj
+   (deftest static-callsite-cache-test
+     (testing "overloaded static site re-resolves when the argument classes change"
+       (is (= [3 3 3.5 3 3 3.5]
+              (sci/eval-string "(mapv (fn [x] (Math/abs x)) [(int -3) (long -3) -3.5 (int -3) (long -3) -3.5])"
+                               {:classes {:allow :all 'Math Math}}))))
+     (testing "single-candidate static site stays correct over repeated calls"
+       (is (= 5.0 (sci/eval-string "(loop [i 0 acc 0.0] (if (< i 5) (recur (inc i) (+ acc (Math/floor 1.5))) acc))"
+                                   {:classes {:allow :all 'Math Math}}))))
+     (testing "static method as value re-resolves when the arity changes"
+       (is (= [42 5 42 5]
+              (sci/eval-string "(let [f Long/parseLong] [(f \"42\") (f \"101\" 2) (f \"42\") (f \"101\" 2)])"
+                               {:classes {:allow :all 'Long Long}}))))
+     (testing "static method as value re-resolves when the argument classes change"
+       (is (= ["42" "4.2" "a" "42"]
+              (sci/eval-string "(mapv String/valueOf [42 4.2 \\a 42])"
+                               {:classes {:allow :all 'String String}}))))
+     (testing "a type error on a warm static site does not poison the cache"
+       (let [ctx (sci/init {:classes {:allow :all 'Integer Integer}})]
+         (sci/eval-string* ctx "(defn f [x] (Integer/parseInt x))")
+         (is (= 42 (sci/eval-string* ctx "(f \"42\")")))
+         (is (thrown? Exception (sci/eval-string* ctx "(f :kw)")))
+         (is (= 42 (sci/eval-string* ctx "(f \"42\")")))))))
+
+#?(:clj
+   (deftest constructor-callsite-cache-test
+     (testing "overloaded constructor site re-resolves when the argument classes change"
+       (is (= ["a" "" "b" "" "a"]
+              (sci/eval-string "(mapv (fn [x] (str (StringBuilder. x))) [\"a\" (int 16) \"b\" (int 8) \"a\"])"
+                               {:classes {:allow :all 'StringBuilder StringBuilder}}))))
+     (testing "overload selection per argument class on one site"
+       (is (= ["1.5" "2" "3.5" "4" "1.5"]
+              (sci/eval-string "(mapv (fn [x] (.toString (java.math.BigDecimal. x))) [\"1.5\" (int 2) 3.5 (long 4) \"1.5\"])"
+                               {:classes {:allow :all 'java.math.BigDecimal java.math.BigDecimal}}))))
+     (testing "zero-argument constructor site stays correct over repeated calls"
+       (is (= [0 0 0]
+              (sci/eval-string "(mapv (fn [_] (count (java.util.ArrayList.))) [0 1 2])"
+                               {:classes {:allow :all 'java.util.ArrayList java.util.ArrayList}}))))
+     (testing "constructor as value re-resolves when the arity changes"
+       (is (= ["" "x" "" "x"]
+              (sci/eval-string "(let [f StringBuilder/new] (mapv str [(f) (f \"x\") (f) (f \"x\")]))"
+                               {:classes {:allow :all 'StringBuilder StringBuilder}}))))
+     (testing "constructor as value re-resolves when the argument classes change at one arity"
+       (is (= ["x" "" "y" ""]
+              (sci/eval-string "(let [f StringBuilder/new] (mapv str [(f \"x\") (f (int 16)) (f \"y\") (f (int 8))]))"
+                               {:classes {:allow :all 'StringBuilder StringBuilder}}))))
+     (testing "a type error on a warm constructor site does not poison the cache"
+       (let [ctx (sci/init {:classes {:allow :all 'java.io.File java.io.File}})]
+         (sci/eval-string* ctx "(defn f [x] (.getPath (java.io.File. x)))")
+         (is (= "a" (sci/eval-string* ctx "(f \"a\")")))
+         (is (thrown? Exception (sci/eval-string* ctx "(f (int 3))")))
+         (is (= "a" (sci/eval-string* ctx "(f \"a\")")))))))
