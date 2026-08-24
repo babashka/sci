@@ -243,11 +243,13 @@
            (if (and cached
                       (identical? class->opts (aget #?(:clj ^objects cached :cljs cached) 0))
                       (identical? instance-class (aget #?(:clj ^objects cached :cljs cached) 1)))
-               ;; fast path: this class resolved to plain interop before; reflect on
-               ;; the cached target class (may differ from instance-class via :public-class)
+               ;; Fast path: This class previously resolved to plain interop.
+               ;; This path uses the site's resolved method. Without an entry,
+               ;; it reflects on the cached target class. :public-class can
+               ;; cause the cached and instance classes to differ.
                (if field-access
                  (interop/invoke-instance-field instance-expr* (aget #?(:clj ^objects cached :cljs cached) 2) method-str)
-                 #?(:clj (interop/invoke-instance-method-with-methods ctx bindings instance-expr* (aget ^objects cached 2) method-str (aget ^objects cached 3) args arg-count arg-types)
+                 #?(:clj (interop/invoke-instance-method-cached ctx bindings instance-expr* (aget ^objects cached 2) method-str cache cached args arg-count arg-types)
                     :cljs (interop/invoke-instance-method ctx bindings instance-expr* (aget cached 2) method-str args arg-count arg-types)))
                (let [allowed? (or
                                #?(:cljs allowed)
@@ -285,7 +287,7 @@
                          (throw-error-with-location (str "Field " method-str " on " instance-class " not allowed!") instance-expr)
                          :reflect
                          (do (when cache?
-                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil]
+                               (vreset! cache (object-array #?(:clj [class->opts instance-class target-class nil nil]
                                                                :cljs [class->opts instance-class target-class]))))
                              (interop/invoke-instance-field instance-expr* target-class method-str))))
                      (let [f (get (:instance-methods class-opts) method-sym)]
@@ -295,10 +297,11 @@
                          :deny
                          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
                          :reflect
-                         #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)]
+                         #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)
+                                       arr (object-array [class->opts instance-class target-class methods nil])]
                                    (when cache?
-                                     (vreset! cache (object-array [class->opts instance-class target-class methods])))
-                                   (interop/invoke-instance-method-with-methods ctx bindings instance-expr* target-class method-str methods args arg-count arg-types))
+                                     (vreset! cache arr))
+                                   (interop/invoke-instance-method-cached ctx bindings instance-expr* target-class method-str (when cache? cache) arr args arg-count arg-types))
                             :cljs (do (when cache?
                                         (vreset! cache (object-array [class->opts instance-class target-class])))
                                       (interop/invoke-instance-method ctx bindings instance-expr* target-class method-str args arg-count arg-types))))))))))))))

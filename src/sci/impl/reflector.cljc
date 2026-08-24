@@ -267,6 +267,50 @@
        widened)))
 
 #?(:clj
+   (defn- accessible-version
+     "This function returns an accessible version of Method m for this target, or nil."
+     ^Method [^Method m context-class target]
+     (if (or (not (Modifier/isPublic (.getModifiers (.getDeclaringClass m))))
+             (and target (not (.canAccess m target))))
+       (clojure.lang.Reflector/getAsMethodOfAccessibleBase
+        (or context-class (.getDeclaringClass m)) m target)
+       m)))
+
+#?(:clj
+   (defn resolve-method
+     "This function selects the matching method and its accessible version.
+      It returns [Method paramTypes returnType] without invocation. It can
+      widen boxed numbers in args."
+     ^objects [method-name ^java.util.List methods context-class target ^objects args arg-types]
+     (let [^Method m (when-not (.isEmpty methods)
+                       (if (== 1 (.size methods))
+                         (.get methods 0)
+                         (or (match-method methods args arg-types)
+                             ;; Widen boxed args and try again.
+                             (match-method methods (widen-boxed-args! args) arg-types))))]
+       (if (nil? m)
+         (throw (IllegalArgumentException.
+                 (str "No matching method " method-name " found taking "
+                      (alength args) " args"
+                      (when context-class (str " for " context-class)))))
+         (if-some [am (accessible-version m context-class target)]
+           (object-array [am (.getParameterTypes am) (.getReturnType am)])
+           (throw (IllegalArgumentException.
+                   (str "Can't call public method of non-public class: " m))))))))
+
+#?(:clj
+   (defn invoke-resolved-method
+     "This function invokes a resolved [Method paramTypes returnType] entry.
+      It skips accessibility checks, parameter-type cloning, and overload matching."
+     [^objects resolved target ^objects args]
+     (let [^Method m (aget resolved 0)]
+       (try
+         (Reflector/prepRet ^Class (aget resolved 2)
+                            (.invoke m target (box-args (aget resolved 1) args)))
+         (catch Exception e
+           (throw (clojure.lang.Util/sneakyThrow (or (.getCause e) e))))))))
+
+#?(:clj
    (defn invoke-matching-method
      "Invoke a method matching the given name from a list of methods.
       This is the core SCI-specific method that supports type hints via arg-types.
@@ -284,37 +328,6 @@
      ([method-name methods context-class target args]
       (invoke-matching-method method-name methods context-class target args nil))
      ([method-name ^java.util.List methods context-class target ^objects args arg-types]
-      (if (.isEmpty methods)
-        (throw (IllegalArgumentException.
-                (str "No matching method " method-name " found taking "
-                     (alength args) " args"
-                     (when context-class (str " for " context-class)))))
-        (let [^Method m (if (== 1 (.size methods))
-                          (.get methods 0)
-                          (or (match-method methods args arg-types)
-                              ;; widen boxed args and re-try
-                              (match-method methods (widen-boxed-args! args) arg-types)))]
-          (if (nil? m)
-            (throw (IllegalArgumentException.
-                    (str "No matching method " method-name " found taking "
-                         (alength args) " args"
-                         (when context-class (str " for " context-class)))))
-            ;; Use Reflector's helper to find accessible version of method
-            (let [^Method
-                  accessible-m (if (or (not (Modifier/isPublic
-                                             (.getModifiers (.getDeclaringClass m))))
-                                       (and target
-                                            (not (.canAccess m target))))
-                                 (clojure.lang.Reflector/getAsMethodOfAccessibleBase (or context-class (.getDeclaringClass m))
-                                                                                     m
-                                                                                     target)
-                                 m)]
-              (when (nil? accessible-m)
-                (throw (IllegalArgumentException.
-                        (str "Can't call public method of non-public class: " m))))
-              (try
-                (let [ret (.invoke accessible-m target (box-args (.getParameterTypes accessible-m) args))]
-                  (Reflector/prepRet (.getReturnType accessible-m) ret))
-                (catch Exception e
-                  (throw (clojure.lang.Util/sneakyThrow
-                          (or (.getCause e) e))))))))))))
+      (invoke-resolved-method
+       (resolve-method method-name methods context-class target args arg-types)
+       target args))))
