@@ -1206,10 +1206,11 @@
                                  :override (return-call ctx expr override (cons instance-expr args) stack nil)
                                  :deny (utils/throw-error-with-location
                                         (str "Method " meth-name " on " fq-class " not allowed!") expr)
-                                 :reflect (sci.impl.types/->Node
-                                           (interop/invoke-static-method ctx bindings instance-expr meth-name
-                                                                         args arg-count)
-                                           stack))))]
+                                 :reflect (let [cache (volatile! nil)]
+                                            (sci.impl.types/->Node
+                                             (interop/invoke-static-method-cached ctx bindings instance-expr meth-name
+                                                                                  cache args arg-count)
+                                             stack)))))]
                       ;; class known at analysis, resolve :static-fields config here
                       (let [sf-opts (get (some-> ctx :env deref :class->opts)
                                          (symbol (.getName ^Class instance-expr)))
@@ -1870,12 +1871,28 @@
                  :reflect (sci.impl.types/->Node
                            (interop/get-static-field clazz meth)
                            stack)))
-             :else (sci.impl.types/->Node
-                    (fn [& args]
-                      (reflector/invoke-static-method
-                       clazz meth
-                       ^objects (into-array Object args)))
-                    stack)))))
+             ;; Clojure 1.12 supports a constructor as a value: String/new
+             (= "new" meth)
+             (sci.impl.types/->Node
+              (fn [& args]
+                (reflector/invoke-constructor clazz (into-array Object args)))
+              stack)
+             :else (let [cache (volatile! nil)]
+                     (sci.impl.types/->Node
+                      (fn
+                        ([]
+                         (interop/invoke-static-value ctx clazz meth cache (object-array 0)))
+                        ([a]
+                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 1) (aset 0 a))))
+                        ([a b]
+                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 2) (aset 0 a) (aset 1 b))))
+                        ([a b c]
+                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 3) (aset 0 a) (aset 1 b) (aset 2 c))))
+                        ([a b c d]
+                         (interop/invoke-static-value ctx clazz meth cache (doto (object-array 4) (aset 0 a) (aset 1 b) (aset 2 c) (aset 3 d))))
+                        ([a b c d & more]
+                         (interop/invoke-static-value ctx clazz meth cache (into-array Object (list* a b c d more)))))
+                      stack))))))
 
 #?(:cljd
    (defn- named-arg-sym? [x]
