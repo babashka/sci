@@ -16,7 +16,7 @@
   - FISupport - extracted from Compiler to support functional interface adaptation"
   {:no-doc true}
   #?(:clj
-     (:import [java.lang.reflect Method Modifier Proxy]
+     (:import [java.lang.reflect Constructor Method Modifier Proxy]
               [clojure.lang Reflector Compiler IFn RT])))
 
 #?(:clj (set! *warn-on-reflection* :warn-on-boxed))
@@ -307,6 +307,48 @@
        (try
          (Reflector/prepRet ^Class (aget resolved 2)
                             (.invoke m target (box-args (aget resolved 1) args)))
+         (catch Exception e
+           (throw (clojure.lang.Util/sneakyThrow (or (.getCause e) e))))))))
+
+#?(:clj
+   (defn resolve-constructor
+     "This function selects the matching constructor like invoke-constructor
+      and returns [Constructor paramTypes multiple?] without invoking it."
+     [^Class c ^objects args]
+     (let [ctors (.getConstructors c)
+           arg-count (alength args)
+           matching (java.util.ArrayList.)]
+       (dotimes [i (alength ctors)]
+         (let [^Constructor ctor (aget ctors i)]
+           (when (== arg-count (.getParameterCount ctor))
+             (.add matching ctor))))
+       (let [multiple? (< 1 (.size matching))
+             ^Constructor ctor
+             (if multiple?
+               (loop [i 0 found nil]
+                 (if (< i (.size matching))
+                   (let [^Constructor cur (.get matching i)
+                         params (.getParameterTypes cur)]
+                     (if (and (is-congruent? params args nil)
+                              (or (nil? found)
+                                  (Compiler/subsumes params (.getParameterTypes ^Constructor found))))
+                       (recur (inc i) cur)
+                       (recur (inc i) found)))
+                   found))
+               (when (== 1 (.size matching))
+                 (.get matching 0)))]
+         (if ctor
+           (object-array [ctor (.getParameterTypes ctor) multiple?])
+           (throw (IllegalArgumentException.
+                   (str "No matching ctor found for " c))))))))
+
+#?(:clj
+   (defn invoke-resolved-constructor
+     "This function invokes a resolved [Constructor paramTypes] entry."
+     [^objects resolved ^objects args]
+     (let [^Constructor ctor (aget resolved 0)]
+       (try
+         (.newInstance ctor ^objects (box-args (aget resolved 1) args))
          (catch Exception e
            (throw (clojure.lang.Util/sneakyThrow (or (.getCause e) e))))))))
 

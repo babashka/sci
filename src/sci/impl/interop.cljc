@@ -255,6 +255,48 @@
           (resolve-static-and-cache ctx class method-name cache args-array)
           nil args-array)))))
 
+#?(:clj
+   (defn- resolve-ctor-and-cache
+     "This function resolves a constructor with reflection and stores a
+      [Constructor paramTypes prevArgClasses] entry in the cache volatile.
+      prevArgClasses is nil for a single-candidate site."
+     [^Class class cache ^objects args-array]
+     (let [^objects resolved (reflector/resolve-constructor class args-array)
+           prev-arg-classes (when (aget resolved 2)
+                              (arg-classes args-array))]
+       (vreset! cache (object-array [(aget resolved 0) (aget resolved 1) prev-arg-classes]))
+       resolved)))
+
+#?(:clj
+   (defn invoke-constructor-cached
+     "When the argument classes match, this function uses the resolved entry
+      in the cache volatile. Otherwise, it resolves and caches the constructor."
+     [ctx bindings ^Class class cache ^objects args arg-count]
+     (let [args-array (eval-args ctx bindings args arg-count)
+           ^objects entry @cache]
+       (if (and entry
+                (let [^objects prev-arg-classes (aget entry 2)]
+                  (or (nil? prev-arg-classes) (arg-classes-match? prev-arg-classes args-array))))
+         (reflector/invoke-resolved-constructor entry args-array)
+         (reflector/invoke-resolved-constructor
+          (resolve-ctor-and-cache class cache args-array)
+          args-array)))))
+
+#?(:clj
+   (defn invoke-constructor-value
+     "This function invokes a constructor that is used as a value. The arity
+      can differ between calls. Thus, the function also compares the argument count."
+     [^Class class cache ^objects args-array]
+     (let [^objects entry @cache]
+       (if (and entry
+                (== (alength ^objects (aget entry 1)) (alength args-array))
+                (let [^objects prev-arg-classes (aget entry 2)]
+                  (or (nil? prev-arg-classes) (arg-classes-match? prev-arg-classes args-array))))
+         (reflector/invoke-resolved-constructor entry args-array)
+         (reflector/invoke-resolved-constructor
+          (resolve-ctor-and-cache class cache args-array)
+          args-array)))))
+
 (defn fully-qualify-class [ctx sym]
   (let [env @(:env ctx)
         class->opts (:class->opts env)]
