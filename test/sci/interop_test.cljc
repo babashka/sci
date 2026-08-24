@@ -803,3 +803,41 @@
          (is (= "a" (sci/eval-string* ctx "(f \"a\")")))
          (is (thrown? Exception (sci/eval-string* ctx "(f (int 3))")))
          (is (= "a" (sci/eval-string* ctx "(f \"a\")")))))))
+
+#?(:clj
+   (deftest field-callsite-cache-test
+     (testing "static field reads stay live after host mutation"
+       (let [ctx (sci/init {:classes {'PublicFields PublicFields}})
+             orig PublicFields/staticFoo]
+         (try
+           (sci/eval-string* ctx "(defn f [] PublicFields/staticFoo)")
+           (is (= "static field" (sci/eval-string* ctx "(f)")))
+           (set! PublicFields/staticFoo "mutated")
+           (is (= "mutated" (sci/eval-string* ctx "(f)")))
+           (finally (set! PublicFields/staticFoo orig)))))
+     (testing "instance field reads stay live after host mutation"
+       (let [ctx (sci/init {:classes {'PublicFields PublicFields}})
+             o (PublicFields.)
+             f (sci/eval-string* ctx "(fn [o] (.-x o))")]
+         (is (= 3 (f o)))
+         (set! (. o x) 9)
+         (is (= 9 (f o)))))
+     (testing "receiver class change re-resolves the field"
+       (is (= [3 1 3]
+              (sci/eval-string "(mapv (fn [o] (.-x o)) [(PublicFields.) (java.awt.Point. 1 2) (PublicFields.)])"
+                               {:classes {'PublicFields PublicFields
+                                          'java.awt.Point java.awt.Point}}))))
+     (testing "zero-arg method syntax falls back to the field on repeated calls"
+       (is (= [3 3 3]
+              (sci/eval-string "(let [o (PublicFields.)] (mapv (fn [_] (.x o)) [0 1 2]))"
+                               {:classes {'PublicFields PublicFields}}))))
+     (testing "a method still wins over a field with the same name"
+       (is (= ["instance method" "instance field" "instance method"]
+              (sci/eval-string "(let [o (PublicFields.)] [(.instanceFoo o) (.-instanceFoo o) (.instanceFoo o)])"
+                               {:classes {'PublicFields PublicFields}}))))
+     (testing "a missing field on a warm site does not poison the cache"
+       (let [ctx (sci/init {:classes {'PublicFields PublicFields 'String String :allow :all}})
+             f (sci/eval-string* ctx "(fn [o] (.-x o))")]
+         (is (= 3 (f (PublicFields.))))
+         (is (thrown? Exception (f "no fields here")))
+         (is (= 3 (f (PublicFields.))))))))

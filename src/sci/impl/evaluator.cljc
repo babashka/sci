@@ -291,7 +291,7 @@
                          :reflect
                          #?(:clj (let [field (interop/get-instance-field target-class method-str)]
                                    (when cache?
-                                     (vreset! cache (object-array [class->opts instance-class target-class nil field])))
+                                     (vreset! cache (object-array [class->opts instance-class target-class nil field nil])))
                                    (.get ^java.lang.reflect.Field field instance-expr*))
                             :cljs (do (when cache?
                                         (vreset! cache (object-array [class->opts instance-class target-class])))
@@ -304,7 +304,7 @@
                          (throw-error-with-location (str "Method " method-str " on " instance-class " not allowed!") instance-expr)
                          :reflect
                          #?(:clj (let [methods (interop/instance-method-list ctx target-class method-str arg-count)
-                                       arr (object-array [class->opts instance-class target-class methods nil])]
+                                       arr (object-array [class->opts instance-class target-class methods nil nil])]
                                    (when cache?
                                      (vreset! cache arr))
                                    (interop/invoke-instance-method-cached ctx bindings instance-expr* target-class method-str (when cache? cache) arr args arg-count arg-types))

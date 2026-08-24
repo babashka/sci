@@ -118,11 +118,18 @@
 #?(:clj
    (defn- invoke-no-entry
      "No resolved entry yet: zero-arg field fallback, a first call, or a
-      param-tags site."
+      param-tags site. The fallback caches its Field in slot 5."
      [ctx bindings obj ^Class target-class method cache ^objects cached ^objects args arg-count arg-types]
      (let [^java.util.List methods (aget cached 3)]
        (if (and (zero? (int arg-count)) (.isEmpty methods))
-         (invoke-instance-field obj target-class method)
+         (if-some [field (aget cached 5)]
+           (.get ^Field field obj)
+           (let [^Field field (get-instance-field target-class method)]
+             (when cache
+               (let [^objects arr (aclone cached)]
+                 (aset arr 5 field)
+                 (vreset! cache arr)))
+             (.get field obj)))
          (let [args-array (eval-args ctx bindings args arg-count)]
            (reflector/invoke-resolved-method
             (resolve-and-cache obj target-class method cache cached args-array arg-types)
