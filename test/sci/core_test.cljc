@@ -1732,8 +1732,10 @@
        (doseq [[resource expected-kind]
                [[(java.util.concurrent.FutureTask. (fn [] :done))
                  :pending-future]
+                [(delay :done) :pending-delay]
                 [(java.io.StringReader. "input") :closeable]
-                [(java.util.Random. 42) :random-generator]]]
+                [(java.util.Random. 42) :random-generator]
+                [(java.util.ArrayList.) :java-collection]]]
          (let [user-ns (sci/create-ns 'user)
                parent (sci/init
                        {:namespaces
