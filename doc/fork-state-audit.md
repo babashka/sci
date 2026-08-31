@@ -132,10 +132,11 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Namespace metadata | Mutable field on shared Namespace handle | Shared unintentionally |
 | Type metadata and mutable deftype fields | Mutable fields on shared Type/SciType handles | Shared unintentionally |
 | `*loaded-libs*` | Built-in Var root points to one host Ref/atom | Shared unintentionally despite fork-local namespace maps |
-| Delay | One host Delay object and realization cache | Shared; forcing in one world suppresses computation in another |
+| Delay | Stable SCI handle with world-local pending/realized state | Implemented; pending realizations split, while cached outcomes are inherited according to host delay semantics |
 | Lazy sequence realization | One host lazy cell/cache | Shared and world selection during deferred realization is unreliable |
 | SCI `memoize` cache | Closure owns a fork-local `SciAtom` cache | Implemented; inherited entries are shared as immutable values and later cache fills diverge |
-| Promise | One host delivery cell | Shared; child delivery is immediately visible in parent |
+| JVM Promise | Stable SCI handle with world-local pending/delivered state | Implemented; a pending child has no inherited waiters and delivery is branch-local |
+| CLJS Promise | Native asynchronous host value | External async resource; managed continuations convey a world but the Promise itself is not copied |
 | Future / async task | Work launched through the binding conveyor runs in its captured world; the host task itself remains shared | Not copyable; needs an explicit fork policy |
 | Transient collection | Same affine host object | Shared; mutation in child is visible in parent |
 | Array / JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
@@ -157,9 +158,10 @@ protocol.
 
 A JVM probe against the current implementation produced these results:
 
-- forcing a child delay returned its value in the parent without running the
-  delayed body in the parent;
-- delivering a child promise delivered the parent promise;
+- before managed delays, forcing a child delay returned its value in the
+  parent without running the delayed body in the parent;
+- before managed JVM promises, delivering a child promise delivered the parent
+  promise;
 - mutating a child transient or array changed the object seen by the parent;
 - using a memoized function in the child populated the cache used by parent;
 - a child `defmethod` installed the method in parent;
@@ -247,6 +249,15 @@ should be impossible for an evaluation-owned delay because fork waits for the
 active form; a delay running in an unmanaged host task is an external resource
 and must block or reject the fork.
 
+This is now implemented with a stable `SciDelay` and one managed state slot.
+The host delay inside a pending state supplies the normal once-only and
+concurrent-force behavior. Forking a still-pending state constructs a fresh
+host delay over the same thunk; forking an already realized state records its
+value or thrown exception directly. JVM Clojure caches a thrown exception,
+while ClojureScript leaves a throwing delay pending and retryable; SCI retains
+that platform distinction. Because a fork quiesces managed evaluation, it
+cannot observe an evaluation-owned realization halfway through.
+
 ### Promise
 
 `delivered(value)` can be copied. A pending promise also owns a waiter set,
@@ -254,6 +265,15 @@ which is control/resource state rather than a plain heap value. A world-only
 fork should either create independent pending cells with no inherited waiters
 or reject pending promises. An execution fork may duplicate suspended waiter
 continuations only after they are represented inside the managed interpreter.
+
+The JVM implementation now chooses independent pending cells. `SciPromise`
+stores immutable pending or delivered states in one managed world slot.
+Delivery atomically replaces pending only in the selected world, preserving
+first-delivery-wins semantics. A monitor on the stable handle wakes blocked
+threads, but each waiter re-reads its own world's slot, so a delivery in one
+branch cannot complete a waiter in another. Managed SCI futures are already
+part of world quiescence; arbitrary unmanaged host waiters are deliberately
+not copied into a child.
 
 ### Future and asynchronous computation
 

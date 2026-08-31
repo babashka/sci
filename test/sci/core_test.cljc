@@ -1186,7 +1186,56 @@
    (f 1))")))))
 
 (deftest core-delay-test
-  (is (= 1 (eval* "@(delay 1)"))))
+  (is (= 1 (eval* "@(delay 1)")))
+  (is (= [true false 1 true true]
+         (eval* "(let [d (delay 1)]
+                   [(delay? d) (realized? d) (force d)
+                    (realized? d) (= 1 @d)])"))))
+
+(deftest forked-delay-state-test
+  (let [parent (sci/init nil)]
+    (sci/eval-string*
+     parent
+     "(def effects (atom []))
+      (def pending
+        (delay (swap! effects conj :pending) (count @effects)))
+      (def completed
+        (delay (swap! effects conj :completed) (count @effects)))
+      (def failed (delay (throw (ex-info \"cached\" {:kind :delay}))))
+      (force completed)")
+    (sci/eval-string*
+     parent
+     #?(:clj "(try (force failed) (catch Exception _ nil))"
+        :cljs "(try (force failed) (catch :default _ nil))"
+        :cljd "(try (force failed) (catch Object _ nil))"))
+    (let [child (sci/fork parent)
+          expected [false true #?(:cljs false :default true)
+                    2 [:completed :pending]]]
+      (is (= expected
+             (sci/eval-string*
+              child
+              "[(realized? pending)
+                (realized? completed)
+                (realized? failed)
+                (force pending)
+                @effects]")))
+      (is (= expected
+             (sci/eval-string*
+              parent
+              "[(realized? pending)
+                (realized? completed)
+                (realized? failed)
+                (force pending)
+                @effects]")))
+      (is (= :delay
+             (sci/eval-string*
+              child
+              #?(:clj "(try (force failed)
+                           (catch Exception e (:kind (ex-data e))))"
+                 :cljs "(try (force failed)
+                            (catch :default e (:kind (ex-data e))))"
+                 :cljd "(try (force failed)
+                            (catch Object e (:kind (ex-data e))))")))))))
 
 (deftest defn--test
   (is (= 1 (eval* "(defn- foo [] 1) (foo)")))

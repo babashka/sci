@@ -283,6 +283,45 @@
                                    (deref x 1 :failed))"
                                 (addons/future {})))))))
 
+#?(:cljd nil
+   :clj
+   (deftest forked-promise-state-test
+     (when-not tu/native?
+       (let [entered (promise)
+             parent (sci/init
+                     (-> (addons/future {})
+                         (assoc :bindings
+                                {'mark-entered
+                                 #(deliver entered true)})))]
+         (sci/eval-string*
+          parent
+          "(def pending (promise))
+           (def blocked (promise))
+           (def completed (promise))
+           (deliver completed :done)")
+         (let [child (sci/fork parent)]
+           (is (= [false true :done :child :child]
+                  (sci/eval-string*
+                   child
+                   "[(realized? pending)
+                     (realized? completed)
+                     @completed
+                     @(deliver pending :child)
+                     @(deliver pending :ignored)]")))
+           (is (= [false :timeout]
+                  (sci/eval-string*
+                   parent
+                   "[(realized? pending) (deref pending 1 :timeout)]")))
+           (is (= [:parent :child]
+                  [(sci/eval-string* parent "@(deliver pending :parent)")
+                   (sci/eval-string* child "@pending")]))
+           (let [waiting (sci/eval-string*
+                          child
+                          "(future (mark-entered) @blocked)")]
+             (is (= true (deref entered 1000 ::timeout)))
+             (sci/eval-string* child "(deliver blocked :released)")
+             (is (= :released (deref waiting 1000 ::timeout)))))))))
+
 (deftest def-returns-var-test
   (is (= "#'user/x" (eval* "(str (def x 1))")))
   (is (= "#'user/foo" (eval* "(str (defmacro foo []))"))))

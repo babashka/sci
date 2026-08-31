@@ -276,6 +276,195 @@
      registry managed-index
      (SciAtom. home registry (nth slots 0) (nth slots 1)))))
 
+(defprotocol ^:private IDelayState
+  (-delay-value [state])
+  (-delay-realized? [state]))
+
+(deftype RealizedDelayState [value]
+  fork/Forkable
+  (fork-value [this] this)
+  IDelayState
+  (-delay-value [_] value)
+  (-delay-realized? [_] true))
+
+(deftype FailedDelayState [error]
+  fork/Forkable
+  (fork-value [this] this)
+  IDelayState
+  (-delay-value [_] (throw error))
+  (-delay-realized? [_] true))
+
+(defn- host-delay [thunk]
+  (clojure.core/delay (thunk)))
+
+(deftype PendingDelayState [thunk delegate]
+  fork/Forkable
+  (fork-value [_]
+    (if (realized? delegate)
+      (try
+        (RealizedDelayState. @delegate)
+        (catch #?(:cljd Object :clj Throwable :cljs :default) error
+          (FailedDelayState. error)))
+      (PendingDelayState. thunk (host-delay thunk))))
+  IDelayState
+  (-delay-value [_] @delegate)
+  (-delay-realized? [_] (realized? delegate)))
+
+(declare delay-value delay-realized?)
+
+(deftype SciDelay [home registry state-slot]
+  fork/Forkable
+  (fork-value [this] this)
+
+  #?@(:clj
+      [clojure.lang.IDeref
+       (deref [_] (delay-value home registry state-slot))
+       clojure.lang.IPending
+       (isRealized [_] (delay-realized? home registry state-slot))]
+      :cljs
+      [IDeref
+       (-deref [_] (delay-value home registry state-slot))
+       IPending
+       (-realized? [_] (delay-realized? home registry state-slot))
+       IEquiv
+       (-equiv [this other] (identical? this other))
+       IHash
+       (-hash [this] (goog/getUid this))]
+      :cljd
+      [IDeref
+       (-deref [_] (delay-value home registry state-slot))
+       IPending
+       (-realized? [_] (delay-realized? home registry state-slot))]))
+
+(defn sci-delay? [x]
+  (instance? SciDelay x))
+
+(defn- selected-delay-state [home registry state-slot]
+  (world/managed-value home registry state-slot))
+
+(defn delay-value [home registry state-slot]
+  (-delay-value (selected-delay-state home registry state-slot)))
+
+(defn delay-realized? [home registry state-slot]
+  (-delay-realized? (selected-delay-state home registry state-slot)))
+
+(defn delay*
+  "Create a delay whose realization cache follows the active SCI world."
+  [thunk]
+  (let [{:keys [home registry slots managed-index]}
+        (world/register-managed!
+         :delay [(PendingDelayState. thunk (host-delay thunk))] [0])]
+    (world/attach-managed-owner!
+     registry managed-index
+     (SciDelay. home registry (nth slots 0)))))
+
+(defn delay?* [x]
+  (or (sci-delay? x) (delay? x)))
+
+(defn force* [x]
+  (if (sci-delay? x) @x (force x)))
+
+#?(:clj
+   (do
+     (deftype PendingPromiseState []
+       fork/Forkable
+       (fork-value [this] this))
+
+     (deftype DeliveredPromiseState [value]
+       fork/Forkable
+       (fork-value [this] this))
+
+     (declare promise-value promise-value-with-timeout promise-realized?)
+
+     (deftype SciPromise [home registry state-slot signal]
+       fork/Forkable
+       (fork-value [this] this)
+
+       clojure.lang.IDeref
+       (deref [_]
+         (promise-value home registry state-slot signal))
+
+       clojure.lang.IBlockingDeref
+       (deref [_ timeout-ms timeout-val]
+         (promise-value-with-timeout
+          home registry state-slot signal timeout-ms timeout-val))
+
+       clojure.lang.IPending
+       (isRealized [_]
+         (promise-realized? home registry state-slot)))
+
+     (defn sci-promise? [x]
+       (instance? SciPromise x))
+
+     (defn- selected-promise-state [home registry state-slot]
+       (world/managed-value home registry state-slot))
+
+     (defn- delivered-promise-state? [state]
+       (instance? DeliveredPromiseState state))
+
+     (defn promise-value [home registry state-slot signal]
+       (loop []
+         (let [state (selected-promise-state home registry state-slot)]
+           (if (delivered-promise-state? state)
+             (.-value ^DeliveredPromiseState state)
+             (do
+               ;; Re-read while holding the monitor so delivery cannot occur
+               ;; between observing pending and beginning to wait.
+               (locking signal
+                 (when-not (delivered-promise-state?
+                            (selected-promise-state
+                             home registry state-slot))
+                   (.wait ^Object signal)))
+               (recur))))))
+
+     (defn promise-value-with-timeout
+       [home registry state-slot signal timeout-ms timeout-val]
+       (let [deadline (+ (System/currentTimeMillis)
+                         (max 0 (long timeout-ms)))]
+         (loop []
+           (let [state (selected-promise-state home registry state-slot)]
+             (if (delivered-promise-state? state)
+               (.-value ^DeliveredPromiseState state)
+               (let [remaining (- deadline (System/currentTimeMillis))]
+                 (if-not (pos? remaining)
+                   timeout-val
+                   (do
+                     (locking signal
+                       (when-not (delivered-promise-state?
+                                  (selected-promise-state
+                                   home registry state-slot))
+                         (.wait ^Object signal (long remaining))))
+                     (recur)))))))))
+
+     (defn promise-realized? [home registry state-slot]
+       (delivered-promise-state?
+        (selected-promise-state home registry state-slot)))
+
+     (defn promise*
+       "Create a promise with an independent pending delivery cell per world."
+       []
+       (let [{:keys [home registry slots managed-index]}
+             (world/register-managed!
+              :promise [(PendingPromiseState.)] [0])]
+         (world/attach-managed-owner!
+          registry managed-index
+          (SciPromise. home registry (nth slots 0) (Object.)))))
+
+     (defn deliver* [p value]
+       (if (sci-promise? p)
+         (let [^SciPromise p p]
+           (world/managed-swap!
+            (.-home p) (.-registry p) (.-state-slot p)
+            (fn [state]
+              (if (delivered-promise-state? state)
+                state
+                (DeliveredPromiseState. value)))
+            nil (fn [_ _] nil) (fn [_ _ _ _] nil))
+           (locking (.-signal p)
+             (.notifyAll ^Object (.-signal p)))
+           p)
+         (deliver p value)))))
+
 (defn memoize*
   "Clojure-compatible memoize whose cache follows the active SCI world."
   [f]

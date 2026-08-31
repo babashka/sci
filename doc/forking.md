@@ -69,11 +69,12 @@ application's responsibility, for example with an identity-keyed memo table.
 ## Current boundary
 
 Var roots/metadata, all logical SCI atom state, SCI-created volatile values,
-and JVM/CLJS SCI multimethod tables, preferences, and dispatch caches are
-fork-local. SCI's `memoize` uses a fork-local atom for its cache. Atom metadata,
-validator, and watch maps are inherited by a fork and can subsequently diverge;
-effects performed by a watch are ordinary user capabilities and are not made
-reversible automatically. Promises, delays, futures, transients, mutable host
+delays, and JVM/CLJS SCI multimethod tables, preferences, and dispatch caches
+are fork-local. On the JVM, SCI-created promises are fork-local as well. SCI's
+`memoize` uses a fork-local atom for its cache. Atom metadata, validator, and
+watch maps are inherited by a fork and can subsequently diverge; effects
+performed by a watch are ordinary user capabilities and are not made
+reversible automatically. Futures, lazy sequences, transients, mutable host
 objects, mutable deftype fields, and effects outside SCI remain shared unless
 the embedding application models or copies them.
 
@@ -90,6 +91,17 @@ the stable `SciMultiFn` handle selects a fork-local host dispatch engine. SCI's
 `remove-all-methods` accept both SCI and native host multimethods, while host
 code that tests specifically for the concrete host `MultiFn` class can observe
 the difference.
+
+SCI delays also have stable interpreter-owned identity. Forking a pending delay
+creates an independent pending realization in the child; forking a completed
+delay inherits its cached value or exception according to the host's delay
+semantics. In particular, JVM Clojure caches a thrown exception while
+ClojureScript leaves that delay pending and retryable. The JVM `promise`
+follows the same world split: a delivered value is inherited, while a pending
+child receives an independent delivery state and no source-world waiters. Its
+shared wake-up monitor is only a scheduling signal: a waiter always rechecks
+the state of its own world. Host code that tests for the concrete host delay
+or promise class can observe these representation differences.
 
 Forking is O(number of allocated slots), including spare array capacity, while
 slot reads and writes are constant time. This intentionally favors the common
