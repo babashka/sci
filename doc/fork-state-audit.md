@@ -68,11 +68,13 @@ the child and the binding is then observable by a nested parent evaluation,
 even though the parent still considers the Var non-dynamic. The roots remain
 isolated after the binding exits.
 
-There is a separate async correctness gap. SCI's future wrapper conveys the
-dynamic frame and the captured context, but it does not install the context's
-`ReadWorld` thread-local or take the world's evaluation permit. In an observed
-child future, the dynamic binding was conveyed correctly while `swap!` changed
-the parent atom realization: parent `1`, child `0`.
+The audit also found an async correctness gap: SCI's future wrapper conveyed
+the dynamic frame, but did not install the captured context's `ReadWorld` or
+take the world's evaluation permit. In the original probe, the dynamic binding
+was conveyed correctly while `swap!` changed the parent atom realization:
+parent `1`, child `0`. `binding-conveyor-fn` now captures the SCI context and
+runs the callback with that world installed and permitted. A running Future is
+still a non-copyable host resource.
 
 CLJS and ClojureDart use one volatile binding-frame stack rather than an
 async-local facility. Interleaved asynchronous evaluations can therefore
@@ -117,7 +119,7 @@ nested parent evaluation accidentally.
 | Lazy sequence realization | One host lazy cell/cache | Shared and world selection during deferred realization is unreliable |
 | `memoize` cache | Host function closes over an untracked atom | Shared; a child cache hit can suppress parent computation |
 | Promise | One host delivery cell | Shared; child delivery is immediately visible in parent |
-| Future / async task | Running host resource | Not copyable; current child world routing is incorrect |
+| Future / async task | Work launched through the binding conveyor runs in its captured world; the host task itself remains shared | Not copyable; needs an explicit fork policy |
 | Transient collection | Same affine host object | Shared; mutation in child is visible in parent |
 | Array / JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
 | Multimethod tables and caches | Mutable internals of one MultiFn root | Shared; a child `defmethod` changes parent dispatch |
@@ -146,7 +148,8 @@ A JVM probe against the current implementation produced these results:
 - child changes to namespace metadata and atom metadata appeared in parent;
 - a watch installed in child fired for a parent atom mutation;
 - a child-only dynamic binding was visible in a nested parent evaluation;
-- a future launched in child mutated the parent atom realization.
+- before the conveyor correction, a future launched in child mutated the
+  parent atom realization.
 
 These are realization leaks, not failures of the dense value slots themselves.
 They arise because a world-local slot often contains a stable object whose own
@@ -242,8 +245,8 @@ duplicable, but need self-describing SCI handles or `Forkable` cooperation.
 
 ## Recommended implementation order
 
-1. Fix asynchronous world conveyance and add tests for child futures and
-   callbacks before expanding the primitive set.
+1. Preserve the corrected asynchronous world conveyance and extend it to any
+   new managed callback boundary before expanding the primitive set.
 2. Decide and specify world-versus-fiber dynamic-binding semantics, including
    nested cross-world evaluation and CLJS async-local behavior.
 3. Address lineage-registry liveness so adding more tracked handles does not

@@ -112,7 +112,43 @@
        (is (= 13 (tu/eval* "(def ^:dynamic x 10)
                               (binding [x (inc x)]
                                 @(future (binding [x (inc x)] @(future (binding [x (inc x)] x)))))"
-                           (addons/future {})))))))
+                           (addons/future {})))))
+
+     (deftest forked-future-uses-child-world-test
+       (let [parent (sci/init (addons/future {}))]
+         (sci/eval-string*
+          parent
+          "(def state (atom 0))
+           (def ^:dynamic *scope* :root)")
+         (let [child (sci/fork parent)]
+           (is (= [:bound 1]
+                  (sci/eval-string*
+                   child
+                   "(binding [*scope* :bound]
+                      @(future [*scope* (swap! state inc)]))")))
+           (is (= [:root 0]
+                  (sci/eval-string* parent "[*scope* @state]")))
+           (is (= [:root 1]
+                  (sci/eval-string* child "[*scope* @state]"))))))
+
+     (deftest forked-future-participates-in-world-quiescence-test
+       (let [entered (promise)
+             release (promise)
+             parent (sci/init
+                     (addons/future
+                      {:bindings {'block! (fn []
+                                            (deliver entered true)
+                                            @release)}}))
+             child (sci/fork parent)
+             task (sci/eval-string* child "(future (block!))")]
+         (is (= true (deref entered 1000 ::timeout)))
+         (let [forking (future (sci/fork child))]
+           (try
+             (is (= ::waiting (deref forking 50 ::waiting)))
+             (finally
+               (deliver release true)))
+           (is (= true (deref task 1000 ::timeout)))
+           (is (map? (deref forking 1000 ::timeout))))))))
 
 #?(:cljd nil
    :clj
