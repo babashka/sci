@@ -78,13 +78,15 @@ Var roots, metadata, and watch maps; namespace metadata and loaded-library
 state; all logical SCI atom state; SCI-created volatile values and delays; SCI
 type descriptor data; and JVM/CLJS SCI multimethod tables, preferences, and
 dispatch caches are fork-local. ClojureDart's exact-dispatch SCI multimethod
-tables are fork-local as well. Directly stored SCI deftype instances are
-shallow-copied with alias preservation, so their mutable field maps diverge.
+tables are fork-local as well. SCI deftypes that declare mutable fields route
+their persistent field map through a managed world slot, so state diverges
+even when an instance is captured by a closure or nested in a persistent
+container. Immutable-field types retain direct storage.
 On the JVM, SCI-created promises are fork-local as well. SCI's `memoize` uses a
 fork-local atom for its cache. Effects performed by any watch are ordinary user
-capabilities and are not made reversible automatically. Futures, lazy
-managed lazy continuations, nested mutable host objects, and effects outside
-SCI remain future work unless the embedding application models or copies them.
+capabilities and are not made reversible automatically. Managed lazy
+continuations, nested mutable host objects, and effects outside SCI remain
+future work unless the embedding application models or copies them.
 Direct host lazy sequences are rejected rather than silently sharing their
 realization cache. CLJS native-protocol
 prototypes are cloned with Type data before child deftype/record values are

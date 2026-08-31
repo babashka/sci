@@ -133,7 +133,7 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Var watches | Optional dense world-local slot on a stable Var handle | Implemented; callbacks are inherited but their external effects remain capabilities |
 | Namespace metadata | Stable Namespace handle with a dense world-local metadata slot | Implemented |
 | Type descriptor data | Stable Type handle with one dense world-local data slot | Implemented; CLJS native prototypes are cloned before child values are copied |
-| SCI deftype instance fields | Directly stored instances implement `Forkable` and are shallow-copied with alias preservation | Implemented at the world-cell boundary; nested host state still requires cooperation |
+| SCI mutable deftype fields | Stable instance handle with one managed persistent field-map slot | Implemented across closures/containers; CLJS direct roots may also be copied onto the child native-protocol prototype |
 | `*loaded-libs*` | Built-in Var root has a per-cell copier for its host Ref/atom | Implemented; keeps the host representation while loaded sets diverge |
 | Delay | Stable SCI handle with world-local pending/realized state | Implemented; pending realizations split, while cached outcomes are inherited according to host delay semantics |
 | Lazy sequence realization | One host lazy cell/cache | Direct world-cell values are rejected as affine; managed lazy continuations remain future work |
@@ -350,9 +350,22 @@ Directly stored host transients are now rejected by the default value forker.
 Supplying `:fork-fn` is an explicit override and can deliberately share or
 replace them. The check remains shallow, like all host cooperation: a transient
 hidden inside an unclassified host container is that container's
-responsibility. Directly stored standard `SciType` deftype instances implement
-`Forkable`; their field map is shallow-copied once per source identity, so
-aliases remain aliases in the child and later field replacements diverge.
+responsibility.
+
+Instances of a type that declares `^:volatile-mutable` or
+`^:unsynchronized-mutable` fields allocate one managed persistent field-map
+slot. This makes field replacements branch-local even when the stable instance
+is captured inside an opaque SCI closure or nested persistent container. Types
+with immutable fields retain direct field maps and pay no managed-read cost;
+mutable values nested inside those fields remain the embedding application's
+responsibility.
+
+In alternating powersave-profile child-world benchmarks, one million mutable
+field reads were roughly 10--22 percent slower than the earlier direct copied
+map, and 200,000 writes roughly 22--27 percent slower after adding a dedicated
+managed-assoc path. The cost is restricted to types that opt into mutable
+fields; the representation fixes a state leak that root-only copying could not
+address.
 
 ## Recommended implementation order
 
