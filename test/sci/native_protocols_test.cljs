@@ -147,6 +147,37 @@ f")]
   (-lookup [this k] :extended))
 [(get f :a) (satisfies? ILookup f)]")))))
 
+(deftest forked-native-protocol-extension-test
+  (let [parent (sci/init opts)]
+    (sci/eval-string*
+     parent
+     "(deftype ForkNative [])
+      (extend-type ForkNative ICounted (-count [_] 1))
+      (def fork-native (->ForkNative))")
+    (let [child (sci/fork parent)]
+      (is (= 2
+             (sci/eval-string*
+              child
+              "(extend-type ForkNative ICounted (-count [_] 2))
+               (count fork-native)")))
+      (is (= 1 (sci/eval-string* parent "(count fork-native)"))))))
+
+(deftest forked-record-native-protocol-extension-test
+  (let [parent (sci/init opts)]
+    (sci/eval-string*
+     parent
+     "(defrecord ForkNativeRecord [])
+      (extend-type ForkNativeRecord ICounted (-count [_] 1))
+      (def fork-native-record (->ForkNativeRecord))")
+    (let [child (sci/fork parent)]
+      (is (= 2
+             (sci/eval-string*
+              child
+              "(extend-type ForkNativeRecord ICounted (-count [_] 2))
+               (count fork-native-record)")))
+      (is (= 1
+             (sci/eval-string* parent "(count fork-native-record)"))))))
+
 (deftest extend-protocol-native-protocol-test
   (let [v (eval* "
 (deftype Foo [m])

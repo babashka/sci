@@ -13,37 +13,59 @@
 (deftype ^{:doc "Representation of a SCI custom type, created e.g. with `(defrecord Foo [])`. The fields of this type are implementation detail and should not be accessed directly."}
     Type [#?(:cljd ^:mutable data :clj ^:volatile-mutable data :cljs ^:volatile-mutable data)]
   sci.impl.types/IBox
-  (getVal [_] data)
-  (setVal [_ v] (set! data v))
+  (getVal [this] (world/type-data this data))
+  (setVal [this v]
+    (if (world/current-world)
+      (do
+        (world/reset-type-data! this v)
+        (when (world/primary-world?) (set! data v))
+        v)
+      (set! data v)))
   Object
   ;; NOTE: returns "user.Foo" rather than "class user.Foo" (unlike java.lang.Class).
   ;; Changing this would break downstream libs (e.g. prismatic/schema).
-  (toString [_]
-    (str (:sci.impl/type-name data)))
+  (toString [this]
+    (str (:sci.impl/type-name (world/type-data this data))))
 
   ;; meta is only supported to get our implementation! keys out
   #?@(:cljd
       [IMeta
-       (-meta [_] data)]
+       (-meta [this] (world/type-data this data))]
       :clj
       [clojure.lang.IMeta
-       (meta [_] data)]
+       (meta [this] (world/type-data this data))]
       :cljs
       [IMeta
-       (-meta [_] data)])
+       (-meta [this] (world/type-data this data))])
 
   ;; support alter-meta! for storing print-method etc.
   #?@(:cljd
       [types/IResetMeta
-       (-reset-meta! [_ m] (set! data m))]
+       (-reset-meta! [this m]
+         (if (world/current-world)
+           (do
+             (world/reset-type-data! this m)
+             (when (world/primary-world?) (set! data m))
+             m)
+           (set! data m)))]
       :clj
       [clojure.lang.IReference
        (alterMeta [this f args]
                   (locking this
-                    (set! data (apply f data args))))
+                    (if (world/current-world)
+                      (let [m (world/alter-type-data!
+                               this (world/type-data this data) f args)]
+                        (when (world/primary-world?) (set! data m))
+                        m)
+                      (set! data (apply f data args)))))
        (resetMeta [this m]
                   (locking this
-                    (set! data m)))])
+                    (if (world/current-world)
+                      (do
+                        (world/reset-type-data! this m)
+                        (when (world/primary-world?) (set! data m))
+                        m)
+                      (set! data m))))])
 
   types/HasName
   (getName [this] (str this)))

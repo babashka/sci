@@ -279,6 +279,40 @@
   (is (= "user.Dude" (tu/eval* "(defrecord Dude []) (str Dude)" {})))
   (is (= "user.Dude" (tu/eval* "(deftype Dude []) (str Dude)" {}))))
 
+(deftest forked-deftype-instance-state-test
+  (let [parent (sci/init nil)]
+    (sci/eval-string*
+     parent
+     "(defprotocol IForkBox (bump! [_]) (box-value [_]))
+      (deftype ForkBox [^:volatile-mutable value]
+        IForkBox
+        (bump! [this] (set! value (inc value)) this)
+        (box-value [_] value))
+      (def box (->ForkBox 1))
+      (def box-alias box)")
+    (let [parent-box (sci/eval-string* parent "box")
+          child (sci/fork parent)
+          child-box (sci/eval-string* child "box")]
+      (is (not (identical? parent-box child-box)))
+      (is (true? (sci/eval-string* child "(identical? box box-alias)")))
+      (is (= 2 (sci/eval-string* child "(box-value (bump! box))")))
+      (is (= 1 (sci/eval-string* parent "(box-value box)"))))))
+
+(deftest forked-type-metadata-test
+  (let [parent (sci/init nil)]
+    (sci/eval-string*
+     parent
+     "(deftype ForkMeta [])
+      (alter-meta! ForkMeta assoc :branch :parent)")
+    (let [child (sci/fork parent)]
+      (is (= :child
+             (sci/eval-string*
+              child
+              "(alter-meta! ForkMeta assoc :branch :child)
+               (:branch (meta ForkMeta))")))
+      (is (= :parent
+             (sci/eval-string* parent "(:branch (meta ForkMeta))"))))))
+
 (deftest equiv-test
   (let [prog "(defrecord Foo [a]) (defrecord Bar [a]) [(= (->Foo 1) (->Foo 1)) (= (->Foo 1) (->Bar 1)) (= (->Foo 1) {:a 1})]"]
     (is (= [true false false] (tu/eval* prog {})))))

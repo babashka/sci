@@ -15,6 +15,22 @@
    (defn- no-method [mm-name dv]
      (throw (ex-info (str "No method in multimethod '" mm-name "' for dispatch value: " dv) {}))))
 
+#?(:cljd
+   (do
+     (def ^:private missing-method-table-value (Object.))
+
+     (defn- cljd-method-table-value [method-table]
+       (let [value (world/value method-table missing-method-table-value)]
+         (if (identical? value missing-method-table-value)
+           @method-table
+           value)))
+
+     (defn- cljd-swap-method-table! [method-table f & args]
+       (if (world/tracked? method-table)
+         (world/swap-value! method-table f args
+                            (fn [_] nil) (fn [_ _] nil))
+         (apply swap! method-table f args)))))
+
 #?(:cljd nil
    :default
    (do
@@ -197,45 +213,48 @@
 ;; no hierarchies on cljd, dispatch is exact match with a default fallback
 #?(:cljd
    (deftype SciMultiFn [mm-name dispatch-fn default method-table]
+     fork/Forkable
+     (fork-value [this] this)
+
      IFn
      (-invoke [_]
-       (let [dv (dispatch-fn) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f) (no-method mm-name dv))))
      (-invoke [_ a]
-       (let [dv (dispatch-fn a) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a) (no-method mm-name dv))))
      (-invoke [_ a b]
-       (let [dv (dispatch-fn a b) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b) (no-method mm-name dv))))
      (-invoke [_ a b c]
-       (let [dv (dispatch-fn a b c) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b c) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b c) (no-method mm-name dv))))
      (-invoke [_ a b c d]
-       (let [dv (dispatch-fn a b c d) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b c d) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b c d) (no-method mm-name dv))))
      (-invoke [_ a b c d e]
-       (let [dv (dispatch-fn a b c d e) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b c d e) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b c d e) (no-method mm-name dv))))
      (-invoke [_ a b c d e f*]
-       (let [dv (dispatch-fn a b c d e f*) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b c d e f*) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b c d e f*) (no-method mm-name dv))))
      (-invoke [_ a b c d e f* g]
-       (let [dv (dispatch-fn a b c d e f* g) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b c d e f* g) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b c d e f* g) (no-method mm-name dv))))
      (-invoke [_ a b c d e f* g h]
-       (let [dv (dispatch-fn a b c d e f* g h) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b c d e f* g h) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b c d e f* g h) (no-method mm-name dv))))
      (-invoke [_ a b c d e f* g h i]
-       (let [dv (dispatch-fn a b c d e f* g h i) mt @method-table f (or (get mt dv) (get mt default))]
+       (let [dv (dispatch-fn a b c d e f* g h i) mt (cljd-method-table-value method-table) f (or (get mt dv) (get mt default))]
          (if f (f a b c d e f* g h i) (no-method mm-name dv))))
      (-invoke-more [_ a b c d e f* g h i rest*]
        (let [dv (apply dispatch-fn a b c d e f* g h i rest*)
-             mt @method-table
+             mt (cljd-method-table-value method-table)
              f (or (get mt dv) (get mt default))]
          (if f (apply f a b c d e f* g h i rest*) (no-method mm-name dv))))
      (-apply [this args]
        (let [dv (apply dispatch-fn args)
-             mt @method-table
+             mt (cljd-method-table-value method-table)
              f (or (get mt dv) (get mt default))]
          (if f (apply f args) (no-method mm-name dv))))))
 
@@ -335,13 +354,16 @@
                (instance? cljs.core/MultiFn x))))
 
 (defn multi-fn-impl [name dispatch-fn default hierarchy]
-  #?(:cljd (SciMultiFn. name dispatch-fn default (atom {}))
+  #?(:cljd (let [method-table (atom {})]
+             (world/register! method-table {})
+             (SciMultiFn. name dispatch-fn default method-table))
      :default (managed-multifn name dispatch-fn default hierarchy)))
 
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]
-  #?(:cljd (do (swap! (.-method-table ^SciMultiFn multifn) assoc
-                      (normalize-dispatch-val dispatch-val) f)
+  #?(:cljd (do (cljd-swap-method-table!
+                (.-method-table ^SciMultiFn multifn) assoc
+                (normalize-dispatch-val dispatch-val) f)
                multifn)
      :default
      (if (instance? SciMultiFn multifn)
@@ -351,7 +373,8 @@
 
 (defn get-method-impl [multifn dispatch-val]
   #?(:cljd
-     (let [mt @(.-method-table ^SciMultiFn multifn)
+     (let [mt (cljd-method-table-value
+               (.-method-table ^SciMultiFn multifn))
            dispatch-val (normalize-dispatch-val dispatch-val)]
        (or (get mt dispatch-val) (get mt (.-default ^SciMultiFn multifn))))
      :default
@@ -362,7 +385,7 @@
       dispatch-val)))
 
 (defn methods-impl [multifn]
-  #?(:cljd @(.-method-table ^SciMultiFn multifn)
+  #?(:cljd (cljd-method-table-value (.-method-table ^SciMultiFn multifn))
      :default
      (host-methods
       (if (instance? SciMultiFn multifn)
@@ -379,8 +402,9 @@
 
 (defn remove-method-impl [multifn dispatch-val]
   #?(:cljd
-     (do (swap! (.-method-table ^SciMultiFn multifn)
-                dissoc (normalize-dispatch-val dispatch-val))
+     (do (cljd-swap-method-table!
+          (.-method-table ^SciMultiFn multifn)
+          dissoc (normalize-dispatch-val dispatch-val))
          multifn)
      :default
      (if (instance? SciMultiFn multifn)
@@ -390,7 +414,9 @@
 
 (defn remove-all-methods-impl [multifn]
   #?(:cljd
-     (do (reset! (.-method-table ^SciMultiFn multifn) {}) multifn)
+     (do (cljd-swap-method-table!
+          (.-method-table ^SciMultiFn multifn) (constantly {}))
+         multifn)
      :default
      (if (instance? SciMultiFn multifn)
        (mutate-sci-multifn! multifn host-reset!)

@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [deftype])
   (:require
+   [sci.fork :as fork]
    [sci.ctx-store :as store]
    #?(:cljd [sci.impl.multimethods :as mm])
    [sci.impl.types :as types]
@@ -60,6 +61,8 @@
 (defprotocol SciPrintMethod
   (-sci-print-method [x w]))
 
+#?(:cljs (declare fork-sci-type))
+
 (clojure.core/deftype SciType
     [rec-name
      type
@@ -81,6 +84,11 @@
   (-mutate [_ k v]
     (set! ext-map (assoc ext-map k v))
     v)
+
+  fork/Forkable
+  (fork-value [this]
+    #?(:cljs (fork-sci-type this)
+       :default (SciType. rec-name type type-meta ext-map)))
 
   #?@(:cljd [IFn
              (-invoke [this] (types/sci-invoke this))
@@ -187,12 +195,35 @@
   (getFields [_] ext-map))
 
 #?(:cljs
+   (defn fork-sci-type [^SciType this]
+     (let [type (.-type this)
+           proto (if (instance? lang/Type type)
+                   (:sci.impl/js-prototype (types/getVal type))
+                   (js/Object.getPrototypeOf this))
+           obj (js/Object.create proto)]
+       (.call SciType obj
+              (.-rec-name this) type (.-type-meta this)
+              (types/getVal this))
+       obj)))
+
+#?(:cljs
    (defn new-js-prototype
      "Fresh prototype chaining to base-class's (SciType or SciRecord), so
   native protocol methods can be installed per sci type without affecting
   other sci types."
      ([] (new-js-prototype SciType))
      ([base-class] (js/Object.create (.-prototype base-class)))))
+
+#?(:cljs
+   (defn fork-type-data
+     "Clone a type's mutable JS prototype for a child SCI world."
+     [data]
+     (if-let [source (:sci.impl/js-prototype data)]
+       (let [target (js/Object.create (js/Object.getPrototypeOf source))]
+         (js/Object.defineProperties
+          target (js/Object.getOwnPropertyDescriptors source))
+         (assoc data :sci.impl/js-prototype target))
+       data)))
 
 #?(:cljs
    (defn -install-field-accessors!

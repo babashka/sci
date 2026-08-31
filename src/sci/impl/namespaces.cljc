@@ -924,6 +924,8 @@
             (do (types/setVal existing data)
                 existing)
             (sci.lang/->Type data))]
+    (world/register-type!
+     t data #?(:cljs sci.impl.deftype/fork-type-data :default nil))
     (swap! env (fn [env]
                  (-> env
                      (update-in [:namespaces cnn :types] assoc type-name t)

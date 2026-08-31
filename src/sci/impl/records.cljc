@@ -2,6 +2,7 @@
   {:no-doc true}
   (:refer-clojure :exclude [defrecord record?])
   (:require [clojure.string :as str]
+            [sci.fork :as fork]
             #?(:cljd [sci.impl.multimethods :as mm])
             [sci.impl.types :as types]
             [sci.impl.utils :as utils]
@@ -277,7 +278,7 @@
      (applyTo [this args] (types/sci-apply-to this args))))
 
 ;; See https://github.com/clojure/clojurescript/blob/9562ae11422243e0648a12c39e7c990ef3f94260/src/main/clojure/cljs/core.cljc#L1804
-#?(:cljs (declare clone-record*))
+#?(:cljs (declare clone-record* fork-record*))
 
 #?(:cljs
    (deftype SciRecord [rec-name
@@ -290,6 +291,10 @@
      ICloneable
      (-clone [this]
        (clone-record* this ext-map my_hash))
+
+     fork/Forkable
+     (fork-value [this]
+       (fork-record* this))
 
      IHash
      (-hash [_]
@@ -408,6 +413,18 @@
      (let [obj (js/Object.create (js/Object.getPrototypeOf this))]
        (.call SciRecord obj (.-rec-name this) (.-type this) (.-basis-fields this)
               (.-type-meta this) ext-map my-hash)
+       obj)))
+
+#?(:cljs
+   (defn fork-record* [^SciRecord this]
+     (let [type (.-type this)
+           proto (if (instance? lang/Type type)
+                   (:sci.impl/js-prototype (types/getVal type))
+                   (js/Object.getPrototypeOf this))
+           obj (js/Object.create proto)]
+       (.call SciRecord obj
+              (.-rec-name this) type (.-basis-fields this)
+              (.-type-meta this) (.-ext-map this) (.-my_hash this))
        obj)))
 
 #?(:cljd (defn ->record-impl [rec-name type basis-fields type-meta m]

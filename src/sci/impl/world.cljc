@@ -211,6 +211,13 @@
       (let [world (.-world ^ReadWorld active)]
         (slot-value world (:value-slot (descriptor world handle)) fallback)))))
 
+(defn type-data [handle fallback]
+  (let [active (active-world-state)]
+    (if (or (nil? active) (.-primary? ^ReadWorld active))
+      fallback
+      (let [world (.-world ^ReadWorld active)]
+        (slot-value world (:value-slot (descriptor world handle)) fallback)))))
+
 (defn var-watches [handle fallback]
   (if-let [^ReadWorld active (active-world-state)]
     (let [world (.-world active)
@@ -227,7 +234,11 @@
       registry
       (fn []
         (if-let [desc (get-in @registry [:descriptors handle])]
-          desc
+          (if (and value-fork-fn (nil? (:value-fork-fn desc)))
+            (let [desc (assoc desc :value-fork-fn value-fork-fn)]
+              (swap! registry assoc-in [:descriptors handle] desc)
+              desc)
+            desc)
           (let [start (:next-slot @registry)
                 width (if (= :var kind) 2 1)
                 desc (cond-> {:kind kind
@@ -453,6 +464,19 @@
           (cells-set! cells value-slot m)))))
   handle)
 
+(defn register-type!
+  ([handle data]
+   (register-type! handle data nil))
+  ([handle data value-fork-fn]
+   (when-let [^DenseWorld world (current-world)]
+     (let [{:keys [value-slot]}
+           (allocate-descriptor! world handle :type false value-fork-fn)]
+       (ensure-capacity! world (inc value-slot))
+       (let [cells (current-cells world)]
+         (when (identical? absent (cells-get cells value-slot))
+           (cells-set! cells value-slot data)))))
+   handle))
+
 (defn- reset-slot! [^DenseWorld world slot value]
   (if (nil? slot)
     ::no-world
@@ -482,6 +506,14 @@
       (reset-slot! world value-slot m))
     ::no-world))
 
+(defn reset-type-data! [handle data]
+  (if-let [^DenseWorld world (current-world)]
+    (let [{:keys [value-slot]}
+          (or (descriptor world handle)
+              (allocate-descriptor! world handle :type false nil))]
+      (reset-slot! world value-slot data))
+    ::no-world))
+
 (defn alter-var-meta! [handle fallback f args]
   (if-let [^DenseWorld world (current-world)]
     (let [{:keys [meta-slot]} (or (descriptor world handle)
@@ -502,6 +534,20 @@
     (let [{:keys [value-slot]}
           (or (descriptor world handle)
               (allocate-descriptor! world handle :namespace false nil))]
+      (ensure-capacity! world (inc value-slot))
+      (loop []
+        (let [cells (current-cells world)
+              raw-old (cells-get cells value-slot)
+              old (if (identical? absent raw-old) fallback raw-old)
+              new (apply f old args)]
+          (if (cells-cas! cells value-slot raw-old new) new (recur)))))
+    ::no-world))
+
+(defn alter-type-data! [handle fallback f args]
+  (if-let [^DenseWorld world (current-world)]
+    (let [{:keys [value-slot]}
+          (or (descriptor world handle)
+              (allocate-descriptor! world handle :type false nil))]
       (ensure-capacity! world (inc value-slot))
       (loop []
         (let [cells (current-cells world)
@@ -577,6 +623,21 @@
     (vreset! (.-persistent? world) true))
   world)
 
+(defn- call-with-selected-world [^DenseWorld world f]
+  (let [state #?(:clj (.get ^ThreadLocal execution/current)
+                 :default (execution/current-state))
+        previous (execution/active-world state)
+        previous-scope (execution/binding-scope state)]
+    (execution/set-active-world! state (ReadWorld. world false))
+    (execution/set-binding-scope! state world)
+    (execution/refresh-active-bindings! state)
+    (try
+      (f)
+      (finally
+        (execution/set-active-world! state previous)
+        (execution/set-binding-scope! state previous-scope)
+        (execution/refresh-active-bindings! state)))))
+
 (defn- copy-world [^DenseWorld world fork-value]
   (sweep-managed! world)
   (let [source (current-cells world)
@@ -586,31 +647,41 @@
         registry-state @registry
         descriptors (:descriptors registry-state)
         managed-descriptors (:managed-descriptors registry-state)
-        handles (set (keys descriptors))]
+        handles (set (keys descriptors))
+        target-world (DenseWorld.
+                      (volatile! target)
+                      registry
+                      #?(:clj (ReentrantReadWriteLock.) :default nil)
+                      (volatile! true))]
     (dotimes [i n]
       (cells-set! target i (cells-get source i)))
     (when fork-value
-      (doseq [[_ {:keys [value-slot host-fork? value-fork-fn]}] descriptors
-              :when (or host-fork? value-fork-fn)
+      ;; Per-cell copiers establish target-local type/control realizations
+      ;; before general Forkable values inspect the child world.
+      (doseq [[_ {:keys [value-slot value-fork-fn]}] descriptors
+              :when value-fork-fn
               :when (< value-slot n)
               :let [v (cells-get target value-slot)]
               :when (not (identical? absent v))]
-        (cells-set! target value-slot
-                    (cond
-                      (contains? handles v) v
-                      value-fork-fn (value-fork-fn v)
-                      :else (fork-value v))))
-      (doseq [{:keys [fork-slots]} managed-descriptors
-              slot fork-slots
-              :when (< slot n)
-              :let [v (cells-get target slot)]
-              :when (not (identical? absent v))]
-        (cells-set! target slot (fork-value v))))
-    (DenseWorld.
-     (volatile! target)
-     registry
-     #?(:clj (ReentrantReadWriteLock.) :default nil)
-     (volatile! true))))
+        (cells-set! target value-slot (value-fork-fn v)))
+      (call-with-selected-world
+       target-world
+       (fn []
+         (doseq [[_ {:keys [value-slot host-fork? value-fork-fn]}]
+                 descriptors
+                 :when (and host-fork? (nil? value-fork-fn))
+                 :when (< value-slot n)
+                 :let [v (cells-get target value-slot)]
+                 :when (not (identical? absent v))]
+           (cells-set! target value-slot
+                       (if (contains? handles v) v (fork-value v))))
+         (doseq [{:keys [fork-slots]} managed-descriptors
+                 slot fork-slots
+                 :when (< slot n)
+                 :let [v (cells-get target slot)]
+                 :when (not (identical? absent v))]
+           (cells-set! target slot (fork-value v))))))
+    target-world))
 
 (defn fork-world [^DenseWorld world fork-value snapshot-value snapshot-var-meta]
   #?(:clj

@@ -1650,6 +1650,74 @@
                    (:resource (ex-data e))))]
     (is (= :socket result))))
 
+(deftest affine-transient-fork-policy-test
+  (let [parent (sci/init nil)
+        transient-value (sci/eval-string*
+                         parent "(def working (transient [])) working")]
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo
+            :clj clojure.lang.ExceptionInfo
+            :cljs ExceptionInfo)
+         #"affine transient collection"
+         (sci/fork parent)))
+    (let [child (sci/fork parent {:fork-fn identity})]
+      (is (identical? transient-value
+                      (sci/eval-string* child "working"))))))
+
+#?(:cljd nil
+   :default
+   (deftest forked-array-state-test
+     (let [parent (sci/init nil)
+           parent-array (sci/eval-string*
+                         parent
+                         "(def buffer (object-array [1 2]))
+                          (def buffer-alias buffer)
+                          buffer")
+           child (sci/fork parent)
+           child-array (sci/eval-string* child "buffer")]
+       (is (not (identical? parent-array child-array)))
+       (is (= [true 9]
+              (sci/eval-string*
+               child
+               "(aset buffer 0 9)
+                [(identical? buffer buffer-alias) (aget buffer 0)]")))
+       (is (= [true 1]
+              (sci/eval-string*
+               parent
+               "[(identical? buffer buffer-alias) (aget buffer 0)]"))))))
+
+#?(:cljd nil
+   :default
+   (deftest unmanaged-host-reference-fork-policy-test
+     (let [user-ns (sci/create-ns 'user)
+           host-state (atom 0)
+           copies (atom 0)
+           state-var (sci/new-var 'host-state host-state {:ns user-ns})
+           alias-var (sci/new-var 'host-state-alias host-state {:ns user-ns})
+           parent (sci/init
+                   {:namespaces
+                    {'user {'host-state state-var
+                            'host-state-alias alias-var}}})]
+       (is (thrown-with-msg?
+            #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+            #"unmanaged mutable host value"
+            (sci/fork parent)))
+       (let [child
+             (sci/fork
+              parent
+              {:fork-fn
+               (fn [value]
+                 (if (identical? value host-state)
+                   (do (swap! copies inc) (atom @value))
+                   value))})]
+         (is (= 1 @copies))
+         (is (= [true 1]
+                (sci/eval-string*
+                 child
+                 "[(identical? host-state host-state-alias)
+                   (swap! host-state inc)]")))
+         (is (= 0 @host-state))))))
+
 #?(:clj
    (deftest fork-host-value-cooperation-test
      (let [user-ns (sci/create-ns 'user)
