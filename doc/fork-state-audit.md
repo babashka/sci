@@ -14,10 +14,10 @@ An SCI context currently has three relevant layers:
    `sci/fork` creates a new atom with the same map value.
 2. A lineage registry maps stable handles to dense slots. Var roots and
    metadata use two slots, with an optional third slot allocated only when a
-   Var gains watches. Namespace objects use one metadata slot. A
-   self-describing SCI atom carries a hot value slot plus a cold control slot
-   for metadata, validator, and watches. Volatiles currently use one
-   registry-routed value slot.
+   Var gains watches. Namespace objects use one metadata slot and Type handles
+   use one descriptor-data slot. A self-describing SCI atom carries a hot value
+   slot plus a cold control slot for metadata, validator, and watches.
+   Volatiles currently use one registry-routed value slot.
 3. Dynamic binding frames are control state outside the world. Active world,
    binding scope, and frame are consolidated in one execution-state cell. On
    the JVM it is a `ThreadLocal`; on CLJS and ClojureDart it is a process-local
@@ -132,7 +132,8 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | SCI-created volatile value | Stable host handle, world-local value slot | Implemented |
 | Var watches | Optional dense world-local slot on a stable Var handle | Implemented; callbacks are inherited but their external effects remain capabilities |
 | Namespace metadata | Stable Namespace handle with a dense world-local metadata slot | Implemented |
-| Type metadata and mutable deftype fields | Mutable fields on shared Type/SciType handles | Shared unintentionally |
+| Type descriptor data | Stable Type handle with one dense world-local data slot | Implemented; CLJS native prototypes are cloned before child values are copied |
+| SCI deftype instance fields | Directly stored instances implement `Forkable` and are shallow-copied with alias preservation | Implemented at the world-cell boundary; nested host state still requires cooperation |
 | `*loaded-libs*` | Built-in Var root has a per-cell copier for its host Ref/atom | Implemented; keeps the host representation while loaded sets diverge |
 | Delay | Stable SCI handle with world-local pending/realized state | Implemented; pending realizations split, while cached outcomes are inherited according to host delay semantics |
 | Lazy sequence realization | One host lazy cell/cache | Shared and world selection during deferred realization is unreliable |
@@ -140,11 +141,13 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | JVM Promise | Stable SCI handle with world-local pending/delivered state | Implemented; a pending child has no inherited waiters and delivery is branch-local |
 | CLJS Promise | Native asynchronous host value | External async resource; managed continuations convey a world but the Promise itself is not copied |
 | Future / async task | Work launched through the binding conveyor runs in its captured world; the host task itself remains shared | Not copyable; needs an explicit fork policy |
-| Transient collection | Same affine host object | Shared; mutation in child is visible in parent |
-| Array / JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
+| Transient collection | Detected as affine when directly stored in a world cell | Fork rejected by default; `:fork-fn` may impose an explicit application policy |
+| JVM array / CLJS JavaScript array | Shallow-copied once per source identity | Implemented for direct world-cell values; nested elements retain their own policy |
+| Host atom/ref/agent/volatile/native multimethod | Detected as unmanaged mutable state on JVM/CLJS | Fork rejected by default; `Forkable` wrapper or `:fork-fn` must choose copy or sharing |
+| Plain JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
 | JVM/CLJS SCI multimethod tables, preferences, and caches | Stable `SciMultiFn` handle with a fork-local host dispatch engine | Implemented; method mutations use copy-on-write and caches are rebuilt per fork |
-| ClojureDart SCI multimethod tables | Mutable atom inside one `SciMultiFn` root | Shared; managed representation remains to be ported |
-| Protocol/type extension registries | Mutable Type/protocol realization objects | Shared in several host-specific paths |
+| ClojureDart SCI multimethod tables | Stable `SciMultiFn` with a dense world-local persistent method map | Implemented for interpreter-created exact-dispatch multimethods; built-in runtime tables remain global |
+| SCI protocol extension registries | Protocol Vars and method multimethods are world-local | Implemented; CLJS native-protocol prototype mutations use each world's Type data and copied instances |
 | Record hash caches | Shared memoized hash only | Benign derived state if records remain immutable |
 | Watches with external effects | Shared callback registrations | Must be copied, shared, or prohibited explicitly by capability |
 | RNG, `gensym`, clock, UUID | Host/global nondeterministic source | External capability; not reproducibly forked |
@@ -164,7 +167,8 @@ A JVM probe against the current implementation produced these results:
   parent without running the delayed body in the parent;
 - before managed JVM promises, delivering a child promise delivered the parent
   promise;
-- mutating a child transient or array changed the object seen by the parent;
+- before affine rejection and built-in array copying, mutating a child
+  transient or array changed the object seen by the parent;
 - using a memoized function in the child populated the cache used by parent;
 - a child `defmethod` installed the method in parent;
 - before self-describing atoms, child atom metadata changes appeared in the
@@ -302,8 +306,9 @@ common dispatch path pays only world selection and a direct slot read before
 using the native cache. In a deliberately harsh direct-host-call benchmark
 that added roughly 15--18 percent over the previous shared host `MultiFn`; in
 an interpreted million-call loop, repeated runs ranged from approximately
-noise to nine percent. ClojureDart retains its earlier shared table pending a
-portable managed implementation and test runtime.
+noise to nine percent. ClojureDart routes its exact-dispatch persistent method
+map through an ordinary world slot; the Dart test suite was unavailable in the
+current environment, so that port still needs verification on a Dart host.
 
 ### Memoization and lazy computation
 
@@ -322,6 +327,14 @@ when reachable from a world cell unless an application wrapper defines a safe
 policy. Arrays, mutable deftype fields, and application collections may be
 duplicable, but need self-describing SCI handles or `Forkable` cooperation.
 
+Directly stored host transients are now rejected by the default value forker.
+Supplying `:fork-fn` is an explicit override and can deliberately share or
+replace them. The check remains shallow, like all host cooperation: a transient
+hidden inside an unclassified host container is that container's
+responsibility. Directly stored standard `SciType` deftype instances implement
+`Forkable`; their field map is shallow-copied once per source identity, so
+aliases remain aliases in the child and later field replacements diverge.
+
 ## Recommended implementation order
 
 1. Preserve the corrected asynchronous world conveyance and extend it to any
@@ -330,13 +343,14 @@ duplicable, but need self-describing SCI handles or `Forkable` cooperation.
    async suspension and eventual execution snapshots.
 3. Address lineage-registry liveness so adding more tracked handles does not
    create an unbounded retention problem.
-4. Finish split identity/state for Var watches, namespace/type metadata,
-   volatiles, and `*loaded-libs*`.
-5. Finish the ClojureDart multimethod port. JVM/CLJS multimethod state and SCI
-   memoization caches are implemented.
-6. Add managed Delay and choose a pending-Promise policy.
-7. Reject or explicitly classify transients, running futures, streams, and
-   other affine/external resources.
+4. Verify and tune the implemented split identity/state paths on every host,
+   especially ClojureDart multimethods and CLJS native protocol prototypes.
+5. Reject or explicitly classify running futures, streams, lazy realizations,
+   and other affine/external resources; keep nested host graphs cooperative.
+6. Define forkable RNG, gensym, clock, and UUID capabilities for reproducible
+   execution where applications require them.
+7. Benchmark fork cost and hot reads against upstream, then consider paged
+   copy-on-write cells only if workloads with frequent forks justify it.
 8. Introduce execution/fiber snapshots for lazy continuations and the future
    lambda-join/Simmis runtime.
 

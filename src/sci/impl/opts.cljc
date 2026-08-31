@@ -4,7 +4,7 @@
    #?(:cljs [goog.string])
    [sci.ctx-store :as store]
    [sci.impl.namespaces :as namespaces]
-   [sci.impl.types]
+   [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
    [sci.impl.vars :as vars]
    [sci.impl.world :as world]
@@ -21,6 +21,12 @@
                  :let [ns-obj (:obj ns-map)]
                  :when ns-obj]
            (world/register-namespace! ns-obj (meta ns-obj)))
+         (doseq [[_ ns-map] (:namespaces @(:env ctx))
+                 [_ t] (:types ns-map)
+                 :when (utils/sci-type? t)]
+           (world/register-type!
+            t (types/getVal t)
+            #?(:cljs sci.impl.deftype/fork-type-data :default nil)))
          (doseq [[_ ns-map] (:namespaces @(:env ctx))
                  [_ v] ns-map
                  :when (and (utils/var? v)

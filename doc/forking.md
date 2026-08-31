@@ -58,25 +58,39 @@ one fork and preserves aliases to its result.
 
 Only values directly stored in world cells are inspected. A host container that
 holds mutable children must implement the protocol and copy its own graph.
-Unclassified values retain the compatibility behavior of being shared.
+Unclassified values retain the compatibility behavior of being shared, except
+for known affine or mutable host primitives that SCI can identify safely.
+Direct host atoms, refs, agents, volatiles, multimethods, and transient
+collections are rejected unless an explicit policy handles them.
 
 `sci/init` and the two-argument `sci/fork` also accept `:fork-fn`, a legacy
 one-argument fallback applied to unclassified values stored in world cells. It
 may copy application-owned state and should return immutable values unchanged.
-Unlike the protocol path, callback alias preservation remains the
-application's responsibility, for example with an identity-keyed memo table.
+The per-fork identity memo applies to protocol, callback, and built-in copying,
+so identical direct cell values are transformed once and remain aliases in the
+child.
 
 ## Current boundary
 
 Var roots, metadata, and watch maps; namespace metadata and loaded-library
-state; all logical SCI atom state; SCI-created volatile values and delays; and
-JVM/CLJS SCI multimethod tables, preferences, and dispatch caches are
-fork-local. On the JVM, SCI-created promises are fork-local as well. SCI's
-`memoize` uses a fork-local atom for its cache. Effects performed by any watch
-are ordinary user capabilities and are not made reversible automatically.
-Futures, lazy sequences, transients, mutable host objects, mutable deftype
-fields, and effects outside SCI remain shared unless the embedding application
-models or copies them.
+state; all logical SCI atom state; SCI-created volatile values and delays; SCI
+type descriptor data; and JVM/CLJS SCI multimethod tables, preferences, and
+dispatch caches are fork-local. ClojureDart's exact-dispatch SCI multimethod
+tables are fork-local as well. Directly stored SCI deftype instances are
+shallow-copied with alias preservation, so their mutable field maps diverge.
+On the JVM, SCI-created promises are fork-local as well. SCI's `memoize` uses a
+fork-local atom for its cache. Effects performed by any watch are ordinary user
+capabilities and are not made reversible automatically. Futures, lazy
+sequences, nested mutable host objects, and effects outside SCI remain shared
+unless the embedding application models or copies them. CLJS native-protocol
+prototypes are cloned with Type data before child deftype/record values are
+copied, so later child extensions do not change the parent's instances. A
+transient collection directly stored in
+world state is rejected as affine by default; an explicit `:fork-fn` can
+instead impose an application-specific copy, share, or rejection policy.
+Directly stored JVM arrays and CLJS JavaScript arrays are shallow-copied by
+default with aliases preserved. Known unmanaged host reference primitives are
+also rejected by default, requiring `Forkable` or `:fork-fn` cooperation.
 
 On the JVM and CLJS an SCI-created atom is now a dedicated `SciAtom`, not the
 host's concrete `clojure.lang.Atom`/`cljs.core.Atom` class. It implements the
@@ -91,6 +105,11 @@ the stable `SciMultiFn` handle selects a fork-local host dispatch engine. SCI's
 `remove-all-methods` accept both SCI and native host multimethods, while host
 code that tests specifically for the concrete host `MultiFn` class can observe
 the difference.
+
+ClojureDart has no host hierarchy/cache engine to clone. Its stable
+`SciMultiFn` instead routes the persistent exact-dispatch method map through a
+dense world slot; built-in runtime multimethods created outside an SCI world
+retain their process-global tables.
 
 SCI delays also have stable interpreter-owned identity. Forking a pending delay
 creates an independent pending realization in the child; forking a completed

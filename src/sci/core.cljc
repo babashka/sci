@@ -343,6 +343,7 @@
                        #(cond
                           (utils/var? %) (vars/getRawRoot %)
                           (utils/namespace? %) (meta %)
+                          (utils/sci-type? %) (t/getVal %)
                           :else (c/deref %))
                        meta)]
      (assoc ctx
