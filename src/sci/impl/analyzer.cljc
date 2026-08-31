@@ -13,6 +13,7 @@
    [sci.ctx-store :as store]
    #?(:cljs [sci.impl.async-macro :as async-macro])
    [sci.impl.deftype]
+   #?(:clj [sci.impl.execution :as execution])
    [sci.impl.evaluator :as eval]
    [sci.impl.faster :as faster]
    [sci.impl.fns :as fns]
@@ -60,14 +61,14 @@
                      ^int slot]
      sci.impl.types/Eval
      (eval [_ _ctx _bindings]
-       (let [^sci.impl.world.ReadWorld active
-             (world/active-world-state)]
-         (if (or (nil? active) (.-primary? active))
+       (let [state (.get ^ThreadLocal execution/current)
+             ^clojure.lang.Volatile holder
+             (aget ^objects state execution/active-cells-holder-index)
+             ^java.util.concurrent.atomic.AtomicReferenceArray cells
+             (when holder (.deref holder))]
+         (if (nil? holder)
            (.getDirectRoot v)
-           (let [^sci.impl.world.DenseWorld world (.-world active)
-                 ^java.util.concurrent.atomic.AtomicReferenceArray cells
-                 @(.-cells-holder world)]
-             (.selectRoot v (.get cells slot))))))
+           (.selectRoot v (.get cells slot)))))
      sci.impl.types/Stack
      (stack [_] nil)))
 

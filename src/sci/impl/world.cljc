@@ -90,19 +90,30 @@
             (aget ^objects state execution/active-world-index))
      :default (execution/active-world)))
 
+(defn- install-active-world! [state active]
+  (execution/set-active-world! state active)
+  (if (and active (not (.-primary? ^ReadWorld active)))
+    (let [^DenseWorld world (.-world ^ReadWorld active)]
+      (execution/set-active-cells-holder! state (.-cells-holder world))
+      (execution/set-active-registry! state (.-registry world)))
+    (do
+      (execution/set-active-cells-holder! state nil)
+      (execution/set-active-registry! state nil)))
+  active)
+
 (defn- call-with-active-world [ctx f]
   (let [state #?(:clj (.get ^ThreadLocal execution/current)
                  :default (execution/current-state))
         previous (execution/active-world state)
         previous-scope (execution/binding-scope state)
         active (:sci.impl/read-world ctx)]
-    (execution/set-active-world! state active)
+    (install-active-world! state active)
     (execution/set-binding-scope! state (:sci.impl/world ctx))
     (execution/refresh-active-bindings! state)
     (try
       (f)
       (finally
-        (execution/set-active-world! state previous)
+        (install-active-world! state previous)
         (execution/set-binding-scope! state previous-scope)
         (execution/refresh-active-bindings! state)))))
 
@@ -182,10 +193,13 @@
 (defn var-value-at
   "Read a Var through a slot already resolved by the analyzer."
   [slot fallback]
-  (let [^ReadWorld active (active-world-state)]
-    (if (or (nil? active) (.-primary? active))
-      fallback
-      (slot-value (.-world active) slot fallback))))
+  (if-let [holder (execution/active-cells-holder)]
+    (let [cells @holder]
+      (if (>= slot (cells-length cells))
+        fallback
+        (let [v (cells-get cells slot)]
+          (if (identical? absent v) fallback v))))
+    fallback))
 
 (defn var-value
   "Primary contexts retain their direct Var realization. Descendants resolve
@@ -332,13 +346,16 @@
   "Read a self-described managed slot in the active related world, falling
   back to the owner's creation world outside managed evaluation."
   [home registry slot]
-  (let [selected (selected-managed-world home registry)]
-    (if (identical? selected home)
-      (slot-value selected slot absent)
-      (let [value (slot-value selected slot absent)]
+  (let [state (execution/current-state)]
+    (if (identical? registry (execution/active-registry state))
+      (let [cells @(execution/active-cells-holder state)
+            value (if (>= slot (cells-length cells))
+                    absent
+                    (cells-get cells slot))]
         (if (identical? value absent)
           (slot-value home slot absent)
-          value)))))
+          value))
+      (slot-value home slot absent))))
 
 (defn managed-value-in
   "Read a managed slot from an already selected world."
@@ -380,7 +397,7 @@
              old (if (identical? absent raw-old)
                    (slot-value home slot absent)
                    raw-old)
-             new (apply f old args)
+             new (if (nil? args) (f old) (apply f old args))
              validation (validate! world new)]
          (if (cells-cas! cells slot raw-old new)
            (do (notify! world validation old new) new)
@@ -628,13 +645,13 @@
                  :default (execution/current-state))
         previous (execution/active-world state)
         previous-scope (execution/binding-scope state)]
-    (execution/set-active-world! state (ReadWorld. world false))
+    (install-active-world! state (ReadWorld. world false))
     (execution/set-binding-scope! state world)
     (execution/refresh-active-bindings! state)
     (try
       (f)
       (finally
-        (execution/set-active-world! state previous)
+        (install-active-world! state previous)
         (execution/set-binding-scope! state previous-scope)
         (execution/refresh-active-bindings! state)))))
 

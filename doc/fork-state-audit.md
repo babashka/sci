@@ -242,6 +242,17 @@ move substantially with CPU power policy; the old and new implementations
 were measured together under the same policy, and these figures remain a local
 microbenchmark rather than a portable guarantee.
 
+The execution state now also caches the selected world's stable cell-array
+holder and lineage registry. Hot Var nodes and managed-ref reads therefore
+avoid repeatedly walking `ReadWorld -> DenseWorld -> holder`; caching the
+holder rather than the replaceable raw array remains correct when registration
+grows a world. In alternating powersave-profile runs against the immediately
+preceding checkpoint, three million interpreted child-world Var reads improved
+from 182--187 ms to 133--150 ms (roughly 23 percent at the midpoint), while
+five million direct child-world atom reads improved from 193--194 ms to
+167--171 ms (roughly 13 percent). These ratios are local diagnostics, not a
+cross-machine performance claim.
+
 ### Delay
 
 Represent a delay as a handle to a world-local state machine:
