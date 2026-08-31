@@ -209,6 +209,156 @@
                           (sci/with-bindings {1 1}
                             (sci/eval-string "*x*" {:bindings {'*x* 1}}))))))
 
+(deftest forked-continuation-context-test
+  (let [captured (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured (sci/capture-continuation-context))}})]
+    (sci/eval-string*
+     parent
+     "(def state (atom 0))
+      (def ^:dynamic *outer* :root)
+      (def ^:dynamic *inner* :root)
+      (defn resume! [tag]
+        (let [before [*outer* *inner*]
+              _ (set! *inner* tag)]
+          [before [*outer* *inner*] (swap! state inc)]))
+      (defn unwind! []
+        (let [inner *inner*]
+          (pop-thread-bindings)
+          [inner *outer* *inner*]))
+      (binding [*outer* :outer]
+        (binding [*inner* :inner]
+          (capture-continuation-context!)))")
+    (let [child (sci/fork parent)
+          sibling (sci/fork parent)
+          child-context
+          (sci/retarget-continuation-context @captured child)
+          sibling-context
+          (sci/retarget-continuation-context @captured sibling)
+          parent-resume
+          (sci/continuation-context-fn
+           @captured
+           (sci/eval-string* parent "resume!"))
+          child-resume
+          (sci/continuation-context-fn
+           child-context
+           (sci/eval-string* child "resume!"))
+          sibling-resume
+          (sci/continuation-context-fn
+           sibling-context
+           (sci/eval-string* sibling "resume!"))
+          child-unwind
+          (sci/continuation-context-fn
+           child-context
+           (sci/eval-string* child "unwind!"))]
+      (is (= [[:outer :inner] [:outer :parent] 1]
+             (parent-resume :parent)))
+      (is (= [[:outer :inner] [:outer :child] 1]
+             (child-resume :child)))
+      (is (= [[:outer :inner] [:outer :sibling] 1]
+             (sibling-resume :sibling)))
+      ;; The child capsule retains its own prior `set!`, then unwinds exactly
+      ;; one nested binding frame without touching parent or sibling boxes.
+      (is (= [:child :outer :root] (child-unwind)))
+      (is (= 1 (sci/eval-string* parent "@state")))
+      (is (= 1 (sci/eval-string* child "@state")))
+      (is (= 1 (sci/eval-string* sibling "@state")))
+      (is (= [:root :root]
+             (sci/eval-string* parent "[*outer* *inner*]")))
+      (is (= [:root :root]
+             (sci/eval-string* child "[*outer* *inner*]"))))))
+
+(deftest continuation-context-rejects-unrelated-lineage-test
+  (let [captured (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured (sci/capture-continuation-context))}})
+        unrelated (tu/forkable-init {})]
+    (sci/eval-string* parent "(capture-continuation-context!)")
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+         #"unrelated SCI context"
+         (sci/retarget-continuation-context @captured unrelated)))))
+
+(deftest continuation-context-captures-binding-values-immediately-test
+  (let [captured (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured (sci/capture-continuation-context))}})]
+    (sci/eval-string*
+     parent
+     "(def ^:dynamic *value* :root)
+      (defn capture-and-mutate! []
+        (binding [*value* :captured]
+          (capture-continuation-context!)
+          (set! *value* :after-capture)))")
+    (sci/eval-string* parent "(capture-and-mutate!)")
+    (let [child (sci/fork parent)
+          parent-resume
+          (sci/continuation-context-fn
+           @captured
+           (sci/eval-string* parent "(fn [] *value*)"))
+          child-resume
+          (sci/continuation-context-fn
+           (sci/retarget-continuation-context @captured child)
+           (sci/eval-string* child "(fn [] *value*)"))]
+      (is (= :captured (parent-resume)))
+      (is (= :captured (child-resume)))
+      (is (= :root (sci/eval-string* parent "*value*")))
+      (is (= :root (sci/eval-string* child "*value*"))))))
+
+(deftest explicit-context-captures-host-invoked-interpreted-function-test
+  (let [captured (atom nil)
+        context-holder (atom nil)
+        parent (tu/forkable-init
+                {:bindings
+                 {'capture-continuation-context!
+                  #(reset! captured
+                           (sci/capture-continuation-context @context-holder))}})]
+    (reset! context-holder parent)
+    (let [suspend
+          (sci/eval-string*
+           parent
+           "(def ^:dynamic *scope* :root)
+            (fn []
+              (binding [*scope* :host-invoked]
+                (capture-continuation-context!)))")]
+      ;; This interpreted closure runs after eval-string* has returned, which is
+      ;; how an embedding such as Spindel invokes an interpreted Spin body.
+      (suspend)
+      (let [child (sci/fork parent)
+            resume
+            (sci/continuation-context-fn
+             (sci/retarget-continuation-context @captured child)
+             (sci/eval-string* child "(fn [] *scope*)"))]
+        (is (= :host-invoked (resume)))
+        (is (= :root (sci/eval-string* parent "*scope*")))
+        (is (= :root (sci/eval-string* child "*scope*")))))))
+
+#?(:cljd nil
+   :clj
+   (deftest independent-interpreter-can-be-created-recursively-test
+     (let [outer
+           (sci/init
+            {:bindings
+             {'create-inner!
+              #(sci/with-detached-context
+                 (fn []
+                   (let [ctx (sci/init {})]
+                     (sci/eval-string*
+                      ctx
+                      "(ns nested.runtime)
+                       (defmacro answer [] 42)")
+                     (sci/eval-string* ctx "(nested.runtime/answer)"))))}})]
+       (is (= 42
+              (sci/eval-string*
+               outer
+               "(create-inner!)"))))))
+
 (deftest binding-api-test
   (when-not tu/native?
     (let [x (sci/new-dynamic-var 'x)]
