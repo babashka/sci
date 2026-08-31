@@ -669,10 +669,10 @@
 (defn- copy-world [^DenseWorld world fork-value]
   (sweep-managed! world)
   (let [source (current-cells world)
-        n (cells-length source)
-        target (new-cells n)
         registry (.-registry world)
         registry-state @registry
+        logical-n (:next-slot registry-state)
+        target (new-cells (max 16 logical-n))
         descriptors (:descriptors registry-state)
         managed-descriptors (:managed-descriptors registry-state)
         handles (set (keys descriptors))
@@ -681,14 +681,14 @@
                       registry
                       #?(:clj (ReentrantReadWriteLock.) :default nil)
                       (volatile! true))]
-    (dotimes [i n]
+    (dotimes [i logical-n]
       (cells-set! target i (cells-get source i)))
     (when fork-value
       ;; Per-cell copiers establish target-local type/control realizations
       ;; before general Forkable values inspect the child world.
       (doseq [[_ {:keys [value-slot value-fork-fn]}] descriptors
               :when value-fork-fn
-              :when (< value-slot n)
+              :when (< value-slot logical-n)
               :let [v (cells-get target value-slot)]
               :when (not (identical? absent v))]
         (cells-set! target value-slot (value-fork-fn v)))
@@ -698,14 +698,14 @@
          (doseq [[_ {:keys [value-slot host-fork? value-fork-fn]}]
                  descriptors
                  :when (and host-fork? (nil? value-fork-fn))
-                 :when (< value-slot n)
+                 :when (< value-slot logical-n)
                  :let [v (cells-get target value-slot)]
                  :when (not (identical? absent v))]
            (cells-set! target value-slot
                        (if (contains? handles v) v (fork-value v))))
          (doseq [{:keys [fork-slots]} managed-descriptors
                  slot fork-slots
-                 :when (< slot n)
+                 :when (< slot logical-n)
                  :let [v (cells-get target slot)]
                  :when (not (identical? absent v))]
            (cells-set! target slot (fork-value v))))))
