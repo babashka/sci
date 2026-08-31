@@ -1439,19 +1439,15 @@
      'satisfies? (copy-var sci.impl.protocols/satisfies? clojure-core-ns {:name 'satisfies?})
      ;; end protocols
      ;; IDeref as protocol
-     'deref #?(:cljs (copy-core-var deref)
-               :default (copy-var core-protocols/deref* clojure-core-ns {:name 'deref}))
+     'deref (copy-var core-protocols/deref* clojure-core-ns {:name 'deref})
      #?@(:cljd ['-deref (new-var '-deref core-protocols/-deref)
                 'IDeref core-protocols/deref-protocol]
          :cljs ['-deref (new-var '-deref -deref)
                 'IDeref core-protocols/deref-protocol])
      ;; end IDeref as protocol
      ;; IAtom / ISwap as protocol
-     'swap! #?(:cljs (copy-core-var swap!)
-               :default (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!}))
-     'compare-and-set! #?(:cljd (copy-core-var compare-and-set!)
-                          :clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
-                          :cljs (copy-core-var compare-and-set!))
+     'swap! (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!})
+     'compare-and-set! (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
      #?@(:cljd ['IReset core-protocols/reset-protocol
                 'ISwap core-protocols/swap-protocol
                 '-swap! (new-var '-swap! core-protocols/-swap!)
@@ -1544,7 +1540,7 @@
      'assoc! (copy-core-var assoc!)
      'assoc-in (copy-core-var assoc-in)
      'associative? (copy-core-var associative?)
-     'atom (copy-core-var atom)
+     'atom (copy-var core-protocols/atom* clojure-core-ns {:name 'atom})
      #?@(:clj ['bean (copy-core-var bean)])
      'binding (macrofy 'binding sci-binding)
      'binding-conveyor-fn (copy-core-var sci.impl.vars/binding-conveyor-fn)
@@ -1852,8 +1848,7 @@
      'reduced (copy-core-var reduced)
      'reduced? (copy-core-var reduced?)
      'req! (copy-var req!* clojure-core-ns {:name 'req!})
-     'reset! #?(:cljs (copy-core-var reset!)
-                :default (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!}))
+     'reset! (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!})
      'reset-thread-binding-frame-impl (new-var 'reset-thread-binding-frame-impl sci.impl.vars/reset-thread-binding-frame)
      'resolve (copy-var sci-resolve clojure-core-ns {:name 'resolve})
      #?@(:cljd [] :default ['reversible? (copy-core-var reversible?)])
@@ -1972,10 +1967,10 @@
      'vec (copy-core-var vec)
      'vector (copy-core-var vector)
      'vector? (copy-core-var vector?)
-     'volatile! (copy-core-var volatile!)
+     'volatile! (copy-var core-protocols/volatile!* clojure-core-ns {:name 'volatile!})
      'volatile? (copy-core-var volatile?)
-     'vreset! (copy-core-var vreset!)
-     'vswap! (macrofy 'vswap! vswap!)
+     'vreset! (copy-var core-protocols/vreset!* clojure-core-ns {:name 'vreset!})
+     'vswap! (copy-var core-protocols/vswap!* clojure-core-ns {:name 'vswap!})
      'when-first (macrofy 'when-first when-first*)
      'when-let (macrofy 'when-let when-let*)
      'when-some (macrofy 'when-some when-some*)

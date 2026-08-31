@@ -23,6 +23,7 @@
    [sci.impl.types :as t]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    [sci.lang])
   #?(:cljs (:require-macros
             [sci.core :refer [with-bindings with-out-str copy-var
@@ -250,11 +251,13 @@
   "Atomically alters the root binding of sci var v by applying f to its
   current value plus any args."
   ([v f]
-   (store/with-ctx (assoc store/*ctx* :unrestricted true)
-     (vars/alter-var-root v f)))
+   (let [ctx (assoc store/*ctx* :unrestricted true)]
+     (store/with-ctx ctx
+       (world/with-active-world ctx #(vars/alter-var-root v f)))))
   ([v f & args]
-   (store/with-ctx (assoc store/*ctx* :unrestricted true)
-     (apply vars/alter-var-root v f args))))
+   (let [ctx (assoc store/*ctx* :unrestricted true)]
+     (store/with-ctx ctx
+       (world/with-active-world ctx #(apply vars/alter-var-root v f args))))))
 
 (defn intern
   "Finds or creates a sci var named by the symbol name in the namespace
@@ -264,10 +267,10 @@
   sci var."
   ([ctx sci-ns name]
    (store/with-ctx ctx
-     (namespaces/sci-intern sci-ns name)))
+     (world/with-active-world ctx #(namespaces/sci-intern sci-ns name))))
   ([ctx sci-ns name val]
    (store/with-ctx ctx
-     (namespaces/sci-intern sci-ns name val))))
+     (world/with-active-world ctx #(namespaces/sci-intern sci-ns name val)))))
 
 (defn eval-string
   "Evaluates string `s` as one or multiple Clojure expressions using the Small Clojure Interpreter.
@@ -296,6 +299,10 @@
   Applies only to this context: a context created during an unrestricted
   evaluation is sandboxed unless it also gets this option.
 
+  - `:fork-fn`: optional one-argument host function used by `fork` to copy
+  values held in SCI world cells that need application-specific isolation.
+  SCI-owned mutable primitives are already world-relative and retain identity.
+
   - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))
   ([s opts]
@@ -316,11 +323,32 @@
   (opts/merge-opts ctx opts))
 
 (defn fork
-  "Forks a context (as produced with `init`) into a new context. Any new
-  vars created in the new context won't be visible in the original
-  context."
-  [ctx]
-  (update ctx :env (fn [env] (atom @env))))
+  "Forks a context (as produced with `init`) into an isolated runtime world.
+
+  Existing SCI Vars and SCI-created mutable primitives retain identity, but
+  their values diverge after the fork. `opts` may contain `:fork-fn`, which
+  overrides the context's function for application-specific host values."
+  ([ctx]
+   (fork ctx nil))
+  ([ctx opts]
+   (let [fork-fn (if (contains? opts :fork-fn)
+                   (:fork-fn opts)
+                   (:fork-fn ctx))
+         forked-world (world/fork-world
+                       (:sci.impl/world ctx) fork-fn
+                       #(if (utils/var? %)
+                          (vars/getRawRoot %)
+                          (c/deref %))
+                       meta)
+         _ (vreset! (get-in ctx [:sci.impl/read-world :persistent?]) true)]
+     (assoc ctx
+            :env (atom @(:env ctx))
+            :fork-fn fork-fn
+            :sci.impl/primary? false
+            :sci.impl/world forked-world
+            :sci.impl/read-world {:world forked-world
+                                  :primary? false
+                                  :persistent? (volatile! true)}))))
 
 (defn eval-string*
   "Evaluates string `s` in the context of `ctx` (as produced with
@@ -653,6 +681,14 @@
   `ctx`. Returns mutated context."
   [ctx ns-name ns-map]
   (swap! (:env ctx) update-in [:namespaces ns-name] merge ns-map)
+  (store/with-ctx ctx
+    (world/with-active-world
+      ctx
+      #(doseq [[_ v] ns-map
+               :when (and (utils/var? v)
+                          (not (:sci/built-in (meta v)))
+                          (not (world/registered? (:sci.impl/world ctx) v)))]
+         (world/register-var! v (vars/getRawRoot v) (meta v)))))
   ctx)
 
 (defn find-ns

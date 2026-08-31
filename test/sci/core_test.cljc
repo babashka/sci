@@ -1401,6 +1401,84 @@
            #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
            #"Unable to resolve symbol: y" (sci/eval-string* ctx "y"))))))
 
+(deftest forked-world-test
+  (let [parent (sci/init nil)]
+    (sci/eval-string*
+     parent
+     "(def x 1)
+      (def ^:dynamic *x* 10)
+      (def counter (atom 0))
+      (def counter-alias counter)
+      (def scratch (volatile! 20))
+      (defn world-value [] [x *x* @counter @counter-alias @scratch])
+      (defn bump! [] (swap! counter inc))
+      (defn scratch! [] (vswap! scratch inc))")
+    (let [child (sci/fork parent)]
+      (is (= [1 10 0 0 20] (sci/eval-string* child "(world-value)")))
+      (is (= [2 12 1 1 21]
+             (sci/eval-string*
+              child
+              "(def x 2)
+               (bump!)
+               (scratch!)
+               (binding [*x* 11]
+                 (set! *x* 12)
+                 (world-value))")))
+      (testing "existing vars, captured functions, bindings, atoms, and volatiles isolate"
+        (is (= [1 10 0 0 20] (sci/eval-string* parent "(world-value)")))
+        (is (= [2 10 1 1 21] (sci/eval-string* child "(world-value)"))))
+      (testing "forks from the same basis diverge independently"
+        (let [sibling (sci/fork parent)]
+          (is (= 1 (sci/eval-string* sibling "(bump!)")))
+          (is (= [1 10 1 1 20] (sci/eval-string* sibling "(world-value)")))
+          (is (= [2 10 1 1 21] (sci/eval-string* child "(world-value)")))
+          (is (= [1 10 0 0 20] (sci/eval-string* parent "(world-value)"))))))))
+
+(deftest first-fork-realizes-mutable-primary-test
+  (let [parent (sci/init nil)]
+    (sci/eval-string*
+     parent
+     "(def x 1)
+      (def a (atom 0))
+      (def v (volatile! 0))
+      (defn state [] [x @a @v (:forked (meta #'x))])
+      (def x 2)
+      (reset! a 5)
+      (vreset! v 9)
+      (alter-meta! #'x assoc :forked true)")
+    (let [child (sci/fork parent)]
+      (is (= [2 5 9 true] (sci/eval-string* child "(state)")))
+      (sci/eval-string*
+       parent
+       "(def x 3)
+        (swap! a inc)
+        (vswap! v inc)
+        (alter-meta! #'x assoc :forked false)")
+      (is (= [3 6 10 false] (sci/eval-string* parent "(state)")))
+      (is (= [2 5 9 true] (sci/eval-string* child "(state)")))
+      (let [grandchild (sci/fork child)]
+        (sci/eval-string* child
+                          "(alter-var-root #'x (constantly 4))
+                           (reset! a 7)
+                           (vreset! v 11)")
+        (is (= [4 7 11 true] (sci/eval-string* child "(state)")))
+        (is (= [2 5 9 true] (sci/eval-string* grandchild "(state)")))))))
+
+#?(:clj
+   (deftest fork-host-value-cooperation-test
+     (let [user-ns (sci/create-ns 'user)
+           state-var (sci/new-var 'state (atom 0) {:ns user-ns})
+           parent (sci/init
+                   {:namespaces {'user {'state state-var}}
+                    :fork-fn #(if (instance? clojure.lang.Atom %)
+                                (atom @%)
+                                %)})]
+       (sci/eval-string* parent "(defn bump-host! [] (swap! state inc))")
+       (let [child (sci/fork parent)]
+         (is (= 1 (sci/eval-string* child "(bump-host!)")))
+         (is (= 0 (sci/eval-string* parent "@state")))
+         (is (= 1 (sci/eval-string* child "@state")))))))
+
 (defmacro do-twice [x] `(do ~x ~x))
 (defn ^:sci/macro do-twice* [_ _ x] `(do ~x ~x))
 (def ^:dynamic *foo* 1)
@@ -1662,7 +1740,11 @@
   (let [C (atom (sci/init {:namespaces {'n {'foo 1}}}))]
     (is (= 1 (sci/eval-form @C 'n/foo)))
     (swap! C sci/merge-opts {:namespaces {'n {'foo 2}}})
-    (is (= 2 (sci/eval-form @C 'n/foo)))))
+    (is (= 2 (sci/eval-form @C 'n/foo)))
+    (let [forked (sci/fork @C)]
+      (swap! C sci/merge-opts {:namespaces {'n {'foo 3}}})
+      (is (= 3 (sci/eval-form @C 'n/foo)))
+      (is (= 2 (sci/eval-form forked 'n/foo))))))
 
 (deftest merge-opts-preserves-features-test
   (let [ctx (sci/init {:features #{:cljs}})]
