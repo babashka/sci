@@ -339,16 +339,13 @@
                        #(if (utils/var? %)
                           (vars/getRawRoot %)
                           (c/deref %))
-                       meta)
-         _ (vreset! (get-in ctx [:sci.impl/read-world :persistent?]) true)]
+                       meta)]
      (assoc ctx
             :env (atom @(:env ctx))
             :fork-fn fork-fn
             :sci.impl/primary? false
             :sci.impl/world forked-world
-            :sci.impl/read-world {:world forked-world
-                                  :primary? false
-                                  :persistent? (volatile! true)}))))
+            :sci.impl/read-world (world/read-world forked-world false)))))
 
 (defn eval-string*
   "Evaluates string `s` in the context of `ctx` (as produced with
@@ -686,7 +683,6 @@
       ctx
       #(doseq [[_ v] ns-map
                :when (and (utils/var? v)
-                          (not (:sci/built-in (meta v)))
                           (not (world/registered? (:sci.impl/world ctx) v)))]
          (world/register-var! v (vars/getRawRoot v) (meta v)))))
   ctx)

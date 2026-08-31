@@ -25,6 +25,7 @@
     [ana-macros constant? macro? rethrow-with-location-of-node
      set-namespace! recur special-syms]]
    [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    [sci.lang :as lang])
   #?(:cljs
      (:require-macros
@@ -2150,7 +2151,10 @@
                                                              :cljs (when (utils/var? f) (fn [_ _ v]
                                                                                           (deref v))) :clj nil))]
                                     #?(:cljs (cond (utils/var? f)
-                                                   (t/attach-ast node [:call-var f children stack])
+                                                   (if-let [slot (when-not (:dynamic f-meta)
+                                                                   (world/slot-of (:sci.impl/world ctx) f))]
+                                                     (t/attach-ast node [:call-vslot [f slot] children stack])
+                                                     (t/attach-ast node [:call-var f children stack]))
                                                    (fn? f)
                                                    (t/attach-ast node [:call-direct f children stack])
                                                    :else node)
@@ -2350,13 +2354,20 @@
                                                       (str "Can't take value of a macro: " v ""))
                                             :cljs (new js/Error
                                                        (str "Can't take value of a macro: " v ""))))
-                                  (sci.impl.types/->Node
-                                   (faster/deref-1 v)
-                                   nil
-                                   ;; value-position var read: emitted as a
-                                   ;; plain deref, never cached (see the
-                                   ;; retention note on the deref cache)
-                                   [:vderef v])))
+                                  (let [slot (when-not (:dynamic mv)
+                                               (world/slot-of (:sci.impl/world ctx) v))]
+                                    (sci.impl.types/->Node
+                                     #?(:clj (faster/deref-1 v)
+                                        :default (if (some? slot)
+                                                   (vars/getRootAt v slot)
+                                                   (faster/deref-1 v)))
+                                     nil
+                                     ;; Dynamic Vars retain binding-frame
+                                     ;; lookup. Other registered Vars resolve
+                                     ;; their dense lineage slot once here.
+                                     (if (some? slot)
+                                       [:vslot slot v]
+                                       [:vderef v])))))
                               #?@(:clj
                                   [(:sci.impl.analyzer/interop mv)
                                    (analyze-interop ctx expr v)])

@@ -1410,7 +1410,9 @@
       (def counter (atom 0))
       (def counter-alias counter)
       (def scratch (volatile! 20))
+      (def late-dynamic 30)
       (defn world-value [] [x *x* @counter @counter-alias @scratch])
+      (defn read-late-dynamic [] late-dynamic)
       (defn bump! [] (swap! counter inc))
       (defn scratch! [] (vswap! scratch inc))")
     (let [child (sci/fork parent)]
@@ -1427,6 +1429,24 @@
       (testing "existing vars, captured functions, bindings, atoms, and volatiles isolate"
         (is (= [1 10 0 0 20] (sci/eval-string* parent "(world-value)")))
         (is (= [2 10 1 1 21] (sci/eval-string* child "(world-value)"))))
+      (testing "a Var made dynamic after analysis still observes its binding frame"
+        (is (= 31 (sci/eval-string*
+                   child
+                   "(alter-meta! #'late-dynamic assoc :dynamic true)
+                    (binding [late-dynamic 31] (read-late-dynamic))")))
+        (is (= 30 (sci/eval-string* parent "(read-late-dynamic)")))
+        (is (true? (sci/eval-string*
+                    child
+                    "(reset-meta! #'late-dynamic
+                                  (assoc (meta #'late-dynamic) :reset true))
+                     (:reset (meta #'late-dynamic))")))
+        (is (nil? (sci/eval-string* parent "(:reset (meta #'late-dynamic))"))))
+      (testing "new unbound Vars belong to the child world"
+        (is (false? (sci/eval-string* child "(declare child-only) (bound? #'child-only)")))
+        (is (thrown-with-msg?
+             #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+             #"Unable to resolve symbol: child-only"
+             (sci/eval-string* parent "child-only"))))
       (testing "forks from the same basis diverge independently"
         (let [sibling (sci/fork parent)]
           (is (= 1 (sci/eval-string* sibling "(bump!)")))
@@ -1478,6 +1498,42 @@
          (is (= 1 (sci/eval-string* child "(bump-host!)")))
          (is (= 0 (sci/eval-string* parent "@state")))
          (is (= 1 (sci/eval-string* child "@state")))))))
+
+#?(:clj
+   (deftest fork-waits-for-active-evaluation-test
+     (let [entered (promise)
+           release (promise)
+           parent (sci/init {:bindings {'block! (fn []
+                                                   (deliver entered true)
+                                                   @release)}})
+           evaluation (future (sci/eval-string* parent "(block!)"))]
+       (is (= true (deref entered 1000 ::timeout)))
+       (let [forking (future (sci/fork parent))]
+         (is (= ::waiting (deref forking 50 ::waiting)))
+         (deliver release true)
+         (is (= true (deref evaluation 1000 ::timeout)))
+         (is (map? (deref forking 1000 ::timeout)))))))
+
+#?(:clj
+   (deftest independent-world-slots-do-not-retry-test
+     (let [n 1000
+           a-calls (atom 0)
+           b-calls (atom 0)
+           parent (sci/init
+                   {:bindings
+                    {'step-a (fn [x] (swap! a-calls inc) (inc x))
+                     'step-b (fn [x] (swap! b-calls inc) (inc x))}})]
+       (sci/eval-string* parent "(def a (atom 0)) (def b (atom 0))")
+       (let [a-run (future (sci/eval-string*
+                            parent
+                            (str "(dotimes [_ " n "] (swap! a step-a))")))
+             b-run (future (sci/eval-string*
+                            parent
+                            (str "(dotimes [_ " n "] (swap! b step-b))")))]
+         (is (nil? (deref a-run 5000 ::timeout)))
+         (is (nil? (deref b-run 5000 ::timeout)))
+         (is (= [n n] [@a-calls @b-calls]))
+         (is (= [n n] (sci/eval-string* parent "[@a @b]")))))))
 
 (defmacro do-twice [x] `(do ~x ~x))
 (defn ^:sci/macro do-twice* [_ _ x] `(do ~x ~x))

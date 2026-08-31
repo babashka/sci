@@ -616,6 +616,11 @@ the Clojure REPL model; a fork snapshots root bindings, not a running control
 continuation. Stateful host objects not handled by `:fork-fn`, and mutable
 facilities not owned by SCI such as Java objects, remain shared.
 
+Runtime state is stored in dense lineage-local slots. A fork copies those
+slots, favoring the expected case where ordinary reads and writes are much
+more frequent than forks. On the JVM a fork waits for active forms in its
+source world, so the copied state is a quiescent snapshot.
+
 See [Forkable SCI worlds](doc/forking.md) for the lifecycle, semantic boundary,
 and current limitations of this experimental model.
 

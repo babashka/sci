@@ -58,14 +58,14 @@
 ;; the throwaway NodeR just carries the map to the Stack protocol).
 (def ^:private helpers
   (js-obj "d" deref
+          "v" (fn [_ctx slot v]
+                (vars/getRootAt v slot))
           "ev" (fn [node ctx b] (t/eval node ctx b))
           "s" utils/recur
           ;; stack nil/undefined (s=-1): no enclosing sited call in this
           ;; template, stay transparent like an interpreter node without a
           ;; catch (calls with nil stack maps never own a site, see
           ;; intern-stack!).
-          ;; g: the var-mutation epoch; call-var sites cache derefs on it
-          "g" vars/var-epoch
           ;; cs: case dispatch, the same structural map lookup as
           ;; eval-case; returns the branch index, -1 = default
           "cs" (fn [idx-map v] (get idx-map v -1))
@@ -106,8 +106,8 @@
 ;; meaningfully). Implementations in `helpers` above.
 (def ^:private interpret "H.ev")      ; interpreter escape (node, CTX, B)
 (def ^:private deref-var "H.d")        ; var deref
+(def ^:private read-var-slot "H.v")    ; context + dense Var slot
 (def ^:private recur-sentinel "H.s")
-(def ^:private mutation-epoch "H.g")        ; var-mutation epoch array
 (def ^:private case-branch-index "H.cs")
 (def ^:private rethrow-located "H.re")     ; template catch rethrow-with-location
 (def ^:private read-in-try "H.git")
@@ -128,10 +128,12 @@
 ;;   [:recur [arg ...]]
 ;;   [:or [child ...]] / [:and [child ...]]
 ;;   [:call-direct f [arg ...] stack]        f = known fn value
-;;   [:call-var var [arg ...] stack]         deref cached on the epoch
+;;   [:call-var var [arg ...] stack]         dynamic/unregistered Var deref
+;;   [:call-vslot [var slot] [arg ...] stack] dense world-relative deref
 ;;   [:call-bind idx [arg ...] stack]        callee = binding slot
 ;;   [:call-node callee [arg ...] stack]     callee = expression
 ;;   [:vderef var]                           value-position var read
+;;   [:vslot slot var]                       dense value-position Var read
 ;;   [:iget obj name stack]                  instance field
 ;;   [:iset obj name val]                    instance field write
 ;;   [:imeth obj name [arg ...] stack]       instance method
@@ -141,7 +143,7 @@
 ;;   [:mkfn mk capture-pairs enclosed-cnt]     closure creation
 ;;   [:try body catches finally sci-error]
 (defn- call-ast? [op]
-  (case op (:call-direct :call-var :call-bind :call-node) true false))
+  (case op (:call-direct :call-var :call-vslot :call-bind :call-node) true false))
 
 (defn ->ast
   "Resolve a child (node or constant) to a walkable AST vector."
@@ -171,7 +173,7 @@
       :let (and (every? escape-free? x2) (escape-free? x3))
       :recur (every? escape-free? x1)
       (:or :and) (every? escape-free? x1)
-      (:call-direct :call-var :call-bind) (every? escape-free? x2)
+      (:call-direct :call-var :call-vslot :call-bind) (every? escape-free? x2)
       :call-node (and (escape-free? x1) (every? escape-free? x2))
       :iget (escape-free? x1)
       :iset (and (escape-free? x1) (escape-free? x3))
@@ -183,7 +185,7 @@
       :jsstatic (every? escape-free? x3)
       ;; closure creation reads captures straight from slots, needs no B
       :mkfn true
-      :vderef true
+      (:vderef :vslot) true
       ;; :try catch dispatch hands B to eval-catches
       false)))
 
@@ -416,18 +418,12 @@
       ;; .call(null, ...) is what the CLJS compiler emits for unknown
       ;; callees: works for fns, keywords, MetaFn (IFn types get .call)
       (let [head (case op
-                   ;; per-call-site deref cache [val epoch], invalidated by
-                   ;; the global var-mutation epoch: hot path is two array
-                   ;; reads + compare instead of the full deref
-                   :call-var (let [cache (const! st #js [nil -1])
-                                   var-ref (const! st callee)
-                                   deref-tmp (tmp! st)]
-                               (stmt! st "var " deref-tmp ";")
-                               (stmt! st "if(" cache "[1]===" mutation-epoch "[0]){" deref-tmp "=" cache "[0];}else{"
-                                              deref-tmp "=" deref-var "(" var-ref ");"
-                                              cache "[0]=" deref-tmp ";"
-                                              cache "[1]=" mutation-epoch "[0];}")
-                               deref-tmp)
+                   ;; Dynamic Vars must consult the current binding frame.
+                   ;; Avoid the old global-epoch cache here: a fork-local root
+                   ;; mutation must not expose or retain another world's value.
+                   :call-var (js-call deref-var (const! st callee))
+                   :call-vslot (let [[v slot] callee]
+                                 (js-call read-var-slot "CTX" slot (const! st v)))
                    ;; callee = binding slot index
                    :call-bind (spill st (slot st callee))
                    ;; computed callee ((add 1) 2): a full expression, itself
@@ -435,8 +431,12 @@
                    :call-node (emit-arg st idx callee))
             args (mapv #(emit-arg st idx %) children)]
         (if (and (= 2 n)
-                 (keyword-identical? op :call-var)
-                 (identical? (deref callee) protocols/instance-impl))
+                 (or (keyword-identical? op :call-var)
+                     (keyword-identical? op :call-vslot))
+                 (identical? (deref (if (keyword-identical? op :call-vslot)
+                                      (first callee)
+                                      callee))
+                             protocols/instance-impl))
           ;; instance-impl walks a cond (sci type, protocol map, ...) before
           ;; reaching the host check. Only a plain JS constructor takes that
           ;; last branch, and only those are typeof "function": sci types are
@@ -630,6 +630,8 @@
       ;; :call-var) so plain data in vars is not retained
       :vderef (let [[_ v] a]
                 (js-call deref-var (const! st v)))
+      :vslot (let [[_ slot v] a]
+               (js-call read-var-slot "CTX" slot (const! st v)))
       ;; closure creation: build the enclosed array from this template's
       ;; own slots (static capture pairs) and hand it to mk, which reuses
       ;; make-fn — stubs, laziness and self-reference patching included.
@@ -654,7 +656,7 @@
                 (if (fn? ctor)
                   (str "new " (const! st ctor) "(" (join-args args) ")")
                   (str "Reflect.construct(" (const! st ctor) ",[" (join-args args) "])")))
-      (:call-direct :call-var :call-bind :call-node) (emit-call st amb a))))
+      (:call-direct :call-var :call-vslot :call-bind :call-node) (emit-call st amb a))))
 
 (defn- emit-tail [st amb x]
   (let [[op :as a] (->ast x)]

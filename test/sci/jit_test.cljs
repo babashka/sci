@@ -248,10 +248,9 @@
       (is (= interp jitted) src))))
 
 (deftest jit-var-mutation-visibility-test
-  ;; BOTH modes cache var derefs keyed on sci.impl.vars/var-epoch, so
-  ;; interp/jit agreement alone can't catch a missed bump — each case
-  ;; asserts the literal expected value. Every public mutation path must
-  ;; be immediately visible through a warm call site.
+  ;; Each case asserts the literal expected value so interp/jit agreement
+  ;; alone cannot hide a stale warm call site. Every public mutation path
+  ;; must be immediately visible.
   (doseq [[expected src]
           [["[1 2]" "(defn f [] 1) (defn call [] (f)) (def before (call)) (defn f [] 2) [before (call)]"]
            ["[1 2]" "(defn f [] 1) (defn call [] (f)) (def before (call)) (alter-var-root #'f (constantly (fn [] 2))) [before (call)]"]
@@ -261,6 +260,18 @@
     (let [[interp jitted] (eval-both src)]
       (is (= {:val expected} interp) src)
       (is (= {:val expected} jitted) src))))
+
+(deftest jit-fork-world-test
+  (let [parent (sci/init {})]
+    (sci/eval-string*
+     parent
+     "(def x 1) (defn f [] 1) (defn call [] [(f) x])")
+    ;; Warm the generated call-var and value-position Var paths before fork.
+    (is (= [1 1] (sci/eval-string* parent "(call)")))
+    (let [child (sci/fork parent)]
+      (sci/eval-string* child "(def x 2) (defn f [] 2)")
+      (is (= [2 2] (sci/eval-string* child "(call)")))
+      (is (= [1 1] (sci/eval-string* parent "(call)"))))))
 
 (deftest jit-interop-member-name-emission-test
   ;; interop member names are interpolated into generated JS source as a

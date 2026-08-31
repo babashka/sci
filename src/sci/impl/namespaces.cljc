@@ -10,7 +10,7 @@
                             clojure-version
                             print-method
                             print-dup
-                            #?(:cljs alter-meta!)
+                            #?@(:cljs [alter-meta! reset-meta!])
                             memfn
                             time
                             exists? js-in])
@@ -51,6 +51,7 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    [sci.lang])
   #?(:cljs (:require-macros
             [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy avoid-method-too-large]])))
@@ -1067,13 +1068,35 @@
 
   f must be free of side-effects"
      [iref f & args]
-     (if (utils/sci-type? iref)
-       (types/setVal iref (apply f (types/getVal iref) args))
-       (let [m (meta iref)]
-         (if-not (:sci/built-in m)
-           (apply cljs.core/alter-meta! iref f args)
-           (throw (ex-info (str "Built-in var " iref " is read-only.")
-                           {:var iref})))))))
+     (if (utils/var? iref)
+       (let [current-meta (meta iref)]
+         (vars/with-writeable-var iref current-meta
+           (if (world/current-world)
+             (let [m (world/alter-var-meta! iref current-meta f args)]
+               (when (world/primary-world?)
+                 (cljs.core/reset-meta! iref m))
+               m)
+             (apply cljs.core/alter-meta! iref f args))))
+       (if (utils/sci-type? iref)
+         (types/setVal iref (apply f (types/getVal iref) args))
+         (let [m (meta iref)]
+           (if-not (:sci/built-in m)
+             (apply cljs.core/alter-meta! iref f args)
+             (throw (ex-info (str "Built-in var " iref " is read-only.")
+                             {:var iref}))))))))
+
+#?(:cljs
+   (defn reset-meta! [iref m]
+     (if (utils/var? iref)
+       (let [current-meta (meta iref)]
+         (vars/with-writeable-var iref current-meta
+           (if (world/current-world)
+             (do (world/reset-var-meta! iref m)
+                 (when (world/primary-world?)
+                   (cljs.core/reset-meta! iref m))
+                 m)
+             (cljs.core/reset-meta! iref m))))
+       (cljs.core/reset-meta! iref m))))
 
 (defn- let** [expr _ bindings & body]
   (when-not (vector? bindings)
