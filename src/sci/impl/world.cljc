@@ -334,14 +334,6 @@
             :when (< slot (cells-length cells))]
       (cells-set! cells slot absent))))
 
-(defn- selected-managed-world [^DenseWorld home registry]
-  (let [active (active-world-state)]
-    (if (and active
-             (identical? registry
-                         (.-registry ^DenseWorld (.-world ^ReadWorld active))))
-      (.-world ^ReadWorld active)
-      home)))
-
 (defn managed-value
   "Read a self-described managed slot in the active related world, falling
   back to the owner's creation world outside managed evaluation."
@@ -406,6 +398,25 @@
 (defn managed-reset! [home registry slot new validate! notify!]
   (managed-swap! home registry slot (constantly new) nil
                  validate! notify!))
+
+(defn managed-assoc!
+  "Associate one key in a managed persistent-map slot without the generic
+  callback/validation path. Used by mutable SCI deftype fields."
+  [home registry slot k value]
+  (call-with-managed-mutation
+   home registry
+   (fn [^DenseWorld world]
+     (ensure-capacity! world (inc slot))
+     (loop []
+       (let [cells (current-cells world)
+             raw-old (cells-get cells slot)
+             old (if (identical? absent raw-old)
+                   (slot-value home slot {})
+                   raw-old)
+             new (assoc old k value)]
+         (if (cells-cas! cells slot raw-old new)
+           value
+           (recur)))))))
 
 (defn managed-compare-and-set!
   [home registry slot expected new validate! notify!]

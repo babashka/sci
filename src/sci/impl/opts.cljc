@@ -3,6 +3,7 @@
   (:require
    #?(:cljs [goog.string])
    [sci.ctx-store :as store]
+   [sci.impl.deftype :as deftype]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
@@ -26,7 +27,7 @@
                  :when (utils/sci-type? t)]
            (world/register-type!
             t (types/getVal t)
-            #?(:cljs sci.impl.deftype/fork-type-data :default nil)))
+            #?(:cljs deftype/fork-type-data :default nil)))
          (doseq [[_ ns-map] (:namespaces @(:env ctx))
                  [_ v] ns-map
                  :when (and (utils/var? v)

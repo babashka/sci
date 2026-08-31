@@ -293,10 +293,31 @@
     (let [parent-box (sci/eval-string* parent "box")
           child (sci/fork parent)
           child-box (sci/eval-string* child "box")]
-      (is (not (identical? parent-box child-box)))
+      ;; CLJS instances must move to the child Type's cloned native-protocol
+      ;; prototype. JVM/CLJD can retain the stable managed handle itself.
+      (is (#?(:cljs not :default identity)
+           (identical? parent-box child-box)))
       (is (true? (sci/eval-string* child "(identical? box box-alias)")))
       (is (= 2 (sci/eval-string* child "(box-value (bump! box))")))
       (is (= 1 (sci/eval-string* parent "(box-value box)"))))))
+
+(deftest forked-captured-deftype-state-test
+  (let [parent (sci/init nil)]
+    (sci/eval-string*
+     parent
+     "(defprotocol ICapturedForkBox (captured-bump! [_]))
+      (deftype CapturedForkBox [^:volatile-mutable value]
+        ICapturedForkBox
+        (captured-bump! [this]
+          (set! value (inc value))
+          value))
+      (def captured-bump
+        (let [box (->CapturedForkBox 0)]
+          (fn [] (captured-bump! box))))")
+    (let [child (sci/fork parent)]
+      (is (= [1 2]
+             (sci/eval-string* child "[(captured-bump) (captured-bump)]")))
+      (is (= 1 (sci/eval-string* parent "(captured-bump)"))))))
 
 (deftest forked-type-metadata-test
   (let [parent (sci/init nil)]
