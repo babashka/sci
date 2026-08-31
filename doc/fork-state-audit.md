@@ -147,7 +147,7 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Plain JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
 | JVM/CLJS SCI multimethod tables, preferences, and caches | Stable `SciMultiFn` handle with a fork-local host dispatch engine | Implemented; method mutations use copy-on-write and caches are rebuilt per fork |
 | ClojureDart SCI multimethod tables | Stable `SciMultiFn` with a dense world-local persistent method map | Implemented for interpreter-created exact-dispatch multimethods; built-in runtime tables remain global |
-| SCI protocol extension registries | Protocol Vars and method multimethods are world-local | Implemented; CLJS native-protocol prototype mutations use each world's Type data and copied instances |
+| SCI protocol extension registries | Protocol Vars and method multimethods are world-local | Implemented; CLJS native prototypes isolate copied world-cell instances, while opaque closure-only instances retain their creation prototype |
 | Record hash caches | Shared memoized hash only | Benign derived state if records remain immutable |
 | Watches with external effects | Shared callback registrations | Must be copied, shared, or prohibited explicitly by capability |
 | RNG, `gensym`, clock, UUID | Host/global nondeterministic source | External capability; not reproducibly forked |
@@ -373,6 +373,43 @@ map, and 200,000 writes roughly 22--27 percent slower after adding a dedicated
 managed-assoc path. The cost is restricted to types that opt into mutable
 fields; the representation fixes a state leak that root-only copying could not
 address.
+
+### Opaque closure and container boundary
+
+SCI closures can safely capture Vars, SCI refs, delays, promises,
+multimethods, and mutable SCI deftype instances because those are stable
+handles whose logical state selects the active world. SCI does not reflectively
+traverse arbitrary host closure fields or persistent-container contents during
+a fork. A mutable host value captured there must therefore be represented by a
+`Forkable` application handle before capture; a fallback can only transform
+values that are themselves visible in world cells.
+
+CLJS adds one prototype-specific limitation. A deftype/record instance stored
+directly in a world cell is rebuilt on the child Type's cloned prototype, but
+an instance reachable only through an opaque closure retains its creation
+prototype. Its managed mutable fields remain fork-local, but a native-protocol
+extension installed only after the fork is not retroactively visible through
+that captured instance. Fully solving this requires a managed closure/fiber
+environment or world-routed native protocol dispatch, not a deeper generic
+object copy.
+
+## Longer-term definition identity
+
+Unison's useful lesson here is architectural separation, not replacing the
+dense runtime with content addressing. A later layer can distinguish:
+
+- a Var/name handle and its world-local definition tip;
+- an immutable, canonical `DefId` for analyzed code;
+- a namespace-state hash from a causal revision/history hash; and
+- opaque execution-world identity and mutable/external capabilities.
+
+Ordinary SCI should retain Clojure's late Var binding. Pinned `DefId` calls can
+be an explicit mode, or the native semantics of lambda-join/Simmis. `hasch`
+would be useful for versioned hashes of canonical immutable analyzed forms,
+dependency DAGs, and namespace revisions; it should not hash dense cell arrays,
+mutable references, resources, or arbitrary host values. That layer can be
+added after runtime forking without putting hashes or definition lookups on the
+hot Var-dereference path.
 
 ## Recommended implementation order
 

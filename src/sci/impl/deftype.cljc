@@ -316,16 +316,23 @@
                (world/register-managed! :deftype-fields [m] []))
         home (:home desc)
         registry (:registry desc)
-        value-slot (some-> desc :slots first)]
-    #?(:cljs (if-let [proto (when (instance? lang/Type type)
-                              (:sci.impl/js-prototype (types/getVal type)))]
-               (let [obj (js/Object.create proto)]
-                 (.call SciType obj rec-name type type-meta m
-                        home registry value-slot)
-                 obj)
-               (SciType. rec-name type type-meta m home registry value-slot))
-       :default (SciType. rec-name type type-meta m
-                          home registry value-slot))))
+        value-slot (some-> desc :slots first)
+        obj #?(:cljs (if-let [proto (when (instance? lang/Type type)
+                                      (:sci.impl/js-prototype
+                                       (types/getVal type)))]
+                       (let [obj (js/Object.create proto)]
+                         (.call SciType obj rec-name type type-meta m
+                                home registry value-slot)
+                         obj)
+                       (SciType. rec-name type type-meta m
+                                 home registry value-slot))
+               :default (SciType. rec-name type type-meta m
+                                  home registry value-slot))]
+    #?(:clj (if desc
+              (world/attach-managed-owner!
+               registry (:managed-index desc) obj)
+              obj)
+       :default obj)))
 
 #?(:cljs
    (defmethod types/sci-pr-writer :default [this w opts]
