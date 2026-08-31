@@ -306,14 +306,20 @@
   (let [selected (selected-managed-world home registry)]
     (if (identical? selected home)
       (slot-value selected slot absent)
-      (slot-value selected slot (slot-value home slot absent)))))
+      (let [value (slot-value selected slot absent)]
+        (if (identical? value absent)
+          (slot-value home slot absent)
+          value)))))
 
 (defn managed-value-in
   "Read a managed slot from an already selected world."
   [world home slot]
   (if (identical? world home)
     (slot-value world slot absent)
-    (slot-value world slot (slot-value home slot absent))))
+    (let [value (slot-value world slot absent)]
+      (if (identical? value absent)
+        (slot-value home slot absent)
+        value))))
 
 (defn- call-with-managed-mutation [^DenseWorld home registry f]
   (let [active (active-world-state)

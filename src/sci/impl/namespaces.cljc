@@ -1448,18 +1448,23 @@
      ;; multimethods
      'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
-     #?@(:cljd ['get-method (new-var 'get-method sci.impl.multimethods/get-method-impl clojure-core-ns)]
-         :default ['get-method (copy-core-var get-method)])
-     #?@(:cljd ['methods (new-var 'methods sci.impl.multimethods/methods-impl clojure-core-ns)]
-         :default ['methods (copy-core-var methods)])
+     'get-method (copy-var sci.impl.multimethods/get-method-impl clojure-core-ns
+                           {:copy-meta-from 'clojure.core/get-method})
+     'methods (copy-var sci.impl.multimethods/methods-impl clojure-core-ns
+                        {:copy-meta-from 'clojure.core/methods})
      'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
      'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
      'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
-     #?@(:cljd [] :default ['prefer-method (copy-core-var prefer-method)])
-     #?@(:cljd [] :default ['prefers (copy-core-var prefers)])
-     #?@(:cljd ['remove-method (new-var 'remove-method sci.impl.multimethods/remove-method-impl clojure-core-ns)]
-         :default ['remove-method (copy-core-var remove-method)])
-     #?@(:cljd [] :default ['remove-all-methods (copy-core-var remove-all-methods)])
+     #?@(:cljd [] :default
+         ['prefer-method (copy-var sci.impl.multimethods/prefer-method-impl clojure-core-ns
+                                   {:copy-meta-from 'clojure.core/prefer-method})])
+     #?@(:cljd [] :default
+         ['prefers (copy-var sci.impl.multimethods/prefers-impl clojure-core-ns
+                             {:copy-meta-from 'clojure.core/prefers})])
+     'remove-method (copy-var sci.impl.multimethods/remove-method-impl clojure-core-ns
+                              {:copy-meta-from 'clojure.core/remove-method})
+     'remove-all-methods (copy-var sci.impl.multimethods/remove-all-methods-impl clojure-core-ns
+                                   {:copy-meta-from 'clojure.core/remove-all-methods})
      ;; end multimethods
      ;; protocols
      'defprotocol (macrofy 'defprotocol sci.impl.protocols/defprotocol

@@ -320,21 +320,17 @@
            (contains? sats "nil"))
          (when-let [t (types/type-impl obj)]
            (contains? sats (type->str t)))))
-      ;; built-in protocol :methods are host multifns on cljd, only
-      ;; sci-created SciMultiFns are inspectable
-      #?(:cljd
-         (boolean (some #(when (instance? mms/SciMultiFn %)
-                           (when-let [m (mms/get-method-impl % (types/type-impl obj))]
-                             (let [ms (mms/methods-impl %)
-                                   default (get ms :default)]
-                               (not (identical? m default)))))
-                        (:methods protocol)))
-         :default
-         (boolean (some #(when-let [m (get-method % (types/type-impl obj))]
-                           (let [ms (methods %)
-                                 default (get ms :default)]
-                             (not (identical? m default))))
-                        (:methods protocol))))))
+      ;; Built-in protocol methods can remain host multimethods while
+      ;; SCI-created methods are world-aware SciMultiFns. The helpers accept
+      ;; both representations.
+      (boolean (some #(when #?(:cljd (instance? mms/SciMultiFn %)
+                               :default true)
+                        (when-let [m (mms/get-method-impl
+                                      % (types/type-impl obj))]
+                          (let [ms (mms/methods-impl %)
+                                default (get ms :default)]
+                            (not (identical? m default)))))
+                     (:methods protocol)))))
 
 (defn satisfies? [protocol obj]
   (if-let [protocols (when #?(:cljd (instance? sci.impl.types/Reified obj)
@@ -425,4 +421,5 @@
   #?(:cljd (boolean (some #(when (instance? mms/SciMultiFn %)
                              (mms/get-method-impl % atype))
                           (:methods protocol)))
-     :default (boolean (some #(get-method % atype) (:methods protocol)))))
+     :default (boolean (some #(mms/get-method-impl % atype)
+                             (:methods protocol)))))
