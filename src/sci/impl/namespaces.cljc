@@ -1873,7 +1873,8 @@
      'max-key (copy-core-var max-key)
      'meta (copy-core-var meta)
      'memfn (copy-var memfn clojure-core-ns {:macro true})
-     'memoize (copy-core-var memoize)
+     'memoize (copy-var refs/memoize* clojure-core-ns
+                        {:copy-meta-from 'clojure.core/memoize})
      'merge (copy-var merge clojure-core-ns)
      'merge-with (copy-core-var merge-with)
      'min (copy-core-var min)
