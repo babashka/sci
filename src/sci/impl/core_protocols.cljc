@@ -15,10 +15,11 @@
 
 ;;;; IDeref
 
+(def ^:private untracked-value
+  #?(:cljd (Object.) :clj (Object.) :cljs (js/Object.)))
+
 (defn- tracked-value [x]
-  (if (world/primary-world?)
-    (clojure.core/deref x)
-    (world/value x nil)))
+  (world/value x untracked-value))
 
 ;; on cljd built-in multifns are SciMultiFns so records and reify can add
 ;; methods at runtime, host defmultis have no runtime add on Dart
@@ -47,33 +48,36 @@
 ;; world-relative routing before falling back to cljs.core/deref.
 #?(:cljd
    (defn deref* [x]
-     (if (and (world/mutable-primary-world?) (satisfies? IDeref x))
+     (if (and (world/primary-world?) (satisfies? IDeref x))
        (clojure.core/deref x)
-       (if (world/tracked? x)
-         (tracked-value x)
-         (if (satisfies? IDeref x)
-           (clojure.core/deref x)
-           (-deref x)))))
+       (let [v (tracked-value x)]
+         (if-not (identical? untracked-value v)
+           v
+           (if (satisfies? IDeref x)
+             (clojure.core/deref x)
+             (-deref x))))))
    :clj
    (defn deref*
      ([x]
-      (if (and (world/mutable-primary-world?)
+      (if (and (world/primary-world?)
                (instance? clojure.lang.IDeref x))
          (clojure.core/deref x)
-         (if (world/tracked? x)
-           (tracked-value x)
-           (if (instance? clojure.lang.IDeref x)
-             (clojure.core/deref x)
-             (deref x)))))
+         (let [v (tracked-value x)]
+           (if-not (identical? untracked-value v)
+             v
+             (if (instance? clojure.lang.IDeref x)
+               (clojure.core/deref x)
+               (deref x))))))
      ([x & args]
       (apply clojure.core/deref x args)))
    :cljs
    (defn deref* [x]
-     (if (world/mutable-primary-world?)
+     (if (world/primary-world?)
        (clojure.core/deref x)
-       (if (world/tracked? x)
-         (tracked-value x)
-         (clojure.core/deref x)))))
+       (let [v (tracked-value x)]
+         (if-not (identical? untracked-value v)
+           v
+           (clojure.core/deref x))))))
 
 (defn atom*
   "Creates an atom whose state is owned by the active SCI world. The host atom

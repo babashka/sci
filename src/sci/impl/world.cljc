@@ -1,18 +1,87 @@
 (ns sci.impl.world
-  "Fork-local runtime state for SCI contexts.
+  "Dense, fork-local runtime state for SCI contexts.
 
-  A world is a persistent value behind an atom. Stable handles (SCI Vars and
-  SCI-created mutable primitives) are keys into that value. Forks copy the
-  persistent value into a fresh atom, preserving identity and aliasing while
-  isolating subsequent writes."
-  (:require [sci.ctx-store :as store]))
+  Stable handles are assigned integer slots once per context lineage. A world
+  stores slot values densely and a frozen fork copies that array while the
+  source world is quiescent. Mutable primitives CAS only their own slot, so
+  unrelated atoms never contend on a shared world root."
+  (:require [sci.ctx-store :as store])
+  #?(:clj (:import [java.util.concurrent.atomic AtomicReferenceArray]
+                   [java.util.concurrent.locks ReentrantReadWriteLock])))
+
+(def absent #?(:cljd (Object.) :clj (Object.) :cljs (js/Object.)))
+
+(deftype DenseWorld [cells-holder registry gate persistent?])
+(deftype ReadWorld [world primary?])
+
+(defn read-world [world primary?]
+  (ReadWorld. world primary?))
+
+(defn- new-cells [n]
+  #?(:clj
+     (let [a (AtomicReferenceArray. (int n))]
+       (dotimes [i n] (.set a i absent))
+       a)
+     :cljs
+     (let [a (object-array n)]
+       (dotimes [i n] (aset a i absent))
+       a)
+     :cljd
+     (#/(List/filled dynamic) n absent)))
+
+(defn- cells-length [cells]
+  #?(:clj (.length ^AtomicReferenceArray cells)
+     :cljs (alength cells)
+     :cljd (.-length ^List cells)))
+
+(defn- cells-get [cells slot]
+  #?(:clj (.get ^AtomicReferenceArray cells (int slot))
+     :cljs (aget cells slot)
+     :cljd (aget ^List cells slot)))
+
+(defn- cells-set! [cells slot value]
+  #?(:clj (.set ^AtomicReferenceArray cells (int slot) value)
+     :cljs (aset cells slot value)
+     :cljd (aset ^List cells slot value))
+  value)
+
+(defn- cells-cas! [cells slot old new]
+  #?(:clj (.compareAndSet ^AtomicReferenceArray cells (int slot) old new)
+     :default
+     (if (identical? old (cells-get cells slot))
+       (do (cells-set! cells slot new) true)
+       false)))
+
+(defn- current-cells [^DenseWorld world]
+  @(.-cells-holder world))
+
+(defn- with-registry-lock [registry f]
+  #?(:clj (locking registry (f))
+     :default (f)))
+
+(defn- ensure-capacity! [^DenseWorld world required]
+  (let [holder (.-cells-holder world)]
+    (when (> required (cells-length @holder))
+      (with-registry-lock
+        holder
+        (fn []
+          (let [old @holder
+                old-n (cells-length old)]
+            (when (> required old-n)
+              (let [new-n (loop [n (max 16 old-n)]
+                            (if (>= n required) n (recur (* 2 n))))
+                    new (new-cells new-n)]
+                (dotimes [i old-n]
+                  (cells-set! new i (cells-get old i)))
+                (vreset! holder new))))))))
+  world)
 
 (defn new-world []
-  (atom {:values {}
-         :var-meta {}
-         ;; Before the first fork, the primary context behaves like ordinary
-         ;; mutable SCI. The first fork realizes a persistent snapshot.
-         :persistent? false}))
+  (DenseWorld.
+   (volatile! (new-cells 64))
+   (atom {:next-slot 0 :descriptors {}})
+   #?(:clj (ReentrantReadWriteLock.) :default nil)
+   (volatile! false)))
 
 #?(:clj
    (def ^ThreadLocal active-world
@@ -25,10 +94,7 @@
   #?(:clj (.get ^ThreadLocal active-world)
      :default @active-world))
 
-(defn with-active-world
-  "Run `f` with the context's read realization installed. Primary contexts use
-  direct Var/host-ref fields; descendants use their persistent world value."
-  [ctx f]
+(defn- call-with-active-world [ctx f]
   (let [previous (active-world-state)
         active (:sci.impl/read-world ctx)]
     #?(:clj (.set ^ThreadLocal active-world active)
@@ -41,137 +107,199 @@
                   (.set ^ThreadLocal active-world previous))
            :default (vreset! active-world previous))))))
 
+(defn with-active-world
+  "Run `f` with the context's world installed. On the JVM evaluations take a
+  shared gate permit; a fork takes the exclusive permit and therefore observes
+  a quiescent source world without adding locks to individual reads."
+  [ctx f]
+  #?(:clj
+     (let [^DenseWorld world (:sci.impl/world ctx)
+           lock (.readLock ^ReentrantReadWriteLock (.-gate world))]
+       (.lock lock)
+       (try
+         (call-with-active-world ctx f)
+         (finally (.unlock lock))))
+     :default
+     (call-with-active-world ctx f)))
+
 (defn current-world []
   (:sci.impl/world store/*ctx*))
 
+(defn- descriptor [^DenseWorld world handle]
+  (get-in @(.-registry world) [:descriptors handle]))
+
+(defn slot-of
+  "Return the value slot assigned to `handle`, or nil when it is not registered
+  in this lineage. Intended for analyzer-time resolution."
+  [world handle]
+  (:value-slot (descriptor world handle)))
+
+(defn- present-slot? [^DenseWorld world slot]
+  (and (some? slot)
+       (< slot (cells-length (current-cells world)))
+       (not (identical? absent (cells-get (current-cells world) slot)))))
+
 (defn registered? [world handle]
-  (contains? (:values @world) handle))
+  (when-let [desc (descriptor world handle)]
+    (present-slot? world (:value-slot desc))))
 
 (defn primary-world? []
   (let [active (active-world-state)]
     (if active
-      (:primary? active)
+      (.-primary? ^ReadWorld active)
       (true? (:sci.impl/primary? store/*ctx*)))))
 
 (defn mutable-primary-world? []
   (let [active (active-world-state)]
-    (and (:primary? active)
-         (not @(:persistent? active)))))
+    (and active
+         (.-primary? ^ReadWorld active)
+         (not @(.-persistent? ^DenseWorld (.-world ^ReadWorld active))))))
 
-(defn tracked?
-  [handle]
-  (when-let [world (:world (active-world-state))]
-    (contains? (:values @world) handle)))
+(defn tracked? [handle]
+  (when-let [^ReadWorld active (active-world-state)]
+    (registered? (.-world active) handle)))
 
-(defn value
-  [handle fallback]
-  (if-let [world (:world (active-world-state))]
-    (get-in @world [:values handle] fallback)
+(defn- slot-value [^DenseWorld world slot fallback]
+  (if (nil? slot)
+    fallback
+    (let [cells (current-cells world)]
+      (if (>= slot (cells-length cells))
+        fallback
+        (let [v (cells-get cells slot)]
+          (if (identical? absent v) fallback v))))))
+
+(defn value [handle fallback]
+  (if-let [^ReadWorld active (active-world-state)]
+    (let [world (.-world active)]
+      (slot-value world (:value-slot (descriptor world handle)) fallback))
     fallback))
 
+(defn var-value-at
+  "Read a Var through a slot already resolved by the analyzer."
+  [slot fallback]
+  (let [^ReadWorld active (active-world-state)]
+    (if (or (nil? active) (.-primary? active))
+      fallback
+      (slot-value (.-world active) slot fallback))))
+
 (defn var-value
-  "Primary contexts keep the Var's ordinary mutable root synchronized, which
-  preserves the Clojure/SCI fast path. Descendants resolve through the world."
+  "Primary contexts retain their direct Var realization. Descendants resolve
+  the stable Var handle through its dense lineage slot."
   [handle fallback]
   (let [active (active-world-state)]
-    (if (or (nil? active) (:primary? active))
+    (if (or (nil? active) (.-primary? ^ReadWorld active))
       fallback
-      (get-in @(:world active) [:values handle] fallback))))
+      (let [world (.-world ^ReadWorld active)]
+        (slot-value world (:value-slot (descriptor world handle)) fallback)))))
 
-(defn var-meta
-  [handle fallback]
+(defn var-meta [handle fallback]
   (let [active (active-world-state)]
-    (if (or (nil? active) (:primary? active))
+    (if (or (nil? active) (.-primary? ^ReadWorld active))
       fallback
-      (get-in @(:world active) [:var-meta handle] fallback))))
+      (let [world (.-world ^ReadWorld active)]
+        (slot-value world (:meta-slot (descriptor world handle)) fallback)))))
 
-(defn register!
-  [handle value]
-  (when-let [world (current-world)]
-    (swap! world assoc-in [:values handle] value))
+(defn- allocate-descriptor! [^DenseWorld world handle kind host-fork?]
+  (let [registry (.-registry world)]
+    (with-registry-lock
+      registry
+      (fn []
+        (if-let [desc (get-in @registry [:descriptors handle])]
+          desc
+          (let [start (:next-slot @registry)
+                width (if (= :var kind) 2 1)
+                desc (cond-> {:kind kind
+                              :value-slot start
+                              :host-fork? host-fork?}
+                       (= :var kind) (assoc :meta-slot (inc start)))]
+            (swap! registry
+                   (fn [r]
+                     (-> r
+                         (assoc :next-slot (+ start width))
+                         (assoc-in [:descriptors handle] desc))))
+            desc))))))
+
+(defn register! [handle value]
+  (when-let [^DenseWorld world (current-world)]
+    (let [{:keys [value-slot]} (allocate-descriptor! world handle :ref true)]
+      (ensure-capacity! world (inc value-slot))
+      (cells-set! (current-cells world) value-slot value)))
   handle)
 
-(defn register-var!
-  [handle value m]
-  (when-let [world (current-world)]
-    (let [state @world]
-      (when-not (and (primary-world?)
-                     (not (:persistent? state))
-                     (contains? (:var-meta state) handle))
-        (swap! world (fn [state]
-                       (-> state
-                           (assoc-in [:values handle] value)
-                           (assoc-in [:var-meta handle] m)))))))
+(defn register-var! [handle value m]
+  (when-let [^DenseWorld world (current-world)]
+    (let [{:keys [value-slot meta-slot]}
+          (allocate-descriptor! world handle :var (not (:sci/built-in m)))]
+      (ensure-capacity! world (inc meta-slot))
+      (let [cells (current-cells world)]
+        (cells-set! cells value-slot value)
+        (cells-set! cells meta-slot m))))
   handle)
 
-(defn- mutable-primary-state? [state]
-  (and (primary-world?) (not (:persistent? state))))
+(defn- reset-slot! [^DenseWorld world slot value]
+  (if (nil? slot)
+    ::no-world
+    (do
+      (ensure-capacity! world (inc slot))
+      (cells-set! (current-cells world) slot value))))
 
-(defn reset-value!
-  [handle value]
+(defn reset-value! [handle value]
   (if-let [world (current-world)]
-    (do (let [state @world]
-          (when-not (and (mutable-primary-state? state)
-                         (contains? (:values state) handle))
-            (swap! world assoc-in [:values handle] value)))
-        value)
+    (reset-slot! world (:value-slot (descriptor world handle)) value)
     ::no-world))
 
-(defn reset-var-meta!
-  [handle m]
-  (if-let [world (current-world)]
-    (do (let [state @world]
-          (when-not (and (mutable-primary-state? state)
-                         (contains? (:var-meta state) handle))
-            (swap! world assoc-in [:var-meta handle] m)))
-        m)
+(defn reset-var-meta! [handle m]
+  (if-let [^DenseWorld world (current-world)]
+    (let [{:keys [meta-slot]} (or (descriptor world handle)
+                                  (allocate-descriptor! world handle :var
+                                                        (not (:sci/built-in m))))]
+      (reset-slot! world meta-slot m))
     ::no-world))
 
-(defn alter-var-meta!
-  [handle fallback f args]
-  (if-let [world (current-world)]
-    (let [state @world]
-      (if (mutable-primary-state? state)
-        (apply f fallback args)
-        (get-in (swap! world update-in [:var-meta handle]
-                       (fn [m]
-                         (apply f (if (nil? m) fallback m) args)))
-                [:var-meta handle])))
+(defn alter-var-meta! [handle fallback f args]
+  (if-let [^DenseWorld world (current-world)]
+    (let [{:keys [meta-slot]} (or (descriptor world handle)
+                                  (allocate-descriptor! world handle :var
+                                                        (not (:sci/built-in fallback))))]
+      (ensure-capacity! world (inc meta-slot))
+      (loop []
+        (let [cells (current-cells world)
+              raw-old (cells-get cells meta-slot)
+              old (if (identical? absent raw-old) fallback raw-old)
+              new (apply f old args)]
+          (if (cells-cas! cells meta-slot raw-old new) new (recur)))))
     ::no-world))
 
 (defn swap-value!
-  "Atomically update a tracked handle. `validate!` runs before the CAS and
-  `notify!` once after a successful transition. Returns the new value."
+  "Atomically update one tracked slot. Unrelated SCI atoms do not contend and
+  cannot cause `f` to be retried."
   [handle f args validate! notify!]
-  (let [world (current-world)]
+  (let [^DenseWorld world (current-world)
+        slot (:value-slot (descriptor world handle))]
     (loop []
-      (let [state @world
-            old (get-in state [:values handle])
+      (let [cells (current-cells world)
+            old (cells-get cells slot)
             new (apply f old args)]
         (validate! new)
-        (if (compare-and-set! world state (assoc-in state [:values handle] new))
-          (do (notify! old new)
-              new)
+        (if (cells-cas! cells slot old new)
+          (do (notify! old new) new)
           (recur))))))
 
-(defn reset-tracked!
-  [handle new validate! notify!]
+(defn reset-tracked! [handle new validate! notify!]
   (swap-value! handle (constantly new) nil validate! notify!))
 
-(defn compare-and-set-tracked!
-  [handle expected new validate! notify!]
-  (let [world (current-world)]
-    (loop []
-      (let [state @world
-            old (get-in state [:values handle])]
-        (if-not (identical? expected old)
-          false
-          (do
-            (validate! new)
-            (if (compare-and-set! world state (assoc-in state [:values handle] new))
-              (do (notify! old new)
-                  true)
-              (recur))))))))
+(defn compare-and-set-tracked! [handle expected new validate! notify!]
+  (let [^DenseWorld world (current-world)
+        slot (:value-slot (descriptor world handle))
+        cells (current-cells world)
+        old (cells-get cells slot)]
+    (if-not (identical? expected old)
+      false
+      (do
+        (validate! new)
+        (if (cells-cas! cells slot old new)
+          (do (notify! old new) true)
+          false)))))
 
 (defn active-ctx
   "Use the currently evaluating descendant context for an interpreted closure.
@@ -184,44 +312,53 @@
       active
       captured)))
 
-(defn fork-world
-  [world fork-value snapshot-value snapshot-var-meta]
-  (let [realize (fn []
-                  (let [state @world]
-                    (if (:persistent? state)
-                      state
-                      (let [handles (keys (:values state))
-                            vars (keys (:var-meta state))
-                            realized (-> state
-                                         (assoc :persistent? true)
-                                         (update :values
-                                                 (fn [values]
-                                                   (reduce (fn [ret handle]
-                                                             (assoc ret handle (snapshot-value handle)))
-                                                           values handles)))
-                                         (update :var-meta
-                                                 (fn [metas]
-                                                   (reduce (fn [ret v]
-                                                             (assoc ret v (snapshot-var-meta v)))
-                                                           metas vars))))]
-                        (reset! world realized)
-                        realized))))
-        state #?(:clj (locking world (realize))
-                 :default (realize))]
-    ;; Without a host copier, forking is only a new mutable tip over the same
-    ;; persistent value. The first write in either branch creates divergence.
-    (if-not fork-value
-      (atom state)
-      (let [handles (set (keys (:values state)))]
-        (atom
-         (update state :values
-                 (fn [values]
-                   (reduce-kv
-                    (fn [ret handle v]
-                      ;; World-relative handles must retain identity. Other
-                      ;; values cross the explicit cooperation boundary.
-                      (assoc ret handle (if (contains? handles v)
-                                          v
-                                          (fork-value v))))
-                    (empty values)
-                    values))))))))
+(defn- realize-primary! [^DenseWorld world snapshot-value snapshot-var-meta]
+  (when-not @(.-persistent? world)
+    (doseq [[handle {:keys [kind value-slot meta-slot]}]
+            (:descriptors @(.-registry world))]
+      (when (present-slot? world value-slot)
+        (cells-set! (current-cells world) value-slot (snapshot-value handle))
+        (when (= :var kind)
+          (cells-set! (current-cells world) meta-slot (snapshot-var-meta handle)))))
+    (vreset! (.-persistent? world) true))
+  world)
+
+(defn- copy-world [^DenseWorld world fork-value]
+  (let [source (current-cells world)
+        n (cells-length source)
+        target (new-cells n)
+        registry (.-registry world)
+        descriptors (:descriptors @registry)
+        handles (set (keys descriptors))]
+    (dotimes [i n]
+      (cells-set! target i (cells-get source i)))
+    (when fork-value
+      (doseq [[_ {:keys [value-slot host-fork?]}] descriptors
+              :when host-fork?
+              :when (< value-slot n)
+              :let [v (cells-get target value-slot)]
+              :when (not (identical? absent v))]
+        (cells-set! target value-slot
+                    (if (contains? handles v) v (fork-value v)))))
+    (DenseWorld.
+     (volatile! target)
+     registry
+     #?(:clj (ReentrantReadWriteLock.) :default nil)
+     (volatile! true))))
+
+(defn fork-world [^DenseWorld world fork-value snapshot-value snapshot-var-meta]
+  #?(:clj
+     (let [^ReentrantReadWriteLock gate (.-gate world)]
+       (when (pos? (.getReadHoldCount gate))
+         (throw (IllegalStateException.
+                 "Cannot fork a SCI world from inside its active evaluation; suspend it first.")))
+       (let [lock (.writeLock gate)]
+         (.lock lock)
+         (try
+           (realize-primary! world snapshot-value snapshot-var-meta)
+           (copy-world world fork-value)
+           (finally (.unlock lock)))))
+     :default
+     (do
+       (realize-primary! world snapshot-value snapshot-var-meta)
+       (copy-world world fork-value))))

@@ -19,7 +19,6 @@
       #(doseq [[_ ns-map] (:namespaces @(:env ctx))
                [_ v] ns-map
                :when (and (utils/var? v)
-                          (not (:sci/built-in (meta v)))
                           (not (world/registered? (:sci.impl/world ctx) v)))]
          (world/register-var! v (vars/getRawRoot v) (meta v))))))
 
@@ -277,7 +276,6 @@
         _ (init-env! env aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         world-root (world/new-world)
-        persistent-world? (volatile! false)
         ctx (assoc (->ctx {} env features readers (or allow deny)
                           :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions #{} allow))
@@ -288,9 +286,7 @@
                    :unrestricted unrestricted
                    :fork-fn fork-fn
                    :sci.impl/world world-root
-                   :sci.impl/read-world {:world world-root
-                                         :primary? true
-                                         :persistent? persistent-world?}
+                   :sci.impl/read-world (world/read-world world-root true)
                    :sci.impl/lineage (atom nil)
                    :sci.impl/primary? true
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]

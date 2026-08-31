@@ -6,11 +6,12 @@ part of that state. Existing Vars, refs, aliases, and interpreted functions
 keep their identity; their meaning is selected by the world in which code is
 evaluated.
 
-This is deliberately a value/realization split. The forkable value is a pair
-of persistent maps keyed by stable handles. The ordinary SCI context is the
-fast mutable realization until its first fork. That fork materializes current
-Var and ref values once and changes the original context to persistent
-copy-on-write operation. Later forks are O(1) unless host copying is requested.
+This is deliberately a value/realization split. Stable handles receive dense,
+lineage-local integer slots. Each world realizes those slots in an array; a
+fork briefly quiesces the source world and copies the array. Var reads in the
+ordinary primary context keep their direct SCI realization, while descendants
+select their fork-local slot. Stateful primitives update one slot at a time,
+so unrelated atoms do not contend on a shared world root.
 
 This shape combines four useful precedents:
 
@@ -30,11 +31,13 @@ This shape combines four useful precedents:
 - Dynamic binding frames remain thread/evaluation scoped. A fork snapshots
   root bindings; it does not capture a running continuation or binding frame.
 - Writes before the first fork have ordinary SCI/Clojure mutable behavior.
-  The first fork snapshots them. Writes after that point path-copy the selected
-  world's maps.
-- Forking is intended to happen between evaluations. Concurrently mutating and
-  forking the same primary context does not currently promise a linearizable
-  snapshot.
+  The first fork materializes the primary values into dense slots; later
+  writes update the selected world's slots.
+- On the JVM, evaluation of a form holds a shared permit for its world and a
+  fork takes the exclusive permit. A concurrent fork therefore waits for
+  active forms in that source world and gets a quiescent snapshot. Different
+  worlds have independent gates. Calling `fork` recursively from inside an
+  evaluation of that same world is rejected instead of deadlocking.
 
 ## Host cooperation
 
@@ -55,7 +58,8 @@ outside SCI remain shared unless the embedding application models or copies
 them. A complete effect inventory and an explicit fork protocol are the next
 step before describing an interpreter as fully forkable.
 
-The primary performance cost that remains is selecting the active world on
-each world-sensitive operation. A custom persistent collection could improve
-branched writes, but it would not remove that dispatch cost; optimizing the
-world-selection/call-site path should come first.
+Forking is O(number of allocated slots), including spare array capacity, while
+slot reads and writes are constant time. This intentionally favors the common
+case where reads and mutations greatly outnumber forks. A page-level
+copy-on-write representation remains a possible next step if workloads with
+large worlds and frequent forks justify its extra read/write indirection.

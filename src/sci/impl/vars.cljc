@@ -100,6 +100,7 @@
 (defprotocol IVar
   (bindRoot [this v])
   (getRawRoot [this])
+  (getRootAt [this slot])
   (toSymbol [this])
   (isMacro [this])
   (hasRoot [this])

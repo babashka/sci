@@ -109,6 +109,15 @@
     v)
   (getRawRoot [this]
     (world/var-value this root))
+  (getRootAt [this slot]
+    ;; A Var can be marked ^:dynamic after this read site was analyzed. Keep
+    ;; the same late binding-frame check as deref while retaining the resolved
+    ;; root slot for the common non-dynamic case.
+    (if thread-bound
+      (if-let [tbox (vars/get-thread-binding this)]
+        (types/getVal tbox)
+        (world/var-value-at slot root))
+      (world/var-value-at slot root)))
   (toSymbol [this]
     ;; if we have at least a name from metadata, then build the symbol from that
     (let [current-meta (world/var-meta this meta)]
@@ -130,7 +139,10 @@
       (vars/with-writeable-var this current-meta
         (if (world/current-world)
           (let [unbound (vars/->SciUnbound this)]
-            (world/reset-value! this unbound)
+            ;; A newly interned Var has no slot yet, especially in a child
+            ;; world. Registering here preserves unboundness without mutating
+            ;; the shared direct root.
+            (world/register-var! this unbound current-meta)
             (when (world/primary-world?)
               (vars/bumping-set! (.-root this) unbound)))
           (vars/bumping-set! (.-root this) (vars/->SciUnbound this))))))
