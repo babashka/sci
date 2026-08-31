@@ -128,8 +128,9 @@ shared wake-up monitor is only a scheduling signal: a waiter always rechecks
 the state of its own world. Host code that tests for the concrete host delay
 or promise class can observe these representation differences.
 
-Forking is O(number of allocated slots), including spare array capacity, while
-slot reads and writes are constant time. This intentionally favors the common
+Forking is O(the lineage's allocated logical slots); unused backing-array
+capacity is not copied. Slot reads and writes are constant time. This
+intentionally favors the common
 case where reads and mutations greatly outnumber forks. A page-level
 copy-on-write representation remains a possible next step if workloads with
 large worlds and frequent forks justify its extra read/write indirection.

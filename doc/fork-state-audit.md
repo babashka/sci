@@ -253,6 +253,13 @@ five million direct child-world atom reads improved from 193--194 ms to
 167--171 ms (roughly 13 percent). These ratios are local diagnostics, not a
 cross-machine performance claim.
 
+Fork copying uses the registry's logical `:next-slot` bound rather than the
+backing array's exponential-growth capacity. In alternating powersave-profile
+runs with 16,385 logical slots in a 32,768-cell source array, 101-fork medians
+were 1.91 ms versus 2.46--2.83 ms before right-sizing (about 22--32 percent
+faster). The benefit approaches zero when capacity is already tightly packed;
+it adds no read or mutation indirection.
+
 ### Delay
 
 Represent a delay as a handle to a world-local state machine:
