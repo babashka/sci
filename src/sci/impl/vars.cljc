@@ -11,9 +11,10 @@
                             var-get
                             var-set
                             bound-fn*])
-  (:require [sci.ctx-store]
+  (:require [sci.ctx-store :as store]
             [sci.impl.macros :as macros]
-            [sci.impl.types :as t])
+            [sci.impl.types :as t]
+            [sci.impl.world :as world])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
                                                    with-writeable-namespace
                                                    with-writeable-var
@@ -168,23 +169,25 @@
 
 (defn binding-conveyor-fn
   [f]
-  (let [frame (clone-thread-binding-frame)]
+  (let [frame (clone-thread-binding-frame)
+        ctx store/*ctx*
+        invoke (fn [args]
+                 (reset-thread-binding-frame frame)
+                 (if (:sci.impl/world ctx)
+                   (store/with-ctx ctx
+                     (world/with-active-world ctx #(apply f args)))
+                   (apply f args)))]
     (fn
       ([]
-       (reset-thread-binding-frame frame)
-       (f))
+       (invoke nil))
       ([x]
-       (reset-thread-binding-frame frame)
-       (f x))
+       (invoke [x]))
       ([x y]
-       (reset-thread-binding-frame frame)
-       (f x y))
+       (invoke [x y]))
       ([x y z]
-       (reset-thread-binding-frame frame)
-       (f x y z))
+       (invoke [x y z]))
       ([x y z & args]
-       (reset-thread-binding-frame frame)
-       (apply f x y z args)))))
+       (invoke (list* x y z args))))))
 
 (defn throw-unbound-call-exception [the-var]
   (throw #?(:cljd (ex-info (str "Attempting to call unbound fn: " the-var) {})
