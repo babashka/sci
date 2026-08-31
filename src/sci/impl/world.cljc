@@ -5,7 +5,8 @@
   stores slot values densely and a frozen fork copies that array while the
   source world is quiescent. Mutable primitives CAS only their own slot, so
   unrelated atoms never contend on a shared world root."
-  (:require [sci.ctx-store :as store])
+  (:require [sci.ctx-store :as store]
+            [sci.impl.execution :as execution])
   #?(:clj (:import [java.util.concurrent.atomic AtomicReferenceArray]
                    [java.util.concurrent.locks ReentrantReadWriteLock])))
 
@@ -83,29 +84,26 @@
    #?(:clj (ReentrantReadWriteLock.) :default nil)
    (volatile! false)))
 
-#?(:clj
-   (def ^ThreadLocal active-world
-     (proxy [ThreadLocal] []
-       (initialValue [] nil)))
-   :default
-   (def active-world (volatile! nil)))
-
-(defn- active-world-state []
-  #?(:clj (.get ^ThreadLocal active-world)
-     :default @active-world))
+(defn active-world-state []
+  #?(:clj (let [state (.get ^ThreadLocal execution/current)]
+            (aget ^objects state execution/active-world-index))
+     :default (execution/active-world)))
 
 (defn- call-with-active-world [ctx f]
-  (let [previous (active-world-state)
+  (let [state #?(:clj (.get ^ThreadLocal execution/current)
+                 :default (execution/current-state))
+        previous (execution/active-world state)
+        previous-scope (execution/binding-scope state)
         active (:sci.impl/read-world ctx)]
-    #?(:clj (.set ^ThreadLocal active-world active)
-       :default (vreset! active-world active))
+    (execution/set-active-world! state active)
+    (execution/set-binding-scope! state (:sci.impl/world ctx))
+    (execution/refresh-active-bindings! state)
     (try
       (f)
       (finally
-        #?(:clj (if (nil? previous)
-                  (.remove ^ThreadLocal active-world)
-                  (.set ^ThreadLocal active-world previous))
-           :default (vreset! active-world previous))))))
+        (execution/set-active-world! state previous)
+        (execution/set-binding-scope! state previous-scope)
+        (execution/refresh-active-bindings! state)))))
 
 (defn with-active-world
   "Run `f` with the context's world installed. On the JVM evaluations take a
@@ -124,6 +122,12 @@
 
 (defn current-world []
   (:sci.impl/world store/*ctx*))
+
+(defn binding-scope
+  "Return the currently executing world for dynamic-binding isolation. Nil
+  denotes a host binding established outside managed SCI evaluation."
+  []
+  (execution/binding-scope))
 
 (defn- descriptor [^DenseWorld world handle]
   (get-in @(.-registry world) [:descriptors handle]))

@@ -171,7 +171,24 @@
 (binding [*some-var* :hello]
   (.start (java.lang.Thread. (bound-fn [] (f)))))
 @state"
-                               {:classes {'java.lang.Thread java.lang.Thread}}))))))
+                               {:classes {'java.lang.Thread java.lang.Thread}}))))
+
+     (deftest forked-bound-fn-uses-child-world-test
+       (let [parent (sci/init {})]
+         (sci/eval-string*
+          parent
+          "(def state (atom 0))
+           (def ^:dynamic *scope* :root)")
+         (let [child (sci/fork parent)
+               f (sci/eval-string*
+                  child
+                  "(binding [*scope* :bound]
+                     (bound-fn [] [*scope* (swap! state inc)]))")
+               result (promise)]
+           (.start (Thread. #(deliver result (f))))
+           (is (= [:bound 1] (deref result 1000 ::timeout)))
+           (is (= 0 (sci/eval-string* parent "@state")))
+           (is (= 1 (sci/eval-string* child "@state"))))))))
 
 #?(:cljd nil
    :clj
@@ -197,6 +214,33 @@
     (let [x (sci/new-dynamic-var 'x)]
       (is (= 1 (sci/binding [x 1]
                  (sci/eval-string "*x*" {:bindings {'*x* x}})))))))
+
+(deftest world-scoped-dynamic-binding-test
+  (let [parent-holder (atom nil)
+        parent (sci/init
+                {:bindings
+                 {'read-parent #(sci/eval-string* @parent-holder "late")}})]
+    (reset! parent-holder parent)
+    (sci/eval-string* parent
+                      "(def late 0) (def ^:dynamic shared 0)")
+    (let [child (sci/fork parent)]
+      (sci/eval-string* child
+                        "(alter-meta! #'late assoc :dynamic true)")
+      (testing "a child binding does not override a nested parent evaluation"
+        (is (= [9 0 9]
+               (sci/eval-string*
+                child
+                "(binding [late 9] [late (read-parent) late])"))))
+      (testing "host API bindings deliberately enter either world"
+        (let [shared (sci/eval-string* parent "#'shared")]
+          (is (= [7 7]
+                 (sci/with-bindings
+                   {shared 7}
+                   [(sci/eval-string* parent "shared")
+                    (sci/eval-string* child "shared")])))))
+      (is (= [0 0]
+             [(sci/eval-string* parent "late")
+              (sci/eval-string* child "late")])))))
 
 #_(deftest with-redefs-api-test
     (when-not tu/native?

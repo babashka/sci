@@ -13,8 +13,9 @@ An SCI context currently has three relevant layers:
    `sci/fork` creates a new atom with the same map value.
 2. A lineage registry maps stable handles to dense slots. Var roots and
    metadata use two slots; SCI-created atoms and volatiles use one value slot.
-3. Dynamic binding frames are control state outside the world. On the JVM they
-   live in a `ThreadLocal`; on CLJS and ClojureDart they live in a process-local
+3. Dynamic binding frames are control state outside the world. Active world,
+   binding scope, and frame are consolidated in one execution-state cell. On
+   the JVM it is a `ThreadLocal`; on CLJS and ClojureDart it is a process-local
    volatile.
 
 A Var read therefore has this precedence:
@@ -38,8 +39,12 @@ internals generally are not.
 
 SCI closely follows Clojure's `Var.java` representation:
 
-- A `Frame` contains a complete persistent map from Var identity to `TBox` and
-  a pointer to the previous frame.
+- A `Frame` contains a complete persistent map from Var identity to `TBox`, a
+  pointer to the previous frame, and the world in which it was pushed. A nil
+  world denotes an explicit host API binding.
+- The execution state caches the effective binding map for its active world.
+  World entry selects or merges the persistent host/world maps once, leaving a
+  dynamic Var read with one execution-state lookup and one map lookup.
 - `push-thread-bindings` starts with the current complete map, associates a new
   box for each rebound Var, and pushes the new frame. `pop-thread-bindings` is
   O(1).
@@ -49,8 +54,14 @@ SCI closely follows Clojure's `Var.java` representation:
 - A Var has a shared `thread-bound` fast-path bit. Once any binding has existed,
   reads check the current frame before reading a root.
 - `bound-fn*` captures binding values and creates fresh boxes when invoked.
-  `binding-conveyor-fn`, used by SCI futures, clones the current frame header
-  and shares its boxes, like Clojure's conveyor behavior.
+  `binding-conveyor-fn`, used by SCI futures, shares the captured boxes, like
+  Clojure's conveyor behavior. Both also capture and reinstall the SCI world.
+
+A focused local JVM benchmark of ten million dynamic-binding reads took a
+median 94.6 ms with the consolidated execution cell, versus 123.8 ms before
+world scoping. This is not a portable performance guarantee, but it validates
+the important shape of the implementation: scope selection happens on world
+entry rather than on every Var dereference.
 
 ### Present fork semantics
 
@@ -59,14 +70,12 @@ does not capture a dynamic frame. It also cannot be called from inside an
 active evaluation of the source world, because the evaluation holds that
 world's read permit and the fork requires its write permit.
 
-Binding frames are keyed only by stable Var identity, not by world identity.
-Consequently a binding active on one thread overrides that Var while the thread
-performs a nested evaluation in another world from the same lineage. This is
-coherent with ordinary Clojure, which has one root world, but interacts badly
-with fork-local metadata: a Var made `^:dynamic` only in a child can be bound in
-the child and the binding is then observable by a nested parent evaluation,
-even though the parent still considers the Var non-dynamic. The roots remain
-isolated after the binding exits.
+Binding frames are scoped to the world in which they are pushed. A nested
+evaluation of another world skips those frames, so a Var made `^:dynamic` only
+in a child can no longer override a nested parent evaluation. Bindings
+established explicitly through the host API outside an evaluation have nil
+scope and deliberately enter any subsequently evaluated world, retaining the
+useful behavior of `sci/with-bindings`.
 
 The audit also found an async correctness gap: SCI's future wrapper conveyed
 the dynamic frame, but did not install the captured context's `ReadWorld` or
@@ -89,17 +98,16 @@ Keep two APIs and make their distinction explicit:
 - A future `fork-execution` operates only at a suspension point and snapshots
   `(world, binding-frame, continuation, resource capabilities)`.
 
-Dynamic frames should belong to an evaluation/fiber token rather than an
-unqualified process thread. A practical persistent representation is a small
-frame header containing a full persistent `Var -> value` map plus the previous
-frame. `set!` replaces the current header's map with an `assoc`; a fiber fork
-can share the immutable map in O(1). An ownership/conveyance flag can retain
-Clojure's rule that a binding conveyed to another thread cannot be assigned.
+Dynamic frames should eventually belong to an evaluation/fiber token rather
+than an unqualified process thread. The execution-state cell is the first step:
+its frame headers and maps are persistent, so a suspended fiber can share them
+in O(1), while `TBox` retains Clojure's mutable `set!` and conveyed-thread
+ownership behavior. A later execution fork can replace boxes with immutable
+values or copy them at the suspension boundary.
 
-Before changing representation, we must choose whether an explicit host
-binding is lineage-wide or world-specific. SCI `(binding ...)` should at least
-be evaluation/world-specific so child-only dynamic metadata cannot affect a
-nested parent evaluation accidentally.
+Explicit host bindings are intentionally unscoped and enter subsequently
+evaluated worlds. SCI `(binding ...)` inside evaluation is world-specific, so
+child-only dynamic metadata cannot affect a nested parent evaluation.
 
 ## Primitive and runtime-state inventory
 
@@ -147,7 +155,8 @@ A JVM probe against the current implementation produced these results:
 - a child `defmethod` installed the method in parent;
 - child changes to namespace metadata and atom metadata appeared in parent;
 - a watch installed in child fired for a parent atom mutation;
-- a child-only dynamic binding was visible in a nested parent evaluation;
+- before world-scoped frames, a child-only dynamic binding was visible in a
+  nested parent evaluation;
 - before the conveyor correction, a future launched in child mutated the
   parent atom realization.
 
@@ -247,8 +256,8 @@ duplicable, but need self-describing SCI handles or `Forkable` cooperation.
 
 1. Preserve the corrected asynchronous world conveyance and extend it to any
    new managed callback boundary before expanding the primitive set.
-2. Decide and specify world-versus-fiber dynamic-binding semantics, including
-   nested cross-world evaluation and CLJS async-local behavior.
+2. Evolve the new world-scoped frames into managed fiber-local frames for CLJS
+   async suspension and eventual execution snapshots.
 3. Address lineage-registry liveness so adding more tracked handles does not
    create an unbounded retention problem.
 4. Finish split identity/state already present: atom/Var watches, atom
