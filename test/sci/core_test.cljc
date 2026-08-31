@@ -17,7 +17,8 @@
   fork/Forkable
   (fork-value [_]
     (swap! copies inc)
-    (ForkableState. (atom @state) copies)))
+    #?(:cljd (ForkableState. (atom @state) copies nil {} -1)
+       :default (ForkableState. (atom @state) copies))))
 
 (defrecord ProhibitedState [resource]
   fork/Forkable
@@ -1209,8 +1210,7 @@
         :cljs "(try (force failed) (catch :default _ nil))"
         :cljd "(try (force failed) (catch Object _ nil))"))
     (let [child (sci/fork parent)
-          expected [false true #?(:cljs false :default true)
-                    2 [:completed :pending]]]
+          expected [false true true 2 [:completed :pending]]]
       (is (= expected
              (sci/eval-string*
               child
@@ -1748,7 +1748,8 @@
                    (swap! host-state inc)]")))
          (is (= 0 @host-state))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest affine-host-resource-fork-policy-test
      (testing "lazy realization is rejected"
        (let [parent (tu/forkable-init nil)]
@@ -1806,7 +1807,8 @@
                        (sci/eval-string*
                         (sci/fork parent {:fork-fn identity}) "promise"))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest fork-host-value-cooperation-test
      (let [user-ns (sci/create-ns 'user)
            state-var (sci/new-var 'state (atom 0) {:ns user-ns})
@@ -1821,7 +1823,8 @@
          (is (= 0 (sci/eval-string* parent "@state")))
          (is (= 1 (sci/eval-string* child "@state")))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest fork-waits-for-active-evaluation-test
      (let [entered (promise)
            release (promise)
@@ -1836,7 +1839,8 @@
          (is (= true (deref evaluation 1000 ::timeout)))
          (is (map? (deref forking 1000 ::timeout)))))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest independent-world-slots-do-not-retry-test
      (let [n 1000
            a-calls (atom 0)

@@ -18,7 +18,38 @@
   fork/Forkable
   (fork-value [this] this)
 
-  #?@(:clj
+  #?@(:cljd
+      [IDeref
+       (-deref [this]
+         (atom-value home registry value-slot))
+       IReset
+       (-reset! [this new-value]
+         (atom-reset! this home registry value-slot control-slot new-value))
+       ISwap
+       (-swap! [this f]
+         (atom-swap! this home registry value-slot control-slot f nil))
+       (-swap! [this f x]
+         (atom-swap! this home registry value-slot control-slot f [x]))
+       (-swap! [this f x y]
+         (atom-swap! this home registry value-slot control-slot f [x y]))
+       (-swap! [this f x y more]
+         (atom-swap! this home registry value-slot control-slot f
+                     (list* x y more)))
+       IMeta
+       (-meta [this]
+         (atom-meta home registry control-slot))
+       types/IResetMeta
+       (-reset-meta! [this m]
+         (atom-reset-meta! home registry control-slot m))
+       IWatchable
+       (-add-watch [this key f]
+         (atom-add-watch! home registry control-slot key f)
+         this)
+       (-remove-watch [this key]
+         (atom-remove-watch! home registry control-slot key)
+         this)]
+
+      :clj
       [clojure.lang.IDeref
        (deref [this]
          (atom-value home registry value-slot))
@@ -106,38 +137,7 @@
        IEquiv
        (-equiv [this other] (identical? this other))
        IHash
-       (-hash [this] (goog/getUid this))]
-
-      :cljd
-       [IDeref
-       (-deref [this]
-         (atom-value home registry value-slot))
-       IReset
-       (-reset! [this new-value]
-         (atom-reset! this home registry value-slot control-slot new-value))
-       ISwap
-       (-swap! [this f]
-         (atom-swap! this home registry value-slot control-slot f nil))
-       (-swap! [this f x]
-         (atom-swap! this home registry value-slot control-slot f [x]))
-       (-swap! [this f x y]
-         (atom-swap! this home registry value-slot control-slot f [x y]))
-       (-swap! [this f x y more]
-         (atom-swap! this home registry value-slot control-slot f
-                     (list* x y more)))
-       IMeta
-       (-meta [this]
-         (atom-meta home registry control-slot))
-       types/IResetMeta
-       (-reset-meta! [this m]
-         (atom-reset-meta! home registry control-slot m))
-       IWatchable
-       (-add-watch [this key f]
-         (atom-add-watch! home registry control-slot key f)
-         this)
-       (-remove-watch [this key]
-         (atom-remove-watch! home registry control-slot key)
-         this)]))
+       (-hash [this] (goog/getUid this))]))
 
 (defn sci-atom? [x]
   (instance? SciAtom x))
@@ -297,18 +297,25 @@
 (defn- host-delay [thunk]
   (clojure.core/delay (thunk)))
 
-(deftype PendingDelayState [thunk delegate]
+(deftype PendingDelayState [thunk delegate attempted failure]
   fork/Forkable
   (fork-value [_]
-    (if (realized? delegate)
-      (try
-        (RealizedDelayState. @delegate)
-        (catch #?(:cljd Object :clj Throwable :cljs :default) error
-          (FailedDelayState. error)))
-      (PendingDelayState. thunk (host-delay thunk))))
+    (cond
+      @failure (FailedDelayState. @failure)
+      (or @attempted (realized? delegate)) (RealizedDelayState. @delegate)
+      :else (PendingDelayState. thunk (host-delay thunk)
+                                (clojure.core/atom false)
+                                (clojure.core/atom nil))))
   IDelayState
-  (-delay-value [_] @delegate)
-  (-delay-realized? [_] (realized? delegate)))
+  (-delay-value [_]
+    (reset! attempted true)
+    (try
+      @delegate
+      (catch #?(:cljd Object :clj Throwable :cljs :default) error
+        (reset! failure error)
+        (throw error))))
+  (-delay-realized? [_]
+    (or @attempted (realized? delegate))))
 
 (declare delay-value delay-realized?)
 
@@ -316,7 +323,12 @@
   fork/Forkable
   (fork-value [this] this)
 
-  #?@(:clj
+  #?@(:cljd
+      [IDeref
+       (-deref [_] (delay-value home registry state-slot))
+       IPending
+       (-realized? [_] (delay-realized? home registry state-slot))]
+      :clj
       [clojure.lang.IDeref
        (deref [_] (delay-value home registry state-slot))
        clojure.lang.IPending
@@ -329,12 +341,7 @@
        IEquiv
        (-equiv [this other] (identical? this other))
        IHash
-       (-hash [this] (goog/getUid this))]
-      :cljd
-      [IDeref
-       (-deref [_] (delay-value home registry state-slot))
-       IPending
-       (-realized? [_] (delay-realized? home registry state-slot))]))
+       (-hash [this] (goog/getUid this))]))
 
 (defn sci-delay? [x]
   (instance? SciDelay x))
@@ -353,7 +360,9 @@
   [thunk]
   (let [{:keys [home registry slots managed-index]}
         (world/register-managed!
-         :delay [(PendingDelayState. thunk (host-delay thunk))] [0])]
+         :delay [(PendingDelayState. thunk (host-delay thunk)
+                                    (clojure.core/atom false)
+                                    (clojure.core/atom nil))] [0])]
     (world/attach-managed-owner!
      registry managed-index
      (SciDelay. home registry (nth slots 0)))))
@@ -364,7 +373,8 @@
 (defn force* [x]
   (if (sci-delay? x) @x (force x)))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (do
      (deftype PendingPromiseState []
        fork/Forkable

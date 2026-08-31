@@ -56,7 +56,8 @@
 
 (declare analyze analyze-children analyze-call return-call return-map)
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (do
      (deftype DirectVarNode [^sci.impl.vars.IVar v]
        sci.impl.types/Eval

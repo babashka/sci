@@ -7,9 +7,10 @@
   unrelated atoms never contend on a shared world root."
   (:require [sci.ctx-store :as store]
             [sci.impl.execution :as execution])
-  #?(:clj (:import [java.lang.ref WeakReference]
-                   [java.util.concurrent.atomic AtomicReferenceArray]
-                   [java.util.concurrent.locks ReentrantReadWriteLock])))
+  #?@(:cljd []
+      :clj [(:import [java.lang.ref WeakReference]
+                     [java.util.concurrent.atomic AtomicReferenceArray]
+                     [java.util.concurrent.locks ReentrantReadWriteLock])]))
 
 (def absent #?(:cljd (Object.) :clj (Object.) :cljs (js/Object.)))
 
@@ -24,36 +25,40 @@
   (ReadWorld. world primary?))
 
 (defn- new-cells [n]
-  #?(:clj
+  #?(:cljd
+     (#/(List/filled dynamic) n absent)
+     :clj
      (let [a (AtomicReferenceArray. (int n))]
        (dotimes [i n] (.set a i absent))
        a)
      :cljs
      (let [a (object-array n)]
        (dotimes [i n] (aset a i absent))
-       a)
-     :cljd
-     (#/(List/filled dynamic) n absent)))
+       a)))
 
 (defn- cells-length [cells]
-  #?(:clj (.length ^AtomicReferenceArray cells)
-     :cljs (alength cells)
-     :cljd (.-length ^List cells)))
+  #?(:cljd (.-length ^List cells)
+     :clj (.length ^AtomicReferenceArray cells)
+     :cljs (alength cells)))
 
 (defn- cells-get [cells slot]
-  #?(:clj (.get ^AtomicReferenceArray cells (int slot))
-     :cljs (aget cells slot)
-     :cljd (aget ^List cells slot)))
+  #?(:cljd (aget ^List cells slot)
+     :clj (.get ^AtomicReferenceArray cells (int slot))
+     :cljs (aget cells slot)))
 
 (defn- cells-set! [cells slot value]
-  #?(:clj (.set ^AtomicReferenceArray cells (int slot) value)
-     :cljs (aset cells slot value)
-     :cljd (aset ^List cells slot value))
+  #?(:cljd (aset ^List cells slot value)
+     :clj (.set ^AtomicReferenceArray cells (int slot) value)
+     :cljs (aset cells slot value))
   value)
 
 (defn- cells-cas! [cells slot old new]
-  #?(:clj (.compareAndSet ^AtomicReferenceArray cells (int slot) old new)
-     :default
+  #?(:cljd
+     (if (identical? old (cells-get cells slot))
+       (do (cells-set! cells slot new) true)
+       false)
+     :clj (.compareAndSet ^AtomicReferenceArray cells (int slot) old new)
+     :cljs
      (if (identical? old (cells-get cells slot))
        (do (cells-set! cells slot new) true)
        false)))
@@ -62,8 +67,9 @@
   @(.-cells-holder world))
 
 (defn- with-registry-lock [registry f]
-  #?(:clj (locking registry (f))
-     :default (f)))
+  #?(:cljd (f)
+     :clj (locking registry (f))
+     :cljs (f)))
 
 (defn- ensure-capacity! [^DenseWorld world required]
   (let [holder (.-cells-holder world)]
@@ -86,13 +92,14 @@
   (DenseWorld.
    (volatile! (new-cells 64))
    (atom {:next-slot 0 :descriptors {} :managed-descriptors []})
-   #?(:clj (ReentrantReadWriteLock.) :default nil)
+   #?(:cljd nil :clj (ReentrantReadWriteLock.) :cljs nil)
    (volatile! false)))
 
 (defn active-world-state []
-  #?(:clj (let [state (.get ^ThreadLocal execution/current)]
+  #?(:cljd (execution/active-world)
+     :clj (let [state (.get ^ThreadLocal execution/current)]
             (aget ^objects state execution/active-world-index))
-     :default (execution/active-world)))
+     :cljs (execution/active-world)))
 
 (defn- install-active-world! [state active]
   (execution/set-active-world! state active)
@@ -106,8 +113,9 @@
   active)
 
 (defn- call-with-active-world [ctx f]
-  (let [state #?(:clj (.get ^ThreadLocal execution/current)
-                 :default (execution/current-state))
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))
         previous (execution/active-world state)
         previous-scope (execution/binding-scope state)
         active (:sci.impl/read-world ctx)]
@@ -127,14 +135,16 @@
   a quiescent source world without adding locks to individual reads."
   [ctx f]
   (if-let [world (:sci.impl/world ctx)]
-    #?(:clj
+    #?(:cljd
+       (call-with-active-world ctx f)
+       :clj
        (let [^DenseWorld world world
              lock (.readLock ^ReentrantReadWriteLock (.-gate world))]
          (.lock lock)
          (try
            (call-with-active-world ctx f)
            (finally (.unlock lock))))
-       :default
+       :cljs
        (call-with-active-world ctx f))
     (f)))
 
@@ -311,12 +321,9 @@
   "Attach weak ownership after constructing a self-described handle. The
   owner is never retained strongly by the lineage registry."
   [registry managed-index owner]
-  (let [owner-ref #?(:clj (WeakReference. owner)
-                     :cljs (when (exists? js/WeakRef) (js/WeakRef. owner))
-                     ;; Dart weak-reference availability varies with the host
-                     ;; SDK. The descriptor remains non-owning until a
-                     ;; portable implementation is available.
-                     :cljd nil)]
+  (let [owner-ref #?(:cljd nil
+                     :clj (WeakReference. owner)
+                     :cljs (when (exists? js/WeakRef) (js/WeakRef. owner)))]
     (when owner-ref
       (with-registry-lock
         registry
@@ -327,9 +334,9 @@
 
 (defn- live-managed-owner? [owner-ref]
   (or (nil? owner-ref)
-      #?(:clj (some? (.get ^WeakReference owner-ref))
-         :cljs (some? (.deref owner-ref))
-         :cljd true)))
+      #?(:cljd true
+         :clj (some? (.get ^WeakReference owner-ref))
+         :cljs (some? (.deref owner-ref)))))
 
 (defn- sweep-managed! [^DenseWorld world]
   (let [cells (current-cells world)]
@@ -372,13 +379,15 @@
                                   (.-registry ^DenseWorld
                                               (.-world ^ReadWorld active))))
         ^DenseWorld world (if related? (.-world ^ReadWorld active) home)]
-    #?(:clj
+    #?(:cljd
+       (f world)
+       :clj
        (if related?
          (f world)
          (let [lock (.readLock ^ReentrantReadWriteLock (.-gate world))]
            (.lock lock)
            (try (f world) (finally (.unlock lock)))))
-       :default
+       :cljs
        (f world))))
 
 (defn managed-swap!
@@ -442,13 +451,16 @@
              (do (notify! world validation old new) true)
              false)))))))
 
-(defn register! [handle value]
-  (when-let [^DenseWorld world (current-world)]
-    (let [{:keys [value-slot]}
-          (allocate-descriptor! world handle :ref true nil)]
-      (ensure-capacity! world (inc value-slot))
-      (cells-set! (current-cells world) value-slot value)))
-  handle)
+(defn register!
+  ([handle value]
+   (register! handle value nil))
+  ([handle value value-fork-fn]
+   (when-let [^DenseWorld world (current-world)]
+     (let [{:keys [value-slot]}
+           (allocate-descriptor! world handle :ref true value-fork-fn)]
+       (ensure-capacity! world (inc value-slot))
+       (cells-set! (current-cells world) value-slot value)))
+   handle))
 
 (defn- allocate-var-watch-slot! [^DenseWorld world handle fallback]
   (let [registry (.-registry world)]
@@ -659,8 +671,9 @@
   world)
 
 (defn- call-with-selected-world [^DenseWorld world f]
-  (let [state #?(:clj (.get ^ThreadLocal execution/current)
-                 :default (execution/current-state))
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))
         previous (execution/active-world state)
         previous-scope (execution/binding-scope state)]
     (install-active-world! state (ReadWorld. world false))
@@ -686,7 +699,7 @@
         target-world (DenseWorld.
                       (volatile! target)
                       registry
-                      #?(:clj (ReentrantReadWriteLock.) :default nil)
+                      #?(:cljd nil :clj (ReentrantReadWriteLock.) :cljs nil)
                       (volatile! true))]
     (dotimes [i logical-n]
       (cells-set! target i (cells-get source i)))
@@ -719,7 +732,11 @@
     target-world))
 
 (defn fork-world [^DenseWorld world fork-value snapshot-value snapshot-var-meta]
-  #?(:clj
+  #?(:cljd
+     (do
+       (realize-primary! world snapshot-value snapshot-var-meta)
+       (copy-world world fork-value))
+     :clj
      (let [^ReentrantReadWriteLock gate (.-gate world)]
        (when (pos? (.getReadHoldCount gate))
          (throw (IllegalStateException.
@@ -730,7 +747,7 @@
            (realize-primary! world snapshot-value snapshot-var-meta)
            (copy-world world fork-value)
            (finally (.unlock lock)))))
-     :default
+     :cljs
      (do
        (realize-primary! world snapshot-value snapshot-var-meta)
        (copy-world world fork-value))))

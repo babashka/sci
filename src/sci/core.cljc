@@ -15,6 +15,7 @@
    [sci.ctx-store :as store]
    [sci.fork :as fork]
    [sci.impl.callstack :as cs]
+   [sci.impl.execution :as execution]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
@@ -58,10 +59,45 @@
    (let [meta (assoc meta :dynamic true :name (utils/unqualify-symbol name))]
      (sci.lang/->Var init-val name meta false false nil (:ns meta) false))))
 
+(defn with-detached-context
+  "Invoke zero-argument `f` outside the currently executing SCI context.
+
+  Embeddings use this host boundary when interpreted code recursively creates
+  an independent SCI interpreter. The caller's active world and dynamic
+  binding frame are restored even when `f` throws. Ordinary nested evaluation
+  of an existing context does not need this function."
+  [f]
+  (store/with-ctx nil
+    (execution/call-with-detached-state f)))
+
 (defn set!
   "Establish thread local binding of dynamic var"
   [dynamic-var v]
   (t/setVal dynamic-var v))
+
+(defn capture-continuation-context
+  "Capture the active SCI context and dynamic bindings for later continuation
+  resumption. Must be called from managed SCI evaluation. The returned token is
+  opaque; use `continuation-context-fn` to resume through it.
+
+  The explicit `ctx` arity is for host embedding boundaries invoked through an
+  interpreted function after the top-level evaluation has returned."
+  ([]
+   (vars/capture-continuation-context))
+  ([ctx]
+   (vars/capture-continuation-context ctx)))
+
+(defn retarget-continuation-context
+  "Copy a captured continuation context for `target-ctx`, which must belong to
+  the same SCI lineage. The copy has independent dynamic binding boxes."
+  [continuation-context target-ctx]
+  (vars/retarget-continuation-context continuation-context target-ctx))
+
+(defn continuation-context-fn
+  "Return a function that invokes `f` with the SCI world and dynamic bindings
+  represented by `continuation-context`."
+  [continuation-context f]
+  (vars/continuation-context-fn continuation-context f))
 
 (defn new-macro-var
   "Same as new-var but adds :macro true to meta as well

@@ -166,48 +166,52 @@
                19 (gen-fn 19)
                20 (gen-fn 20)
                ;; default case for 20+ args (used by loop)
-               (if (:sci.impl/world ctx)
-                 (let [recur# recur]
-                   (fn arity-many [& args]
-                     (let [active-ctx (world/active-ctx ctx)
-                           interrupt-fn# (:interrupt-fn active-ctx)
-                           invoc-array (when-not (zero? invoc-size)
-                                         #?(:cljd (#/(List/filled dynamic) invoc-size nil)
-                                            :default (object-array invoc-size)))]
-                       (when enclosed->invocation
-                         (enclosed->invocation enclosed-array invoc-array))
-                       (loop [args args i 0]
-                         (when (< i fixed-arity)
-                           (aset #?(:cljd invoc-array
-                                    :clj ^objects invoc-array
-                                    :cljs ^objects invoc-array) i (first args))
-                           (recur (next args) (inc i))))
-                       (loop []
-                         (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                         (let [ret (types/eval body active-ctx invoc-array)]
-                           (if (identical? recur# ret)
-                             (recur)
-                             ret)))))))
-                 (let [recur# recur
-                       interrupt-fn# (:interrupt-fn ctx)]
-                   (fn arity-many [& args]
-                     (let [invoc-array (when-not (zero? invoc-size)
-                                         #?(:cljd (#/(List/filled dynamic) invoc-size nil)
-                                            :default (object-array invoc-size)))]
-                       (when enclosed->invocation
-                         (enclosed->invocation enclosed-array invoc-array))
-                       (loop [args args i 0]
-                         (when (< i fixed-arity)
-                           (aset #?(:cljd invoc-array
-                                    :clj ^objects invoc-array
-                                    :cljs ^objects invoc-array) i (first args))
-                           (recur (next args) (inc i))))
-                       (loop []
-                         (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                         (let [ret (types/eval body ctx invoc-array)]
-                           (if (identical? recur# ret)
-                             (recur)
-                             ret))))))))]
+               ;; ClojureDart's `case` emitter expects a `let`-shaped default;
+               ;; keeping the mode dispatch inside it also avoids duplicating
+               ;; this test on every invocation.
+               (let [forkable? (:sci.impl/world ctx)]
+                 (if forkable?
+                   (let [recur# recur]
+                     (fn arity-many [& args]
+                       (let [active-ctx (world/active-ctx ctx)
+                             interrupt-fn# (:interrupt-fn active-ctx)
+                             invoc-array (when-not (zero? invoc-size)
+                                           #?(:cljd (#/(List/filled dynamic) invoc-size nil)
+                                              :default (object-array invoc-size)))]
+                         (when enclosed->invocation
+                           (enclosed->invocation enclosed-array invoc-array))
+                         (loop [args args i 0]
+                           (when (< i fixed-arity)
+                             (aset #?(:cljd invoc-array
+                                      :clj ^objects invoc-array
+                                      :cljs ^objects invoc-array) i (first args))
+                             (recur (next args) (inc i))))
+                         (loop []
+                           (when-not (nil? interrupt-fn#) (interrupt-fn#))
+                           (let [ret (types/eval body active-ctx invoc-array)]
+                             (if (identical? recur# ret)
+                               (recur)
+                               ret)))))))
+                   (let [recur# recur
+                         interrupt-fn# (:interrupt-fn ctx)]
+                     (fn arity-many [& args]
+                       (let [invoc-array (when-not (zero? invoc-size)
+                                           #?(:cljd (#/(List/filled dynamic) invoc-size nil)
+                                              :default (object-array invoc-size)))]
+                         (when enclosed->invocation
+                           (enclosed->invocation enclosed-array invoc-array))
+                         (loop [args args i 0]
+                           (when (< i fixed-arity)
+                             (aset #?(:cljd invoc-array
+                                      :clj ^objects invoc-array
+                                      :cljs ^objects invoc-array) i (first args))
+                             (recur (next args) (inc i))))
+                         (loop []
+                           (when-not (nil? interrupt-fn#) (interrupt-fn#))
+                           (let [ret (types/eval body ctx invoc-array)]
+                             (if (identical? recur# ret)
+                               (recur)
+                               ret)))))))))]
      f)))
 
 (defn lookup-by-arity [arities arity]

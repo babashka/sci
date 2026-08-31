@@ -27,8 +27,14 @@
 
      (defn- cljd-swap-method-table! [method-table f & args]
        (if (world/tracked? method-table)
-         (world/swap-value! method-table f args
-                            (fn [_] nil) (fn [_ _] nil))
+         (let [value (world/swap-value! method-table f args
+                                        (fn [_] nil) (fn [_ _] nil))]
+           ;; The first fork realizes the primary world from the host roots.
+           ;; Keep this root in sync while executing in that primary world,
+           ;; just as managed Vars do, but never mirror child mutations.
+           (when (world/primary-world?)
+             (reset! method-table value))
+           value)
          (apply swap! method-table f args)))))
 
 #?(:cljd nil
@@ -356,7 +362,9 @@
 (defn multi-fn-impl [name dispatch-fn default hierarchy]
   #?(:cljd (let [method-table (atom {})]
              (when (world/current-world)
-               (world/register! method-table {}))
+               ;; Branch the table cell, but retain identity-bearing SCI Type
+               ;; keys and fork-aware method closures inside the persistent map.
+               (world/register! method-table {} identity))
              (SciMultiFn. name dispatch-fn default method-table))
      :default (if (world/current-world)
                 (managed-multifn name dispatch-fn default hierarchy)

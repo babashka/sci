@@ -35,6 +35,13 @@ This shape combines four useful precedents:
   lineage.
 - Dynamic binding frames remain thread/evaluation scoped. A fork snapshots
   root bindings; it does not capture a running continuation or binding frame.
+- Hosts that suspend interpreted code can explicitly capture its dynamic
+  binding frame with `sci/capture-continuation-context`. After forking the SCI
+  context, `sci/retarget-continuation-context` creates an independent binding
+  frame for the child world, and `sci/continuation-context-fn` resumes a host
+  continuation with that world and frame installed. Retargeting is restricted
+  to the same SCI lineage. Ordinary `sci/fork` still does not implicitly copy
+  running continuations.
 - Interpreter bindings are scoped to their world. Managed asynchronous
   callbacks convey and restore both the selected world and binding frame.
 - Writes before the first fork have ordinary SCI/Clojure mutable behavior.
@@ -60,6 +67,13 @@ one fork and preserves aliases to its result.
 | Deliberately shared external resource | Return `this` |
 | Affine or movable authority | Reject the non-destructive fork, or keep authority outside the SCI value world |
 | Prohibited resource | Throw an explanatory exception from `fork-value` |
+
+An embedding that lets interpreted code construct a new, independent SCI
+interpreter should perform that construction through
+`sci/with-detached-context`. This temporarily leaves the caller's selected
+world and dynamic binding frame, runs the supplied host thunk, and restores the
+caller afterwards. Evaluating an existing SCI context recursively does not need
+this boundary; it is specifically for creating a separate context lineage.
 
 Only values directly stored in world cells are inspected. A host container that
 holds mutable children must implement the protocol and copy its own graph.
