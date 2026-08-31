@@ -61,7 +61,7 @@
      sci.impl.types/Eval
      (eval [_ _ctx _bindings]
        (let [^sci.impl.world.ReadWorld active
-             (.get ^ThreadLocal world/active-world)]
+             (world/active-world-state)]
          (if (or (nil? active) (.-primary? active))
            (.getDirectRoot v)
            (let [^sci.impl.world.DenseWorld world (.-world active)

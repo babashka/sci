@@ -12,6 +12,7 @@
                             var-set
                             bound-fn*])
   (:require [sci.ctx-store :as store]
+            [sci.impl.execution :as execution]
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
             [sci.impl.world :as world])
@@ -33,17 +34,9 @@
            (throw (ex-info (str "Built-in namespace " name# " is read-only.")
                            {:ns ns-obj#})))))))
 
-(deftype Frame [bindings prev])
+(deftype Frame [bindings prev scope prior-bindings])
 
-(def top-frame (Frame. {} nil))
-
-#?(:cljd
-   (def dvals (volatile! top-frame))
-   :clj
-   (def ^ThreadLocal dvals (proxy [ThreadLocal] []
-                             (initialValue [] top-frame)))
-   :cljs
-   (def dvals (volatile! top-frame)))
+(def top-frame (Frame. {} nil nil nil))
 
 #?(:cljs
    (def var-epoch
@@ -74,9 +67,7 @@
                  v#)))))
 
 (defn get-thread-binding-frame ^Frame []
-  #?(:cljd @dvals
-     :clj (.get dvals)
-     :cljs @dvals))
+  (or (execution/binding-frame) top-frame))
 
 (deftype TBox #?(:cljd [thread ^:mutable val]
                  :clj [thread ^:volatile-mutable val]
@@ -87,15 +78,31 @@
   (getVal [_this] val))
 
 (defn clone-thread-binding-frame ^Frame []
-  (let [^Frame f #?(:cljd @dvals
-                    :clj (.get dvals)
-                    :cljs @dvals)]
-    (Frame. (.-bindings f) nil)))
+  (let [state #?(:clj (.get ^ThreadLocal execution/current)
+                 :default (execution/current-state))]
+    (Frame. (execution/active-bindings state)
+            nil
+            (execution/binding-scope state)
+            nil)))
 
 (defn reset-thread-binding-frame [frame]
-  #?(:cljd (vreset! dvals frame)
-     :clj (.set dvals frame)
-     :cljs (vreset! dvals frame)))
+  (let [state #?(:clj (.get ^ThreadLocal execution/current)
+                 :default (execution/current-state))
+        scopes (loop [^Frame current frame
+                      seen #{}
+                      ret {}]
+                 (if (nil? current)
+                   ret
+                   (let [scope (.-scope current)]
+                     (if (contains? seen scope)
+                       (recur (.-prev current) seen ret)
+                       (recur (.-prev current)
+                              (conj seen scope)
+                              (assoc ret scope (.-bindings current)))))))]
+    (execution/set-binding-frame! state frame)
+    (execution/set-scope-bindings! state scopes)
+    (execution/refresh-active-bindings! state)
+    frame))
 
 (defprotocol IVar
   (bindRoot [this v])
@@ -117,8 +124,13 @@
   (dynamic? [_] false))
 
 (defn push-thread-bindings [bindings]
-  (let [^Frame frame (get-thread-binding-frame)
-        bmap (.-bindings frame)
+  (let [state #?(:clj (.get ^ThreadLocal execution/current)
+                 :default (execution/current-state))
+        ^Frame frame (or (execution/binding-frame state) top-frame)
+        scope (execution/binding-scope state)
+        scopes (execution/scope-bindings state)
+        prior-bindings (get scopes scope)
+        bmap (or prior-bindings {})
         bmap (reduce (fn [acc [var* val*]]
                        (when (not (dynamic? var*))
                          (throw #?(:cljd (ex-info (str "Can't dynamically bind non-dynamic var " var*) {})
@@ -133,39 +145,48 @@
                      bmap
                      bindings)]
     #?(:cljs (bump-var-epoch!))
-    (reset-thread-binding-frame (Frame. bmap frame))))
+    (let [new-frame (Frame. bmap frame scope prior-bindings)]
+      (execution/set-binding-frame! state new-frame)
+      (execution/set-scope-bindings! state (assoc scopes scope bmap))
+      (execution/refresh-active-bindings! state)
+      new-frame)))
 
 (defn pop-thread-bindings []
   #?(:cljs (bump-var-epoch!))
   ;; type hint needed to satisfy CLJS compiler / shadow
-  (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
-    (if (identical? top-frame f)
-      #?(:cljd (vreset! dvals top-frame)
-         :clj (.remove dvals)
-         :cljs (vreset! dvals top-frame))
-      (reset-thread-binding-frame f))
-    (throw (new #?(:cljd Exception :clj Exception :cljs js/Error) "No frame to pop."))))
+  (let [state #?(:clj (.get ^ThreadLocal execution/current)
+                 :default (execution/current-state))
+        ^Frame frame (or (execution/binding-frame state) top-frame)]
+    (if-let [previous (.-prev frame)]
+      (let [scope (.-scope frame)
+            prior-bindings (.-prior-bindings frame)
+            scopes (execution/scope-bindings state)
+            scopes (if (nil? prior-bindings)
+                     (dissoc scopes scope)
+                     (assoc scopes scope prior-bindings))]
+        (execution/set-binding-frame! state
+                                      (when-not (identical? top-frame previous)
+                                        previous))
+        (execution/set-scope-bindings! state scopes)
+        (execution/refresh-active-bindings! state)
+        nil)
+      (throw (new #?(:cljd Exception :clj Exception :cljs js/Error) "No frame to pop.")))))
 
 (defn get-thread-bindings []
-  (let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
-        ^Frame f (get-thread-binding-frame)]
-    (loop [ret {}
-           kvs (seq (.-bindings f))]
-      (if kvs
-        (let [[var* ^TBox tbox] (first kvs)
-              tbox-val (t/getVal tbox)]
-          (recur (assoc ret var* tbox-val)
-                 (next kvs)))
-        ret))))
+  (let [bmap (execution/active-bindings)]
+    (reduce-kv (fn [ret var* tbox]
+                 (assoc ret var* (t/getVal tbox)))
+               {}
+               bmap)))
 
 (defn get-thread-binding #?(:cljd [sci-var] :clj ^TBox [sci-var] :cljs ^TBox [sci-var])
-  (when-let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
-             ^Frame f #?(:cljd @dvals
-                         :clj (.get dvals)
-                         :cljs @dvals)]
-    #?(:cljd (get (.-bindings f) sci-var)
-       :clj (.get ^java.util.Map (.-bindings f) sci-var)
-       :cljs (.get (.-bindings f) sci-var))))
+  (let [state #?(:clj (.get ^ThreadLocal execution/current)
+                 :default (execution/current-state))
+        bmap #?(:clj (or (aget ^objects state execution/active-bindings-index) {})
+                :default (execution/active-bindings state))]
+    #?(:cljd (get bmap sci-var)
+       :clj (.get ^java.util.Map bmap sci-var)
+       :cljs (.get bmap sci-var))))
 
 (defn binding-conveyor-fn
   [f]

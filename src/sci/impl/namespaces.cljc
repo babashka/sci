@@ -775,9 +775,22 @@
   arguments. This may be used to define a helper function which runs on a
   different thread, but needs the same bindings in place."
   [f]
-  (let [bindings (sci.impl.vars/get-thread-bindings)]
+  (let [bindings (vars/get-thread-bindings)
+        ctx store/*ctx*]
     (fn [& args]
-      (apply with-bindings* bindings f args))))
+      (let [previous (vars/get-thread-binding-frame)
+            invoke #(apply with-bindings* bindings f args)]
+        (try
+          ;; A pooled worker may retain a conveyor frame from prior SCI work.
+          ;; bound-fn installs fresh boxes over a clean execution binding set,
+          ;; then restores whatever the caller had.
+          (vars/reset-thread-binding-frame nil)
+          (if (:sci.impl/world ctx)
+            (store/with-ctx ctx
+              (world/with-active-world ctx invoke))
+            (invoke))
+          (finally
+            (vars/reset-thread-binding-frame previous)))))))
 
 (defn sci-bound-fn
   "Returns a function defined by the given fntail, which will install the
