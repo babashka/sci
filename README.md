@@ -584,6 +584,41 @@ aren't visible to other users:
 (sci/eval-string* sci-ctx "forked") ;;=> Unable to resolve symbol: forked
 ```
 
+Forking also snapshots the roots and metadata of existing SCI vars and the
+values of atoms and volatiles created inside SCI. The handles keep their
+identity, so aliases and functions defined before the fork resolve against the
+world in which they are invoked:
+
+``` clojure
+(sci/eval-string* sci-ctx
+  "(def counter (atom 0))
+   (defn bump! [] (swap! counter inc))")
+
+(def forked (sci/fork sci-ctx))
+(sci/eval-string* forked "(bump!)")       ;;=> 1
+(sci/eval-string* sci-ctx "@counter")     ;;=> 0
+```
+
+Values supplied by the host remain the host application's responsibility. An
+optional `:fork-fn` can copy such values as they cross into a fork. It should
+return immutable values unchanged and preserve any aliasing that matters to
+the application (for example, by memoizing copies by identity):
+
+``` clojure
+(def sci-ctx
+  (sci/init {:fork-fn #(if (instance? clojure.lang.Atom %)
+                         (atom @%)
+                         %)}))
+```
+
+Dynamic binding frames remain scoped to their thread and evaluation, matching
+the Clojure REPL model; a fork snapshots root bindings, not a running control
+continuation. Stateful host objects not handled by `:fork-fn`, and mutable
+facilities not owned by SCI such as Java objects, remain shared.
+
+See [Forkable SCI worlds](doc/forking.md) for the lifecycle, semantic boundary,
+and current limitations of this experimental model.
+
 ### Implementing require and load-file
 
 SCI supports loading code via a hook that is invoked by SCI's implementation of

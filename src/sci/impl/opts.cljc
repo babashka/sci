@@ -2,12 +2,26 @@
   {:no-doc true}
   (:require
    #?(:cljs [goog.string])
+   [sci.ctx-store :as store]
    [sci.impl.namespaces :as namespaces]
    [sci.impl.types]
    [sci.impl.utils :as utils :refer [strip-core-ns]]
+   [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    #?(:cljd [sci.lang :as lang] :default [sci.lang]))
   #?@(:cljd [] :clj [(:import
-                      [sci.impl.types ICustomType])]))
+                       [sci.impl.types ICustomType])]))
+
+(defn- register-vars! [ctx]
+  (store/with-ctx ctx
+    (world/with-active-world
+      ctx
+      #(doseq [[_ ns-map] (:namespaces @(:env ctx))
+               [_ v] ns-map
+               :when (and (utils/var? v)
+                          (not (:sci/built-in (meta v)))
+                          (not (world/registered? (:sci.impl/world ctx) v)))]
+         (world/register-var! v (vars/getRawRoot v) (meta v))))))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))
@@ -249,6 +263,7 @@
            deftype-fn
            interrupt-fn
            unrestricted
+           fork-fn
            #?(:cljs async-load-fn)
            #?(:cljs js-libs)
            ns-aliases]}]
@@ -261,6 +276,8 @@
                      bindings (merge {'user (assoc bindings :obj utils/user-ns)}))
         _ (init-env! env aliases namespaces classes raw-classes imports
                      load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
+        world-root (world/new-world)
+        persistent-world? (volatile! false)
         ctx (assoc (->ctx {} env features readers (or allow deny)
                           :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions #{} allow))
@@ -269,7 +286,15 @@
                    :proxy-fn proxy-fn
                    :deftype-fn deftype-fn
                    :unrestricted unrestricted
+                   :fork-fn fork-fn
+                   :sci.impl/world world-root
+                   :sci.impl/read-world {:world world-root
+                                         :primary? true
+                                         :persistent? persistent-world?}
+                   :sci.impl/lineage (atom nil)
+                   :sci.impl/primary? true
                    #?@(:clj [:main-thread-id (.getId (Thread/currentThread))]))]
+    (register-vars! ctx)
     ctx))
 
 (defn merge-opts [ctx opts]
@@ -286,6 +311,7 @@
                 readers
                 reify-fn
                 deftype-fn
+                fork-fn
                 #?(:cljs async-load-fn)
                 #?(:cljs js-libs)
                 ns-aliases]
@@ -299,6 +325,7 @@
         _ (init-env! !env aliases namespaces classes raw-classes imports load-fn #?(:cljs async-load-fn) #?(:cljs js-libs) ns-aliases)
         interrupt-fn (if (contains? opts :interrupt-fn) (:interrupt-fn opts) (:interrupt-fn ctx))
         unrestricted (if (contains? opts :unrestricted) (:unrestricted opts) (:unrestricted ctx))
+        fork-fn (if (contains? opts :fork-fn) fork-fn (:fork-fn ctx))
         ctx (assoc (->ctx {} !env features readers (or (:check-permissions ctx) allow deny)
                           :interrupt-fn interrupt-fn)
                    :allow (when allow (process-permissions (:allow ctx) allow))
@@ -306,5 +333,11 @@
                    :reify-fn reify-fn
                    :deftype-fn deftype-fn
                    :unrestricted unrestricted
+                   :fork-fn fork-fn
+                   :sci.impl/world (:sci.impl/world ctx)
+                   :sci.impl/read-world (:sci.impl/read-world ctx)
+                   :sci.impl/lineage (:sci.impl/lineage ctx)
+                   :sci.impl/primary? (:sci.impl/primary? ctx)
                    :main-thread-id (:main-thread-id ctx))]
+    (register-vars! ctx)
     ctx))

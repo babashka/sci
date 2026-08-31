@@ -3,7 +3,8 @@
   (:require
    [sci.impl.macros :as macros]
    [sci.impl.types :as types]
-   [sci.impl.utils :as utils :refer [recur]])
+   [sci.impl.utils :as utils :refer [recur]]
+   [sci.impl.world :as world])
   #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn wrap-this-as]])))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
@@ -36,11 +37,12 @@
   ([n _disable-arity-checks varargs]
    (if (zero? n)
      (let [varargs-param (when varargs (gensym))]
-       `(let [recur# recur
-              interrupt-fn# (:interrupt-fn ~'ctx)]
+       `(let [recur# recur]
           (fn ~'arity-0 ~(cond-> []
                            varargs (conj '& varargs-param))
-            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+            (let [active-ctx# (world/active-ctx ~'ctx)
+                  interrupt-fn# (:interrupt-fn active-ctx#)
+                  ~'invoc-array (when-not (zero? ~'invoc-size)
                                   #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
                                      :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
@@ -50,7 +52,7 @@
                    [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
                (loop []
                  (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                 (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
+                 (let [ret# (types/eval ~'body active-ctx# ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
                      ret#))))))))
@@ -60,11 +62,12 @@
                                `(aset ~(with-meta 'invoc-array
                                          #?(:cljd {:tag 'List} :default {:tag 'objects})) ~idx ~fn-param))
                              fn-params (range)))]
-       `(let [recur# recur
-              interrupt-fn# (:interrupt-fn ~'ctx)]
+       `(let [recur# recur]
           (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
                                             varargs (conj '& varargs-param))
-            (let [~'invoc-array (when-not (zero? ~'invoc-size)
+            (let [active-ctx# (world/active-ctx ~'ctx)
+                  interrupt-fn# (:interrupt-fn active-ctx#)
+                  ~'invoc-array (when-not (zero? ~'invoc-size)
                                   #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
                                      :default (object-array ~'invoc-size)))]
               (when ~'enclosed->invocation
@@ -75,7 +78,7 @@
                    [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
                (loop []
                  (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                 (let [ret# (types/eval ~'body ~'ctx ~'invoc-array)]
+                 (let [ret# (types/eval ~'body active-ctx# ~'invoc-array)]
                    (if (identical? recur# ret#)
                      (recur)
                      ret#)))))))))))
@@ -148,10 +151,11 @@
                19 (gen-fn 19)
                20 (gen-fn 20)
                ;; default case for 20+ args (used by loop)
-               (let [recur# recur
-                     interrupt-fn# (:interrupt-fn ctx)]
+               (let [recur# recur]
                  (fn arity-many [& args]
-                   (let [invoc-array (when-not (zero? invoc-size)
+                   (let [active-ctx (world/active-ctx ctx)
+                         interrupt-fn# (:interrupt-fn active-ctx)
+                         invoc-array (when-not (zero? invoc-size)
                                        #?(:cljd (#/(List/filled dynamic) invoc-size nil)
                                           :default (object-array invoc-size)))]
                      (when enclosed->invocation
@@ -164,7 +168,7 @@
                          (recur (next args) (inc i))))
                      (loop []
                        (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                       (let [ret (types/eval body ctx invoc-array)]
+                       (let [ret (types/eval body active-ctx invoc-array)]
                          (if (identical? recur# ret)
                            (recur)
                            ret))))))))]
