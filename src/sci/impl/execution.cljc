@@ -6,10 +6,12 @@
 (def ^:const binding-scope-index 2)
 (def ^:const active-bindings-index 3)
 (def ^:const scope-bindings-index 4)
+(def ^:const active-cells-holder-index 5)
+(def ^:const active-registry-index 6)
 
 (defn- new-state []
-  #?(:cljd (#/(List/filled dynamic) 5 nil)
-     :default (object-array 5)))
+  #?(:cljd (#/(List/filled dynamic) 7 nil)
+     :default (object-array 7)))
 
 #?(:clj
    (def ^ThreadLocal current
@@ -59,6 +61,20 @@
           :cljs (aget state scope-bindings-index))
        {})))
 
+(defn active-cells-holder
+  ([] (active-cells-holder (current-state)))
+  ([state]
+   #?(:cljd (aget ^List state active-cells-holder-index)
+      :clj (aget ^objects state active-cells-holder-index)
+      :cljs (aget state active-cells-holder-index))))
+
+(defn active-registry
+  ([] (active-registry (current-state)))
+  ([state]
+   #?(:cljd (aget ^List state active-registry-index)
+      :clj (aget ^objects state active-registry-index)
+      :cljs (aget state active-registry-index))))
+
 (defn set-active-world! [state value]
   #?(:cljd (aset ^List state active-world-index value)
      :clj (aset ^objects state active-world-index value)
@@ -87,6 +103,18 @@
   #?(:cljd (aset ^List state scope-bindings-index value)
      :clj (aset ^objects state scope-bindings-index value)
      :cljs (aset state scope-bindings-index value))
+  value)
+
+(defn set-active-cells-holder! [state value]
+  #?(:cljd (aset ^List state active-cells-holder-index value)
+     :clj (aset ^objects state active-cells-holder-index value)
+     :cljs (aset state active-cells-holder-index value))
+  value)
+
+(defn set-active-registry! [state value]
+  #?(:cljd (aset ^List state active-registry-index value)
+     :clj (aset ^objects state active-registry-index value)
+     :cljs (aset state active-registry-index value))
   value)
 
 (defn refresh-active-bindings! [state]
