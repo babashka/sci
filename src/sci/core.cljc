@@ -47,7 +47,7 @@
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :name (utils/unqualify-symbol name))]
-     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta) false))))
 
 (defn new-dynamic-var
   "Same as new-var but adds :dynamic true to meta."
@@ -56,7 +56,7 @@
   ([name init-val] (new-dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (utils/unqualify-symbol name))]
-     (sci.lang/->Var init-val name meta false false nil (:ns meta)))))
+     (sci.lang/->Var init-val name meta false false nil (:ns meta) false))))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -72,7 +72,7 @@
      (sci.lang/->Var
       (vary-meta init-val
                  assoc :sci/macro true)
-      name meta false false nil (:ns meta)))))
+      name meta false false nil (:ns meta) false))))
 
 (macros/deftime
   (defmacro copy-var
@@ -305,6 +305,10 @@
   need application-specific isolation. SCI-owned mutable primitives are
   already world-relative and retain identity.
 
+  - `:runtime-mode`: `:standard` (the default) retains SCI's direct hot paths.
+  `:forkable` enables isolated runtime worlds for Vars, dynamic bindings and
+  SCI-owned mutable primitives.
+
   - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))
   ([s opts]
@@ -334,24 +338,28 @@
   ([ctx]
    (fork ctx nil))
   ([ctx opts]
-   (let [fork-fn (if (contains? opts :fork-fn)
-                   (:fork-fn opts)
-                   (:fork-fn ctx))
-         fork-value (fork/value-forker fork-fn)
-         forked-world (world/fork-world
-                       (:sci.impl/world ctx) fork-value
-                       #(cond
-                          (utils/var? %) (vars/getRawRoot %)
-                          (utils/namespace? %) (meta %)
-                          (utils/sci-type? %) (t/getVal %)
-                          :else (c/deref %))
-                       meta)]
-     (assoc ctx
-            :env (atom @(:env ctx))
-            :fork-fn fork-fn
-            :sci.impl/primary? false
-            :sci.impl/world forked-world
-            :sci.impl/read-world (world/read-world forked-world false)))))
+   (if-let [source-world (:sci.impl/world ctx)]
+     (let [fork-fn (if (contains? opts :fork-fn)
+                     (:fork-fn opts)
+                     (:fork-fn ctx))
+           fork-value (fork/value-forker fork-fn)
+           forked-world (world/fork-world
+                         source-world fork-value
+                         #(cond
+                            (utils/var? %) (vars/getRawRoot %)
+                            (utils/namespace? %) (meta %)
+                            (utils/sci-type? %) (t/getVal %)
+                            :else (c/deref %))
+                         meta)]
+       (assoc ctx
+              :env (atom @(:env ctx))
+              :fork-fn fork-fn
+              :sci.impl/primary? false
+              :sci.impl/world forked-world
+              :sci.impl/read-world (world/read-world forked-world false)))
+     ;; Preserve the historical namespace-environment fork for standard
+     ;; contexts. Full live-state isolation is opt-in via :runtime-mode.
+     (update ctx :env (fn [env] (atom @env))))))
 
 (defn eval-string*
   "Evaluates string `s` in the context of `ctx` (as produced with
@@ -684,14 +692,15 @@
   `ctx`. Returns mutated context."
   [ctx ns-name ns-map]
   (swap! (:env ctx) update-in [:namespaces ns-name] merge ns-map)
-  (store/with-ctx ctx
-    (world/with-active-world
-      ctx
-      #(doseq [[_ v] ns-map
-               :when (and (utils/var? v)
-                          (not (world/registered? (:sci.impl/world ctx) v)))]
-         (world/register-var! v (vars/getRawRoot v) (meta v)
-                              (vars/getRawWatches v)))))
+  (when (:sci.impl/world ctx)
+    (store/with-ctx ctx
+      (world/with-active-world
+        ctx
+        #(doseq [[_ v] ns-map
+                 :when (and (utils/var? v)
+                            (not (world/registered? (:sci.impl/world ctx) v)))]
+           (world/register-var! v (vars/getRawRoot v) (meta v)
+                                (vars/getRawWatches v))))))
   ctx)
 
 (defn find-ns

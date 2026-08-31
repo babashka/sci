@@ -13,12 +13,14 @@
   #?(:cljd (#/(List/filled dynamic) 7 nil)
      :default (object-array 7)))
 
-#?(:clj
+#?(:cljd
+   (def current (volatile! (new-state)))
+   :clj
    (def ^ThreadLocal current
      (ThreadLocal/withInitial
       (reify java.util.function.Supplier
         (get [_] (new-state)))))
-   :default
+   :cljs
    (def current (volatile! (new-state))))
 
 (defn current-state []

@@ -110,16 +110,25 @@
          #?(:cljd ^:mutable watches
             :clj ^:volatile-mutable watches
             :cljs ^:mutable watches)
-         ns]
+         ns
+         #?(:cljd ^:mutable world-tracked
+            :clj ^:volatile-mutable world-tracked
+            :cljs ^:mutable world-tracked)]
   ;; marker interface, clj only for now
   #?@(:cljd [] :clj [sci.lang.IVar])
+  world/IWorldTracked
+  (-world-tracked? [_] world-tracked)
+  (-mark-world-tracked! [this]
+    #?(:cljd (set! world-tracked true)
+       :default (set! (.-world-tracked this) true))
+    true)
   types/HasName
   (getName [this]
-    (or (:name (world/var-meta this meta)) sym))
+    (or (:name (if world-tracked (world/var-meta this meta) meta)) sym))
   vars/IVar
   (bindRoot [this v]
-    (let [old-root (world/var-value this root)
-          current-meta (world/var-meta this meta)]
+    (let [old-root (if world-tracked (world/var-value this root) root)
+          current-meta (if world-tracked (world/var-meta this meta) meta)]
       (vars/with-writeable-var this current-meta
         (if (world/current-world)
           (do (world/register-var! this v current-meta)
@@ -130,14 +139,14 @@
     ;; this is the return value for alter-var-root which should be the only place calling bindRoot directly
     v)
   (getRawRoot [this]
-    (world/var-value this root))
+    (if world-tracked (world/var-value this root) root))
   (getRawWatches [_] watches)
   (getDirectRoot [this]
     (if thread-bound
       (if-let [tbox (vars/get-thread-binding this)]
         (types/getVal tbox)
-        root)
-      root))
+        (if world-tracked (world/var-value this root) root))
+      (if world-tracked (world/var-value this root) root)))
   (selectRoot [this world-value]
     (if thread-bound
       (if-let [tbox (vars/get-thread-binding this)]
@@ -155,14 +164,14 @@
       (world/var-value-at slot root)))
   (toSymbol [this]
     ;; if we have at least a name from metadata, then build the symbol from that
-    (let [current-meta (world/var-meta this meta)]
+    (let [current-meta (if world-tracked (world/var-meta this meta) meta)]
       (if-let [sym-name (some-> (:name current-meta) name)]
         (symbol (some-> (:ns current-meta) types/getName name) sym-name)
       ;; otherwise, fall back to the symbol
         sym)))
   (isMacro [this]
-    (let [current-meta (world/var-meta this meta)
-          current-root (world/var-value this root)]
+    (let [current-meta (if world-tracked (world/var-meta this meta) meta)
+          current-root (if world-tracked (world/var-value this root) root)]
       (or (:macro current-meta)
           (when-some [m (clojure.core/meta current-root)]
             (:sci/macro m)))))
@@ -170,7 +179,7 @@
     #?(:cljd (set! thread-bound v)
        :default (set! (.-thread-bound this) v)))
   (unbind [this]
-    (let [current-meta (world/var-meta this meta)]
+    (let [current-meta (if world-tracked (world/var-meta this meta) meta)]
       (vars/with-writeable-var this current-meta
         (if (world/current-world)
           (let [unbound (vars/->SciUnbound this)]
@@ -185,10 +194,10 @@
     (not (instance? #?(:cljd vars/SciUnbound
                        :clj sci.impl.vars.SciUnbound
                        :cljs sci.impl.vars.SciUnbound)
-                    (world/var-value this root))))
+                    (if world-tracked (world/var-value this root) root))))
   vars/DynVar
   (dynamic? [this]
-    (:dynamic (world/var-meta this meta)))
+    (:dynamic (if world-tracked (world/var-meta this meta) meta)))
   types/IBox
   (setVal [this v]
     (if-let [b (vars/get-thread-binding this)]
@@ -215,7 +224,7 @@
                          (vars/bumping-set! (.-root this) v)))
                    (vars/bumping-set! (.-root this) v))
                  (throw-root-binding this)))))
-  (getVal [this] (world/var-value this root))
+  (getVal [this] (if world-tracked (world/var-value this root) root))
   #?(:cljd IDeref :clj clojure.lang.IDeref :cljs IDeref)
   (#?(:cljd -deref
       :clj deref
@@ -223,8 +232,8 @@
     (if thread-bound
       (if-let [tbox (vars/get-thread-binding this)]
         (types/getVal tbox)
-        (world/var-value this root))
-      (world/var-value this root)))
+        (if world-tracked (world/var-value this root) root))
+      (if world-tracked (world/var-value this root) root)))
   Object
   (toString [this]
     (str "#'" (vars/toSymbol this)))
@@ -233,9 +242,9 @@
                        (-write writer "#'")
                        (-pr-writer (vars/toSymbol a) writer opts)))
   #?(:cljd IMeta :clj clojure.lang.IMeta :cljs IMeta)
-  #?(:cljd (-meta [this] (world/var-meta this meta))
-     :clj (clojure.core/meta [this] (world/var-meta this meta))
-     :cljs (-meta [this] (world/var-meta this meta)))
+  #?(:cljd (-meta [this] (if world-tracked (world/var-meta this meta) meta))
+     :clj (clojure.core/meta [this] (if world-tracked (world/var-meta this meta) meta))
+     :cljs (-meta [this] (if world-tracked (world/var-meta this meta) meta)))
   ;; #?(:clj Comparable :cljs IEquiv)
   ;; (-equiv [this other]
   ;;   (if (instance? Var other)
@@ -353,82 +362,82 @@
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:cljd IFn :clj clojure.lang.IFn :cljs IFn)
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this]
-    (@this))
+    ((vars/getDirectRoot this)))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a]
-    (@this a))
+    ((vars/getDirectRoot this) a))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b]
-    (@this a b))
+    ((vars/getDirectRoot this) a b))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c]
-    (@this a b c))
+    ((vars/getDirectRoot this) a b c))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d]
-    (@this a b c d))
+    ((vars/getDirectRoot this) a b c d))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e]
-    (@this a b c d e))
+    ((vars/getDirectRoot this) a b c d e))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f]
-    (@this a b c d e f))
+    ((vars/getDirectRoot this) a b c d e f))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f g]
-    (@this a b c d e f g))
+    ((vars/getDirectRoot this) a b c d e f g))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f g h]
-    (@this a b c d e f g h))
+    ((vars/getDirectRoot this) a b c d e f g h))
   (#?(:cljd -invoke :clj invoke :cljs -invoke) [this a b c d e f g h i]
-    (@this a b c d e f g h i))
+    ((vars/getDirectRoot this) a b c d e f g h i))
   #?@(:cljd
       [(-invoke-more [this a b c d e f g h i rest]
-         (apply @this a b c d e f g h i rest))
+         (apply (vars/getDirectRoot this) a b c d e f g h i rest))
        (-apply [this args]
-         (apply @this args))]
+         (apply (vars/getDirectRoot this) args))]
       :clj
       [(invoke [this a b c d e f g h i j]
-         (@this a b c d e f g h i j))
+         ((vars/getDirectRoot this) a b c d e f g h i j))
        (invoke [this a b c d e f g h i j k]
-         (@this a b c d e f g h i j k))
+         ((vars/getDirectRoot this) a b c d e f g h i j k))
        (invoke [this a b c d e f g h i j k l]
-         (@this a b c d e f g h i j k l))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l))
        (invoke [this a b c d e f g h i j k l m]
-         (@this a b c d e f g h i j k l m))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m))
        (invoke [this a b c d e f g h i j k l m n]
-         (@this a b c d e f g h i j k l m n))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n))
        (invoke [this a b c d e f g h i j k l m n o]
-         (@this a b c d e f g h i j k l m n o))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o))
        (invoke [this a b c d e f g h i j k l m n o p]
-         (@this a b c d e f g h i j k l m n o p))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p))
        (invoke [this a b c d e f g h i j k l m n o p q]
-         (@this a b c d e f g h i j k l m n o p q))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q))
        (invoke [this a b c d e f g h i j k l m n o p q r]
-         (@this a b c d e f g h i j k l m n o p q r))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r))
        (invoke [this a b c d e f g h i j k l m n o p q r s]
-         (@this a b c d e f g h i j k l m n o p q r s))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s))
        (invoke [this a b c d e f g h i j k l m n o p q r s t]
-         (@this a b c d e f g h i j k l m n o p q r s t))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t))
        (invoke [this a b c d e f g h i j k l m n o p q r s t rest]
-         (apply @this a b c d e f g h i j k l m n o p q r s t rest))
+         (apply (vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t rest))
        (applyTo [this args]
-                (apply @this args))]
+                (apply (vars/getDirectRoot this) args))]
       :cljs
       [(-invoke [this a b c d e f g h i j]
-         (@this a b c d e f g h i j))
+         ((vars/getDirectRoot this) a b c d e f g h i j))
        (-invoke [this a b c d e f g h i j k]
-         (@this a b c d e f g h i j k))
+         ((vars/getDirectRoot this) a b c d e f g h i j k))
        (-invoke [this a b c d e f g h i j k l]
-         (@this a b c d e f g h i j k l))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l))
        (-invoke [this a b c d e f g h i j k l m]
-         (@this a b c d e f g h i j k l m))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m))
        (-invoke [this a b c d e f g h i j k l m n]
-         (@this a b c d e f g h i j k l m n))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n))
        (-invoke [this a b c d e f g h i j k l m n o]
-         (@this a b c d e f g h i j k l m n o))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o))
        (-invoke [this a b c d e f g h i j k l m n o p]
-         (@this a b c d e f g h i j k l m n o p))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p))
        (-invoke [this a b c d e f g h i j k l m n o p q]
-         (@this a b c d e f g h i j k l m n o p q))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q))
        (-invoke [this a b c d e f g h i j k l m n o p q r]
-         (@this a b c d e f g h i j k l m n o p q r))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r))
        (-invoke [this a b c d e f g h i j k l m n o p q r s]
-         (@this a b c d e f g h i j k l m n o p q r s))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s))
        (-invoke [this a b c d e f g h i j k l m n o p q r s t]
-         (@this a b c d e f g h i j k l m n o p q r s t))
+         ((vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t))
        (-invoke [this a b c d e f g h i j k l m n o p q r s t rest]
-         (apply @this a b c d e f g h i j k l m n o p q r s t rest))]))
+         (apply (vars/getDirectRoot this) a b c d e f g h i j k l m n o p q r s t rest))]))
 
 #?(:cljd nil
    :clj

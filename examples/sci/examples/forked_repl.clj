@@ -115,7 +115,7 @@ Any other line is evaluated in the selected SCI world. Try:
     (not= command ":quit")))
 
 (defn -main []
-  (let [root (sci/init {})
+  (let [root (sci/init {:runtime-mode :forkable})
         _ (sci/eval-string* root bootstrap)
         nodes (atom {0 {:id 0 :label "root" :parent nil :ctx root}})
         selected (atom 0)

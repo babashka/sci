@@ -18,6 +18,9 @@
 
 (when native? (println "Testing native version."))
 
+(defn forkable-init [opts]
+  (sci.core/init (assoc (or opts {}) :runtime-mode :forkable)))
+
 (defn eval* [form ctx]
   (if (not native?)
     (#?(:cljd sci/eval-string :default eval-string) (str form) ctx)

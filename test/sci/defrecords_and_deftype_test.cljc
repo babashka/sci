@@ -280,7 +280,7 @@
   (is (= "user.Dude" (tu/eval* "(deftype Dude []) (str Dude)" {}))))
 
 (deftest forked-deftype-instance-state-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(defprotocol IForkBox (bump! [_]) (box-value [_]))
@@ -302,7 +302,7 @@
       (is (= 1 (sci/eval-string* parent "(box-value box)"))))))
 
 (deftest forked-captured-deftype-state-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(defprotocol ICapturedForkBox (captured-bump! [_]))
@@ -320,7 +320,7 @@
       (is (= 1 (sci/eval-string* parent "(captured-bump)"))))))
 
 (deftest forked-type-metadata-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(deftype ForkMeta [])

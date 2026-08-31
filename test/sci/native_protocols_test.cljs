@@ -1,7 +1,8 @@
 (ns sci.native-protocols-test
   (:require [clojure.test :refer [deftest is testing]]
             [sci.core :as sci]
-            [sci.protocol-lib :as plib]))
+            [sci.protocol-lib :as plib]
+            [sci.test-utils :as tu]))
 
 (def cljs-core-ns (sci/create-ns 'cljs.core))
 
@@ -148,7 +149,7 @@ f")]
 [(get f :a) (satisfies? ILookup f)]")))))
 
 (deftest forked-native-protocol-extension-test
-  (let [parent (sci/init opts)]
+  (let [parent (tu/forkable-init opts)]
     (sci/eval-string*
      parent
      "(deftype ForkNative [])
@@ -163,7 +164,7 @@ f")]
       (is (= 1 (sci/eval-string* parent "(count fork-native)"))))))
 
 (deftest forked-record-native-protocol-extension-test
-  (let [parent (sci/init opts)]
+  (let [parent (tu/forkable-init opts)]
     (sci/eval-string*
      parent
      "(defrecord ForkNativeRecord [])
