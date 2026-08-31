@@ -136,11 +136,11 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | SCI deftype instance fields | Directly stored instances implement `Forkable` and are shallow-copied with alias preservation | Implemented at the world-cell boundary; nested host state still requires cooperation |
 | `*loaded-libs*` | Built-in Var root has a per-cell copier for its host Ref/atom | Implemented; keeps the host representation while loaded sets diverge |
 | Delay | Stable SCI handle with world-local pending/realized state | Implemented; pending realizations split, while cached outcomes are inherited according to host delay semantics |
-| Lazy sequence realization | One host lazy cell/cache | Shared and world selection during deferred realization is unreliable |
+| Lazy sequence realization | One host lazy cell/cache | Direct world-cell values are rejected as affine; managed lazy continuations remain future work |
 | SCI `memoize` cache | Closure owns a fork-local `SciAtom` cache | Implemented; inherited entries are shared as immutable values and later cache fills diverge |
 | JVM Promise | Stable SCI handle with world-local pending/delivered state | Implemented; a pending child has no inherited waiters and delivery is branch-local |
-| CLJS Promise | Native asynchronous host value | External async resource; managed continuations convey a world but the Promise itself is not copied |
-| Future / async task | Work launched through the binding conveyor runs in its captured world; the host task itself remains shared | Not copyable; needs an explicit fork policy |
+| CLJS Promise | Native asynchronous host value | Direct world-cell values are rejected as external; `:fork-fn` must choose deliberate sharing or application virtualization |
+| Future / async task | Work launched through the binding conveyor runs in its captured world; a managed fork waits for it | A still-pending direct host Future is rejected; a completed Future may be shared as immutable task outcome state |
 | Transient collection | Detected as affine when directly stored in a world cell | Fork rejected by default; `:fork-fn` may impose an explicit application policy |
 | JVM array / CLJS JavaScript array | Shallow-copied once per source identity | Implemented for direct world-cell values; nested elements retain their own policy |
 | Host atom/ref/agent/volatile/native multimethod | Detected as unmanaged mutable state on JVM/CLJS | Fork rejected by default; `Forkable` wrapper or `:fork-fn` must choose copy or sharing |
@@ -151,8 +151,8 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Record hash caches | Shared memoized hash only | Benign derived state if records remain immutable |
 | Watches with external effects | Shared callback registrations | Must be copied, shared, or prohibited explicitly by capability |
 | RNG, `gensym`, clock, UUID | Host/global nondeterministic source | External capability; not reproducibly forked |
-| Readers, writers, streams, iterators, regex matchers | Mutable/consuming host resource | Affine or explicitly shared; never generically copied |
-| Files, sockets, executors, locks | External host resource | Explicitly shared, virtualized, or prohibited |
+| Readers, writers, streams, iterators, regex matchers | Mutable/consuming host resource | Known JVM direct values are rejected; explicitly share or virtualize with `Forkable`/`:fork-fn` |
+| Files, sockets, executors, locks | External host resource | Known JVM direct values are rejected; explicitly share, virtualize, or prohibit application-specific wrappers |
 
 The table concerns state created or exposed by SCI itself. Application-owned
 containers remain responsible for their nested graph through
@@ -300,6 +300,14 @@ to convey the selected SCI world and hold its evaluation permit whenever the
 future body runs. Fork policy can then choose among explicit sharing, waiting
 for completion and copying the result, restartable computation, cancellation,
 or rejection. Full continuation forking requires managed CPS/fiber state.
+
+SCI's managed future conveyor now makes a world fork wait until the body has
+released its evaluation permit. At the generic host-value boundary, a pending
+`Future` is rejected while an already completed or cancelled Future is shared:
+its task lifecycle can no longer diverge, although values reachable from its
+result retain their ordinary shallow host policy. CLJS Promises cannot expose a
+portable synchronous completion snapshot and are therefore rejected when
+stored directly unless the application supplies a policy.
 
 ### Multimethod
 

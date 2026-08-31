@@ -1719,6 +1719,62 @@
          (is (= 0 @host-state))))))
 
 #?(:clj
+   (deftest affine-host-resource-fork-policy-test
+     (testing "lazy realization is rejected"
+       (let [parent (sci/init nil)]
+         (sci/eval-string* parent "(def pending-xs (map inc [1 2 3]))")
+         (try
+           (sci/fork parent)
+           (is false "expected lazy sequence rejection")
+           (catch clojure.lang.ExceptionInfo e
+             (is (= :lazy-seq (:resource-kind (ex-data e))))))))
+     (testing "pending tasks and consuming resources are rejected"
+       (doseq [[resource expected-kind]
+               [[(java.util.concurrent.FutureTask. (fn [] :done))
+                 :pending-future]
+                [(java.io.StringReader. "input") :closeable]
+                [(java.util.Random. 42) :random-generator]]]
+         (let [user-ns (sci/create-ns 'user)
+               parent (sci/init
+                       {:namespaces
+                        {'user {'resource
+                                (sci/new-var 'resource resource
+                                             {:ns user-ns})}}})]
+           (try
+             (sci/fork parent)
+             (is false (str "expected " expected-kind " rejection"))
+             (catch clojure.lang.ExceptionInfo e
+               (is (= expected-kind
+                      (:resource-kind (ex-data e)))))))))
+     (testing "a completed Future has immutable task state and may be shared"
+       (let [task (java.util.concurrent.FutureTask. (fn [] :done))
+             _ (.run task)
+             user-ns (sci/create-ns 'user)
+             parent (sci/init
+                     {:namespaces
+                      {'user {'task (sci/new-var 'task task {:ns user-ns})}}})
+             child (sci/fork parent)]
+         (is (identical? task (sci/eval-string* child "task")))
+         (is (= :done @task))))))
+
+#?(:cljs
+   (deftest affine-js-resource-fork-policy-test
+     (let [promise (js/Promise.resolve 1)
+           user-ns (sci/create-ns 'user)
+           parent (sci/init
+                   {:namespaces
+                    {'user {'promise
+                            (sci/new-var 'promise promise {:ns user-ns})}}})]
+       (try
+         (sci/fork parent)
+         (is false "expected Promise rejection")
+         (catch ExceptionInfo e
+           (is (= :promise (:resource-kind (ex-data e))))))
+       (is (identical? promise
+                       (sci/eval-string*
+                        (sci/fork parent {:fork-fn identity}) "promise"))))))
+
+#?(:clj
    (deftest fork-host-value-cooperation-test
      (let [user-ns (sci/create-ns 'user)
            state-var (sci/new-var 'state (atom 0) {:ns user-ns})

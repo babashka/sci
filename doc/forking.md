@@ -60,8 +60,10 @@ Only values directly stored in world cells are inspected. A host container that
 holds mutable children must implement the protocol and copy its own graph.
 Unclassified values retain the compatibility behavior of being shared, except
 for known affine or mutable host primitives that SCI can identify safely.
-Direct host atoms, refs, agents, volatiles, multimethods, and transient
-collections are rejected unless an explicit policy handles them.
+Direct host atoms, refs, agents, volatiles, multimethods, transient
+collections, lazy sequences, pending tasks, Promises, and known consuming or
+external resources are rejected unless an explicit policy handles them. A
+completed JVM Future may be shared because its task lifecycle is immutable.
 
 `sci/init` and the two-argument `sci/fork` also accept `:fork-fn`, a legacy
 one-argument fallback applied to unclassified values stored in world cells. It
@@ -81,8 +83,10 @@ shallow-copied with alias preservation, so their mutable field maps diverge.
 On the JVM, SCI-created promises are fork-local as well. SCI's `memoize` uses a
 fork-local atom for its cache. Effects performed by any watch are ordinary user
 capabilities and are not made reversible automatically. Futures, lazy
-sequences, nested mutable host objects, and effects outside SCI remain shared
-unless the embedding application models or copies them. CLJS native-protocol
+managed lazy continuations, nested mutable host objects, and effects outside
+SCI remain future work unless the embedding application models or copies them.
+Direct host lazy sequences are rejected rather than silently sharing their
+realization cache. CLJS native-protocol
 prototypes are cloned with Type data before child deftype/record values are
 copied, so later child extensions do not change the parent's instances. A
 transient collection directly stored in
