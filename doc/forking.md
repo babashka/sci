@@ -41,12 +41,28 @@ This shape combines four useful precedents:
 
 ## Host cooperation
 
-SCI cannot infer how arbitrary host objects should branch. `sci/init` and the
-two-argument `sci/fork` accept `:fork-fn`, a one-argument function applied to
-values stored in world cells. It may copy application-owned state and should
-return immutable values unchanged. If multiple values alias the same host
-object, the function must preserve that relationship when it matters, for
-example with an identity-keyed memo table.
+SCI cannot infer how arbitrary host objects should branch. Host types can
+implement `sci.fork/Forkable`; its `fork-value` method determines the value
+stored in the child world. SCI calls the method once per identical value during
+one fork and preserves aliases to its result.
+
+| Resource class | Fork behavior |
+|---|---|
+| Immutable or persistent value | Share it by returning `this`, or leave it unclassified |
+| Duplicable application state | Return an independent copy from `fork-value` |
+| Deliberately shared external resource | Return `this` |
+| Affine or movable authority | Reject the non-destructive fork, or keep authority outside the SCI value world |
+| Prohibited resource | Throw an explanatory exception from `fork-value` |
+
+Only values directly stored in world cells are inspected. A host container that
+holds mutable children must implement the protocol and copy its own graph.
+Unclassified values retain the compatibility behavior of being shared.
+
+`sci/init` and the two-argument `sci/fork` also accept `:fork-fn`, a legacy
+one-argument fallback applied to unclassified values stored in world cells. It
+may copy application-owned state and should return immutable values unchanged.
+Unlike the protocol path, callback alias preservation remains the
+application's responsibility, for example with an identity-keyed memo table.
 
 ## Current boundary
 
