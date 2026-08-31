@@ -31,9 +31,12 @@
   #?(:clj
      (cond
        (instance? clojure.lang.LazySeq value) :lazy-seq
+       (instance? clojure.lang.Delay value)
+       (when-not (realized? value) :pending-delay)
        (instance? java.util.concurrent.Future value)
        (when-not (.isDone ^java.util.concurrent.Future value) :pending-future)
        (instance? java.io.Closeable value) :closeable
+       (instance? java.lang.AutoCloseable value) :auto-closeable
        (instance? java.util.Iterator value) :iterator
        (instance? java.util.Enumeration value) :enumeration
        (instance? java.util.Spliterator value) :spliterator
@@ -41,8 +44,14 @@
        (instance? java.util.Random value) :random-generator
        (instance? java.nio.Buffer value) :buffer
        (instance? java.lang.Thread value) :thread
+       (instance? java.lang.ThreadLocal value) :thread-local
+       (instance? java.lang.Process value) :process
        (instance? java.util.concurrent.Executor value) :executor
        (instance? java.util.concurrent.locks.Lock value) :lock
+       (instance? java.util.concurrent.CountDownLatch value) :count-down-latch
+       (instance? java.util.concurrent.Semaphore value) :semaphore
+       (instance? java.util.concurrent.Phaser value) :phaser
+       (instance? java.util.concurrent.CyclicBarrier value) :cyclic-barrier
        (instance? java.lang.StringBuilder value) :string-builder
        (instance? java.lang.StringBuffer value) :string-buffer
        (instance? java.util.BitSet value) :bit-set
@@ -52,10 +61,25 @@
        (instance? java.util.concurrent.atomic.AtomicBoolean value) :atomic-boolean
        (instance? java.util.concurrent.atomic.AtomicInteger value) :atomic-integer
        (instance? java.util.concurrent.atomic.AtomicLong value) :atomic-long
+       (instance? java.util.concurrent.atomic.AtomicReferenceArray value) :atomic-reference-array
+       (instance? java.util.concurrent.atomic.AtomicIntegerArray value) :atomic-integer-array
+       (instance? java.util.concurrent.atomic.AtomicLongArray value) :atomic-long-array
+       (instance? java.util.concurrent.atomic.AtomicMarkableReference value) :atomic-markable-reference
+       (instance? java.util.concurrent.atomic.AtomicStampedReference value) :atomic-stamped-reference
+       (instance? java.util.concurrent.atomic.LongAdder value) :long-adder
+       (instance? java.util.concurrent.atomic.DoubleAdder value) :double-adder
+       (and (instance? java.util.Map value)
+            (not (instance? clojure.lang.IPersistentCollection value)))
+       :java-map
+       (and (instance? java.util.Collection value)
+            (not (instance? clojure.lang.IPersistentCollection value)))
+       :java-collection
        :else nil)
      :cljs
      (cond
        (instance? cljs.core/LazySeq value) :lazy-seq
+       (instance? cljs.core/Delay value)
+       (when-not (realized? value) :pending-delay)
        (instance? js/Promise value) :promise
        (instance? js/Date value) :date
        (instance? js/Map value) :map

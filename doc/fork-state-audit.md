@@ -143,7 +143,7 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Future / async task | Work launched through the binding conveyor runs in its captured world; a managed fork waits for it | A still-pending direct host Future is rejected; a completed Future may be shared as immutable task outcome state |
 | Transient collection | Detected as affine when directly stored in a world cell | Fork rejected by default; `:fork-fn` may impose an explicit application policy |
 | JVM array / CLJS JavaScript array | Shallow-copied once per source identity | Implemented for direct world-cell values; nested elements retain their own policy |
-| Host atom/ref/agent/volatile/native multimethod | Detected as unmanaged mutable state on JVM/CLJS | Fork rejected by default; `Forkable` wrapper or `:fork-fn` must choose copy or sharing |
+| Host atom/ref/agent/volatile/native multimethod, common JVM atomic/synchronization holders | Detected as unmanaged mutable or affine host state | Fork rejected by default; `Forkable` wrapper or `:fork-fn` must choose copy or sharing |
 | Plain JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
 | JVM/CLJS SCI multimethod tables, preferences, and caches | Stable `SciMultiFn` handle with a fork-local host dispatch engine | Implemented; method mutations use copy-on-write and caches are rebuilt per fork |
 | ClojureDart SCI multimethod tables | Stable `SciMultiFn` with a dense world-local persistent method map | Implemented for interpreter-created exact-dispatch multimethods; built-in runtime tables remain global |
@@ -151,7 +151,7 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Record hash caches | Shared memoized hash only | Benign derived state if records remain immutable |
 | Watches with external effects | Shared callback registrations | Must be copied, shared, or prohibited explicitly by capability |
 | RNG, `gensym`, clock, UUID | Host/global nondeterministic source | External capability; not reproducibly forked |
-| Readers, writers, streams, iterators, regex matchers | Mutable/consuming host resource | Known JVM direct values are rejected; explicitly share or virtualize with `Forkable`/`:fork-fn` |
+| Readers, writers, streams, iterators, regex matchers, mutable Java collections | Mutable/consuming host resource | Known JVM direct values are rejected; explicitly share or virtualize with `Forkable`/`:fork-fn` |
 | Files, sockets, executors, locks | External host resource | Known JVM direct values are rejected; explicitly share, virtualize, or prohibit application-specific wrappers |
 
 The table concerns state created or exposed by SCI itself. Application-owned

@@ -63,7 +63,9 @@ for known affine or mutable host primitives that SCI can identify safely.
 Direct host atoms, refs, agents, volatiles, multimethods, transient
 collections, lazy sequences, pending tasks, Promises, and known consuming or
 external resources are rejected unless an explicit policy handles them. A
-completed JVM Future may be shared because its task lifecycle is immutable.
+completed JVM Future or realized host Delay may be shared because its lifecycle
+is immutable. Mutable Java collections and common atomic/synchronization
+holders are rejected as well; Clojure persistent collections are unaffected.
 
 `sci/init` and the two-argument `sci/fork` also accept `:fork-fn`, a legacy
 one-argument fallback applied to unclassified values stored in world cells. It
