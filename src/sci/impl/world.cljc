@@ -7,7 +7,8 @@
   unrelated atoms never contend on a shared world root."
   (:require [sci.ctx-store :as store]
             [sci.impl.execution :as execution])
-  #?(:clj (:import [java.util.concurrent.atomic AtomicReferenceArray]
+  #?(:clj (:import [java.lang.ref WeakReference]
+                   [java.util.concurrent.atomic AtomicReferenceArray]
                    [java.util.concurrent.locks ReentrantReadWriteLock])))
 
 (def absent #?(:cljd (Object.) :clj (Object.) :cljs (js/Object.)))
@@ -240,9 +241,12 @@
                    (let [start (:next-slot @registry)
                          slots (mapv #(+ start %) (range (count values)))
                          fork-slots (mapv #(nth slots %) fork-indexes)
+                         managed-index (count (:managed-descriptors @registry))
                          desc {:kind kind
+                               :managed-index managed-index
                                :slots slots
-                               :fork-slots fork-slots}]
+                               :fork-slots fork-slots
+                               :owner-ref nil}]
                      (swap! registry
                             (fn [r]
                               (-> r
@@ -253,6 +257,39 @@
       (doseq [[slot value] (map vector (:slots desc) values)]
         (cells-set! (current-cells world) slot value))
       (assoc desc :home world :registry registry))))
+
+(defn attach-managed-owner!
+  "Attach weak ownership after constructing a self-described handle. The
+  owner is never retained strongly by the lineage registry."
+  [registry managed-index owner]
+  (let [owner-ref #?(:clj (WeakReference. owner)
+                     :cljs (when (exists? js/WeakRef) (js/WeakRef. owner))
+                     ;; Dart weak-reference availability varies with the host
+                     ;; SDK. The descriptor remains non-owning until a
+                     ;; portable implementation is available.
+                     :cljd nil)]
+    (when owner-ref
+      (with-registry-lock
+        registry
+        #(swap! registry assoc-in
+                [:managed-descriptors managed-index :owner-ref]
+                owner-ref)))
+    owner))
+
+(defn- live-managed-owner? [owner-ref]
+  (or (nil? owner-ref)
+      #?(:clj (some? (.get ^WeakReference owner-ref))
+         :cljs (some? (.deref owner-ref))
+         :cljd true)))
+
+(defn- sweep-managed! [^DenseWorld world]
+  (let [cells (current-cells world)]
+    (doseq [{:keys [owner-ref slots]}
+            (:managed-descriptors @(.-registry world))
+            :when (not (live-managed-owner? owner-ref))
+            slot slots
+            :when (< slot (cells-length cells))]
+      (cells-set! cells slot absent))))
 
 (defn- selected-managed-world [^DenseWorld home registry]
   (let [active (active-world-state)]
@@ -265,13 +302,18 @@
 (defn managed-value
   "Read a self-described managed slot in the active related world, falling
   back to the owner's creation world outside managed evaluation."
-  [home registry slot fallback]
-  (slot-value (selected-managed-world home registry) slot fallback))
+  [home registry slot]
+  (let [selected (selected-managed-world home registry)]
+    (if (identical? selected home)
+      (slot-value selected slot absent)
+      (slot-value selected slot (slot-value home slot absent)))))
 
 (defn managed-value-in
   "Read a managed slot from an already selected world."
-  [world slot fallback]
-  (slot-value world slot fallback))
+  [world home slot]
+  (if (identical? world home)
+    (slot-value world slot absent)
+    (slot-value world slot (slot-value home slot absent))))
 
 (defn- call-with-managed-mutation [^DenseWorld home registry f]
   (let [active (active-world-state)
@@ -292,7 +334,7 @@
 (defn managed-swap!
   "CAS a directly described slot. The logical fallback represents a slot
   allocated in another branch but not yet realized in the selected world."
-  [home registry slot fallback f args validate! notify!]
+  [home registry slot f args validate! notify!]
   (call-with-managed-mutation
    home registry
    (fn [^DenseWorld world]
@@ -300,26 +342,30 @@
      (loop []
        (let [cells (current-cells world)
              raw-old (cells-get cells slot)
-             old (if (identical? absent raw-old) fallback raw-old)
+             old (if (identical? absent raw-old)
+                   (slot-value home slot absent)
+                   raw-old)
              new (apply f old args)
              validation (validate! world new)]
          (if (cells-cas! cells slot raw-old new)
            (do (notify! world validation old new) new)
            (recur)))))))
 
-(defn managed-reset! [home registry slot fallback new validate! notify!]
-  (managed-swap! home registry slot fallback (constantly new) nil
+(defn managed-reset! [home registry slot new validate! notify!]
+  (managed-swap! home registry slot (constantly new) nil
                  validate! notify!))
 
 (defn managed-compare-and-set!
-  [home registry slot fallback expected new validate! notify!]
+  [home registry slot expected new validate! notify!]
   (call-with-managed-mutation
    home registry
    (fn [^DenseWorld world]
      (ensure-capacity! world (inc slot))
      (let [cells (current-cells world)
            raw-old (cells-get cells slot)
-           old (if (identical? absent raw-old) fallback raw-old)]
+           old (if (identical? absent raw-old)
+                 (slot-value home slot absent)
+                 raw-old)]
        (if-not (identical? expected old)
          false
          (let [validation (validate! world new)]
@@ -432,6 +478,7 @@
   world)
 
 (defn- copy-world [^DenseWorld world fork-value]
+  (sweep-managed! world)
   (let [source (current-cells world)
         n (cells-length source)
         target (new-cells n)
