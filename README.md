@@ -627,6 +627,9 @@ source world, so the copied state is a quiescent snapshot.
 See [Forkable SCI worlds](doc/forking.md) for the lifecycle, semantic boundary,
 and current limitations of this experimental model.
 
+A small interactive tree of forked REPL worlds can be run with
+`clojure -M:examples -m sci.examples.forked-repl`.
+
 ### Implementing require and load-file
 
 SCI supports loading code via a hook that is invoked by SCI's implementation of
