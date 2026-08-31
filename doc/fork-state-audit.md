@@ -176,17 +176,26 @@ mutable internals have not yet been decomposed into world state.
 
 ## Dense-registry liveness
 
-The lineage registry currently holds strong keys for every registered Var and
-volatile, and `:next-slot` only increases. Self-describing atoms no longer add
-their object as a registry key, but their anonymous descriptors and slot
-values are still retained. This has two consequences:
+The lineage registry still holds strong keys for every registered Var and
+registry-routed volatile, and `:next-slot` only increases. Self-describing
+atoms do not add their object as a registry key. Their anonymous descriptor
+holds a weak owner reference on JVM and CLJS, and a fork first clears the
+source world's slots for dead owners. This releases the atom's value and
+control payload before copying them into another world.
 
-1. A local `(atom ...)` object can be collected, but its last value and control
-   record remain reachable from every world that realized its slots. Registry-
-   routed refs also retain their handle.
-2. Vars or refs created only in a discarded child reserve slots in the shared
+This is a partial liveness solution with three remaining consequences:
+
+1. Anonymous descriptors, slot numbers, and dense-array capacity are not
+   reclaimed, so short-lived atoms can still increase later fork traversal.
+2. Other dormant worlds retain a dead owner's payload until that world is next
+   used as a fork source. A payload or watch that points back to the atom also
+   creates a cycle that the weak-owner test cannot break.
+3. Vars or refs created only in a discarded child reserve slots in the shared
    lineage registry. Later allocation in a parent can expand across those
    branch-local holes, increasing all subsequent copy-on-fork costs.
+
+ClojureDart currently has no portable weak-owner implementation, so its
+descriptor is non-owning but its payload sweep is disabled.
 
 Dense slots therefore need a liveness strategy. The main choices are:
 
@@ -214,12 +223,14 @@ copying the watch map preserves Clojure behavior inside each branch but still
 requires the callback's external capabilities to be honest.
 
 This is now implemented by a two-slot `SciAtom`. Its direct slot descriptor
-avoids the lineage handle lookup on dereference and mutation. A focused local
-JVM comparison measured five million child-world reads at roughly 72 ms versus
-243 ms through the former registry route, and 500,000 swaps at 36 ms versus 67
-ms. A host atom in the same probe took roughly 27 ms and 5.5 ms respectively;
-the remaining cost buys world selection and fork-local control state. These
-figures describe one local microbenchmark, not a portable guarantee.
+avoids the lineage handle lookup on dereference and mutation. In a same-machine
+powersave-profile JVM comparison, five million child-world reads took a median
+269 ms versus 661 ms through the former registry route (about 2.46 times
+faster), and 500,000 swaps took 107 ms versus 192 ms (about 1.79 times faster).
+The corresponding host-atom medians were 80 ms and 16 ms. Absolute timings
+move substantially with CPU power policy; the old and new implementations
+were measured together under the same policy, and these figures remain a local
+microbenchmark rather than a portable guarantee.
 
 ### Delay
 

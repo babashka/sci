@@ -89,6 +89,15 @@ case where reads and mutations greatly outnumber forks. A page-level
 copy-on-write representation remains a possible next step if workloads with
 large worlds and frequent forks justify its extra read/write indirection.
 
+Self-describing SCI state handles are held weakly by the lineage registry. A
+fork sweeps the source world's slots for handles that have become unreachable,
+so an abandoned local atom does not retain its last value, metadata, validator,
+or watches indefinitely. Slot numbers and array capacity are not currently
+reclaimed; sweep bounds retained payloads but does not yet reduce the cost of
+forking a lineage that allocated many short-lived handles. A value or watch
+that refers back to its own atom also forms a world-to-value ownership cycle
+and cannot be discovered by the weak-handle sweep alone.
+
 See [Forkable runtime state audit](fork-state-audit.md) for the dynamic-binding
 model, stateful primitive inventory, observed isolation gaps, and proposed
 implementation order.
