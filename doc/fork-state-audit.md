@@ -139,7 +139,8 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Future / async task | Work launched through the binding conveyor runs in its captured world; the host task itself remains shared | Not copyable; needs an explicit fork policy |
 | Transient collection | Same affine host object | Shared; mutation in child is visible in parent |
 | Array / JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
-| Multimethod tables and caches | Mutable internals of one MultiFn root | Shared; a child `defmethod` changes parent dispatch |
+| JVM/CLJS SCI multimethod tables, preferences, and caches | Stable `SciMultiFn` handle with a fork-local host dispatch engine | Implemented; method mutations use copy-on-write and caches are rebuilt per fork |
+| ClojureDart SCI multimethod tables | Mutable atom inside one `SciMultiFn` root | Shared; managed representation remains to be ported |
 | Protocol/type extension registries | Mutable Type/protocol realization objects | Shared in several host-specific paths |
 | Record hash caches | Shared memoized hash only | Benign derived state if records remain immutable |
 | Watches with external effects | Shared callback registrations | Must be copied, shared, or prohibited explicitly by capability |
@@ -225,9 +226,9 @@ requires the callback's external capabilities to be honest.
 This is now implemented by a two-slot `SciAtom`. Its direct slot descriptor
 avoids the lineage handle lookup on dereference and mutation. In a same-machine
 powersave-profile JVM comparison, five million child-world reads took a median
-269 ms versus 661 ms through the former registry route (about 2.46 times
-faster), and 500,000 swaps took 107 ms versus 192 ms (about 1.79 times faster).
-The corresponding host-atom medians were 80 ms and 16 ms. Absolute timings
+201 ms versus 661 ms through the former registry route (about 3.29 times
+faster), and 500,000 swaps took 110 ms versus 192 ms (about 1.75 times faster).
+The corresponding host-atom medians were 78 ms and 16 ms. Absolute timings
 move substantially with CPU power policy; the old and new implementations
 were measured together under the same policy, and these figures remain a local
 microbenchmark rather than a portable guarantee.
@@ -269,6 +270,18 @@ slots. Dispatch caches are derived state and can be copied or discarded on
 fork. The hierarchy is already reached through a fork-local Var root. This is
 a relatively contained next primitive and exercises multi-slot handles well.
 
+This is implemented on JVM and CLJS with one managed state slot. Its value owns
+a native host dispatch engine, preserving the host's hierarchy, preference,
+ambiguity, and cache behavior. A method-table mutation clones the logical
+engine and installs it with a slot CAS; a fork clones it with an empty derived
+cache. Thus a fork cannot race with an in-place method-table update, while the
+common dispatch path pays only world selection and a direct slot read before
+using the native cache. In a deliberately harsh direct-host-call benchmark
+that added roughly 15--18 percent over the previous shared host `MultiFn`; in
+an interpreted million-call loop, repeated runs ranged from approximately
+noise to nine percent. ClojureDart retains its earlier shared table pending a
+portable managed implementation and test runtime.
+
 ### Memoization and lazy computation
 
 SCI should provide a world-aware memoize implementation whose cache is a
@@ -294,7 +307,8 @@ duplicable, but need self-describing SCI handles or `Forkable` cooperation.
    create an unbounded retention problem.
 4. Finish split identity/state for Var watches, namespace/type metadata,
    volatiles, and `*loaded-libs*`.
-5. Make multimethod tables and memoization caches world-local.
+5. Finish the ClojureDart multimethod port and make memoization caches
+   world-local. JVM/CLJS multimethod state is implemented.
 6. Add managed Delay and choose a pending-Promise policy.
 7. Reject or explicitly classify transients, running futures, streams, and
    other affine/external resources.

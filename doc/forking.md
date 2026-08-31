@@ -68,13 +68,14 @@ application's responsibility, for example with an identity-keyed memo table.
 
 ## Current boundary
 
-Var roots/metadata, all logical SCI atom state, and SCI-created volatile values
-are fork-local. Atom metadata, validator, and watch maps are inherited by a
-fork and can subsequently diverge; effects performed by a watch are ordinary
-user capabilities and are not made reversible automatically. Promises,
-delays, futures, transients, mutable host objects, mutable deftype fields, and
-effects outside SCI remain shared unless the embedding application models or
-copies them.
+Var roots/metadata, all logical SCI atom state, SCI-created volatile values,
+and JVM/CLJS SCI multimethod tables, preferences, and dispatch caches are
+fork-local. Atom metadata, validator, and watch maps are inherited by a fork
+and can subsequently diverge; effects performed by a watch are ordinary user
+capabilities and are not made reversible automatically. Promises, delays,
+futures, transients, mutable host objects, mutable deftype fields, and effects
+outside SCI remain shared unless the embedding application models or copies
+them.
 
 On the JVM and CLJS an SCI-created atom is now a dedicated `SciAtom`, not the
 host's concrete `clojure.lang.Atom`/`cljs.core.Atom` class. It implements the
@@ -82,6 +83,13 @@ normal dereference, atom, metadata, validator, and watch protocols, but code
 that tests the host concrete class observes this intentional representation
 difference. The split is necessary for one stable identity to select different
 state in different worlds.
+
+SCI-created multimethods use the same representation tradeoff on JVM and CLJS:
+the stable `SciMultiFn` handle selects a fork-local host dispatch engine. SCI's
+`methods`, `get-method`, `prefers`, `prefer-method`, `remove-method`, and
+`remove-all-methods` accept both SCI and native host multimethods, while host
+code that tests specifically for the concrete host `MultiFn` class can observe
+the difference.
 
 Forking is O(number of allocated slots), including spare array capacity, while
 slot reads and writes are constant time. This intentionally favors the common
