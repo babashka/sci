@@ -1082,7 +1082,19 @@
      [iref f & args]
      (if (refs/sci-atom? iref)
        (apply refs/alter-meta!* iref f args)
-       (if (utils/var? iref)
+       (cond
+         (utils/namespace? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-namespace iref current-meta
+             (if (world/current-world)
+               (let [m (world/alter-namespace-meta!
+                        iref current-meta f args)]
+                 (when (world/primary-world?)
+                   (cljs.core/reset-meta! iref m))
+                 m)
+               (apply cljs.core/alter-meta! iref f args))))
+
+         (utils/var? iref)
          (let [current-meta (meta iref)]
            (vars/with-writeable-var iref current-meta
              (if (world/current-world)
@@ -1091,19 +1103,33 @@
                    (cljs.core/reset-meta! iref m))
                  m)
                (apply cljs.core/alter-meta! iref f args))))
-         (if (utils/sci-type? iref)
-           (types/setVal iref (apply f (types/getVal iref) args))
-           (let [m (meta iref)]
-             (if-not (:sci/built-in m)
-               (apply cljs.core/alter-meta! iref f args)
-               (throw (ex-info (str "Built-in var " iref " is read-only.")
-                               {:var iref})))))))))
+
+         (utils/sci-type? iref)
+         (types/setVal iref (apply f (types/getVal iref) args))
+
+         :else
+         (let [m (meta iref)]
+           (if-not (:sci/built-in m)
+             (apply cljs.core/alter-meta! iref f args)
+             (throw (ex-info (str "Built-in var " iref " is read-only.")
+                             {:var iref}))))))))
 
 #?(:cljs
    (defn reset-meta! [iref m]
      (if (refs/sci-atom? iref)
        (refs/reset-meta!* iref m)
-       (if (utils/var? iref)
+       (cond
+         (utils/namespace? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-namespace iref current-meta
+             (if (world/current-world)
+               (do (world/reset-namespace-meta! iref m)
+                   (when (world/primary-world?)
+                     (cljs.core/reset-meta! iref m))
+                   m)
+               (cljs.core/reset-meta! iref m))))
+
+         (utils/var? iref)
          (let [current-meta (meta iref)]
            (vars/with-writeable-var iref current-meta
              (if (world/current-world)
@@ -1112,6 +1138,8 @@
                      (cljs.core/reset-meta! iref m))
                    m)
                (cljs.core/reset-meta! iref m))))
+
+         :else
          (cljs.core/reset-meta! iref m)))))
 
 (defn- let** [expr _ bindings & body]
@@ -1192,6 +1220,9 @@
                  imap))]
     `(let* [~ge ~e] (case* ~ge 0 0 ~default ~imap :sparse :hash-equiv nil))))
 
+(defn- fork-loaded-libs [libs]
+  (#?(:clj ref :cljs atom :cljd atom) @libs))
+
 (defn loaded-libs** [syms]
   (utils/dynamic-var
    '*loaded-libs* (#?(:cljd atom :clj ref :cljs atom)
@@ -1201,7 +1232,8 @@
    {:doc "A ref to a sorted set of symbols representing loaded libs"
     :ns clojure-core-ns
     :private true
-    :sci/built-in true}))
+    :sci/built-in true
+    :sci.impl/fork-fn fork-loaded-libs}))
 
 (defn loaded-libs* []
   (-> (store/get-ctx) :env deref :namespaces

@@ -104,11 +104,12 @@
               (when (world/primary-world?)
                 (vars/bumping-set! root v)))
           (vars/bumping-set! root v)))
-      (notify-watches this watches old-root v))
+      (notify-watches this (world/var-watches this watches) old-root v))
     ;; this is the return value for alter-var-root which should be the only place calling bindRoot directly
     v)
   (getRawRoot [this]
     (world/var-value this root))
+  (getRawWatches [_] watches)
   (getDirectRoot [this]
     (if thread-bound
       (if-let [tbox (vars/get-thread-binding this)]
@@ -254,30 +255,78 @@
                      (set! meta m)))))
              IWatchable
              (-add-watch [this key fn]
-                         (vars/with-writeable-var this (world/var-meta this meta)
-                           (set! watches (assoc watches key fn)))
+                         (let [current-meta (world/var-meta this meta)]
+                           (vars/with-writeable-var this current-meta
+                             (if (world/current-world)
+                               (do
+                                 (when-not (world/tracked? this)
+                                   (world/register-var!
+                                    this root current-meta watches))
+                                 (world/alter-var-watches!
+                                  this watches assoc [key fn]))
+                               (set! watches (assoc watches key fn)))))
                          this)
              (-remove-watch [this key]
-                            (vars/with-writeable-var this (world/var-meta this meta)
-                              (set! watches (dissoc watches key)))
+                            (let [current-meta (world/var-meta this meta)]
+                              (vars/with-writeable-var this current-meta
+                                (if (world/current-world)
+                                  (do
+                                    (when-not (world/tracked? this)
+                                      (world/register-var!
+                                       this root current-meta watches))
+                                    (world/alter-var-watches!
+                                     this watches dissoc [key]))
+                                  (set! watches (dissoc watches key)))))
                             this)]
       :clj [clojure.lang.IRef
             (addWatch [this key fn]
-                      (vars/with-writeable-var this (world/var-meta this meta)
-                        (set! watches (assoc watches key fn)))
+                      (let [current-meta (world/var-meta this meta)]
+                        (vars/with-writeable-var this current-meta
+                          (if (world/current-world)
+                            (do
+                              (when-not (world/tracked? this)
+                                (world/register-var!
+                                 this root current-meta watches))
+                              (world/alter-var-watches!
+                               this watches assoc [key fn]))
+                            (set! watches (assoc watches key fn)))))
                       this)
             (removeWatch [this key]
-                         (vars/with-writeable-var this (world/var-meta this meta)
-                           (set! watches (dissoc watches key)))
+                         (let [current-meta (world/var-meta this meta)]
+                           (vars/with-writeable-var this current-meta
+                             (if (world/current-world)
+                               (do
+                                 (when-not (world/tracked? this)
+                                   (world/register-var!
+                                    this root current-meta watches))
+                                 (world/alter-var-watches!
+                                  this watches dissoc [key]))
+                               (set! watches (dissoc watches key)))))
                          this)]
       :cljs [IWatchable
             (-add-watch [this key fn]
-                        (vars/with-writeable-var this (world/var-meta this meta)
-                          (set! watches (assoc watches key fn)))
+                        (let [current-meta (world/var-meta this meta)]
+                          (vars/with-writeable-var this current-meta
+                            (if (world/current-world)
+                              (do
+                                (when-not (world/tracked? this)
+                                  (world/register-var!
+                                   this root current-meta watches))
+                                (world/alter-var-watches!
+                                 this watches assoc [key fn]))
+                              (set! watches (assoc watches key fn)))))
                         this)
             (-remove-watch [this key]
-                           (vars/with-writeable-var this (world/var-meta this meta)
-                             (set! watches (dissoc watches key)))
+                           (let [current-meta (world/var-meta this meta)]
+                             (vars/with-writeable-var this current-meta
+                               (if (world/current-world)
+                                 (do
+                                   (when-not (world/tracked? this)
+                                     (world/register-var!
+                                      this root current-meta watches))
+                                   (world/alter-var-watches!
+                                    this watches dissoc [key]))
+                                 (set! watches (dissoc watches key)))))
                            this)])
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:cljd IFn :clj clojure.lang.IFn :cljs IFn)
@@ -380,15 +429,35 @@
   types/HasName
   (getName [_] name)
   #?(:cljd IMeta :clj clojure.lang.IMeta :cljs IMeta)
-  #?(:cljd (-meta [_] meta) :clj (clojure.core/meta [_] meta) :cljs (-meta [_] meta))
+  #?(:cljd (-meta [this] (world/namespace-meta this meta))
+     :clj (clojure.core/meta [this] (world/namespace-meta this meta))
+     :cljs (-meta [this] (world/namespace-meta this meta)))
   #?@(:cljd [types/IResetMeta
              (-reset-meta! [this m]
-               (vars/with-writeable-namespace this meta
-                 (set! meta m)))]
+               (let [current-meta (world/namespace-meta this meta)]
+                 (vars/with-writeable-namespace this current-meta
+                   (if (world/current-world)
+                     (do (world/reset-namespace-meta! this m)
+                         (when (world/primary-world?) (set! meta m))
+                         m)
+                     (set! meta m)))))]
       :clj [clojure.lang.IReference
             (alterMeta [this f args]
-                       (vars/with-writeable-namespace this meta
-                         (locking this (set! meta (apply f meta args)))))
+                       (let [current-meta (world/namespace-meta this meta)]
+                         (vars/with-writeable-namespace this current-meta
+                           (locking this
+                             (if (world/current-world)
+                               (let [m (world/alter-namespace-meta!
+                                        this current-meta f args)]
+                                 (when (world/primary-world?) (set! meta m))
+                                 m)
+                               (set! meta (apply f meta args)))))))
             (resetMeta [this m]
-                       (vars/with-writeable-namespace this meta
-                         (locking this (set! meta m))))]))
+                       (let [current-meta (world/namespace-meta this meta)]
+                         (vars/with-writeable-namespace this current-meta
+                           (locking this
+                             (if (world/current-world)
+                               (do (world/reset-namespace-meta! this m)
+                                   (when (world/primary-world?) (set! meta m))
+                                   m)
+                               (set! meta m))))))]))

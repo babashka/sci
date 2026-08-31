@@ -204,7 +204,24 @@
       (let [world (.-world ^ReadWorld active)]
         (slot-value world (:meta-slot (descriptor world handle)) fallback)))))
 
-(defn- allocate-descriptor! [^DenseWorld world handle kind host-fork?]
+(defn namespace-meta [handle fallback]
+  (let [active (active-world-state)]
+    (if (or (nil? active) (.-primary? ^ReadWorld active))
+      fallback
+      (let [world (.-world ^ReadWorld active)]
+        (slot-value world (:value-slot (descriptor world handle)) fallback)))))
+
+(defn var-watches [handle fallback]
+  (if-let [^ReadWorld active (active-world-state)]
+    (let [world (.-world active)
+          {:keys [watch-slot watch-fallback]} (descriptor world handle)]
+      (if watch-slot
+        (slot-value world watch-slot watch-fallback)
+        fallback))
+    fallback))
+
+(defn- allocate-descriptor!
+  [^DenseWorld world handle kind host-fork? value-fork-fn]
   (let [registry (.-registry world)]
     (with-registry-lock
       registry
@@ -216,6 +233,7 @@
                 desc (cond-> {:kind kind
                               :value-slot start
                               :host-fork? host-fork?}
+                       value-fork-fn (assoc :value-fork-fn value-fork-fn)
                        (= :var kind) (assoc :meta-slot (inc start)))]
             (swap! registry
                    (fn [r]
@@ -381,19 +399,58 @@
 
 (defn register! [handle value]
   (when-let [^DenseWorld world (current-world)]
-    (let [{:keys [value-slot]} (allocate-descriptor! world handle :ref true)]
+    (let [{:keys [value-slot]}
+          (allocate-descriptor! world handle :ref true nil)]
       (ensure-capacity! world (inc value-slot))
       (cells-set! (current-cells world) value-slot value)))
   handle)
 
-(defn register-var! [handle value m]
+(defn- allocate-var-watch-slot! [^DenseWorld world handle fallback]
+  (let [registry (.-registry world)]
+    (with-registry-lock
+      registry
+      (fn []
+        (let [desc (descriptor world handle)]
+          (if (:watch-slot desc)
+            desc
+            (let [slot (:next-slot @registry)
+                  desc (assoc desc
+                              :watch-slot slot
+                              :watch-fallback fallback)]
+              (swap! registry
+                     (fn [r]
+                       (-> r
+                           (assoc :next-slot (inc slot))
+                           (assoc-in [:descriptors handle] desc))))
+              desc)))))))
+
+(defn register-var!
+  ([handle value m]
+   (register-var! handle value m nil))
+  ([handle value m watches]
+   (when-let [^DenseWorld world (current-world)]
+     (let [{:keys [value-slot meta-slot]}
+           (allocate-descriptor! world handle :var (not (:sci/built-in m))
+                                 (:sci.impl/fork-fn m))]
+       (ensure-capacity! world (inc meta-slot))
+       (let [cells (current-cells world)]
+         (cells-set! cells value-slot value)
+         (cells-set! cells meta-slot m))
+       (when (seq watches)
+         (let [{:keys [watch-slot]}
+               (allocate-var-watch-slot! world handle watches)]
+           (ensure-capacity! world (inc watch-slot))
+           (cells-set! (current-cells world) watch-slot watches)))))
+   handle))
+
+(defn register-namespace! [handle m]
   (when-let [^DenseWorld world (current-world)]
-    (let [{:keys [value-slot meta-slot]}
-          (allocate-descriptor! world handle :var (not (:sci/built-in m)))]
-      (ensure-capacity! world (inc meta-slot))
+    (let [{:keys [value-slot]}
+          (allocate-descriptor! world handle :namespace false nil)]
+      (ensure-capacity! world (inc value-slot))
       (let [cells (current-cells world)]
-        (cells-set! cells value-slot value)
-        (cells-set! cells meta-slot m))))
+        (when (identical? absent (cells-get cells value-slot))
+          (cells-set! cells value-slot m)))))
   handle)
 
 (defn- reset-slot! [^DenseWorld world slot value]
@@ -412,15 +469,25 @@
   (if-let [^DenseWorld world (current-world)]
     (let [{:keys [meta-slot]} (or (descriptor world handle)
                                   (allocate-descriptor! world handle :var
-                                                        (not (:sci/built-in m))))]
+                                                        (not (:sci/built-in m))
+                                                        (:sci.impl/fork-fn m)))]
       (reset-slot! world meta-slot m))
+    ::no-world))
+
+(defn reset-namespace-meta! [handle m]
+  (if-let [^DenseWorld world (current-world)]
+    (let [{:keys [value-slot]}
+          (or (descriptor world handle)
+              (allocate-descriptor! world handle :namespace false nil))]
+      (reset-slot! world value-slot m))
     ::no-world))
 
 (defn alter-var-meta! [handle fallback f args]
   (if-let [^DenseWorld world (current-world)]
     (let [{:keys [meta-slot]} (or (descriptor world handle)
                                   (allocate-descriptor! world handle :var
-                                                        (not (:sci/built-in fallback))))]
+                                                        (not (:sci/built-in fallback))
+                                                        (:sci.impl/fork-fn fallback)))]
       (ensure-capacity! world (inc meta-slot))
       (loop []
         (let [cells (current-cells world)
@@ -428,6 +495,33 @@
               old (if (identical? absent raw-old) fallback raw-old)
               new (apply f old args)]
           (if (cells-cas! cells meta-slot raw-old new) new (recur)))))
+    ::no-world))
+
+(defn alter-namespace-meta! [handle fallback f args]
+  (if-let [^DenseWorld world (current-world)]
+    (let [{:keys [value-slot]}
+          (or (descriptor world handle)
+              (allocate-descriptor! world handle :namespace false nil))]
+      (ensure-capacity! world (inc value-slot))
+      (loop []
+        (let [cells (current-cells world)
+              raw-old (cells-get cells value-slot)
+              old (if (identical? absent raw-old) fallback raw-old)
+              new (apply f old args)]
+          (if (cells-cas! cells value-slot raw-old new) new (recur)))))
+    ::no-world))
+
+(defn alter-var-watches! [handle fallback f args]
+  (if-let [^DenseWorld world (current-world)]
+    (let [{:keys [watch-slot]}
+          (allocate-var-watch-slot! world handle fallback)]
+      (ensure-capacity! world (inc watch-slot))
+      (loop []
+        (let [cells (current-cells world)
+              raw-old (cells-get cells watch-slot)
+              old (if (identical? absent raw-old) fallback raw-old)
+              new (apply f old args)]
+          (if (cells-cas! cells watch-slot raw-old new) new (recur)))))
     ::no-world))
 
 (defn swap-value!
@@ -496,13 +590,16 @@
     (dotimes [i n]
       (cells-set! target i (cells-get source i)))
     (when fork-value
-      (doseq [[_ {:keys [value-slot host-fork?]}] descriptors
-              :when host-fork?
+      (doseq [[_ {:keys [value-slot host-fork? value-fork-fn]}] descriptors
+              :when (or host-fork? value-fork-fn)
               :when (< value-slot n)
               :let [v (cells-get target value-slot)]
               :when (not (identical? absent v))]
         (cells-set! target value-slot
-                    (if (contains? handles v) v (fork-value v))))
+                    (cond
+                      (contains? handles v) v
+                      value-fork-fn (value-fork-fn v)
+                      :else (fork-value v))))
       (doseq [{:keys [fork-slots]} managed-descriptors
               slot fork-slots
               :when (< slot n)
