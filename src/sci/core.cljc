@@ -13,6 +13,7 @@
    [edamame.core :as edamame]
    [edamame.impl.parser]
    [sci.ctx-store :as store]
+   [sci.fork :as fork]
    [sci.impl.callstack :as cs]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
@@ -300,8 +301,9 @@
   evaluation is sandboxed unless it also gets this option.
 
   - `:fork-fn`: optional one-argument host function used by `fork` to copy
-  values held in SCI world cells that need application-specific isolation.
-  SCI-owned mutable primitives are already world-relative and retain identity.
+  values held in SCI world cells that do not implement `sci.fork/Forkable` and
+  need application-specific isolation. SCI-owned mutable primitives are
+  already world-relative and retain identity.
 
   - `:bindings`: DEPRECATED - `:bindings x` is the same as `:namespaces {'user x}`."
   ([s] (eval-string s nil))
@@ -326,16 +328,18 @@
   "Forks a context (as produced with `init`) into an isolated runtime world.
 
   Existing SCI Vars and SCI-created mutable primitives retain identity, but
-  their values diverge after the fork. `opts` may contain `:fork-fn`, which
-  overrides the context's function for application-specific host values."
+  their values diverge after the fork. Host values may implement
+  `sci.fork/Forkable`; `opts` may contain `:fork-fn`, which overrides the
+  context's fallback function for other application-specific host values."
   ([ctx]
    (fork ctx nil))
   ([ctx opts]
    (let [fork-fn (if (contains? opts :fork-fn)
                    (:fork-fn opts)
                    (:fork-fn ctx))
+         fork-value (fork/value-forker fork-fn)
          forked-world (world/fork-world
-                       (:sci.impl/world ctx) fork-fn
+                       (:sci.impl/world ctx) fork-value
                        #(if (utils/var? %)
                           (vars/getRawRoot %)
                           (c/deref %))

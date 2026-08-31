@@ -600,9 +600,12 @@ world in which they are invoked:
 ```
 
 Values supplied by the host remain the host application's responsibility. An
-optional `:fork-fn` can copy such values as they cross into a fork. It should
-return immutable values unchanged and preserve any aliasing that matters to
-the application (for example, by memoizing copies by identity):
+application-owned type can implement `sci.fork/Forkable`; SCI invokes its
+`fork-value` method once per identical value in each fork and preserves aliases
+to the resulting copy. Returning the object itself explicitly shares it, while
+throwing rejects the fork. For unclassified values, the optional `:fork-fn`
+remains a general fallback. It should return immutable values unchanged and
+preserve any aliasing that matters to the application:
 
 ``` clojure
 (def sci-ctx

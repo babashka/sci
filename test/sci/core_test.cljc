@@ -7,10 +7,23 @@
    [sci.copy-ns-test-ns]
    [sci.copy-var-inlined-clash-ns]
    [sci.core :as sci]
+   [sci.fork :as fork]
    [sci.test-utils :as tu]
    #?(:cljd [sci.test-utils.macros :refer [thrown-with-data?]])))
 
 #?(:cljs (def Exception js/Error))
+
+(defrecord ForkableState [state copies]
+  fork/Forkable
+  (fork-value [_]
+    (swap! copies inc)
+    (ForkableState. (atom @state) copies)))
+
+(defrecord ProhibitedState [resource]
+  fork/Forkable
+  (fork-value [_]
+    (throw (ex-info "Resource prohibits SCI world forking"
+                    {:resource resource}))))
 
 #?(:cljs
    (defn testing-vars-str
@@ -1483,6 +1496,47 @@
                            (vreset! v 11)")
         (is (= [4 7 11 true] (sci/eval-string* child "(state)")))
         (is (= [2 5 9 true] (sci/eval-string* grandchild "(state)")))))))
+
+(deftest forkable-host-value-test
+  (let [user-ns (sci/create-ns 'user)
+        copies (atom 0)
+        fallback-saw-resource? (atom false)
+        resource (->ForkableState (atom 0) copies)
+        state-var (sci/new-var 'state resource {:ns user-ns})
+        alias-var (sci/new-var 'state-alias resource {:ns user-ns})
+        parent (sci/init
+                {:namespaces {'user {'state state-var
+                                     'state-alias alias-var}}
+                 :fork-fn (fn [value]
+                            (when (identical? value resource)
+                              (reset! fallback-saw-resource? true))
+                            value)})
+        child (sci/fork parent)]
+    (testing "Forkable values take precedence over the legacy callback"
+      (is (false? @fallback-saw-resource?)))
+    (testing "identical roots are copied once and preserve aliases"
+      (is (= 1 @copies))
+      (is (= [true 1]
+             (sci/eval-string*
+              child
+              "[(identical? state state-alias) (swap! (:state state) inc)]"))))
+    (testing "the protocol-provided state realization is isolated"
+      (is (= 0 (sci/eval-string* parent "@(:state state)")))
+      (is (= 1 (sci/eval-string* child "@(:state state-alias)"))))))
+
+(deftest prohibited-host-value-test
+  (let [user-ns (sci/create-ns 'user)
+        resource (->ProhibitedState :socket)
+        resource-var (sci/new-var 'resource resource {:ns user-ns})
+        parent (sci/init {:namespaces {'user {'resource resource-var}}})
+        result (try
+                 (sci/fork parent)
+                 ::not-thrown
+                 (catch #?(:cljd cljd.core/ExceptionInfo
+                           :clj clojure.lang.ExceptionInfo
+                           :cljs ExceptionInfo) e
+                   (:resource (ex-data e))))]
+    (is (= :socket result))))
 
 #?(:clj
    (deftest fork-host-value-cooperation-test
