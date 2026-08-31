@@ -74,6 +74,13 @@ The per-fork identity memo applies to protocol, callback, and built-in copying,
 so identical direct cell values are transformed once and remain aliases in the
 child.
 
+SCI-owned stable handles remain world-selecting when captured by interpreted
+closures, including mutable SCI deftype instances. Arbitrary mutable host
+values hidden in a host closure or container are not reflectively discovered;
+wrap them in a `Forkable` handle before capture. On CLJS, an instance visible
+only through an opaque closure also retains its creation native-protocol
+prototype, although its managed mutable fields remain fork-local.
+
 ## Current boundary
 
 Var roots, metadata, and watch maps; namespace metadata and loaded-library
