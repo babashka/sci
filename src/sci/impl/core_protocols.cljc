@@ -6,6 +6,7 @@
    #?(:cljd [sci.impl.multimethods :as mm])
    #?(:cljs [sci.impl.copy-vars :as copy-vars])
    [sci.impl.records]
+   [sci.impl.refs :as refs]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.world :as world]
@@ -48,18 +49,22 @@
 ;; world-relative routing before falling back to cljs.core/deref.
 #?(:cljd
    (defn deref* [x]
-     (if (and (world/primary-world?) (satisfies? IDeref x))
+     (if (refs/sci-atom? x)
+       (clojure.core/deref x)
+       (if (and (world/primary-world?) (satisfies? IDeref x))
        (clojure.core/deref x)
        (let [v (tracked-value x)]
          (if-not (identical? untracked-value v)
            v
            (if (satisfies? IDeref x)
              (clojure.core/deref x)
-             (-deref x))))))
+             (-deref x)))))))
    :clj
    (defn deref*
      ([x]
-      (if (and (world/primary-world?)
+      (if (refs/sci-atom? x)
+        (clojure.core/deref x)
+        (if (and (world/primary-world?)
                (instance? clojure.lang.IDeref x))
          (clojure.core/deref x)
          (let [v (tracked-value x)]
@@ -67,26 +72,25 @@
              v
              (if (instance? clojure.lang.IDeref x)
                (clojure.core/deref x)
-               (deref x))))))
+               (deref x)))))))
      ([x & args]
       (apply clojure.core/deref x args)))
    :cljs
    (defn deref* [x]
-     (if (world/primary-world?)
+     (if (refs/sci-atom? x)
+       (clojure.core/deref x)
+       (if (world/primary-world?)
        (clojure.core/deref x)
        (let [v (tracked-value x)]
          (if-not (identical? untracked-value v)
            v
-           (clojure.core/deref x))))))
+           (clojure.core/deref x)))))))
 
 (defn atom*
-  "Creates an atom whose state is owned by the active SCI world. The host atom
-  is retained as a stable handle and as the carrier for metadata, validators,
-  and watches."
+  "Creates an atom whose value and control state are owned by the active SCI
+  world."
   [x & options]
-  (let [a (apply clojure.core/atom x options)]
-    (world/register! a x)
-    a))
+  (apply refs/atom x options))
 
 (defn volatile!*
   "Creates a volatile whose value is owned by the active SCI world."
@@ -299,106 +303,168 @@
 
 #?(:clj
    (defn swap!* [ref f & args]
-     (if (and (world/mutable-primary-world?)
-              (instance? clojure.lang.IAtom ref))
+     (cond
+       (refs/sci-atom? ref)
        (apply clojure.core/swap! ref f args)
-       (if (world/tracked? ref)
-         (swap-tracked! ref f args)
-         (if (instance? clojure.lang.IAtom ref)
-           (if args
-             (apply clojure.core/swap! ref f args)
-             (clojure.core/swap! ref f))
-           (if args
-             (apply swap ref f args)
-             (swap ref f))))))
+
+       (and (world/mutable-primary-world?)
+            (instance? clojure.lang.IAtom ref))
+       (apply clojure.core/swap! ref f args)
+
+       (world/tracked? ref)
+       (swap-tracked! ref f args)
+
+       (instance? clojure.lang.IAtom ref)
+       (apply clojure.core/swap! ref f args)
+
+       :else
+       (apply swap ref f args)))
    :cljs
    (defn swap!* [ref f & args]
-     (if (world/mutable-primary-world?)
+     (cond
+       (refs/sci-atom? ref)
        (apply clojure.core/swap! ref f args)
-       (if (world/tracked? ref)
-         (swap-tracked! ref f args)
-         (if args
-           (apply clojure.core/swap! ref f args)
-           (clojure.core/swap! ref f))))))
+
+       (world/mutable-primary-world?)
+       (apply clojure.core/swap! ref f args)
+
+       (world/tracked? ref)
+       (swap-tracked! ref f args)
+
+       :else
+       (apply clojure.core/swap! ref f args))))
 
 #?(:cljd
    (defn swap!* [ref f & args]
-     (if (and (world/mutable-primary-world?)
-              (instance? cljd.core/Atom ref))
+     (cond
+       (refs/sci-atom? ref)
        (apply clojure.core/swap! ref f args)
-       (if (world/tracked? ref)
-         (swap-tracked! ref f args)
-         (if (or (instance? cljd.core/Atom ref)
-                 (satisfies? ISwap ref))
-           (if args
-             (apply clojure.core/swap! ref f args)
-             (clojure.core/swap! ref f))
-           (if args
-             (apply -swap! ref f args)
-             (-swap! ref f)))))))
+
+       (and (world/mutable-primary-world?)
+            (instance? cljd.core/Atom ref))
+       (apply clojure.core/swap! ref f args)
+
+       (world/tracked? ref)
+       (swap-tracked! ref f args)
+
+       (or (instance? cljd.core/Atom ref)
+           (satisfies? ISwap ref))
+       (apply clojure.core/swap! ref f args)
+
+       :else
+       (apply -swap! ref f args))))
 
 #?(:cljd
    (defn reset!* [ref v]
-     (if (and (world/mutable-primary-world?)
-              (instance? cljd.core/Atom ref))
+     (cond
+       (refs/sci-atom? ref)
        (clojure.core/reset! ref v)
-       (if (world/tracked? ref)
-         (reset-tracked! ref v)
-         (if (or (instance? cljd.core/Atom ref)
-                 (satisfies? IReset ref))
-           (clojure.core/reset! ref v)
-           (-reset! ref v)))))
+
+       (and (world/mutable-primary-world?)
+            (instance? cljd.core/Atom ref))
+       (clojure.core/reset! ref v)
+
+       (world/tracked? ref)
+       (reset-tracked! ref v)
+
+       (or (instance? cljd.core/Atom ref)
+           (satisfies? IReset ref))
+       (clojure.core/reset! ref v)
+
+       :else
+       (-reset! ref v)))
    :clj
    (defn reset!* [ref v]
-     (if (and (world/mutable-primary-world?)
-              (instance? clojure.lang.IAtom ref))
+     (cond
+       (refs/sci-atom? ref)
        (clojure.core/reset! ref v)
-       (if (world/tracked? ref)
-         (reset-tracked! ref v)
-         (if (instance? clojure.lang.IAtom ref)
-           (clojure.core/reset! ref v)
-           (reset ref v)))))
+
+       (and (world/mutable-primary-world?)
+            (instance? clojure.lang.IAtom ref))
+       (clojure.core/reset! ref v)
+
+       (world/tracked? ref)
+       (reset-tracked! ref v)
+
+       (instance? clojure.lang.IAtom ref)
+       (clojure.core/reset! ref v)
+
+       :else
+       (reset ref v)))
    :cljs
    (defn reset!* [ref v]
-     (if (world/mutable-primary-world?)
+     (cond
+       (refs/sci-atom? ref)
        (clojure.core/reset! ref v)
-       (if (world/tracked? ref)
-         (reset-tracked! ref v)
-         (clojure.core/reset! ref v)))))
+
+       (world/mutable-primary-world?)
+       (clojure.core/reset! ref v)
+
+       (world/tracked? ref)
+       (reset-tracked! ref v)
+
+       :else
+       (clojure.core/reset! ref v))))
 
 #?(:cljd
    (defn compare-and-set!* [ref old new]
-     (if (and (world/mutable-primary-world?)
-              (instance? cljd.core/Atom ref))
+     (cond
+       (refs/sci-atom? ref)
        (clojure.core/compare-and-set! ref old new)
-       (if (world/tracked? ref)
-         (compare-and-set-tracked!* ref old new)
-         (clojure.core/compare-and-set! ref old new))))
+
+       (and (world/mutable-primary-world?)
+            (instance? cljd.core/Atom ref))
+       (clojure.core/compare-and-set! ref old new)
+
+       (world/tracked? ref)
+       (compare-and-set-tracked!* ref old new)
+
+       :else
+       (clojure.core/compare-and-set! ref old new)))
    :clj
    (defn compare-and-set!* [ref old new]
-     (if (and (world/mutable-primary-world?)
-              (instance? clojure.lang.IAtom ref))
+     (cond
+       (refs/sci-atom? ref)
        (clojure.core/compare-and-set! ref old new)
-       (if (world/tracked? ref)
-         (compare-and-set-tracked!* ref old new)
-         (if (instance? clojure.lang.IAtom ref)
-           ;; fast-path for host IAtoms
-           (clojure.core/compare-and-set! ref old new)
-           (compareAndSet ref old new)))))
+
+       (and (world/mutable-primary-world?)
+            (instance? clojure.lang.IAtom ref))
+       (clojure.core/compare-and-set! ref old new)
+
+       (world/tracked? ref)
+       (compare-and-set-tracked!* ref old new)
+
+       (instance? clojure.lang.IAtom ref)
+       (clojure.core/compare-and-set! ref old new)
+
+       :else
+       (compareAndSet ref old new)))
    :cljs
    (defn compare-and-set!* [ref old new]
-     (if (world/mutable-primary-world?)
+     (cond
+       (refs/sci-atom? ref)
        (clojure.core/compare-and-set! ref old new)
-       (if (world/tracked? ref)
-         (compare-and-set-tracked!* ref old new)
-         (clojure.core/compare-and-set! ref old new)))))
+
+       (world/mutable-primary-world?)
+       (clojure.core/compare-and-set! ref old new)
+
+       (world/tracked? ref)
+       (compare-and-set-tracked!* ref old new)
+
+       :else
+       (clojure.core/compare-and-set! ref old new))))
 
 #?(:clj
    (defn swap-vals!* [ref f & args]
-     (if (and (world/mutable-primary-world?)
-              (instance? clojure.lang.IAtom ref))
+     (cond
+       (refs/sci-atom? ref)
        (apply clojure.core/swap-vals! ref f args)
-       (if (world/tracked? ref)
+
+       (and (world/mutable-primary-world?)
+            (instance? clojure.lang.IAtom ref))
+       (apply clojure.core/swap-vals! ref f args)
+
+       (world/tracked? ref)
        (if (world/primary-world?)
          (let [ret (apply clojure.core/swap-vals! ref f args)]
            (world/reset-value! ref (nth ret 1))
@@ -406,16 +472,24 @@
          (let [old (world/value ref nil)
                new (swap-tracked! ref f args)]
            [old new]))
-       (if (instance? clojure.lang.IAtom ref)
-         (apply clojure.core/swap-vals! ref f args)
-         (apply swapVals ref f args))))))
+
+       (instance? clojure.lang.IAtom ref)
+       (apply clojure.core/swap-vals! ref f args)
+
+       :else
+       (apply swapVals ref f args))))
 
 #?(:clj
    (defn reset-vals!* [ref v]
-     (if (and (world/mutable-primary-world?)
-              (instance? clojure.lang.IAtom ref))
+     (cond
+       (refs/sci-atom? ref)
        (clojure.core/reset-vals! ref v)
-       (if (world/tracked? ref)
+
+       (and (world/mutable-primary-world?)
+            (instance? clojure.lang.IAtom ref))
+       (clojure.core/reset-vals! ref v)
+
+       (world/tracked? ref)
        (if (world/primary-world?)
          (let [ret (clojure.core/reset-vals! ref v)]
            (world/reset-value! ref (nth ret 1))
@@ -423,9 +497,12 @@
          (let [old (world/value ref nil)
                new (reset-tracked! ref v)]
            [old new]))
-       (if (instance? clojure.lang.IAtom ref)
-         (clojure.core/reset-vals! ref v)
-         (resetVals ref v))))))
+
+       (instance? clojure.lang.IAtom ref)
+       (clojure.core/reset-vals! ref v)
+
+       :else
+       (resetVals ref v))))
 
 ;;;; Protocol vars
 

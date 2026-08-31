@@ -80,7 +80,7 @@
 (defn new-world []
   (DenseWorld.
    (volatile! (new-cells 64))
-   (atom {:next-slot 0 :descriptors {}})
+   (atom {:next-slot 0 :descriptors {} :managed-descriptors []})
    #?(:clj (ReentrantReadWriteLock.) :default nil)
    (volatile! false)))
 
@@ -223,6 +223,110 @@
                          (assoc-in [:descriptors handle] desc))))
             desc))))))
 
+(defn register-managed!
+  "Allocate dense slots whose owner carries the returned descriptor directly.
+  Managed descriptors contain no owner reference, so an unreachable SCI ref is
+  not retained by the lineage registry. `fork-indexes` names values that need
+  host `Forkable`/`:fork-fn` processing when a child world is copied."
+  [kind values fork-indexes]
+  (let [^DenseWorld world (current-world)]
+    (when-not world
+      (throw (ex-info "Managed SCI state must be created inside an SCI context."
+                      {:kind kind})))
+    (let [registry (.-registry world)
+          desc (with-registry-lock
+                 registry
+                 (fn []
+                   (let [start (:next-slot @registry)
+                         slots (mapv #(+ start %) (range (count values)))
+                         fork-slots (mapv #(nth slots %) fork-indexes)
+                         desc {:kind kind
+                               :slots slots
+                               :fork-slots fork-slots}]
+                     (swap! registry
+                            (fn [r]
+                              (-> r
+                                  (assoc :next-slot (+ start (count values)))
+                                  (update :managed-descriptors conj desc))))
+                     desc)))]
+      (ensure-capacity! world (:next-slot @registry))
+      (doseq [[slot value] (map vector (:slots desc) values)]
+        (cells-set! (current-cells world) slot value))
+      (assoc desc :home world :registry registry))))
+
+(defn- selected-managed-world [^DenseWorld home registry]
+  (let [active (active-world-state)]
+    (if (and active
+             (identical? registry
+                         (.-registry ^DenseWorld (.-world ^ReadWorld active))))
+      (.-world ^ReadWorld active)
+      home)))
+
+(defn managed-value
+  "Read a self-described managed slot in the active related world, falling
+  back to the owner's creation world outside managed evaluation."
+  [home registry slot fallback]
+  (slot-value (selected-managed-world home registry) slot fallback))
+
+(defn managed-value-in
+  "Read a managed slot from an already selected world."
+  [world slot fallback]
+  (slot-value world slot fallback))
+
+(defn- call-with-managed-mutation [^DenseWorld home registry f]
+  (let [active (active-world-state)
+        related? (and active
+                      (identical? registry
+                                  (.-registry ^DenseWorld
+                                              (.-world ^ReadWorld active))))
+        ^DenseWorld world (if related? (.-world ^ReadWorld active) home)]
+    #?(:clj
+       (if related?
+         (f world)
+         (let [lock (.readLock ^ReentrantReadWriteLock (.-gate world))]
+           (.lock lock)
+           (try (f world) (finally (.unlock lock)))))
+       :default
+       (f world))))
+
+(defn managed-swap!
+  "CAS a directly described slot. The logical fallback represents a slot
+  allocated in another branch but not yet realized in the selected world."
+  [home registry slot fallback f args validate! notify!]
+  (call-with-managed-mutation
+   home registry
+   (fn [^DenseWorld world]
+     (ensure-capacity! world (inc slot))
+     (loop []
+       (let [cells (current-cells world)
+             raw-old (cells-get cells slot)
+             old (if (identical? absent raw-old) fallback raw-old)
+             new (apply f old args)
+             validation (validate! world new)]
+         (if (cells-cas! cells slot raw-old new)
+           (do (notify! world validation old new) new)
+           (recur)))))))
+
+(defn managed-reset! [home registry slot fallback new validate! notify!]
+  (managed-swap! home registry slot fallback (constantly new) nil
+                 validate! notify!))
+
+(defn managed-compare-and-set!
+  [home registry slot fallback expected new validate! notify!]
+  (call-with-managed-mutation
+   home registry
+   (fn [^DenseWorld world]
+     (ensure-capacity! world (inc slot))
+     (let [cells (current-cells world)
+           raw-old (cells-get cells slot)
+           old (if (identical? absent raw-old) fallback raw-old)]
+       (if-not (identical? expected old)
+         false
+         (let [validation (validate! world new)]
+           (if (cells-cas! cells slot raw-old new)
+             (do (notify! world validation old new) true)
+             false)))))))
+
 (defn register! [handle value]
   (when-let [^DenseWorld world (current-world)]
     (let [{:keys [value-slot]} (allocate-descriptor! world handle :ref true)]
@@ -332,7 +436,9 @@
         n (cells-length source)
         target (new-cells n)
         registry (.-registry world)
-        descriptors (:descriptors @registry)
+        registry-state @registry
+        descriptors (:descriptors registry-state)
+        managed-descriptors (:managed-descriptors registry-state)
         handles (set (keys descriptors))]
     (dotimes [i n]
       (cells-set! target i (cells-get source i)))
@@ -343,7 +449,13 @@
               :let [v (cells-get target value-slot)]
               :when (not (identical? absent v))]
         (cells-set! target value-slot
-                    (if (contains? handles v) v (fork-value v)))))
+                    (if (contains? handles v) v (fork-value v))))
+      (doseq [{:keys [fork-slots]} managed-descriptors
+              slot fork-slots
+              :when (< slot n)
+              :let [v (cells-get target slot)]
+              :when (not (identical? absent v))]
+        (cells-set! target slot (fork-value v))))
     (DenseWorld.
      (volatile! target)
      registry

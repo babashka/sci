@@ -1,10 +1,10 @@
 # Forkable SCI worlds
 
 `sci/fork` creates a branch of an interpreter's runtime state. Namespace maps,
-SCI Var roots and metadata, and values of SCI-created atoms and volatiles are
-part of that state. Existing Vars, refs, aliases, and interpreted functions
-keep their identity; their meaning is selected by the world in which code is
-evaluated.
+SCI Var roots and metadata, SCI-created atom state, and values of SCI-created
+volatiles are part of that state. Existing Vars, refs, aliases, and interpreted
+functions keep their identity; their meaning is selected by the world in which
+code is evaluated.
 
 This is deliberately a value/realization split. Stable handles receive dense,
 lineage-local integer slots. Each world realizes those slots in an array; a
@@ -30,6 +30,8 @@ This shape combines four useful precedents:
   lineage.
 - Dynamic binding frames remain thread/evaluation scoped. A fork snapshots
   root bindings; it does not capture a running continuation or binding frame.
+- Interpreter bindings are scoped to their world. Managed asynchronous
+  callbacks convey and restore both the selected world and binding frame.
 - Writes before the first fork have ordinary SCI/Clojure mutable behavior.
   The first fork materializes the primary values into dense slots; later
   writes update the selected world's slots.
@@ -66,13 +68,20 @@ application's responsibility, for example with an identity-keyed memo table.
 
 ## Current boundary
 
-This first implementation makes Var roots/metadata and the values of
-SCI-created atoms and volatiles fork-local. Atom validator and watch
-registrations still live on the shared stable host handle. Promises, delays,
-futures, transients, mutable host objects, mutable deftype fields, and effects
-outside SCI remain shared unless the embedding application models or copies
-them. A complete effect inventory and an explicit fork protocol are the next
-step before describing an interpreter as fully forkable.
+Var roots/metadata, all logical SCI atom state, and SCI-created volatile values
+are fork-local. Atom metadata, validator, and watch maps are inherited by a
+fork and can subsequently diverge; effects performed by a watch are ordinary
+user capabilities and are not made reversible automatically. Promises,
+delays, futures, transients, mutable host objects, mutable deftype fields, and
+effects outside SCI remain shared unless the embedding application models or
+copies them.
+
+On the JVM and CLJS an SCI-created atom is now a dedicated `SciAtom`, not the
+host's concrete `clojure.lang.Atom`/`cljs.core.Atom` class. It implements the
+normal dereference, atom, metadata, validator, and watch protocols, but code
+that tests the host concrete class observes this intentional representation
+difference. The split is necessary for one stable identity to select different
+state in different worlds.
 
 Forking is O(number of allocated slots), including spare array capacity, while
 slot reads and writes are constant time. This intentionally favors the common

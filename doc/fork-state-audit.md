@@ -1,6 +1,7 @@
 # Forkable runtime state audit
 
-This audit describes the experimental fork implementation as of `09f1174`.
+This audit describes the experimental fork implementation on the current
+branch.
 It distinguishes heap/world state from dynamic control state and external
 resources. A value being reachable through an SCI Var does not by itself make
 all of its internal state fork-local.
@@ -12,7 +13,9 @@ An SCI context currently has three relevant layers:
 1. The context environment is an atom containing persistent namespace maps.
    `sci/fork` creates a new atom with the same map value.
 2. A lineage registry maps stable handles to dense slots. Var roots and
-   metadata use two slots; SCI-created atoms and volatiles use one value slot.
+   metadata use two slots. A self-describing SCI atom carries a hot value slot
+   plus a cold control slot for metadata, validator, and watches. Volatiles
+   currently use one registry-routed value slot.
 3. Dynamic binding frames are control state outside the world. Active world,
    binding scope, and frame are consolidated in one execution-state cell. On
    the JVM it is a `ThreadLocal`; on CLJS and ClojureDart it is a process-local
@@ -81,13 +84,20 @@ The audit also found an async correctness gap: SCI's future wrapper conveyed
 the dynamic frame, but did not install the captured context's `ReadWorld` or
 take the world's evaluation permit. In the original probe, the dynamic binding
 was conveyed correctly while `swap!` changed the parent atom realization:
-parent `1`, child `0`. `binding-conveyor-fn` now captures the SCI context and
-runs the callback with that world installed and permitted. A running Future is
-still a non-copyable host resource.
+parent `1`, child `0`. `binding-conveyor-fn` now captures the SCI context, runs
+the callback with that world installed and permitted, and restores the
+worker's prior execution state. The CLJS async transform uses a related
+continuation wrapper for Promise `then`, `catch`, and `finally`: unlike an
+independent task's shallow frame, it retains the persistent parent chain so a
+continuation can leave a `binding` scope entered before `await`. Both the world
+and dynamic bindings therefore survive suspension. A running Future is still
+a non-copyable host resource.
 
-CLJS and ClojureDart use one volatile binding-frame stack rather than an
-async-local facility. Interleaved asynchronous evaluations can therefore
-replace one another's frames even without forking.
+CLJS and ClojureDart still use one volatile execution-state cell rather than a
+general async-local facility. Managed Promise continuations install and
+restore their captured state synchronously, but arbitrary host callbacks must
+be conveyed explicitly and ClojureDart has no equivalent async integration
+yet.
 
 ### Recommended control-state model
 
@@ -116,9 +126,8 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Var root and metadata | Dense world-local slots | Implemented |
 | Namespace maps, aliases, imports | Persistent map in a new environment atom | Implemented; contained handles remain shared intentionally |
 | Global hierarchy value | Immutable map held in a world-local Var root | Implemented |
-| SCI-created atom value | Stable host handle, world-local value slot | Implemented |
+| SCI-created atom value and control state | Self-describing stable handle; world-local value and metadata/validator/watch slots | Implemented; watch callback effects remain the user's responsibility |
 | SCI-created volatile value | Stable host handle, world-local value slot | Implemented |
-| Atom validator, watches, metadata | Stored on shared host atom | Partial: registrations and metadata leak across worlds |
 | Var watches | Stored in the shared Var handle | Partial: registrations leak across worlds |
 | Namespace metadata | Mutable field on shared Namespace handle | Shared unintentionally |
 | Type metadata and mutable deftype fields | Mutable fields on shared Type/SciType handles | Shared unintentionally |
@@ -153,8 +162,9 @@ A JVM probe against the current implementation produced these results:
 - mutating a child transient or array changed the object seen by the parent;
 - using a memoized function in the child populated the cache used by parent;
 - a child `defmethod` installed the method in parent;
-- child changes to namespace metadata and atom metadata appeared in parent;
-- a watch installed in child fired for a parent atom mutation;
+- before self-describing atoms, child atom metadata changes appeared in the
+  parent and a watch installed in the child fired for a parent mutation;
+- namespace metadata still leaks across worlds;
 - before world-scoped frames, a child-only dynamic binding was visible in a
   nested parent evaluation;
 - before the conveyor correction, a future launched in child mutated the
@@ -166,11 +176,14 @@ mutable internals have not yet been decomposed into world state.
 
 ## Dense-registry liveness
 
-The lineage registry currently holds strong keys for every registered Var,
-atom, and volatile, and `:next-slot` only increases. This has two consequences:
+The lineage registry currently holds strong keys for every registered Var and
+volatile, and `:next-slot` only increases. Self-describing atoms no longer add
+their object as a registry key, but their anonymous descriptors and slot
+values are still retained. This has two consequences:
 
-1. A local `(atom ...)` remains strongly reachable for the lifetime of the
-   lineage even after user code drops every reference to it.
+1. A local `(atom ...)` object can be collected, but its last value and control
+   record remain reachable from every world that realized its slots. Registry-
+   routed refs also retain their handle.
 2. Vars or refs created only in a discarded child reserve slots in the shared
    lineage registry. Later allocation in a parent can expand across those
    branch-local holes, increasing all subsequent copy-on-fork costs.
@@ -199,6 +212,14 @@ value, metadata, validator, and watch map. Validators can normally be shared
 functions; their registration is world-local. Watch callbacks are effects, so
 copying the watch map preserves Clojure behavior inside each branch but still
 requires the callback's external capabilities to be honest.
+
+This is now implemented by a two-slot `SciAtom`. Its direct slot descriptor
+avoids the lineage handle lookup on dereference and mutation. A focused local
+JVM comparison measured five million child-world reads at roughly 72 ms versus
+243 ms through the former registry route, and 500,000 swaps at 36 ms versus 67
+ms. A host atom in the same probe took roughly 27 ms and 5.5 ms respectively;
+the remaining cost buys world selection and fork-local control state. These
+figures describe one local microbenchmark, not a portable guarantee.
 
 ### Delay
 
@@ -260,8 +281,8 @@ duplicable, but need self-describing SCI handles or `Forkable` cooperation.
    async suspension and eventual execution snapshots.
 3. Address lineage-registry liveness so adding more tracked handles does not
    create an unbounded retention problem.
-4. Finish split identity/state already present: atom/Var watches, atom
-   metadata/validators, namespace/type metadata, and `*loaded-libs*`.
+4. Finish split identity/state for Var watches, namespace/type metadata,
+   volatiles, and `*loaded-libs*`.
 5. Make multimethod tables and memoization caches world-local.
 6. Add managed Delay and choose a pending-Promise policy.
 7. Reject or explicitly classify transients, running futures, streams, and
