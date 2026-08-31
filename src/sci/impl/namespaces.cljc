@@ -47,6 +47,7 @@
    [sci.impl.protocols :as protocols]
    [sci.impl.read :as read :refer [read read-string]]
    [sci.impl.records :as records]
+   [sci.impl.refs :as refs]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval]]
@@ -1081,35 +1082,39 @@
 
   f must be free of side-effects"
      [iref f & args]
-     (if (utils/var? iref)
-       (let [current-meta (meta iref)]
-         (vars/with-writeable-var iref current-meta
-           (if (world/current-world)
-             (let [m (world/alter-var-meta! iref current-meta f args)]
-               (when (world/primary-world?)
-                 (cljs.core/reset-meta! iref m))
-               m)
-             (apply cljs.core/alter-meta! iref f args))))
-       (if (utils/sci-type? iref)
-         (types/setVal iref (apply f (types/getVal iref) args))
-         (let [m (meta iref)]
-           (if-not (:sci/built-in m)
-             (apply cljs.core/alter-meta! iref f args)
-             (throw (ex-info (str "Built-in var " iref " is read-only.")
-                             {:var iref}))))))))
-
-#?(:cljs
-   (defn reset-meta! [iref m]
-     (if (utils/var? iref)
-       (let [current-meta (meta iref)]
-         (vars/with-writeable-var iref current-meta
-           (if (world/current-world)
-             (do (world/reset-var-meta! iref m)
+     (if (refs/sci-atom? iref)
+       (apply refs/alter-meta!* iref f args)
+       (if (utils/var? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-var iref current-meta
+             (if (world/current-world)
+               (let [m (world/alter-var-meta! iref current-meta f args)]
                  (when (world/primary-world?)
                    (cljs.core/reset-meta! iref m))
                  m)
-             (cljs.core/reset-meta! iref m))))
-       (cljs.core/reset-meta! iref m))))
+               (apply cljs.core/alter-meta! iref f args))))
+         (if (utils/sci-type? iref)
+           (types/setVal iref (apply f (types/getVal iref) args))
+           (let [m (meta iref)]
+             (if-not (:sci/built-in m)
+               (apply cljs.core/alter-meta! iref f args)
+               (throw (ex-info (str "Built-in var " iref " is read-only.")
+                               {:var iref})))))))))
+
+#?(:cljs
+   (defn reset-meta! [iref m]
+     (if (refs/sci-atom? iref)
+       (refs/reset-meta!* iref m)
+       (if (utils/var? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-var iref current-meta
+             (if (world/current-world)
+               (do (world/reset-var-meta! iref m)
+                   (when (world/primary-world?)
+                     (cljs.core/reset-meta! iref m))
+                   m)
+               (cljs.core/reset-meta! iref m))))
+         (cljs.core/reset-meta! iref m)))))
 
 (defn- let** [expr _ bindings & body]
   (when-not (vector? bindings)
@@ -1348,27 +1353,28 @@
      (defn promise-then
        "Chain a callback on a promise. Used by async transformer."
        [p f]
-       (.then p f))
+       (.then p (vars/binding-continuation-fn f)))
 
      (defn promise-catch
        "Add error handler to a promise. Used by async transformer."
        [p f]
-       (.catch p f))
+       (.catch p (vars/binding-continuation-fn f)))
 
      (defn promise-catch-for-try
        "Add error handler that unwraps SCI error wrapping before calling handler.
         SCI's interpreter wraps exceptions with {:type :sci/error} for location tracking,
         but async catch handlers need the original exception (like sync eval-try uses ex-cause)."
        [p f]
-       (.catch p (fn [e]
-                   (f (if (= :sci/error (:type (ex-data e)))
-                        (or (ex-cause e) e)
-                        e)))))
+       (let [conveyed (vars/binding-continuation-fn f)]
+         (.catch p (fn [e]
+                     (conveyed (if (= :sci/error (:type (ex-data e)))
+                                  (or (ex-cause e) e)
+                                  e))))))
 
      (defn promise-finally
        "Add finally handler to a promise. Used by async transformer."
        [p f]
-       (.finally p f))
+       (.finally p (vars/binding-continuation-fn f)))
 
      (def async-await-namespace (sci.lang/->Namespace 'sci.impl.async-await nil))))
 
@@ -1711,6 +1717,7 @@
      'get (copy-core-var get)
      'get-thread-binding-frame-impl (new-var 'get-thread-binding-frame-impl sci.impl.vars/get-thread-binding-frame)
      #?@(:clj ['get-thread-bindings (copy-var sci.impl.vars/get-thread-bindings clojure-core-ns {:name 'get-thread-bindings})])
+     'get-validator (copy-var refs/get-validator* clojure-core-ns {:name 'get-validator})
      'get-in (copy-core-var get-in)
      'group-by (copy-core-var group-by)
      'gensym (copy-core-var gensym)
@@ -1911,6 +1918,7 @@
      'str (copy-core-var str)
      'second (copy-core-var second)
      'set (copy-core-var set)
+     'set-validator! (copy-var refs/set-validator!* clojure-core-ns {:name 'set-validator!})
      'seq (copy-core-var seq)
      'seq-to-map-for-destructuring (copy-var seq-to-map-for-destructuring clojure-core-ns)
      'seq? (copy-core-var seq?)

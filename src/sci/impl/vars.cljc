@@ -188,16 +188,17 @@
        :clj (.get ^java.util.Map bmap sci-var)
        :cljs (.get bmap sci-var))))
 
-(defn binding-conveyor-fn
-  [f]
-  (let [frame (clone-thread-binding-frame)
-        ctx store/*ctx*
-        invoke (fn [args]
-                 (reset-thread-binding-frame frame)
-                 (if (:sci.impl/world ctx)
-                   (store/with-ctx ctx
-                     (world/with-active-world ctx #(apply f args)))
-                   (apply f args)))]
+(defn- binding-frame-fn [frame ctx f]
+  (let [invoke (fn [args]
+                 (let [previous (get-thread-binding-frame)]
+                   (try
+                     (reset-thread-binding-frame frame)
+                     (if (:sci.impl/world ctx)
+                       (store/with-ctx ctx
+                         (world/with-active-world ctx #(apply f args)))
+                       (apply f args))
+                     (finally
+                       (reset-thread-binding-frame previous)))))]
     (fn
       ([]
        (invoke nil))
@@ -209,6 +210,19 @@
        (invoke [x y z]))
       ([x y z & args]
        (invoke (list* x y z args))))))
+
+(defn binding-conveyor-fn
+  "Convey the current binding values to an independent task. The shallow
+  frame deliberately cannot pop scopes owned by the submitting execution."
+  [f]
+  (binding-frame-fn (clone-thread-binding-frame) store/*ctx* f))
+
+(defn binding-continuation-fn
+  "Convey the persistent binding frame chain to a continuation of the current
+  execution. Unlike an independent task, the continuation may leave scopes
+  entered before suspension."
+  [f]
+  (binding-frame-fn (get-thread-binding-frame) store/*ctx* f))
 
 (defn throw-unbound-call-exception [the-var]
   (throw #?(:cljd (ex-info (str "Attempting to call unbound fn: " the-var) {})

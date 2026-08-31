@@ -1497,6 +1497,43 @@
         (is (= [4 7 11 true] (sci/eval-string* child "(state)")))
         (is (= [2 5 9 true] (sci/eval-string* grandchild "(state)")))))))
 
+(deftest forked-atom-control-state-test
+  (let [parent (sci/init nil)
+        a (sci/eval-string*
+           parent
+           "(def events (atom []))
+            (def a (atom 2 :meta {:branch :parent} :validator even?))
+            (add-watch a :inherited
+                       (fn [key _ old new]
+                         (swap! events conj [key old new])))
+            a")
+        child (sci/fork parent)]
+    (testing "value, metadata, validators, and watches are child-local"
+      (is (= [6 [[:inherited 2 4] [:child 4 6]]
+              {:branch :child} true]
+             (sci/eval-string*
+              child
+              "(reset! a 4)
+               (remove-watch a :inherited)
+               (add-watch a :child
+                          (fn [key _ old new]
+                            (swap! events conj [key old new])))
+               (alter-meta! a assoc :branch :child)
+               (set-validator! a #(>= % 4))
+               (compare-and-set! a 4 6)
+               [@a @events (meta a) ((get-validator a) 5)]")))
+      (is (= [2 [] {:branch :parent} true]
+             (sci/eval-string*
+              parent
+              "[@a @events (meta a) (= even? (get-validator a))]"))))
+    (testing "a stable handle outside evaluation uses its creation world"
+      (is (= 2 @a))
+      (is (= 8 (reset! a 8)))
+      (is (= [8 [[:inherited 2 8]]]
+             (sci/eval-string* parent "[@a @events]")))
+      (is (= [6 [[:inherited 2 4] [:child 4 6]]]
+             (sci/eval-string* child "[@a @events]"))))))
+
 (deftest forkable-host-value-test
   (let [user-ns (sci/create-ns 'user)
         copies (atom 0)
