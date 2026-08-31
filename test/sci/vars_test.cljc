@@ -115,7 +115,7 @@
                            (addons/future {})))))
 
      (deftest forked-future-uses-child-world-test
-       (let [parent (sci/init (addons/future {}))]
+       (let [parent (tu/forkable-init (addons/future {}))]
          (sci/eval-string*
           parent
           "(def state (atom 0))
@@ -134,7 +134,7 @@
      (deftest forked-future-participates-in-world-quiescence-test
        (let [entered (promise)
              release (promise)
-             parent (sci/init
+             parent (tu/forkable-init
                      (addons/future
                       {:bindings {'block! (fn []
                                             (deliver entered true)
@@ -174,7 +174,7 @@
                                {:classes {'java.lang.Thread java.lang.Thread}}))))
 
      (deftest forked-bound-fn-uses-child-world-test
-       (let [parent (sci/init {})]
+       (let [parent (tu/forkable-init {})]
          (sci/eval-string*
           parent
           "(def state (atom 0))
@@ -217,7 +217,7 @@
 
 (deftest world-scoped-dynamic-binding-test
   (let [parent-holder (atom nil)
-        parent (sci/init
+        parent (tu/forkable-init
                 {:bindings
                  {'read-parent #(sci/eval-string* @parent-holder "late")}})]
     (reset! parent-holder parent)
@@ -288,7 +288,7 @@
    (deftest forked-promise-state-test
      (when-not tu/native?
        (let [entered (promise)
-             parent (sci/init
+             parent (tu/forkable-init
                      (-> (addons/future {})
                          (assoc :bindings
                                 {'mark-entered
@@ -408,7 +408,7 @@
        ":o 1 :n 5")))
 
 (deftest forked-var-watch-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(def effects (atom []))

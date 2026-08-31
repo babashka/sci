@@ -34,7 +34,7 @@
                 prev (get the-current-ns var-name)
                 prev (if-not (utils/var? prev)
                        (let [m (meta prev)]
-                         (lang/->Var prev var-name m false false nil (:ns m)))
+                         (lang/->Var prev var-name m false false nil (:ns m) false))
                        prev)
                 v (do (when-not (identical? utils/var-unbound init)
                         (vars/bindRoot prev init))
@@ -415,8 +415,11 @@
       `(defn ~'fn-call ~'[ctx bindings f args]
          ;; TODO: can we prevent hitting this at all, by analyzing more efficiently?
          ;; (prn :count ~'f ~'(count args) ~'args)
-         (case ~'(count args)
-           ~@cases)))))
+         (let [~'f (if (and (:sci.impl/world ~'ctx) (utils/var? ~'f))
+                    (vars/getRawRoot ~'f)
+                    ~'f)]
+           (case ~'(count args)
+             ~@cases))))))
 
 (def-fn-call)
 

@@ -1193,7 +1193,7 @@
                     (realized? d) (= 1 @d)])"))))
 
 (deftest forked-delay-state-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(def effects (atom []))
@@ -1463,8 +1463,38 @@
            #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
            #"Unable to resolve symbol: y" (sci/eval-string* ctx "y"))))))
 
+(deftest runtime-mode-test
+  (testing "standard is the default and keeps the historical namespace fork"
+    (let [ctx (sci/init nil)
+          child (sci/fork ctx)]
+      (is (= :standard (:runtime-mode ctx)))
+      (is (nil? (:sci.impl/world ctx)))
+      (is (= 1 (sci/eval-string* ctx
+                                 "(let [a (atom 0)] (swap! a inc) @a)")))
+      (sci/eval-string* child "(def child-only 1)")
+      (is (thrown-with-msg?
+           #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+           #"Unable to resolve symbol: child-only"
+           (sci/eval-string* ctx "child-only")))))
+  (testing "forkability is explicit and cannot change during merge"
+    (let [ctx (tu/forkable-init nil)]
+      (is (= :forkable (:runtime-mode ctx)))
+      (is (some? (:sci.impl/world ctx)))
+      (is (thrown-with-msg?
+           #?(:cljd cljd.core/ExceptionInfo
+              :clj clojure.lang.ExceptionInfo
+              :cljs ExceptionInfo)
+           #"cannot be changed"
+           (sci/merge-opts ctx {:runtime-mode :standard})))))
+  (is (thrown-with-msg?
+       #?(:cljd cljd.core/ExceptionInfo
+          :clj clojure.lang.ExceptionInfo
+          :cljs ExceptionInfo)
+       #"Invalid SCI runtime mode"
+       (sci/init {:runtime-mode :unknown}))))
+
 (deftest forked-world-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(def x 1)
@@ -1517,7 +1547,7 @@
           (is (= [1 10 0 0 20] (sci/eval-string* parent "(world-value)"))))))))
 
 (deftest first-fork-realizes-mutable-primary-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(def x 1)
@@ -1547,7 +1577,7 @@
         (is (= [2 5 9 true] (sci/eval-string* grandchild "(state)")))))))
 
 (deftest forked-atom-control-state-test
-  (let [parent (sci/init nil)
+  (let [parent (tu/forkable-init nil)
         a (sci/eval-string*
            parent
            "(def events (atom []))
@@ -1584,7 +1614,7 @@
              (sci/eval-string* child "[@a @events]"))))))
 
 (deftest forked-memoize-cache-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (is (= [[:shared 1] [:shared 1] 1]
            (sci/eval-string*
             parent
@@ -1616,7 +1646,7 @@
         resource (->ForkableState (atom 0) copies)
         state-var (sci/new-var 'state resource {:ns user-ns})
         alias-var (sci/new-var 'state-alias resource {:ns user-ns})
-        parent (sci/init
+        parent (tu/forkable-init
                 {:namespaces {'user {'state state-var
                                      'state-alias alias-var}}
                  :fork-fn (fn [value]
@@ -1640,7 +1670,7 @@
   (let [user-ns (sci/create-ns 'user)
         resource (->ProhibitedState :socket)
         resource-var (sci/new-var 'resource resource {:ns user-ns})
-        parent (sci/init {:namespaces {'user {'resource resource-var}}})
+        parent (tu/forkable-init {:namespaces {'user {'resource resource-var}}})
         result (try
                  (sci/fork parent)
                  ::not-thrown
@@ -1651,7 +1681,7 @@
     (is (= :socket result))))
 
 (deftest affine-transient-fork-policy-test
-  (let [parent (sci/init nil)
+  (let [parent (tu/forkable-init nil)
         transient-value (sci/eval-string*
                          parent "(def working (transient [])) working")]
     (is (thrown-with-msg?
@@ -1667,7 +1697,7 @@
 #?(:cljd nil
    :default
    (deftest forked-array-state-test
-     (let [parent (sci/init nil)
+     (let [parent (tu/forkable-init nil)
            parent-array (sci/eval-string*
                          parent
                          "(def buffer (object-array [1 2]))
@@ -1694,7 +1724,7 @@
            copies (atom 0)
            state-var (sci/new-var 'host-state host-state {:ns user-ns})
            alias-var (sci/new-var 'host-state-alias host-state {:ns user-ns})
-           parent (sci/init
+           parent (tu/forkable-init
                    {:namespaces
                     {'user {'host-state state-var
                             'host-state-alias alias-var}}})]
@@ -1721,7 +1751,7 @@
 #?(:clj
    (deftest affine-host-resource-fork-policy-test
      (testing "lazy realization is rejected"
-       (let [parent (sci/init nil)]
+       (let [parent (tu/forkable-init nil)]
          (sci/eval-string* parent "(def pending-xs (map inc [1 2 3]))")
          (try
            (sci/fork parent)
@@ -1737,7 +1767,7 @@
                 [(java.util.Random. 42) :random-generator]
                 [(java.util.ArrayList.) :java-collection]]]
          (let [user-ns (sci/create-ns 'user)
-               parent (sci/init
+               parent (tu/forkable-init
                        {:namespaces
                         {'user {'resource
                                 (sci/new-var 'resource resource
@@ -1752,7 +1782,7 @@
        (let [task (java.util.concurrent.FutureTask. (fn [] :done))
              _ (.run task)
              user-ns (sci/create-ns 'user)
-             parent (sci/init
+             parent (tu/forkable-init
                      {:namespaces
                       {'user {'task (sci/new-var 'task task {:ns user-ns})}}})
              child (sci/fork parent)]
@@ -1763,7 +1793,7 @@
    (deftest affine-js-resource-fork-policy-test
      (let [promise (js/Promise.resolve 1)
            user-ns (sci/create-ns 'user)
-           parent (sci/init
+           parent (tu/forkable-init
                    {:namespaces
                     {'user {'promise
                             (sci/new-var 'promise promise {:ns user-ns})}}})]
@@ -1780,7 +1810,7 @@
    (deftest fork-host-value-cooperation-test
      (let [user-ns (sci/create-ns 'user)
            state-var (sci/new-var 'state (atom 0) {:ns user-ns})
-           parent (sci/init
+           parent (tu/forkable-init
                    {:namespaces {'user {'state state-var}}
                     :fork-fn #(if (instance? clojure.lang.Atom %)
                                 (atom @%)
@@ -1795,7 +1825,7 @@
    (deftest fork-waits-for-active-evaluation-test
      (let [entered (promise)
            release (promise)
-           parent (sci/init {:bindings {'block! (fn []
+           parent (tu/forkable-init {:bindings {'block! (fn []
                                                    (deliver entered true)
                                                    @release)}})
            evaluation (future (sci/eval-string* parent "(block!)"))]
@@ -1811,7 +1841,7 @@
      (let [n 1000
            a-calls (atom 0)
            b-calls (atom 0)
-           parent (sci/init
+           parent (tu/forkable-init
                    {:bindings
                     {'step-a (fn [x] (swap! a-calls inc) (inc x))
                      'step-b (fn [x] (swap! b-calls inc) (inc x))}})]

@@ -9,6 +9,7 @@
    [sci.impl.refs :as refs]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
+   [sci.impl.vars :as vars]
    [sci.impl.world :as world]
    [sci.lang :as lang])
   #?@(:cljd [] :clj [(:import [sci.impl.records SciRecord]
@@ -48,8 +49,10 @@
 ;; On CLJS, SCI types implement protocols natively; the wrapper only adds
 ;; world-relative routing before falling back to cljs.core/deref.
 #?(:cljd
-   (defn deref* [x]
-     (if (refs/sci-atom? x)
+   (defn forkable-deref* [x]
+     (if (utils/var? x)
+       (vars/getRawRoot x)
+       (if (refs/sci-atom? x)
        (clojure.core/deref x)
        (if (and (world/primary-world?) (satisfies? IDeref x))
        (clojure.core/deref x)
@@ -58,11 +61,13 @@
            v
            (if (satisfies? IDeref x)
              (clojure.core/deref x)
-             (-deref x)))))))
+             (-deref x))))))))
    :clj
-   (defn deref*
+   (defn forkable-deref*
      ([x]
-      (if (refs/sci-atom? x)
+      (if (utils/var? x)
+        (vars/getRawRoot x)
+        (if (refs/sci-atom? x)
         (clojure.core/deref x)
         (if (and (world/primary-world?)
                (instance? clojure.lang.IDeref x))
@@ -72,34 +77,41 @@
              v
              (if (instance? clojure.lang.IDeref x)
                (clojure.core/deref x)
-               (deref x)))))))
+               (deref x))))))))
      ([x & args]
       (apply clojure.core/deref x args)))
    :cljs
-   (defn deref* [x]
-     (if (refs/sci-atom? x)
+   (defn forkable-deref* [x]
+     (if (utils/var? x)
+       (vars/getRawRoot x)
+       (if (refs/sci-atom? x)
        (clojure.core/deref x)
        (if (world/primary-world?)
        (clojure.core/deref x)
        (let [v (tracked-value x)]
          (if-not (identical? untracked-value v)
            v
-           (clojure.core/deref x)))))))
+           (clojure.core/deref x))))))))
 
-(defn atom*
+(defn forkable-apply [f & args]
+  (apply clojure.core/apply
+         (if (utils/var? f) (vars/getRawRoot f) f)
+         args))
+
+(defn forkable-atom*
   "Creates an atom whose value and control state are owned by the active SCI
   world."
   [x & options]
   (apply refs/atom x options))
 
-(defn volatile!*
+(defn forkable-volatile!*
   "Creates a volatile whose value is owned by the active SCI world."
   [x]
   (let [v (clojure.core/volatile! x)]
     (world/register! v x)
     v))
 
-(defn vreset!*
+(defn forkable-vreset!*
   [v x]
   (if (world/mutable-primary-world?)
     (clojure.core/vreset! v x)
@@ -111,12 +123,12 @@
         (world/reset-value! v x))
       (clojure.core/vreset! v x))))
 
-(defn vswap!*
+(defn forkable-vswap!*
   [v f & args]
   (if (world/mutable-primary-world?)
     (clojure.core/vreset! v (apply f (clojure.core/deref v) args))
     (if (world/tracked? v)
-      (vreset!* v (apply f (tracked-value v) args))
+      (forkable-vreset!* v (apply f (tracked-value v) args))
       (clojure.core/vreset! v (apply f (clojure.core/deref v) args)))))
 
 (defn- validate-ref! [ref v]
@@ -302,7 +314,7 @@
 ;;;; Re-routing
 
 #?(:clj
-   (defn swap!* [ref f & args]
+   (defn forkable-swap!* [ref f & args]
      (cond
        (refs/sci-atom? ref)
        (apply clojure.core/swap! ref f args)
@@ -320,7 +332,7 @@
        :else
        (apply swap ref f args)))
    :cljs
-   (defn swap!* [ref f & args]
+   (defn forkable-swap!* [ref f & args]
      (cond
        (refs/sci-atom? ref)
        (apply clojure.core/swap! ref f args)
@@ -335,7 +347,7 @@
        (apply clojure.core/swap! ref f args))))
 
 #?(:cljd
-   (defn swap!* [ref f & args]
+   (defn forkable-swap!* [ref f & args]
      (cond
        (refs/sci-atom? ref)
        (apply clojure.core/swap! ref f args)
@@ -355,7 +367,7 @@
        (apply -swap! ref f args))))
 
 #?(:cljd
-   (defn reset!* [ref v]
+   (defn forkable-reset!* [ref v]
      (cond
        (refs/sci-atom? ref)
        (clojure.core/reset! ref v)
@@ -374,7 +386,7 @@
        :else
        (-reset! ref v)))
    :clj
-   (defn reset!* [ref v]
+   (defn forkable-reset!* [ref v]
      (cond
        (refs/sci-atom? ref)
        (clojure.core/reset! ref v)
@@ -392,7 +404,7 @@
        :else
        (reset ref v)))
    :cljs
-   (defn reset!* [ref v]
+   (defn forkable-reset!* [ref v]
      (cond
        (refs/sci-atom? ref)
        (clojure.core/reset! ref v)
@@ -407,7 +419,7 @@
        (clojure.core/reset! ref v))))
 
 #?(:cljd
-   (defn compare-and-set!* [ref old new]
+   (defn forkable-compare-and-set!* [ref old new]
      (cond
        (refs/sci-atom? ref)
        (clojure.core/compare-and-set! ref old new)
@@ -422,7 +434,7 @@
        :else
        (clojure.core/compare-and-set! ref old new)))
    :clj
-   (defn compare-and-set!* [ref old new]
+   (defn forkable-compare-and-set!* [ref old new]
      (cond
        (refs/sci-atom? ref)
        (clojure.core/compare-and-set! ref old new)
@@ -440,7 +452,7 @@
        :else
        (compareAndSet ref old new)))
    :cljs
-   (defn compare-and-set!* [ref old new]
+   (defn forkable-compare-and-set!* [ref old new]
      (cond
        (refs/sci-atom? ref)
        (clojure.core/compare-and-set! ref old new)
@@ -455,7 +467,7 @@
        (clojure.core/compare-and-set! ref old new))))
 
 #?(:clj
-   (defn swap-vals!* [ref f & args]
+   (defn forkable-swap-vals!* [ref f & args]
      (cond
        (refs/sci-atom? ref)
        (apply clojure.core/swap-vals! ref f args)
@@ -480,7 +492,7 @@
        (apply swapVals ref f args))))
 
 #?(:clj
-   (defn reset-vals!* [ref v]
+   (defn forkable-reset-vals!* [ref v]
      (cond
        (refs/sci-atom? ref)
        (clojure.core/reset-vals! ref v)
@@ -502,6 +514,97 @@
        (clojure.core/reset-vals! ref v)
 
        :else
+       (resetVals ref v))))
+
+;; Standard contexts retain SCI's original direct host paths. Forkable
+;; contexts install the world-aware functions above as per-context core Vars.
+#?(:cljd
+   (defn deref* [x]
+     (if (satisfies? IDeref x)
+       (clojure.core/deref x)
+       (-deref x)))
+   :clj
+   (defn deref*
+     ([x]
+      (if (instance? clojure.lang.IDeref x)
+        (clojure.core/deref x)
+        (deref x)))
+     ([x & args]
+      (apply clojure.core/deref x args)))
+   :cljs
+   (defn deref* [x]
+     (clojure.core/deref x)))
+
+(defn atom* [x & options]
+  (apply clojure.core/atom x options))
+
+(defn volatile!* [x]
+  (clojure.core/volatile! x))
+
+(defn vreset!* [v x]
+  (clojure.core/vreset! v x))
+
+(defn vswap!* [v f & args]
+  (clojure.core/vreset! v (apply f (clojure.core/deref v) args)))
+
+#?(:clj
+   (defn swap!* [ref f & args]
+     (if (instance? clojure.lang.IAtom ref)
+       (if args
+         (apply clojure.core/swap! ref f args)
+         (clojure.core/swap! ref f))
+       (if args
+         (apply swap ref f args)
+         (swap ref f))))
+   :cljs
+   (defn swap!* [ref f & args]
+     (apply clojure.core/swap! ref f args)))
+
+#?(:cljd
+   (defn swap!* [ref f & args]
+     (if (or (instance? cljd.core/Atom ref)
+             (satisfies? ISwap ref))
+       (if args
+         (apply clojure.core/swap! ref f args)
+         (clojure.core/swap! ref f))
+       (if args
+         (apply -swap! ref f args)
+         (-swap! ref f)))))
+
+#?(:cljd
+   (defn reset!* [ref v]
+     (if (or (instance? cljd.core/Atom ref)
+             (satisfies? IReset ref))
+       (clojure.core/reset! ref v)
+       (-reset! ref v)))
+   :clj
+   (defn reset!* [ref v]
+     (if (instance? clojure.lang.IAtom ref)
+       (clojure.core/reset! ref v)
+       (reset ref v)))
+   :cljs
+   (defn reset!* [ref v]
+     (clojure.core/reset! ref v)))
+
+#?(:clj
+   (defn compare-and-set!* [ref old new]
+     (if (instance? clojure.lang.IAtom ref)
+       (clojure.core/compare-and-set! ref old new)
+       (compareAndSet ref old new)))
+   :default
+   (defn compare-and-set!* [ref old new]
+     (clojure.core/compare-and-set! ref old new)))
+
+#?(:clj
+   (defn swap-vals!* [ref f & args]
+     (if (instance? clojure.lang.IAtom ref)
+       (apply clojure.core/swap-vals! ref f args)
+       (apply swapVals ref f args))))
+
+#?(:clj
+   (defn reset-vals!* [ref v]
+     (if (instance? clojure.lang.IAtom ref)
+       (clojure.core/reset-vals! ref v)
        (resetVals ref v))))
 
 ;;;; Protocol vars

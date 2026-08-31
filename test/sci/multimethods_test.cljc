@@ -57,7 +57,7 @@
 "))))
 
 (deftest forked-multimethod-state-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
      parent
      "(defmulti branch-method identity)

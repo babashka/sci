@@ -355,9 +355,12 @@
 
 (defn multi-fn-impl [name dispatch-fn default hierarchy]
   #?(:cljd (let [method-table (atom {})]
-             (world/register! method-table {})
+             (when (world/current-world)
+               (world/register! method-table {}))
              (SciMultiFn. name dispatch-fn default method-table))
-     :default (managed-multifn name dispatch-fn default hierarchy)))
+     :default (if (world/current-world)
+                (managed-multifn name dispatch-fn default hierarchy)
+                (new-host-multifn name dispatch-fn default hierarchy))))
 
 (defn multi-fn-add-method-impl
   [multifn dispatch-val f]

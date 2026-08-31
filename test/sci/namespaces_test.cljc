@@ -144,7 +144,7 @@
          (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*) (ns bar) (meta (the-ns 'foo))"))))
 
 (deftest forked-namespace-metadata-test
-  (let [parent (sci/init nil)]
+  (let [parent (tu/forkable-init nil)]
     (sci/eval-string* parent "(ns fork.meta {:branch :parent})")
     (let [child (sci/fork parent)]
       (is (identical? (sci/find-ns parent 'fork.meta)
@@ -428,7 +428,7 @@ bar/bar"}
                                    :file "foo/bar.clj"}))})))))
 
 (deftest forked-loaded-libs-test
-  (let [parent (sci/init
+  (let [parent (tu/forkable-init
                 {:load-fn
                  (fn [{:keys [:namespace]}]
                    (when (= 'fork.loaded namespace)

@@ -1619,7 +1619,7 @@
      'assoc! (copy-core-var assoc!)
      'assoc-in (copy-core-var assoc-in)
      'associative? (copy-core-var associative?)
-     'atom (copy-var core-protocols/atom* clojure-core-ns {:name 'atom})
+     'atom (copy-core-var atom)
      #?@(:clj ['bean (copy-core-var bean)])
      'binding (macrofy 'binding sci-binding)
      'binding-conveyor-fn (copy-core-var sci.impl.vars/binding-conveyor-fn)
@@ -1690,10 +1690,8 @@
      'deftype (macrofy 'deftype sci.impl.deftype/deftype-macro
                        clojure-core-ns)
      'delay (macrofy 'delay delay*)
-     'delay? (copy-var refs/delay?* clojure-core-ns
-                       {:copy-meta-from 'clojure.core/delay?})
-     #?@(:clj ['deliver (copy-var refs/deliver* clojure-core-ns
-                                  {:copy-meta-from 'clojure.core/deliver})])
+     'delay? (copy-core-var delay?)
+     #?@(:clj ['deliver (copy-core-var deliver)])
      #?@(:cljs ['demunge (copy-core-var cljs.core/demunge)])
      #?@(:cljd [] :default ['derive (copy-var hierarchies/derive* clojure-core-ns {:name 'derive})])
      #?@(:cljd [] :default ['descendants (copy-var hierarchies/descendants* clojure-core-ns {:name 'descendants})])
@@ -1752,8 +1750,7 @@
      'float (copy-core-var float)
      'fn? (copy-core-var fn?)
      'for (macrofy 'for for-macro/expand-for)
-     'force (copy-var refs/force* clojure-core-ns
-                      {:copy-meta-from 'clojure.core/force})
+     'force (copy-core-var force)
      'get (copy-core-var get)
      'get-thread-binding-frame-impl (new-var 'get-thread-binding-frame-impl sci.impl.vars/get-thread-binding-frame)
      #?@(:clj ['get-thread-bindings (copy-var sci.impl.vars/get-thread-bindings clojure-core-ns {:name 'get-thread-bindings})])
@@ -1841,8 +1838,7 @@
      'max-key (copy-core-var max-key)
      'meta (copy-core-var meta)
      'memfn (copy-var memfn clojure-core-ns {:macro true})
-     'memoize (copy-var refs/memoize* clojure-core-ns
-                        {:copy-meta-from 'clojure.core/memoize})
+     'memoize (copy-core-var memoize)
      'merge (copy-core-var merge)
      'merge-with (copy-core-var merge-with)
      'min (copy-core-var min)
@@ -1894,8 +1890,7 @@
      'partition-all (copy-core-var partition-all)
      'partition-by (copy-core-var partition-by)
      'persistent! (copy-core-var persistent!)
-     #?@(:clj ['promise (copy-var refs/promise* clojure-core-ns
-                                  {:copy-meta-from 'clojure.core/promise})])
+     #?@(:clj ['promise (copy-core-var promise)])
      'push-thread-bindings (copy-var sci.impl.vars/push-thread-bindings clojure-core-ns {:name 'push-thread-bindings})
      'qualified-ident? (copy-core-var qualified-ident?)
      'qualified-symbol? (copy-core-var qualified-symbol?)
@@ -2053,10 +2048,10 @@
      'vec (copy-core-var vec)
      'vector (copy-core-var vector)
      'vector? (copy-core-var vector?)
-     'volatile! (copy-var core-protocols/volatile!* clojure-core-ns {:name 'volatile!})
+     'volatile! (copy-core-var volatile!)
      'volatile? (copy-core-var volatile?)
-     'vreset! (copy-var core-protocols/vreset!* clojure-core-ns {:name 'vreset!})
-     'vswap! (copy-var core-protocols/vswap!* clojure-core-ns {:name 'vswap!})
+     'vreset! (copy-core-var vreset!)
+     'vswap! (macrofy 'vswap! vswap!)
      'when-first (macrofy 'when-first when-first*)
      'when-let (macrofy 'when-let when-let*)
      'when-some (macrofy 'when-some when-some*)
@@ -2075,7 +2070,7 @@
 
      ;; -write comes from the IWriter protocol-vars entry below
      'locking (macrofy 'locking locking*)
-     '-delay* (new-var '-delay* refs/delay* clojure-core-ns)
+     '-delay* (new-var '-delay* (fn [f] (delay (f))) clojure-core-ns)
      #?@(:cljd ['-lazy-seq* (new-var '-lazy-seq* (fn [f] (lazy-seq (f))) clojure-core-ns)
                 ;; no unchecked math on cljd, alias to the checked variants
                 'unchecked-inc (new-var 'unchecked-inc inc clojure-core-ns)
@@ -2133,6 +2128,45 @@
              ITransientVector ITransientSet IComparable
              INamed IAtom IVolatile IIterable Inst
              IEncodeJS IEncodeClojure))))
+
+ (def forkable-core-overrides
+   (merge
+    {'deref (copy-var core-protocols/forkable-deref* clojure-core-ns
+                      {:name 'deref})
+     'apply (copy-var core-protocols/forkable-apply clojure-core-ns
+                      {:name 'apply})
+     'swap! (copy-var core-protocols/forkable-swap!* clojure-core-ns
+                      {:name 'swap!})
+     'reset! (copy-var core-protocols/forkable-reset!* clojure-core-ns
+                       {:name 'reset!})
+     'compare-and-set!
+     (copy-var core-protocols/forkable-compare-and-set!* clojure-core-ns
+               {:name 'compare-and-set!})
+     'atom (copy-var core-protocols/forkable-atom* clojure-core-ns
+                     {:name 'atom})
+     'volatile! (copy-var core-protocols/forkable-volatile!* clojure-core-ns
+                          {:name 'volatile!})
+     'vreset! (copy-var core-protocols/forkable-vreset!* clojure-core-ns
+                        {:name 'vreset!})
+     'vswap! (copy-var core-protocols/forkable-vswap!* clojure-core-ns
+                       {:name 'vswap!})
+     'delay? (copy-var refs/delay?* clojure-core-ns
+                       {:copy-meta-from 'clojure.core/delay?})
+     'force (copy-var refs/force* clojure-core-ns
+                      {:copy-meta-from 'clojure.core/force})
+     'memoize (copy-var refs/memoize* clojure-core-ns
+                        {:copy-meta-from 'clojure.core/memoize})
+     '-delay* (new-var '-delay* refs/delay* clojure-core-ns)}
+    #?(:clj
+       {'swap-vals! (copy-var core-protocols/forkable-swap-vals!*
+                              clojure-core-ns {:name 'swap-vals!})
+        'reset-vals! (copy-var core-protocols/forkable-reset-vals!*
+                               clojure-core-ns {:name 'reset-vals!})
+        'promise (copy-var refs/promise* clojure-core-ns
+                           {:copy-meta-from 'clojure.core/promise})
+        'deliver (copy-var refs/deliver* clojure-core-ns
+                           {:copy-meta-from 'clojure.core/deliver})}
+       :default {})))
 
  (defn dir-fn
    [ns]
@@ -2395,7 +2429,8 @@
                   false
                   nil
                   nil
-                  clojure-walk-namespace))
+                  clojure-walk-namespace
+                  false))
 
  (def clojure-walk-ns
    {:obj clojure-walk-namespace

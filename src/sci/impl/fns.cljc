@@ -35,53 +35,68 @@
   ([n disable-arity-checks]
    `(gen-fn ~n ~disable-arity-checks false))
   ([n _disable-arity-checks varargs]
-   (if (zero? n)
-     (let [varargs-param (when varargs (gensym))]
-       `(let [recur# recur]
-          (fn ~'arity-0 ~(cond-> []
-                           varargs (conj '& varargs-param))
-            (let [active-ctx# (world/active-ctx ~'ctx)
-                  interrupt-fn# (:interrupt-fn active-ctx#)
-                  ~'invoc-array (when-not (zero? ~'invoc-size)
-                                  #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
-                                     :default (object-array ~'invoc-size)))]
-              (when ~'enclosed->invocation
-                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-              (wrap-this-as
-               ~@(when varargs
-                   [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
-               (loop []
-                 (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                 (let [ret# (types/eval ~'body active-ctx# ~'invoc-array)]
-                   (if (identical? recur# ret#)
-                     (recur)
-                     ret#))))))))
-     (let [fn-params (vec (repeatedly n gensym))
-           varargs-param (when varargs (gensym))
-           asets `(do ~@(map (fn [fn-param idx]
-                               `(aset ~(with-meta 'invoc-array
-                                         #?(:cljd {:tag 'List} :default {:tag 'objects})) ~idx ~fn-param))
-                             fn-params (range)))]
-       `(let [recur# recur]
-          (fn ~(symbol (str "arity-" n)) ~(cond-> fn-params
-                                            varargs (conj '& varargs-param))
-            (let [active-ctx# (world/active-ctx ~'ctx)
-                  interrupt-fn# (:interrupt-fn active-ctx#)
-                  ~'invoc-array (when-not (zero? ~'invoc-size)
-                                  #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
-                                     :default (object-array ~'invoc-size)))]
-              (when ~'enclosed->invocation
-                (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
-              ~asets
-              (wrap-this-as
-               ~@(when varargs
-                   [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
-               (loop []
-                 (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                 (let [ret# (types/eval ~'body active-ctx# ~'invoc-array)]
-                   (if (identical? recur# ret#)
-                     (recur)
-                     ret#)))))))))))
+   (letfn [(emit [forkable?]
+             (if (zero? n)
+               (let [varargs-param (when varargs (gensym))]
+                 `(let [recur# recur
+                        ~@(when-not forkable?
+                            ['interrupt-fn (list :interrupt-fn 'ctx)])]
+                    (fn ~'arity-0 ~(cond-> []
+                                     varargs (conj '& varargs-param))
+                      (let [~@(when forkable?
+                                ['active-ctx (list 'world/active-ctx 'ctx)
+                                 'interrupt-fn (list :interrupt-fn 'active-ctx)])
+                            ~'invoc-array (when-not (zero? ~'invoc-size)
+                                            #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
+                                               :default (object-array ~'invoc-size)))]
+                        (when ~'enclosed->invocation
+                          (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+                        (wrap-this-as
+                         ~@(when varargs
+                             [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
+                         (loop []
+                           (when-not (nil? ~'interrupt-fn) (~'interrupt-fn))
+                           (let [ret# (types/eval ~'body
+                                                  ~(if forkable? 'active-ctx 'ctx)
+                                                  ~'invoc-array)]
+                             (if (identical? recur# ret#)
+                               (recur)
+                               ret#))))))))
+               (let [fn-params (vec (repeatedly n gensym))
+                     varargs-param (when varargs (gensym))
+                     asets `(do ~@(map (fn [fn-param idx]
+                                         `(aset ~(with-meta 'invoc-array
+                                                   #?(:cljd {:tag 'List} :default {:tag 'objects}))
+                                                ~idx ~fn-param))
+                                       fn-params (range)))]
+                 `(let [recur# recur
+                        ~@(when-not forkable?
+                            ['interrupt-fn (list :interrupt-fn 'ctx)])]
+                    (fn ~(symbol (str "arity-" n))
+                      ~(cond-> fn-params varargs (conj '& varargs-param))
+                      (let [~@(when forkable?
+                                ['active-ctx (list 'world/active-ctx 'ctx)
+                                 'interrupt-fn (list :interrupt-fn 'active-ctx)])
+                            ~'invoc-array (when-not (zero? ~'invoc-size)
+                                            #?(:cljd (#/(List/filled dynamic) ~'invoc-size nil)
+                                               :default (object-array ~'invoc-size)))]
+                        (when ~'enclosed->invocation
+                          (~'enclosed->invocation ~'enclosed-array ~'invoc-array))
+                        ~asets
+                        (wrap-this-as
+                         ~@(when varargs
+                             [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
+                         (loop []
+                           (when-not (nil? ~'interrupt-fn) (~'interrupt-fn))
+                           (let [ret# (types/eval ~'body
+                                                  ~(if forkable? 'active-ctx 'ctx)
+                                                  ~'invoc-array)]
+                             (if (identical? recur# ret#)
+                               (recur)
+                               ret#))))))))))]
+     `(if (:sci.impl/world ~'ctx)
+        ~(emit true)
+        ~(emit false)))))
 
 #_(require '[clojure.pprint :as pprint])
 #_(binding [*print-meta* true]
@@ -151,27 +166,48 @@
                19 (gen-fn 19)
                20 (gen-fn 20)
                ;; default case for 20+ args (used by loop)
-               (let [recur# recur]
-                 (fn arity-many [& args]
-                   (let [active-ctx (world/active-ctx ctx)
-                         interrupt-fn# (:interrupt-fn active-ctx)
-                         invoc-array (when-not (zero? invoc-size)
-                                       #?(:cljd (#/(List/filled dynamic) invoc-size nil)
-                                          :default (object-array invoc-size)))]
-                     (when enclosed->invocation
-                       (enclosed->invocation enclosed-array invoc-array))
-                     (loop [args args i 0]
-                       (when (< i fixed-arity)
-                         (aset #?(:cljd invoc-array
-                                  :clj ^objects invoc-array
-                                  :cljs ^objects invoc-array) i (first args))
-                         (recur (next args) (inc i))))
-                     (loop []
-                       (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                       (let [ret (types/eval body active-ctx invoc-array)]
-                         (if (identical? recur# ret)
-                           (recur)
-                           ret))))))))]
+               (if (:sci.impl/world ctx)
+                 (let [recur# recur]
+                   (fn arity-many [& args]
+                     (let [active-ctx (world/active-ctx ctx)
+                           interrupt-fn# (:interrupt-fn active-ctx)
+                           invoc-array (when-not (zero? invoc-size)
+                                         #?(:cljd (#/(List/filled dynamic) invoc-size nil)
+                                            :default (object-array invoc-size)))]
+                       (when enclosed->invocation
+                         (enclosed->invocation enclosed-array invoc-array))
+                       (loop [args args i 0]
+                         (when (< i fixed-arity)
+                           (aset #?(:cljd invoc-array
+                                    :clj ^objects invoc-array
+                                    :cljs ^objects invoc-array) i (first args))
+                           (recur (next args) (inc i))))
+                       (loop []
+                         (when-not (nil? interrupt-fn#) (interrupt-fn#))
+                         (let [ret (types/eval body active-ctx invoc-array)]
+                           (if (identical? recur# ret)
+                             (recur)
+                             ret)))))))
+                 (let [recur# recur
+                       interrupt-fn# (:interrupt-fn ctx)]
+                   (fn arity-many [& args]
+                     (let [invoc-array (when-not (zero? invoc-size)
+                                         #?(:cljd (#/(List/filled dynamic) invoc-size nil)
+                                            :default (object-array invoc-size)))]
+                       (when enclosed->invocation
+                         (enclosed->invocation enclosed-array invoc-array))
+                       (loop [args args i 0]
+                         (when (< i fixed-arity)
+                           (aset #?(:cljd invoc-array
+                                    :clj ^objects invoc-array
+                                    :cljs ^objects invoc-array) i (first args))
+                           (recur (next args) (inc i))))
+                       (loop []
+                         (when-not (nil? interrupt-fn#) (interrupt-fn#))
+                         (let [ret (types/eval body ctx invoc-array)]
+                           (if (identical? recur# ret)
+                             (recur)
+                             ret))))))))]
      f)))
 
 (defn lookup-by-arity [arities arity]

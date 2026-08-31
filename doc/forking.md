@@ -1,6 +1,11 @@
 # Forkable SCI worlds
 
-`sci/fork` creates a branch of an interpreter's runtime state. Namespace maps,
+Full runtime forking is enabled with
+`(sci/init {:runtime-mode :forkable})`. In the default `:standard` mode SCI
+retains its direct execution paths and `sci/fork` preserves its historical
+behavior of copying only the namespace environment.
+
+In forkable mode, `sci/fork` creates a branch of an interpreter's runtime state. Namespace maps,
 SCI Var roots and metadata, SCI-created atom state, and values of SCI-created
 volatiles are part of that state. Existing Vars, refs, aliases, and interpreted
 functions keep their identity; their meaning is selected by the world in which

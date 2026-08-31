@@ -324,7 +324,7 @@
    (dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (unqualify-symbol name))]
-     (lang/->Var init-val name meta false false nil (:ns meta)))))
+     (lang/->Var init-val name meta false false nil (:ns meta) false))))
 
 ;; foundational namespaces
 (def user-ns (lang/->Namespace 'user nil))
@@ -352,7 +352,7 @@
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :name (unqualify-symbol name))]
-     (lang/->Var init-val name meta false nil nil (:ns meta)))))
+     (lang/->Var init-val name meta false nil nil (:ns meta) false))))
 
 (defn var? [x]
   (instance? #?(:cljd lang/Var :clj sci.lang.Var :cljs sci.lang.Var) x))

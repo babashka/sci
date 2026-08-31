@@ -16,6 +16,10 @@
 (deftype DenseWorld [cells-holder registry gate persistent?])
 (deftype ReadWorld [world primary?])
 
+(defprotocol IWorldTracked
+  (-world-tracked? [handle])
+  (-mark-world-tracked! [handle]))
+
 (defn read-world [world primary?]
   (ReadWorld. world primary?))
 
@@ -122,15 +126,17 @@
   shared gate permit; a fork takes the exclusive permit and therefore observes
   a quiescent source world without adding locks to individual reads."
   [ctx f]
-  #?(:clj
-     (let [^DenseWorld world (:sci.impl/world ctx)
-           lock (.readLock ^ReentrantReadWriteLock (.-gate world))]
-       (.lock lock)
-       (try
-         (call-with-active-world ctx f)
-         (finally (.unlock lock))))
-     :default
-     (call-with-active-world ctx f)))
+  (if-let [world (:sci.impl/world ctx)]
+    #?(:clj
+       (let [^DenseWorld world world
+             lock (.readLock ^ReentrantReadWriteLock (.-gate world))]
+         (.lock lock)
+         (try
+           (call-with-active-world ctx f)
+           (finally (.unlock lock))))
+       :default
+       (call-with-active-world ctx f))
+    (f)))
 
 (defn current-world []
   (:sci.impl/world store/*ctx*))
@@ -468,6 +474,7 @@
    (register-var! handle value m nil))
   ([handle value m watches]
    (when-let [^DenseWorld world (current-world)]
+     (-mark-world-tracked! handle)
      (let [{:keys [value-slot meta-slot]}
            (allocate-descriptor! world handle :var (not (:sci/built-in m))
                                  (:sci.impl/fork-fn m))]

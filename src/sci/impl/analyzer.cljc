@@ -57,20 +57,28 @@
 (declare analyze analyze-children analyze-call return-call return-map)
 
 #?(:clj
-   (deftype VarNode [^sci.impl.vars.IVar v
-                     ^int slot]
-     sci.impl.types/Eval
-     (eval [_ _ctx _bindings]
-       (let [state (.get ^ThreadLocal execution/current)
-             ^clojure.lang.Volatile holder
-             (aget ^objects state execution/active-cells-holder-index)
-             ^java.util.concurrent.atomic.AtomicReferenceArray cells
-             (when holder (.deref holder))]
-         (if (nil? holder)
-           (.getDirectRoot v)
-           (.selectRoot v (.get cells slot)))))
-     sci.impl.types/Stack
-     (stack [_] nil)))
+   (do
+     (deftype DirectVarNode [^sci.impl.vars.IVar v]
+       sci.impl.types/Eval
+       (eval [_ _ctx _bindings]
+         (.getDirectRoot v))
+       sci.impl.types/Stack
+       (stack [_] nil))
+
+     (deftype VarNode [^sci.impl.vars.IVar v
+                       ^int slot]
+       sci.impl.types/Eval
+       (eval [_ _ctx _bindings]
+         (let [state (.get ^ThreadLocal execution/current)
+               ^clojure.lang.Volatile holder
+               (aget ^objects state execution/active-cells-holder-index)
+               ^java.util.concurrent.atomic.AtomicReferenceArray cells
+               (when holder (.deref holder))]
+           (if (nil? holder)
+             (.getDirectRoot v)
+             (.selectRoot v (.get cells slot)))))
+       sci.impl.types/Stack
+       (stack [_] nil))))
 
 ;;;; Constant children
 
@@ -831,7 +839,8 @@
                                                     false
                                                     false
                                                     nil
-                                                    @utils/current-ns)
+                                                    @utils/current-ns
+                                                    false)
                                     (vars/unbind)))))]
     (swap! env
            (fn [env]
@@ -2161,16 +2170,19 @@
                                                     (eval/resolve-symbol bindings fsym)))))
                                   (let [children (analyze-children ctx rest-forms)
                                         stack (utils/stack-frame m f-meta)
+                                        var-slot (when (and (:sci.impl/world ctx)
+                                                            (utils/var? f))
+                                                   (world/slot-of
+                                                    (:sci.impl/world ctx) f))
                                         node (return-call ctx
                                                           expr
                                                           f children stack
-                                                          #?(:cljd nil
-                                                             :cljs (when (utils/var? f) (fn [_ _ v]
-                                                                                          (deref v))) :clj nil))]
+                                                          (when (some? var-slot)
+                                                            (fn [_ _ v]
+                                                              (vars/getRootAt v var-slot))))]
                                     #?(:cljs (cond (utils/var? f)
-                                                   (if-let [slot (when-not (:dynamic f-meta)
-                                                                   (world/slot-of (:sci.impl/world ctx) f))]
-                                                     (t/attach-ast node [:call-vslot [f slot] children stack])
+                                                   (if (some? var-slot)
+                                                     (t/attach-ast node [:call-vslot [f var-slot] children stack])
                                                      (t/attach-ast node [:call-var f children stack]))
                                                    (fn? f)
                                                    (t/attach-ast node [:call-direct f children stack])
@@ -2213,15 +2225,12 @@
                     node (return-call ctx
                                       expr
                                       f children stack
-                                      #?(:cljd (fn [ctx bindings f]
-                                                 (t/eval f ctx bindings))
-                                         :cljs (if (utils/var? f)
-                                                 (fn [ctx bindings f]
-                                                   (t/eval @f ctx bindings))
-                                                 (fn [ctx bindings f]
-                                                   (t/eval f ctx bindings)))
-                                         :clj (fn [ctx bindings f]
-                                                (t/eval f ctx bindings))))]
+                                      (fn [ctx bindings f]
+                                        (let [callee (t/eval f ctx bindings)]
+                                          (if (and (:sci.impl/world ctx)
+                                                   (utils/var? callee))
+                                            (vars/getRawRoot callee)
+                                            callee))))]
                 #?(:cljs (if (utils/var? f)
                            node
                            ;; computed callee, e.g. ((add 1) 2): the callee
@@ -2371,18 +2380,22 @@
                                                       (str "Can't take value of a macro: " v ""))
                                             :cljs (new js/Error
                                                        (str "Can't take value of a macro: " v ""))))
-                                  (let [slot (when-not (:dynamic mv)
+                                  (let [slot (when (:sci.impl/world ctx)
                                                (world/slot-of (:sci.impl/world ctx) v))]
                                     #?(:clj
                                        (if (some? slot)
                                          (VarNode. v (int slot))
-                                         (sci.impl.types/->Node
-                                          (faster/deref-1 v) nil))
+                                         (if (:sci.impl/world ctx)
+                                           (sci.impl.types/->Node
+                                            (faster/deref-1 v) nil)
+                                           (DirectVarNode. v)))
                                        :default
                                        (sci.impl.types/->Node
                                         (if (some? slot)
                                           (vars/getRootAt v slot)
-                                          (faster/deref-1 v))
+                                          (if (:sci.impl/world ctx)
+                                            (faster/deref-1 v)
+                                            (faster/deref-1 v)))
                                         nil
                                         ;; Dynamic Vars retain binding-frame
                                         ;; lookup. Other registered Vars resolve

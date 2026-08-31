@@ -584,12 +584,18 @@ aren't visible to other users:
 (sci/eval-string* sci-ctx "forked") ;;=> Unable to resolve symbol: forked
 ```
 
-Forking also snapshots the roots and metadata of existing SCI vars and the
+Full runtime forking is opt-in. Initialize the shared context with
+`:runtime-mode :forkable`; the default `:standard` mode retains SCI's original
+direct hot paths and `sci/fork` only copies the namespace environment.
+
+Forkable mode snapshots the roots and metadata of existing SCI vars and the
 values of atoms and volatiles created inside SCI. The handles keep their
 identity, so aliases and functions defined before the fork resolve against the
 world in which they are invoked:
 
 ``` clojure
+(def sci-ctx (sci/init {:runtime-mode :forkable}))
+
 (sci/eval-string* sci-ctx
   "(def counter (atom 0))
    (defn bump! [] (swap! counter inc))")
@@ -609,7 +615,8 @@ preserve any aliasing that matters to the application:
 
 ``` clojure
 (def sci-ctx
-  (sci/init {:fork-fn #(if (instance? clojure.lang.Atom %)
+  (sci/init {:runtime-mode :forkable
+             :fork-fn #(if (instance? clojure.lang.Atom %)
                          (atom @%)
                          %)}))
 ```

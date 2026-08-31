@@ -312,7 +312,8 @@
              (:sci.impl/fields (types/getVal type)))))
 
 (defn ->type-impl [rec-name type type-meta m]
-  (let [desc (when (mutable-type? type)
+  (let [desc (when (and (world/current-world)
+                        (mutable-type? type))
                (world/register-managed! :deftype-fields [m] []))
         home (:home desc)
         registry (:registry desc)

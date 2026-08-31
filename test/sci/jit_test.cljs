@@ -5,7 +5,8 @@
   (:require [clojure.string :as str]
             [clojure.test :as t :refer [deftest is testing]]
             [sci.core :as sci]
-            [sci.impl.jit :as jit]))
+            [sci.impl.jit :as jit]
+            [sci.test-utils :as tu]))
 
 ;; strict compile: an emitter exception must fail the test, not hide behind
 ;; a silent interpreter fallback (which the differential checks can't see,
@@ -262,7 +263,7 @@
       (is (= {:val expected} jitted) src))))
 
 (deftest jit-fork-world-test
-  (let [parent (sci/init {})]
+  (let [parent (tu/forkable-init {})]
     (sci/eval-string*
      parent
      "(def x 1) (defn f [] 1) (defn call [] [(f) x])")
