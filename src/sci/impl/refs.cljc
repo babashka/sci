@@ -276,6 +276,19 @@
      registry managed-index
      (SciAtom. home registry (nth slots 0) (nth slots 1)))))
 
+(defn memoize*
+  "Clojure-compatible memoize whose cache follows the active SCI world."
+  [f]
+  (if (world/current-world)
+    (let [mem (atom {})]
+      (fn [& args]
+        (if-let [entry (find @mem args)]
+          (val entry)
+          (let [ret (apply f args)]
+            (swap! mem assoc args ret)
+            ret))))
+    (clojure.core/memoize f)))
+
 (defn get-validator* [ref]
   (if (sci-atom? ref)
     (let [^SciAtom ref ref]

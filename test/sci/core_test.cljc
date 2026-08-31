@@ -1534,6 +1534,32 @@
       (is (= [6 [[:inherited 2 4] [:child 4 6]]]
              (sci/eval-string* child "[@a @events]"))))))
 
+(deftest forked-memoize-cache-test
+  (let [parent (sci/init nil)]
+    (is (= [[:shared 1] [:shared 1] 1]
+           (sci/eval-string*
+            parent
+            "(def calls (atom 0))
+             (def measured
+               (memoize (fn [x] [x (swap! calls inc)])))
+             [(measured :shared) (measured :shared) @calls]")))
+    (let [child (sci/fork parent)]
+      (is (= [[:shared 1] [:child 2] [:child 2] 2]
+             (sci/eval-string*
+              child
+              "[(measured :shared)
+                (measured :child)
+                (measured :child)
+                @calls]")))
+      (is (= [[:shared 1] [:child 2] [:child 2] 2]
+             (sci/eval-string*
+              parent
+              "[(measured :shared)
+                (measured :child)
+                (measured :child)
+                @calls]")))
+      (is (= 2 (sci/eval-string* child "@calls"))))))
+
 (deftest forkable-host-value-test
   (let [user-ns (sci/create-ns 'user)
         copies (atom 0)

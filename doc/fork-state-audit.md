@@ -134,7 +134,7 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | `*loaded-libs*` | Built-in Var root points to one host Ref/atom | Shared unintentionally despite fork-local namespace maps |
 | Delay | One host Delay object and realization cache | Shared; forcing in one world suppresses computation in another |
 | Lazy sequence realization | One host lazy cell/cache | Shared and world selection during deferred realization is unreliable |
-| `memoize` cache | Host function closes over an untracked atom | Shared; a child cache hit can suppress parent computation |
+| SCI `memoize` cache | Closure owns a fork-local `SciAtom` cache | Implemented; inherited entries are shared as immutable values and later cache fills diverge |
 | Promise | One host delivery cell | Shared; child delivery is immediately visible in parent |
 | Future / async task | Work launched through the binding conveyor runs in its captured world; the host task itself remains shared | Not copyable; needs an explicit fork policy |
 | Transient collection | Same affine host object | Shared; mutation in child is visible in parent |
@@ -284,10 +284,12 @@ portable managed implementation and test runtime.
 
 ### Memoization and lazy computation
 
-SCI should provide a world-aware memoize implementation whose cache is a
-tracked state handle. Lazy sequences are harder: their realization cache is a
-small continuation, and arbitrary lazy bodies may perform effects. They belong
-with the future execution/fiber model rather than a generic object copier.
+SCI's `memoize` now closes over a `SciAtom`, so it inherits the parent's cache
+at fork and subsequent fills remain world-local. Cached result values retain
+their ordinary sharing or explicit `Forkable` policy. Lazy sequences are
+harder: their realization cache is a small continuation, and arbitrary lazy
+bodies may perform effects. They belong with the future execution/fiber model
+rather than a generic object copier.
 
 ### Transients and mutable aggregates
 
@@ -307,8 +309,8 @@ duplicable, but need self-describing SCI handles or `Forkable` cooperation.
    create an unbounded retention problem.
 4. Finish split identity/state for Var watches, namespace/type metadata,
    volatiles, and `*loaded-libs*`.
-5. Finish the ClojureDart multimethod port and make memoization caches
-   world-local. JVM/CLJS multimethod state is implemented.
+5. Finish the ClojureDart multimethod port. JVM/CLJS multimethod state and SCI
+   memoization caches are implemented.
 6. Add managed Delay and choose a pending-Promise policy.
 7. Reject or explicitly classify transients, running futures, streams, and
    other affine/external resources.

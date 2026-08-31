@@ -70,12 +70,12 @@ application's responsibility, for example with an identity-keyed memo table.
 
 Var roots/metadata, all logical SCI atom state, SCI-created volatile values,
 and JVM/CLJS SCI multimethod tables, preferences, and dispatch caches are
-fork-local. Atom metadata, validator, and watch maps are inherited by a fork
-and can subsequently diverge; effects performed by a watch are ordinary user
-capabilities and are not made reversible automatically. Promises, delays,
-futures, transients, mutable host objects, mutable deftype fields, and effects
-outside SCI remain shared unless the embedding application models or copies
-them.
+fork-local. SCI's `memoize` uses a fork-local atom for its cache. Atom metadata,
+validator, and watch maps are inherited by a fork and can subsequently diverge;
+effects performed by a watch are ordinary user capabilities and are not made
+reversible automatically. Promises, delays, futures, transients, mutable host
+objects, mutable deftype fields, and effects outside SCI remain shared unless
+the embedding application models or copies them.
 
 On the JVM and CLJS an SCI-created atom is now a dedicated `SciAtom`, not the
 host's concrete `clojure.lang.Atom`/`cljs.core.Atom` class. It implements the
