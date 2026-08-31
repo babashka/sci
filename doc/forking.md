@@ -79,3 +79,7 @@ slot reads and writes are constant time. This intentionally favors the common
 case where reads and mutations greatly outnumber forks. A page-level
 copy-on-write representation remains a possible next step if workloads with
 large worlds and frequent forks justify its extra read/write indirection.
+
+See [Forkable runtime state audit](fork-state-audit.md) for the dynamic-binding
+model, stateful primitive inventory, observed isolation gaps, and proposed
+implementation order.
