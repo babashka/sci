@@ -107,6 +107,7 @@
 (defprotocol IVar
   (bindRoot [this v])
   (getRawRoot [this])
+  (getRawWatches [this])
   (getDirectRoot [this])
   (selectRoot [this world-value])
   (getRootAt [this slot])

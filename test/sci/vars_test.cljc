@@ -407,6 +407,35 @@
        (sci/with-out-str (sci/eval-string "(def x 1) (add-watch #'x :foo (fn [k r o n] (prn :o o :n n))) (alter-var-root #'x (constantly 5))"))
        ":o 1 :n 5")))
 
+(deftest forked-var-watch-test
+  (let [parent (sci/init nil)]
+    (sci/eval-string*
+     parent
+     "(def effects (atom []))
+      (def watched 0)
+      (add-watch #'watched :inherited
+                 (fn [_ _ old new]
+                   (swap! effects conj [:inherited old new])))")
+    (let [child (sci/fork parent)]
+      (sci/eval-string*
+       child
+       "(remove-watch #'watched :inherited)
+        (add-watch #'watched :child
+                   (fn [_ _ old new]
+                     (swap! effects conj [:child old new])))")
+      (is (= [1 [[:inherited 0 1]]]
+             (sci/eval-string*
+              parent
+              "(alter-var-root #'watched inc) [watched @effects]")))
+      (is (= [0 []]
+             (sci/eval-string* child "[watched @effects]")))
+      (is (= [1 [[:child 0 1]]]
+             (sci/eval-string*
+              child
+              "(alter-var-root #'watched inc) [watched @effects]")))
+      (is (= [1 [[:inherited 0 1]]]
+             (sci/eval-string* parent "[watched @effects]"))))))
+
 #?(:cljd nil
    :clj
    (deftest thread-binds

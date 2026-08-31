@@ -16,11 +16,18 @@
   (store/with-ctx ctx
     (world/with-active-world
       ctx
-      #(doseq [[_ ns-map] (:namespaces @(:env ctx))
-               [_ v] ns-map
-               :when (and (utils/var? v)
-                          (not (world/registered? (:sci.impl/world ctx) v)))]
-         (world/register-var! v (vars/getRawRoot v) (meta v))))))
+      #(do
+         (doseq [[_ ns-map] (:namespaces @(:env ctx))
+                 :let [ns-obj (:obj ns-map)]
+                 :when ns-obj]
+           (world/register-namespace! ns-obj (meta ns-obj)))
+         (doseq [[_ ns-map] (:namespaces @(:env ctx))
+                 [_ v] ns-map
+                 :when (and (utils/var? v)
+                            (not (world/registered?
+                                  (:sci.impl/world ctx) v)))]
+           (world/register-var! v (vars/getRawRoot v) (meta v)
+                                (vars/getRawWatches v)))))))
 
 #?(:clj
    (defrecord Env [namespaces imports load-fn]))

@@ -340,9 +340,10 @@
          fork-value (fork/value-forker fork-fn)
          forked-world (world/fork-world
                        (:sci.impl/world ctx) fork-value
-                       #(if (utils/var? %)
-                          (vars/getRawRoot %)
-                          (c/deref %))
+                       #(cond
+                          (utils/var? %) (vars/getRawRoot %)
+                          (utils/namespace? %) (meta %)
+                          :else (c/deref %))
                        meta)]
      (assoc ctx
             :env (atom @(:env ctx))
@@ -688,7 +689,8 @@
       #(doseq [[_ v] ns-map
                :when (and (utils/var? v)
                           (not (world/registered? (:sci.impl/world ctx) v)))]
-         (world/register-var! v (vars/getRawRoot v) (meta v)))))
+         (world/register-var! v (vars/getRawRoot v) (meta v)
+                              (vars/getRawWatches v)))))
   ctx)
 
 (defn find-ns

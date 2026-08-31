@@ -13,9 +13,11 @@ An SCI context currently has three relevant layers:
 1. The context environment is an atom containing persistent namespace maps.
    `sci/fork` creates a new atom with the same map value.
 2. A lineage registry maps stable handles to dense slots. Var roots and
-   metadata use two slots. A self-describing SCI atom carries a hot value slot
-   plus a cold control slot for metadata, validator, and watches. Volatiles
-   currently use one registry-routed value slot.
+   metadata use two slots, with an optional third slot allocated only when a
+   Var gains watches. Namespace objects use one metadata slot. A
+   self-describing SCI atom carries a hot value slot plus a cold control slot
+   for metadata, validator, and watches. Volatiles currently use one
+   registry-routed value slot.
 3. Dynamic binding frames are control state outside the world. Active world,
    binding scope, and frame are consolidated in one execution-state cell. On
    the JVM it is a `ThreadLocal`; on CLJS and ClojureDart it is a process-local
@@ -128,10 +130,10 @@ child-only dynamic metadata cannot affect a nested parent evaluation.
 | Global hierarchy value | Immutable map held in a world-local Var root | Implemented |
 | SCI-created atom value and control state | Self-describing stable handle; world-local value and metadata/validator/watch slots | Implemented; watch callback effects remain the user's responsibility |
 | SCI-created volatile value | Stable host handle, world-local value slot | Implemented |
-| Var watches | Stored in the shared Var handle | Partial: registrations leak across worlds |
-| Namespace metadata | Mutable field on shared Namespace handle | Shared unintentionally |
+| Var watches | Optional dense world-local slot on a stable Var handle | Implemented; callbacks are inherited but their external effects remain capabilities |
+| Namespace metadata | Stable Namespace handle with a dense world-local metadata slot | Implemented |
 | Type metadata and mutable deftype fields | Mutable fields on shared Type/SciType handles | Shared unintentionally |
-| `*loaded-libs*` | Built-in Var root points to one host Ref/atom | Shared unintentionally despite fork-local namespace maps |
+| `*loaded-libs*` | Built-in Var root has a per-cell copier for its host Ref/atom | Implemented; keeps the host representation while loaded sets diverge |
 | Delay | Stable SCI handle with world-local pending/realized state | Implemented; pending realizations split, while cached outcomes are inherited according to host delay semantics |
 | Lazy sequence realization | One host lazy cell/cache | Shared and world selection during deferred realization is unreliable |
 | SCI `memoize` cache | Closure owns a fork-local `SciAtom` cache | Implemented; inherited entries are shared as immutable values and later cache fills diverge |
@@ -167,7 +169,8 @@ A JVM probe against the current implementation produced these results:
 - a child `defmethod` installed the method in parent;
 - before self-describing atoms, child atom metadata changes appeared in the
   parent and a watch installed in the child fired for a parent mutation;
-- namespace metadata still leaks across worlds;
+- before managed namespace metadata, namespace metadata changes leaked across
+  worlds;
 - before world-scoped frames, a child-only dynamic binding was visible in a
   nested parent evaluation;
 - before the conveyor correction, a future launched in child mutated the
