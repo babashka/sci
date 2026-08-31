@@ -109,6 +109,18 @@
     v)
   (getRawRoot [this]
     (world/var-value this root))
+  (getDirectRoot [this]
+    (if thread-bound
+      (if-let [tbox (vars/get-thread-binding this)]
+        (types/getVal tbox)
+        root)
+      root))
+  (selectRoot [this world-value]
+    (if thread-bound
+      (if-let [tbox (vars/get-thread-binding this)]
+        (types/getVal tbox)
+        world-value)
+      world-value))
   (getRootAt [this slot]
     ;; A Var can be marked ^:dynamic after this read site was analyzed. Keep
     ;; the same late binding-frame check as deref while retaining the resolved

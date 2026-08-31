@@ -55,6 +55,22 @@
 
 (declare analyze analyze-children analyze-call return-call return-map)
 
+#?(:clj
+   (deftype VarNode [^sci.impl.vars.IVar v
+                     ^int slot]
+     sci.impl.types/Eval
+     (eval [_ _ctx _bindings]
+       (let [^sci.impl.world.ReadWorld active
+             (.get ^ThreadLocal world/active-world)]
+         (if (or (nil? active) (.-primary? active))
+           (.getDirectRoot v)
+           (let [^sci.impl.world.DenseWorld world (.-world active)
+                 ^java.util.concurrent.atomic.AtomicReferenceArray cells
+                 @(.-cells-holder world)]
+             (.selectRoot v (.get cells slot))))))
+     sci.impl.types/Stack
+     (stack [_] nil)))
+
 ;;;; Constant children
 
 ;; A constant child carries its value at analysis time, so a consumer can read
@@ -2356,18 +2372,23 @@
                                                        (str "Can't take value of a macro: " v ""))))
                                   (let [slot (when-not (:dynamic mv)
                                                (world/slot-of (:sci.impl/world ctx) v))]
-                                    (sci.impl.types/->Node
-                                     #?(:clj (faster/deref-1 v)
-                                        :default (if (some? slot)
-                                                   (vars/getRootAt v slot)
-                                                   (faster/deref-1 v)))
-                                     nil
-                                     ;; Dynamic Vars retain binding-frame
-                                     ;; lookup. Other registered Vars resolve
-                                     ;; their dense lineage slot once here.
-                                     (if (some? slot)
-                                       [:vslot slot v]
-                                       [:vderef v])))))
+                                    #?(:clj
+                                       (if (some? slot)
+                                         (VarNode. v (int slot))
+                                         (sci.impl.types/->Node
+                                          (faster/deref-1 v) nil))
+                                       :default
+                                       (sci.impl.types/->Node
+                                        (if (some? slot)
+                                          (vars/getRootAt v slot)
+                                          (faster/deref-1 v))
+                                        nil
+                                        ;; Dynamic Vars retain binding-frame
+                                        ;; lookup. Other registered Vars resolve
+                                        ;; their dense lineage slot once here.
+                                        (if (some? slot)
+                                          [:vslot slot v]
+                                          [:vderef v]))))))
                               #?@(:clj
                                   [(:sci.impl.analyzer/interop mv)
                                    (analyze-interop ctx expr v)])

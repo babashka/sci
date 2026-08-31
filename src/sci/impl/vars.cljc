@@ -99,6 +99,8 @@
 (defprotocol IVar
   (bindRoot [this v])
   (getRawRoot [this])
+  (getDirectRoot [this])
+  (selectRoot [this world-value])
   (getRootAt [this slot])
   (toSymbol [this])
   (isMacro [this])
