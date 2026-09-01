@@ -33,6 +33,11 @@ This shape combines four useful precedents:
 - A function defined before a fork resolves Vars and SCI refs in the world
   where it is invoked, provided that world belongs to the same context
   lineage.
+- An interpreted function returned by `eval-string*`, `eval-string+`, or
+  `eval-form` is bound to the context that returned it when the host invokes it
+  directly. When invoked from evaluation in a related descendant, it selects
+  that active descendant instead. This context association is kept in a weak
+  identity registry and does not change the function's metadata.
 - Dynamic binding frames remain thread/evaluation scoped. A fork snapshots
   root bindings; it does not capture a running continuation or binding frame.
 - Hosts that suspend interpreted code can explicitly capture its dynamic
@@ -74,6 +79,15 @@ interpreter should perform that construction through
 world and dynamic binding frame, runs the supplied host thunk, and restores the
 caller afterwards. Evaluating an existing SCI context recursively does not need
 this boundary; it is specifically for creating a separate context lineage.
+
+Stable SCI Vars used directly by host code select the context in which they
+were created. Use `sci/call-with-context` to select a particular descendant
+before dereferencing or mutating an inherited Var. A Var deliberately installed
+in unrelated interpreter lineages has no unambiguous implicit home and likewise
+requires this explicit boundary. `sci/alter-var-root`, `sci/alter-var-meta!`,
+and `sci/reset-var-meta!` preserve this selection on all supported targets;
+the latter two are the portable host APIs because native ClojureScript
+metadata operations can bypass SCI's world slots.
 
 Only values directly stored in world cells are inspected. A host container that
 holds mutable children must implement the protocol and copy its own graph.
@@ -131,7 +145,10 @@ host's concrete `clojure.lang.Atom`/`cljs.core.Atom` class. It implements the
 normal dereference, atom, metadata, validator, and watch protocols, but code
 that tests the host concrete class observes this intentional representation
 difference. The split is necessary for one stable identity to select different
-state in different worlds.
+state in different worlds. Value commits and validator replacement are
+serialized per stable atom, so a validator cannot be installed concurrently
+with a value it rejects. Backing-array growth is coordinated with commits on
+the JVM so a concurrent slot mutation cannot be lost during resizing.
 
 SCI-created multimethods use the same representation tradeoff on JVM and CLJS:
 the stable `SciMultiFn` handle selects a fork-local host dispatch engine. SCI's

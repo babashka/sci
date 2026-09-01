@@ -5,11 +5,58 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [recur]]
    [sci.impl.world :as world])
-  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn wrap-this-as]])))
+  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn wrap-this-as]]))
+  #?@(:cljd []
+      :clj [(:import [java.util Collections Map WeakHashMap])]))
 
 #?(:cljd nil :clj (set! *warn-on-reflection* true))
 
 #?(:cljs (def this-as-sentinel #js {}))
+
+(def ^:private interpreted-functions
+  #?(:cljd (Expando. "sci-interpreted-functions")
+     :clj (Collections/synchronizedMap (WeakHashMap.))
+     :cljs (js/WeakMap.)))
+
+(defn- function-info [f]
+  #?(:cljd (. interpreted-functions "[]" f)
+     :clj (.get ^Map interpreted-functions f)
+     :cljs (.get interpreted-functions f)))
+
+(defn- register-function! [f info]
+  #?(:cljd (. interpreted-functions "[]=" f info)
+     :clj (.put ^Map interpreted-functions f info)
+     :cljs (.set interpreted-functions f info))
+  f)
+
+(defn interpreted-fn
+  "Mark an SCI-interpreted function so a public evaluation boundary can bind
+  it to the world from which the host obtained it."
+  [f]
+  (register-function! f ::interpreted))
+
+(defn contextualize
+  "Bind an interpreted function result to `ctx` for direct host invocation.
+  Calls made from managed SCI evaluation still select the active related
+  descendant in the generated function body."
+  [ctx value]
+  ;; Dart Expando only accepts non-primitive, non-null objects. Generated SCI
+  ;; functions are native functions on every target, so this is also a cheap
+  ;; guard before consulting any of the weak identity registries.
+  (let [info (when (fn? value) (function-info value))
+        target (:sci.impl/world ctx)]
+    (if (and target info)
+      (if (and (map? info)
+               (identical? target (:world info)))
+        value
+        (let [original (if (map? info) (:original info) value)
+              wrapped (with-meta
+                        (fn [& args]
+                          (world/call-with-context
+                           ctx #(apply original args)))
+                        (meta value))]
+          (register-function! wrapped {:original original :world target})))
+      value)))
 
 #?(:cljd
    (defmacro wrap-this-as [& body]
@@ -56,9 +103,11 @@
                              [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
                          (loop []
                            (when-not (nil? ~'interrupt-fn) (~'interrupt-fn))
-                           (let [ret# (types/eval ~'body
-                                                  ~(if forkable? 'active-ctx 'ctx)
-                                                  ~'invoc-array)]
+                           (let [ret# ~(if forkable?
+                                        `(world/call-with-context
+                                          ~'active-ctx
+                                          #(types/eval ~'body ~'active-ctx ~'invoc-array))
+                                        `(types/eval ~'body ~'ctx ~'invoc-array))]
                              (if (identical? recur# ret#)
                                (recur)
                                ret#))))))))
@@ -88,9 +137,11 @@
                              [`(aset ~(with-meta 'invoc-array #?(:cljd {:tag 'List} :default nil)) ~'vararg-idx ~varargs-param)])
                          (loop []
                            (when-not (nil? ~'interrupt-fn) (~'interrupt-fn))
-                           (let [ret# (types/eval ~'body
-                                                  ~(if forkable? 'active-ctx 'ctx)
-                                                  ~'invoc-array)]
+                           (let [ret# ~(if forkable?
+                                        `(world/call-with-context
+                                          ~'active-ctx
+                                          #(types/eval ~'body ~'active-ctx ~'invoc-array))
+                                        `(types/eval ~'body ~'ctx ~'invoc-array))]
                              (if (identical? recur# ret#)
                                (recur)
                                ret#))))))))))]
@@ -188,7 +239,9 @@
                              (recur (next args) (inc i))))
                          (loop []
                            (when-not (nil? interrupt-fn#) (interrupt-fn#))
-                           (let [ret (types/eval body active-ctx invoc-array)]
+                           (let [ret (world/call-with-context
+                                      active-ctx
+                                      #(types/eval body active-ctx invoc-array))]
                              (if (identical? recur# ret)
                                (recur)
                                ret)))))))
@@ -212,7 +265,7 @@
                              (if (identical? recur# ret)
                                (recur)
                                ret)))))))))]
-     f)))
+     (interpreted-fn f))))
 
 (defn lookup-by-arity [arities arity]
   (or (get arities arity)

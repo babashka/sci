@@ -9,7 +9,9 @@
    [sci.core :as sci]
    [sci.fork :as fork]
    [sci.test-utils :as tu]
-   #?(:cljd [sci.test-utils.macros :refer [thrown-with-data?]])))
+   #?(:cljd [sci.test-utils.macros :refer [thrown-with-data?]]))
+  #?@(:cljd []
+      :clj [(:import [java.util.concurrent CountDownLatch TimeUnit])]))
 
 #?(:cljs (def Exception js/Error))
 
@@ -1546,6 +1548,70 @@
           (is (= [2 10 1 1 21] (sci/eval-string* child "(world-value)")))
           (is (= [1 10 0 0 20] (sci/eval-string* parent "(world-value)"))))))))
 
+(deftest host-invoked-forked-function-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(def counter (atom 0))
+      (defn bump! [] (swap! counter inc))
+      (defn add! [& xs] (swap! counter + (apply + xs)))")
+    (let [child (sci/fork parent)
+          inherited (sci/eval-string* child "bump!")
+          variadic (sci/eval-string* child "add!")
+          local (sci/eval-string*
+                 child
+                 "(def local-counter (atom 10))
+                  (fn [n] (swap! local-counter + n))")]
+      (testing "a function obtained through a child retains that provenance"
+        (is (= 1 (inherited)))
+        (is (= 7 (variadic 2 4)))
+        (is (= 15 (local 5)))
+        (is (= 0 (sci/eval-string* parent "@counter")))
+        (is (= 7 (sci/eval-string* child "@counter")))
+        (is (= 15 (sci/eval-string* child "@local-counter"))))
+      (testing "the same inherited function can be contextualized independently"
+        (let [from-parent (sci/eval-string* parent "bump!")]
+          (is (= 1 (from-parent)))
+          (is (= 1 (sci/eval-string* parent "@counter")))
+          (is (= 7 (sci/eval-string* child "@counter"))))))))
+
+(deftest host-mutated-forked-var-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string* parent "(def x 1)")
+    (let [old-child (sci/fork parent)
+          v (sci/eval-string* parent "#'x")]
+      (sci/alter-var-root v inc)
+      (sci/alter-var-meta! v assoc :home true)
+      (let [sibling (sci/fork parent)]
+        (testing "host mutations update the Var home copied by later forks"
+          (is (= [2 true] (sci/eval-string* parent "[x (:home (meta #'x))]")))
+          (is (= [2 true] (sci/eval-string* sibling "[x (:home (meta #'x))]")))
+          (is (= [1 nil] (sci/eval-string* old-child "[x (:home (meta #'x))]")))))
+      (let [events (atom [])]
+        (sci/call-with-context
+         old-child
+         #(do (add-watch v :child
+                         (fn [_ _ old new] (swap! events conj [old new])))
+              (sci/alter-var-root v + 9)
+              (sci/alter-var-meta! v assoc :child true)))
+        (let [grandchild (sci/fork old-child)]
+          (testing "an explicit host context selects a child independently"
+            (is (= [[1 10]] @events))
+            (is (= [2 true nil]
+                   (sci/eval-string* parent
+                                     "[x (:home (meta #'x)) (:child (meta #'x))]")))
+            (is (= [10 nil true]
+                   (sci/eval-string* old-child
+                                     "[x (:home (meta #'x)) (:child (meta #'x))]")))
+            (is (= [10 nil true]
+                   (sci/eval-string* grandchild
+                                     "[x (:home (meta #'x)) (:child (meta #'x))]"))))))
+      (let [child-var (sci/eval-string* old-child "(def child-only 9) #'child-only")]
+        (testing "a child-created Var uses its creation world outside evaluation"
+          (is (= 9 @child-var))
+          (is (= 10 (sci/alter-var-root child-var inc)))
+          (is (= 10 (sci/eval-string* old-child "child-only"))))))))
+
 (deftest first-fork-realizes-mutable-primary-test
   (let [parent (tu/forkable-init nil)]
     (sci/eval-string*
@@ -1612,6 +1678,44 @@
              (sci/eval-string* parent "[@a @events]")))
       (is (= [6 [[:inherited 2 4] [:child 4 6]]]
              (sci/eval-string* child "[@a @events]"))))))
+
+#?(:cljd nil :clj
+   (deftest forked-atom-validator-linearization-test
+     (let [ctx (tu/forkable-init nil)
+           a (sci/eval-string* ctx "(atom 0)")
+           setter-entered (CountDownLatch. 1)
+           reset-finished (CountDownLatch. 1)
+           candidate (fn [value]
+                       (when (zero? value)
+                         (.countDown setter-entered)
+                         (.await reset-finished 2 TimeUnit/SECONDS))
+                       (not (neg? value)))
+           setter (future (set-validator! a candidate))]
+       (is (.await setter-entered 2 TimeUnit/SECONDS))
+       (let [resetter (future
+                        (try
+                          (reset! a -1)
+                          :accepted
+                          (catch IllegalStateException _ :rejected)
+                          (finally (.countDown reset-finished))))]
+         (is (nil? @setter))
+         (is (= :rejected @resetter))
+         (is (= 0 @a))
+         (is ((get-validator a) @a))))))
+
+#?(:cljd nil :clj
+   (deftest concurrent-cell-growth-preserves-mutations-test
+     (let [ctx (tu/forkable-init nil)
+           hot (sci/eval-string* ctx "(atom 0)")
+           updates 50000
+           updater (future (dotimes [_ updates] (swap! hot inc)))
+           grower (future
+                    (sci/eval-string*
+                     ctx
+                     "(dotimes [i 10000] (atom i))"))]
+       @updater
+       @grower
+       (is (= updates @hot)))))
 
 (deftest forked-memoize-cache-test
   (let [parent (tu/forkable-init nil)]

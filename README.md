@@ -588,6 +588,13 @@ Full runtime forking is opt-in. Initialize the shared context with
 `:runtime-mode :forkable`; the default `:standard` mode retains SCI's original
 direct hot paths and `sci/fork` only copies the namespace environment.
 
+Values returned across the host boundary retain their world semantics:
+interpreted functions returned by the public evaluation APIs execute in the
+context that returned them, and stable SCI Vars use their creation world when
+called directly by the host. Use `sci/call-with-context` to select a descendant
+explicitly, and use `sci/alter-var-meta!` / `sci/reset-var-meta!` for portable
+fork-aware Var metadata mutation.
+
 Forkable mode snapshots the roots and metadata of existing SCI vars and the
 values of atoms and volatiles created inside SCI. The handles keep their
 identity, so aliases and functions defined before the fork resolve against the

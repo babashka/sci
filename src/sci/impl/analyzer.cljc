@@ -424,7 +424,7 @@
              (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                    self-ref-in-enclosed-idx
                    f))
-           f)
+           (fns/interpreted-fn f))
          nil)]
     #?(:cljs
        ;; fn-creation ast: the emitter builds the enclosed array from its
@@ -651,7 +651,7 @@
                           (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                                 self-ref-in-enclosed-idx
                                 f))
-                        f)
+                        (fns/interpreted-fn f))
                       nil)))
         tag (:tag fn-expr-m)
         arglists (when defn-name (:arglists analyzed-bodies))]

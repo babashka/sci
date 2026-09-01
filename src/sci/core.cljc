@@ -16,6 +16,7 @@
    [sci.fork :as fork]
    [sci.impl.callstack :as cs]
    [sci.impl.execution :as execution]
+   [sci.impl.fns :as fns]
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
@@ -69,6 +70,13 @@
   [f]
   (store/with-ctx nil
     (execution/call-with-detached-state f)))
+
+(defn call-with-context
+  "Invoke zero-argument host thunk `f` with `ctx` selected. Embeddings use
+  this boundary when a stable inherited value must be read or mutated in a
+  particular forked world."
+  [ctx f]
+  (world/call-with-context ctx f))
 
 (defn set!
   "Establish thread local binding of dynamic var"
@@ -288,13 +296,53 @@
   "Atomically alters the root binding of sci var v by applying f to its
   current value plus any args."
   ([v f]
-   (let [ctx (assoc store/*ctx* :unrestricted true)]
-     (store/with-ctx ctx
-       (world/with-active-world ctx #(vars/alter-var-root v f)))))
+   (world/call-with-var-context
+    v
+    (fn []
+      (let [ctx (assoc store/*ctx* :unrestricted true)]
+        (store/with-ctx ctx
+          (world/with-active-world ctx #(vars/alter-var-root v f)))))))
   ([v f & args]
-   (let [ctx (assoc store/*ctx* :unrestricted true)]
-     (store/with-ctx ctx
-       (world/with-active-world ctx #(apply vars/alter-var-root v f args))))))
+   (world/call-with-var-context
+    v
+    (fn []
+      (let [ctx (assoc store/*ctx* :unrestricted true)]
+        (store/with-ctx ctx
+          (world/with-active-world
+           ctx #(apply vars/alter-var-root v f args))))))))
+
+(defn alter-var-meta!
+  "Atomically alter metadata for SCI Var `v` in its home world, or in the
+  world selected by `call-with-context`. This is the portable host boundary;
+  ClojureScript's native `alter-meta!` writes object fields directly."
+  [v f & args]
+  (world/call-with-var-context
+   v
+   (fn []
+     (let [current (meta v)]
+       (vars/with-writeable-var v current
+         (if (world/current-world)
+           (let [m (world/alter-var-meta! v current f args)]
+             (when (world/primary-world?)
+               (utils/reset-meta!* v m))
+             m)
+           (apply #?(:cljd utils/alter-meta!* :default c/alter-meta!)
+                  v f args)))))))
+
+(defn reset-var-meta!
+  "Reset metadata for SCI Var `v` in its home or explicitly selected world."
+  [v m]
+  (world/call-with-var-context
+   v
+   (fn []
+     (let [current (meta v)]
+       (vars/with-writeable-var v current
+         (if (world/current-world)
+           (do (world/reset-var-meta! v m)
+               (when (world/primary-world?)
+                 (utils/reset-meta!* v m))
+               m)
+           (utils/reset-meta!* v m)))))))
 
 (defn intern
   "Finds or creates a sci var named by the symbol name in the namespace
@@ -401,7 +449,7 @@
   "Evaluates string `s` in the context of `ctx` (as produced with
   `init`)."
   [ctx s]
-  (sci.impl.interpreter/eval-string* ctx s))
+  (fns/contextualize ctx (sci.impl.interpreter/eval-string* ctx s)))
 
 (defn eval-string+
   "Evaluates string `s` in the context of `ctx` (as produced with
@@ -416,7 +464,9 @@
   ([ctx s]
    (eval-string+ ctx s nil))
   ([ctx s opts]
-   (sci.impl.interpreter/eval-string* ctx s (assoc opts :sci.impl/eval-string+ true))))
+   (update (sci.impl.interpreter/eval-string*
+            ctx s (assoc opts :sci.impl/eval-string+ true))
+           :val #(fns/contextualize ctx %))))
 
 (defn create-ns
   "Creates namespace object. Can be used in var metadata."
@@ -472,7 +522,7 @@
   `sci/with-bindings.`"
   [ctx form]
   (let [ctx (assoc ctx :id (or (:id ctx) (gensym)))]
-    (i/eval-form ctx form)))
+    (fns/contextualize ctx (i/eval-form ctx form))))
 
 (defn stacktrace
   "Returns list of stacktrace element maps from exception, if available."
