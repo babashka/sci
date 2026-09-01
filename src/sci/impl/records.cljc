@@ -437,6 +437,7 @@
         keys (mapv keyword fields)
         key-set (set keys)
         field-set (set fields)
+        field-map (zipmap keys fields)
         nil-map (zipmap (map keyword field-set) (repeat nil))
         protocol-impls (utils/split-when symbol? raw-protocol-impls)
         interfaces (mapv first protocol-impls)
@@ -456,13 +457,17 @@
                                           ~record-name
                                           ~key-set
                                           ~record-name
-                                          (cond-> (zipmap ~keys ~fields)
+                                          (cond-> ~field-map
                                             ext# (merge ext#)
                                             meta# (with-meta meta#)))))
        (defn ~(with-meta factory-fn-sym
                 {:doc (str "Positional factory function for class " class-name ".")})
          (~fields
-          (~constructor-fn-sym ~@fields nil nil)))
+          (sci.impl.records/->record-impl ~rec-type
+                                          ~record-name
+                                          ~key-set
+                                          ~record-name
+                                          ~field-map)))
        (defn ~(with-meta map-factory-sym
                 {:doc (str "Factory function for class " class-name ", taking a map of keywords to field values.")})
          [m#]

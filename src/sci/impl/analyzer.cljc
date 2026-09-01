@@ -2232,10 +2232,52 @@
           :cljs #(.createWithCheck PersistentHashMap (into-array %&))
           :default hash-map))))
 
-(defn return-map [ctx the-map analyzed-children]
-  (let [mf (map-fn (count analyzed-children))
-        node (return-call ctx the-map mf analyzed-children nil nil)]
-    (t/attach-ast node [:call-direct mf analyzed-children nil])))
+#?(:clj
+   (defmacro ^:private literal-node
+     "Node that evaluates the children into an Object[] and passes it to
+     make, a static factory method."
+     [analyzed-children make]
+     (let [nodes (with-meta (gensym "nodes") {:tag 'objects})]
+       `(let [~nodes (into-array Object ~analyzed-children)
+              n# (alength ~nodes)]
+          (sci.impl.types/->Node
+           (try
+             (let [arr# (object-array n#)]
+               (loop [i# 0]
+                 (when (< i# n#)
+                   (aset arr# i# (t/eval (aget ~nodes i#) ~'ctx ~'bindings))
+                   (recur (unchecked-inc i#))))
+               (~make arr#))
+             (catch Throwable e#
+               (rethrow-with-location-of-node ~'ctx ~'bindings e# ~'this)))
+           nil)))))
+
+#?(:clj
+   (defn return-map [_ctx the-map analyzed-children]
+     (let [node (if (<= (count analyzed-children) 16)
+                  (literal-node analyzed-children clojure.lang.PersistentArrayMap/createWithCheck)
+                  (literal-node analyzed-children clojure.lang.PersistentHashMap/createWithCheck))
+           tag (:tag (meta the-map))]
+       (cond-> node tag (with-meta {:tag tag}))))
+   :default
+   (defn return-map [ctx the-map analyzed-children]
+     (let [mf (map-fn (count analyzed-children))
+           node (return-call ctx the-map mf analyzed-children nil nil)]
+       (t/attach-ast node [:call-direct mf analyzed-children nil]))))
+
+#?(:clj
+   (defn return-coll
+     "Node for a vector or set literal that is not constant."
+     [_ctx expr _f set-expr? analyzed-children]
+     (let [node (if set-expr?
+                  (literal-node analyzed-children clojure.lang.PersistentHashSet/createWithCheck)
+                  (literal-node analyzed-children clojure.lang.LazilyPersistentVector/createOwning))
+           tag (:tag (meta expr))]
+       (cond-> node tag (with-meta {:tag tag}))))
+   :default
+   (defn return-coll [ctx expr f _set-expr? analyzed-children]
+     (let [node (return-call ctx expr f analyzed-children nil nil)]
+       (t/attach-ast node [:call-direct f analyzed-children nil]))))
 
 (defn constant-node? [x]
   #?(:cljd (not (t/eval-node? x))
@@ -2300,8 +2342,7 @@
                       (f1 analyzed-children)))
         analyzed-coll (if const?
                         (->constant const-val)
-                        (let [node (return-call ctx expr f2 analyzed-children nil nil)]
-                          (t/attach-ast node [:call-direct f2 analyzed-children nil])))
+                        (return-coll ctx expr f2 set-expr? analyzed-children))
         ret (if analyzed-meta
               (sci.impl.types/->Node
                (let [coll (t/eval analyzed-coll ctx bindings)
