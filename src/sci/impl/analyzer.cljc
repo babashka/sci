@@ -412,6 +412,9 @@
 (defn single-arity-fn [bindings-fn fn-body fn-name self-ref-in-enclosed-idx self-ref? nsm fn-meta macro?
                        #?@(:cljs [capture-pairs enclosed-array-cnt])]
   (let [maker (fn-body-maker fn-body fn-name nsm macro?)
+        fixed-arity (:fixed-arity fn-body)
+        vararg-idx (:vararg-idx fn-body)
+        fn-shape {:variadic (when vararg-idx fixed-arity)}
         node
         (sci.impl.types/->Node
          (let [enclosed-array (bindings-fn bindings)
@@ -430,7 +433,7 @@
              (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                    self-ref-in-enclosed-idx
                    f))
-           (fns/interpreted-fn f))
+           (fns/interpreted-fn f fn-shape))
          nil)]
     #?(:cljs
        ;; fn-creation ast: the emitter builds the enclosed array from its
@@ -620,6 +623,7 @@
                          variadic-maker (when variadic-body
                                           (fn-body-maker variadic-body fn-name nsm macro?))
                          variadic-min (when variadic-body (:fixed-arity variadic-body))
+                         fn-shape {:variadic variadic-min}
                          mk (fn [ctx enclosed-array]
                               ;; indexed by arg count
                               (let [fixed-fns #?(:cljd (#/(List/filled dynamic) fixed-cnt nil)
@@ -648,7 +652,7 @@
                           (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                                 self-ref-in-enclosed-idx
                                 f))
-                        (fns/interpreted-fn f))
+                        (fns/interpreted-fn f fn-shape))
                       nil)]
                      #?(:cljs
                         ;; same fn-creation ast as single-arity-fn
@@ -662,7 +666,7 @@
                                         (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
                                       ;; the dispatch fn is not made by fns/fun,
                                       ;; mark it like the interpreted node does
-                                      (fns/interpreted-fn f)))
+                                      (fns/interpreted-fn f fn-shape)))
                             capture-pairs enclosed-array-cnt]))
                         :default node)))
         tag (:tag fn-expr-m)

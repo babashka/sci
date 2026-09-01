@@ -14,7 +14,7 @@
 
 (def absent #?(:cljd (Object.) :clj (Object.) :cljs (js/Object.)))
 
-(deftype DenseWorld [cells-holder registry gate persistent?])
+(deftype DenseWorld [cells-holder registry gate resize-gate persistent?])
 (deftype ReadWorld [world primary?])
 
 (defprotocol IWorldTracked
@@ -67,9 +67,18 @@
 (defn- current-cells [^DenseWorld world]
   @(.-cells-holder world))
 
-(defn- with-cells-lock [^DenseWorld world f]
+(defn- with-cells-read-lock [^DenseWorld world f]
   #?(:cljd (f)
-     :clj (locking (.-cells-holder world) (f))
+     :clj (let [lock (.readLock ^ReentrantReadWriteLock (.-resize-gate world))]
+            (.lock lock)
+            (try (f) (finally (.unlock lock))))
+     :cljs (f)))
+
+(defn- with-cells-write-lock [^DenseWorld world f]
+  #?(:cljd (f)
+     :clj (let [lock (.writeLock ^ReentrantReadWriteLock (.-resize-gate world))]
+            (.lock lock)
+            (try (f) (finally (.unlock lock))))
      :cljs (f)))
 
 (defn- with-coordination [coordination f]
@@ -85,8 +94,8 @@
 (defn- ensure-capacity! [^DenseWorld world required]
   (let [holder (.-cells-holder world)]
     (when (> required (cells-length @holder))
-      (with-registry-lock
-        holder
+      (with-cells-write-lock
+        world
         (fn []
           (let [old @holder
                 old-n (cells-length old)]
@@ -103,6 +112,7 @@
   (DenseWorld.
    (volatile! (new-cells 64))
    (atom {:next-slot 0 :descriptors {} :managed-descriptors []})
+   #?(:cljd nil :clj (ReentrantReadWriteLock.) :cljs nil)
    #?(:cljd nil :clj (ReentrantReadWriteLock.) :cljs nil)
    (volatile! false)))
 
@@ -355,7 +365,7 @@
                                   (update :managed-descriptors conj desc))))
                      desc)))]
       (ensure-capacity! world (:next-slot @registry))
-      (with-cells-lock
+      (with-cells-read-lock
         world
         #(doseq [[slot value] (map vector (:slots desc) values)]
            (cells-set! (current-cells world) slot value)))
@@ -438,8 +448,11 @@
   "CAS a directly described slot. The logical fallback represents a slot
   allocated in another branch but not yet realized in the selected world."
   ([home registry slot f args validate! notify!]
-   (managed-swap! home registry slot f args validate! notify! nil))
+   (managed-swap! home registry slot f args validate! notify! nil nil))
   ([home registry slot f args validate! notify! coordination]
+   (managed-swap! home registry slot f args validate! notify!
+                  coordination nil))
+  ([home registry slot f args validate! notify! coordination validation-current?]
    (call-with-managed-mutation
     home registry
     (fn [^DenseWorld world]
@@ -451,20 +464,22 @@
                     (slot-value home slot absent)
                     raw-old)
               new (if (nil? args) (f old) (apply f old args))
+              validation (validate! world new)
               committed
               (with-coordination
                 coordination
-                #(with-cells-lock
+                #(with-cells-read-lock
                    world
                    (fn []
                      (let [cells (current-cells world)
                            current (cells-get cells slot)]
-                       (if-not (identical? current raw-old)
+                       (if (or (not (identical? current raw-old))
+                               (and validation-current?
+                                    (not (validation-current? world validation))))
                          ::retry
-                         (let [validation (validate! world new)]
-                           (if (cells-cas! cells slot current new)
-                             [validation old new]
-                             ::retry)))))))]
+                         (if (cells-cas! cells slot current new)
+                           [validation old new]
+                           ::retry))))))]
           (if (identical? ::retry committed)
             (recur)
             (let [[validation old new] committed]
@@ -473,10 +488,12 @@
 
 (defn managed-reset!
   ([home registry slot new validate! notify!]
-   (managed-reset! home registry slot new validate! notify! nil))
+   (managed-reset! home registry slot new validate! notify! nil nil))
   ([home registry slot new validate! notify! coordination]
+   (managed-reset! home registry slot new validate! notify! coordination nil))
+  ([home registry slot new validate! notify! coordination validation-current?]
    (managed-swap! home registry slot (constantly new) nil
-                  validate! notify! coordination)))
+                  validate! notify! coordination validation-current?)))
 
 (defn managed-assoc!
   "Associate one key in a managed persistent-map slot without the generic
@@ -486,7 +503,7 @@
    home registry
    (fn [^DenseWorld world]
      (ensure-capacity! world (inc slot))
-     (with-cells-lock
+     (with-cells-read-lock
        world
        #(loop []
           (let [cells (current-cells world)
@@ -502,34 +519,45 @@
 (defn managed-compare-and-set!
   ([home registry slot expected new validate! notify!]
    (managed-compare-and-set! home registry slot expected new
-                             validate! notify! nil))
+                             validate! notify! nil nil))
   ([home registry slot expected new validate! notify! coordination]
+   (managed-compare-and-set! home registry slot expected new
+                             validate! notify! coordination nil))
+  ([home registry slot expected new validate! notify! coordination validation-current?]
    (call-with-managed-mutation
     home registry
     (fn [^DenseWorld world]
       (ensure-capacity! world (inc slot))
-      (let [result
-            (with-coordination
-              coordination
-              #(with-cells-lock
-                 world
-                 (fn []
-                   (let [cells (current-cells world)
-                         raw-old (cells-get cells slot)
-                         old (if (identical? absent raw-old)
-                               (slot-value home slot absent)
-                               raw-old)]
-                     (if-not (identical? expected old)
-                       false
-                       (let [validation (validate! world new)]
-                         (if (cells-cas! cells slot raw-old new)
-                           [validation old new]
-                           false)))))))]
-        (if (vector? result)
-          (let [[validation old new] result]
-            (notify! world validation old new)
-            true)
-          false))))))
+      (let [[raw-old old]
+            (with-cells-read-lock
+              world
+              #(let [raw-old (cells-get (current-cells world) slot)]
+                 [raw-old (if (identical? absent raw-old)
+                            (slot-value home slot absent)
+                            raw-old)]))]
+        (if-not (identical? expected old)
+          false
+          (let [validation (validate! world new)
+                result
+                (with-coordination
+                  coordination
+                  #(with-cells-read-lock
+                     world
+                     (fn []
+                       (let [cells (current-cells world)]
+                         (if (or (not (identical? raw-old
+                                                 (cells-get cells slot)))
+                                 (and validation-current?
+                                      (not (validation-current? world validation))))
+                           false
+                           (if (cells-cas! cells slot raw-old new)
+                             [validation old new]
+                             false))))))]
+            (if (vector? result)
+              (let [[validation old new] result]
+                (notify! world validation old new)
+                true)
+              false))))))))
 
 (defn managed-update-control-with-value!
   "Atomically validate the selected value and update a related control slot.
@@ -540,33 +568,37 @@
    (fn [^DenseWorld world]
      (ensure-capacity! world (inc (max value-slot control-slot)))
      (loop []
-       (let [result
+       (let [{:keys [raw-value raw-control value control]}
+             (with-cells-read-lock
+               world
+               #(let [cells (current-cells world)
+                      raw-value (cells-get cells value-slot)
+                      raw-control (cells-get cells control-slot)]
+                  {:raw-value raw-value
+                   :raw-control raw-control
+                   :value (if (identical? absent raw-value)
+                            (slot-value home value-slot absent)
+                            raw-value)
+                   :control (if (identical? absent raw-control)
+                              (slot-value home control-slot absent)
+                              raw-control)}))
+             _ (validate-value! value)
+             result
              (with-coordination
                coordination
-               #(with-cells-lock
+               #(with-cells-read-lock
                   world
                   (fn []
-                    (let [cells (current-cells world)
-                          raw-value (cells-get cells value-slot)
-                          raw-control (cells-get cells control-slot)
-                          value (if (identical? absent raw-value)
-                                  (slot-value home value-slot absent)
-                                  raw-value)
-                          control (if (identical? absent raw-control)
-                                    (slot-value home control-slot absent)
-                                    raw-control)]
-                      (validate-value! value)
-                      ;; A validator can reentrantly mutate its own atom.
-                      (let [cells-now (current-cells world)]
-                        (if (or (not (identical? raw-value
-                                                (cells-get cells-now value-slot)))
-                                (not (identical? raw-control
-                                                (cells-get cells-now control-slot))))
-                          ::retry
-                          (if (cells-cas! cells-now control-slot raw-control
-                                          (update-control control))
-                            ::committed
-                            ::retry)))))))]
+                    (let [cells (current-cells world)]
+                      (if (or (not (identical? raw-value
+                                              (cells-get cells value-slot)))
+                              (not (identical? raw-control
+                                              (cells-get cells control-slot))))
+                        ::retry
+                        (if (cells-cas! cells control-slot raw-control
+                                        (update-control control))
+                          ::committed
+                          ::retry))))))]
          (if (identical? ::retry result)
            (recur)
            nil))))))
@@ -579,7 +611,7 @@
      (let [{:keys [value-slot]}
            (allocate-descriptor! world handle :ref true value-fork-fn)]
        (ensure-capacity! world (inc value-slot))
-       (with-cells-lock
+       (with-cells-read-lock
          world #(cells-set! (current-cells world) value-slot value))))
    handle))
 
@@ -613,7 +645,7 @@
            (allocate-descriptor! world handle :var (not (:sci/built-in m))
                                  (:sci.impl/fork-fn m))]
        (ensure-capacity! world (inc meta-slot))
-       (with-cells-lock
+       (with-cells-read-lock
          world
          #(let [cells (current-cells world)]
             (cells-set! cells value-slot value)
@@ -622,7 +654,7 @@
            (let [{:keys [watch-slot]}
                (allocate-var-watch-slot! world handle watches)]
            (ensure-capacity! world (inc watch-slot))
-           (with-cells-lock
+           (with-cells-read-lock
              world #(cells-set! (current-cells world) watch-slot watches))))))
    handle))
 
@@ -631,7 +663,7 @@
     (let [{:keys [value-slot]}
           (allocate-descriptor! world handle :namespace false nil)]
       (ensure-capacity! world (inc value-slot))
-      (with-cells-lock
+      (with-cells-read-lock
         world
         #(let [cells (current-cells world)]
            (when (identical? absent (cells-get cells value-slot))
@@ -646,7 +678,7 @@
      (let [{:keys [value-slot]}
            (allocate-descriptor! world handle :type false value-fork-fn)]
        (ensure-capacity! world (inc value-slot))
-       (with-cells-lock
+       (with-cells-read-lock
          world
          #(let [cells (current-cells world)]
             (when (identical? absent (cells-get cells value-slot))
@@ -658,7 +690,7 @@
     ::no-world
     (do
       (ensure-capacity! world (inc slot))
-      (with-cells-lock
+      (with-cells-read-lock
         world #(cells-set! (current-cells world) slot value)))))
 
 (defn reset-value! [handle value]
@@ -698,7 +730,7 @@
                                                         (not (:sci/built-in fallback))
                                                         (:sci.impl/fork-fn fallback)))]
       (ensure-capacity! world (inc meta-slot))
-      (with-cells-lock
+      (with-cells-read-lock
         world
         #(loop []
            (let [cells (current-cells world)
@@ -714,7 +746,7 @@
           (or (descriptor world handle)
               (allocate-descriptor! world handle :namespace false nil))]
       (ensure-capacity! world (inc value-slot))
-      (with-cells-lock
+      (with-cells-read-lock
         world
         #(loop []
            (let [cells (current-cells world)
@@ -730,7 +762,7 @@
           (or (descriptor world handle)
               (allocate-descriptor! world handle :type false nil))]
       (ensure-capacity! world (inc value-slot))
-      (with-cells-lock
+      (with-cells-read-lock
         world
         #(loop []
            (let [cells (current-cells world)
@@ -745,7 +777,7 @@
     (let [{:keys [watch-slot]}
           (allocate-var-watch-slot! world handle fallback)]
       (ensure-capacity! world (inc watch-slot))
-      (with-cells-lock
+      (with-cells-read-lock
         world
         #(loop []
            (let [cells (current-cells world)
@@ -765,7 +797,7 @@
       (let [cells (current-cells world)
             old (cells-get cells slot)
             new (apply f old args)
-            committed (with-cells-lock
+            committed (with-cells-read-lock
                         world
                         #(let [cells (current-cells world)]
                            (if-not (identical? old (cells-get cells slot))
@@ -783,7 +815,7 @@
 (defn compare-and-set-tracked! [handle expected new validate! notify!]
   (let [^DenseWorld world (current-world)
         slot (:value-slot (descriptor world handle))
-        result (with-cells-lock
+        result (with-cells-read-lock
                  world
                  #(let [cells (current-cells world)
                         old (cells-get cells slot)]
@@ -847,6 +879,7 @@
         target-world (DenseWorld.
                       (volatile! target)
                       registry
+                      #?(:cljd nil :clj (ReentrantReadWriteLock.) :cljs nil)
                       #?(:cljd nil :clj (ReentrantReadWriteLock.) :cljs nil)
                       (volatile! true))]
     (dotimes [i logical-n]

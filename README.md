@@ -590,7 +590,8 @@ direct hot paths and `sci/fork` only copies the namespace environment.
 
 Values returned across the host boundary retain their world semantics:
 interpreted functions returned by the public evaluation APIs execute in the
-context that returned them, and stable SCI Vars use their creation world when
+context that returned them, including higher-order results and functions nested
+in finite persistent containers. Stable SCI Vars use their creation world when
 called directly by the host. Use `sci/call-with-context` to select a descendant
 explicitly, and use `sci/alter-var-meta!` / `sci/reset-var-meta!` for portable
 fork-aware Var metadata mutation.
