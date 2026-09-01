@@ -414,7 +414,9 @@
   (let [maker (fn-body-maker fn-body fn-name nsm macro?)
         fixed-arity (:fixed-arity fn-body)
         vararg-idx (:vararg-idx fn-body)
-        fn-shape {:variadic (when vararg-idx fixed-arity)}
+        fn-shape {:variadic (when vararg-idx fixed-arity)
+                  :fixed-many? (and (nil? vararg-idx)
+                                    (> fixed-arity 20))}
         node
         (sci.impl.types/->Node
          (let [enclosed-array (bindings-fn bindings)
@@ -623,7 +625,10 @@
                          variadic-maker (when variadic-body
                                           (fn-body-maker variadic-body fn-name nsm macro?))
                          variadic-min (when variadic-body (:fixed-arity variadic-body))
-                         fn-shape {:variadic variadic-min}
+                         fn-shape {:variadic variadic-min
+                                   :fixed-many? (boolean
+                                                 (some #(> (:fixed-arity %) 20)
+                                                       fixed-bodies))}
                          mk (fn [ctx enclosed-array]
                               ;; indexed by arg count
                               (let [fixed-fns #?(:cljd (#/(List/filled dynamic) fixed-cnt nil)
