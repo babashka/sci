@@ -117,10 +117,22 @@
   ;; marker interface, clj only for now
   #?@(:cljd [] :clj [sci.lang.IVar])
   world/IWorldTracked
-  (-world-tracked? [_] world-tracked)
-  (-mark-world-tracked! [this]
-    #?(:cljd (set! world-tracked true)
-       :default (set! (.-world-tracked this) true))
+  (-world-tracked? [_] (boolean world-tracked))
+  (-world-home-ctx [_] (when (map? world-tracked) world-tracked))
+  (-mark-world-tracked! [this home-ctx]
+    (let [current world-tracked]
+      (when (and (map? current)
+                 home-ctx
+                 (not (identical? (:sci.impl/lineage current)
+                                  (:sci.impl/lineage home-ctx))))
+        ;; A stable host/built-in Var can be installed in unrelated contexts.
+        ;; It then has no unambiguous implicit home; callers select a world
+        ;; explicitly with sci/call-with-context.
+        #?(:cljd (set! world-tracked true)
+           :default (set! (.-world-tracked this) true)))
+      (when-not current
+        #?(:cljd (set! world-tracked (or home-ctx true))
+           :default (set! (.-world-tracked this) (or home-ctx true)))))
     true)
   types/HasName
   (getName [this]
@@ -255,37 +267,80 @@
   ;;   (hash-symbol sym))
   #?@(:cljd [] :clj [clojure.lang.IReference
                      (alterMeta [this f args]
-                                (let [current-meta (world/var-meta this meta)]
-                                  (vars/with-writeable-var this current-meta
-                                    (locking this
-                                      (if (world/current-world)
-                                        (let [m (world/alter-var-meta! this current-meta f args)]
-                                          (when (world/primary-world?)
-                                            (set! meta m))
-                                          m)
-                                        (set! meta (apply f meta args)))))))
+                                (world/call-with-var-context
+                                 this
+                                 (fn []
+                                   (let [current-meta (world/var-meta this meta)]
+                                     (vars/with-writeable-var this current-meta
+                                       (locking this
+                                         (if (world/current-world)
+                                           (let [m (world/alter-var-meta! this current-meta f args)]
+                                             (when (world/primary-world?)
+                                               (set! (.-meta this) m))
+                                             m)
+                                           (set! (.-meta this) (apply f meta args)))))))))
                      (resetMeta [this m]
-                                (let [current-meta (world/var-meta this meta)]
-                                  (vars/with-writeable-var this current-meta
-                                    (locking this
-                                      (if (world/current-world)
-                                        (do (world/reset-var-meta! this m)
-                                            (when (world/primary-world?)
-                                              (set! meta m))
-                                            m)
-                                        (set! meta m))))))])
+                                (world/call-with-var-context
+                                 this
+                                 (fn []
+                                   (let [current-meta (world/var-meta this meta)]
+                                     (vars/with-writeable-var this current-meta
+                                       (locking this
+                                         (if (world/current-world)
+                                           (do (world/reset-var-meta! this m)
+                                               (when (world/primary-world?)
+                                                 (set! (.-meta this) m))
+                                               m)
+                                           (set! (.-meta this) m))))))))])
   #?@(:cljd [types/IResetMeta
              (-reset-meta! [this m]
-               (let [current-meta (world/var-meta this meta)]
-                 (vars/with-writeable-var this current-meta
-                   (if (world/current-world)
-                     (do (world/reset-var-meta! this m)
-                         (when (world/primary-world?)
-                           (set! meta m))
-                         m)
-                     (set! meta m)))))
+               (world/call-with-var-context
+                this
+                (fn []
+                  (let [current-meta (world/var-meta this meta)]
+                    (vars/with-writeable-var this current-meta
+                      (if (world/current-world)
+                        (do (world/reset-var-meta! this m)
+                            (when (world/primary-world?)
+                              (set! (.-meta this) m))
+                            m)
+                        (set! (.-meta this) m)))))))
              IWatchable
-             (-add-watch [this key fn]
+             (-add-watch [this key watch-fn]
+                         (world/call-with-var-context
+                          this
+                          (fn []
+                            (let [current-meta (world/var-meta this meta)]
+                              (vars/with-writeable-var this current-meta
+                                (if (world/current-world)
+                                  (do
+                                    (when-not (world/tracked? this)
+                                      (world/register-var!
+                                       this root current-meta watches))
+                                    (world/alter-var-watches!
+                                     this watches assoc [key watch-fn]))
+                                  (set! (.-watches this) (assoc watches key watch-fn)))))))
+                         this)
+             (-remove-watch [this key]
+                            (world/call-with-var-context
+                             this
+                             (fn []
+                               (let [current-meta (world/var-meta this meta)]
+                                 (vars/with-writeable-var this current-meta
+                                   (if (world/current-world)
+                                     (do
+                                       (when-not (world/tracked? this)
+                                         (world/register-var!
+                                          this root current-meta watches))
+                                       (world/alter-var-watches!
+                                        this watches dissoc [key]))
+                                     (set! (.-watches this) (dissoc watches key)))))))
+                            this)]
+      :clj [clojure.lang.IRef
+            (addWatch [this key watch-fn]
+                      (world/call-with-var-context
+                       this
+                       (fn []
                          (let [current-meta (world/var-meta this meta)]
                            (vars/with-writeable-var this current-meta
                              (if (world/current-world)
@@ -294,10 +349,13 @@
                                    (world/register-var!
                                     this root current-meta watches))
                                  (world/alter-var-watches!
-                                  this watches assoc [key fn]))
-                               (set! watches (assoc watches key fn)))))
-                         this)
-             (-remove-watch [this key]
+                                  this watches assoc [key watch-fn]))
+                               (set! (.-watches this) (assoc watches key watch-fn)))))))
+                      this)
+            (removeWatch [this key]
+                         (world/call-with-var-context
+                          this
+                          (fn []
                             (let [current-meta (world/var-meta this meta)]
                               (vars/with-writeable-var this current-meta
                                 (if (world/current-world)
@@ -307,47 +365,13 @@
                                        this root current-meta watches))
                                     (world/alter-var-watches!
                                      this watches dissoc [key]))
-                                  (set! watches (dissoc watches key)))))
-                            this)]
-      :clj [clojure.lang.IRef
-            (addWatch [this key fn]
-                      (let [current-meta (world/var-meta this meta)]
-                        (vars/with-writeable-var this current-meta
-                          (if (world/current-world)
-                            (do
-                              (when-not (world/tracked? this)
-                                (world/register-var!
-                                 this root current-meta watches))
-                              (world/alter-var-watches!
-                               this watches assoc [key fn]))
-                            (set! watches (assoc watches key fn)))))
-                      this)
-            (removeWatch [this key]
-                         (let [current-meta (world/var-meta this meta)]
-                           (vars/with-writeable-var this current-meta
-                             (if (world/current-world)
-                               (do
-                                 (when-not (world/tracked? this)
-                                   (world/register-var!
-                                    this root current-meta watches))
-                                 (world/alter-var-watches!
-                                  this watches dissoc [key]))
-                               (set! watches (dissoc watches key)))))
+                                  (set! (.-watches this) (dissoc watches key)))))))
                          this)]
       :cljs [IWatchable
-            (-add-watch [this key fn]
-                        (let [current-meta (world/var-meta this meta)]
-                          (vars/with-writeable-var this current-meta
-                            (if (world/current-world)
-                              (do
-                                (when-not (world/tracked? this)
-                                  (world/register-var!
-                                   this root current-meta watches))
-                                (world/alter-var-watches!
-                                 this watches assoc [key fn]))
-                              (set! watches (assoc watches key fn)))))
-                        this)
-            (-remove-watch [this key]
+            (-add-watch [this key watch-fn]
+                        (world/call-with-var-context
+                         this
+                         (fn []
                            (let [current-meta (world/var-meta this meta)]
                              (vars/with-writeable-var this current-meta
                                (if (world/current-world)
@@ -356,8 +380,23 @@
                                      (world/register-var!
                                       this root current-meta watches))
                                    (world/alter-var-watches!
-                                    this watches dissoc [key]))
-                                 (set! watches (dissoc watches key)))))
+                                    this watches assoc [key watch-fn]))
+                                 (set! (.-watches this) (assoc watches key watch-fn)))))))
+                        this)
+            (-remove-watch [this key]
+                           (world/call-with-var-context
+                            this
+                            (fn []
+                              (let [current-meta (world/var-meta this meta)]
+                                (vars/with-writeable-var this current-meta
+                                  (if (world/current-world)
+                                    (do
+                                      (when-not (world/tracked? this)
+                                        (world/register-var!
+                                         this root current-meta watches))
+                                      (world/alter-var-watches!
+                                       this watches dissoc [key]))
+                                    (set! (.-watches this) (dissoc watches key)))))))
                            this)])
   ;; #?(:cljs Fn) ;; In the real CLJS this is there... why?
   #?(:cljd IFn :clj clojure.lang.IFn :cljs IFn)

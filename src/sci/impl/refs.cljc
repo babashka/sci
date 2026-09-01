@@ -91,7 +91,7 @@
 
        clojure.lang.IRef
        (setValidator [this validator]
-         (atom-set-validator! home registry value-slot control-slot validator))
+         (atom-set-validator! this home registry value-slot control-slot validator))
        (getValidator [this]
          (atom-validator home registry control-slot))
        (getWatches [this]
@@ -187,7 +187,8 @@
   (world/managed-swap!
    home registry value-slot f args
    #(validate-in! %1 home control-slot %2)
-   #(atom-notify-watches! this %2 %3 %4)))
+   #(atom-notify-watches! this %2 %3 %4)
+   this))
 
 (defn atom-swap-vals!
   [this home registry value-slot control-slot f args]
@@ -200,7 +201,8 @@
          new))
      nil
      #(validate-in! %1 home control-slot %2)
-     #(atom-notify-watches! this %2 %3 %4))
+     #(atom-notify-watches! this %2 %3 %4)
+     this)
     @result))
 
 (defn atom-reset!
@@ -208,7 +210,8 @@
   (world/managed-reset!
    home registry value-slot new-value
    #(validate-in! %1 home control-slot %2)
-   #(atom-notify-watches! this %2 %3 %4)))
+   #(atom-notify-watches! this %2 %3 %4)
+   this))
 
 (defn atom-reset-vals!
   [this home registry value-slot control-slot new-value]
@@ -220,7 +223,8 @@
        new-value)
      nil
      #(validate-in! %1 home control-slot %2)
-     #(atom-notify-watches! this %2 %3 %4))
+     #(atom-notify-watches! this %2 %3 %4)
+     this)
     @result))
 
 (defn atom-compare-and-set!
@@ -228,7 +232,8 @@
   (world/managed-compare-and-set!
    home registry value-slot old-value new-value
    #(validate-in! %1 home control-slot %2)
-   #(atom-notify-watches! this %2 %3 %4)))
+   #(atom-notify-watches! this %2 %3 %4)
+   this))
 
 (defn- alter-control!
   [home registry control-slot f]
@@ -247,13 +252,13 @@
        meta-index))
 
 (defn atom-set-validator!
-  [home registry value-slot control-slot validator]
-  (when (and validator
-             (not (validator (atom-value home registry value-slot))))
-    (invalid-state!))
-  (alter-control! home registry control-slot
-                  #(assoc % validator-index validator))
-  nil)
+  [this home registry value-slot control-slot validator]
+  (world/managed-update-control-with-value!
+   home registry value-slot control-slot this
+   (fn [value]
+     (when (and validator (not (validator value)))
+       (invalid-state!)))
+   #(assoc % validator-index validator)))
 
 (defn atom-add-watch! [home registry control-slot key f]
   (alter-control! home registry control-slot
@@ -498,7 +503,7 @@
 (defn set-validator!* [ref validator]
   (if (sci-atom? ref)
     (let [^SciAtom ref ref]
-      (atom-set-validator! (.-home ref) (.-registry ref)
+      (atom-set-validator! ref (.-home ref) (.-registry ref)
                            (.-value-slot ref) (.-control-slot ref)
                            validator))
     (set-validator! ref validator)))

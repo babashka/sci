@@ -430,7 +430,7 @@
              (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                    self-ref-in-enclosed-idx
                    f))
-           f)
+           (fns/interpreted-fn f))
          nil)]
     #?(:cljs
        ;; fn-creation ast: the emitter builds the enclosed array from its
@@ -648,7 +648,7 @@
                           (aset #?(:cljd ^List enclosed-array :default ^objects enclosed-array)
                                 self-ref-in-enclosed-idx
                                 f))
-                        f)
+                        (fns/interpreted-fn f))
                       nil)]
                      #?(:cljs
                         ;; same fn-creation ast as single-arity-fn
@@ -660,7 +660,9 @@
                                     (let [f (mk ctx enclosed-array)]
                                       (when self-ref?
                                         (aset ^objects enclosed-array self-ref-in-enclosed-idx f))
-                                      f))
+                                      ;; the dispatch fn is not made by fns/fun,
+                                      ;; mark it like the interpreted node does
+                                      (fns/interpreted-fn f)))
                             capture-pairs enclosed-array-cnt]))
                         :default node)))
         tag (:tag fn-expr-m)
