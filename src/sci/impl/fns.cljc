@@ -108,7 +108,14 @@
 
         (map? value)
         (if (record? value)
-          (reduce-kv (fn [m k v] (assoc m k (contextualize ctx v)))
+          (reduce-kv (fn [m k v]
+                       (let [context-k (contextualize ctx k)
+                             context-v (contextualize ctx v)]
+                         (if (identical? context-k k)
+                           (assoc m k context-v)
+                           (-> m
+                               (dissoc k)
+                               (assoc context-k context-v)))))
                      value value)
           (with-meta
             (reduce-kv (fn [m k v]
