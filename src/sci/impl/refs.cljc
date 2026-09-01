@@ -172,6 +172,10 @@
         (invalid-state!)))
     control))
 
+(defn- validation-current-in? [selected-world home control-slot control]
+  (identical? control
+              (control-value-in selected-world home control-slot)))
+
 (defn atom-notify-watches!
   ([this control old-value new-value]
    (doseq [[key f] (nth control watches-index)]
@@ -188,7 +192,8 @@
    home registry value-slot f args
    #(validate-in! %1 home control-slot %2)
    #(atom-notify-watches! this %2 %3 %4)
-   this))
+   this
+   #(validation-current-in? %1 home control-slot %2)))
 
 (defn atom-swap-vals!
   [this home registry value-slot control-slot f args]
@@ -202,7 +207,8 @@
      nil
      #(validate-in! %1 home control-slot %2)
      #(atom-notify-watches! this %2 %3 %4)
-     this)
+     this
+     #(validation-current-in? %1 home control-slot %2))
     @result))
 
 (defn atom-reset!
@@ -211,7 +217,8 @@
    home registry value-slot new-value
    #(validate-in! %1 home control-slot %2)
    #(atom-notify-watches! this %2 %3 %4)
-   this))
+   this
+   #(validation-current-in? %1 home control-slot %2)))
 
 (defn atom-reset-vals!
   [this home registry value-slot control-slot new-value]
@@ -224,7 +231,8 @@
      nil
      #(validate-in! %1 home control-slot %2)
      #(atom-notify-watches! this %2 %3 %4)
-     this)
+     this
+     #(validation-current-in? %1 home control-slot %2))
     @result))
 
 (defn atom-compare-and-set!
@@ -233,7 +241,8 @@
    home registry value-slot old-value new-value
    #(validate-in! %1 home control-slot %2)
    #(atom-notify-watches! this %2 %3 %4)
-   this))
+   this
+   #(validation-current-in? %1 home control-slot %2)))
 
 (defn- alter-control!
   [home registry control-slot f]

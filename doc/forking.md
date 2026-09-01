@@ -35,9 +35,12 @@ This shape combines four useful precedents:
   lineage.
 - An interpreted function returned by `eval-string*`, `eval-string+`, or
   `eval-form` is bound to the context that returned it when the host invokes it
-  directly. When invoked from evaluation in a related descendant, it selects
-  that active descendant instead. This context association is kept in a weak
-  identity registry and does not change the function's metadata.
+  directly. This also applies to functions returned by such a function and to
+  functions nested in finite persistent vectors, maps (values), sets, or lists
+  crossing that boundary. Lazy sequences and arbitrary host containers are not
+  traversed. When invoked from evaluation in a related descendant, a function
+  selects that active descendant instead. Context association is kept in a
+  weak identity registry and does not change the function's metadata.
 - Dynamic binding frames remain thread/evaluation scoped. A fork snapshots
   root bindings; it does not capture a running continuation or binding frame.
 - Hosts that suspend interpreted code can explicitly capture its dynamic
@@ -145,10 +148,12 @@ host's concrete `clojure.lang.Atom`/`cljs.core.Atom` class. It implements the
 normal dereference, atom, metadata, validator, and watch protocols, but code
 that tests the host concrete class observes this intentional representation
 difference. The split is necessary for one stable identity to select different
-state in different worlds. Value commits and validator replacement are
-serialized per stable atom, so a validator cannot be installed concurrently
-with a value it rejects. Backing-array growth is coordinated with commits on
-the JVM so a concurrent slot mutation cannot be lost during resizing.
+state in different worlds. Value commits and validator replacement use an
+optimistic validate-and-verify protocol per stable atom, so a validator cannot
+be installed concurrently with a value it rejects and user validators run
+without holding atom or world commit locks. Backing-array growth uses a
+separate read/write gate on the JVM: steady-state commits to unrelated slots
+remain concurrent while a resize cannot lose a concurrent mutation.
 
 SCI-created multimethods use the same representation tradeoff on JVM and CLJS:
 the stable `SciMultiFn` handle selects a fork-local host dispatch engine. SCI's

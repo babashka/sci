@@ -5,7 +5,8 @@
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [recur]]
    [sci.impl.world :as world])
-  #?(:cljs (:require-macros [sci.impl.fns :refer [gen-fn wrap-this-as]]))
+  #?(:cljs (:require-macros [sci.impl.fns :refer [context-wrapper
+                                                  gen-fn wrap-this-as]]))
   #?@(:cljd []
       :clj [(:import [java.util Collections Map WeakHashMap])]))
 
@@ -32,8 +33,54 @@
 (defn interpreted-fn
   "Mark an SCI-interpreted function so a public evaluation boundary can bind
   it to the world from which the host obtained it."
-  [f]
-  (register-function! f ::interpreted))
+  ([f]
+   (interpreted-fn f nil))
+  ([f shape]
+   (register-function! f {:shape shape})))
+
+(defmacro context-wrapper [shape ctx original]
+  (let [fixed-clause
+        (fn [n]
+          (let [args (vec (repeatedly n gensym))]
+            `(~args
+              (contextualize
+               ~ctx
+               (world/call-with-context
+                ~ctx (fn [] (~original ~@args)))))))
+        fixed-wrapper
+        `(fn ~@(map fixed-clause (range 21)))
+        variadic-wrapper
+        (fn [required]
+          (let [args (vec (repeatedly required gensym))
+                more (gensym "more")]
+            `(fn ~@(map fixed-clause (range required))
+                 ([~@args & ~more]
+                  (contextualize
+                   ~ctx
+                   (world/call-with-context
+                    ~ctx (fn [] (apply ~original ~@args ~more))))))))]
+    `(if-let [required# (:variadic ~shape)]
+       (case #?(:cljd required# :clj (int required#) :cljs required#)
+         ~@(mapcat (fn [n] [n (variadic-wrapper n)]) (range 21))
+         (throw (ex-info "Unsupported interpreted function arity."
+                         {:required-arity required#})))
+       ~fixed-wrapper)))
+
+(declare contextualize)
+
+(defn- contextualize-function [ctx value info]
+  (let [target (:sci.impl/world ctx)]
+    (if (and (map? info)
+             (identical? target (:world info)))
+      value
+      (let [original (or (:original info) value)
+            wrapped (with-meta
+                      (context-wrapper (:shape info) ctx original)
+                      (meta value))]
+        (register-function! wrapped
+                            {:original original
+                             :shape (:shape info)
+                             :world target})))))
 
 (defn contextualize
   "Bind an interpreted function result to `ctx` for direct host invocation.
@@ -43,20 +90,27 @@
   ;; Dart Expando only accepts non-primitive, non-null objects. Generated SCI
   ;; functions are native functions on every target, so this is also a cheap
   ;; guard before consulting any of the weak identity registries.
-  (let [info (when (fn? value) (function-info value))
-        target (:sci.impl/world ctx)]
-    (if (and target info)
-      (if (and (map? info)
-               (identical? target (:world info)))
-        value
-        (let [original (if (map? info) (:original info) value)
-              wrapped (with-meta
-                        (fn [& args]
-                          (world/call-with-context
-                           ctx #(apply original args)))
-                        (meta value))]
-          (register-function! wrapped {:original original :world target})))
-      value)))
+  (let [info (when (fn? value) (function-info value))]
+    (cond
+      (and (:sci.impl/world ctx) info)
+      (contextualize-function ctx value info)
+
+      (vector? value)
+      (with-meta (mapv #(contextualize ctx %) value) (meta value))
+
+      (map? value)
+      (reduce-kv (fn [m k v] (assoc m k (contextualize ctx v)))
+                 value value)
+
+      (set? value)
+      (with-meta (into (empty value) (map #(contextualize ctx %)) value)
+        (meta value))
+
+      (list? value)
+      (with-meta (apply list (map #(contextualize ctx %) value))
+        (meta value))
+
+      :else value)))
 
 #?(:cljd
    (defmacro wrap-this-as [& body]
@@ -278,7 +332,7 @@
                              (if (identical? recur# ret)
                                (recur)
                                ret))))))))))]
-     (interpreted-fn f))))
+     (interpreted-fn f {:variadic (when vararg-idx fixed-arity)}))))
 
 (defn lookup-by-arity [arities arity]
   (or (get arities arity)

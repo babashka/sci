@@ -1558,6 +1558,8 @@
     (let [child (sci/fork parent)
           inherited (sci/eval-string* child "bump!")
           variadic (sci/eval-string* child "add!")
+          factory (sci/eval-string* child "(fn [] bump!)")
+          contained (sci/eval-string* child "[bump!]")
           local (sci/eval-string*
                  child
                  "(def local-counter (atom 10))
@@ -1565,15 +1567,18 @@
       (testing "a function obtained through a child retains that provenance"
         (is (= 1 (inherited)))
         (is (= 7 (variadic 2 4)))
+        (is (= 8 ((factory))))
+        (is (= 9 ((first contained))))
         (is (= 15 (local 5)))
+        #?(:clj (is (not (instance? clojure.lang.RestFn inherited))))
         (is (= 0 (sci/eval-string* parent "@counter")))
-        (is (= 7 (sci/eval-string* child "@counter")))
+        (is (= 9 (sci/eval-string* child "@counter")))
         (is (= 15 (sci/eval-string* child "@local-counter"))))
       (testing "the same inherited function can be contextualized independently"
         (let [from-parent (sci/eval-string* parent "bump!")]
           (is (= 1 (from-parent)))
           (is (= 1 (sci/eval-string* parent "@counter")))
-          (is (= 7 (sci/eval-string* child "@counter"))))))))
+          (is (= 9 (sci/eval-string* child "@counter"))))))))
 
 (deftest host-mutated-forked-var-test
   (let [parent (tu/forkable-init nil)]
@@ -1690,7 +1695,11 @@
                          (.countDown setter-entered)
                          (.await reset-finished 2 TimeUnit/SECONDS))
                        (not (neg? value)))
-           setter (future (set-validator! a candidate))]
+           setter (future
+                    (try
+                      (set-validator! a candidate)
+                      :installed
+                      (catch IllegalStateException _ :rejected)))]
        (is (.await setter-entered 2 TimeUnit/SECONDS))
        (let [resetter (future
                         (try
@@ -1698,10 +1707,30 @@
                           :accepted
                           (catch IllegalStateException _ :rejected)
                           (finally (.countDown reset-finished))))]
-         (is (nil? @setter))
-         (is (= :rejected @resetter))
-         (is (= 0 @a))
-         (is ((get-validator a) @a))))))
+         (is (= :rejected @setter))
+         (is (= :accepted @resetter))
+         (is (= -1 @a))
+         (is (nil? (get-validator a)))))))
+
+#?(:cljd nil :clj
+   (deftest forked-atom-validator-does-not-block-unrelated-commits-test
+     (let [ctx (tu/forkable-init nil)
+           [a b] (sci/eval-string* ctx "[(atom 0) (atom 0)]")
+           validator-entered (CountDownLatch. 1)
+           release-validator (CountDownLatch. 1)]
+       (set-validator!
+        a
+        (fn [value]
+          (when (pos? value)
+            (.countDown validator-entered)
+            (.await release-validator 2 TimeUnit/SECONDS))
+          true))
+       (let [a-reset (future (reset! a 1))]
+         (is (.await validator-entered 2 TimeUnit/SECONDS))
+         (let [b-reset (future (reset! b 1))]
+           (is (= 1 (deref b-reset 1000 ::timed-out))))
+         (.countDown release-validator)
+         (is (= 1 @a-reset))))))
 
 #?(:cljd nil :clj
    (deftest concurrent-cell-growth-preserves-mutations-test
