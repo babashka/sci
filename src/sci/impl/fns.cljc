@@ -64,7 +64,13 @@
          ~@(mapcat (fn [n] [n (variadic-wrapper n)]) (range 21))
          (throw (ex-info "Unsupported interpreted function arity."
                          {:required-arity required#})))
-       ~fixed-wrapper)))
+       (if (:fixed-many? ~shape)
+         (fn [& args#]
+           (contextualize
+            ~ctx
+            (world/call-with-context
+             ~ctx (fn [] (apply ~original args#)))))
+         ~fixed-wrapper))))
 
 (declare contextualize)
 
@@ -90,27 +96,36 @@
   ;; Dart Expando only accepts non-primitive, non-null objects. Generated SCI
   ;; functions are native functions on every target, so this is also a cheap
   ;; guard before consulting any of the weak identity registries.
-  (let [info (when (fn? value) (function-info value))]
-    (cond
-      (and (:sci.impl/world ctx) info)
-      (contextualize-function ctx value info)
+  (if-not (:sci.impl/world ctx)
+    value
+    (let [info (when (fn? value) (function-info value))]
+      (cond
+        info
+        (contextualize-function ctx value info)
 
-      (vector? value)
-      (with-meta (mapv #(contextualize ctx %) value) (meta value))
+        (vector? value)
+        (with-meta (mapv #(contextualize ctx %) value) (meta value))
 
-      (map? value)
-      (reduce-kv (fn [m k v] (assoc m k (contextualize ctx v)))
-                 value value)
+        (map? value)
+        (if (record? value)
+          (reduce-kv (fn [m k v] (assoc m k (contextualize ctx v)))
+                     value value)
+          (with-meta
+            (reduce-kv (fn [m k v]
+                         (assoc m (contextualize ctx k)
+                                (contextualize ctx v)))
+                       (empty value) value)
+            (meta value)))
 
-      (set? value)
-      (with-meta (into (empty value) (map #(contextualize ctx %)) value)
-        (meta value))
+        (set? value)
+        (with-meta (into (empty value) (map #(contextualize ctx %)) value)
+          (meta value))
 
-      (list? value)
-      (with-meta (apply list (map #(contextualize ctx %) value))
-        (meta value))
+        (list? value)
+        (with-meta (apply list (map #(contextualize ctx %) value))
+          (meta value))
 
-      :else value)))
+        :else value))))
 
 #?(:cljd
    (defmacro wrap-this-as [& body]
@@ -332,7 +347,9 @@
                              (if (identical? recur# ret)
                                (recur)
                                ret))))))))))]
-     (interpreted-fn f {:variadic (when vararg-idx fixed-arity)}))))
+     (interpreted-fn f {:variadic (when vararg-idx fixed-arity)
+                        :fixed-many? (and (nil? vararg-idx)
+                                          (> fixed-arity 20))}))))
 
 (defn lookup-by-arity [arities arity]
   (or (get arities arity)

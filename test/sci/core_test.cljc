@@ -1478,6 +1478,10 @@
            #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
            #"Unable to resolve symbol: child-only"
            (sci/eval-string* ctx "child-only")))))
+  (testing "standard mode preserves returned host collection identity"
+    (let [v (vec (range 1000))
+          ctx (sci/init {:bindings {'v v}})]
+      (is (identical? v (sci/eval-string* ctx "v")))))
   (testing "forkability is explicit and cannot change during merge"
     (let [ctx (tu/forkable-init nil)]
       (is (= :forkable (:runtime-mode ctx)))
@@ -1554,12 +1558,15 @@
      parent
      "(def counter (atom 0))
       (defn bump! [] (swap! counter inc))
-      (defn add! [& xs] (swap! counter + (apply + xs)))")
+      (defn add! [& xs] (swap! counter + (apply + xs)))
+      (defn many [a b c d e f g h i j k l m n o p q r s t u] u)")
     (let [child (sci/fork parent)
           inherited (sci/eval-string* child "bump!")
           variadic (sci/eval-string* child "add!")
           factory (sci/eval-string* child "(fn [] bump!)")
           contained (sci/eval-string* child "[bump!]")
+          keyed (sci/eval-string* child "{bump! :function-key}")
+          many (sci/eval-string* child "many")
           local (sci/eval-string*
                  child
                  "(def local-counter (atom 10))
@@ -1569,16 +1576,18 @@
         (is (= 7 (variadic 2 4)))
         (is (= 8 ((factory))))
         (is (= 9 ((first contained))))
+        (is (= 10 ((first (keys keyed)))))
+        (is (= 20 (apply many (range 21))))
         (is (= 15 (local 5)))
         #?(:clj (is (not (instance? clojure.lang.RestFn inherited))))
         (is (= 0 (sci/eval-string* parent "@counter")))
-        (is (= 9 (sci/eval-string* child "@counter")))
+        (is (= 10 (sci/eval-string* child "@counter")))
         (is (= 15 (sci/eval-string* child "@local-counter"))))
       (testing "the same inherited function can be contextualized independently"
         (let [from-parent (sci/eval-string* parent "bump!")]
           (is (= 1 (from-parent)))
           (is (= 1 (sci/eval-string* parent "@counter")))
-          (is (= 9 (sci/eval-string* child "@counter"))))))))
+          (is (= 10 (sci/eval-string* child "@counter"))))))))
 
 (deftest host-mutated-forked-var-test
   (let [parent (tu/forkable-init nil)]

@@ -36,7 +36,7 @@ This shape combines four useful precedents:
 - An interpreted function returned by `eval-string*`, `eval-string+`, or
   `eval-form` is bound to the context that returned it when the host invokes it
   directly. This also applies to functions returned by such a function and to
-  functions nested in finite persistent vectors, maps (values), sets, or lists
+  functions nested in finite persistent vectors, map keys or values, sets, or lists
   crossing that boundary. Lazy sequences and arbitrary host containers are not
   traversed. When invoked from evaluation in a related descendant, a function
   selects that active descendant instead. Context association is kept in a

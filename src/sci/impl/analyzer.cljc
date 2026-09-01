@@ -425,7 +425,9 @@
                    self-ref-in-enclosed-idx
                    f))
            (fns/interpreted-fn
-            f {:variadic (when vararg-idx fixed-arity)}))
+            f {:variadic (when vararg-idx fixed-arity)
+               :fixed-many? (and (nil? vararg-idx)
+                                 (> fixed-arity 20))}))
          nil)]
     #?(:cljs
        ;; fn-creation ast: the emitter builds the enclosed array from its
@@ -656,7 +658,12 @@
                          f {:variadic (some (fn [body]
                                              (when (:var-arg-name body)
                                                (:fixed-arity body)))
-                                           bodies)}))
+                                           bodies)
+                            :fixed-many? (boolean
+                                          (some (fn [body]
+                                                  (and (nil? (:var-arg-name body))
+                                                       (> (:fixed-arity body) 20)))
+                                                bodies))}))
                       nil)))
         tag (:tag fn-expr-m)
         arglists (when defn-name (:arglists analyzed-bodies))]
