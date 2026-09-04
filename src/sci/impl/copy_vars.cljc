@@ -162,7 +162,7 @@
       ;; NOTE: emit as little code as possible, so our JS bundle is as small as possible
       (if (and (not macro) elide-vars (not dyn) (not ctx))
         sym
-        `(sci.lang/->Var ~init ~nm ~varm false ~ctx nil ~ns))))
+        `(sci.lang/->Var ~init ~nm ~varm false ~ctx nil ~ns false))))
   (defmacro copy-core-var
     [sym]
     `(copy-var ~sym clojure-core-ns {:copy-meta-from ~(core-sym sym)}))

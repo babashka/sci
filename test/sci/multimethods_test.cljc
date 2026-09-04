@@ -1,6 +1,7 @@
 (ns sci.multimethods-test
   (:require
    [clojure.test :as test :refer [deftest is]]
+   [sci.core :as sci]
    [sci.test-utils :as tu]))
 
 (defn eval* [expr]
@@ -54,3 +55,70 @@
  (foo :bar 1 2 3)
  (foo :bar 1 2 3 4)]
 "))))
+
+(deftest forked-multimethod-state-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     #?(:cljd
+        "(defmulti branch-method identity)
+         (defmethod branch-method :default [_] :parent-default)
+         (defmethod branch-method :shared [_] :parent-shared)
+         (branch-method :child)"
+        :default
+        "(defmulti branch-method identity)
+         (defmethod branch-method :default [_] :parent-default)
+         (defmethod branch-method :shared [_] :parent-shared)
+         (derive ::cat ::animal)
+         (defmulti animal-method identity)
+         (defmethod animal-method ::animal [_] :animal)
+         (defmethod animal-method :default [_] :not-animal)
+         ;; Populate dispatch caches before the fork.
+         [(branch-method :child) (animal-method ::cat)]"))
+    (let [child (sci/fork parent)]
+      (is (= #?(:cljd [:child :child-only #{:child :shared}]
+                :default [:child :child-only #{:child :shared}
+                          {:left #{:right}}])
+             (sci/eval-string*
+              child
+              #?(:cljd
+                 "(defmethod branch-method :shared [_] :child)
+                  (defmethod branch-method :child [_] :child-only)
+                  (remove-method branch-method :default)
+                  [(branch-method :shared)
+                   (branch-method :child)
+                   (set (keys (methods branch-method)))]"
+                 :default
+                 "(defmethod branch-method :shared [_] :child)
+                  (defmethod branch-method :child [_] :child-only)
+                  (remove-method branch-method :default)
+                  (prefer-method branch-method :left :right)
+                  (derive ::dog ::animal)
+                  [(branch-method :shared)
+                   (branch-method :child)
+                   (set (keys (methods branch-method)))
+                   (prefers branch-method)]"))))
+      (is (= #?(:cljd [:parent-shared :parent-default
+                        #{:default :shared}]
+                :default [:parent-shared :parent-default
+                          #{:default :shared} {}])
+             (sci/eval-string*
+              parent
+              #?(:cljd
+                 "[(branch-method :shared)
+                   (branch-method :child)
+                   (set (keys (methods branch-method)))]"
+                 :default
+                 "[(branch-method :shared)
+                   (branch-method :child)
+                   (set (keys (methods branch-method)))
+                   (prefers branch-method)]"))))
+      #?(:cljd nil
+         :default
+         (do
+           (is (= [:animal :animal]
+                  (sci/eval-string*
+                   child "[(animal-method ::cat) (animal-method ::dog)]")))
+           (is (= [:animal :not-animal]
+                  (sci/eval-string*
+                   parent "[(animal-method ::cat) (animal-method ::dog)]"))))))))

@@ -7,10 +7,26 @@
    [sci.copy-ns-test-ns]
    [sci.copy-var-inlined-clash-ns]
    [sci.core :as sci]
+   [sci.fork :as fork]
    [sci.test-utils :as tu]
-   #?(:cljd [sci.test-utils.macros :refer [thrown-with-data?]])))
+   #?(:cljd [sci.test-utils.macros :refer [thrown-with-data?]]))
+  #?@(:cljd []
+      :clj [(:import [java.util.concurrent CountDownLatch TimeUnit])]))
 
 #?(:cljs (def Exception js/Error))
+
+(defrecord ForkableState [state copies]
+  fork/Forkable
+  (fork-value [_]
+    (swap! copies inc)
+    #?(:cljd (ForkableState. (atom @state) copies nil {} -1)
+       :default (ForkableState. (atom @state) copies))))
+
+(defrecord ProhibitedState [resource]
+  fork/Forkable
+  (fork-value [_]
+    (throw (ex-info "Resource prohibits SCI world forking"
+                    {:resource resource}))))
 
 #?(:cljs
    (defn testing-vars-str
@@ -1173,7 +1189,55 @@
    (f 1))")))))
 
 (deftest core-delay-test
-  (is (= 1 (eval* "@(delay 1)"))))
+  (is (= 1 (eval* "@(delay 1)")))
+  (is (= [true false 1 true true]
+         (eval* "(let [d (delay 1)]
+                   [(delay? d) (realized? d) (force d)
+                    (realized? d) (= 1 @d)])"))))
+
+(deftest forked-delay-state-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(def effects (atom []))
+      (def pending
+        (delay (swap! effects conj :pending) (count @effects)))
+      (def completed
+        (delay (swap! effects conj :completed) (count @effects)))
+      (def failed (delay (throw (ex-info \"cached\" {:kind :delay}))))
+      (force completed)")
+    (sci/eval-string*
+     parent
+     #?(:clj "(try (force failed) (catch Exception _ nil))"
+        :cljs "(try (force failed) (catch :default _ nil))"
+        :cljd "(try (force failed) (catch Object _ nil))"))
+    (let [child (sci/fork parent)
+          expected [false true true 2 [:completed :pending]]]
+      (is (= expected
+             (sci/eval-string*
+              child
+              "[(realized? pending)
+                (realized? completed)
+                (realized? failed)
+                (force pending)
+                @effects]")))
+      (is (= expected
+             (sci/eval-string*
+              parent
+              "[(realized? pending)
+                (realized? completed)
+                (realized? failed)
+                (force pending)
+                @effects]")))
+      (is (= :delay
+             (sci/eval-string*
+              child
+              #?(:clj "(try (force failed)
+                           (catch Exception e (:kind (ex-data e))))"
+                 :cljs "(try (force failed)
+                            (catch :default e (:kind (ex-data e))))"
+                 :cljd "(try (force failed)
+                            (catch Object e (:kind (ex-data e))))")))))))
 
 (deftest defn--test
   (is (= 1 (eval* "(defn- foo [] 1) (foo)")))
@@ -1400,6 +1464,548 @@
       (is (thrown-with-msg?
            #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
            #"Unable to resolve symbol: y" (sci/eval-string* ctx "y"))))))
+
+(deftest runtime-mode-test
+  (testing "standard is the default and keeps the historical namespace fork"
+    (let [ctx (sci/init nil)
+          child (sci/fork ctx)]
+      (is (= :standard (:runtime-mode ctx)))
+      (is (nil? (:sci.impl/world ctx)))
+      (is (= 1 (sci/eval-string* ctx
+                                 "(let [a (atom 0)] (swap! a inc) @a)")))
+      (sci/eval-string* child "(def child-only 1)")
+      (is (thrown-with-msg?
+           #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+           #"Unable to resolve symbol: child-only"
+           (sci/eval-string* ctx "child-only")))))
+  (testing "standard mode preserves returned host collection identity"
+    (let [v (vec (range 1000))
+          ctx (sci/init {:bindings {'v v}})]
+      (is (identical? v (sci/eval-string* ctx "v")))))
+  (testing "forkability is explicit and cannot change during merge"
+    (let [ctx (tu/forkable-init nil)]
+      (is (= :forkable (:runtime-mode ctx)))
+      (is (some? (:sci.impl/world ctx)))
+      (is (thrown-with-msg?
+           #?(:cljd cljd.core/ExceptionInfo
+              :clj clojure.lang.ExceptionInfo
+              :cljs ExceptionInfo)
+           #"cannot be changed"
+           (sci/merge-opts ctx {:runtime-mode :standard})))))
+  (is (thrown-with-msg?
+       #?(:cljd cljd.core/ExceptionInfo
+          :clj clojure.lang.ExceptionInfo
+          :cljs ExceptionInfo)
+       #"Invalid SCI runtime mode"
+       (sci/init {:runtime-mode :unknown}))))
+
+(deftest forked-world-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(def x 1)
+      (def ^:dynamic *x* 10)
+      (def counter (atom 0))
+      (def counter-alias counter)
+      (def scratch (volatile! 20))
+      (def late-dynamic 30)
+      (defn world-value [] [x *x* @counter @counter-alias @scratch])
+      (defn read-late-dynamic [] late-dynamic)
+      (defn bump! [] (swap! counter inc))
+      (defn scratch! [] (vswap! scratch inc))")
+    (let [child (sci/fork parent)]
+      (is (= [1 10 0 0 20] (sci/eval-string* child "(world-value)")))
+      (is (= [2 12 1 1 21]
+             (sci/eval-string*
+              child
+              "(def x 2)
+               (bump!)
+               (scratch!)
+               (binding [*x* 11]
+                 (set! *x* 12)
+                 (world-value))")))
+      (testing "existing vars, captured functions, bindings, atoms, and volatiles isolate"
+        (is (= [1 10 0 0 20] (sci/eval-string* parent "(world-value)")))
+        (is (= [2 10 1 1 21] (sci/eval-string* child "(world-value)"))))
+      (testing "a Var made dynamic after analysis still observes its binding frame"
+        (is (= 31 (sci/eval-string*
+                   child
+                   "(alter-meta! #'late-dynamic assoc :dynamic true)
+                    (binding [late-dynamic 31] (read-late-dynamic))")))
+        (is (= 30 (sci/eval-string* parent "(read-late-dynamic)")))
+        (is (true? (sci/eval-string*
+                    child
+                    "(reset-meta! #'late-dynamic
+                                  (assoc (meta #'late-dynamic) :reset true))
+                     (:reset (meta #'late-dynamic))")))
+        (is (nil? (sci/eval-string* parent "(:reset (meta #'late-dynamic))"))))
+      (testing "new unbound Vars belong to the child world"
+        (is (false? (sci/eval-string* child "(declare child-only) (bound? #'child-only)")))
+        (is (thrown-with-msg?
+             #?(:cljd cljd.core/ExceptionInfo :clj Exception :cljs js/Error)
+             #"Unable to resolve symbol: child-only"
+             (sci/eval-string* parent "child-only"))))
+      (testing "forks from the same basis diverge independently"
+        (let [sibling (sci/fork parent)]
+          (is (= 1 (sci/eval-string* sibling "(bump!)")))
+          (is (= [1 10 1 1 20] (sci/eval-string* sibling "(world-value)")))
+          (is (= [2 10 1 1 21] (sci/eval-string* child "(world-value)")))
+          (is (= [1 10 0 0 20] (sci/eval-string* parent "(world-value)"))))))))
+
+(deftest host-invoked-forked-function-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(def counter (atom 0))
+      (defn bump! [] (swap! counter inc))
+      (defn add! [& xs] (swap! counter + (apply + xs)))
+      (defn many [a b c d e f g h i j k l m n o p q r s t u] u)
+      (defrecord R [x])")
+    (let [child (sci/fork parent)
+          inherited (sci/eval-string* child "bump!")
+          variadic (sci/eval-string* child "add!")
+          factory (sci/eval-string* child "(fn [] bump!)")
+          contained (sci/eval-string* child "[bump!]")
+          keyed (sci/eval-string* child "{bump! :function-key}")
+          record-keyed (sci/eval-string* child "(assoc (->R 1) bump! :function-key)")
+          many (sci/eval-string* child "many")
+          local (sci/eval-string*
+                 child
+                 "(def local-counter (atom 10))
+                  (fn [n] (swap! local-counter + n))")]
+      (testing "a function obtained through a child retains that provenance"
+        (is (= 1 (inherited)))
+        (is (= 7 (variadic 2 4)))
+        (is (= 8 ((factory))))
+        (is (= 9 ((first contained))))
+        (is (= 10 ((first (keys keyed)))))
+        (is (record? record-keyed))
+        (is (= 11 ((first (remove keyword? (keys record-keyed))))))
+        (is (= 20 (apply many (range 21))))
+        (is (= 15 (local 5)))
+        #?(:clj (is (not (instance? clojure.lang.RestFn inherited))))
+        (is (= 0 (sci/eval-string* parent "@counter")))
+        (is (= 11 (sci/eval-string* child "@counter")))
+        (is (= 15 (sci/eval-string* child "@local-counter"))))
+      (testing "the same inherited function can be contextualized independently"
+        (let [from-parent (sci/eval-string* parent "bump!")]
+          (is (= 1 (from-parent)))
+          (is (= 1 (sci/eval-string* parent "@counter")))
+          (is (= 11 (sci/eval-string* child "@counter"))))))))
+
+(deftest host-mutated-forked-var-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string* parent "(def x 1)")
+    (let [old-child (sci/fork parent)
+          v (sci/eval-string* parent "#'x")]
+      (sci/alter-var-root v inc)
+      (sci/alter-var-meta! v assoc :home true)
+      (let [sibling (sci/fork parent)]
+        (testing "host mutations update the Var home copied by later forks"
+          (is (= [2 true] (sci/eval-string* parent "[x (:home (meta #'x))]")))
+          (is (= [2 true] (sci/eval-string* sibling "[x (:home (meta #'x))]")))
+          (is (= [1 nil] (sci/eval-string* old-child "[x (:home (meta #'x))]")))))
+      (let [events (atom [])]
+        (sci/call-with-context
+         old-child
+         #(do (add-watch v :child
+                         (fn [_ _ old new] (swap! events conj [old new])))
+              (sci/alter-var-root v + 9)
+              (sci/alter-var-meta! v assoc :child true)))
+        (let [grandchild (sci/fork old-child)]
+          (testing "an explicit host context selects a child independently"
+            (is (= [[1 10]] @events))
+            (is (= [2 true nil]
+                   (sci/eval-string* parent
+                                     "[x (:home (meta #'x)) (:child (meta #'x))]")))
+            (is (= [10 nil true]
+                   (sci/eval-string* old-child
+                                     "[x (:home (meta #'x)) (:child (meta #'x))]")))
+            (is (= [10 nil true]
+                   (sci/eval-string* grandchild
+                                     "[x (:home (meta #'x)) (:child (meta #'x))]"))))))
+      (let [child-var (sci/eval-string* old-child "(def child-only 9) #'child-only")]
+        (testing "a child-created Var uses its creation world outside evaluation"
+          (is (= 9 @child-var))
+          (is (= 10 (sci/alter-var-root child-var inc)))
+          (is (= 10 (sci/eval-string* old-child "child-only"))))))))
+
+(deftest first-fork-realizes-mutable-primary-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string*
+     parent
+     "(def x 1)
+      (def a (atom 0))
+      (def v (volatile! 0))
+      (defn state [] [x @a @v (:forked (meta #'x))])
+      (def x 2)
+      (reset! a 5)
+      (vreset! v 9)
+      (alter-meta! #'x assoc :forked true)")
+    (let [child (sci/fork parent)]
+      (is (= [2 5 9 true] (sci/eval-string* child "(state)")))
+      (sci/eval-string*
+       parent
+       "(def x 3)
+        (swap! a inc)
+        (vswap! v inc)
+        (alter-meta! #'x assoc :forked false)")
+      (is (= [3 6 10 false] (sci/eval-string* parent "(state)")))
+      (is (= [2 5 9 true] (sci/eval-string* child "(state)")))
+      (let [grandchild (sci/fork child)]
+        (sci/eval-string* child
+                          "(alter-var-root #'x (constantly 4))
+                           (reset! a 7)
+                           (vreset! v 11)")
+        (is (= [4 7 11 true] (sci/eval-string* child "(state)")))
+        (is (= [2 5 9 true] (sci/eval-string* grandchild "(state)")))))))
+
+(deftest forked-atom-control-state-test
+  (let [parent (tu/forkable-init nil)
+        a (sci/eval-string*
+           parent
+           "(def events (atom []))
+            (def a (atom 2 :meta {:branch :parent} :validator even?))
+            (add-watch a :inherited
+                       (fn [key _ old new]
+                         (swap! events conj [key old new])))
+            a")
+        child (sci/fork parent)]
+    (testing "value, metadata, validators, and watches are child-local"
+      (is (= [6 [[:inherited 2 4] [:child 4 6]]
+              {:branch :child} true]
+             (sci/eval-string*
+              child
+              "(reset! a 4)
+               (remove-watch a :inherited)
+               (add-watch a :child
+                          (fn [key _ old new]
+                            (swap! events conj [key old new])))
+               (alter-meta! a assoc :branch :child)
+               (set-validator! a #(>= % 4))
+               (compare-and-set! a 4 6)
+               [@a @events (meta a) ((get-validator a) 5)]")))
+      (is (= [2 [] {:branch :parent} true]
+             (sci/eval-string*
+              parent
+              "[@a @events (meta a) (= even? (get-validator a))]"))))
+    (testing "a stable handle outside evaluation uses its creation world"
+      (is (= 2 @a))
+      (is (= 8 (reset! a 8)))
+      (is (= [8 [[:inherited 2 8]]]
+             (sci/eval-string* parent "[@a @events]")))
+      (is (= [6 [[:inherited 2 4] [:child 4 6]]]
+             (sci/eval-string* child "[@a @events]"))))))
+
+#?(:cljd nil :clj
+   (deftest forked-atom-validator-linearization-test
+     (let [ctx (tu/forkable-init nil)
+           a (sci/eval-string* ctx "(atom 0)")
+           setter-entered (CountDownLatch. 1)
+           reset-finished (CountDownLatch. 1)
+           candidate (fn [value]
+                       (when (zero? value)
+                         (.countDown setter-entered)
+                         (.await reset-finished 2 TimeUnit/SECONDS))
+                       (not (neg? value)))
+           setter (future
+                    (try
+                      (set-validator! a candidate)
+                      :installed
+                      (catch IllegalStateException _ :rejected)))]
+       (is (.await setter-entered 2 TimeUnit/SECONDS))
+       (let [resetter (future
+                        (try
+                          (reset! a -1)
+                          :accepted
+                          (catch IllegalStateException _ :rejected)
+                          (finally (.countDown reset-finished))))]
+         (is (= :rejected @setter))
+         (is (= :accepted @resetter))
+         (is (= -1 @a))
+         (is (nil? (get-validator a)))))))
+
+#?(:cljd nil :clj
+   (deftest forked-atom-validator-does-not-block-unrelated-commits-test
+     (let [ctx (tu/forkable-init nil)
+           [a b] (sci/eval-string* ctx "[(atom 0) (atom 0)]")
+           validator-entered (CountDownLatch. 1)
+           release-validator (CountDownLatch. 1)]
+       (set-validator!
+        a
+        (fn [value]
+          (when (pos? value)
+            (.countDown validator-entered)
+            (.await release-validator 2 TimeUnit/SECONDS))
+          true))
+       (let [a-reset (future (reset! a 1))]
+         (is (.await validator-entered 2 TimeUnit/SECONDS))
+         (let [b-reset (future (reset! b 1))]
+           (is (= 1 (deref b-reset 1000 ::timed-out))))
+         (.countDown release-validator)
+         (is (= 1 @a-reset))))))
+
+#?(:cljd nil :clj
+   (deftest concurrent-cell-growth-preserves-mutations-test
+     (let [ctx (tu/forkable-init nil)
+           hot (sci/eval-string* ctx "(atom 0)")
+           updates 50000
+           updater (future (dotimes [_ updates] (swap! hot inc)))
+           grower (future
+                    (sci/eval-string*
+                     ctx
+                     "(dotimes [i 10000] (atom i))"))]
+       @updater
+       @grower
+       (is (= updates @hot)))))
+
+(deftest forked-memoize-cache-test
+  (let [parent (tu/forkable-init nil)]
+    (is (= [[:shared 1] [:shared 1] 1]
+           (sci/eval-string*
+            parent
+            "(def calls (atom 0))
+             (def measured
+               (memoize (fn [x] [x (swap! calls inc)])))
+             [(measured :shared) (measured :shared) @calls]")))
+    (let [child (sci/fork parent)]
+      (is (= [[:shared 1] [:child 2] [:child 2] 2]
+             (sci/eval-string*
+              child
+              "[(measured :shared)
+                (measured :child)
+                (measured :child)
+                @calls]")))
+      (is (= [[:shared 1] [:child 2] [:child 2] 2]
+             (sci/eval-string*
+              parent
+              "[(measured :shared)
+                (measured :child)
+                (measured :child)
+                @calls]")))
+      (is (= 2 (sci/eval-string* child "@calls"))))))
+
+(deftest forkable-host-value-test
+  (let [user-ns (sci/create-ns 'user)
+        copies (atom 0)
+        fallback-saw-resource? (atom false)
+        resource (->ForkableState (atom 0) copies)
+        state-var (sci/new-var 'state resource {:ns user-ns})
+        alias-var (sci/new-var 'state-alias resource {:ns user-ns})
+        parent (tu/forkable-init
+                {:namespaces {'user {'state state-var
+                                     'state-alias alias-var}}
+                 :fork-fn (fn [value]
+                            (when (identical? value resource)
+                              (reset! fallback-saw-resource? true))
+                            value)})
+        child (sci/fork parent)]
+    (testing "Forkable values take precedence over the legacy callback"
+      (is (false? @fallback-saw-resource?)))
+    (testing "identical roots are copied once and preserve aliases"
+      (is (= 1 @copies))
+      (is (= [true 1]
+             (sci/eval-string*
+              child
+              "[(identical? state state-alias) (swap! (:state state) inc)]"))))
+    (testing "the protocol-provided state realization is isolated"
+      (is (= 0 (sci/eval-string* parent "@(:state state)")))
+      (is (= 1 (sci/eval-string* child "@(:state state-alias)"))))))
+
+(deftest prohibited-host-value-test
+  (let [user-ns (sci/create-ns 'user)
+        resource (->ProhibitedState :socket)
+        resource-var (sci/new-var 'resource resource {:ns user-ns})
+        parent (tu/forkable-init {:namespaces {'user {'resource resource-var}}})
+        result (try
+                 (sci/fork parent)
+                 ::not-thrown
+                 (catch #?(:cljd cljd.core/ExceptionInfo
+                           :clj clojure.lang.ExceptionInfo
+                           :cljs ExceptionInfo) e
+                   (:resource (ex-data e))))]
+    (is (= :socket result))))
+
+(deftest affine-transient-fork-policy-test
+  (let [parent (tu/forkable-init nil)
+        transient-value (sci/eval-string*
+                         parent "(def working (transient [])) working")]
+    (is (thrown-with-msg?
+         #?(:cljd cljd.core/ExceptionInfo
+            :clj clojure.lang.ExceptionInfo
+            :cljs ExceptionInfo)
+         #"affine transient collection"
+         (sci/fork parent)))
+    (let [child (sci/fork parent {:fork-fn identity})]
+      (is (identical? transient-value
+                      (sci/eval-string* child "working"))))))
+
+#?(:cljd nil
+   :default
+   (deftest forked-array-state-test
+     (let [parent (tu/forkable-init nil)
+           parent-array (sci/eval-string*
+                         parent
+                         "(def buffer (object-array [1 2]))
+                          (def buffer-alias buffer)
+                          buffer")
+           child (sci/fork parent)
+           child-array (sci/eval-string* child "buffer")]
+       (is (not (identical? parent-array child-array)))
+       (is (= [true 9]
+              (sci/eval-string*
+               child
+               "(aset buffer 0 9)
+                [(identical? buffer buffer-alias) (aget buffer 0)]")))
+       (is (= [true 1]
+              (sci/eval-string*
+               parent
+               "[(identical? buffer buffer-alias) (aget buffer 0)]"))))))
+
+#?(:cljd nil
+   :default
+   (deftest unmanaged-host-reference-fork-policy-test
+     (let [user-ns (sci/create-ns 'user)
+           host-state (atom 0)
+           copies (atom 0)
+           state-var (sci/new-var 'host-state host-state {:ns user-ns})
+           alias-var (sci/new-var 'host-state-alias host-state {:ns user-ns})
+           parent (tu/forkable-init
+                   {:namespaces
+                    {'user {'host-state state-var
+                            'host-state-alias alias-var}}})]
+       (is (thrown-with-msg?
+            #?(:clj clojure.lang.ExceptionInfo :cljs ExceptionInfo)
+            #"unmanaged mutable host value"
+            (sci/fork parent)))
+       (let [child
+             (sci/fork
+              parent
+              {:fork-fn
+               (fn [value]
+                 (if (identical? value host-state)
+                   (do (swap! copies inc) (atom @value))
+                   value))})]
+         (is (= 1 @copies))
+         (is (= [true 1]
+                (sci/eval-string*
+                 child
+                 "[(identical? host-state host-state-alias)
+                   (swap! host-state inc)]")))
+         (is (= 0 @host-state))))))
+
+#?(:cljd nil
+   :clj
+   (deftest affine-host-resource-fork-policy-test
+     (testing "lazy realization is rejected"
+       (let [parent (tu/forkable-init nil)]
+         (sci/eval-string* parent "(def pending-xs (map inc [1 2 3]))")
+         (try
+           (sci/fork parent)
+           (is false "expected lazy sequence rejection")
+           (catch clojure.lang.ExceptionInfo e
+             (is (= :lazy-seq (:resource-kind (ex-data e))))))))
+     (testing "pending tasks and consuming resources are rejected"
+       (doseq [[resource expected-kind]
+               [[(java.util.concurrent.FutureTask. (fn [] :done))
+                 :pending-future]
+                [(delay :done) :pending-delay]
+                [(java.io.StringReader. "input") :closeable]
+                [(java.util.Random. 42) :random-generator]
+                [(java.util.ArrayList.) :java-collection]]]
+         (let [user-ns (sci/create-ns 'user)
+               parent (tu/forkable-init
+                       {:namespaces
+                        {'user {'resource
+                                (sci/new-var 'resource resource
+                                             {:ns user-ns})}}})]
+           (try
+             (sci/fork parent)
+             (is false (str "expected " expected-kind " rejection"))
+             (catch clojure.lang.ExceptionInfo e
+               (is (= expected-kind
+                      (:resource-kind (ex-data e)))))))))
+     (testing "a completed Future has immutable task state and may be shared"
+       (let [task (java.util.concurrent.FutureTask. (fn [] :done))
+             _ (.run task)
+             user-ns (sci/create-ns 'user)
+             parent (tu/forkable-init
+                     {:namespaces
+                      {'user {'task (sci/new-var 'task task {:ns user-ns})}}})
+             child (sci/fork parent)]
+         (is (identical? task (sci/eval-string* child "task")))
+         (is (= :done @task))))))
+
+#?(:cljs
+   (deftest affine-js-resource-fork-policy-test
+     (let [promise (js/Promise.resolve 1)
+           user-ns (sci/create-ns 'user)
+           parent (tu/forkable-init
+                   {:namespaces
+                    {'user {'promise
+                            (sci/new-var 'promise promise {:ns user-ns})}}})]
+       (try
+         (sci/fork parent)
+         (is false "expected Promise rejection")
+         (catch ExceptionInfo e
+           (is (= :promise (:resource-kind (ex-data e))))))
+       (is (identical? promise
+                       (sci/eval-string*
+                        (sci/fork parent {:fork-fn identity}) "promise"))))))
+
+#?(:cljd nil
+   :clj
+   (deftest fork-host-value-cooperation-test
+     (let [user-ns (sci/create-ns 'user)
+           state-var (sci/new-var 'state (atom 0) {:ns user-ns})
+           parent (tu/forkable-init
+                   {:namespaces {'user {'state state-var}}
+                    :fork-fn #(if (instance? clojure.lang.Atom %)
+                                (atom @%)
+                                %)})]
+       (sci/eval-string* parent "(defn bump-host! [] (swap! state inc))")
+       (let [child (sci/fork parent)]
+         (is (= 1 (sci/eval-string* child "(bump-host!)")))
+         (is (= 0 (sci/eval-string* parent "@state")))
+         (is (= 1 (sci/eval-string* child "@state")))))))
+
+#?(:cljd nil
+   :clj
+   (deftest fork-waits-for-active-evaluation-test
+     (let [entered (promise)
+           release (promise)
+           parent (tu/forkable-init {:bindings {'block! (fn []
+                                                   (deliver entered true)
+                                                   @release)}})
+           evaluation (future (sci/eval-string* parent "(block!)"))]
+       (is (= true (deref entered 1000 ::timeout)))
+       (let [forking (future (sci/fork parent))]
+         (is (= ::waiting (deref forking 50 ::waiting)))
+         (deliver release true)
+         (is (= true (deref evaluation 1000 ::timeout)))
+         (is (map? (deref forking 1000 ::timeout)))))))
+
+#?(:cljd nil
+   :clj
+   (deftest independent-world-slots-do-not-retry-test
+     (let [n 1000
+           a-calls (atom 0)
+           b-calls (atom 0)
+           parent (tu/forkable-init
+                   {:bindings
+                    {'step-a (fn [x] (swap! a-calls inc) (inc x))
+                     'step-b (fn [x] (swap! b-calls inc) (inc x))}})]
+       (sci/eval-string* parent "(def a (atom 0)) (def b (atom 0))")
+       (let [a-run (future (sci/eval-string*
+                            parent
+                            (str "(dotimes [_ " n "] (swap! a step-a))")))
+             b-run (future (sci/eval-string*
+                            parent
+                            (str "(dotimes [_ " n "] (swap! b step-b))")))]
+         (is (nil? (deref a-run 5000 ::timeout)))
+         (is (nil? (deref b-run 5000 ::timeout)))
+         (is (= [n n] [@a-calls @b-calls]))
+         (is (= [n n] (sci/eval-string* parent "[@a @b]")))))))
 
 (defmacro do-twice [x] `(do ~x ~x))
 (defn ^:sci/macro do-twice* [_ _ x] `(do ~x ~x))
@@ -1662,7 +2268,11 @@
   (let [C (atom (sci/init {:namespaces {'n {'foo 1}}}))]
     (is (= 1 (sci/eval-form @C 'n/foo)))
     (swap! C sci/merge-opts {:namespaces {'n {'foo 2}}})
-    (is (= 2 (sci/eval-form @C 'n/foo)))))
+    (is (= 2 (sci/eval-form @C 'n/foo)))
+    (let [forked (sci/fork @C)]
+      (swap! C sci/merge-opts {:namespaces {'n {'foo 3}}})
+      (is (= 3 (sci/eval-form @C 'n/foo)))
+      (is (= 2 (sci/eval-form forked 'n/foo))))))
 
 (deftest merge-opts-preserves-features-test
   (let [ctx (sci/init {:features #{:cljs}})]

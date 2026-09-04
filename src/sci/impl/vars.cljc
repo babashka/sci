@@ -11,9 +11,11 @@
                             var-get
                             var-set
                             bound-fn*])
-  (:require [sci.ctx-store]
+  (:require [sci.ctx-store :as store]
+            [sci.impl.execution :as execution]
             [sci.impl.macros :as macros]
-            [sci.impl.types :as t])
+            [sci.impl.types :as t]
+            [sci.impl.world :as world])
   #?(:cljs (:require-macros [sci.impl.vars :refer [with-bindings
                                                    with-writeable-namespace
                                                    with-writeable-var
@@ -32,17 +34,11 @@
            (throw (ex-info (str "Built-in namespace " name# " is read-only.")
                            {:ns ns-obj#})))))))
 
-(deftype Frame [bindings prev])
+(deftype Frame [bindings prev scope prior-bindings])
 
-(def top-frame (Frame. {} nil))
+(deftype ContinuationContext [ctx frame])
 
-#?(:cljd
-   (def dvals (volatile! top-frame))
-   :clj
-   (def ^ThreadLocal dvals (proxy [ThreadLocal] []
-                             (initialValue [] top-frame)))
-   :cljs
-   (def dvals (volatile! top-frame)))
+(def top-frame (Frame. {} nil nil nil))
 
 #?(:cljs
    (def var-epoch
@@ -73,9 +69,7 @@
                  v#)))))
 
 (defn get-thread-binding-frame ^Frame []
-  #?(:cljd @dvals
-     :clj (.get dvals)
-     :cljs @dvals))
+  (or (execution/binding-frame) top-frame))
 
 (deftype TBox #?(:cljd [thread ^:mutable val]
                  :clj [thread ^:volatile-mutable val]
@@ -86,19 +80,130 @@
   (getVal [_this] val))
 
 (defn clone-thread-binding-frame ^Frame []
-  (let [^Frame f #?(:cljd @dvals
-                    :clj (.get dvals)
-                    :cljs @dvals)]
-    (Frame. (.-bindings f) nil)))
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))]
+    (Frame. (execution/active-bindings state)
+            nil
+            (execution/binding-scope state)
+            nil)))
+
+(declare ^:private retarget-binding-frame)
+
+(defn capture-continuation-context
+  "Capture the current SCI context and its persistent dynamic-binding frame.
+
+  The returned value is an opaque host embedding token. It is intended for a
+  suspended continuation: invoke it later with `continuation-context-fn`, or
+  retarget an independent copy to a fork of the captured SCI context with
+  `retarget-continuation-context`."
+  ([]
+   (capture-continuation-context store/*ctx*))
+  ([ctx]
+   (when-not (:sci.impl/world ctx)
+     (throw (ex-info "No managed SCI context is active"
+                     {:type ::no-active-context})))
+   (let [source-scope (execution/binding-scope)
+         target-scope (:sci.impl/world ctx)]
+     ;; A suspension is a value snapshot, not an alias onto the evaluation's
+     ;; still-live binding boxes. Clone immediately; the source form may finish
+     ;; unwinding (or a host callback may choose a target later) before resume.
+     ;; An interpreted function invoked directly by its host has no ctx-store
+     ;; binding and therefore a nil binding scope; normalize that frame onto the
+     ;; explicit interpreter world supplied by the embedding boundary.
+     (->ContinuationContext
+      ctx
+      (retarget-binding-frame (get-thread-binding-frame)
+                              source-scope target-scope)))))
+
+(defn- clone-binding-map
+  [bindings box-cache]
+  (when bindings
+    (persistent!
+     (reduce-kv
+      (fn [ret var* box]
+        (let [forked-box
+              (if-let [entry (find @box-cache box)]
+                (val entry)
+                (let [copy (TBox. #?(:cljd nil
+                                     :clj (Thread/currentThread)
+                                     :cljs nil)
+                                  (t/getVal box))]
+                  (vswap! box-cache assoc box copy)
+                  copy))]
+          (assoc! ret var* forked-box)))
+      (transient {})
+      bindings))))
+
+(defn- retarget-binding-frame
+  [frame source-scope target-scope]
+  (let [box-cache (volatile! {})]
+    (letfn [(retarget [^Frame current]
+              (cond
+                (nil? current) nil
+                (identical? current top-frame) top-frame
+                :else
+                (Frame. (clone-binding-map (.-bindings current) box-cache)
+                        (retarget (.-prev current))
+                        (if (identical? source-scope (.-scope current))
+                          target-scope
+                          (.-scope current))
+                        (clone-binding-map (.-prior-bindings current)
+                                           box-cache))))]
+      (retarget frame))))
+
+(defn retarget-continuation-context
+  "Return an independent continuation context selecting `target-ctx`.
+
+  The target must be a fork in the captured context's lineage. Dynamic binding
+  boxes are copied, with aliases preserved inside the copied frame chain, and
+  binding scopes owned by the source world are moved to the target world."
+  [^ContinuationContext continuation-context target-ctx]
+  (let [source-ctx (.-ctx continuation-context)
+        frame (.-frame continuation-context)]
+    (when-not (and (:sci.impl/world target-ctx)
+                   (identical? (:sci.impl/lineage source-ctx)
+                               (:sci.impl/lineage target-ctx)))
+      (throw (ex-info
+              "Cannot retarget a continuation to an unrelated SCI context"
+              {:type ::unrelated-context})))
+    (->ContinuationContext
+     target-ctx
+     (retarget-binding-frame frame
+                             (:sci.impl/world source-ctx)
+                             (:sci.impl/world target-ctx)))))
+
+(defn- frame-scopes [frame]
+  (loop [current frame
+         seen #{}
+         ret {}]
+    (if (nil? current)
+      ret
+      (let [^Frame current current
+            scope (.-scope current)]
+        (if (contains? seen scope)
+          (recur (.-prev current) seen ret)
+          (recur (.-prev current)
+                 (conj seen scope)
+                 (assoc ret scope (.-bindings current))))))))
 
 (defn reset-thread-binding-frame [frame]
-  #?(:cljd (vreset! dvals frame)
-     :clj (.set dvals frame)
-     :cljs (vreset! dvals frame)))
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))
+        scopes (frame-scopes frame)]
+    (execution/set-binding-frame! state frame)
+    (execution/set-scope-bindings! state scopes)
+    (execution/refresh-active-bindings! state)
+    frame))
 
 (defprotocol IVar
   (bindRoot [this v])
   (getRawRoot [this])
+  (getRawWatches [this])
+  (getDirectRoot [this])
+  (selectRoot [this world-value])
+  (getRootAt [this slot])
   (toSymbol [this])
   (isMacro [this])
   (hasRoot [this])
@@ -113,8 +218,14 @@
   (dynamic? [_] false))
 
 (defn push-thread-bindings [bindings]
-  (let [^Frame frame (get-thread-binding-frame)
-        bmap (.-bindings frame)
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))
+        ^Frame frame (or (execution/binding-frame state) top-frame)
+        scope (execution/binding-scope state)
+        scopes (execution/scope-bindings state)
+        prior-bindings (get scopes scope)
+        bmap (or prior-bindings {})
         bmap (reduce (fn [acc [var* val*]]
                        (when (not (dynamic? var*))
                          (throw #?(:cljd (ex-info (str "Can't dynamically bind non-dynamic var " var*) {})
@@ -129,59 +240,94 @@
                      bmap
                      bindings)]
     #?(:cljs (bump-var-epoch!))
-    (reset-thread-binding-frame (Frame. bmap frame))))
+    (let [new-frame (Frame. bmap frame scope prior-bindings)]
+      (execution/set-binding-frame! state new-frame)
+      (execution/set-scope-bindings! state (assoc scopes scope bmap))
+      (execution/refresh-active-bindings! state)
+      new-frame)))
 
 (defn pop-thread-bindings []
   #?(:cljs (bump-var-epoch!))
   ;; type hint needed to satisfy CLJS compiler / shadow
-  (if-let [f (.-prev ^Frame (get-thread-binding-frame))]
-    (if (identical? top-frame f)
-      #?(:cljd (vreset! dvals top-frame)
-         :clj (.remove dvals)
-         :cljs (vreset! dvals top-frame))
-      (reset-thread-binding-frame f))
-    (throw (new #?(:cljd Exception :clj Exception :cljs js/Error) "No frame to pop."))))
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))
+        ^Frame frame (or (execution/binding-frame state) top-frame)]
+    (if-let [previous (.-prev frame)]
+      (let [scope (.-scope frame)
+            prior-bindings (.-prior-bindings frame)
+            scopes (execution/scope-bindings state)
+            scopes (if (nil? prior-bindings)
+                     (dissoc scopes scope)
+                     (assoc scopes scope prior-bindings))]
+        (execution/set-binding-frame! state
+                                      (when-not (identical? top-frame previous)
+                                        previous))
+        (execution/set-scope-bindings! state scopes)
+        (execution/refresh-active-bindings! state)
+        nil)
+      (throw (new #?(:cljd Exception :clj Exception :cljs js/Error) "No frame to pop.")))))
 
 (defn get-thread-bindings []
-  (let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
-        ^Frame f (get-thread-binding-frame)]
-    (loop [ret {}
-           kvs (seq (.-bindings f))]
-      (if kvs
-        (let [[var* ^TBox tbox] (first kvs)
-              tbox-val (t/getVal tbox)]
-          (recur (assoc ret var* tbox-val)
-                 (next kvs)))
-        ret))))
+  (let [bmap (execution/active-bindings)]
+    (reduce-kv (fn [ret var* tbox]
+                 (assoc ret var* (t/getVal tbox)))
+               {}
+               bmap)))
 
 (defn get-thread-binding #?(:cljd [sci-var] :clj ^TBox [sci-var] :cljs ^TBox [sci-var])
-  (when-let [;; type hint added to prevent shadow-cljs warning, although fn has return tag
-             ^Frame f #?(:cljd @dvals
-                         :clj (.get dvals)
-                         :cljs @dvals)]
-    #?(:cljd (get (.-bindings f) sci-var)
-       :clj (.get ^java.util.Map (.-bindings f) sci-var)
-       :cljs (.get (.-bindings f) sci-var))))
+  (let [state #?(:cljd (execution/current-state)
+                 :clj (.get ^ThreadLocal execution/current)
+                 :cljs (execution/current-state))
+        bmap #?(:cljd (execution/active-bindings state)
+                :clj (or (aget ^objects state execution/active-bindings-index) {})
+                :cljs (execution/active-bindings state))]
+    #?(:cljd (get bmap sci-var)
+       :clj (.get ^java.util.Map bmap sci-var)
+       :cljs (.get bmap sci-var))))
 
-(defn binding-conveyor-fn
-  [f]
-  (let [frame (clone-thread-binding-frame)]
+(defn- binding-frame-fn [frame ctx f]
+  (let [invoke (fn [args]
+                 (let [previous (get-thread-binding-frame)]
+                   (try
+                     (reset-thread-binding-frame frame)
+                     (if (:sci.impl/world ctx)
+                       (store/with-ctx ctx
+                         (world/with-active-world ctx #(apply f args)))
+                       (apply f args))
+                     (finally
+                       (reset-thread-binding-frame previous)))))]
     (fn
       ([]
-       (reset-thread-binding-frame frame)
-       (f))
+       (invoke nil))
       ([x]
-       (reset-thread-binding-frame frame)
-       (f x))
+       (invoke [x]))
       ([x y]
-       (reset-thread-binding-frame frame)
-       (f x y))
+       (invoke [x y]))
       ([x y z]
-       (reset-thread-binding-frame frame)
-       (f x y z))
+       (invoke [x y z]))
       ([x y z & args]
-       (reset-thread-binding-frame frame)
-       (apply f x y z args)))))
+       (invoke (list* x y z args))))))
+
+(defn continuation-context-fn
+  "Wrap `f` so every invocation restores a captured continuation context."
+  [^ContinuationContext continuation-context f]
+  (binding-frame-fn (.-frame continuation-context)
+                    (.-ctx continuation-context)
+                    f))
+
+(defn binding-conveyor-fn
+  "Convey the current binding values to an independent task. The shallow
+  frame deliberately cannot pop scopes owned by the submitting execution."
+  [f]
+  (binding-frame-fn (clone-thread-binding-frame) store/*ctx* f))
+
+(defn binding-continuation-fn
+  "Convey the persistent binding frame chain to a continuation of the current
+  execution. Unlike an independent task, the continuation may leave scopes
+  entered before suspension."
+  [f]
+  (binding-frame-fn (get-thread-binding-frame) store/*ctx* f))
 
 (defn throw-unbound-call-exception [the-var]
   (throw #?(:cljd (ex-info (str "Attempting to call unbound fn: " the-var) {})

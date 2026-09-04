@@ -16,6 +16,12 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 - Caches resolved JVM instance methods per call site for performance
 - Fix [babashka#2030](https://github.com/babashka/babashka/issues/2030): `aset` on a primitive array was reflective and 170x slower than `aset-double`
 - Bump edamame to `1.6.43`
+- Add forkable interpreter worlds for Vars, namespaces, dynamic bindings, SCI
+  mutable values, and application-defined host resources.
+- Add explicit continuation-context capture and retargeting so an embedding can
+  resume a suspended computation independently in related forked worlds.
+- Add `with-detached-context` for recursively constructing an independent SCI
+  interpreter without inheriting the caller's execution-local world.
 
 ## 0.15.58
 

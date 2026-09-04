@@ -10,7 +10,7 @@
                             clojure-version
                             print-method
                             print-dup
-                            #?(:cljs alter-meta!)
+                            #?@(:cljs [alter-meta! reset-meta!])
                             memfn
                             time
                             exists? js-in])
@@ -47,10 +47,12 @@
    [sci.impl.protocols :as protocols]
    [sci.impl.read :as read :refer [read read-string]]
    [sci.impl.records :as records]
+   [sci.impl.refs :as refs]
    [sci.impl.reify :as reify]
    [sci.impl.types :as types]
    [sci.impl.utils :as utils :refer [eval]]
    [sci.impl.vars :as vars]
+   [sci.impl.world :as world]
    [sci.lang])
   #?(:cljs (:require-macros
             [sci.impl.copy-vars :refer [copy-var copy-core-var macrofy avoid-method-too-large]])))
@@ -382,9 +384,7 @@
 
 (defn delay*
   [_ _ & body]
-  #?(:cljd `(clojure.core/-delay* (fn [] ~@body))
-     :clj `(new clojure.lang.Delay (fn [] ~@body))
-     :cljs `(new cljs.core/Delay (fn [] ~@body))))
+  `(clojure.core/-delay* (fn [] ~@body)))
 
 (defn defn-*
   [_ _ name & decls]
@@ -774,9 +774,22 @@
   arguments. This may be used to define a helper function which runs on a
   different thread, but needs the same bindings in place."
   [f]
-  (let [bindings (sci.impl.vars/get-thread-bindings)]
+  (let [bindings (vars/get-thread-bindings)
+        ctx store/*ctx*]
     (fn [& args]
-      (apply with-bindings* bindings f args))))
+      (let [previous (vars/get-thread-binding-frame)
+            invoke #(apply with-bindings* bindings f args)]
+        (try
+          ;; A pooled worker may retain a conveyor frame from prior SCI work.
+          ;; bound-fn installs fresh boxes over a clean execution binding set,
+          ;; then restores whatever the caller had.
+          (vars/reset-thread-binding-frame nil)
+          (if (:sci.impl/world ctx)
+            (store/with-ctx ctx
+              (world/with-active-world ctx invoke))
+            (invoke))
+          (finally
+            (vars/reset-thread-binding-frame previous)))))))
 
 (defn sci-bound-fn
   "Returns a function defined by the given fntail, which will install the
@@ -911,6 +924,8 @@
             (do (types/setVal existing data)
                 existing)
             (sci.lang/->Type data))]
+    (world/register-type!
+     t data #?(:cljs sci.impl.deftype/fork-type-data :default nil))
     (swap! env (fn [env]
                  (-> env
                      (update-in [:namespaces cnn :types] assoc type-name t)
@@ -1067,13 +1082,67 @@
 
   f must be free of side-effects"
      [iref f & args]
-     (if (utils/sci-type? iref)
-       (types/setVal iref (apply f (types/getVal iref) args))
-       (let [m (meta iref)]
-         (if-not (:sci/built-in m)
-           (apply cljs.core/alter-meta! iref f args)
-           (throw (ex-info (str "Built-in var " iref " is read-only.")
-                           {:var iref})))))))
+     (if (refs/sci-atom? iref)
+       (apply refs/alter-meta!* iref f args)
+       (cond
+         (utils/namespace? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-namespace iref current-meta
+             (if (world/current-world)
+               (let [m (world/alter-namespace-meta!
+                        iref current-meta f args)]
+                 (when (world/primary-world?)
+                   (cljs.core/reset-meta! iref m))
+                 m)
+               (apply cljs.core/alter-meta! iref f args))))
+
+         (utils/var? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-var iref current-meta
+             (if (world/current-world)
+               (let [m (world/alter-var-meta! iref current-meta f args)]
+                 (when (world/primary-world?)
+                   (cljs.core/reset-meta! iref m))
+                 m)
+               (apply cljs.core/alter-meta! iref f args))))
+
+         (utils/sci-type? iref)
+         (types/setVal iref (apply f (types/getVal iref) args))
+
+         :else
+         (let [m (meta iref)]
+           (if-not (:sci/built-in m)
+             (apply cljs.core/alter-meta! iref f args)
+             (throw (ex-info (str "Built-in var " iref " is read-only.")
+                             {:var iref}))))))))
+
+#?(:cljs
+   (defn reset-meta! [iref m]
+     (if (refs/sci-atom? iref)
+       (refs/reset-meta!* iref m)
+       (cond
+         (utils/namespace? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-namespace iref current-meta
+             (if (world/current-world)
+               (do (world/reset-namespace-meta! iref m)
+                   (when (world/primary-world?)
+                     (cljs.core/reset-meta! iref m))
+                   m)
+               (cljs.core/reset-meta! iref m))))
+
+         (utils/var? iref)
+         (let [current-meta (meta iref)]
+           (vars/with-writeable-var iref current-meta
+             (if (world/current-world)
+               (do (world/reset-var-meta! iref m)
+                   (when (world/primary-world?)
+                     (cljs.core/reset-meta! iref m))
+                   m)
+               (cljs.core/reset-meta! iref m))))
+
+         :else
+         (cljs.core/reset-meta! iref m)))))
 
 (defn- let** [expr _ bindings & body]
   (when-not (vector? bindings)
@@ -1153,6 +1222,9 @@
                  imap))]
     `(let* [~ge ~e] (case* ~ge 0 0 ~default ~imap :sparse :hash-equiv nil))))
 
+(defn- fork-loaded-libs [libs]
+  (#?(:clj ref :cljs atom :cljd atom) @libs))
+
 (defn loaded-libs** [syms]
   (utils/dynamic-var
    '*loaded-libs* (#?(:cljd atom :clj ref :cljs atom)
@@ -1162,7 +1234,8 @@
    {:doc "A ref to a sorted set of symbols representing loaded libs"
     :ns clojure-core-ns
     :private true
-    :sci/built-in true}))
+    :sci/built-in true
+    :sci.impl/fork-fn fork-loaded-libs}))
 
 (defn loaded-libs* []
   (-> (store/get-ctx) :env deref :namespaces
@@ -1312,27 +1385,28 @@
      (defn promise-then
        "Chain a callback on a promise. Used by async transformer."
        [p f]
-       (.then p f))
+       (.then p (vars/binding-continuation-fn f)))
 
      (defn promise-catch
        "Add error handler to a promise. Used by async transformer."
        [p f]
-       (.catch p f))
+       (.catch p (vars/binding-continuation-fn f)))
 
      (defn promise-catch-for-try
        "Add error handler that unwraps SCI error wrapping before calling handler.
         SCI's interpreter wraps exceptions with {:type :sci/error} for location tracking,
         but async catch handlers need the original exception (like sync eval-try uses ex-cause)."
        [p f]
-       (.catch p (fn [e]
-                   (f (if (= :sci/error (:type (ex-data e)))
-                        (or (ex-cause e) e)
-                        e)))))
+       (let [conveyed (vars/binding-continuation-fn f)]
+         (.catch p (fn [e]
+                     (conveyed (if (= :sci/error (:type (ex-data e)))
+                                  (or (ex-cause e) e)
+                                  e))))))
 
      (defn promise-finally
        "Add finally handler to a promise. Used by async transformer."
        [p f]
-       (.finally p f))
+       (.finally p (vars/binding-continuation-fn f)))
 
      (def async-await-namespace (sci.lang/->Namespace 'sci.impl.async-await nil))))
 
@@ -1406,18 +1480,23 @@
      ;; multimethods
      'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
-     #?@(:cljd ['get-method (new-var 'get-method sci.impl.multimethods/get-method-impl clojure-core-ns)]
-         :default ['get-method (copy-core-var get-method)])
-     #?@(:cljd ['methods (new-var 'methods sci.impl.multimethods/methods-impl clojure-core-ns)]
-         :default ['methods (copy-core-var methods)])
+     'get-method (copy-var sci.impl.multimethods/get-method-impl clojure-core-ns
+                           {:copy-meta-from 'clojure.core/get-method})
+     'methods (copy-var sci.impl.multimethods/methods-impl clojure-core-ns
+                        {:copy-meta-from 'clojure.core/methods})
      'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
      'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
      'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
-     #?@(:cljd [] :default ['prefer-method (copy-core-var prefer-method)])
-     #?@(:cljd [] :default ['prefers (copy-core-var prefers)])
-     #?@(:cljd ['remove-method (new-var 'remove-method sci.impl.multimethods/remove-method-impl clojure-core-ns)]
-         :default ['remove-method (copy-core-var remove-method)])
-     #?@(:cljd [] :default ['remove-all-methods (copy-core-var remove-all-methods)])
+     #?@(:cljd [] :default
+         ['prefer-method (copy-var sci.impl.multimethods/prefer-method-impl clojure-core-ns
+                                   {:copy-meta-from 'clojure.core/prefer-method})])
+     #?@(:cljd [] :default
+         ['prefers (copy-var sci.impl.multimethods/prefers-impl clojure-core-ns
+                             {:copy-meta-from 'clojure.core/prefers})])
+     'remove-method (copy-var sci.impl.multimethods/remove-method-impl clojure-core-ns
+                              {:copy-meta-from 'clojure.core/remove-method})
+     'remove-all-methods (copy-var sci.impl.multimethods/remove-all-methods-impl clojure-core-ns
+                                   {:copy-meta-from 'clojure.core/remove-all-methods})
      ;; end multimethods
      ;; protocols
      'defprotocol (macrofy 'defprotocol sci.impl.protocols/defprotocol
@@ -1439,19 +1518,15 @@
      'satisfies? (copy-var sci.impl.protocols/satisfies? clojure-core-ns {:name 'satisfies?})
      ;; end protocols
      ;; IDeref as protocol
-     'deref #?(:cljs (copy-core-var deref)
-               :default (copy-var core-protocols/deref* clojure-core-ns {:name 'deref}))
+     'deref (copy-var core-protocols/deref* clojure-core-ns {:name 'deref})
      #?@(:cljd ['-deref (new-var '-deref core-protocols/-deref)
                 'IDeref core-protocols/deref-protocol]
          :cljs ['-deref (new-var '-deref -deref)
                 'IDeref core-protocols/deref-protocol])
      ;; end IDeref as protocol
      ;; IAtom / ISwap as protocol
-     'swap! #?(:cljs (copy-core-var swap!)
-               :default (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!}))
-     'compare-and-set! #?(:cljd (copy-core-var compare-and-set!)
-                          :clj (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
-                          :cljs (copy-core-var compare-and-set!))
+     'swap! (copy-var core-protocols/swap!* clojure-core-ns {:name 'swap!})
+     'compare-and-set! (copy-var core-protocols/compare-and-set!* clojure-core-ns {:name 'compare-and-set!})
      #?@(:cljd ['IReset core-protocols/reset-protocol
                 'ISwap core-protocols/swap-protocol
                 '-swap! (new-var '-swap! core-protocols/-swap!)
@@ -1679,6 +1754,7 @@
      'get (copy-core-var get)
      'get-thread-binding-frame-impl (new-var 'get-thread-binding-frame-impl sci.impl.vars/get-thread-binding-frame)
      #?@(:clj ['get-thread-bindings (copy-var sci.impl.vars/get-thread-bindings clojure-core-ns {:name 'get-thread-bindings})])
+     'get-validator (copy-var refs/get-validator* clojure-core-ns {:name 'get-validator})
      'get-in (copy-core-var get-in)
      'group-by (copy-core-var group-by)
      'gensym (copy-core-var gensym)
@@ -1852,8 +1928,7 @@
      'reduced (copy-core-var reduced)
      'reduced? (copy-core-var reduced?)
      'req! (copy-var req!* clojure-core-ns {:name 'req!})
-     'reset! #?(:cljs (copy-core-var reset!)
-                :default (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!}))
+     'reset! (copy-var core-protocols/reset!* clojure-core-ns {:name 'reset!})
      'reset-thread-binding-frame-impl (new-var 'reset-thread-binding-frame-impl sci.impl.vars/reset-thread-binding-frame)
      'resolve (copy-var sci-resolve clojure-core-ns {:name 'resolve})
      #?@(:cljd [] :default ['reversible? (copy-core-var reversible?)])
@@ -1880,6 +1955,7 @@
      'str (copy-core-var str)
      'second (copy-core-var second)
      'set (copy-core-var set)
+     'set-validator! (copy-var refs/set-validator!* clojure-core-ns {:name 'set-validator!})
      'seq (copy-core-var seq)
      'seq-to-map-for-destructuring (copy-var seq-to-map-for-destructuring clojure-core-ns)
      'seq? (copy-core-var seq?)
@@ -1994,8 +2070,8 @@
 
      ;; -write comes from the IWriter protocol-vars entry below
      'locking (macrofy 'locking locking*)
+     '-delay* (new-var '-delay* (fn [f] (delay (f))) clojure-core-ns)
      #?@(:cljd ['-lazy-seq* (new-var '-lazy-seq* (fn [f] (lazy-seq (f))) clojure-core-ns)
-                '-delay* (new-var '-delay* (fn [f] (delay (f))) clojure-core-ns)
                 ;; no unchecked math on cljd, alias to the checked variants
                 'unchecked-inc (new-var 'unchecked-inc inc clojure-core-ns)
                 'unchecked-dec (new-var 'unchecked-dec dec clojure-core-ns)
@@ -2052,6 +2128,45 @@
              ITransientVector ITransientSet IComparable
              INamed IAtom IVolatile IIterable Inst
              IEncodeJS IEncodeClojure))))
+
+ (def forkable-core-overrides
+   (merge
+    {'deref (copy-var core-protocols/forkable-deref* clojure-core-ns
+                      {:name 'deref})
+     'apply (copy-var core-protocols/forkable-apply clojure-core-ns
+                      {:name 'apply})
+     'swap! (copy-var core-protocols/forkable-swap!* clojure-core-ns
+                      {:name 'swap!})
+     'reset! (copy-var core-protocols/forkable-reset!* clojure-core-ns
+                       {:name 'reset!})
+     'compare-and-set!
+     (copy-var core-protocols/forkable-compare-and-set!* clojure-core-ns
+               {:name 'compare-and-set!})
+     'atom (copy-var core-protocols/forkable-atom* clojure-core-ns
+                     {:name 'atom})
+     'volatile! (copy-var core-protocols/forkable-volatile!* clojure-core-ns
+                          {:name 'volatile!})
+     'vreset! (copy-var core-protocols/forkable-vreset!* clojure-core-ns
+                        {:name 'vreset!})
+     'vswap! (copy-var core-protocols/forkable-vswap!* clojure-core-ns
+                       {:name 'vswap!})
+     'delay? (copy-var refs/delay?* clojure-core-ns
+                       {:copy-meta-from 'clojure.core/delay?})
+     'force (copy-var refs/force* clojure-core-ns
+                      {:copy-meta-from 'clojure.core/force})
+     'memoize (copy-var refs/memoize* clojure-core-ns
+                        {:copy-meta-from 'clojure.core/memoize})
+     '-delay* (new-var '-delay* refs/delay* clojure-core-ns)}
+    #?(:clj
+       {'swap-vals! (copy-var core-protocols/forkable-swap-vals!*
+                              clojure-core-ns {:name 'swap-vals!})
+        'reset-vals! (copy-var core-protocols/forkable-reset-vals!*
+                               clojure-core-ns {:name 'reset-vals!})
+        'promise (copy-var refs/promise* clojure-core-ns
+                           {:copy-meta-from 'clojure.core/promise})
+        'deliver (copy-var refs/deliver* clojure-core-ns
+                           {:copy-meta-from 'clojure.core/deliver})}
+       :default {})))
 
  (defn dir-fn
    [ns]
@@ -2314,7 +2429,8 @@
                   false
                   nil
                   nil
-                  clojure-walk-namespace))
+                  clojure-walk-namespace
+                  false))
 
  (def clojure-walk-ns
    {:obj clojure-walk-namespace

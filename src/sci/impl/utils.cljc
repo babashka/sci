@@ -6,6 +6,7 @@
             [sci.impl.macros :as macros]
             [sci.impl.types :as t]
             [sci.impl.vars :as vars]
+            [sci.impl.world :as world]
             [sci.lang :as lang])
   #?(:cljs (:import [goog.string StringBuffer]))
   #?(:cljs (:require-macros [sci.impl.utils :refer [kw-identical? dotimes+]])))
@@ -211,12 +212,15 @@
   adds it to env before returning it."
   [env ns-sym create? attr-map]
   (let [env* @env
-        ns-map (get-in env* [:namespaces ns-sym])]
-    (or (:obj ns-map)
-        (when (or ns-map create?)
-          (let [ns-obj (lang/->Namespace ns-sym attr-map)]
-            (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
-            ns-obj)))))
+        ns-map (get-in env* [:namespaces ns-sym])
+        ns-obj (or (:obj ns-map)
+                   (when (or ns-map create?)
+                     (let [ns-obj (lang/->Namespace ns-sym attr-map)]
+                       (swap! env assoc-in [:namespaces ns-sym :obj] ns-obj)
+                       ns-obj)))]
+    (when ns-obj
+      (world/register-namespace! ns-obj (meta ns-obj)))
+    ns-obj))
 
 (defn reset-meta!* [x m]
   #?(:cljd (t/-reset-meta! x m)
@@ -320,7 +324,7 @@
    (dynamic-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :dynamic true :name (unqualify-symbol name))]
-     (lang/->Var init-val name meta false false nil (:ns meta)))))
+     (lang/->Var init-val name meta false false nil (:ns meta) false))))
 
 ;; foundational namespaces
 (def user-ns (lang/->Namespace 'user nil))
@@ -348,7 +352,7 @@
   ([name init-val] (new-var name init-val (meta name)))
   ([name init-val meta]
    (let [meta (assoc meta :name (unqualify-symbol name))]
-     (lang/->Var init-val name meta false nil nil (:ns meta)))))
+     (lang/->Var init-val name meta false nil nil (:ns meta) false))))
 
 (defn var? [x]
   (instance? #?(:cljd lang/Var :clj sci.lang.Var :cljs sci.lang.Var) x))

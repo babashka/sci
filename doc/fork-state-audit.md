@@ -1,0 +1,435 @@
+# Forkable runtime state audit
+
+This audit describes the experimental fork implementation on the current
+branch.
+It distinguishes heap/world state from dynamic control state and external
+resources. A value being reachable through an SCI Var does not by itself make
+all of its internal state fork-local.
+
+## Current state model
+
+An SCI context currently has three relevant layers:
+
+1. The context environment is an atom containing persistent namespace maps.
+   `sci/fork` creates a new atom with the same map value.
+2. A lineage registry maps stable handles to dense slots. Var roots and
+   metadata use two slots, with an optional third slot allocated only when a
+   Var gains watches. Namespace objects use one metadata slot and Type handles
+   use one descriptor-data slot. A self-describing SCI atom carries a hot value
+   slot plus a cold control slot for metadata, validator, and watches.
+   Volatiles currently use one registry-routed value slot.
+3. Dynamic binding frames are control state outside the world. Active world,
+   binding scope, and frame are consolidated in one execution-state cell. On
+   the JVM it is a `ThreadLocal`; on CLJS and ClojureDart it is a process-local
+   volatile.
+
+A Var read therefore has this precedence:
+
+```text
+binding frame contains Var? ── yes ──> mutable TBox value
+             │
+             no
+             ↓
+primary evaluation? ── yes ──> direct Var root
+             │
+             no
+             ↓
+forked world's resolved dense slot
+```
+
+The environment and dense world are forked. The binding frame and host object
+internals generally are not.
+
+## Dynamic bindings
+
+SCI closely follows Clojure's `Var.java` representation:
+
+- A `Frame` contains a complete persistent map from Var identity to `TBox`, a
+  pointer to the previous frame, and the world in which it was pushed. A nil
+  world denotes an explicit host API binding.
+- The execution state caches the effective binding map for its active world.
+  World entry selects or merges the persistent host/world maps once, leaving a
+  dynamic Var read with one execution-state lookup and one map lookup.
+- `push-thread-bindings` starts with the current complete map, associates a new
+  box for each rebound Var, and pushes the new frame. `pop-thread-bindings` is
+  O(1).
+- A `TBox` contains the creating JVM thread and a mutable value. `set!` mutates
+  the box only on that thread. Setting a conveyed binding from a future is
+  rejected, matching Clojure.
+- A Var has a shared `thread-bound` fast-path bit. Once any binding has existed,
+  reads check the current frame before reading a root.
+- `bound-fn*` captures binding values and creates fresh boxes when invoked.
+  `binding-conveyor-fn`, used by SCI futures, shares the captured boxes, like
+  Clojure's conveyor behavior. Both also capture and reinstall the SCI world.
+
+A focused local JVM benchmark of ten million dynamic-binding reads took a
+median 94.6 ms with the consolidated execution cell, versus 123.8 ms before
+world scoping. This is not a portable performance guarantee, but it validates
+the important shape of the implementation: scope selection happens on world
+entry rather than on every Var dereference.
+
+### Present fork semantics
+
+`sci/fork` is a world snapshot, not an execution or continuation snapshot. It
+does not capture a dynamic frame. It also cannot be called from inside an
+active evaluation of the source world, because the evaluation holds that
+world's read permit and the fork requires its write permit.
+
+Binding frames are scoped to the world in which they are pushed. A nested
+evaluation of another world skips those frames, so a Var made `^:dynamic` only
+in a child can no longer override a nested parent evaluation. Bindings
+established explicitly through the host API outside an evaluation have nil
+scope and deliberately enter any subsequently evaluated world, retaining the
+useful behavior of `sci/with-bindings`.
+
+The audit also found an async correctness gap: SCI's future wrapper conveyed
+the dynamic frame, but did not install the captured context's `ReadWorld` or
+take the world's evaluation permit. In the original probe, the dynamic binding
+was conveyed correctly while `swap!` changed the parent atom realization:
+parent `1`, child `0`. `binding-conveyor-fn` now captures the SCI context, runs
+the callback with that world installed and permitted, and restores the
+worker's prior execution state. The CLJS async transform uses a related
+continuation wrapper for Promise `then`, `catch`, and `finally`: unlike an
+independent task's shallow frame, it retains the persistent parent chain so a
+continuation can leave a `binding` scope entered before `await`. Both the world
+and dynamic bindings therefore survive suspension. A running Future is still
+a non-copyable host resource.
+
+CLJS and ClojureDart still use one volatile execution-state cell rather than a
+general async-local facility. Managed Promise continuations install and
+restore their captured state synchronously, but arbitrary host callbacks must
+be conveyed explicitly and ClojureDart has no equivalent async integration
+yet.
+
+### Recommended control-state model
+
+Keep two APIs and make their distinction explicit:
+
+- `fork` remains a quiescent heap/world snapshot and captures no running
+  bindings.
+- A future `fork-execution` operates only at a suspension point and snapshots
+  `(world, binding-frame, continuation, resource capabilities)`.
+
+Dynamic frames should eventually belong to an evaluation/fiber token rather
+than an unqualified process thread. The execution-state cell is the first step:
+its frame headers and maps are persistent, so a suspended fiber can share them
+in O(1), while `TBox` retains Clojure's mutable `set!` and conveyed-thread
+ownership behavior. A later execution fork can replace boxes with immutable
+values or copy them at the suspension boundary.
+
+Explicit host bindings are intentionally unscoped and enter subsequently
+evaluated worlds. SCI `(binding ...)` inside evaluation is world-specific, so
+child-only dynamic metadata cannot affect a nested parent evaluation.
+
+## Primitive and runtime-state inventory
+
+| Facility | Current fork behavior | Required classification or change |
+|---|---|---|
+| Var root and metadata | Dense world-local slots | Implemented |
+| Namespace maps, aliases, imports | Persistent map in a new environment atom | Implemented; contained handles remain shared intentionally |
+| Global hierarchy value | Immutable map held in a world-local Var root | Implemented |
+| SCI-created atom value and control state | Self-describing stable handle; world-local value and metadata/validator/watch slots | Implemented; watch callback effects remain the user's responsibility |
+| SCI-created volatile value | Stable host handle, world-local value slot | Implemented |
+| Var watches | Optional dense world-local slot on a stable Var handle | Implemented; callbacks are inherited but their external effects remain capabilities |
+| Namespace metadata | Stable Namespace handle with a dense world-local metadata slot | Implemented |
+| Type descriptor data | Stable Type handle with one dense world-local data slot | Implemented; CLJS native prototypes are cloned before child values are copied |
+| SCI mutable deftype fields | Stable instance handle with one managed persistent field-map slot | Implemented across closures/containers; CLJS direct roots may also be copied onto the child native-protocol prototype |
+| `*loaded-libs*` | Built-in Var root has a per-cell copier for its host Ref/atom | Implemented; keeps the host representation while loaded sets diverge |
+| Delay | Stable SCI handle with world-local pending/realized state | Implemented; pending realizations split, while cached outcomes are inherited according to host delay semantics |
+| Lazy sequence realization | One host lazy cell/cache | Direct world-cell values are rejected as affine; managed lazy continuations remain future work |
+| SCI `memoize` cache | Closure owns a fork-local `SciAtom` cache | Implemented; inherited entries are shared as immutable values and later cache fills diverge |
+| JVM Promise | Stable SCI handle with world-local pending/delivered state | Implemented; a pending child has no inherited waiters and delivery is branch-local |
+| CLJS Promise | Native asynchronous host value | Direct world-cell values are rejected as external; `:fork-fn` must choose deliberate sharing or application virtualization |
+| Future / async task | Work launched through the binding conveyor runs in its captured world; a managed fork waits for it | A still-pending direct host Future is rejected; a completed Future may be shared as immutable task outcome state |
+| Transient collection | Detected as affine when directly stored in a world cell | Fork rejected by default; `:fork-fn` may impose an explicit application policy |
+| JVM array / CLJS JavaScript array | Shallow-copied once per source identity | Implemented for direct world-cell values; nested elements retain their own policy |
+| Host atom/ref/agent/volatile/native multimethod, common JVM atomic/synchronization holders | Detected as unmanaged mutable or affine host state | Fork rejected by default; `Forkable` wrapper or `:fork-fn` must choose copy or sharing |
+| Plain JS object / mutable host collection | Same host object | Shared unless it implements `Forkable` or `:fork-fn` copies it |
+| JVM/CLJS SCI multimethod tables, preferences, and caches | Stable `SciMultiFn` handle with a fork-local host dispatch engine | Implemented; method mutations use copy-on-write and caches are rebuilt per fork |
+| ClojureDart SCI multimethod tables | Stable `SciMultiFn` with a dense world-local persistent method map | Implemented for interpreter-created exact-dispatch multimethods; built-in runtime tables remain global |
+| SCI protocol extension registries | Protocol Vars and method multimethods are world-local | Implemented; CLJS native prototypes isolate copied world-cell instances, while opaque closure-only instances retain their creation prototype |
+| Record hash caches | Shared memoized hash only | Benign derived state if records remain immutable |
+| Watches with external effects | Shared callback registrations | Must be copied, shared, or prohibited explicitly by capability |
+| RNG, `gensym`, clock, UUID | Host/global nondeterministic source | External capability; not reproducibly forked |
+| Readers, writers, streams, iterators, regex matchers, mutable Java collections | Mutable/consuming host resource | Known JVM direct values are rejected; explicitly share or virtualize with `Forkable`/`:fork-fn` |
+| Files, sockets, executors, locks | External host resource | Known JVM direct values are rejected; explicitly share, virtualize, or prohibit application-specific wrappers |
+
+The table concerns state created or exposed by SCI itself. Application-owned
+containers remain responsible for their nested graph through
+`sci.fork/Forkable`; only direct world-cell values are inspected by that
+protocol.
+
+## Reproduced cross-world effects
+
+A JVM probe against the current implementation produced these results:
+
+- before managed delays, forcing a child delay returned its value in the
+  parent without running the delayed body in the parent;
+- before managed JVM promises, delivering a child promise delivered the parent
+  promise;
+- before affine rejection and built-in array copying, mutating a child
+  transient or array changed the object seen by the parent;
+- using a memoized function in the child populated the cache used by parent;
+- a child `defmethod` installed the method in parent;
+- before self-describing atoms, child atom metadata changes appeared in the
+  parent and a watch installed in the child fired for a parent mutation;
+- before managed namespace metadata, namespace metadata changes leaked across
+  worlds;
+- before world-scoped frames, a child-only dynamic binding was visible in a
+  nested parent evaluation;
+- before the conveyor correction, a future launched in child mutated the
+  parent atom realization.
+
+These are realization leaks, not failures of the dense value slots themselves.
+They arise because a world-local slot often contains a stable object whose own
+mutable internals have not yet been decomposed into world state.
+
+## Dense-registry liveness
+
+The lineage registry still holds strong keys for every registered Var and
+registry-routed volatile, and `:next-slot` only increases. Self-describing
+atoms do not add their object as a registry key. Their anonymous descriptor
+holds a weak owner reference on JVM and CLJS, and a fork first clears the
+source world's slots for dead owners. This releases the atom's value and
+control payload before copying them into another world.
+
+This is a partial liveness solution with three remaining consequences:
+
+1. Anonymous descriptors, slot numbers, and dense-array capacity are not
+   reclaimed, so short-lived atoms can still increase later fork traversal.
+2. Other dormant worlds retain a dead owner's payload until that world is next
+   used as a fork source. A payload or watch that points back to the atom also
+   creates a cycle that the weak-owner test cannot break.
+3. Vars or refs created only in a discarded child reserve slots in the shared
+   lineage registry. Later allocation in a parent can expand across those
+   branch-local holes, increasing all subsequent copy-on-fork costs.
+
+ClojureDart currently has no portable weak-owner implementation, so its
+descriptor is non-owning but its payload sweep is disabled.
+
+Dense slots therefore need a liveness strategy. The main choices are:
+
+- custom SCI state handles carrying their lineage/slot descriptor, with weak
+  lineage bookkeeping for enumeration at fork;
+- weak identity registration plus slot generations and a free list;
+- branch-local registry overlays whose descriptors are promoted only when
+  values escape or branches join;
+- safepoint compaction that rewrites descriptors and dense arrays while all
+  worlds in a lineage are quiescent.
+
+Self-describing handles are attractive for SCI-owned atoms, promises, delays,
+and multimethods because they also remove descriptor-map lookup from their hot
+paths. Host values still require the capability protocol or an identity side
+table.
+
+## State-machine designs beyond Vars
+
+### Atom and volatile
+
+Keep stable identity but move all logical state into the world realization:
+value, metadata, validator, and watch map. Validators can normally be shared
+functions; their registration is world-local. Watch callbacks are effects, so
+copying the watch map preserves Clojure behavior inside each branch but still
+requires the callback's external capabilities to be honest.
+
+This is now implemented by a two-slot `SciAtom`. Its direct slot descriptor
+avoids the lineage handle lookup on dereference and mutation. In a same-machine
+powersave-profile JVM comparison, five million child-world reads took a median
+201 ms versus 661 ms through the former registry route (about 3.29 times
+faster), and 500,000 swaps took 110 ms versus 192 ms (about 1.75 times faster).
+The corresponding host-atom medians were 78 ms and 16 ms. Absolute timings
+move substantially with CPU power policy; the old and new implementations
+were measured together under the same policy, and these figures remain a local
+microbenchmark rather than a portable guarantee.
+
+The execution state now also caches the selected world's stable cell-array
+holder and lineage registry. Hot Var nodes and managed-ref reads therefore
+avoid repeatedly walking `ReadWorld -> DenseWorld -> holder`; caching the
+holder rather than the replaceable raw array remains correct when registration
+grows a world. In alternating powersave-profile runs against the immediately
+preceding checkpoint, three million interpreted child-world Var reads improved
+from 182--187 ms to 133--150 ms (roughly 23 percent at the midpoint), while
+five million direct child-world atom reads improved from 193--194 ms to
+167--171 ms (roughly 13 percent). These ratios are local diagnostics, not a
+cross-machine performance claim.
+
+Fork copying uses the registry's logical `:next-slot` bound rather than the
+backing array's exponential-growth capacity. In alternating powersave-profile
+runs with 16,385 logical slots in a 32,768-cell source array, 101-fork medians
+were 1.91 ms versus 2.46--2.83 ms before right-sizing (about 22--32 percent
+faster). The benefit approaches zero when capacity is already tightly packed;
+it adds no read or mutation indirection.
+
+### Delay
+
+Represent a delay as a handle to a world-local state machine:
+
+```text
+pending(thunk) -> running(owner) -> success(value)
+                              \-> failure(exception)
+```
+
+A quiescent world fork copies `pending`, `success`, or `failure`. `running`
+should be impossible for an evaluation-owned delay because fork waits for the
+active form; a delay running in an unmanaged host task is an external resource
+and must block or reject the fork.
+
+This is now implemented with a stable `SciDelay` and one managed state slot.
+The host delay inside a pending state supplies the normal once-only and
+concurrent-force behavior. Forking a still-pending state constructs a fresh
+host delay over the same thunk; forking an already realized state records its
+value or thrown exception directly. JVM Clojure caches a thrown exception,
+while ClojureScript leaves a throwing delay pending and retryable; SCI retains
+that platform distinction. Because a fork quiesces managed evaluation, it
+cannot observe an evaluation-owned realization halfway through.
+
+### Promise
+
+`delivered(value)` can be copied. A pending promise also owns a waiter set,
+which is control/resource state rather than a plain heap value. A world-only
+fork should either create independent pending cells with no inherited waiters
+or reject pending promises. An execution fork may duplicate suspended waiter
+continuations only after they are represented inside the managed interpreter.
+
+The JVM implementation now chooses independent pending cells. `SciPromise`
+stores immutable pending or delivered states in one managed world slot.
+Delivery atomically replaces pending only in the selected world, preserving
+first-delivery-wins semantics. A monitor on the stable handle wakes blocked
+threads, but each waiter re-reads its own world's slot, so a delivery in one
+branch cannot complete a waiter in another. Managed SCI futures are already
+part of world quiescence; arbitrary unmanaged host waiters are deliberately
+not copied into a child.
+
+### Future and asynchronous computation
+
+A running host Future cannot be copied honestly. The immediate correction is
+to convey the selected SCI world and hold its evaluation permit whenever the
+future body runs. Fork policy can then choose among explicit sharing, waiting
+for completion and copying the result, restartable computation, cancellation,
+or rejection. Full continuation forking requires managed CPS/fiber state.
+
+SCI's managed future conveyor now makes a world fork wait until the body has
+released its evaluation permit. At the generic host-value boundary, a pending
+`Future` is rejected while an already completed or cancelled Future is shared:
+its task lifecycle can no longer diverge, although values reachable from its
+result retain their ordinary shallow host policy. CLJS Promises cannot expose a
+portable synchronous completion snapshot and are therefore rejected when
+stored directly unless the application supplies a policy.
+
+### Multimethod
+
+Keep the MultiFn identity stable and move method/preference tables to world
+slots. Dispatch caches are derived state and can be copied or discarded on
+fork. The hierarchy is already reached through a fork-local Var root. This is
+a relatively contained next primitive and exercises multi-slot handles well.
+
+This is implemented on JVM and CLJS with one managed state slot. Its value owns
+a native host dispatch engine, preserving the host's hierarchy, preference,
+ambiguity, and cache behavior. A method-table mutation clones the logical
+engine and installs it with a slot CAS; a fork clones it with an empty derived
+cache. Thus a fork cannot race with an in-place method-table update, while the
+common dispatch path pays only world selection and a direct slot read before
+using the native cache. In a deliberately harsh direct-host-call benchmark
+that added roughly 15--18 percent over the previous shared host `MultiFn`; in
+an interpreted million-call loop, repeated runs ranged from approximately
+noise to nine percent. ClojureDart routes its exact-dispatch persistent method
+map through an ordinary world slot; the Dart test suite was unavailable in the
+current environment, so that port still needs verification on a Dart host.
+
+### Memoization and lazy computation
+
+SCI's `memoize` now closes over a `SciAtom`, so it inherits the parent's cache
+at fork and subsequent fills remain world-local. Cached result values retain
+their ordinary sharing or explicit `Forkable` policy. Lazy sequences are
+harder: their realization cache is a small continuation, and arbitrary lazy
+bodies may perform effects. They belong with the future execution/fiber model
+rather than a generic object copier.
+
+### Transients and mutable aggregates
+
+Transients are affine. Sharing them violates isolation, while copying them
+silently violates owner and invalidation semantics. They should reject a fork
+when reachable from a world cell unless an application wrapper defines a safe
+policy. Arrays, mutable deftype fields, and application collections may be
+duplicable, but need self-describing SCI handles or `Forkable` cooperation.
+
+Directly stored host transients are now rejected by the default value forker.
+Supplying `:fork-fn` is an explicit override and can deliberately share or
+replace them. The check remains shallow, like all host cooperation: a transient
+hidden inside an unclassified host container is that container's
+responsibility.
+
+Instances of a type that declares `^:volatile-mutable` or
+`^:unsynchronized-mutable` fields allocate one managed persistent field-map
+slot. This makes field replacements branch-local even when the stable instance
+is captured inside an opaque SCI closure or nested persistent container. Types
+with immutable fields retain direct field maps and pay no managed-read cost;
+mutable values nested inside those fields remain the embedding application's
+responsibility.
+
+In alternating powersave-profile child-world benchmarks, one million mutable
+field reads were roughly 10--22 percent slower than the earlier direct copied
+map, and 200,000 writes roughly 22--27 percent slower after adding a dedicated
+managed-assoc path. The cost is restricted to types that opt into mutable
+fields; the representation fixes a state leak that root-only copying could not
+address.
+
+### Opaque closure and container boundary
+
+SCI closures can safely capture Vars, SCI refs, delays, promises,
+multimethods, and mutable SCI deftype instances because those are stable
+handles whose logical state selects the active world. SCI does not reflectively
+traverse arbitrary host closure fields or persistent-container contents during
+a fork. A mutable host value captured there must therefore be represented by a
+`Forkable` application handle before capture; a fallback can only transform
+values that are themselves visible in world cells.
+
+CLJS adds one prototype-specific limitation. A deftype/record instance stored
+directly in a world cell is rebuilt on the child Type's cloned prototype, but
+an instance reachable only through an opaque closure retains its creation
+prototype. Its managed mutable fields remain fork-local, but a native-protocol
+extension installed only after the fork is not retroactively visible through
+that captured instance. Fully solving this requires a managed closure/fiber
+environment or world-routed native protocol dispatch, not a deeper generic
+object copy.
+
+## Longer-term definition identity
+
+Unison's useful lesson here is architectural separation, not replacing the
+dense runtime with content addressing. A later layer can distinguish:
+
+- a Var/name handle and its world-local definition tip;
+- an immutable, canonical `DefId` for analyzed code;
+- a namespace-state hash from a causal revision/history hash; and
+- opaque execution-world identity and mutable/external capabilities.
+
+Ordinary SCI should retain Clojure's late Var binding. Pinned `DefId` calls can
+be an explicit mode, or the native semantics of lambda-join/Simmis. `hasch`
+would be useful for versioned hashes of canonical immutable analyzed forms,
+dependency DAGs, and namespace revisions; it should not hash dense cell arrays,
+mutable references, resources, or arbitrary host values. That layer can be
+added after runtime forking without putting hashes or definition lookups on the
+hot Var-dereference path.
+
+## Recommended implementation order
+
+1. Preserve the corrected asynchronous world conveyance and extend it to any
+   new managed callback boundary before expanding the primitive set.
+2. Evolve the new world-scoped frames into managed fiber-local frames for CLJS
+   async suspension and eventual execution snapshots.
+3. Address lineage-registry liveness so adding more tracked handles does not
+   create an unbounded retention problem.
+4. Verify and tune the implemented split identity/state paths on every host,
+   especially ClojureDart multimethods and CLJS native protocol prototypes.
+5. Reject or explicitly classify running futures, streams, lazy realizations,
+   and other affine/external resources; keep nested host graphs cooperative.
+6. Define forkable RNG, gensym, clock, and UUID capabilities for reproducible
+   execution where applications require them.
+7. Benchmark fork cost and hot reads against upstream, then consider paged
+   copy-on-write cells only if workloads with frequent forks justify it.
+8. Introduce execution/fiber snapshots for lazy continuations and the future
+   lambda-join/Simmis runtime.
+
+Content addressing, if added later, should identify immutable analyzed code,
+definition revisions, and causal namespace history. It does not replace any of
+the mutable state-machine or resource decisions in this audit.

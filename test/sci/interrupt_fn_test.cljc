@@ -2,7 +2,8 @@
   (:require
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
-   [sci.interrupt :as interrupt]))
+   [sci.interrupt :as interrupt]
+   [sci.test-utils :as tu]))
 
 (defn limit-interrupt
   "Signals via a plain ex-info. Sandboxed code can catch this. Used to test the

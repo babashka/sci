@@ -143,6 +143,28 @@
   (is (= {:a 1, :b 1}
          (eval* "(ns ^{:a 1} foo {:b 1}) (meta *ns*) (ns bar) (meta (the-ns 'foo))"))))
 
+(deftest forked-namespace-metadata-test
+  (let [parent (tu/forkable-init nil)]
+    (sci/eval-string* parent "(ns fork.meta {:branch :parent})")
+    (let [child (sci/fork parent)]
+      (is (identical? (sci/find-ns parent 'fork.meta)
+                      (sci/find-ns child 'fork.meta)))
+      (is (= :child
+             (sci/eval-string*
+              child
+              "(alter-meta! (the-ns 'fork.meta) assoc :branch :child)
+               (:branch (meta (the-ns 'fork.meta)))")))
+      (is (= :parent
+             (sci/eval-string*
+              parent "(:branch (meta (the-ns 'fork.meta)))")))
+      (sci/eval-string*
+       parent "(alter-meta! (the-ns 'fork.meta) assoc :side :parent)")
+      (is (= [nil :parent]
+             [(sci/eval-string*
+               child "(:side (meta (the-ns 'fork.meta)))")
+              (sci/eval-string*
+               parent "(:side (meta (the-ns 'fork.meta)))")])))))
+
 (deftest recycle-namespace-objects
   (when-not tu/native?
     (is (empty? (set/difference (eval* "(set (all-ns))") (eval* "(set (all-ns))"))))))
@@ -403,7 +425,24 @@ bar/bar"}
                      {:load-fn (fn [{:keys [:namespace]}]
                                  (when (= 'foo.bar namespace)
                                    {:source "(ns foo.bar) (def x :success)"
-                                    :file "foo/bar.clj"}))})))))
+                                   :file "foo/bar.clj"}))})))))
+
+(deftest forked-loaded-libs-test
+  (let [parent (tu/forkable-init
+                {:load-fn
+                 (fn [{:keys [:namespace]}]
+                   (when (= 'fork.loaded namespace)
+                     {:source "(ns fork.loaded) (def value :loaded)"
+                      :file "fork/loaded.clj"}))})
+        child (sci/fork parent)]
+    (is (= :loaded
+           (sci/eval-string*
+            child "@(requiring-resolve 'fork.loaded/value)")))
+    (is (= [false true]
+           [(sci/eval-string*
+             parent "(contains? (loaded-libs) 'fork.loaded)")
+            (sci/eval-string*
+             child "(contains? (loaded-libs) 'fork.loaded)")]))))
 
 (deftest issue-1011
   (is (= {:b 1} (sci/eval-string "(ns foo {:a 1}) (ns foo {:b 1}) (in-ns 'foo) (meta *ns*)"))))
