@@ -156,10 +156,12 @@
 
 #?(:clj
    (deftest false-arg-overload-test
-     (testing "false picks the boolean overload, not the String one"
-       (is (= [false false false]
-              (tu/eval* "[(Boolean. false) (Boolean/valueOf false) (Boolean/logicalAnd true false)]"
-                        {:classes {'Boolean Boolean}}))))))
+     (testing "false picks the boolean overload, not a reference one"
+       (is (= ["false" "true"] (eval* "[(String/valueOf false) (String/valueOf true)]")))
+       (when-not tu/native?
+         (is (= [false false false]
+                (tu/eval* "[(Boolean. false) (Boolean/valueOf false) (Boolean/logicalAnd true false)]"
+                          {:classes {'Boolean Boolean}})))))))
 
 #?(:clj
    (deftest import-test
