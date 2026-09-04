@@ -158,6 +158,32 @@
     (is (= [{:a 1} {:a 1 :b 2}]
            (eval* '(let [{:keys [a] :select s :all m} {:a 1 :b 2}] [s m]))))))
 
+(deftest excess-test
+  (testing ":excess binds the input minus every selected key"
+    (is (= {:b 2 :c 3}
+           (eval* '(let [{:keys [a] :excess ex} {:a 1 :b 2 :c 3}] ex)))))
+  (testing "nil-valued entries are dropped"
+    (is (= {:b 2}
+           (eval* '(let [{:keys [a] :excess ex} {:a 1 :b 2 :z nil}] ex)))))
+  (testing "nested maps contribute their own excess under the parent key"
+    (is (= {:c 3 :n {:bb 20}}
+           (eval* '(let [{:keys [a] {aa :aa} :n :excess ex}
+                         {:a 1 :c 3 :n {:aa 10 :bb 20}}]
+                     ex)))))
+  (testing "a nested map without excess is left out"
+    (is (= {:c 3}
+           (eval* '(let [{:keys [a] {aa :aa} :n :excess ex}
+                         {:a 1 :c 3 :n {:aa 10}}]
+                     ex)))))
+  (testing "nil when nothing is left"
+    (is (nil? (eval* '(let [{:keys [a] {aa :aa} :n :excess ex}
+                            {:a 1 :n {:aa 10}}]
+                        ex))))
+    (is (nil? (eval* '(let [{:keys [a] :excess ex} nil] ex)))))
+  (testing "keys named after & count as selected"
+    (is (= {:c 3}
+           (eval* '(let [{:keys [a & :b] :excess ex} {:a 1 :b 2 :c 3}] ex))))))
+
 (deftest defaults-test
   (testing ":defaults binds a map of key to default value"
     (is (= {} (eval* '(let [{:defaults d :or {}} {}] d))))
