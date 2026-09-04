@@ -155,6 +155,15 @@
      (is (= "dude" (eval* "(new String (str \"dude\"))")))))
 
 #?(:clj
+   (deftest false-arg-overload-test
+     (testing "false picks the boolean overload, not a reference one"
+       (is (= ["false" "true"] (eval* "[(String/valueOf false) (String/valueOf true)]")))
+       (when-not tu/native?
+         (is (= [false false false]
+                (tu/eval* "[(Boolean. false) (Boolean/valueOf false) (Boolean/logicalAnd true false)]"
+                          {:classes {'Boolean Boolean}})))))))
+
+#?(:clj
    (deftest import-test
      (is (true? (eval* "(class? (import clojure.lang.ExceptionInfo))")))
      (is (some? (eval* "(import clojure.lang.ExceptionInfo) ExceptionInfo")))

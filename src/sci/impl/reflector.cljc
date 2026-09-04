@@ -219,7 +219,7 @@
                                    (if (and (nil? t) (some? arg))
                                      (.getClass ^Object arg)
                                      t))
-                                 (when arg (.getClass ^Object arg)))
+                                 (when-some [a arg] (.getClass ^Object a)))
                       param-type (aget params i)]
                   (if (param-arg-type-match? param-type arg-type)
                     (recur (inc i))

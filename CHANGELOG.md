@@ -12,6 +12,7 @@ SCI is used in [babashka](https://github.com/babashka/babashka),
 
 ## Unreleased
 
+- Fix interop with a `false` argument: `(Boolean. false)` picked the `String` overload
 - Caches resolved JVM instance methods per call site for performance
 - Fix [babashka#2030](https://github.com/babashka/babashka/issues/2030): `aset` on a primitive array was reflective and 170x slower than `aset-double`
 - Bump edamame to `1.6.43`
