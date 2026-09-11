@@ -569,7 +569,7 @@
       ;; node. JS finally-throw masking matches eval-try-plain (host
       ;; semantics); interrupt-fn ctxs never get this ast.
       :try (let [[_ body catches fin sci-error] a
-                 in-try-val (cond sci-error (const! st :sci/error)
+                 in-try-val (cond sci-error (const! st sci-error)
                                   (seq catches) "true"
                                   :else nil)
                  res (tmp! st)
@@ -595,7 +595,7 @@
                (stmt! st write-in-try "(" old-in-try ");"))
              (stmt! st "s=" amb ";")
              (stmt! st res "=" catch-dispatch "(CTX,B," (const! st body) "," (const! st catches) ","
-                            (if sci-error "true" "false") "," err ");")
+                            (if sci-error (const! st sci-error) "false") "," err ");")
              (line! st "}finally{")
              (invalidate-stack! st)
              (when in-try-val

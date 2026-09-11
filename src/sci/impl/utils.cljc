@@ -71,6 +71,17 @@
 
 (def ^:dynamic *in-try* false)
 
+#?(:clj
+   (def recorded-callstacks
+     "Maps exceptions to their SCI callstacks."
+     (java.util.Collections/synchronizedMap (java.util.WeakHashMap.))))
+
+(defn callstack-of
+  "Returns the SCI callstack of exception `e`, if available."
+  [e]
+  (or (:sci.impl/callstack (ex-data e))
+      #?(:clj (.get ^java.util.Map recorded-callstacks e))))
+
 (defn macro? [f]
   (when-some [m (meta f)]
     (or (:sci/macro m)
@@ -127,7 +138,8 @@
                                 (not= (:main-thread-id ctx)
                                       (.getId (Thread/currentThread))))
                        :cljs *in-try*)]
-         (if (kw-identical? in-try :sci/error)
+         (if (or (kw-identical? in-try :sci/error)
+                 (kw-identical? in-try :sci/callstack))
            ;; preserve location information
            false
            in-try))
@@ -142,6 +154,15 @@
            st (or (when-let [st (:sci.impl/callstack d)]
                     st)
                   (volatile! '()))]
+       #?(:clj (when (and (kw-identical? *in-try* :sci/callstack)
+                          (not (:sci.impl/callstack d)))
+                 ;; Preserve the callstack without wrapping the exception.
+                 (let [rst (or (.get ^java.util.Map recorded-callstacks e)
+                               (let [v (volatile! '())]
+                                 (.put ^java.util.Map recorded-callstacks e v)
+                                 v))]
+                   (when stack (vswap! rst conj stack))
+                   (throw e))))
        (when stack
          (vswap! st conj stack))
        (let [d (ex-data e)
@@ -178,6 +199,8 @@
                                           :file file}
                                    phase (assoc :phase phase))]
                        (ex-info ex-msg new-d e))]
+                 ;; Preserve the callstack when unwrapping the exception.
+                 #?(:clj (.put ^java.util.Map recorded-callstacks e st))
                  (throw new-exception))
                (throw e)))))))))
 
