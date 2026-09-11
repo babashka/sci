@@ -1034,7 +1034,8 @@
                                                          (cons 'do body))
                                   sci-error (let [m (meta ex)]
                                               (cond (:sci/error m) :sci/error
-                                                    (:sci/callstack m) :sci/callstack))]
+                                                    ;; the side table is JVM-only, elsewhere the wrapper
+                                                    (:sci/callstack m) #?(:clj :sci/callstack :default :sci/error)))]
                               {:class clazz
                                :ex-idx ex-idx
                                :body analyzed-body
