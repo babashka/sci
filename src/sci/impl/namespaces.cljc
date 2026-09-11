@@ -1407,15 +1407,19 @@
      'defmulti (macrofy 'defmulti sci.impl.multimethods/defmulti clojure-core-ns)
      'defmethod (macrofy 'defmethod sci.impl.multimethods/defmethod)
      #?@(:cljd ['get-method (new-var 'get-method sci.impl.multimethods/get-method-impl clojure-core-ns)]
+         :clj ['get-method (copy-var sci.impl.multimethods/get-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/get-method})]
          :default ['get-method (copy-core-var get-method)])
      #?@(:cljd ['methods (new-var 'methods sci.impl.multimethods/methods-impl clojure-core-ns)]
          :default ['methods (copy-core-var methods)])
      'multi-fn-add-method-impl (copy-var sci.impl.multimethods/multi-fn-add-method-impl clojure-core-ns)
      'multi-fn?-impl (copy-var sci.impl.multimethods/multi-fn?-impl clojure-core-ns)
      'multi-fn-impl (copy-var sci.impl.multimethods/multi-fn-impl clojure-core-ns)
-     #?@(:cljd [] :default ['prefer-method (copy-core-var prefer-method)])
+     #?@(:cljd []
+         :clj ['prefer-method (copy-var sci.impl.multimethods/prefer-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/prefer-method})]
+         :default ['prefer-method (copy-core-var prefer-method)])
      #?@(:cljd [] :default ['prefers (copy-core-var prefers)])
      #?@(:cljd ['remove-method (new-var 'remove-method sci.impl.multimethods/remove-method-impl clojure-core-ns)]
+         :clj ['remove-method (copy-var sci.impl.multimethods/remove-method-impl clojure-core-ns {:copy-meta-from 'clojure.core/remove-method})]
          :default ['remove-method (copy-core-var remove-method)])
      #?@(:cljd [] :default ['remove-all-methods (copy-core-var remove-all-methods)])
      ;; end multimethods
