@@ -2,7 +2,8 @@
   (:require #?@(:cljd [] :clj [[sci.addons.future :as fut]])
             [clojure.string :as str]
             [clojure.test :as t :refer [deftest testing is]]
-            [sci.core :as sci :refer [eval-string]]))
+            [sci.core :as sci :refer [eval-string]]
+            [sci.test-utils :as tu]))
 
 #?(:cljs (def Exception js/Error))
 
@@ -248,3 +249,18 @@
                                      {:classes {'js js/globalThis :allow :all}}) (catch js/Error e (prn (ex-message e)) e))
                (sci/stacktrace) (sci/format-stacktrace) str)
           "1:24"))))
+
+#?(:cljd nil :clj
+   (deftest callstack-catch-test
+     (when-not tu/native?
+       (testing "a :sci/callstack catch gets the exception itself, sci keeps its frames"
+         (let [e (tu/eval* "(defn inner [] (throw (ex-info \"boom\" {:a 1}))) (defn outer [] (inner))
+                            (try (outer) (catch ^:sci/callstack Exception e e))" {})]
+           (is (instance? clojure.lang.ExceptionInfo e))
+           (is (= "boom" (ex-message e)))
+           (is (= {:a 1} (ex-data e)))
+           (is (= '[inner outer] (->> (sci/stacktrace e) (map :name) (filter #{'inner 'outer}) distinct)))))
+       (testing "a host exception keeps its class"
+         (let [e (tu/eval* "(defn inner [] (/ 1 0)) (try (inner) (catch ^:sci/callstack Exception e e))" {})]
+           (is (instance? ArithmeticException e))
+           (is (some #{'inner} (map :name (sci/stacktrace e)))))))))

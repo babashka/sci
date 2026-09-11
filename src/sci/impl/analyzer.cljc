@@ -1032,7 +1032,9 @@
                                           (assoc-in [:iden->invoke-idx ex-iden] ex-idx))
                                   analyzed-body (analyze ctx
                                                          (cons 'do body))
-                                  sci-error (some-> ex meta :sci/error)]
+                                  sci-error (let [m (meta ex)]
+                                              (cond (:sci/error m) :sci/error
+                                                    (:sci/callstack m) :sci/callstack))]
                               {:class clazz
                                :ex-idx ex-idx
                                :body analyzed-body

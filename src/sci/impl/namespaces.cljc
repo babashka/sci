@@ -2246,11 +2246,11 @@
        (if (instance? Throwable e-or-depth)
          (pst e-or-depth 12)
          (let [e @*e]
-           (pst (if (:sci.impl/callstack (ex-data e)) e (root-cause e)) e-or-depth))))
+           (pst (if (utils/callstack-of e) e (root-cause e)) e-or-depth))))
       ([^Throwable e depth]
        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
-         (if-let [callstack (:sci.impl/callstack (ex-data e))]
-           (let [^Throwable cause (or (.getCause e) e)
+         (if-let [callstack (utils/callstack-of e)]
+           (let [^Throwable cause (if (:sci.impl/callstack (ex-data e)) (or (.getCause e) e) e)
                  info (ex-data cause)]
              (sci.impl.io/println (str (-> cause class .getSimpleName) " " (.getMessage cause)
                                        (when (and info (not (:sci.impl/callstack info)))
@@ -2258,7 +2258,7 @@
              (doseq [line (take depth (sci.impl.callstack/format-stacktrace
                                        (sci.impl.callstack/stacktrace callstack)))]
                (sci.impl.io/println (str \tab line)))
-             (when-let [c (when-not (identical? cause e) (.getCause cause))]
+             (when-let [c (.getCause cause)]
                (sci.impl.io/println "Caused by:")
                (pst c depth)))
            (do (sci.impl.io/println (str (-> e class .getSimpleName) " "

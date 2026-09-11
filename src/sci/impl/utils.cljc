@@ -71,6 +71,19 @@
 
 (def ^:dynamic *in-try* false)
 
+#?(:clj
+   (def recorded-callstacks
+     "Callstacks of exceptions caught by a `^:sci/callstack` catch, which get
+     the exception itself instead of the :sci/error wrapper."
+     (java.util.Collections/synchronizedMap (java.util.WeakHashMap.))))
+
+(defn callstack-of
+  "The sci callstack of `e`: in its ex-data for a :sci/error, recorded on
+  the side for an exception a `^:sci/callstack` catch received."
+  [e]
+  (or (:sci.impl/callstack (ex-data e))
+      #?(:clj (.get ^java.util.Map recorded-callstacks e))))
+
 (defn macro? [f]
   (when-some [m (meta f)]
     (or (:sci/macro m)
@@ -127,7 +140,8 @@
                                 (not= (:main-thread-id ctx)
                                       (.getId (Thread/currentThread))))
                        :cljs *in-try*)]
-         (if (kw-identical? in-try :sci/error)
+         (if (or (kw-identical? in-try :sci/error)
+                 (kw-identical? in-try :sci/callstack))
            ;; preserve location information
            false
            in-try))
@@ -142,6 +156,15 @@
            st (or (when-let [st (:sci.impl/callstack d)]
                     st)
                   (volatile! '()))]
+       #?(:clj (when (and (kw-identical? *in-try* :sci/callstack)
+                          (not (:sci.impl/callstack d)))
+                 ;; the catch gets e itself, its frames are kept on the side
+                 (let [rst (or (.get ^java.util.Map recorded-callstacks e)
+                               (let [v (volatile! '())]
+                                 (.put ^java.util.Map recorded-callstacks e v)
+                                 v))]
+                   (when stack (vswap! rst conj stack))
+                   (throw e))))
        (when stack
          (vswap! st conj stack))
        (let [d (ex-data e)
