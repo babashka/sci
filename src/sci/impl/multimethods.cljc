@@ -173,7 +173,8 @@
      :cljs (new cljs.core/MultiFn name dispatch-fn default hierarchy
                 method-table prefer-table method-cache cached-hierarchy)))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (do
      ;; interfaces like clojure.lang.IDeref are protocol maps in sci, the
      ;; multimethod dispatches on the class

@@ -22,7 +22,8 @@
 (remove-method greeting \"English\")
 (greeting {\"id\" \"1\", \"language\" \"English\"})"))))
 
-#?(:clj
+#?(:cljd nil
+   :clj
    (deftest interface-dispatch-value-test
      (is (= [:deref :deref :default]
             (eval* "
