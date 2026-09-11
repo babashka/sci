@@ -29,6 +29,7 @@
    [clojure.string :as str]
    [clojure.walk :as walk]
    [sci.ctx-store :as store]
+   [sci.impl.callstack]
    [sci.impl.cljs]
    [sci.impl.core-protocols :as core-protocols]
    [sci.impl.deftype :as deftype]
@@ -2244,24 +2245,37 @@
       ([e-or-depth]
        (if (instance? Throwable e-or-depth)
          (pst e-or-depth 12)
-         (pst (root-cause @*e) e-or-depth)))
+         (let [e @*e]
+           (pst (if (:sci.impl/callstack (ex-data e)) e (root-cause e)) e-or-depth))))
       ([^Throwable e depth]
        (sci.impl.vars/with-bindings {sci.impl.io/out @sci.impl.io/err}
-         (sci.impl.io/println (str (-> e class .getSimpleName) " "
-                                   (.getMessage e)
-                                   (when-let [info (ex-data e)] (str " " (pr-str info)))))
-         (let [st (.getStackTrace e)
-               cause (.getCause e)]
-           (doseq [el (take depth
-                            (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
-                                      (.getClassName ^StackTraceElement %))
-                                    st))]
-             (sci.impl.io/println (str \tab (stack-element-str el))))
-           (when cause
-             (sci.impl.io/println "Caused by:")
-             (pst cause (min depth
-                             (+ 2 (- (count (.getStackTrace cause))
-                                     (count st)))))))))))
+         (if-let [callstack (:sci.impl/callstack (ex-data e))]
+           (let [^Throwable cause (or (.getCause e) e)
+                 info (ex-data cause)]
+             (sci.impl.io/println (str (-> cause class .getSimpleName) " " (.getMessage cause)
+                                       (when (and info (not (:sci.impl/callstack info)))
+                                         (str " " (pr-str info)))))
+             (doseq [line (take depth (sci.impl.callstack/format-stacktrace
+                                       (sci.impl.callstack/stacktrace callstack)))]
+               (sci.impl.io/println (str \tab line)))
+             (when-let [c (when-not (identical? cause e) (.getCause cause))]
+               (sci.impl.io/println "Caused by:")
+               (pst c depth)))
+           (do (sci.impl.io/println (str (-> e class .getSimpleName) " "
+                                         (.getMessage e)
+                                         (when-let [info (ex-data e)] (str " " (pr-str info)))))
+               (let [st (.getStackTrace e)
+                     cause (.getCause e)]
+                 (doseq [el (take depth
+                                  (remove #(#{"clojure.lang.RestFn" "clojure.lang.AFn"}
+                                            (.getClassName ^StackTraceElement %))
+                                          st))]
+                   (sci.impl.io/println (str \tab (stack-element-str el))))
+                 (when cause
+                   (sci.impl.io/println "Caused by:")
+                   (pst cause (min depth
+                                   (+ 2 (- (count (.getStackTrace cause))
+                                           (count st)))))))))))))
 
  (def clojure-repl-namespace (sci.lang/->Namespace 'clojure.repl nil))
 
