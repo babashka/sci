@@ -260,6 +260,12 @@
            (is (= "boom" (ex-message e)))
            (is (= {:a 1} (ex-data e)))
            (is (= '[inner outer] (->> (sci/stacktrace e) (map :name) (filter #{'inner 'outer}) distinct)))))
+       (testing "the exception a :sci/error wraps keeps its frames"
+         (let [e (try (tu/eval* "(defn inner [] (/ 1 0)) (defn outer [] (inner)) (outer)" {}) nil
+                      (catch Exception e e))]
+           (is (= :sci/error (:type (ex-data e))))
+           (is (instance? ArithmeticException (ex-cause e)))
+           (is (= '[inner outer] (->> (sci/stacktrace (ex-cause e)) (map :name) (filter #{'inner 'outer}) distinct)))))
        (testing "a host exception keeps its class"
          (let [e (tu/eval* "(defn inner [] (/ 1 0)) (try (inner) (catch ^:sci/callstack Exception e e))" {})]
            (is (instance? ArithmeticException e))

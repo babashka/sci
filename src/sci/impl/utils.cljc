@@ -201,6 +201,8 @@
                                           :file file}
                                    phase (assoc :phase phase))]
                        (ex-info ex-msg new-d e))]
+                 ;; the wrapped exception keeps its frames too, for code that unwraps
+                 #?(:clj (.put ^java.util.Map recorded-callstacks e st))
                  (throw new-exception))
                (throw e)))))))))
 
