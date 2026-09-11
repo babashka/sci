@@ -73,13 +73,11 @@
 
 #?(:clj
    (def recorded-callstacks
-     "Callstacks of exceptions caught by a `^:sci/callstack` catch, which get
-     the exception itself instead of the :sci/error wrapper."
+     "Maps exceptions to their SCI callstacks."
      (java.util.Collections/synchronizedMap (java.util.WeakHashMap.))))
 
 (defn callstack-of
-  "The sci callstack of `e`: in its ex-data for a :sci/error, recorded on
-  the side for an exception a `^:sci/callstack` catch received."
+  "Returns the SCI callstack of exception `e`, if available."
   [e]
   (or (:sci.impl/callstack (ex-data e))
       #?(:clj (.get ^java.util.Map recorded-callstacks e))))
@@ -158,7 +156,7 @@
                   (volatile! '()))]
        #?(:clj (when (and (kw-identical? *in-try* :sci/callstack)
                           (not (:sci.impl/callstack d)))
-                 ;; the catch gets e itself, its frames are kept on the side
+                 ;; Preserve the callstack without wrapping the exception.
                  (let [rst (or (.get ^java.util.Map recorded-callstacks e)
                                (let [v (volatile! '())]
                                  (.put ^java.util.Map recorded-callstacks e v)
@@ -201,7 +199,7 @@
                                           :file file}
                                    phase (assoc :phase phase))]
                        (ex-info ex-msg new-d e))]
-                 ;; the wrapped exception keeps its frames too, for code that unwraps
+                 ;; Preserve the callstack when unwrapping the exception.
                  #?(:clj (.put ^java.util.Map recorded-callstacks e st))
                  (throw new-exception))
                (throw e)))))))))

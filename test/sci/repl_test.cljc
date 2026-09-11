@@ -93,7 +93,7 @@ ArithmeticException Divide by zero
 (deftest repl-pst-sci-error-test
   #?(:clj
      (when-not tu/native?
-       (t/testing "a sci error prints the exception it wraps with sci's frames"
+       (t/testing "pst prints the original exception with SCI stack frames"
          (let [sw (java.io.StringWriter.)]
            (sci/binding [sci/err sw]
              (eval* "(defn inner [] (/ 1 0)) (defn outer [] (inner))
@@ -102,7 +102,7 @@ ArithmeticException Divide by zero
            (is (str/includes? (str sw) "user/inner"))
            (is (str/includes? (str sw) "user/outer"))
            (is (not (str/includes? (str sw) "sci.impl")))))
-       (t/testing "(pst depth) prints the sci frames of *e"
+       (t/testing "(pst depth) prints the SCI stack frames of *e"
          (let [sw (java.io.StringWriter.)]
            (sci/binding [sci/err sw]
              (eval* "(defn inner [] (/ 1 0))
