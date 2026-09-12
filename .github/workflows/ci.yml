@@ -14,11 +14,11 @@ jobs:
           fetch_depth: 0
 
       - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@5.0
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
-          cli: 1.10.1.763
+          cli: 'latest'
           lein: 2.9.3
-          bb: 0.8.2
+          bb: 'latest'
 
       - name: Prepare java
         uses: actions/setup-java@v2
@@ -37,11 +37,11 @@ jobs:
           fetch_depth: 0
 
       - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@5.0
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
-          cli: 1.10.1.763
+          cli: 'latest'
           lein: 2.9.3
-          bb: 0.8.2
+          bb: 'latest'
 
       - uses: actions/setup-node@v3
         with:
@@ -69,11 +69,11 @@ jobs:
           fetch_depth: 0
 
       - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@5.0
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
-          cli: 1.10.1.763
+          cli: 'latest'
           lein: 2.9.3
-          bb: 0.8.2
+          bb: 'latest'
 
       - uses: graalvm/setup-graalvm@v1
         with:
@@ -93,11 +93,11 @@ jobs:
           fetch_depth: 0
 
       - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@5.0
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
-          cli: 1.10.1.763
+          cli: 'latest'
           lein: 2.9.3
-          bb: 0.8.2
+          bb: 'latest'
 
       - name: Install planck
         run: HOMEBREW_NO_AUTO_UPDATE=1 brew install planck
@@ -123,7 +123,7 @@ jobs:
           sdk: '3.12.2'
 
       - name: Setup Clojure
-        uses: DeLaGuardo/setup-clojure@13.4
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
           cli: 'latest'
 
@@ -164,9 +164,9 @@ jobs:
           components: 'native-image'
 
       - name: Install Clojure tools
-        uses: DeLaGuardo/setup-clojure@9.5
+        uses: DeLaGuardo/setup-clojure@13.7.0
         with:
-          bb: '1.0.165'
+          bb: 'latest'
           lein: '2.9.10'
 
       - name: Cache clojure dependencies
