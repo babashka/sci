@@ -82,6 +82,20 @@
             (print-method x w))
           nil))
 
+#?(:clj (defn core-pr-on
+          "Prints x to w under the interpreter's print settings. Exposed as the
+  private clojure.core/pr-on, which host code reaches through the var. The
+  host's own pr-on binds nothing, because there these settings are already
+  the ones in effect."
+          [x w]
+          (binding [*print-length* @print-length
+                    *print-level* @print-level
+                    *print-meta* @print-meta
+                    *print-namespace-maps* @print-namespace-maps
+                    *print-readably* @print-readably
+                    *print-dup* @print-dup-var]
+            (pr-on x w))))
+
 #?(:cljd (defn pr
            [& objs]
            (binding [*out* @out

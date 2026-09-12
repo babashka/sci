@@ -1366,6 +1366,7 @@
      'newline (copy-var sci.impl.io/newline clojure-core-ns {:name 'newline})
      'flush (copy-core-var sci.impl.io/flush)
      'pr (copy-var sci.impl.io/pr clojure-core-ns {:name 'pr})
+     #?@(:clj ['pr-on (new-var 'pr-on sci.impl.io/core-pr-on clojure-core-ns {:private true})])
      'prn (copy-core-var sci.impl.io/prn)
      'print (copy-core-var sci.impl.io/print)
      'println (copy-core-var sci.impl.io/println)
