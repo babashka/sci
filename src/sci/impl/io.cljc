@@ -103,14 +103,7 @@
              (apply cljd.core/pr objs)))
    :clj (defn pr
           ([] nil)
-          ([x]
-           (binding [*print-length* @print-length
-                     *print-level* @print-level
-                     *print-meta* @print-meta
-                     *print-namespace-maps* @print-namespace-maps
-                     *print-readably* @print-readably
-                     *print-dup* @print-dup-var]
-             (pr-on x @out)))
+          ([x] (core-pr-on x @out))
           ([x & more]
            (pr x)
            (. ^java.io.Writer @out (append \space))
