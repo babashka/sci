@@ -3,7 +3,7 @@
   (:refer-clojure :exclude [destructure macroexpand macroexpand-1])
   (:require
    #?(:cljd [edamame.impl.cljd-reader-types :as r]
-      :default [clojure.tools.reader.reader-types :as r])
+      :cljs [clojure.tools.reader.reader-types :as r])
    [sci.ctx-store :as store]
    [sci.impl.analyzer :as ana]
    #?(:cljd [sci.impl.evaluator :as evaluator])
@@ -96,7 +96,8 @@
       parser/data-readers @parser/data-readers
       #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
                 utils/unchecked-math-var @utils/unchecked-math-var])}
-     (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
+     (let [reader #?(:clj (parser/reader s)
+                     :default (r/indexing-push-back-reader (r/string-push-back-reader s)))
            eval-string+? (when opts (:sci.impl/eval-string+ opts))]
        (loop [ret nil]
          (let [expr (parser/parse-next ctx reader)]

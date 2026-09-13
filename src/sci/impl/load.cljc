@@ -30,7 +30,8 @@
 (defn load-string*
   "Low level load-string* that doesn't install any bindings"
   [ctx s]
-  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+  (let [rdr #?(:clj (parser/reader s)
+               :default (r/indexing-push-back-reader (r/string-push-back-reader s)))]
     (load-reader* ctx rdr)))
 
 (defn load-reader [reader]
@@ -42,7 +43,8 @@
       (load-reader* ctx reader))))
 
 (defn load-string [s]
-  (let [rdr (r/indexing-push-back-reader (r/string-push-back-reader s))]
+  (let [rdr #?(:clj (parser/reader s)
+               :default (r/indexing-push-back-reader (r/string-push-back-reader s)))]
     (load-reader rdr)))
 
 (defn handle-refer-all [the-current-ns the-loaded-ns include-sym? rename-sym only]
