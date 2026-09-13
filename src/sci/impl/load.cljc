@@ -20,9 +20,10 @@
                :clj (instance? clojure.tools.reader.reader_types.IndexingReader reader)
                :cljs (implements? r/IndexingReader reader))
           reader
-          (r/indexing-push-back-reader reader))]
+          (r/indexing-push-back-reader reader))
+        parse-opts (parser/parse-opts ctx nil)]
     (loop [ret nil]
-      (let [x (parser/parse-next ctx reader)]
+      (let [x (parser/parse-next* reader parse-opts)]
         (if (utils/kw-identical? parser/eof x)
           ret
           (recur (utils/eval ctx x)))))))
