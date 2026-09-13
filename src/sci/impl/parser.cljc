@@ -123,72 +123,76 @@
   (throw (ex-info "EvalReader not allowed when *read-eval* is false."
                   {:type :sci.error/parse})))
 
-(defn auto-resolve [ctx opts]
-  (or (:auto-resolve opts)
-      (let [env (:env ctx)
-            env-val @env
-            current-ns (utils/current-ns-name)
-            the-current-ns (get-in env-val [:namespaces current-ns])
-            aliases (:aliases the-current-ns)
-            auto-resolve (assoc aliases :current current-ns)]
-        auto-resolve)))
-
 (defn get-line-number [reader]
   (rt/get-line-number reader))
 
 (defn get-column-number [reader]
   (rt/get-column-number reader))
 
+(defn current-ns-auto-resolve [ctx]
+  (fn [alias]
+    (let [current-ns (utils/current-ns-name)]
+      (if (utils/kw-identical? :current alias)
+        current-ns
+        (get-in @(:env ctx) [:namespaces current-ns :aliases alias])))))
+
+;; The options only close over ctx: the current namespace, *read-eval* and
+;; the readers are read when edamame needs them, so one set of options serves
+;; every form of a load.
+(defn parse-opts [ctx opts]
+  (cond-> (assoc default-opts
+                 :features (:features ctx)
+                 :auto-resolve (current-ns-auto-resolve ctx)
+                 :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
+                 :readers (fn [t]
+                            (let [readers (:readers ctx)
+                                  readers (if (utils/var? readers) @readers readers)]
+                              (or (and readers (readers t))
+                                  (@data-readers t)
+                                  (some-> (@utils/eval-resolve-state ctx {} t)
+                                          meta
+                                          :sci.impl.record/map-constructor)
+                                  (when-let [f @default-data-reader-fn]
+                                    (fn [form]
+                                      (f t form))))))
+                 :read-eval (fn [x]
+                              (if @read-eval
+                                (utils/eval ctx x)
+                                (throw-eval-read x))))
+    opts (merge opts)))
+
+(defn parse-next*
+  "Parses the next form from r with options made by parse-opts."
+  [r edamame-opts]
+  (try (let [v (edamame/parse-next r edamame-opts)]
+         (if (utils/kw-identical? v :edamame.core/eof)
+           eof
+           (if (and (symbol? v)
+                    (rt/indexing-reader? r))
+             (vary-meta v assoc
+                        :line (get-line-number r)
+                        :column (- (get-column-number r)
+                                   #?(:cljd (.-length (str v))
+                                      :clj (.length (str v))
+                                      :cljs (.-length (str v)))))
+             v)))
+       (catch #?(:cljd cljd.core/ExceptionInfo
+                 :clj clojure.lang.ExceptionInfo
+                 :cljs cljs.core/ExceptionInfo) e
+         (throw (ex-info #?(:cljd (ex-message e)
+                            :clj (.getMessage e)
+                            :cljs (.-message e))
+                         (assoc (ex-data e)
+                                :type :sci.error/parse
+                                :phase "parse"
+                                :file @utils/current-file)
+                         e)))))
+
 (defn parse-next
   ([ctx r]
    (parse-next ctx r nil))
   ([ctx r opts]
-   (let [features (:features ctx)
-         readers (:readers ctx)
-         readers (if (utils/var? readers) @readers readers)
-         auto-resolve (auto-resolve ctx opts)
-         parse-opts (cond-> (assoc default-opts
-                                   :features features
-                                   :auto-resolve auto-resolve
-                                   :syntax-quote {:resolve-symbol #(fully-qualify ctx %)}
-                                   :readers (fn [t]
-                                              (or (and readers (readers t))
-                                                  (@data-readers t)
-                                                  (some-> (@utils/eval-resolve-state ctx {} t)
-                                                          meta
-                                                          :sci.impl.record/map-constructor)
-                                                  (when-let [f @default-data-reader-fn]
-                                                    (fn [form]
-                                                      (f t form)))))
-                                   :read-eval (if @read-eval
-                                                (fn [x]
-                                                  (utils/eval ctx x))
-                                                throw-eval-read))
-                      opts (merge opts))
-         ret (try (let [v (edamame/parse-next r parse-opts)]
-                    (if (utils/kw-identical? v :edamame.core/eof)
-                      eof
-                      (if (and (symbol? v)
-                               (rt/indexing-reader? r))
-                        (vary-meta v assoc
-                                   :line (get-line-number r)
-                                   :column (- (get-column-number r)
-                                              #?(:cljd (.-length (str v))
-                                                 :clj (.length (str v))
-                                                 :cljs (.-length (str v)))))
-                        v)))
-                  (catch #?(:cljd cljd.core/ExceptionInfo
-                            :clj clojure.lang.ExceptionInfo
-                            :cljs cljs.core/ExceptionInfo) e
-                    (throw (ex-info #?(:cljd (ex-message e)
-                                       :clj (.getMessage e)
-                                       :cljs (.-message e))
-                                    (assoc (ex-data e)
-                                           :type :sci.error/parse
-                                           :phase "parse"
-                                           :file @utils/current-file)
-                                    e))))]
-     ret)))
+   (parse-next* r (parse-opts ctx opts))))
 
 (defn reader [x]
   (edamame/reader x))
