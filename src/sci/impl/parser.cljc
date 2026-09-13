@@ -188,11 +188,23 @@
                                 :file @utils/current-file)
                          e)))))
 
+;; The last ctx and opts with their parse options, so callers that parse form
+;; by form with the same ctx and opts reuse them
+(def last-parse-opts (volatile! nil))
+
 (defn parse-next
   ([ctx r]
    (parse-next ctx r nil))
   ([ctx r opts]
-   (parse-next* r (parse-opts ctx opts))))
+   (let [cached @last-parse-opts
+         edamame-opts (if (and cached
+                               (identical? ctx (nth cached 0))
+                               (identical? opts (nth cached 1)))
+                        (nth cached 2)
+                        (let [edamame-opts (parse-opts ctx opts)]
+                          (vreset! last-parse-opts [ctx opts edamame-opts])
+                          edamame-opts))]
+     (parse-next* r edamame-opts))))
 
 (defn reader [x]
   (edamame/reader x))

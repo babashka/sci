@@ -97,10 +97,9 @@
       #?@(:clj [utils/warn-on-reflection-var @utils/warn-on-reflection-var
                 utils/unchecked-math-var @utils/unchecked-math-var])}
      (let [reader (r/indexing-push-back-reader (r/string-push-back-reader s))
-           eval-string+? (when opts (:sci.impl/eval-string+ opts))
-           parse-opts (parser/parse-opts ctx nil)]
+           eval-string+? (when opts (:sci.impl/eval-string+ opts))]
        (loop [ret nil]
-         (let [expr (parser/parse-next* reader parse-opts)]
+         (let [expr (parser/parse-next ctx reader)]
            (if (utils/kw-identical? parser/eof expr)
              (if eval-string+?
                {:val ret
