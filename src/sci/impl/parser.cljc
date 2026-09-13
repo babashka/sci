@@ -139,6 +139,9 @@
 (defn get-column-number [reader]
   (rt/get-column-number reader))
 
+;; EXPERIMENT: time spent in edamame/parse-next
+#?(:clj (def ^java.util.concurrent.atomic.AtomicLong edamame-ns (java.util.concurrent.atomic.AtomicLong.)))
+
 (defn parse-next
   ([ctx r]
    (parse-next ctx r nil))
@@ -165,7 +168,11 @@
                                                   (utils/eval ctx x))
                                                 throw-eval-read))
                       opts (merge opts))
-         ret (try (let [v (edamame/parse-next r parse-opts)]
+         ret (try (let [v #?(:clj (let [t0 (System/nanoTime)
+                                        v (edamame/parse-next r parse-opts)]
+                                    (.addAndGet edamame-ns (- (System/nanoTime) t0))
+                                    v)
+                             :default (edamame/parse-next r parse-opts))]
                     (if (utils/kw-identical? v :edamame.core/eof)
                       eof
                       (if (and (symbol? v)

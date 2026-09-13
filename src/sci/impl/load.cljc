@@ -11,6 +11,25 @@
    [sci.impl.utils :as utils :refer [kw-identical? throw-error-with-location]]
    [sci.impl.vars :as vars]))
 
+;; EXPERIMENT: parse timing for SCI_PARSE_STATS
+#?(:clj (def ^java.util.concurrent.atomic.AtomicLong parse-ns (java.util.concurrent.atomic.AtomicLong.)))
+#?(:clj (def ^java.util.concurrent.atomic.AtomicLong form-count (java.util.concurrent.atomic.AtomicLong.)))
+#?(:clj (def ^java.util.concurrent.atomic.AtomicLong load-depth (java.util.concurrent.atomic.AtomicLong.)))
+#?(:clj (def ^java.util.concurrent.atomic.AtomicLong load-start (java.util.concurrent.atomic.AtomicLong.)))
+
+#?(:clj
+   (defn- report-parse-stats []
+     (when (System/getenv "SCI_PARSE_STATS")
+       (.println System/err
+                 (format "sci load: total %.1f ms, sci parse-next %.1f ms, edamame parse-next %.1f ms, forms %d"
+                         (/ (- (System/nanoTime) (.get load-start)) 1e6)
+                         (/ (.get parse-ns) 1e6)
+                         (/ (.get parser/edamame-ns) 1e6)
+                         (.get form-count))))
+     (.set parse-ns 0)
+     (.set parser/edamame-ns 0)
+     (.set form-count 0)))
+
 (defn load-reader*
   "Low level load-reader* that doesn't install any bindings"
   [ctx reader]
@@ -21,11 +40,22 @@
                :cljs (implements? r/IndexingReader reader))
           reader
           (r/indexing-push-back-reader reader))]
-    (loop [ret nil]
-      (let [x (parser/parse-next ctx reader)]
-        (if (utils/kw-identical? parser/eof x)
-          ret
-          (recur (utils/eval ctx x)))))))
+    #?(:clj (when (== 1 (.incrementAndGet load-depth))
+              (.set load-start (System/nanoTime))))
+    (try
+      (loop [ret nil]
+        (let [x #?(:clj (let [t0 (System/nanoTime)
+                              x (parser/parse-next ctx reader)]
+                          (.addAndGet parse-ns (- (System/nanoTime) t0))
+                          (.incrementAndGet form-count)
+                          x)
+                   :default (parser/parse-next ctx reader))]
+          (if (utils/kw-identical? parser/eof x)
+            ret
+            (recur (utils/eval ctx x)))))
+      (finally
+        #?(:clj (when (zero? (.decrementAndGet load-depth))
+                  (report-parse-stats)))))))
 
 (defn load-string*
   "Low level load-string* that doesn't install any bindings"
