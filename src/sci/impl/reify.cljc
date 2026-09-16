@@ -32,8 +32,6 @@
      :cljs [_form classes methods arities])
      #?(:cljd (t/->Reified classes methods (set classes))
         :clj (let [{interfaces true protocols false} (group-by class? classes)]
-            ;; a host protocol entry (sci.core/copy-var on a protocol) needs
-            ;; its bridge even when this reify is its first implementation
             (doseq [p protocols]
               (when (utils/native-protocol? p)
                 (deftype/-ensure-native-bridge! p)))

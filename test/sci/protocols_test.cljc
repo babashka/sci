@@ -624,7 +624,6 @@
          (is (= [:sci :sci] [(ev "(host/host-tag (->Impl))") (host-tag (ev "(->Impl)"))]))))))
 
 #?(:cljd nil :clj (defprotocol HostReifyFirst (host-first [this])))
-;; same method name as clojure.core.protocols/datafy, on an unrelated protocol
 #?(:cljd nil :clj (defprotocol HostDatafy (datafy [this])))
 #?(:cljd nil :clj (defprotocol HostGrows (grow-a [this])))
 
@@ -637,20 +636,20 @@
                                               'HostDatafy (sci/copy-var* #'HostDatafy hns)
                                               'host-datafy (sci/copy-var* #'datafy hns)}}})
            ev #(sci/eval-string* ctx %)]
-       (testing "a reify that is the first implementation of a protocol"
+       (testing "reify implements a host protocol before any sci type"
          (let [r (ev "(reify host/HostReifyFirst (host-first [_] :first))")]
            (is (= :first (host-first r)) "from the host")
            (is (= :first (ev "(host/host-first (reify host/HostReifyFirst (host-first [_] :first)))")) "from sci")))
-       (testing "a reify only answers for the protocols it implements"
+       (testing "reify dispatch checks protocol membership"
          (ev "(defrecord D [] host/Datafiable (datafy [_] :d))")
          (let [r (ev "(reify host/HostDatafy (datafy [_] :mine))")]
            (is (= :mine (datafy r)))
            (is (identical? r (p/datafy r))
-               "Datafiable has a method of the same name; its bridge must skip the reify's and reach the host's Object default"))))))
+               "Datafiable uses the host Object implementation"))))))
 
 #?(:cljd nil :clj
    (deftest host-protocol-redefined-test
-     (testing "a method added by redefining the host protocol reaches sci impls"
+     (testing "sci types implement methods added by host protocol redefinition"
        (let [hns (sci/create-ns 'host)
              ctx (sci/init {:namespaces {'host {'HostGrows (sci/copy-var* #'HostGrows hns)
                                                 'grow-a (sci/copy-var* #'grow-a hns)}}})]

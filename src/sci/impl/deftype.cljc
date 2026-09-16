@@ -312,8 +312,7 @@
      (fn [this & args]
        (if-let [f (or (if (instance? sci.impl.types.SciTypeInstance this)
                         (get (sci-type-impls (types/-get-type this) hv) msym)
-                        ;; a reify's methods are keyed by name across all its
-                        ;; protocols, so only answer for a reify of this one
+                        ;; Check protocol membership before looking up the method name.
                         (when (some #(identical? hv (:var (:protocol %))) (types/getProtocols this))
                           (get (types/getMethods this) msym)))
                       (get (host-fallback-impl hv this) (keyword msym)))]
@@ -324,13 +323,12 @@
                       " found for class: " (types/type-impl this))))))))
 
 #?(:clj
-   ;; host protocol var -> the method names its bridge covers
+   ;; Maps host protocol vars to bridged method names.
    (defonce ^:private native-bridges (atom {})))
 
 #?(:clj
    (defn- install-native-bridge!
-     "Extends host protocol var hv to sci instance classes, again when a
-  redefined protocol brings methods the bridge does not cover yet."
+     "Extends host protocol var hv to sci instance classes for new methods."
      [hv method-syms]
      (let [installed (get @native-bridges hv #{})]
        (when-not (every? installed method-syms)
@@ -343,8 +341,7 @@
 
 #?(:clj
    (defn -ensure-native-bridge!
-     "Bridges the host protocol behind entry proto-map, for a reify that
-  implements it before any sci type does."
+     "Installs bridges for the host protocol in proto-map."
      [proto-map]
      (install-native-bridge! (:var (:protocol proto-map)) (keys (:native-methods proto-map)))))
 
