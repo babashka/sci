@@ -384,6 +384,15 @@
 (defn sci-type? [x]
   (instance? #?(:cljd lang/Type :clj sci.lang.Type :cljs sci.lang.Type) x))
 
+(defn native-protocol?
+  "True for a protocol entry that wraps a host protocol, created by
+  sci.core/copy-var (or copy-ns) on a protocol var: on CLJS the entry installs
+  method slots on a sci type's JS prototype (ADR 0011), on the JVM it records
+  impls on the sci type and bridges the host protocol to sci instances (ADR
+  0013)."
+  [p]
+  (boolean (and (map? p) (:native-methods p))))
+
 (defmacro dotimes+ [n body]
   `(do (dotimes [i# ~(dec n)]
          ~body)

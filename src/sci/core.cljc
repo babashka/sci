@@ -14,6 +14,7 @@
    [edamame.impl.parser]
    [sci.ctx-store :as store]
    [sci.impl.callstack :as cs]
+   #?(:clj [sci.impl.deftype :as deftype])
    [sci.impl.interpreter :as i]
    [sci.impl.io :as sio]
    [sci.impl.macros :as macros]
@@ -77,11 +78,12 @@
     "Copies contents from var `sym` to a new sci var. The value `ns` is an
   object created with `sci.core/create-ns`.
 
-  On ClojureScript, when `sym` names a protocol (except `cljs.core/IFn`),
+  When `sym` names a protocol (on ClojureScript: except `cljs.core/IFn`),
   the sci var holds a protocol entry instead of the raw protocol object.
-  Sci code can then implement the protocol on `deftype` types, extend those
-  with `extend-type` and use `satisfies?`. Host code calling protocol
-  methods on such instances dispatches into the sci implementations.
+  Sci code can then implement the protocol on `deftype` and `defrecord`
+  types, extend those with `extend-type` and use `satisfies?`. Host code
+  calling protocol methods on such instances dispatches into the sci
+  implementations.
 
   Options (ignored for protocols):
 
@@ -106,10 +108,21 @@
                            :cljs #_:clj-kondo/ignore
                            sci.impl.copy-vars$macros/protocol-entry-form) sym info ns)
                       {:ns ~ns}))
-          `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true)))))))
+          ;; a JVM protocol is a runtime map, so its var is recognized when
+          ;; the copy runs, like copy-var* does
+          (if #?(:clj (and (not (:ns &env))
+                           (let [v (c/resolve sym)]
+                             (and (var? v)
+                                  (or (deftype/host-protocol? @v)
+                                      (deftype/host-protocol-method? v)))))
+                 :cljs false)
+            `(copy-var* (var ~sym) ~ns)
+            `(sci.impl.copy-vars/copy-var ~sym ~ns ~(assoc opts :sci.impl/public true))))))))
 
 (defn copy-var*
-  "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`."
+  "Copies Clojure var to SCI var. Runtime analog of compile time `copy-var`.
+  On the JVM a var holding a protocol is copied as a protocol entry, like
+  `copy-var` does (see there)."
   [clojure-var sci-ns]
   (let [m (meta clojure-var)
         nm (:name m)
@@ -132,8 +145,16 @@
                 tag (assoc :tag tag)
                 file (assoc :file file)
                 line (assoc :line line)
-                column (assoc :column column))]
-    (new-var nm @clojure-var new-m)))
+                column (assoc :column column))
+        v @clojure-var]
+    (new-var nm
+             #?(:clj (cond (deftype/host-protocol? v)
+                           (deftype/host-protocol-entry clojure-var sci-ns)
+                           (deftype/host-protocol-method? clojure-var)
+                           (deftype/host-protocol-method-fn clojure-var)
+                           :else v)
+                :default v)
+             new-m)))
 
 (macros/deftime
   (defmacro with-bindings
@@ -418,11 +439,23 @@
   {:no-doc true}
   [ns-publics-map sci-ns]
   (reduce (fn [ns-map [var-name var]]
-            (let [m (:meta var)]
+            (let [m (:meta var)
+                  v (if-let [var (:var var)]
+                      @var
+                      (:val var))
+                  ;; a JVM protocol public is copied as a protocol entry, as the
+                  ;; CLJS branch of copy-ns does at macro time, and a method
+                  ;; public as a fn reaching the var's current root
+                  v #?(:clj (let [hv (:var var)]
+                              (cond (nil? hv) v
+                                    (deftype/host-protocol? v)
+                                    (deftype/host-protocol-entry hv sci-ns)
+                                    (deftype/host-protocol-method? hv)
+                                    (deftype/host-protocol-method-fn hv)
+                                    :else v))
+                       :default v)]
               (assoc ns-map var-name
-                     (new-var var-name (if-let [var (:var var)]
-                                         @var
-                                         (:val var))
+                     (new-var var-name v
                               (assoc m :ns sci-ns :name var-name)))))
           {}
           ns-publics-map))
