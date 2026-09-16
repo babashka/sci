@@ -4,6 +4,7 @@
   (:require
    [sci.ctx-store :as store]
    #?(:cljd [sci.impl.multimethods :as mm])
+   #?(:clj [sci.impl.records])
    [sci.impl.types :as types]
    [sci.impl.utils :as utils]
    [sci.impl.vars :as vars]
@@ -262,6 +263,128 @@
      [t proto-map impls]
      (-install-native-protocol-on! (ensure-js-prototype t) proto-map impls)))
 
+;;;; Native host protocols on the JVM (ADR 0013, half 1)
+;;
+;; A JVM protocol dispatches through a registry keyed by class, and every sci
+;; deftype instance is the one SciType class (records: SciRecord, reify: an
+;; ICustomType), so a sci type cannot register itself. Instead the sci type records
+;; its impls in its own Type data (:sci.impl/jvm-impls, keyed by the host
+;; protocol var), and the host protocol is extended ONCE per protocol to sci's
+;; instance classes with a bridge that reads that table. The bridge is
+;; installed on the first implementation, so a copied protocol nobody
+;; implements leaves the host protocol untouched. Retroactive like CLJS:
+;; extend-type after construction is visible to existing instances, since the
+;; bridge reads the table live.
+
+#?(:clj
+   (defn host-protocol?
+     "True for the value clojure.core/defprotocol defines: a map carrying the
+  protocol's own host var. A sci protocol carries a sci var there."
+     [v]
+     (and (map? v) (instance? clojure.lang.Var (:var v)))))
+
+#?(:clj
+   (defn host-protocol-method?
+     "True for a var clojure.core/defprotocol defines for a method: its :protocol
+  metadata is the protocol's host var."
+     [v]
+     (let [p (:protocol (meta v))]
+       (and (instance? clojure.lang.Var p) (host-protocol? @p)))))
+
+#?(:clj
+   (defn host-protocol-method-fn
+     "The value to copy for a host protocol method var: a fn reaching the var's
+  CURRENT root. clojure.core/extend rebinds every method var of the protocol
+  (-reset-methods), so the fn object a var holds at copy time is a snapshot
+  that never sees a later extension, sci's own bridge included."
+     [hv]
+     (fn
+       ([a] (@hv a))
+       ([a b] (@hv a b))
+       ([a b c] (@hv a b c))
+       ([a b c & more] (apply @hv a b c more)))))
+
+#?(:clj
+   (defn- sci-type-impls
+     "The impls sci type t recorded for the host protocol behind var hv."
+     [t hv]
+     (get-in (types/getVal t) [:sci.impl/jvm-impls hv])))
+
+#?(:clj
+   (defn- native-bridge
+     "The host protocol's method for sci instances: the impl the instance's type
+  recorded, or a reify's method. Worded like Clojure's own miss."
+     [hv msym]
+     (fn [this & args]
+       (if-let [f (if (instance? sci.impl.types.SciTypeInstance this)
+                    (get (sci-type-impls (types/-get-type this) hv) msym)
+                    (get (types/getMethods this) msym))]
+         (apply f this args)
+         (throw (IllegalArgumentException.
+                 (str "No implementation of method: " (keyword msym)
+                      " of protocol: " hv
+                      " found for class: " (types/type-impl this))))))))
+
+#?(:clj
+   (defonce ^:private native-bridges (atom #{})))
+
+#?(:clj
+   (defn- install-native-bridge!
+     "Extends the host protocol behind var hv to sci's instance classes (deftype,
+  defrecord, reify), once per protocol and JVM."
+     [hv method-syms]
+     (when-not (contains? @native-bridges hv)
+       (let [mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) method-syms)]
+         ;; the interface covers every reify factory's class (sci's default
+         ;; one, sci.impl.types/Reified, an embedder's); the two sci type
+         ;; classes implement it as well, and win as the exact class
+         (doseq [c [SciType sci.impl.records.SciRecord sci.impl.types.ICustomType]]
+           (clojure.core/extend c @hv mmap))
+         (swap! native-bridges conj hv))
+       nil)))
+
+#?(:clj
+   (defn host-protocol-entry
+     "Native protocol entry for the host protocol behind var hv (the JVM analog
+  of the CLJS entry sci.core/copy-var expands to): what sci's defrecord,
+  deftype, reify, extend-type, extend-protocol, extend and satisfies? consume.
+  `sci-ns` is the sci namespace it is copied into."
+     [hv sci-ns]
+     (let [p @hv
+           m (meta hv)
+           method-syms (mapv (comp :name val) (:sigs p))]
+       {:protocol p
+        :name (symbol (str (ns-name (:ns m))) (str (:name m)))
+        :ns sci-ns
+        :methods #{}
+        :sigs (:sigs p)
+        :native-methods (into {} (map (fn [ms] [ms {}])) method-syms)
+        ;; a sci instance implements it when its type recorded impls for it (the
+        ;; host registry is class-keyed, so clojure.core/satisfies? would answer
+        ;; for every sci instance once any sci type implements it); anything
+        ;; else is the host's question
+        :satisfies-fn (fn [x]
+                        (if (instance? sci.impl.types.SciTypeInstance x)
+                          (contains? (:sci.impl/jvm-impls (types/getVal (types/-get-type x))) hv)
+                          (clojure.core/satisfies? @hv x)))})))
+
+#?(:clj
+   (defn -install-native-protocol!
+     "Records method impls for a host protocol (entry created by sci.core/copy-var
+  on a protocol) on sci type `t`, and bridges the host protocol to sci
+  instances if this is its first implementation."
+     [t proto-map impls]
+     (let [declared (:native-methods proto-map)
+           hv (:var (:protocol proto-map))]
+       (doseq [[msym _] impls]
+         (when-not (contains? declared msym)
+           (throw (IllegalArgumentException.
+                   (str "Method " msym " not found on protocol " (:name proto-map))))))
+       (types/setVal t (update-in (types/getVal t) [:sci.impl/jvm-impls hv]
+                                  merge (into {} (map (fn [[msym {:keys [impl]}]] [msym impl])) impls)))
+       (install-native-bridge! hv (keys declared))
+       nil)))
+
 (defn ->type-impl [rec-name type type-meta m]
   #?(:cljs (if-let [proto (when (instance? lang/Type type)
                             (:sci.impl/js-prototype (types/getVal type)))]
@@ -325,44 +448,62 @@
                          form))
                     _ (assert-no-jvm-interface protocol protocol-name form error-hint)
                     protocol (if (utils/var? protocol) @protocol protocol)
+                    native? (utils/native-protocol? protocol)
                     protocol-ns (:ns protocol)
                     pns (cond protocol-ns (str (types/getName protocol-ns))
                               (= Object protocol) "sci.impl.deftype")
                     fq-meth-name #(if (simple-symbol? %)
                                     (symbol pns (str %))
-                                    %)]
-                (map (fn [[method-name bodies]]
-                       (let [bodies (map rest bodies)
-                             bodies (mapv (fn [impl]
-                                            (let [args (first impl)
-                                                  body (rest impl)
-                                                  destr (utils/maybe-destructured args body)
-                                                  args (:params destr)
-                                                  body (:body destr)
-                                                  orig-this-sym (first args)
-                                                  rest-args (rest args)
-                                                  this-sym '__sci_this
-                                                  args (vec (cons this-sym rest-args))
-                                                  ext-map-binding (gensym)
-                                                  bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
-                                                  bindings (concat bindings
-                                                                   (mapcat (fn [field]
-                                                                             [field (list 'get ext-map-binding (list 'quote field))])
-                                                                           (reduce disj field-set args)))
-                                                  bindings (concat bindings [orig-this-sym this-sym])
-                                                  bindings (vec bindings)]
-                                              `(~args
-                                                (let ~bindings
-                                                  ~@body)))) bodies)]
-                         (@utils/analyze (assoc ctx
-                                                :deftype-fields field-set
-                                                :local->mutator (zipmap field-set
-                                                                        (map (fn [field]
-                                                                               (fn [this v]
-                                                                                 (types/-mutate this field v)))
-                                                                             field-set)))
-                          `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies))))
-                     impls)))
+                                    %)
+                    analyze-ctx (assoc ctx
+                                       :deftype-fields field-set
+                                       :local->mutator (zipmap field-set
+                                                               (map (fn [field]
+                                                                      (fn [this v]
+                                                                        (types/-mutate this field v)))
+                                                                    field-set)))
+                    method-bodies
+                    (map (fn [[method-name bodies]]
+                           (let [bodies (map rest bodies)
+                                 bodies (mapv (fn [impl]
+                                                (let [args (first impl)
+                                                      body (rest impl)
+                                                      destr (utils/maybe-destructured args body)
+                                                      args (:params destr)
+                                                      body (:body destr)
+                                                      orig-this-sym (first args)
+                                                      rest-args (rest args)
+                                                      this-sym '__sci_this
+                                                      args (vec (cons this-sym rest-args))
+                                                      ext-map-binding (gensym)
+                                                      bindings [ext-map-binding (list 'sci.impl.deftype/-inner-impl this-sym)]
+                                                      bindings (concat bindings
+                                                                       (mapcat (fn [field]
+                                                                                 [field (list 'get ext-map-binding (list 'quote field))])
+                                                                               (reduce disj field-set args)))
+                                                      bindings (concat bindings [orig-this-sym this-sym])
+                                                      bindings (vec bindings)]
+                                                  `(~args
+                                                    (let ~bindings
+                                                      ~@body)))) bodies)]
+                             [method-name bodies]))
+                         impls)]
+                (if native?
+                  ;; host protocol, entry created by sci.core/copy-var on a
+                  ;; protocol: record the impls on the sci type (ADR 0013)
+                  [(@utils/analyze analyze-ctx
+                    `(sci.impl.deftype/-install-native-protocol!
+                      ~rec-type ~protocol-name
+                      ~(into {}
+                             (map (fn [[method-name bodies]]
+                                    [(list 'quote (symbol (name method-name)))
+                                     {:arities (into #{} (map (comp count first)) bodies)
+                                      :impl `(fn ~@bodies)}]))
+                             method-bodies)))]
+                  (map (fn [[method-name bodies]]
+                         (@utils/analyze analyze-ctx
+                          `(~'clojure.core/defmethod ~(fq-meth-name method-name) ~rec-type ~@bodies)))
+                       method-bodies))))
             protocol-impls)]
        (emit-deftype rec-type record-name factory-fn-sym fields
                      `(defn ~(with-meta factory-fn-sym
@@ -416,7 +557,7 @@
                       form))
                  #?@(:clj [_ (assert-no-jvm-interface protocol protocol-name form nil)])
                  protocol (if (utils/var? protocol) @protocol protocol)]
-             (if (and (map? protocol) (:marker-setter protocol))
+             (if (utils/native-protocol? protocol)
                ;; native CLJS protocol, entry created by sci.core/copy-var on
                ;; a protocol: install on the record type's JS prototype
                (let [method-impls
@@ -543,8 +684,13 @@
                                `(fn ~@arities))]))
                         @all-methods)
                        field-entries (mapcat (fn [f] [(list 'quote f) f]) fields)
+                       ;; a native entry (sci.core/copy-var on a host protocol)
+                       ;; has no var of its own: it is the value itself
                        protocols-form (if (seq protocols)
-                                       `#{~@(map (fn [p] (list 'deref (:var p))) protocols)}
+                                       `#{~@(map (fn [p] (if-let [v (:var p)]
+                                                           (list 'deref v)
+                                                           (list 'quote p)))
+                                                 protocols)}
                                        `#{})]
                    (emit-deftype rec-type record-name factory-fn-sym fields
                                  `(defn ~(with-meta factory-fn-sym
@@ -599,7 +745,7 @@
                                  (str "Protocol not found: " protocol-name)
                                  form))
                             protocol (if (utils/var? protocol) @protocol protocol)]
-                        (if (and (map? protocol) (:marker-setter protocol))
+                        (if (utils/native-protocol? protocol)
                           ;; native CLJS protocol, entry created by sci.core/copy-var on a protocol
                           (let [method-impls
                                 (into {}
