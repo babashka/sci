@@ -4,6 +4,7 @@
    [clojure.string :as str]
    [clojure.test :refer [deftest is testing]]
    [sci.core :as sci]
+   #?(:clj [sci.impl.deftype])
    #?(:clj [sci.impl.utils :as utils])
    [sci.test-utils :as tu])
   #?@(:cljd [] :clj [(:import [java.lang Long])]))
@@ -468,18 +469,18 @@
 
 ;;;; Host (JVM) protocols implemented from sci: ADR 0013, half 1
 
-#?(:clj (defprotocol HostShape
+#?(:cljd nil :clj (defprotocol HostShape
           (host-area [this])
           (host-scaled [this k] [this k l])))
-#?(:clj (defprotocol HostMarker))
-#?(:clj (defprotocol HostUnused (host-unused [this])))
-#?(:clj (defrecord HostSquare [s]
+#?(:cljd nil :clj (defprotocol HostMarker))
+#?(:cljd nil :clj (defprotocol HostUnused (host-unused [this])))
+#?(:cljd nil :clj (defrecord HostSquare [s]
           HostShape
           (host-area [_] (* s s))
           (host-scaled [_ k] (->HostSquare (* s k)))
           (host-scaled [_ k l] (->HostSquare (* s k l)))))
 
-#?(:clj
+#?(:cljd nil :clj
    (defn- host-ctx []
      (let [hns (sci/create-ns 'host)
            ctx (sci/init {:namespaces {'host {'HostShape (sci/copy-var* #'HostShape hns)
@@ -499,7 +500,7 @@
 (defrecord Plain [x])")
        ctx)))
 
-#?(:clj
+#?(:cljd nil :clj
    (deftest host-protocol-test
      (let [ctx (host-ctx)
            ev #(sci/eval-string* ctx %)]
@@ -559,7 +560,7 @@
            (is (thrown-with-msg? IllegalArgumentException #"No implementation of method: :host-area of protocol: #'sci.protocols-test/HostShape found for class: user.Marked"
                                  (host-area (ev "(->Marked)")))))))))
 
-#?(:clj
+#?(:cljd nil :clj
    (deftest host-protocol-deftype-fn-test
      (testing "a native entry reaches a :deftype-fn constructor as itself"
        (let [seen (atom nil)
@@ -572,11 +573,14 @@
          (is (= 1 (count (:protocols @seen))))
          (is (utils/native-protocol? (first (:protocols @seen))))))))
 
-#?(:clj
+#?(:cljd nil :clj
    (deftest host-protocol-copy-paths-test
      (let [hns (sci/create-ns 'host)]
        (testing "copy-var"
-         (is (utils/native-protocol? @(sci/copy-var HostShape hns))))
+         (is (utils/native-protocol? @(sci/copy-var HostShape hns)))
+         (let [v (sci/copy-var host-area hns {:name 'area})]
+           (is (= 'area (:name (meta v))) "options apply to a method var")
+           (is (= 4 (@v (->HostSquare 2))) "and its value reaches the host fn")))
        (testing "copy-ns"
          (let [m (sci/copy-ns sci.protocols-test hns)]
            (is (utils/native-protocol? @(get m 'HostShape)))
@@ -584,19 +588,19 @@
        (testing "new-var on the raw map stays raw, as before"
          (is (not (utils/native-protocol? @(sci/new-var 'HostShape HostShape {:ns hns}))))))))
 
-#?(:clj
+#?(:cljd nil :clj
    (deftest host-protocol-copy-untouched-test
      (testing "copying a protocol nobody implements leaves the host protocol alone"
        (let [hns (sci/create-ns 'host)]
          (sci/init {:namespaces {'host {'HostUnused (sci/copy-var* #'HostUnused hns)}}})
          (is (not (extends? HostUnused sci.impl.records.SciRecord)))))))
 
-#?(:clj (defprotocol HostDefaulted (host-tag [this])))
-#?(:clj (extend-protocol HostDefaulted
+#?(:cljd nil :clj (defprotocol HostDefaulted (host-tag [this])))
+#?(:cljd nil :clj (extend-protocol HostDefaulted
           Object (host-tag [_] :object)
           clojure.lang.IPersistentMap (host-tag [_] :map)))
 
-#?(:clj
+#?(:cljd nil :clj
    (deftest host-protocol-fallback-test
      (testing "a sci instance without an impl reaches the host's Object and interface impls, bridge or not"
        (let [hns (sci/create-ns 'host)
