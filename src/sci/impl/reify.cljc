@@ -3,7 +3,9 @@
   ;; excluding reify breaks variadic fn compilation on cljd, macro fn named reify-macro there
   (:refer-clojure :exclude [#?@(:cljd [] :default [reify])])
   #?(:cljd (:require [sci.impl.types :as t])
-     :clj (:require [sci.ctx-store :as store]))
+     :clj (:require [sci.ctx-store :as store]
+                    [sci.impl.deftype :as deftype]
+                    [sci.impl.utils :as utils]))
   #?(:cljs (:require [sci.impl.deftype :as deftype]
                      [sci.impl.types :as t])))
 
@@ -30,6 +32,11 @@
      :cljs [_form classes methods arities])
      #?(:cljd (t/->Reified classes methods (set classes))
         :clj (let [{interfaces true protocols false} (group-by class? classes)]
+            ;; a host protocol entry (sci.core/copy-var on a protocol) needs
+            ;; its bridge even when this reify is its first implementation
+            (doseq [p protocols]
+              (when (utils/native-protocol? p)
+                (deftype/-ensure-native-bridge! p)))
             (if-let [factory (:reify-fn (store/get-ctx))]
               (if-let [obj (factory {:interfaces (set interfaces)
                                      :methods methods

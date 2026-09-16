@@ -312,7 +312,10 @@
      (fn [this & args]
        (if-let [f (or (if (instance? sci.impl.types.SciTypeInstance this)
                         (get (sci-type-impls (types/-get-type this) hv) msym)
-                        (get (types/getMethods this) msym))
+                        ;; a reify's methods are keyed by name across all its
+                        ;; protocols, so only answer for a reify of this one
+                        (when (some #(identical? hv (:var (:protocol %))) (types/getProtocols this))
+                          (get (types/getMethods this) msym)))
                       (get (host-fallback-impl hv this) (keyword msym)))]
          (apply f this args)
          (throw (IllegalArgumentException.
@@ -321,18 +324,29 @@
                       " found for class: " (types/type-impl this))))))))
 
 #?(:clj
-   (defonce ^:private native-bridges (atom #{})))
+   ;; host protocol var -> the method names its bridge covers
+   (defonce ^:private native-bridges (atom {})))
 
 #?(:clj
    (defn- install-native-bridge!
-     "Extends host protocol var hv to sci instance classes once per JVM."
+     "Extends host protocol var hv to sci instance classes, again when a
+  redefined protocol brings methods the bridge does not cover yet."
      [hv method-syms]
-     (when-not (contains? @native-bridges hv)
-       (let [mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) method-syms)]
-         (doseq [c bridge-classes]
-           (clojure.core/extend c @hv mmap))
-         (swap! native-bridges conj hv))
+     (let [installed (get @native-bridges hv #{})]
+       (when-not (every? installed method-syms)
+         (let [all (into installed method-syms)
+               mmap (into {} (map (fn [m] [(keyword m) (native-bridge hv m)])) all)]
+           (doseq [c bridge-classes]
+             (clojure.core/extend c @hv mmap))
+           (swap! native-bridges assoc hv all)))
        nil)))
+
+#?(:clj
+   (defn -ensure-native-bridge!
+     "Bridges the host protocol behind entry proto-map, for a reify that
+  implements it before any sci type does."
+     [proto-map]
+     (install-native-bridge! (:var (:protocol proto-map)) (keys (:native-methods proto-map)))))
 
 #?(:clj
    (defn host-protocol-entry

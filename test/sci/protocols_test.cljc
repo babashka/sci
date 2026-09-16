@@ -622,3 +622,44 @@
          (ev "(defrecord Impl [] host/HostDefaulted (host-tag [_] :sci))")
          (check "after a sci type implements the protocol")
          (is (= [:sci :sci] [(ev "(host/host-tag (->Impl))") (host-tag (ev "(->Impl)"))]))))))
+
+#?(:cljd nil :clj (defprotocol HostReifyFirst (host-first [this])))
+;; same method name as clojure.core.protocols/datafy, on an unrelated protocol
+#?(:cljd nil :clj (defprotocol HostDatafy (datafy [this])))
+#?(:cljd nil :clj (defprotocol HostGrows (grow-a [this])))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-reify-test
+     (let [hns (sci/create-ns 'host)
+           ctx (sci/init {:namespaces {'host {'HostReifyFirst (sci/copy-var* #'HostReifyFirst hns)
+                                              'host-first (sci/copy-var* #'host-first hns)
+                                              'Datafiable (sci/copy-var* #'p/Datafiable hns)
+                                              'HostDatafy (sci/copy-var* #'HostDatafy hns)
+                                              'host-datafy (sci/copy-var* #'datafy hns)}}})
+           ev #(sci/eval-string* ctx %)]
+       (testing "a reify that is the first implementation of a protocol"
+         (let [r (ev "(reify host/HostReifyFirst (host-first [_] :first))")]
+           (is (= :first (host-first r)) "from the host")
+           (is (= :first (ev "(host/host-first (reify host/HostReifyFirst (host-first [_] :first)))")) "from sci")))
+       (testing "a reify only answers for the protocols it implements"
+         (ev "(defrecord D [] host/Datafiable (datafy [_] :d))")
+         (let [r (ev "(reify host/HostDatafy (datafy [_] :mine))")]
+           (is (= :mine (datafy r)))
+           (is (identical? r (p/datafy r))
+               "Datafiable has a method of the same name; its bridge must skip the reify's and reach the host's Object default"))))))
+
+#?(:cljd nil :clj
+   (deftest host-protocol-redefined-test
+     (testing "a method added by redefining the host protocol reaches sci impls"
+       (let [hns (sci/create-ns 'host)
+             ctx (sci/init {:namespaces {'host {'HostGrows (sci/copy-var* #'HostGrows hns)
+                                                'grow-a (sci/copy-var* #'grow-a hns)}}})]
+         (sci/eval-string* ctx "(defrecord G1 [] host/HostGrows (grow-a [_] 1))")
+         (binding [*ns* (the-ns 'sci.protocols-test)]
+           (eval '(defprotocol HostGrows (grow-a [this]) (grow-b [this]))))
+         (let [grow-b (resolve 'sci.protocols-test/grow-b)
+               ctx (sci/init {:namespaces {'host {'HostGrows (sci/copy-var* #'HostGrows hns)
+                                                  'grow-a (sci/copy-var* #'grow-a hns)
+                                                  'grow-b (sci/copy-var* grow-b hns)}}})
+               g2 (sci/eval-string* ctx "(defrecord G2 [] host/HostGrows (grow-a [_] 1) (grow-b [_] 2)) (->G2)")]
+           (is (= [1 2] [(grow-a g2) (grow-b g2)])))))))
